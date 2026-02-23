@@ -1,21 +1,19 @@
-use std::{
-    f32::consts::{FRAC_PI_4, PI},
-    ffi::CString,
-};
+mod gothic_asset_loader;
+mod gothic_mesh;
 
+use crate::gothic_mesh::create_gothic_world_mesh;
+
+use crate::gothic_asset_loader::create_gothic_asset_loader;
 use bevy::anti_alias::smaa::Smaa;
 use bevy::{
-    asset::RenderAssetUsages,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
     color::palettes::css::*,
     color::palettes::tailwind,
-    mesh::Indices,
-    mesh::PrimitiveTopology,
     prelude::*,
 };
-
 fn main() {
     App::new()
+        .register_asset_source("gothic", create_gothic_asset_loader())
         .add_plugins(DefaultPlugins)
         // Plugin that enables FreeCamera functionality
         .add_plugins(FreeCameraPlugin)
@@ -32,30 +30,6 @@ impl Plugin for CameraPlugin {
     }
 }
 
-fn print_nodes(node: *const ZenKitCAPI_sys::ZkVfsNode, level: u8) {
-    use std::ffi::CStr;
-    use std::os::raw::c_void;
-    unsafe {
-        let name_cstr = ZenKitCAPI_sys::ZkVfsNode_getName(node);
-        let name_cstr = CStr::from_ptr(name_cstr);
-        let name = String::from_utf8_lossy(name_cstr.to_bytes()).to_string();
-        for _i in 0..level {
-            print!(" ");
-        }
-        println!("{name}");
-
-        extern "C" fn callback(
-            ctx: *mut c_void,
-            node: *const ZenKitCAPI_sys::ZkVfsNode,
-        ) -> ZenKitCAPI_sys::ZkBool {
-            let level: u8 = ctx as u8;
-            print_nodes(node, level + 1);
-            0
-        }
-
-        ZenKitCAPI_sys::ZkVfsNode_enumerateChildren(node, Some(callback), level as *mut c_void);
-    }
-}
 fn spawn_camera(mut commands: Commands) {
     // ambient light
     // ambient lights' brightnesses are measured in candela per meter square, calculable as (color * brightness)
@@ -232,206 +206,36 @@ fn spawn_lights(mut commands: Commands) {
     ));
 }
 
-fn get_wolrld_pos(gothic_pos: ZenKitCAPI_sys::ZkVec3f) -> Vec3 {
-    let pos = ZkVec3f_to_Vec3(gothic_pos) / 100.0;
-    // pos.x = -pos.x;
-    return pos;
-}
-
-#[allow(non_snake_case)]
-fn ZkVec3f_to_Vec3(data: ZenKitCAPI_sys::ZkVec3f) -> Vec3 {
-    Vec3 {
-        x: -data.x,
-        y: data.y,
-        z: data.z,
-    }
-}
-
-#[allow(non_snake_case)]
-fn ZkVec2f_to_Vec2(data: ZenKitCAPI_sys::ZkVec2f) -> Vec2 {
-    Vec2 {
-        x: data.x,
-        y: data.y,
-    }
-}
-
-fn create_gothic_world_mesh() -> Mesh {
-    let mut indices: Vec<u32> = Vec::new();
-    let mut vertices: Vec<Vec3> = Vec::new();
-    let mut uvs: Vec<Vec2> = Vec::new();
-    let mut normals: Vec<Vec3> = Vec::new();
-    let mut colors: Vec<Vec4> = Vec::new();
-
-    unsafe {
-        let vfs = ZenKitCAPI_sys::ZkVfs_new();
-        let file = CString::from(
-            c"/media/MM_HDD_DATA/SteamLibrary/steamapps/common/Gothic II/Data/Worlds.vdf",
-        );
-        ZenKitCAPI_sys::ZkVfs_mountDiskHost(
-            vfs,
-            file.as_ptr(),
-            ZenKitCAPI_sys::ZkVfsOverwriteBehavior::ZkVfsOverwriteBehavior_ALL,
-        );
-
-        let node = ZenKitCAPI_sys::ZkVfs_getRoot(vfs);
-        print_nodes(node, 0);
-
-        let world_node = ZenKitCAPI_sys::ZkVfs_resolvePath(
-            vfs,
-            CString::from(c"/_WORK/DATA/WORLDS/NEWWORLD/NEWWORLD.ZEN").as_ptr(),
-        );
-        println!("world_node {:?}", world_node);
-
-        let world_read = ZenKitCAPI_sys::ZkVfsNode_open(world_node);
-        println!("world_read {:?}", world_read);
-        let world = ZenKitCAPI_sys::ZkWorld_load(world_read);
-        println!("world {:?}", world);
-
-        let mesh = ZenKitCAPI_sys::ZkWorld_getMesh(world);
-        println!("mesh {:?}", mesh);
-
-        let positions_count = ZenKitCAPI_sys::ZkMesh_getPositionCount(mesh);
-        println!("Positions({positions_count}):");
-        for position_index in 0..positions_count {
-            // let position = ZenKitCAPI_sys::ZkMesh_getPosition(mesh, position_index);
-            // // println!(" {position_index}) {position:?}");
-            // vertices.push(get_wolrld_pos(position));
-        }
-
-        // uvs.set_len(vertices.len());
-        // normals.set_len(vertices.len());
-
-        let polygons_count = ZenKitCAPI_sys::ZkMesh_getPolygonCount(mesh);
-        println!("Polygons({polygons_count}):");
-        for polygon_index in 0..polygons_count {
-            let polygon = ZenKitCAPI_sys::ZkMesh_getPolygon(mesh, polygon_index);
-
-            if ZenKitCAPI_sys::ZkPolygon_getIsPortal(polygon) == 1 {
-                println!("Skip polygon({polygon_index}) it is portal");
-                continue;
-            }
-
-            let mut indices_count: ZenKitCAPI_sys::ZkSize = 0;
-            let indices_ptr = ZenKitCAPI_sys::ZkPolygon_getPositionIndices(
-                polygon,
-                mesh,
-                &mut indices_count as *mut _,
-            );
-            let polygon_indices = std::slice::from_raw_parts(indices_ptr, indices_count as usize);
-
-            let mut features_count: ZenKitCAPI_sys::ZkSize = 0;
-            let features_ptr = ZenKitCAPI_sys::ZkPolygon_getFeatureIndices(
-                polygon,
-                mesh,
-                &mut features_count as *mut _,
-            );
-            let polygon_features =
-                std::slice::from_raw_parts(features_ptr, features_count as usize);
-
-            if polygon_indices.len() != 3 {
-                println!(
-                    "Skip polygon({polygon_index}) it has {} vertices and we support only polygons with 3 vertices, features_count({features_count})",
-                    polygon_indices.len()
-                );
-                continue;
-            }
-            assert!(polygon_features.len() == polygon_indices.len());
-
-            // for feature_index in polygon_features {
-            //     let feature = ZenKitCAPI_sys::ZkMesh_getVertex(mesh, u64::from(*feature_index));
-            //     // uvs[] = Vec2::from([feature.texture.x, feature.texture.y]););
-            //     // normals.push(Vec3 {
-            //     //     x: feature.normal.x,
-            //     //     y: feature.normal.y,
-            //     //     z: feature.normal.z,
-            //     // });
-            // }
-
-            let index0 = 2;
-            let index1 = 1;
-            let index2 = 0;
-
-            let index0 = 0;
-            let index1 = 1;
-            let index2 = 2;
-
-            let material_index = ZenKitCAPI_sys::ZkPolygon_getMaterialIndex(polygon);
-            let material = ZenKitCAPI_sys::ZkMesh_getMaterial(mesh, u64::from(material_index));
-            let material_color = ZenKitCAPI_sys::ZkMaterial_getColor(material);
-            let material_color = Vec4::from_array([
-                material_color.r as f32 / 255.0,
-                material_color.g as f32 / 255.0,
-                material_color.b as f32 / 255.0,
-                material_color.a as f32 / 255.0,
-            ]);
-
-            let feature0 =
-                ZenKitCAPI_sys::ZkMesh_getVertex(mesh, u64::from(polygon_features[index0]));
-            let feature1 =
-                ZenKitCAPI_sys::ZkMesh_getVertex(mesh, u64::from(polygon_features[index1]));
-            let feature2 =
-                ZenKitCAPI_sys::ZkMesh_getVertex(mesh, u64::from(polygon_features[index2]));
-
-            uvs.push(ZkVec2f_to_Vec2(feature0.texture));
-            uvs.push(ZkVec2f_to_Vec2(feature1.texture));
-            uvs.push(ZkVec2f_to_Vec2(feature2.texture));
-
-            normals.push(ZkVec3f_to_Vec3(feature0.normal));
-            normals.push(ZkVec3f_to_Vec3(feature1.normal));
-            normals.push(ZkVec3f_to_Vec3(feature2.normal));
-
-            colors.push(material_color);
-            colors.push(material_color);
-            colors.push(material_color);
-
-            vertices.push(get_wolrld_pos(ZenKitCAPI_sys::ZkMesh_getPosition(
-                mesh,
-                u64::from(polygon_indices[index0]),
-            )));
-            vertices.push(get_wolrld_pos(ZenKitCAPI_sys::ZkMesh_getPosition(
-                mesh,
-                u64::from(polygon_indices[index1]),
-            )));
-            vertices.push(get_wolrld_pos(ZenKitCAPI_sys::ZkMesh_getPosition(
-                mesh,
-                u64::from(polygon_indices[index2]),
-            )));
-
-            indices.push(indices.len() as u32);
-            indices.push(indices.len() as u32);
-            indices.push(indices.len() as u32);
-        }
-    }
-    Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-    )
-    .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colors)
-    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
-    .with_inserted_indices(Indices::U32(indices))
-    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-    // .with_computed_area_weighted_normals()
-}
-
 fn spawn_world(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
 ) {
-    let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
-    let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
-    let sphere = meshes.add(Sphere::new(0.5));
-    let wall = meshes.add(Cuboid::new(0.2, 4.0, 3.0));
+    // let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
+    // let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
+    // let sphere = meshes.add(Sphere::new(0.5));
+    // let wall = meshes.add(Cuboid::new(0.2, 4.0, 3.0));
 
-    let blue_material = materials.add(Color::from(tailwind::BLUE_700));
-    let red_material = materials.add(Color::from(tailwind::RED_950));
-    let white_material = materials.add(Color::WHITE);
+    // let blue_material = materials.add(Color::from(tailwind::BLUE_700));
+    // let red_material = materials.add(Color::from(tailwind::RED_950));
+    // let white_material = materials.add(Color::WHITE);
 
     let mesh = create_gothic_world_mesh();
     let mesh_handle = meshes.add(mesh);
     let mesh_material = materials.add(Color::WHITE);
+
+    // NW_NATURE_BARK_04.TGA
+    // let texture_handle = asset_server.load("FlightHelmet_Materials_LeatherPartsMat_BaseColor.png");
+    let texture_handle = asset_server.load("gothic://earth.tga");
+
+    let mesh_material = materials.add(StandardMaterial {
+        base_color_texture: Some(texture_handle.clone()),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        ..default()
+    });
+
     commands.spawn((
         Mesh3d(mesh_handle.clone()),
         MeshMaterial3d(mesh_material.clone()),
