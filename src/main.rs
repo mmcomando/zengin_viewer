@@ -3,6 +3,8 @@ mod gothic_mesh;
 mod gothic_texture_asset;
 
 use bevy::anti_alias::smaa::Smaa;
+use bevy::light::CascadeShadowConfigBuilder;
+use bevy::light::light_consts::lux::{CLEAR_SUNRISE, FULL_MOON_NIGHT};
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
     // color::palettes::css::*,
@@ -24,48 +26,6 @@ fn main() {
         // Example code plugins
         .add_plugins((CameraPlugin, CameraSettingsPlugin, ScenePlugin))
         .run();
-}
-
-// Plugin that spawns the camera.
-struct CameraPlugin;
-impl Plugin for CameraPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_camera);
-    }
-}
-
-fn spawn_camera(mut commands: Commands) {
-    // ambient light
-    // ambient lights' brightnesses are measured in candela per meter square, calculable as (color * brightness)
-    commands.insert_resource(GlobalAmbientLight {
-        // color: WHITE.into(),
-        color: Color::linear_rgb(1.0, 1.0, 1.0).into(),
-        brightness: 400.0,
-        ..default()
-    });
-    commands.spawn((
-        // AmbientLight {
-        //     color: Color::linear_rgb(1.0, 1.0, 1.0),
-        //     brightness: 1.0,
-        //     affects_lightmapped_meshes: true,
-        // },
-        Smaa::default(),
-        Camera3d::default(),
-        Transform::from_xyz(0.0, 1.0, 0.0).looking_to(Vec3::X, Vec3::Y),
-        // This component stores all camera settings and state, which is used by the FreeCameraPlugin to
-        // control it. These properties can be changed at runtime, but beware the controller system is
-        // constantly using and modifying those values unless the enabled field is false.
-        FreeCamera {
-            sensitivity: 0.2,
-            friction: 25.0,
-            walk_speed: 3.0,
-            run_speed: 9.0,
-            key_back: KeyCode::KeyR,
-            key_right: KeyCode::KeyS,
-            key_up: KeyCode::KeyF,
-            ..default()
-        },
-    ));
 }
 
 // Plugin that handles camera settings controls and information text
@@ -176,6 +136,47 @@ fn update_text(
     );
 }
 
+// Plugin that spawns the camera.
+struct CameraPlugin;
+impl Plugin for CameraPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, spawn_camera);
+    }
+}
+
+fn spawn_camera(mut commands: Commands) {
+    commands.spawn((
+        // AmbientLight {
+        //     color: Color::linear_rgb(1.0, 1.0, 1.0),
+        //     brightness: 1.0,
+        //     affects_lightmapped_meshes: true,
+        // },
+        Smaa::default(),
+        Camera3d::default(),
+        Transform::from_xyz(40.0, 20.0, -10.0).looking_at(
+            Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            Vec3::Y,
+        ),
+        // This component stores all camera settings and state, which is used by the FreeCameraPlugin to
+        // control it. These properties can be changed at runtime, but beware the controller system is
+        // constantly using and modifying those values unless the enabled field is false.
+        FreeCamera {
+            sensitivity: 0.2,
+            friction: 25.0,
+            walk_speed: 3.0,
+            run_speed: 9.0,
+            key_back: KeyCode::KeyR,
+            key_right: KeyCode::KeyS,
+            key_up: KeyCode::KeyF,
+            ..default()
+        },
+    ));
+}
+
 // Plugin that spawns the scene and lighting.
 struct ScenePlugin;
 impl Plugin for ScenePlugin {
@@ -206,24 +207,50 @@ fn spawn_lights(mut commands: Commands) {
         Transform::from_xyz(-8.5, 1.0, -15.0),
     ));
 
-    // // Light behind wall
+    let cascade_shadow_config = CascadeShadowConfigBuilder {
+        num_cascades: 4,
+        first_cascade_far_bound: 50.0,
+        maximum_distance: 1000.0,
+        ..default()
+    }
+    .build();
+
+    // // Sun
     // commands.spawn((
-    //     PointLight {
-    //         color: Color::WHITE,
+    //     DirectionalLight {
+    //         color: Color::srgb(0.98, 0.95, 0.82),
     //         shadows_enabled: true,
     //         ..default()
     //     },
-    //     Transform::from_xyz(-3.5, 3.0, 0.0),
+    //     Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(-0.15, -0.05, 0.25), Vec3::Y),
+    //     cascade_shadow_config,
     // ));
-    // // Light under floor
-    // commands.spawn((
-    //     PointLight {
-    //         color: Color::from(tailwind::RED_300),
-    //         shadows_enabled: true,
-    //         ..default()
-    //     },
-    //     Transform::from_xyz(0.0, -0.5, 0.0),
-    // ));
+
+    commands.insert_resource(GlobalAmbientLight {
+        color: Color::linear_rgb(1.0, 1.0, 1.0).into(),
+        brightness: 500.0,
+        ..default()
+    });
+    commands.spawn((
+        DirectionalLight {
+            color: Color::srgb_u8(172, 172, 193), // Moon color
+            illuminance: bevy::light::light_consts::lux::AMBIENT_DAYLIGHT / 2.0, // Full moon clear sky
+            shadows_enabled: true,
+            ..default() // affects_lightmapped_mesh_diffuse: bool,
+                        // shadow_depth_bias: f32,
+                        // shadow_normal_bias: f32,
+        },
+        // Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(-0.15, -0.05, 0.25), Vec3::Y),
+        Transform::from_xyz(4000.0, 2000.0, -10.0).looking_at(
+            Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            Vec3::Y,
+        ),
+        cascade_shadow_config,
+    ));
 }
 
 fn spawn_world(
@@ -232,47 +259,10 @@ fn spawn_world(
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
 ) {
-    // let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
-    // let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
-    // let sphere = meshes.add(Sphere::new(0.5));
-    // let wall = meshes.add(Cuboid::new(0.2, 4.0, 3.0));
-
-    // let blue_material = materials.add(Color::from(tailwind::BLUE_700));
-    // let red_material = materials.add(Color::from(tailwind::RED_950));
-    // let white_material = materials.add(Color::WHITE);
-
-    // let mesh = create_gothic_world_mesh();
-    // let mesh_handle = meshes.add(mesh);
-    // // let mesh_material = materials.add(Color::WHITE);
-
-    // // NW_NATURE_BARK_04.TGA
-    // // let texture_handle = asset_server.load("FlightHelmet_Materials_LeatherPartsMat_BaseColor.png");
-    // // let texture_handle = asset_server.load("gothic://earth.tga");
-    // let texture_handle =
-    //     asset_server.load("gothic://_WORK/DATA/TEXTURES/_COMPILED/NW_NATURE_BARK_04-C.TEX");
-
-    // // let texture_handle = asset_server.load("earth.tga");
-
-    // let mesh_material = materials.add(StandardMaterial {
-    //     base_color_texture: Some(texture_handle.clone()),
-    //     cull_mode: None,
-    //     ..default()
-    // });
-
-    // commands.spawn((
-    //     Mesh3d(mesh_handle.clone()),
-    //     MeshMaterial3d(mesh_material.clone()),
-    // ));
-
     let gothic_world_meshes = create_gothic_world_mesh();
     println!("gothic_world_meshes len({})", gothic_world_meshes.len());
 
-    let mut index = 0;
     for (texture, mesh) in gothic_world_meshes {
-        index += 1;
-        if index > 180 {
-            // continue;
-        }
         let texture = texture.replace(".TGA", "-C.TEX");
         let texture_full_path = format!("gothic://_WORK/DATA/TEXTURES/_COMPILED/{texture}");
         let mesh_handle = meshes.add(mesh);
@@ -280,6 +270,7 @@ fn spawn_world(
 
         let mesh_material = materials.add(StandardMaterial {
             base_color_texture: Some(texture_handle.clone()),
+            alpha_mode: AlphaMode::Mask(0.5),
             cull_mode: None,
             double_sided: true,
             perceptual_roughness: 0.5,
@@ -294,56 +285,7 @@ fn spawn_world(
         ));
     }
 
-    // let mesh = create_my_mesh();
-    // let mesh_handle = meshes.add(mesh);
-    // commands.spawn((
-    //     Mesh3d(mesh_handle.clone()),
-    //     MeshMaterial3d(red_material.clone()),
-    // ));
-
-    // Top side of floor
-    // commands.spawn((
-    //     Mesh3d(floor.clone()),
-    //     MeshMaterial3d(white_material.clone()),
-    // ));
-    // // Under side of floor
-    // commands.spawn((
-    //     Mesh3d(floor.clone()),
-    //     MeshMaterial3d(white_material.clone()),
-    //     Transform::from_xyz(0.0, -0.01, 0.0).with_rotation(Quat::from_rotation_x(PI)),
-    // ));
-    // // Blue sphere
-    // commands.spawn((
-    //     Mesh3d(sphere.clone()),
-    //     MeshMaterial3d(blue_material.clone()),
-    //     Transform::from_xyz(3.0, 1.5, 0.0),
-    // ));
-    // // Tall wall
-    // commands.spawn((
-    //     Mesh3d(wall.clone()),
-    //     MeshMaterial3d(white_material.clone()),
-    //     Transform::from_xyz(-3.0, 2.0, 0.0),
-    // ));
-    // // Cube behind wall
-    // commands.spawn((
-    //     Mesh3d(cube.clone()),
-    //     MeshMaterial3d(blue_material.clone()),
-    //     Transform::from_xyz(-4.2, 0.5, 0.0),
-    // ));
-    // // Hidden cube under floor
-    // commands.spawn((
-    //     Mesh3d(cube.clone()),
-    //     MeshMaterial3d(red_material.clone()),
-    //     Transform {
-    //         translation: Vec3::new(3.0, -2.0, 0.0),
-    //         rotation: Quat::from_euler(EulerRot::YXZEx, FRAC_PI_4, FRAC_PI_4, 0.0),
-    //         ..default()
-    //     },
-    // ));
-    commands.spawn(
-        // (
-        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("FlightHelmet.gltf"))),
-        // Transform::from_xyz(0.0, 0.0, 2.0),
-        // )
-    );
+    commands.spawn(SceneRoot(
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("FlightHelmet.gltf")),
+    ));
 }
