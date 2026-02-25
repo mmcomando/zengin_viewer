@@ -8,7 +8,7 @@ edition = "2024"
 bevy = { version = "0.18.0", features = ["free_camera", "tga"] }
 # bevy = { version = "0.18.0", features = ["dynamic_linking", "free_camera"] }
 
-ZenKitCAPI-sys = { path = "/home/pc/prog/experiments/2026_01/ZenKit-sys" }
+ZenKit-rs = { path = "/home/pc/prog/experiments/2026_01/ZenKit-rs" }
 ron = "0.12.0"
 avian3d = "0.5.0"
 

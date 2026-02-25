@@ -103,7 +103,7 @@ fn spawn_lights(mut commands: Commands) {
     .build();
 
     commands.insert_resource(GlobalAmbientLight {
-        color: Color::linear_rgb(1.0, 1.0, 1.0).into(),
+        color: Color::linear_rgb(1.0, 1.0, 1.0),
         brightness: 500.0,
         ..default()
     });

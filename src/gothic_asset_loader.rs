@@ -1,4 +1,3 @@
-use ZenKitCAPI_sys::*;
 use bevy::{
     asset::io::{AssetReader, AssetReaderError, PathStream, Reader},
     prelude::*,
@@ -9,55 +8,30 @@ use bevy::{
     },
     tasks::futures_lite::{self, AsyncRead},
 };
-use std::ffi::CString;
 use std::{
     path::{Path, PathBuf},
     pin::Pin,
     task::{Context, Poll},
 };
+use zen_kit_rs::{misc::VfsOverwriteBehavior, vfs::Vfs};
 
 pub fn get_gothic_assert_bytes(path: &str) -> Vec<u8> {
-    unsafe {
-        let vfs = ZkVfs_new();
+    let vfs = Vfs::new();
+    vfs.mount_disk_host(
+        "/media/MM_HDD_DATA/SteamLibrary/steamapps/common/Gothic II/Data/Textures.vdf",
+        VfsOverwriteBehavior::ALL,
+    );
 
-        ZkVfs_mountDiskHost(
-            vfs,
-            c"/media/MM_HDD_DATA/SteamLibrary/steamapps/common/Gothic II/Data/Textures.vdf"
-                .as_ptr(),
-            ZkVfsOverwriteBehavior::ALL,
-        );
+    // println!("get_gothic_assert_bytes({path})");
+    let path = format!("/{}", &path);
+    let node = vfs.resolve_path(&path).unwrap();
+    let read_obj = node.open().unwrap();
 
-        // println!("get_gothic_assert_bytes({path})");
-        let path = format!("/{}", &path);
-        let node = ZkVfs_resolvePath(vfs, CString::new(path.clone()).unwrap().as_ptr());
-
-        let read_obj = ZkVfsNode_open(node);
-
-        let size = ZkRead_getSize(read_obj);
-        if size == 0 {
-            warn!("get_gothic_assert_bytes({}) has 0 size", &path);
-        }
-
-        let mut data = Vec::with_capacity(size as usize);
-
-        data.set_len(size as usize);
-
-        let read_bytes = ZkRead_getBytes(
-            read_obj,
-            data.as_mut_ptr() as *mut ::std::os::raw::c_void,
-            size,
-        );
-        assert!(size == read_bytes);
-
-        ZkRead_del(read_obj);
-        ZkVfs_del(vfs);
-        return data;
-    }
+    read_obj.bytes()
 }
 
 pub fn create_gothic_asset_loader() -> AssetSourceBuilder {
-    let loader = AssetSourceBuilder::new(move || Box::new(MyAssetReader {}));
-    return loader;
+    AssetSourceBuilder::new(move || Box::new(MyAssetReader {}))
 }
 
 pub struct MyAsyncReader {
@@ -102,7 +76,7 @@ impl Reader for MyAsyncReader {
         StackFuture::from(future)
     }
     fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
-        return Err(ReaderNotSeekableError);
+        Err(ReaderNotSeekableError)
     }
 }
 
