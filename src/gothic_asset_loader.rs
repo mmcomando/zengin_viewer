@@ -24,7 +24,7 @@ pub fn get_gothic_assert_bytes(path: &str) -> Vec<u8> {
             vfs,
             c"/media/MM_HDD_DATA/SteamLibrary/steamapps/common/Gothic II/Data/Textures.vdf"
                 .as_ptr(),
-            ZkVfsOverwriteBehavior::ZkVfsOverwriteBehavior_ALL,
+            ZkVfsOverwriteBehavior::ALL,
         );
 
         // println!("get_gothic_assert_bytes({path})");
@@ -35,7 +35,7 @@ pub fn get_gothic_assert_bytes(path: &str) -> Vec<u8> {
 
         let size = ZkRead_getSize(read_obj);
         if size == 0 {
-            println!("get_gothic_assert_bytes({}) has 0 size", &path);
+            warn!("get_gothic_assert_bytes({}) has 0 size", &path);
         }
 
         let mut data = Vec::with_capacity(size as usize);
@@ -114,31 +114,23 @@ impl AssetReader for MyAssetReader {
         let val: Box<dyn Reader> = Box::new(MyAsyncReader::new(bytes));
         Ok(val)
     }
+
     async fn read_meta<'a>(
         &'a self,
         _path: &'a Path,
     ) -> Result<impl Reader + 'a, AssetReaderError> {
-        if false {
-            // let meta = AssetActionMinimal::Ignore;
-            // let meta_str = ron::to_string(&meta).unwrap();
-            // let meta_vec = meta_str.into_bytes();
-            // let val: Box<dyn Reader> = Box::new(MyAsyncReader::new(meta_vec));
-            let val: Box<dyn Reader> = unimplemented!();
-            return Ok(val);
-        }
-        Err(AssetReaderError::NotFound(PathBuf::new()))
-        // Err(BevyError())
+        // No metadata for assets from gothic
+        Err::<Box<dyn Reader>, AssetReaderError>(AssetReaderError::NotFound(PathBuf::new()))
     }
+
     async fn read_directory<'a>(
         &'a self,
         _path: &'a Path,
     ) -> Result<Box<PathStream>, AssetReaderError> {
         unimplemented!()
     }
+
     async fn is_directory<'a>(&'a self, _path: &'a Path) -> Result<bool, AssetReaderError> {
         Ok(false)
     }
-    // async fn read_meta_bytes<'a>(&'a self, path: &'a Path) -> Result<Vec<u8>, AssetReaderError> {
-    //     unimplemented!()
-    // }
 }

@@ -6,14 +6,12 @@ use ZenKitCAPI_sys::*;
 
 fn get_wolrld_pos(gothic_pos: ZkVec3f) -> Vec3 {
     let pos = ZkVec3f_to_Vec3(gothic_pos) / 100.0;
-    // pos.x = -pos.x;
     return pos;
 }
 
 #[allow(non_snake_case)]
 fn ZkVec3f_to_Vec3(data: ZkVec3f) -> Vec3 {
     Vec3 {
-        // x: -data.x,
         x: -data.x,
         y: data.y,
         z: data.z,
@@ -36,24 +34,24 @@ fn ZkString_to_String(zk_str: ZkString) -> String {
     return str;
 }
 
-// fn print_nodes(node: *const ZkVfsNode, level: u8) {
-//     use std::os::raw::c_void;
-//     unsafe {
-//         let name = ZkString_to_String(ZkVfsNode_getName(node));
-//         for _i in 0..level {
-//             print!(" ");
-//         }
-//         println!("{name}");
+fn print_nodes(node: *const ZkVfsNode, level: u8) {
+    use std::os::raw::c_void;
+    unsafe {
+        let name = ZkString_to_String(ZkVfsNode_getName(node));
+        for _i in 0..level {
+            print!(" ");
+        }
+        println!("{name}");
 
-//         extern "C" fn callback(ctx: *mut c_void, node: *const ZkVfsNode) -> ZkBool {
-//             let level: u8 = ctx as u8;
-//             print_nodes(node, level + 1);
-//             0
-//         }
+        extern "C" fn callback(ctx: *mut c_void, node: *const ZkVfsNode) -> ZkBool {
+            let level: u8 = ctx as u8;
+            print_nodes(node, level + 1);
+            0
+        }
 
-//         ZkVfsNode_enumerateChildren(node, Some(callback), level as *mut c_void);
-//     }
-// }
+        ZkVfsNode_enumerateChildren(node, Some(callback), level as *mut c_void);
+    }
+}
 
 #[derive(Debug, Default)]
 struct MeshData {
@@ -65,12 +63,6 @@ struct MeshData {
 }
 
 pub fn create_gothic_world_mesh() -> HashMap<String, Mesh> {
-    // let mut indices: Vec<u32> = Vec::new();
-    // let mut vertices: Vec<Vec3> = Vec::new();
-    // let mut uvs: Vec<Vec2> = Vec::new();
-    // let mut normals: Vec<Vec3> = Vec::new();
-    // let mut colors: Vec<Vec4> = Vec::new();
-
     let mut meshes: HashMap<String, MeshData> = HashMap::new();
 
     unsafe {
@@ -79,17 +71,17 @@ pub fn create_gothic_world_mesh() -> HashMap<String, Mesh> {
         ZkVfs_mountDiskHost(
             vfs,
             c"/media/MM_HDD_DATA/SteamLibrary/steamapps/common/Gothic II/Data/Worlds.vdf".as_ptr(),
-            ZkVfsOverwriteBehavior::ZkVfsOverwriteBehavior_ALL,
+            ZkVfsOverwriteBehavior::ALL,
         );
         ZkVfs_mountDiskHost(
             vfs,
             c"/media/MM_HDD_DATA/SteamLibrary/steamapps/common/Gothic II/Data/Textures.vdf"
                 .as_ptr(),
-            ZkVfsOverwriteBehavior::ZkVfsOverwriteBehavior_ALL,
+            ZkVfsOverwriteBehavior::ALL,
         );
 
-        // let node = ZkVfs_getRoot(vfs);
-        // print_nodes(node, 0);
+        let root_node = ZkVfs_getRoot(vfs);
+        print_nodes(root_node, 0);
 
         let world_node = ZkVfs_resolvePath(
             vfs,
@@ -107,14 +99,6 @@ pub fn create_gothic_world_mesh() -> HashMap<String, Mesh> {
 
         let positions_count = ZkMesh_getPositionCount(mesh);
         println!("Positions({positions_count}):");
-        // for position_index in 0..positions_count {
-        //     // let position = ZkMesh_getPosition(mesh, position_index);
-        //     // // println!(" {position_index}) {position:?}");
-        //     // vertices.push(get_wolrld_pos(position));
-        // }
-
-        // uvs.set_len(vertices.len());
-        // normals.set_len(vertices.len());
 
         let polygons_count = ZkMesh_getPolygonCount(mesh);
         println!("PolygonsCount({polygons_count}):");
@@ -163,22 +147,7 @@ pub fn create_gothic_world_mesh() -> HashMap<String, Mesh> {
             let polygon_features_indices =
                 std::slice::from_raw_parts(features_ptr, features_count as usize);
 
-            // if polygon_indices.len() <= 3 {
-            //     // println!(
-            //     //     "Skip polygon({polygon_index}) it has {} vertices and we support only polygons with 3 vertices, features_count({features_count})",
-            //     //     polygon_indices.len()
-            //     // );
-            //     continue;
-            // }
             assert!(polygon_features_indices.len() == polygon_indices.len());
-
-            // let index0 = 2;
-            // let index1 = 1;
-            // let index2 = 0;
-
-            let index0 = 0;
-            let index1 = 1;
-            let index2 = 2;
 
             let material_index = ZkPolygon_getMaterialIndex(polygon);
             let material = ZkMesh_getMaterial(mesh, u64::from(material_index));
@@ -223,17 +192,6 @@ pub fn create_gothic_world_mesh() -> HashMap<String, Mesh> {
                     normals.push(ZkVec3f_to_Vec3(feature.normal));
                 }
             }
-            // let feature0 = ZkMesh_getVertex(mesh, u64::from(polygon_features_indices[index0]));
-            // let feature1 = ZkMesh_getVertex(mesh, u64::from(polygon_features_indices[index1]));
-            // let feature2 = ZkMesh_getVertex(mesh, u64::from(polygon_features_indices[index2]));
-
-            // uvs.push(ZkVec2f_to_Vec2(feature0.texture));
-            // uvs.push(ZkVec2f_to_Vec2(feature1.texture));
-            // uvs.push(ZkVec2f_to_Vec2(feature2.texture));
-
-            // normals.push(ZkVec3f_to_Vec3(feature0.normal));
-            // normals.push(ZkVec3f_to_Vec3(feature1.normal));
-            // normals.push(ZkVec3f_to_Vec3(feature2.normal));
 
             for triangle_index in 0..triangles_num {
                 for index in 0..trinagle_indices_num {
@@ -265,11 +223,11 @@ pub fn create_gothic_world_mesh() -> HashMap<String, Mesh> {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh_data.vertices)
         .with_inserted_indices(Indices::U32(mesh_data.indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, mesh_data.normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, mesh_data.uvs);
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, mesh_data.uvs)
+        .with_generated_tangents()
+        .unwrap();
         bevy_meshes.insert(texture_str, mesh);
     }
 
     bevy_meshes
-
-    // .with_computed_area_weighted_normals()
 }

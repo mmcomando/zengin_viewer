@@ -1,13 +1,12 @@
 mod gothic_asset_loader;
 mod gothic_mesh;
 mod gothic_texture_asset;
+mod gui;
 
 use bevy::anti_alias::smaa::Smaa;
 use bevy::light::CascadeShadowConfigBuilder;
-use bevy::light::light_consts::lux::{CLEAR_SUNRISE, FULL_MOON_NIGHT};
 use bevy::{
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
-    // color::palettes::css::*,
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::tailwind,
     prelude::*,
 };
@@ -15,6 +14,7 @@ use bevy::{
 use crate::gothic_asset_loader::create_gothic_asset_loader;
 use crate::gothic_mesh::create_gothic_world_mesh;
 use crate::gothic_texture_asset::GothicTextureLoader;
+use crate::gui::CameraSettingsPlugin;
 
 use avian3d::prelude::*;
 
@@ -31,114 +31,6 @@ fn main() {
         .run();
 }
 
-// Plugin that handles camera settings controls and information text
-struct CameraSettingsPlugin;
-impl Plugin for CameraSettingsPlugin {
-    fn build(&self, app: &mut App) {
-        // app.add_systems(PostStartup, spawn_text)
-        //     // .add_systems(Update, update_cameras)
-        //     .add_systems(Update, (update_camera_settings, update_text));
-    }
-}
-
-#[derive(Component)]
-struct InfoText;
-
-fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
-    commands.spawn((
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(-16),
-            left: px(12),
-            ..default()
-        },
-        children![Text::new(format!(
-            "{}",
-            free_camera_query.single().unwrap()
-        ))],
-    ));
-    commands.spawn((
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: px(12),
-            left: px(12),
-            ..default()
-        },
-        children![Text::new(concat![
-            "Z/X: decrease/increase sensitivity\n",
-            "C/V: decrease/increase friction\n",
-            "F/G: decrease/increase scroll factor\n",
-            "B: enable/disable controller",
-        ]),],
-    ));
-
-    // Mutable text marked with component
-    commands.spawn((
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(12),
-            right: px(12),
-            ..default()
-        },
-        children![(InfoText, Text::new(""))],
-    ));
-}
-
-// fn update_cameras(camera_query: Query<(Entity, &mut Camera3d)>) {
-//     for (entity_id, _camera) in camera_query.iter() {
-//         println!("Entity({:?})", entity_id);
-//     }
-//     // let (entity, mut camera) = camera_query.single_mut().unwrap();
-// }
-fn update_camera_settings(
-    mut camera_query: Query<(&mut FreeCamera, &mut FreeCameraState)>,
-    input: Res<ButtonInput<KeyCode>>,
-) {
-    let (mut free_camera, mut free_camera_state) = camera_query.single_mut().unwrap();
-
-    if input.pressed(KeyCode::KeyZ) {
-        free_camera.sensitivity = (free_camera.sensitivity - 0.005).max(0.005);
-    }
-    if input.pressed(KeyCode::KeyX) {
-        free_camera.sensitivity += 0.005;
-    }
-    if input.pressed(KeyCode::KeyC) {
-        free_camera.friction = (free_camera.friction - 0.2).max(0.0);
-    }
-    if input.pressed(KeyCode::KeyV) {
-        free_camera.friction += 0.2;
-    }
-    if input.pressed(KeyCode::KeyF) {
-        free_camera.scroll_factor = (free_camera.scroll_factor - 0.02).max(0.02);
-    }
-    if input.pressed(KeyCode::KeyG) {
-        free_camera.scroll_factor += 0.02;
-    }
-    if input.just_pressed(KeyCode::KeyB) {
-        free_camera_state.enabled = !free_camera_state.enabled;
-    }
-}
-
-fn update_text(
-    mut text_query: Query<&mut Text, With<InfoText>>,
-    camera_query: Query<(&FreeCamera, &FreeCameraState)>,
-) {
-    let mut text = text_query.single_mut().unwrap();
-
-    let (free_camera, free_camera_state) = camera_query.single().unwrap();
-
-    text.0 = format!(
-        "Enabled: {},\nSensitivity: {:.03}\nFriction: {:.01}\nScroll factor: {:.02}\nWalk Speed: {:.02}\nRun Speed: {:.02}\nSpeed: {:.02}",
-        free_camera_state.enabled,
-        free_camera.sensitivity,
-        free_camera.friction,
-        free_camera.scroll_factor,
-        free_camera.walk_speed,
-        free_camera.run_speed,
-        free_camera_state.velocity.length(),
-    );
-}
-
 // Plugin that spawns the camera.
 struct CameraPlugin;
 impl Plugin for CameraPlugin {
@@ -149,11 +41,6 @@ impl Plugin for CameraPlugin {
 
 fn spawn_camera(mut commands: Commands) {
     commands.spawn((
-        // AmbientLight {
-        //     color: Color::linear_rgb(1.0, 1.0, 1.0),
-        //     brightness: 1.0,
-        //     affects_lightmapped_meshes: true,
-        // },
         Smaa::default(),
         Camera3d::default(),
         Transform::from_xyz(40.0, 20.0, -10.0).looking_at(
@@ -164,9 +51,6 @@ fn spawn_camera(mut commands: Commands) {
             },
             Vec3::Y,
         ),
-        // This component stores all camera settings and state, which is used by the FreeCameraPlugin to
-        // control it. These properties can be changed at runtime, but beware the controller system is
-        // constantly using and modifying those values unless the enabled field is false.
         FreeCamera {
             sensitivity: 0.2,
             friction: 25.0,
@@ -218,17 +102,6 @@ fn spawn_lights(mut commands: Commands) {
     }
     .build();
 
-    // // Sun
-    // commands.spawn((
-    //     DirectionalLight {
-    //         color: Color::srgb(0.98, 0.95, 0.82),
-    //         shadows_enabled: true,
-    //         ..default()
-    //     },
-    //     Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(-0.15, -0.05, 0.25), Vec3::Y),
-    //     cascade_shadow_config,
-    // ));
-
     commands.insert_resource(GlobalAmbientLight {
         color: Color::linear_rgb(1.0, 1.0, 1.0).into(),
         brightness: 500.0,
@@ -239,11 +112,11 @@ fn spawn_lights(mut commands: Commands) {
             color: Color::srgb_u8(172, 172, 193), // Moon color
             illuminance: bevy::light::light_consts::lux::AMBIENT_DAYLIGHT / 2.0, // Full moon clear sky
             shadows_enabled: true,
-            ..default() // affects_lightmapped_mesh_diffuse: bool,
-                        // shadow_depth_bias: f32,
-                        // shadow_normal_bias: f32,
+            // affects_lightmapped_mesh_diffuse: bool,
+            // shadow_depth_bias: f32,
+            // shadow_normal_bias: f32,
+            ..default()
         },
-        // Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(-0.15, -0.05, 0.25), Vec3::Y),
         Transform::from_xyz(4000.0, 2000.0, -10.0).looking_at(
             Vec3 {
                 x: 0.0,
