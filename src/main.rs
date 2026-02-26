@@ -1,8 +1,5 @@
-mod gothic_asset_loader;
-mod gothic_mesh;
-mod gothic_texture_asset;
 mod gui;
-mod log_extend;
+mod zengin;
 
 use bevy::anti_alias::smaa::Smaa;
 use bevy::light::CascadeShadowConfigBuilder;
@@ -13,10 +10,13 @@ use bevy::{
     prelude::*,
 };
 
-use crate::gothic_asset_loader::create_gothic_asset_loader;
-use crate::gothic_mesh::create_gothic_world_mesh;
-use crate::gothic_texture_asset::GothicTextureLoader;
 use crate::gui::CameraSettingsPlugin;
+use crate::zengin::loader_asset::create_gothic_asset_loader;
+use crate::zengin::loader_texture::GothicTextureLoader;
+use crate::zengin::world::create_gothic_world_mesh;
+// use crate::zengin::create_gothic_asset_loader;
+// use crate::zengin::create_gothic_world_mesh;
+// use crate::zengin::loader_texture::GothicTextureLoader;
 
 use avian3d::prelude::*;
 
@@ -198,8 +198,4 @@ fn spawn_world(
     //         ));
     //     }
     // }
-
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("FlightHelmet.gltf")),
-    ));
 }

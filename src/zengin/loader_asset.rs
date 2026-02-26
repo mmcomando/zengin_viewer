@@ -15,12 +15,12 @@ use std::{
 };
 use zen_kit_rs::{misc::VfsOverwriteBehavior, vfs::Vfs};
 
+use crate::zengin::common::gothic2_dir;
+
 pub fn get_gothic_assert_bytes(path: &str) -> Vec<u8> {
     let vfs = Vfs::new();
-    vfs.mount_disk_host(
-        "/media/MM_HDD_DATA/SteamLibrary/steamapps/common/Gothic II/Data/Textures.vdf",
-        VfsOverwriteBehavior::ALL,
-    );
+    let textures_path = format!("{}/Data/Textures.vdf", gothic2_dir());
+    vfs.mount_disk_host(&textures_path, VfsOverwriteBehavior::ALL);
 
     // println!("get_gothic_assert_bytes({path})");
     let path = format!("/{}", &path);
@@ -58,7 +58,7 @@ impl AsyncRead for MyAsyncReader {
         let remaining = &self.data[self.position..];
         let to_copy = std::cmp::min(remaining.len(), buf.len());
         for (dst, src) in buf.iter_mut().zip(&remaining[..to_copy]) {
-            *dst = *src
+            *dst = *src;
         }
         self.position += to_copy;
 
