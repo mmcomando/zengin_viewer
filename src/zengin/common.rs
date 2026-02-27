@@ -79,3 +79,8 @@ pub struct MeshInstance {
     pub rot: Quat,
     pub is_colider: bool,
 }
+#[derive(Debug)]
+pub struct LightInstance {
+    pub pos: Vec3,
+    pub rot: Quat,
+}

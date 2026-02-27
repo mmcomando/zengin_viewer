@@ -197,9 +197,11 @@ fn spawn_world(
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
 ) {
-    let (mut gothic_world_meshes, mut object_instances) = create_gothic_world_mesh(false);
+    let (mut gothic_world_meshes, mut object_instances, mut light_instances) =
+        create_gothic_world_mesh(false);
     {
-        let (meshes_old_world, instances_old_world) = create_gothic_world_mesh(true);
+        let (meshes_old_world, instances_old_world, light_instances_old_world) =
+            create_gothic_world_mesh(true);
         for (mesh_path, data) in meshes_old_world {
             gothic_world_meshes.entry(mesh_path.clone()).or_insert(data);
         }
@@ -211,6 +213,7 @@ fn spawn_world(
             };
             object_instances.push(instance);
         }
+        light_instances.extend(light_instances_old_world);
     }
     println!("gothic_world_meshes len({})", gothic_world_meshes.len());
 
@@ -266,6 +269,31 @@ fn spawn_world(
                 ));
             }
         }
+    }
+
+    for instance in light_instances {
+        let tr = Transform::from_translation(instance.pos).with_rotation(instance.rot);
+
+        // let mesh_marker = handles
+        //     .get("/_WORK/DATA/MESHES/_COMPILED/SPHERE.MRM")
+        //     .unwrap();
+        // let handle = &mesh_marker[0];
+        // let tr_obj = tr.with_scale(Vec3::ONE * 0.1);
+        // commands.spawn((
+        //     Mesh3d(handle.0.clone()),
+        //     MeshMaterial3d(handle.1.clone()),
+        //     tr_obj,
+        // ));
+
+        commands.spawn((
+            PointLight {
+                color: Color::from(tailwind::ORANGE_300),
+                intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 5.0,
+                range: 5.0,
+                ..default()
+            },
+            tr,
+        ));
     }
 
     for x in -1..1 {
