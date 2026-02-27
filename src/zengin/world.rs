@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use zen_kit_rs::{
-    misc::{VfsOverwriteBehavior, VisualType},
+    misc::{GameVersion, VfsOverwriteBehavior, VisualType},
     vfs::Vfs,
     vobs::virtual_object::VirtualObject,
 };
@@ -14,6 +14,7 @@ use crate::{
         common::*,
         mesh::meshes_from_gothic_mesh,
         mesh_model::{meshes_from_gothic_model, meshes_from_gothic_model_mesh},
+        mesh_morph::meshes_from_gothic_morph_mesh,
         mesh_mrs::meshes_from_gothic_mrs_mesh,
     },
 };
@@ -47,7 +48,8 @@ pub fn create_gothic_world_mesh(
 
     let world_node = vfs.resolve_path(world_path).unwrap();
     let world_read = world_node.open().unwrap();
-    let world = zen_kit_rs::world::World::load(&world_read).unwrap();
+    let world =
+        zen_kit_rs::world::World::load_versioned(&world_read, GameVersion::GOTHIC2).unwrap();
 
     let mut bevy_meshes = HashMap::new();
     let mut object_instances = Vec::new();
@@ -69,9 +71,16 @@ pub fn create_gothic_world_mesh(
     for obj in world.root_objects() {
         load_meshes(&vfs, &mut bevy_meshes, &mut object_instances, &obj);
     }
+    println!("npc_count({})", world.npc_count());
     if !world.npcs().is_empty() {
         warn_unimplemented!("Loading NPCs from world");
     }
+
+    println!("spawn_location_count({})", world.spawn_location_count());
+    if world.spawn_location_count() > 0 {
+        warn_unimplemented!("Handling spawn locations");
+    }
+
     (bevy_meshes, object_instances)
 }
 
@@ -103,6 +112,9 @@ fn load_mesh(
     } else if mesh_path.ends_with(".MDL") {
         let mesh = zen_kit_rs::model::Model::load(&read).unwrap();
         meshes_from_gothic_model(&mesh)
+    } else if mesh_path.ends_with(".MMB") {
+        let mesh = zen_kit_rs::morph_mesh::MorphMesh::load(&read).unwrap();
+        meshes_from_gothic_morph_mesh(&mesh)
     } else if mesh_path.ends_with(".MDM") {
         let mesh = zen_kit_rs::model::ModelMesh::load(&read).unwrap();
         // We try to load model only, but maybe there is coresponding hierarchy file
@@ -212,7 +224,7 @@ fn load_meshes(
                     warn_unimplemented!("load .ASC objects");
                     None
                 } else if let Some(asset_path) = try_load_mesh(&asset_paths, vfs, bevy_meshes) {
-                    warn!("load visual({})", visual_name);
+                    // warn!("load visual({})", visual_name);
                     // None
                     Some(asset_path)
                 } else {
@@ -221,8 +233,17 @@ fn load_meshes(
                 }
             }
             VisualType::MORPH_MESH => {
-                warn_unimplemented!("load VisualType::MORPH_MESH");
-                None
+                let asset_path = format!(
+                    "/_WORK/DATA/ANIMS/_COMPILED/{}",
+                    visual_name.replace(".MMS", ".MMB")
+                );
+
+                if load_mesh(&asset_path, vfs, bevy_meshes) {
+                    Some(asset_path)
+                } else {
+                    warn!("Failed to load morph mesh({})", visual_name);
+                    Some(PLARCEHOLDER_MESH.to_string())
+                }
             }
             VisualType::UNKNOWN => {
                 warn_unimplemented!("load VisualType::UNKNOWN");
