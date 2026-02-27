@@ -10,8 +10,8 @@ macro_rules! warn_once {
 }
 
 #[macro_export]
-macro_rules! gothic_unimplemented {
+macro_rules! warn_unimplemented {
     ($($arg:tt)*) => {{
-        warn_once!("GOTHIC unimplemented: {}", format_args!($($arg)*));
+        warn_once!("ZenKit unimplemented: {}", format_args!($($arg)*));
     }};
 }

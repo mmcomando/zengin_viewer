@@ -6,7 +6,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::zengin::common::*;
+use crate::zengin::{common::*, material::get_standard_material};
 
 pub fn meshes_from_gothic_mrs_mesh(mesh: &zen_kit_rs::mrs_mesh::MrsMesh) -> Vec<LoadedMeshData> {
     let mut meshes: HashMap<String, MeshData> = HashMap::new();
@@ -23,13 +23,9 @@ pub fn meshes_from_gothic_mrs_mesh(mesh: &zen_kit_rs::mrs_mesh::MrsMesh) -> Vec<
             continue;
         }
 
-        let MeshData {
-            uvs,
-            normals,
-            indices,
-            vertices,
-            colors,
-        } = meshes.entry(texture_path.clone()).or_default();
+        let mesh_data = meshes.entry(texture_path.clone()).or_default();
+
+        mesh_data.material = get_standard_material(&material);
 
         let material_color = Vec4::from_array([
             material_color.x as f32 / 255.0,
@@ -43,12 +39,14 @@ pub fn meshes_from_gothic_mrs_mesh(mesh: &zen_kit_rs::mrs_mesh::MrsMesh) -> Vec<
         for triangle in triangles {
             for index in triangle.wedges {
                 let wedge = &wedges[index as usize];
-                colors.push(material_color);
-                indices.push(indices.len() as u32);
+                mesh_data.colors.push(material_color);
+                mesh_data.indices.push(mesh_data.indices.len() as u32);
 
-                vertices.push(get_world_pos(positions[wedge.index as usize]));
-                uvs.push(wedge.texture);
-                normals.push(wedge.normal);
+                mesh_data
+                    .vertices
+                    .push(get_world_pos(positions[wedge.index as usize]));
+                mesh_data.uvs.push(wedge.texture);
+                mesh_data.normals.push(wedge.normal);
             }
         }
     }
@@ -69,7 +67,10 @@ pub fn meshes_from_gothic_mrs_mesh(mesh: &zen_kit_rs::mrs_mesh::MrsMesh) -> Vec<
         .unwrap();
         bevy_meshes.push(LoadedMeshData {
             texture: texture_str,
+            material: mesh_data.material,
             mesh,
+            transform: Transform::IDENTITY,
+            name: String::new(),
         });
     }
 

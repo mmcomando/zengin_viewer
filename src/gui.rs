@@ -3,6 +3,8 @@ use bevy::{
     prelude::*,
 };
 
+use bevy::dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin, FrameTimeGraphConfig};
+
 // Plugin that handles camera settings controls and information text
 pub struct CameraSettingsPlugin;
 impl Plugin for CameraSettingsPlugin {
@@ -58,13 +60,6 @@ fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
     ));
 }
 
-// fn update_cameras(camera_query: Query<(Entity, &mut Camera3d)>) {
-//     for (entity_id, _camera) in camera_query.iter() {
-//         println!("Entity({:?})", entity_id);
-//     }
-//     // let (entity, mut camera) = camera_query.single_mut().unwrap();
-// }
-
 fn update_camera_settings(
     mut camera_query: Query<(&mut FreeCamera, &mut FreeCameraState)>,
     input: Res<ButtonInput<KeyCode>>,
@@ -112,4 +107,20 @@ fn update_text(
         free_camera.run_speed,
         free_camera_state.velocity.length(),
     );
+}
+
+pub fn get_overlay_plugin() -> FpsOverlayPlugin {
+    FpsOverlayPlugin {
+        config: FpsOverlayConfig {
+            enabled: true,
+            frame_time_graph_config: FrameTimeGraphConfig {
+                enabled: true,
+                // The minimum acceptable fps
+                min_fps: 30.0,
+                // The target fps
+                target_fps: 144.0,
+            },
+            ..default()
+        },
+    }
 }
