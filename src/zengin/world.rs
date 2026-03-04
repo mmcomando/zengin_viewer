@@ -6,6 +6,7 @@ use zen_kit_rs::{
     misc::{GameVersion, VfsOverwriteBehavior, VisualType, VobType},
     vfs::Vfs,
     vobs::virtual_object::VirtualObject,
+    waynet::WayNet,
 };
 
 use crate::{
@@ -16,18 +17,93 @@ use crate::{
         mesh_model::{meshes_from_gothic_model, meshes_from_gothic_model_mesh},
         mesh_morph::meshes_from_gothic_morph_mesh,
         mesh_mrs::meshes_from_gothic_mrs_mesh,
+        script_vm::{InstanceState, SpawnNpc},
     },
 };
 
 const PLARCEHOLDER_MESH: &str = "/_WORK/DATA/MESHES/_COMPILED/SPHERE.MRM";
+const HUMAN_MODEL: &str = "/_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM";
+const HUMAN_MODEL_HIERARCHY: &str = "/_WORK/DATA/ANIMS/_COMPILED/HUMANS_RELAXED.MDH";
+
+pub struct ZenKitWorldData {
+    pub meshes: HashMap<String, Vec<LoadedMeshData>>,
+    pub mesh_instances: Vec<MeshInstance>,
+    pub light_instances: Vec<LightInstance>,
+    pub spots: HashMap<String, Transform>,
+    pub way_points: HashMap<String, Transform>,
+    pub index: u32,
+}
+
+pub fn load_npc(
+    instance: &InstanceState,
+    spawn_npc: &SpawnNpc,
+    vfs: &Vfs,
+    data: &mut ZenKitWorldData,
+) {
+    let way_point_name = spawn_npc
+        .routine_way_point_name
+        .as_ref()
+        .unwrap_or(&spawn_npc.way_point_name);
+    let Some(tr) = data.way_points.get(&way_point_name.to_lowercase()) else {
+        println!("way_point({}) not found", way_point_name.to_lowercase());
+        return;
+    };
+
+    let cols = 16;
+    let ind_y = data.index / cols;
+    let ind_x = data.index % cols;
+    // data.index += 1;
+
+    let tr = Transform::from_translation(Vec3 {
+        x: 1.0 + (ind_x as f32 * 1.0),
+        y: 0.0 + (ind_y as f32 * 2.0),
+        z: 0.0,
+    }) * *tr;
+
+    let body_dt = Vec3 {
+        x: -0.01,
+        y: -0.5,
+        z: -0.08,
+    };
+
+    let tr_body = tr * Transform::from_translation(body_dt);
+    load_mesh(HUMAN_MODEL, &vfs, &mut data.meshes);
+    data.mesh_instances.push(MeshInstance {
+        mesh_path: HUMAN_MODEL.to_string(),
+        pos: tr_body.translation,
+        rot: tr_body.rotation,
+        is_colider: false,
+        texture_override: Some(instance.body_texture.to_string()),
+    });
+    let head_dt = Vec3 {
+        x: 0.0,
+        y: 0.5,
+        z: 0.0,
+    };
+    let head_transform = tr
+        * Transform::from_translation(head_dt)
+        * data.meshes.get(HUMAN_MODEL).unwrap()[0]
+            .head_transform
+            .unwrap();
+
+    let model = format!(
+        "/_WORK/DATA/ANIMS/_COMPILED/{}.MMB",
+        instance.head_model.to_uppercase().to_string()
+    );
+    load_mesh(&model, &vfs, &mut data.meshes);
+    data.mesh_instances.push(MeshInstance {
+        mesh_path: model.to_string(),
+        pos: head_transform.translation,
+        rot: head_transform.rotation,
+        is_colider: false,
+        texture_override: Some(instance.face_texture.to_string()),
+    });
+}
 
 pub fn create_gothic_world_mesh(
-    old_world: bool,
-) -> (
-    HashMap<String, Vec<LoadedMeshData>>,
-    Vec<MeshInstance>,
-    Vec<LightInstance>,
-) {
+    world_path: &str,
+    vm_state: &crate::zengin::script_vm::State,
+) -> ZenKitWorldData {
     let vfs = Vfs::new();
 
     let vfs_override = VfsOverwriteBehavior::ALL;
@@ -43,12 +119,6 @@ pub fn create_gothic_world_mesh(
     if false {
         print_nodes(&vfs.get_root(), 0);
     }
-
-    let world_path = if old_world {
-        "/_WORK/DATA/WORLDS/OLDWORLD/OLDWORLD.ZEN"
-    } else {
-        "/_WORK/DATA/WORLDS/NEWWORLD/NEWWORLD.ZEN"
-    };
 
     let world_node = vfs.resolve_path(world_path).unwrap();
     let world_read = world_node.open().unwrap();
@@ -67,21 +137,33 @@ pub fn create_gothic_world_mesh(
         pos: Vec3::ZERO,
         rot: Quat::IDENTITY,
         is_colider: true,
+        texture_override: None,
     });
 
     // Make sure that placeholder mesh is loaded
     load_mesh(PLARCEHOLDER_MESH, &vfs, &mut bevy_meshes);
 
-    let mut light_instances: Vec<LightInstance> = Vec::new();
+    let mut data = ZenKitWorldData {
+        meshes: bevy_meshes,
+        mesh_instances: object_instances,
+        light_instances: vec![],
+        spots: HashMap::new(),
+        way_points: HashMap::new(),
+        index: 0,
+    };
     for obj in world.root_objects() {
-        load_meshes(
-            &vfs,
-            &mut bevy_meshes,
-            &mut object_instances,
-            &mut light_instances,
-            &obj,
-        );
+        load_meshes(&vfs, &mut data, &obj);
     }
+    let way_net = world.way_net();
+    loat_way_net_points(&way_net, &mut data);
+    for npc_spawn in &vm_state.spawn_npcs {
+        if let Some(instance) = vm_state.instance_state.get(&npc_spawn.npc_name) {
+            load_npc(instance, npc_spawn, &vfs, &mut data);
+        } else {
+            println!("There no instance for npc({})", npc_spawn.npc_name);
+        }
+    }
+
     if !world.npcs().is_empty() {
         warn_unimplemented!("Loading NPCs from world");
     }
@@ -89,8 +171,19 @@ pub fn create_gothic_world_mesh(
     if world.spawn_location_count() > 0 {
         warn_unimplemented!("Handling spawn locations");
     }
+    data
+}
 
-    (bevy_meshes, object_instances, light_instances)
+fn loat_way_net_points(way_net: &WayNet, data: &mut ZenKitWorldData) {
+    let points = way_net.points();
+    for point in points {
+        let name = point.name().to_lowercase();
+        let pos = get_world_pos(point.position());
+        warn_unimplemented!("handle way point direction");
+        // let rot = point.direction();
+        let tr = Transform::from_translation(pos);
+        data.way_points.insert(name, tr);
+    }
 }
 
 fn load_mesh(
@@ -103,12 +196,12 @@ fn load_mesh(
         return true;
     }
     let Some(node) = vfs.resolve_path(mesh_path) else {
-        // warn!("Mesh({mesh_path}) not found");
+        // println!("Mesh({mesh_path}) not found");
         return false;
     };
 
     let Some(read) = node.open() else {
-        warn!("Failed to open mesh({mesh_path})");
+        println!("Failed to open mesh({mesh_path})");
         return false;
     };
 
@@ -128,7 +221,11 @@ fn load_mesh(
         let mesh = zen_kit_rs::model::ModelMesh::load(&read).unwrap();
         // We try to load model only, but maybe there is coresponding hierarchy file
         // If we have hierarchy file load it and use it
-        let hierarchy_path = mesh_path.replace("MDM", "MDH");
+        let mut hierarchy_path = mesh_path.replace("MDM", "MDH");
+        if mesh_path == HUMAN_MODEL {
+            hierarchy_path = HUMAN_MODEL_HIERARCHY.to_string();
+        }
+
         let model_hierarchy = if let Some(hierarchy_node) = vfs.resolve_path(&hierarchy_path) {
             if let Some(read_hierarchy) = hierarchy_node.open() {
                 zen_kit_rs::model::Model::load(&read_hierarchy)
@@ -151,7 +248,7 @@ fn load_mesh(
     };
 
     if meshes.is_empty() {
-        warn_once!("mesh_path({}) doesn't contain any meshes", mesh_path);
+        println!("mesh_path({}) doesn't contain any meshes", mesh_path);
         return false;
     }
     // info!("Load mesh_path({})", mesh_path,);
@@ -173,13 +270,7 @@ fn try_load_mesh(
     return None;
 }
 
-fn load_meshes(
-    vfs: &Vfs,
-    bevy_meshes: &mut HashMap<String, Vec<LoadedMeshData>>,
-    object_instances: &mut Vec<MeshInstance>,
-    light_instances: &mut Vec<LightInstance>,
-    obj: &VirtualObject,
-) {
+fn load_meshes(vfs: &Vfs, data: &mut ZenKitWorldData, obj: &VirtualObject) {
     let visual = obj.visual();
     let visual_name = visual.name();
     let visual_type = visual.get_type();
@@ -191,7 +282,7 @@ fn load_meshes(
         let asset_path = match visual_type {
             VisualType::MULTI_RESOLUTION_MESH => {
                 let asset_path = compiled_asset_path(&visual_name, ".3DS", ".MRM");
-                if load_mesh(&asset_path, vfs, bevy_meshes) {
+                if load_mesh(&asset_path, vfs, &mut data.meshes) {
                     Some(asset_path)
                 } else {
                     Some(PLARCEHOLDER_MESH.to_string())
@@ -199,7 +290,7 @@ fn load_meshes(
             }
             VisualType::MESH => {
                 let asset_path = compiled_asset_path(&visual_name, ".3DS", ".MSH");
-                if load_mesh(&asset_path, vfs, bevy_meshes) {
+                if load_mesh(&asset_path, vfs, &mut data.meshes) {
                     Some(asset_path)
                 } else {
                     Some(PLARCEHOLDER_MESH.to_string())
@@ -234,7 +325,8 @@ fn load_meshes(
                 if visual_name.ends_with(".ASC") {
                     warn_unimplemented!("load .ASC objects");
                     None
-                } else if let Some(asset_path) = try_load_mesh(&asset_paths, vfs, bevy_meshes) {
+                } else if let Some(asset_path) = try_load_mesh(&asset_paths, vfs, &mut data.meshes)
+                {
                     // warn!("load visual({})", visual_name);
                     // None
                     Some(asset_path)
@@ -249,7 +341,7 @@ fn load_meshes(
                     visual_name.replace(".MMS", ".MMB")
                 );
 
-                if load_mesh(&asset_path, vfs, bevy_meshes) {
+                if load_mesh(&asset_path, vfs, &mut data.meshes) {
                     Some(asset_path)
                 } else {
                     warn!("Failed to load morph mesh({})", visual_name);
@@ -263,27 +355,35 @@ fn load_meshes(
         };
 
         if let Some(asset_path) = asset_path {
-            object_instances.push(MeshInstance {
+            data.mesh_instances.push(MeshInstance {
                 mesh_path: asset_path,
                 pos,
                 rot: rot_quat,
                 is_colider: false,
+                texture_override: None,
             });
         }
     } else {
-        handle_other_vob(obj, light_instances);
+        handle_other_vob(obj, data);
     }
     for child in obj.children() {
-        load_meshes(vfs, bevy_meshes, object_instances, light_instances, &child);
+        load_meshes(vfs, data, &child);
     }
 }
 
-fn handle_light(obj: &VirtualObject, light_instances: &mut Vec<LightInstance>) {
+fn get_obj_tr(obj: &VirtualObject) -> Transform {
     let pos = get_world_pos(obj.position());
     let rot = get_world_rot(obj.rotation());
-    light_instances.push(LightInstance { pos, rot })
+    return Transform::from_translation(pos).with_rotation(rot);
 }
-fn handle_other_vob(obj: &VirtualObject, light_instances: &mut Vec<LightInstance>) {
+
+fn handle_light(obj: &VirtualObject, data: &mut ZenKitWorldData) {
+    let pos = get_world_pos(obj.position());
+    let rot = get_world_rot(obj.rotation());
+    data.light_instances.push(LightInstance { pos, rot })
+}
+fn handle_other_vob(obj: &VirtualObject, data: &mut ZenKitWorldData) {
+    let name = obj.name();
     let type_ = obj.get_type();
     match type_ {
         VobType::zCVob => {
@@ -327,11 +427,13 @@ fn handle_other_vob(obj: &VirtualObject, light_instances: &mut Vec<LightInstance
             return;
         }
         VobType::zCVobLight => {
-            handle_light(obj, light_instances);
+            handle_light(obj, data);
             return;
         }
         VobType::zCVobSpot => {
-            warn_unimplemented!("VobType::zCVobSpot");
+            let tr = get_obj_tr(obj);
+            data.spots.insert(name.to_lowercase().clone(), tr);
+            // warn_unimplemented!("VobType::zCVobSpot");
             return;
         }
         VobType::zCVobStartpoint => {

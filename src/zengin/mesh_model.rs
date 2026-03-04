@@ -89,6 +89,9 @@ pub fn meshes_from_gothic_model_mesh(
         }
 
         for new_mesh in bevy_meshes.iter_mut() {
+            if let Some(node_index) = nodes.iter().position(|node| node.name == "BIP01 HEAD") {
+                new_mesh.head_transform = Some(final_tr[node_index]);
+            }
             if let Some(node_index) = nodes.iter().position(|el| el.name == new_mesh.name) {
                 new_mesh.transform = final_tr[node_index];
                 // println!(
