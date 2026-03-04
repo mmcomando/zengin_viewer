@@ -6,13 +6,12 @@ use bevy::{
     prelude::*,
 };
 
-use crate::zengin::{common::*, material::get_standard_material};
+use crate::zengin::{common::*, visual::material::get_standard_material};
 
 pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshData> {
     let mut meshes: HashMap<String, MeshData> = HashMap::new();
 
     let polygons_count = mesh.polygon_count();
-    // for polygon_index in 378936..378937 {
     for polygon_index in 0..polygons_count {
         let polygon = mesh.polygon(polygon_index);
 

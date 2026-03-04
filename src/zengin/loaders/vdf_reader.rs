@@ -11,27 +11,40 @@ use bevy::{
 use std::{
     path::{Path, PathBuf},
     pin::Pin,
+    sync::Mutex,
     task::{Context, Poll},
 };
 use zen_kit_rs::{misc::VfsOverwriteBehavior, vfs::Vfs};
 
 use crate::zengin::common::gothic2_dir;
 
-pub fn get_gothic_assert_bytes(path: &str) -> Option<Vec<u8>> {
-    let vfs = Vfs::new();
-    let textures_path = format!("{}/Data/Textures.vdf", gothic2_dir());
-    vfs.mount_disk_host(&textures_path, VfsOverwriteBehavior::ALL);
-
+pub fn get_gothic_assert_bytes(vfs: &Vfs, path: &str) -> Option<Vec<u8>> {
     // println!("get_gothic_assert_bytes({path})");
     let path = format!("/{}", &path);
     let node = vfs.resolve_path(&path)?;
-    let read_obj = node.open().unwrap();
+    let read_obj = node.open()?;
 
     Some(read_obj.bytes())
 }
 
 pub fn create_gothic_asset_loader() -> AssetSourceBuilder {
-    AssetSourceBuilder::new(move || Box::new(MyAssetReader {}))
+    AssetSourceBuilder::new(move || {
+        let vfs_override = VfsOverwriteBehavior::ALL;
+        let dir = gothic2_dir();
+
+        let vfs = Vfs::new();
+        vfs.mount_disk_host(&format!("{}/Data/Worlds.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Textures.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Textures_Addon.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Meshes.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Meshes_Addon.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Anims.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Anims_Addon.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/SystemPack.vdf", dir), vfs_override);
+
+        let vfs = Mutex::new(vfs);
+        Box::new(MyAssetReader { vfs: vfs })
+    })
 }
 
 pub struct MyAsyncReader {
@@ -66,7 +79,6 @@ impl AsyncRead for MyAsyncReader {
     }
 }
 
-// struct MyReader;
 impl Reader for MyAsyncReader {
     fn read_to_end<'a>(
         &'a mut self,
@@ -80,11 +92,15 @@ impl Reader for MyAsyncReader {
     }
 }
 
-struct MyAssetReader;
+struct MyAssetReader {
+    vfs: Mutex<Vfs>,
+}
+
 impl AssetReader for MyAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let path_str = path.as_os_str().to_str().unwrap();
-        let Some(bytes) = get_gothic_assert_bytes(path_str) else {
+        let vfs = self.vfs.lock().unwrap();
+        let Some(bytes) = get_gothic_assert_bytes(&vfs, path_str) else {
             return Err(AssetReaderError::NotFound(path.to_path_buf()));
         };
         let val: Box<dyn Reader> = Box::new(MyAsyncReader::new(bytes));

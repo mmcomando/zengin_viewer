@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::zengin::script::{DatFile, Function, Instance, Instruction, Symbol, SymbolString};
+use crate::zengin::script::script::{DatFile, Function, Instance, Instruction, Symbol};
 
 pub enum StackVar {
     Int(i32),
@@ -44,7 +44,7 @@ impl ScriptVM {
         ScriptVM { script_data }
     }
     pub fn interpret_script_function(&self, state: &mut State, func_name: &str) {
-        println!("\n\nInterpret func_name({func_name})");
+        // println!("Interpret func_name({func_name})");
         let function = self.script_data.get_function(func_name).unwrap();
         self.interpret_function(state, &function);
     }
@@ -54,7 +54,7 @@ impl ScriptVM {
             if let Instruction::Call(func_offset) = instruction {
                 // println!("call func({})", func_offset);
                 let Some(call_func) = self.script_data.get_function_by_offset(*func_offset) else {
-                    println!("Skipped call to func_offset({})", *func_offset);
+                    // println!("Skipped call to func_offset({})", *func_offset);
                     continue;
                 };
                 self.interpret_function(state, call_func);
@@ -79,7 +79,7 @@ impl ScriptVM {
         }
     }
     fn interpret_instance(&self, state: &mut State, instance: &Instance) {
-        println!("Interpret Instance({})", instance.symbol.name);
+        // println!("Interpret Instance({})", instance.symbol.name);
         state.current_instance = Some(instance.symbol.name.clone());
         self.interpret_instructions(state, &instance.instructions);
         state.stack.clear();
@@ -92,12 +92,25 @@ impl ScriptVM {
             return;
         }
 
-        if func.symbol.name.to_lowercase() == "ta_stand_armscrossed" {
+        let name_lower = func.symbol.name.to_lowercase();
+        let routine_funcs: &[&str] = &[
+            "ta_stand_eating",
+            "ta_stand_drinking",
+            "ta_stand_eating",
+            "ta_sit_bench",
+            "ta_stand_eating",
+            "ta_sit_bench",
+            "ta_stand_eating",
+            "ta_sit_bench",
+            "ta_sleep",
+        ];
+        // if name_lower == "ta_stand_armscrossed" {
+        if routine_funcs.contains(&name_lower.as_str()) {
             self.handle_routine_waypoint(state);
             return;
         }
 
-        println!("Interpret Func({})", func.symbol.name);
+        // println!("Interpret Func({})", func.symbol.name);
         self.interpret_instructions(state, &func.instructions);
         state.stack.clear();
     }
@@ -146,11 +159,13 @@ impl ScriptVM {
             );
             return;
         };
-        println!(
-            "Set routine waypoint({}) for npc({})",
-            waypoint.data, current_instance
-        );
-        npc_data.routine_way_point_name = Some(waypoint.data.clone());
+        // println!(
+        //     "Set routine waypoint({}) for npc({})",
+        //     waypoint.data, current_instance
+        // );
+        if npc_data.routine_way_point_name.is_none() {
+            npc_data.routine_way_point_name = Some(waypoint.data.clone());
+        }
     }
 
     fn handle_set_daily_rutine(&self, state: &mut State) {
@@ -170,10 +185,10 @@ impl ScriptVM {
             println!("handle_set_daily_rutine routine should point to SymbolFunc type");
             return;
         };
-        println!(
-            "NPC({:?}) routine({})",
-            state.current_instance, routine.name
-        );
+        // println!(
+        //     "NPC({:?}) routine({})",
+        //     state.current_instance, routine.name
+        // );
         self.interpret_script_function(state, &routine.name.to_lowercase());
     }
 
@@ -233,8 +248,9 @@ impl ScriptVM {
 
         entry.body_texture = format!("HUM_BODY_NAKED_V{}_C0.TGA", body_texture.data);
         entry.face_texture = format!("HUM_HEAD_V{}_C0.TGA", face_texture.data);
-        entry.head_model = head_model.data.clone();
-        println!("handle_b_setnpcvisual => {:?}", entry);
+        // Sometimes there is model "Hum_Head_Babe." (dot at the end), engine or scripts bug?
+        entry.head_model = head_model.data.replace(".", "").clone();
+        // println!("handle_b_setnpcvisual => {:?}", entry);
     }
 
     fn handle_wld_insertnpc(&self, state: &mut State) {
@@ -267,10 +283,10 @@ impl ScriptVM {
         // if npc_symbol.name != "NONE_100_XARDAS" {
         //     return;
         // }
-        println!(
-            "Spawn npc({})({npc_instance_index}) on pos({})({world_point_name_index})",
-            npc_symbol.name, point_symbol.data
-        );
+        // println!(
+        //     "Spawn npc({})({npc_instance_index}) on pos({})({world_point_name_index})",
+        //     npc_symbol.name, point_symbol.data
+        // );
         let instance = self
             .script_data
             .get_instance(&npc_symbol.name.to_lowercase())

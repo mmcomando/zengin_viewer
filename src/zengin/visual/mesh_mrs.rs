@@ -6,7 +6,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::zengin::{common::*, material::get_standard_material};
+use crate::zengin::{common::*, visual::material::get_standard_material};
 
 pub fn meshes_from_gothic_mrs_mesh(mesh: &zen_kit_rs::mrs_mesh::MrsMesh) -> Vec<LoadedMeshData> {
     let mut meshes: HashMap<String, MeshData> = HashMap::new();

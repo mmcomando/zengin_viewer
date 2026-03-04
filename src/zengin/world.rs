@@ -13,11 +13,11 @@ use crate::{
     warn_unimplemented,
     zengin::{
         common::*,
-        mesh::meshes_from_gothic_mesh,
-        mesh_model::{meshes_from_gothic_model, meshes_from_gothic_model_mesh},
-        mesh_morph::meshes_from_gothic_morph_mesh,
-        mesh_mrs::meshes_from_gothic_mrs_mesh,
-        script_vm::{InstanceState, SpawnNpc},
+        script::script_vm::{InstanceState, SpawnNpc},
+        visual::mesh::meshes_from_gothic_mesh,
+        visual::mesh_model::{meshes_from_gothic_model, meshes_from_gothic_model_mesh},
+        visual::mesh_morph::meshes_from_gothic_morph_mesh,
+        visual::mesh_mrs::meshes_from_gothic_mrs_mesh,
     },
 };
 
@@ -31,7 +31,6 @@ pub struct ZenKitWorldData {
     pub light_instances: Vec<LightInstance>,
     pub spots: HashMap<String, Transform>,
     pub way_points: HashMap<String, Transform>,
-    pub index: u32,
 }
 
 pub fn load_npc(
@@ -45,18 +44,16 @@ pub fn load_npc(
         .as_ref()
         .unwrap_or(&spawn_npc.way_point_name);
     let Some(tr) = data.way_points.get(&way_point_name.to_lowercase()) else {
-        println!("way_point({}) not found", way_point_name.to_lowercase());
+        warn_once!(
+            "some way points are not found, example({})",
+            way_point_name.to_lowercase()
+        );
         return;
     };
 
-    let cols = 16;
-    let ind_y = data.index / cols;
-    let ind_x = data.index % cols;
-    // data.index += 1;
-
     let tr = Transform::from_translation(Vec3 {
-        x: 1.0 + (ind_x as f32 * 1.0),
-        y: 0.0 + (ind_y as f32 * 2.0),
+        x: 1.0,
+        y: 0.0,
         z: 0.0,
     }) * *tr;
 
@@ -102,7 +99,7 @@ pub fn load_npc(
 
 pub fn create_gothic_world_mesh(
     world_path: &str,
-    vm_state: &crate::zengin::script_vm::State,
+    vm_state: &crate::zengin::script::script_vm::State,
 ) -> ZenKitWorldData {
     let vfs = Vfs::new();
 
@@ -149,7 +146,6 @@ pub fn create_gothic_world_mesh(
         light_instances: vec![],
         spots: HashMap::new(),
         way_points: HashMap::new(),
-        index: 0,
     };
     for obj in world.root_objects() {
         load_meshes(&vfs, &mut data, &obj);
@@ -160,7 +156,7 @@ pub fn create_gothic_world_mesh(
         if let Some(instance) = vm_state.instance_state.get(&npc_spawn.npc_name) {
             load_npc(instance, npc_spawn, &vfs, &mut data);
         } else {
-            println!("There no instance for npc({})", npc_spawn.npc_name);
+            warn_unimplemented!("Not all NPC instances are handled");
         }
     }
 
