@@ -15,7 +15,7 @@ pub fn get_standard_material(mat: &Material) -> StandardMaterial {
     let mut material = StandardMaterial {
         base_color_texture: None, // Will be set during bevy entity creation
         alpha_mode: AlphaMode::Mask(0.5),
-        cull_mode: cull_mode,
+        cull_mode,
         perceptual_roughness: 0.8,
         reflectance: 0.2,
         metallic: 0.0,
@@ -24,7 +24,7 @@ pub fn get_standard_material(mat: &Material) -> StandardMaterial {
     };
 
     match mat.alpha_function() {
-        AlphaFunction::DEFAULT => {}
+        AlphaFunction::DEFAULT |
         // NONE seems like it shouldbe Opaque but there are transparent objects with NONE
         // AlphaFunction::NONE => material.alpha_mode = AlphaMode::Opaque
         AlphaFunction::NONE => {}
@@ -67,10 +67,10 @@ pub fn get_standard_material(mat: &Material) -> StandardMaterial {
 
     let color = mat.color();
     material.specular_tint = Color::linear_rgba(
-        color.x as f32 / 255.0,
-        color.y as f32 / 255.0,
-        color.z as f32 / 255.0,
-        color.w as f32 / 255.0,
+        f32::from(color.x) / 255.0,
+        f32::from(color.y) / 255.0,
+        f32::from(color.z) / 255.0,
+        f32::from(color.w) / 255.0,
     );
     material
 }

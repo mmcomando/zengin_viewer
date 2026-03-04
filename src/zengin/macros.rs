@@ -12,6 +12,6 @@ macro_rules! warn_once {
 #[macro_export]
 macro_rules! warn_unimplemented {
     ($($arg:tt)*) => {{
-        warn_once!("ZenKit unimplemented: {}", format_args!($($arg)*));
+        $crate::warn_once!("ZenKit unimplemented: {}", format_args!($($arg)*));
     }};
 }

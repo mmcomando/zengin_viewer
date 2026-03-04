@@ -40,9 +40,9 @@ pub fn load_npc(
     data: &mut ZenKitWorldData,
 ) {
     let way_point_name = spawn_npc
-        .routine_way_point_name
+        .routine_way_point
         .as_ref()
-        .unwrap_or(&spawn_npc.way_point_name);
+        .unwrap_or(&spawn_npc.way_point);
     let Some(tr) = data.way_points.get(&way_point_name.to_lowercase()) else {
         warn_once!(
             "some way points are not found, example({})",
@@ -51,6 +51,7 @@ pub fn load_npc(
         return;
     };
 
+    warn_once!("Placing human NPC is hacks and hardcoding");
     let tr = Transform::from_translation(Vec3 {
         x: 1.0,
         y: 0.0,
@@ -64,13 +65,13 @@ pub fn load_npc(
     };
 
     let tr_body = tr * Transform::from_translation(body_dt);
-    load_mesh(HUMAN_MODEL, &vfs, &mut data.meshes);
+    load_mesh(HUMAN_MODEL, vfs, &mut data.meshes);
     data.mesh_instances.push(MeshInstance {
         mesh_path: HUMAN_MODEL.to_string(),
         pos: tr_body.translation,
         rot: tr_body.rotation,
         is_colider: false,
-        texture_override: Some(instance.body_texture.to_string()),
+        texture_override: Some(instance.body_texture.clone()),
     });
     let head_dt = Vec3 {
         x: 0.0,
@@ -85,15 +86,15 @@ pub fn load_npc(
 
     let model = format!(
         "/_WORK/DATA/ANIMS/_COMPILED/{}.MMB",
-        instance.head_model.to_uppercase().to_string()
+        instance.head_model.to_uppercase()
     );
-    load_mesh(&model, &vfs, &mut data.meshes);
+    load_mesh(&model, vfs, &mut data.meshes);
     data.mesh_instances.push(MeshInstance {
-        mesh_path: model.to_string(),
+        mesh_path: model.clone(),
         pos: head_transform.translation,
         rot: head_transform.rotation,
         is_colider: false,
-        texture_override: Some(instance.face_texture.to_string()),
+        texture_override: Some(instance.face_texture.clone()),
     });
 }
 
@@ -153,7 +154,7 @@ pub fn create_gothic_world_mesh(
     let way_net = world.way_net();
     loat_way_net_points(&way_net, &mut data);
     for npc_spawn in &vm_state.spawn_npcs {
-        if let Some(instance) = vm_state.instance_state.get(&npc_spawn.npc_name) {
+        if let Some(instance) = vm_state.instance_data.get(&npc_spawn.npc) {
             load_npc(instance, npc_spawn, &vfs, &mut data);
         } else {
             warn_unimplemented!("Not all NPC instances are handled");
@@ -232,10 +233,7 @@ fn load_mesh(
             None
         };
         meshes_from_gothic_model_mesh(&mesh, model_hierarchy.as_ref())
-    } else if mesh_path.ends_with(".MSB") {
-        let mesh = zen_kit_rs::model::Model::load(&read).unwrap();
-        meshes_from_gothic_model(&mesh)
-    } else if mesh_path.ends_with(".MDH") {
+    } else if mesh_path.ends_with(".MSB") || mesh_path.ends_with(".MDH") {
         let mesh = zen_kit_rs::model::Model::load(&read).unwrap();
         meshes_from_gothic_model(&mesh)
     } else {
@@ -259,7 +257,7 @@ fn try_load_mesh(
 ) -> Option<String> {
     for asset_path in asset_paths {
         if load_mesh(asset_path, vfs, bevy_meshes) {
-            return Some(asset_path.to_string());
+            return Some(asset_path.clone());
         }
     }
 
@@ -376,7 +374,7 @@ fn get_obj_tr(obj: &VirtualObject) -> Transform {
 fn handle_light(obj: &VirtualObject, data: &mut ZenKitWorldData) {
     let pos = get_world_pos(obj.position());
     let rot = get_world_rot(obj.rotation());
-    data.light_instances.push(LightInstance { pos, rot })
+    data.light_instances.push(LightInstance { pos, rot });
 }
 fn handle_other_vob(obj: &VirtualObject, data: &mut ZenKitWorldData) {
     let name = obj.name();

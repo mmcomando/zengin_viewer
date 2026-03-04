@@ -1,2 +1,2 @@
-pub mod script;
+pub mod parse;
 pub mod script_vm;

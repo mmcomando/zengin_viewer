@@ -10,7 +10,7 @@ pub fn gothic2_dir() -> String {
     if let Some(dir_no_prefix) = dir.strip_suffix("/") {
         return dir_no_prefix.to_string();
     }
-    return dir;
+    dir
 }
 
 pub fn get_world_transform(gothic_mat: Mat4) -> Transform {

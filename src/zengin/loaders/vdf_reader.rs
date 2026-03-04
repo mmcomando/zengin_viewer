@@ -43,7 +43,7 @@ pub fn create_gothic_asset_loader() -> AssetSourceBuilder {
         vfs.mount_disk_host(&format!("{}/Data/SystemPack.vdf", dir), vfs_override);
 
         let vfs = Mutex::new(vfs);
-        Box::new(MyAssetReader { vfs: vfs })
+        Box::new(MyAssetReader { vfs })
     })
 }
 

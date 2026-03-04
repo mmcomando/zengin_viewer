@@ -1,3 +1,17 @@
+#![allow(
+    clippy::needless_pass_by_value,
+    clippy::cast_possible_truncation,
+    clippy::uninlined_format_args,
+    clippy::needless_return,
+    clippy::enum_variant_names,
+    clippy::too_many_lines,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    clippy::manual_assert,
+    clippy::case_sensitive_file_extension_comparisons,
+    clippy::wildcard_imports
+)]
+
 mod gui;
 mod skybox;
 mod zengin;
@@ -40,7 +54,7 @@ fn main() {
         .add_plugins(BasicContentPlugin)
         .add_plugins(ZenGinWorldPlugin)
         .add_plugins(CameraSettingsPlugin)
-        .add_plugins(SkyBoxPlugin::default())
+        .add_plugins(SkyBoxPlugin)
         // Run
         .run();
 }
