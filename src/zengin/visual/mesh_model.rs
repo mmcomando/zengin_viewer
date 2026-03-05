@@ -3,7 +3,7 @@ use zen_kit_rs::model::ModelHierarchyNode;
 
 use crate::zengin::{common::*, visual::mesh_mrs::meshes_from_gothic_mrs_mesh};
 
-pub fn meshes_from_gothic_model(model: &zen_kit_rs::model::Model) -> Vec<LoadedMeshData> {
+pub fn meshes_from_gothic_model(model: &zen_kit_rs::model::Model) -> ZenGinModel {
     let model_mesh = model.mesh();
     return meshes_from_gothic_model_mesh(&model_mesh, Some(model));
 }
@@ -11,18 +11,18 @@ pub fn meshes_from_gothic_model(model: &zen_kit_rs::model::Model) -> Vec<LoadedM
 pub fn meshes_from_gothic_model_mesh(
     model_mesh: &zen_kit_rs::model::ModelMesh,
     model_with_hierarchy: Option<&zen_kit_rs::model::Model>,
-) -> Vec<LoadedMeshData> {
-    let mut bevy_meshes: Vec<LoadedMeshData> = Vec::new();
+) -> ZenGinModel {
+    let mut model = ZenGinModel::default();
 
     let soft_skin_meshes = model_mesh.meshes();
     let attachements = model_mesh.enumerate_attachments();
 
     for (name, mrs_mesh) in &attachements {
-        let mut new_meshes = meshes_from_gothic_mrs_mesh(mrs_mesh);
-        for new_mesh in &mut new_meshes {
-            new_mesh.name.clone_from(name);
+        let mut attachement_model = meshes_from_gothic_mrs_mesh(mrs_mesh);
+        for sub_mesh in &mut attachement_model.sub_meshes {
+            sub_mesh.name.clone_from(name);
         }
-        bevy_meshes.extend(new_meshes);
+        model.sub_meshes.extend(attachement_model.sub_meshes);
     }
 
     // println!(
@@ -34,7 +34,7 @@ pub fn meshes_from_gothic_model_mesh(
     for soft_skin_mesh in &soft_skin_meshes {
         let mesh = soft_skin_mesh.mesh();
         let new_meshes = meshes_from_gothic_mrs_mesh(&mesh);
-        bevy_meshes.extend(new_meshes);
+        model.sub_meshes.extend(new_meshes.sub_meshes);
     }
 
     if let Some(model_with_hierarchy) = model_with_hierarchy {
@@ -71,10 +71,10 @@ pub fn meshes_from_gothic_model_mesh(
             }
         }
 
-        for new_mesh in &mut bevy_meshes {
-            if let Some(node_index) = nodes.iter().position(|node| node.name == "BIP01 HEAD") {
-                new_mesh.head_transform = Some(final_tr[node_index]);
-            }
+        for new_mesh in &mut model.sub_meshes {
+            // if let Some(node_index) = nodes.iter().position(|node| node.name == "BIP01 HEAD") {
+            //     new_mesh.head_transform = Some(final_tr[node_index]);
+            // }
             if let Some(node_index) = nodes.iter().position(|el| el.name == new_mesh.name) {
                 new_mesh.transform = final_tr[node_index];
                 // println!(
@@ -84,7 +84,7 @@ pub fn meshes_from_gothic_model_mesh(
             }
         }
     }
-    bevy_meshes
+    model
 }
 
 fn compute_final_tr(node_index: usize, nodes: &[ModelHierarchyNode], final_tr: &mut [Transform]) {
