@@ -43,11 +43,8 @@ pub fn load_npc(
         .routine_way_point
         .as_ref()
         .unwrap_or(&spawn_npc.way_point);
-    let Some(tr) = data.way_points.get(&way_point_name.to_lowercase()) else {
-        warn_once!(
-            "some way points are not found, example({})",
-            way_point_name.to_lowercase()
-        );
+    let Some(tr) = data.way_points.get(way_point_name) else {
+        warn_once!("some way points are not found, example({})", way_point_name);
         return;
     };
 

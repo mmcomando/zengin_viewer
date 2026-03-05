@@ -93,12 +93,12 @@ impl ScriptVM {
     }
     fn interpret_function(&self, state: &mut State, func: &Function) {
         assert!(!func.symbol.external);
-        if func.symbol.name.to_lowercase() == "b_setnpcvisual" {
+        if func.symbol.name == "b_setnpcvisual" {
             self.handle_b_setnpcvisual(state);
             return;
         }
 
-        let name_lower = func.symbol.name.to_lowercase();
+        let name_lower = &func.symbol.name;
         let routine_funcs: &[&str] = &[
             "ta_stand_eating",
             "ta_stand_drinking",
@@ -123,7 +123,7 @@ impl ScriptVM {
 
     fn interpret_external_function(&self, state: &mut State, func_offset: u32) {
         let symbol = self.script_data.get_symbol_by_index(func_offset).unwrap();
-        if symbol.name() == "WLD_INSERTNPC" {
+        if symbol.name() == "wld_insertnpc" {
             self.handle_wld_insertnpc(state);
             return;
         }
@@ -154,7 +154,7 @@ impl ScriptVM {
         let Some(npc_data) = state
             .spawn_npcs
             .iter_mut()
-            .find(|el| el.npc.to_lowercase() == current_instance.to_lowercase())
+            .find(|el| el.npc == *current_instance)
         else {
             println!(
                 "handle_routine_waypoint npc_data for({}) should be present",
@@ -192,7 +192,7 @@ impl ScriptVM {
         //     "NPC({:?}) routine({})",
         //     state.current_instance, routine.name
         // );
-        self.interpret_script_function(state, &routine.name.to_lowercase());
+        self.interpret_script_function(state, &routine.name);
     }
 
     fn handle_b_setnpcvisual(&self, state: &mut State) {
@@ -287,10 +287,7 @@ impl ScriptVM {
         //     "Spawn npc({})({npc_instance_index}) on pos({})({world_point_name_index})",
         //     npc_symbol.name, point_symbol.data
         // );
-        let instance = self
-            .script_data
-            .get_instance(&npc_symbol.name.to_lowercase())
-            .unwrap();
+        let instance = self.script_data.get_instance(&npc_symbol.name).unwrap();
 
         state.spawn_npcs.push(SpawnNpc {
             npc: npc_symbol.name.clone(),
