@@ -8,7 +8,7 @@ use bevy::{
 
 use crate::zengin::{common::*, visual::material::get_standard_material};
 
-pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<ZenGinSubMesh> {
+pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
     let mut meshes: HashMap<String, MeshData> = HashMap::new();
 
     let polygons_count = mesh.polygon_count();
@@ -128,5 +128,7 @@ pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<ZenGinSubMe
         });
     }
 
-    bevy_meshes
+    ZenGinModel {
+        sub_meshes: bevy_meshes,
+    }
 }

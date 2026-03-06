@@ -1,6 +1,5 @@
 use std::f32::consts::PI;
 
-use avian3d::parry::na::Quaternion;
 use bevy::prelude::*;
 
 use zen_kit_rs::{
@@ -16,22 +15,13 @@ use crate::{
         common::*,
         script::script_vm::{InstanceState, SpawnNpc},
         visual::mesh::meshes_from_gothic_mesh,
-        visual::mesh_model::{meshes_from_gothic_model, meshes_from_gothic_model_mesh},
-        visual::mesh_morph::meshes_from_gothic_morph_mesh,
-        visual::mesh_mrs::meshes_from_gothic_mrs_mesh,
     },
 };
 
 const PLARCEHOLDER_MESH: &str = "/_WORK/DATA/MESHES/_COMPILED/SPHERE.MRM";
 const HUMAN_MODEL: &str = "/_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM";
-const HUMAN_MODEL_HIERARCHY: &str = "/_WORK/DATA/ANIMS/_COMPILED/HUMANS_RELAXED.MDH";
 
-pub fn load_npc(
-    instance: &InstanceState,
-    spawn_npc: &SpawnNpc,
-    vfs: &Vfs,
-    data: &mut ZenGinWorldData,
-) {
+pub fn load_npc(instance: &InstanceState, spawn_npc: &SpawnNpc, data: &mut ZenGinWorldData) {
     let way_point_name = spawn_npc
         .routine_way_point
         .as_ref()
@@ -52,7 +42,6 @@ pub fn load_npc(
         * tr;
 
     let tr_body = tr;
-    load_mesh(HUMAN_MODEL, vfs, data);
 
     let head_dt = Vec3 {
         x: 0.00,
@@ -75,13 +64,11 @@ pub fn load_npc(
         "/_WORK/DATA/ANIMS/_COMPILED/{}.MMB",
         instance.head_model.to_uppercase()
     );
-    load_mesh(&model, vfs, data);
-
-    let head_model = data.model_archetypes.get(&model).unwrap().clone();
-    let body_model = data.model_archetypes.get(HUMAN_MODEL).unwrap().clone();
+    let head_model = to_asset_path(&model);
+    let body_model = to_asset_path(HUMAN_MODEL);
     let npc = ZenGinNpc {
         head_tr: Transform::from_matrix(head_transform),
-        head_model: head_model,
+        head_model,
         head_texture: get_full_texture_path(&instance.face_texture),
         body_tr: Transform::from_matrix(tr_body),
         body_model,
@@ -90,7 +77,7 @@ pub fn load_npc(
     data.npcs.push(npc);
 }
 
-pub fn create_gothic_world_mesh(
+pub fn load_gothic_world_data(
     world_path: &str,
     vm_state: &crate::zengin::script::script_vm::State,
 ) -> ZenGinWorldData {
@@ -118,19 +105,23 @@ pub fn create_gothic_world_mesh(
     let world_mesh = world.mesh();
     let world_bevy_meshes = meshes_from_gothic_mesh(&world_mesh);
 
-    let mut data = ZenGinWorldData::default();
-    data.world_meshes = world_bevy_meshes;
+    let mut data = ZenGinWorldData {
+        // world_meshes: world_bevy_meshes,
+        world_model: world_bevy_meshes,
+        ..Default::default()
+    };
+    // data.world_meshes = world_bevy_meshes;
     // Make sure that placeholder mesh is loaded
-    load_mesh(PLARCEHOLDER_MESH, &vfs, &mut data);
+    check_if_path_exists(PLARCEHOLDER_MESH, &vfs);
 
     for obj in world.root_objects() {
         load_meshes(&vfs, &mut data, &obj);
     }
     let way_net = world.way_net();
-    loat_way_net_points(&way_net, &mut data);
+    load_way_net_points(&way_net, &mut data);
     for npc_spawn in &vm_state.spawn_npcs {
         if let Some(instance) = vm_state.instance_data.get(&npc_spawn.npc) {
-            load_npc(instance, npc_spawn, &vfs, &mut data);
+            load_npc(instance, npc_spawn, &mut data);
         } else {
             warn_unimplemented!("Not all NPC instances are handled");
         }
@@ -146,7 +137,7 @@ pub fn create_gothic_world_mesh(
     data
 }
 
-fn loat_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
+fn load_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
     let points = way_net.points();
     for point in points {
         let name = point.name().to_lowercase();
@@ -158,74 +149,13 @@ fn loat_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
     }
 }
 
-fn load_mesh(mesh_path: &str, vfs: &Vfs, data: &mut ZenGinWorldData) -> bool {
-    if data.model_archetypes.contains_key(mesh_path) {
-        // println!("Already loaded mesh_path({mesh_path})");
-        return true;
-    }
-    let Some(node) = vfs.resolve_path(mesh_path) else {
-        // println!("Mesh({mesh_path}) not found");
-        return false;
-    };
-
-    let Some(read) = node.open() else {
-        println!("Failed to open mesh({mesh_path})");
-        return false;
-    };
-
-    let model = if mesh_path.ends_with(".MRM") {
-        let mesh = zen_kit_rs::mrs_mesh::MrsMesh::load(&read).unwrap();
-        meshes_from_gothic_mrs_mesh(&mesh)
-    } else if mesh_path.ends_with(".MSH") {
-        panic!("Simple meshes not supported");
-        // let mesh = zen_kit_rs::mesh::Mesh::load(&read).unwrap();
-        // meshes_from_gothic_mesh(&mesh)
-    } else if mesh_path.ends_with(".MDL") {
-        let mesh = zen_kit_rs::model::Model::load(&read).unwrap();
-        meshes_from_gothic_model(&mesh)
-    } else if mesh_path.ends_with(".MMB") {
-        let mesh = zen_kit_rs::morph_mesh::MorphMesh::load(&read).unwrap();
-        meshes_from_gothic_morph_mesh(&mesh)
-    } else if mesh_path.ends_with(".MDM") {
-        let mesh = zen_kit_rs::model::ModelMesh::load(&read).unwrap();
-        // We try to load model only, but maybe there is coresponding hierarchy file
-        // If we have hierarchy file load it and use it
-        let mut hierarchy_path = mesh_path.replace("MDM", "MDH");
-        if mesh_path == HUMAN_MODEL {
-            hierarchy_path = HUMAN_MODEL_HIERARCHY.to_string();
-        }
-
-        let model_hierarchy = if let Some(hierarchy_node) = vfs.resolve_path(&hierarchy_path) {
-            if let Some(read_hierarchy) = hierarchy_node.open() {
-                zen_kit_rs::model::Model::load(&read_hierarchy)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-        meshes_from_gothic_model_mesh(&mesh, model_hierarchy.as_ref())
-    } else if mesh_path.ends_with(".MSB") || mesh_path.ends_with(".MDH") {
-        let mesh = zen_kit_rs::model::Model::load(&read).unwrap();
-        meshes_from_gothic_model(&mesh)
-    } else {
-        println!("mesh_path({}) unrecognized mesh format", mesh_path);
-        return false;
-    };
-
-    if model.sub_meshes.is_empty() {
-        println!("mesh_path({}) doesn't contain any meshes", mesh_path);
-        return false;
-    }
-
-    // info!("Load mesh_path({})", mesh_path,);
-    data.model_archetypes.insert(mesh_path.to_string(), model);
-    true
+fn check_if_path_exists(mesh_path: &str, vfs: &Vfs) -> bool {
+    vfs.resolve_path(mesh_path).is_some()
 }
 
-fn try_load_mesh(asset_paths: &[String], vfs: &Vfs, data: &mut ZenGinWorldData) -> Option<String> {
+fn try_load_mesh(asset_paths: &[String], vfs: &Vfs) -> Option<String> {
     for asset_path in asset_paths {
-        if load_mesh(asset_path, vfs, data) {
+        if check_if_path_exists(asset_path, vfs) {
             return Some(asset_path.clone());
         }
     }
@@ -243,7 +173,7 @@ fn load_meshes(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject) {
         let asset_path = match visual_type {
             VisualType::MULTI_RESOLUTION_MESH => {
                 let asset_path = compiled_asset_path(&visual_name, ".3DS", ".MRM");
-                if load_mesh(&asset_path, vfs, data) {
+                if check_if_path_exists(&asset_path, vfs) {
                     Some(asset_path)
                 } else {
                     Some(PLARCEHOLDER_MESH.to_string())
@@ -251,7 +181,7 @@ fn load_meshes(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject) {
             }
             VisualType::MESH => {
                 let asset_path = compiled_asset_path(&visual_name, ".3DS", ".MSH");
-                if load_mesh(&asset_path, vfs, data) {
+                if check_if_path_exists(&asset_path, vfs) {
                     Some(asset_path)
                 } else {
                     Some(PLARCEHOLDER_MESH.to_string())
@@ -286,9 +216,7 @@ fn load_meshes(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject) {
                 if visual_name.ends_with(".ASC") {
                     warn_unimplemented!("load .ASC objects");
                     None
-                } else if let Some(asset_path) = try_load_mesh(&asset_paths, vfs, data) {
-                    // warn!("load visual({})", visual_name);
-                    // None
+                } else if let Some(asset_path) = try_load_mesh(&asset_paths, vfs) {
                     Some(asset_path)
                 } else {
                     warn!("Failed to load visual({})", visual_name);
@@ -301,7 +229,7 @@ fn load_meshes(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject) {
                     visual_name.replace(".MMS", ".MMB")
                 );
 
-                if load_mesh(&asset_path, vfs, data) {
+                if check_if_path_exists(&asset_path, vfs) {
                     Some(asset_path)
                 } else {
                     warn!("Failed to load morph mesh({})", visual_name);
@@ -318,7 +246,7 @@ fn load_meshes(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject) {
             let tr = get_obj_tr(obj);
             data.static_models.push(ZenGinInstance {
                 tr,
-                archetype: asset_path,
+                archetype: to_asset_path(&asset_path),
             });
         }
     } else {
