@@ -26,7 +26,10 @@ impl Plugin for ZenGinWorldPlugin {
         app.init_asset_loader::<ZenGinModelLoader>();
         app.add_systems(Startup, insert_resources);
         app.add_systems(Startup, spawn_world.after(insert_resources));
-        app.add_systems(Update, convert_zengin_model_to_entities);
+        app.add_systems(
+            Update,
+            convert_zengin_model_to_entities.run_if(run_convert_zengin_model_to_entities),
+        );
     }
 }
 
@@ -37,75 +40,80 @@ struct MaterialHandles {
     models: HashMap<String, Handle<ZenGinModel>>,
 }
 
-fn get_material_handle(
-    materials: &mut ResMut<Assets<StandardMaterial>>,
-    handles_map: &mut ResMut<MaterialHandles>,
-    material: &StandardMaterial,
-) -> Handle<StandardMaterial> {
-    if let Some(handle) = handles_map.materials.get(&MatrialHashed(material.clone())) {
-        return handle.clone();
+impl MaterialHandles {
+    fn get_material_handle(
+        &mut self,
+        materials: &mut ResMut<Assets<StandardMaterial>>,
+        material: &StandardMaterial,
+    ) -> Handle<StandardMaterial> {
+        if let Some(handle) = self.materials.get(&MatrialHashed(material.clone())) {
+            return handle.clone();
+        }
+        let handle = materials.add(material.clone());
+        self.materials
+            .insert(MatrialHashed(material.clone()), handle.clone());
+        handle
     }
-    let handle = materials.add(material.clone());
-    handles_map
-        .materials
-        .insert(MatrialHashed(material.clone()), handle.clone());
-    handle
-}
 
-fn get_image_handle(
-    asset_server: &Res<AssetServer>,
-    handles_map: &mut ResMut<MaterialHandles>,
-    image_path: &str,
-) -> Handle<Image> {
-    if let Some(handle) = handles_map.images.get(image_path) {
-        return handle.clone();
+    fn get_image_handle(
+        &mut self,
+        asset_server: &Res<AssetServer>,
+        image_path: &str,
+    ) -> Handle<Image> {
+        if let Some(handle) = self.images.get(image_path) {
+            return handle.clone();
+        }
+        let handle = asset_server.load(image_path.to_string());
+        self.images.insert(image_path.to_string(), handle.clone());
+        handle
     }
-    let handle = asset_server.load(image_path.to_string());
-    handles_map
-        .images
-        .insert(image_path.to_string(), handle.clone());
-    handle
-}
 
-fn get_model_handle(
-    asset_server: &Res<AssetServer>,
-    handles_map: &mut ResMut<MaterialHandles>,
-    model_path: &str,
-) -> Handle<ZenGinModel> {
-    if let Some(handle) = handles_map.models.get(model_path) {
-        return handle.clone();
+    fn get_model_handle(
+        &mut self,
+        asset_server: &Res<AssetServer>,
+        model_path: &str,
+    ) -> Handle<ZenGinModel> {
+        if let Some(handle) = self.models.get(model_path) {
+            return handle.clone();
+        }
+        let handle = asset_server.load(model_path.to_string());
+        self.models.insert(model_path.to_string(), handle.clone());
+        handle
     }
-    let handle = asset_server.load(model_path.to_string());
-    handles_map
-        .models
-        .insert(model_path.to_string(), handle.clone());
-    handle
-}
 
-fn get_material_handle_full(
-    asset_server: &Res<AssetServer>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
-    handles_map: &mut ResMut<MaterialHandles>,
-    image_path: &str,
-    mut material: StandardMaterial,
-) -> Handle<StandardMaterial> {
-    let tex_handle = get_image_handle(asset_server, handles_map, image_path);
-    material.base_color_texture = Some(tex_handle.clone());
-    get_material_handle(materials, handles_map, &material)
+    fn get_material_handle_full(
+        &mut self,
+        asset_server: &Res<AssetServer>,
+        materials: &mut ResMut<Assets<StandardMaterial>>,
+        image_path: &str,
+        mut material: StandardMaterial,
+    ) -> Handle<StandardMaterial> {
+        let tex_handle = self.get_image_handle(asset_server, image_path);
+        material.base_color_texture = Some(tex_handle.clone());
+        self.get_material_handle(materials, &material)
+    }
 }
 
 fn insert_resources(mut commands: Commands) {
     commands.insert_resource(MaterialHandles::default());
 }
 
-#[derive(Component, Default)]
-struct ZenGinModelComponentLoaded {}
+/// Adding this component will spawn child entities with 3d meshes contained in `model_handle`
 #[derive(Component)]
 struct ZenGinModelComponent {
     model_handle: Handle<ZenGinModel>,
     override_texture: Option<String>,
 }
 
+/// Check only entities which were not handled previously
+#[derive(Component, Default)]
+struct ZenGinModelComponentLoaded {}
+
+fn run_convert_zengin_model_to_entities(
+    query: Query<&ZenGinModelComponent, Without<ZenGinModelComponentLoaded>>,
+) -> bool {
+    query.iter().next().is_some()
+}
 #[allow(clippy::type_complexity)]
 fn convert_zengin_model_to_entities(
     mut commands: Commands,
@@ -114,13 +122,7 @@ fn convert_zengin_model_to_entities(
     mut meshes: ResMut<Assets<Mesh>>,
     mut material_handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
-    query: Query<
-        (Entity, &ZenGinModelComponent),
-        (
-            With<ZenGinModelComponent>,
-            Without<ZenGinModelComponentLoaded>,
-        ),
-    >,
+    query: Query<(Entity, &ZenGinModelComponent), (Without<ZenGinModelComponentLoaded>,)>,
 ) {
     for (entity_id, model_component) in query.iter() {
         let handle = &model_component.model_handle;
@@ -137,10 +139,9 @@ fn convert_zengin_model_to_entities(
             } else {
                 &sub_mesh.texture
             };
-            let material_handle = get_material_handle_full(
+            let material_handle = material_handles.get_material_handle_full(
                 &asset_server,
                 &mut materials,
-                &mut material_handles,
                 texture,
                 sub_mesh.material.clone(),
             );
@@ -202,7 +203,7 @@ fn spawn_world(
         commands.spawn((
             Visibility::default(),
             ZenGinModelComponent {
-                model_handle: get_model_handle(&asset_server, &mut handles_map, &npc.body_model),
+                model_handle: handles_map.get_model_handle(&asset_server, &npc.body_model),
                 override_texture: Some(npc.body_texture.clone()),
             },
             npc.body_tr,
@@ -210,7 +211,7 @@ fn spawn_world(
         commands.spawn((
             Visibility::default(),
             ZenGinModelComponent {
-                model_handle: get_model_handle(&asset_server, &mut handles_map, &npc.head_model),
+                model_handle: handles_map.get_model_handle(&asset_server, &npc.head_model),
                 override_texture: Some(npc.head_texture.clone()),
             },
             npc.head_tr,
@@ -218,7 +219,7 @@ fn spawn_world(
     }
 
     for instance in &world_data.static_models {
-        let model_handle = get_model_handle(&asset_server, &mut handles_map, &instance.archetype);
+        let model_handle = handles_map.get_model_handle(&asset_server, &instance.archetype);
         commands.spawn((
             ZenGinModelComponent {
                 model_handle: model_handle.clone(),
