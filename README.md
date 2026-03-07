@@ -4,7 +4,7 @@ Experimental project to check how hard it would be to create world viewer for Go
 Maybe it will evolve to a full game reimplementation?
 
 # Screen
-![Farm](/misc/screenshots/farm.png "Farm")
+![Farm](/misc/screenshots/farm.jpg "Farm")
 
 ![Khorinis at night](/misc/screenshots/khorinis.png "Khorinis at night")
 
