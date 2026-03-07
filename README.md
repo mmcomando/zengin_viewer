@@ -34,3 +34,5 @@ cargo run
 
 # Plans
 I plan to support scripts by recompiling zengin binary scripts to wasm and support host functions using wasm component model.
+
+Other TODO items will be done if I will have time and fun doing so.
