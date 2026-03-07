@@ -7,12 +7,12 @@ use bevy::{
 };
 
 use crate::zengin::{
-    common::ZenGinModel,
+    common::{ZenGinModel, to_asset_path},
     visual::{
-        mesh::meshes_from_gothic_mesh,
-        mesh_model::{meshes_from_gothic_model, meshes_from_gothic_model_mesh},
-        mesh_morph::meshes_from_gothic_morph_mesh,
-        mesh_mrs::meshes_from_gothic_mrs_mesh,
+        mesh::meshes_from_zengin_mesh,
+        mesh_model::{meshes_from_zengin_model, meshes_from_zengin_model_mesh},
+        mesh_morph::meshes_from_zengin_morph_mesh,
+        mesh_mrs::meshes_from_zengin_mrs_mesh,
     },
 };
 
@@ -41,15 +41,15 @@ impl AssetLoader for ZenGinModelLoader {
         let model = if path_str.ends_with(".MRM") {
             let read = Read::from_slice(&bytes).unwrap();
             let mesh = zen_kit_rs::mrs_mesh::MrsMesh::load(&read).unwrap();
-            meshes_from_gothic_mrs_mesh(&mesh)
+            meshes_from_zengin_mrs_mesh(&mesh)
         } else if path_str.ends_with(".MDL") {
             let read = Read::from_slice(&bytes).unwrap();
             let mesh = zen_kit_rs::model::Model::load(&read).unwrap();
-            meshes_from_gothic_model(&mesh)
+            meshes_from_zengin_model(&mesh)
         } else if path_str.ends_with(".MMB") {
             let read = Read::from_slice(&bytes).unwrap();
             let mesh = zen_kit_rs::morph_mesh::MorphMesh::load(&read).unwrap();
-            meshes_from_gothic_morph_mesh(&mesh)
+            meshes_from_zengin_morph_mesh(&mesh)
         } else if path_str.ends_with(".MDM") {
             // We try to load model only file, but maybe there is coresponding hierarchy file
             // If we have hierarchy file load it and use it
@@ -57,7 +57,7 @@ impl AssetLoader for ZenGinModelLoader {
             if path_str == HUMAN_MODEL {
                 hierarchy_path = HUMAN_MODEL_HIERARCHY.to_string();
             }
-            let hierarchy_path = format!("gothic:/{}", hierarchy_path);
+            let hierarchy_path = to_asset_path(&hierarchy_path);
             let model_hierarchy =
                 if let Ok(hierarchy_bytes) = load_context.read_asset_bytes(hierarchy_path).await {
                     let hierarchy_read = Read::from_slice(&hierarchy_bytes).unwrap();
@@ -70,15 +70,15 @@ impl AssetLoader for ZenGinModelLoader {
                 zen_kit_rs::model::ModelMesh::load(&read).unwrap()
             };
 
-            meshes_from_gothic_model_mesh(&mesh, model_hierarchy.as_ref())
+            meshes_from_zengin_model_mesh(&mesh, model_hierarchy.as_ref())
         } else if path_str.ends_with(".MSB") || path_str.ends_with(".MDH") {
             let read = Read::from_slice(&bytes).unwrap();
             let mesh = zen_kit_rs::model::Model::load(&read).unwrap();
-            meshes_from_gothic_model(&mesh)
+            meshes_from_zengin_model(&mesh)
         } else if path_str.ends_with(".MSH") {
             let read = Read::from_slice(&bytes).unwrap();
             let mesh = zen_kit_rs::mesh::Mesh::load(&read).unwrap();
-            meshes_from_gothic_mesh(&mesh)
+            meshes_from_zengin_mesh(&mesh)
         } else {
             return Err(BevyError::from(format!(
                 "ZenGinModelLoader mesh_path({}) unrecognized mesh format",

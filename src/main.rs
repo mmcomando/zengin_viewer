@@ -19,7 +19,7 @@ mod zengin;
 use crate::gui::{CameraSettingsPlugin, get_overlay_plugin};
 use crate::skybox::SkyBoxPlugin;
 use crate::zengin::ZenGinWorldPlugin;
-use crate::zengin::loaders::vdf_reader::create_gothic_asset_loader;
+use crate::zengin::loaders::vdf_reader::create_zengin_asset_loader;
 use avian3d::prelude::*;
 use bevy::anti_alias::smaa::Smaa;
 use bevy::light::CascadeShadowConfigBuilder;
@@ -34,7 +34,7 @@ use bevy::{
 fn main() {
     App::new()
         // This app custom assert source, has to be regitred before default plugins
-        .register_asset_source("gothic", create_gothic_asset_loader())
+        .register_asset_source("zengin", create_zengin_asset_loader())
         // Default plugins
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

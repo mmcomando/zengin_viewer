@@ -1,14 +1,14 @@
 use bevy::prelude::*;
 use zen_kit_rs::model::ModelHierarchyNode;
 
-use crate::zengin::{common::*, visual::mesh_mrs::meshes_from_gothic_mrs_mesh};
+use crate::zengin::{common::*, visual::mesh_mrs::meshes_from_zengin_mrs_mesh};
 
-pub fn meshes_from_gothic_model(model: &zen_kit_rs::model::Model) -> ZenGinModel {
+pub fn meshes_from_zengin_model(model: &zen_kit_rs::model::Model) -> ZenGinModel {
     let model_mesh = model.mesh();
-    return meshes_from_gothic_model_mesh(&model_mesh, Some(model));
+    return meshes_from_zengin_model_mesh(&model_mesh, Some(model));
 }
 
-pub fn meshes_from_gothic_model_mesh(
+pub fn meshes_from_zengin_model_mesh(
     model_mesh: &zen_kit_rs::model::ModelMesh,
     model_with_hierarchy: Option<&zen_kit_rs::model::Model>,
 ) -> ZenGinModel {
@@ -18,7 +18,7 @@ pub fn meshes_from_gothic_model_mesh(
     let attachements = model_mesh.enumerate_attachments();
 
     for (name, mrs_mesh) in &attachements {
-        let mut attachement_model = meshes_from_gothic_mrs_mesh(mrs_mesh);
+        let mut attachement_model = meshes_from_zengin_mrs_mesh(mrs_mesh);
         for sub_mesh in &mut attachement_model.sub_meshes {
             sub_mesh.name.clone_from(name);
         }
@@ -33,7 +33,7 @@ pub fn meshes_from_gothic_model_mesh(
     // );
     for soft_skin_mesh in &soft_skin_meshes {
         let mesh = soft_skin_mesh.mesh();
-        let new_meshes = meshes_from_gothic_mrs_mesh(&mesh);
+        let new_meshes = meshes_from_zengin_mrs_mesh(&mesh);
         model.sub_meshes.extend(new_meshes.sub_meshes);
     }
 
@@ -41,7 +41,7 @@ pub fn meshes_from_gothic_model_mesh(
         let hierarchy = model_with_hierarchy.hierarchy();
         let nodes = hierarchy.nodes();
 
-        // println!("GothicModel:");
+        // println!("ZenGinModel:");
         // if nodes.is_empty() {
         //     println!(" No Nodes")
         // } else {
