@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 
+use avian3d::math::Quaternion;
 use bevy::prelude::*;
 
 use zen_kit_rs::{
@@ -13,23 +14,81 @@ use crate::{
     warn_unimplemented,
     zengin::{
         common::*,
-        script::script_vm::{InstanceState, SpawnNpc},
+        script::script_vm::{InstanceState, SpawnNpc, SpawnWeapon},
         visual::mesh::meshes_from_zengin_mesh,
     },
 };
 
 const PLARCEHOLDER_MESH: &str = "/_WORK/DATA/MESHES/_COMPILED/SPHERE.MRM";
-const HUMAN_MODEL: &str = "/_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM";
+const SIMULATE_HOUR: u32 = 12;
 
-pub fn load_npc(instance: &InstanceState, spawn_npc: &SpawnNpc, data: &mut ZenGinWorldData) {
-    let way_point_name = spawn_npc
-        .routine_way_point
-        .as_ref()
-        .unwrap_or(&spawn_npc.way_point);
-    let Some(tr) = data.way_points.get(way_point_name) else {
-        warn_once!("some way points are not found, example({})", way_point_name);
+fn find_mesh_path(vfs: &Vfs, name: &str) -> Option<String> {
+    let name = name
+        .to_uppercase()
+        .replace(".3DS", "")
+        .replace(".MMS", "")
+        .replace(".MDS", "");
+
+    let asset_paths: Vec<String> = vec![
+        format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MMB", name),
+        format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MDM", name),
+        format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MDL", name),
+        format!("/_WORK/DATA/MESHES/_COMPILED/{}.MDB", name),
+        format!("/_WORK/DATA/MESHES/_COMPILED/{}.MRM", name),
+        format!("/_WORK/DATA/MESHES/_COMPILED/{}.MSH", name),
+    ];
+
+    let Some(asset_path) = try_load_mesh(&asset_paths, vfs) else {
+        warn_once!("Some meshes are not found, example({})", name);
+        return None;
+    };
+
+    let asset_path = to_asset_path(&asset_path);
+    return Some(asset_path);
+}
+
+fn get_tr_from_point_name(data: &ZenGinWorldData, name: &str) -> Option<Transform> {
+    let tr = if let Some(tr) = data.spots.get(name) {
+        tr
+    } else if let Some(tr) = data.way_points.get(name) {
+        tr
+    } else {
+        warn_once!("some points are not found, example({})", name);
+        return None;
+    };
+    Some(*tr)
+}
+pub fn load_weapon(weapon: &SpawnWeapon, data: &mut ZenGinWorldData, vfs: &Vfs) {
+    let Some(tr) = get_tr_from_point_name(data, &weapon.way_point) else {
         return;
     };
+
+    let Some(asset_path) = find_mesh_path(vfs, &weapon.visual) else {
+        println!("nof found mesh for item({})", weapon.visual);
+        return;
+    };
+    let npc = ZenGinItem {
+        tr,
+        model: asset_path,
+    };
+    data.items.push(npc);
+}
+
+pub fn load_npc(
+    instance: &InstanceState,
+    spawn_npc: &SpawnNpc,
+    data: &mut ZenGinWorldData,
+    vfs: &Vfs,
+) {
+    let way_point_name = instance
+        .get_routine_entry(SIMULATE_HOUR)
+        .map_or(&spawn_npc.way_point, |el| &el.way_point);
+
+    let Some(tr) = get_tr_from_point_name(data, way_point_name) else {
+        return;
+    };
+
+    // println!("load npc ({instance:?})");
 
     warn_once!("Placing human NPC is hacks and hardcoding");
     let tr = tr.to_matrix();
@@ -42,6 +101,13 @@ pub fn load_npc(instance: &InstanceState, spawn_npc: &SpawnNpc, data: &mut ZenGi
         * tr;
 
     let tr_body = tr;
+    let armor_tr = Transform::from_translation(Vec3 {
+        x: 0.5,
+        y: 0.5,
+        z: 0.0,
+    })
+    .to_matrix()
+        * tr;
 
     let head_dt = Vec3 {
         x: 0.00,
@@ -60,19 +126,36 @@ pub fn load_npc(instance: &InstanceState, spawn_npc: &SpawnNpc, data: &mut ZenGi
     let head_transform = head_transform * Transform::from_translation(head_dt).to_matrix();
     let head_transform = head_transform * Mat4::from_quat(head_rot);
 
-    let model = format!(
-        "/_WORK/DATA/ANIMS/_COMPILED/{}.MMB",
-        instance.head_model.to_uppercase()
-    );
-    let head_model = to_asset_path(&model);
-    let body_model = to_asset_path(HUMAN_MODEL);
+    let Some(body_model) = find_mesh_path(vfs, &instance.body_model) else {
+        println!("nof found mesh for body model({})", instance.body_model);
+        return;
+    };
+    let head_model = if let Some(head_model) = &instance.head_model {
+        find_mesh_path(vfs, head_model)
+    } else {
+        None
+    };
+    let armor_model = if let Some(armor_model) = &instance.armor_model {
+        find_mesh_path(vfs, armor_model)
+    } else {
+        None
+    };
+
     let npc = ZenGinNpc {
         head_tr: Transform::from_matrix(head_transform),
         head_model,
-        head_texture: get_full_texture_path(&instance.face_texture),
+        head_texture: instance
+            .face_texture
+            .as_ref()
+            .map(|el| get_full_texture_path(el)),
         body_tr: Transform::from_matrix(tr_body),
         body_model,
-        body_texture: get_full_texture_path(&instance.body_texture),
+        body_texture: instance
+            .body_texture
+            .as_ref()
+            .map(|el| get_full_texture_path(el)),
+        armor_model,
+        armor_tr: Transform::from_matrix(armor_tr),
     };
     data.npcs.push(npc);
 }
@@ -85,13 +168,45 @@ pub fn load_zengin_world_data(
 
     let vfs_override = VfsOverwriteBehavior::ALL;
     let dir = gothic2_dir();
-    vfs.mount_disk_host(&format!("{}/Data/Worlds.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Textures.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Meshes.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Meshes_Addon.vdf", dir), vfs_override);
     vfs.mount_disk_host(&format!("{}/Data/Anims.vdf", dir), vfs_override);
     vfs.mount_disk_host(&format!("{}/Data/Anims_Addon.vdf", dir), vfs_override);
+    vfs.mount_disk_host(&format!("{}/Data/Meshes.vdf", dir), vfs_override);
+    vfs.mount_disk_host(&format!("{}/Data/Meshes_Addon.vdf", dir), vfs_override);
+    vfs.mount_disk_host(&format!("{}/Data/Sounds.vdf", dir), vfs_override);
+    vfs.mount_disk_host(&format!("{}/Data/Sounds_Addon.vdf", dir), vfs_override);
+    vfs.mount_disk_host(&format!("{}/Data/Sounds_bird_01.vdf", dir), vfs_override);
+    vfs.mount_disk_host(&format!("{}/Data/Speech1.vdf", dir), vfs_override);
+    vfs.mount_disk_host(&format!("{}/Data/Speech2.vdf", dir), vfs_override);
+    vfs.mount_disk_host(&format!("{}/Data/Speech_Addon.vdf", dir), vfs_override);
+    vfs.mount_disk_host(
+        &format!("{}/Data/Speech_English_Patch_Atari.vdf", dir),
+        vfs_override,
+    );
+    vfs.mount_disk_host(
+        &format!("{}/Data/Speech_heyou_citygde_engl.vdf", dir),
+        vfs_override,
+    );
+    vfs.mount_disk_host(
+        &format!("{}/Data/Speech_Parlan_engl.vdf", dir),
+        vfs_override,
+    );
     vfs.mount_disk_host(&format!("{}/Data/SystemPack.vdf", dir), vfs_override);
+    vfs.mount_disk_host(&format!("{}/Data/Textures.vdf", dir), vfs_override);
+    vfs.mount_disk_host(&format!("{}/Data/Textures_Addon.vdf", dir), vfs_override);
+    vfs.mount_disk_host(
+        &format!("{}/Data/Textures_Addon_Menu_English.vdf", dir),
+        vfs_override,
+    );
+    vfs.mount_disk_host(
+        &format!("{}/Data/Textures_Fonts_Apostroph.vdf", dir),
+        vfs_override,
+    );
+    vfs.mount_disk_host(
+        &format!("{}/Data/Textures_multilingual_Jowood.vdf", dir),
+        vfs_override,
+    );
+    vfs.mount_disk_host(&format!("{}/Data/Worlds.vdf", dir), vfs_override);
+    vfs.mount_disk_host(&format!("{}/Data/Worlds_Addon.vdf", dir), vfs_override);
 
     if false {
         print_nodes(&vfs.get_root(), 0);
@@ -120,11 +235,16 @@ pub fn load_zengin_world_data(
     let way_net = world.way_net();
     load_way_net_points(&way_net, &mut data);
     for npc_spawn in &vm_state.spawn_npcs {
-        if let Some(instance) = vm_state.instance_data.get(&npc_spawn.npc) {
-            load_npc(instance, npc_spawn, &mut data);
+        if let Some(instance) = vm_state.instance_data.get(&npc_spawn.npc_index) {
+            load_npc(instance, npc_spawn, &mut data, &vfs);
         } else {
+            println!("not handled npc_spawn.npc_index({})", npc_spawn.npc_index);
             warn_unimplemented!("Not all NPC instances are handled");
         }
+    }
+
+    for weapon in &vm_state.spawn_weapons {
+        load_weapon(weapon, &mut data, &vfs);
     }
 
     if !world.npcs().is_empty() {
@@ -134,6 +254,7 @@ pub fn load_zengin_world_data(
     if world.spawn_location_count() > 0 {
         warn_unimplemented!("Handling spawn locations");
     }
+
     data
 }
 
@@ -142,9 +263,17 @@ fn load_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
     for point in points {
         let name = point.name().to_lowercase();
         let pos = get_world_pos(point.position());
-        warn_unimplemented!("handle way point direction");
-        // let rot = point.direction();
-        let tr = Transform::from_translation(pos);
+        let direction = point.direction();
+        let dir_2d = Vec2 {
+            x: direction.x,
+            y: direction.z,
+        };
+        let mut rot = Quaternion::from_rotation_y(dir_2d.to_angle());
+        if MIRROR_X {
+            rot.y = -rot.y;
+            rot.z = -rot.z;
+        }
+        let tr = Transform::from_translation(pos).with_rotation(rot);
         data.way_points.insert(name, tr);
     }
 }

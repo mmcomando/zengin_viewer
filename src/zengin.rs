@@ -103,6 +103,7 @@ fn insert_resources(mut commands: Commands) {
 struct ZenGinModelComponent {
     model_handle: Handle<ZenGinModel>,
     override_texture: Option<String>,
+    convex_colider: bool,
     trimesh_collider: bool,
 }
 
@@ -115,6 +116,10 @@ fn run_convert_zengin_model_to_entities(
 ) -> bool {
     query.iter().next().is_some()
 }
+
+pub const STATIC_OBJECT: u32 = 1 << 1;
+pub const DYNAMIC_OBJECT: u32 = 1 << 2;
+
 #[allow(clippy::type_complexity)]
 fn convert_zengin_model_to_entities(
     mut commands: Commands,
@@ -148,10 +153,20 @@ fn convert_zengin_model_to_entities(
             );
 
             let mesh_handle = meshes.add(sub_mesh.mesh.clone());
-            if model_component.trimesh_collider {
+            if model_component.convex_colider {
+                entity.with_child((
+                    RigidBody::Static,
+                    ColliderConstructor::ConvexHullFromMesh,
+                    CollisionLayers::from_bits(STATIC_OBJECT, DYNAMIC_OBJECT),
+                    sub_mesh.transform,
+                    Mesh3d(mesh_handle),
+                    MeshMaterial3d(material_handle),
+                ));
+            } else if model_component.trimesh_collider {
                 entity.with_child((
                     RigidBody::Static,
                     ColliderConstructor::TrimeshFromMesh,
+                    CollisionLayers::from_bits(STATIC_OBJECT, DYNAMIC_OBJECT),
                     sub_mesh.transform,
                     Mesh3d(mesh_handle),
                     MeshMaterial3d(material_handle),
@@ -168,10 +183,12 @@ fn convert_zengin_model_to_entities(
 }
 
 fn get_zen_gin_world_init_state() -> crate::zengin::script::script_vm::State {
+    let _span = info_span!("InitScripts",).entered();
     let path_str = gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT";
     let dat_data = parse_dat(&path_str).unwrap();
     let script_vm = ScriptVM::new(dat_data);
     let mut vm_state = crate::zengin::script::script_vm::State::new();
+    script_vm.initialize_variables(&mut vm_state);
     script_vm.interpret_script_function(&mut vm_state, "startup_newworld");
     vm_state
 }
@@ -183,6 +200,7 @@ fn spawn_world(
     asset_server: Res<AssetServer>,
     mut handles_map: ResMut<MaterialHandles>,
 ) {
+    let _span = info_span!("spawn_world").entered();
     println!("\n-----SCRIPTS VM-----\n");
     let vm_state = get_zen_gin_world_init_state();
     println!("\n-----LOAD WORLD ZEN DATA-----\n");
@@ -215,27 +233,50 @@ fn spawn_world(
             Visibility::default(),
             ZenGinModelComponent {
                 model_handle: handles_map.get_model_handle(&asset_server, &npc.body_model),
-                override_texture: Some(npc.body_texture.clone()),
+                override_texture: npc.body_texture.clone(),
                 ..default()
             },
             npc.body_tr,
         ));
+        if let Some(head_model) = &npc.head_model {
+            commands.spawn((
+                Visibility::default(),
+                ZenGinModelComponent {
+                    model_handle: handles_map.get_model_handle(&asset_server, head_model),
+                    override_texture: npc.head_texture.clone(),
+                    ..default()
+                },
+                npc.head_tr,
+            ));
+        }
+        if let Some(armor_model) = &npc.armor_model {
+            commands.spawn((
+                Visibility::default(),
+                ZenGinModelComponent {
+                    model_handle: handles_map.get_model_handle(&asset_server, armor_model),
+                    ..default()
+                },
+                npc.armor_tr,
+            ));
+        }
+    }
+    for instance in &world_data.items {
+        let model_handle = handles_map.get_model_handle(&asset_server, &instance.model);
         commands.spawn((
-            Visibility::default(),
             ZenGinModelComponent {
-                model_handle: handles_map.get_model_handle(&asset_server, &npc.head_model),
-                override_texture: Some(npc.head_texture.clone()),
+                model_handle: model_handle.clone(),
                 ..default()
             },
-            npc.head_tr,
+            Visibility::default(),
+            instance.tr,
         ));
     }
-
     for instance in &world_data.static_models {
         let model_handle = handles_map.get_model_handle(&asset_server, &instance.archetype);
         commands.spawn((
             ZenGinModelComponent {
                 model_handle: model_handle.clone(),
+                convex_colider: true,
                 ..default()
             },
             Visibility::default(),
@@ -256,14 +297,15 @@ fn spawn_world(
         ));
     }
 
-    for x in -1..1 {
-        for z in -1..1 {
+    for x in -4..4 {
+        for z in -4..4 {
             commands.spawn((
                 RigidBody::Dynamic,
                 Collider::cuboid(1.0, 1.0, 1.0),
                 AngularVelocity(Vec3::new(2.5, 3.5, 1.5)),
                 Mesh3d(meshes.add(Cuboid::from_length(1.0))),
                 MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+                CollisionLayers::from_bits(DYNAMIC_OBJECT, STATIC_OBJECT | DYNAMIC_OBJECT),
                 #[allow(clippy::cast_precision_loss)]
                 Transform::from_xyz(-30.0 + x as f32 * 5.0, 30.0, z as f32 * 5.0),
             ));
