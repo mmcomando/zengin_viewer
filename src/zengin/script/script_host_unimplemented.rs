@@ -46,21 +46,21 @@ impl ScriptVM {
     }
 
     pub fn handle_createinvitems(state: &mut State) -> Result {
-        warn_unimplemented!("handle_createinvitems not implemented");
+        warn_unimplemented!("createinvitems not implemented");
         let _instance_a = state.pop_stack_var()?;
         let _instance_b = state.pop_stack_var()?;
         let _par_c = state.pop_stack_var()?;
         return Ok(());
     }
     pub fn handle_mdl_setvisual(state: &mut State) -> Result {
-        warn_unimplemented!("handle_mdl_setvisual not implemented");
+        warn_unimplemented!("mdl_setvisual not implemented");
         let _par_a = state.pop_stack_var()?;
         let _par_b = state.pop_stack_var()?;
         return Ok(());
     }
 
     pub fn handle_mdl_setmodelscale(state: &mut State) -> Result {
-        warn_unimplemented!("handle_mdl_setmodelscale not implemented");
+        warn_unimplemented!("mdl_setmodelscale not implemented");
         let _par_0 = state.pop_stack_var()?;
         let _par_1 = state.pop_stack_var()?;
         let _par_2 = state.pop_stack_var()?;
@@ -68,74 +68,74 @@ impl ScriptVM {
         return Ok(());
     }
     pub fn handle_mdl_setmodelfatness(state: &mut State) -> Result {
-        warn_unimplemented!("handle_mdl_setmodelfatness not implemented");
+        warn_unimplemented!("mdl_setmodelfatness not implemented");
         let _par_0 = state.pop_stack_var()?;
         let _par_1 = state.pop_stack_var()?;
         return Ok(());
     }
     pub fn handle_mdl_applyoverlaymds(state: &mut State) -> Result {
-        warn_unimplemented!("handle_mdl_applyoverlaymds not implemented");
+        warn_unimplemented!("mdl_applyoverlaymds not implemented");
         let _par_0 = state.pop_stack_var()?;
         let _par_1 = state.pop_stack_var()?;
         return Ok(());
     }
     pub fn handle_mdl_applyoverlaymdstimed(state: &mut State) -> Result {
-        warn_unimplemented!("handle_mdl_applyoverlaymdstimed not implemented");
+        warn_unimplemented!("mdl_applyoverlaymdstimed not implemented");
         let _par_0 = state.pop_stack_var()?;
         let _par_1 = state.pop_stack_var()?;
         let _par_2 = state.pop_stack_var()?;
         return Ok(());
     }
     pub fn handle_npc_settalentskill(state: &mut State) -> Result {
-        warn_unimplemented!("handle_npc_settalentskill not implemented");
+        warn_unimplemented!("npc_settalentskill not implemented");
         let _par_0 = state.pop_stack_var()?;
         let _par_1 = state.pop_stack_var()?;
         let _par_2 = state.pop_stack_var()?;
         return Ok(());
     }
     pub fn handle_equipitem(state: &mut State) -> Result {
-        warn_unimplemented!("handle_equipitem not implemented");
+        warn_unimplemented!("equipitem not implemented");
         let _par_0 = state.pop_stack_var()?;
         let _par_1 = state.pop_stack_var()?;
         return Ok(());
     }
     pub fn handle_hlp_random(state: &mut State) -> Result {
-        warn_unimplemented!("handle_hlp_random not implemented");
+        warn_unimplemented!("hlp_random not implemented");
         let _par_0 = state.pop_stack_var()?;
         return Ok(());
     }
 
     pub fn handle_npc_settofistmode(state: &mut State) -> Result {
-        warn_unimplemented!("handle_npc_settofistmode not implemented");
+        warn_unimplemented!("npc_settofistmode not implemented");
         let _par_0 = state.pop_stack_var()?;
         return Ok(());
     }
     pub fn handle_npc_settofightmode(state: &mut State) -> Result {
-        warn_unimplemented!("handle_npc_settofightmode not implemented");
+        warn_unimplemented!("npc_settofightmode not implemented");
         let _par_0 = state.pop_stack_var()?;
         let _par_1 = state.pop_stack_var()?;
         return Ok(());
     }
 
     pub fn handle_inttostring(state: &mut State) -> Result {
-        warn_unimplemented!("handle_inttostring not implemented");
+        warn_unimplemented!("inttostring not implemented");
         let _par_0 = state.pop_stack_var()?;
         return Ok(());
     }
     pub fn handle_npc_setattitude(state: &mut State) -> Result {
-        warn_unimplemented!("handle_npc_setattitude not implemented");
+        warn_unimplemented!("npc_setattitude not implemented");
         let _par_0 = state.pop_stack_var()?;
         let _par_1 = state.pop_stack_var()?;
         return Ok(());
     }
     pub fn handle_npc_settempattitude(state: &mut State) -> Result {
-        warn_unimplemented!("handle_npc_settempattitude not implemented");
+        warn_unimplemented!("npc_settempattitude not implemented");
         let _par_0 = state.pop_stack_var()?;
         let _par_1 = state.pop_stack_var()?;
         return Ok(());
     }
     pub fn handle_concatstrings(state: &mut State) -> Result {
-        warn_unimplemented!("handle_concatstrings not implemented");
+        warn_unimplemented!("concatstrings not implemented");
         let _par_0 = state.pop_stack_var()?;
         let _par_1 = state.pop_stack_var()?;
         return Ok(());

@@ -26,6 +26,11 @@ impl Plugin for ZenGinWorldPlugin {
         app.init_asset_loader::<ZenGinModelLoader>();
         app.add_systems(Startup, insert_resources);
         app.add_systems(Startup, spawn_world.after(insert_resources));
+
+        app.add_systems(Update, toggle_visibility_world_mesh);
+        app.add_systems(Update, toggle_visibility_static_meshes);
+        app.add_systems(Update, toggle_visibility_npcs);
+
         app.add_systems(
             Update,
             convert_zengin_model_to_entities.run_if(run_convert_zengin_model_to_entities),
@@ -96,6 +101,7 @@ impl MaterialHandles {
 
 fn insert_resources(mut commands: Commands) {
     commands.insert_resource(MaterialHandles::default());
+    commands.insert_resource(ToggleHide::default());
 }
 
 /// Adding this component will spawn child entities with 3d meshes contained in `model_handle`
@@ -128,7 +134,7 @@ fn convert_zengin_model_to_entities(
     mut meshes: ResMut<Assets<Mesh>>,
     mut material_handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
-    query: Query<(Entity, &ZenGinModelComponent), (Without<ZenGinModelComponentLoaded>,)>,
+    query: Query<(Entity, &ZenGinModelComponent), Without<ZenGinModelComponentLoaded>>,
 ) {
     for (entity_id, model_component) in query.iter() {
         let handle = &model_component.model_handle;
@@ -182,6 +188,81 @@ fn convert_zengin_model_to_entities(
     }
 }
 
+#[derive(Component, Default)]
+struct NpcVisibility {}
+
+#[derive(Component, Default)]
+struct WorldMesh {}
+
+#[derive(Component, Default)]
+struct StaticMesh {}
+
+#[derive(Resource, Default)]
+struct ToggleHide {
+    show_world_mesh: bool,
+    show_static_meshes: bool,
+    show_npcs: bool,
+}
+
+fn toggle_visibility_world_mesh(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut toggle_info: ResMut<ToggleHide>,
+    mut query: Query<(&mut Visibility, &WorldMesh)>,
+) {
+    if !keys.just_pressed(KeyCode::KeyT) {
+        return;
+    }
+    info!("Toggle world mesh visibility");
+    toggle_info.show_world_mesh = !toggle_info.show_world_mesh;
+    let vis = if toggle_info.show_world_mesh {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
+    for (mut visibility, _mesh) in &mut query {
+        *visibility = vis;
+    }
+}
+
+fn toggle_visibility_static_meshes(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut toggle_info: ResMut<ToggleHide>,
+    mut query: Query<(&mut Visibility, &StaticMesh)>,
+) {
+    if !keys.just_pressed(KeyCode::KeyV) {
+        return;
+    }
+    info!("Toggle static meshes visibility");
+    toggle_info.show_static_meshes = !toggle_info.show_static_meshes;
+    let vis = if toggle_info.show_static_meshes {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
+    for (mut visibility, _mesh) in &mut query {
+        *visibility = vis;
+    }
+}
+fn toggle_visibility_npcs(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut toggle_info: ResMut<ToggleHide>,
+    mut query: Query<(&mut Visibility, &NpcVisibility)>,
+) {
+    if !keys.just_pressed(KeyCode::KeyB) {
+        return;
+    }
+    info!("Toggle npcs visibility");
+    toggle_info.show_npcs = !toggle_info.show_npcs;
+    let vis = if toggle_info.show_npcs {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
+    for (mut visibility, _mesh) in &mut query {
+        *visibility = vis;
+    }
+}
+
 fn get_zen_gin_world_init_state() -> crate::zengin::script::script_vm::State {
     let _span = info_span!("InitScripts",).entered();
     let path_str = gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT";
@@ -226,6 +307,7 @@ fn spawn_world(
             ..default()
         },
         Transform::IDENTITY,
+        WorldMesh::default(),
     ));
 
     for npc in world_data.npcs {
@@ -237,6 +319,7 @@ fn spawn_world(
                 ..default()
             },
             npc.body_tr,
+            NpcVisibility::default(),
         ));
         if let Some(head_model) = &npc.head_model {
             commands.spawn((
@@ -247,6 +330,7 @@ fn spawn_world(
                     ..default()
                 },
                 npc.head_tr,
+                NpcVisibility::default(),
             ));
         }
         if let Some(armor_model) = &npc.armor_model {
@@ -257,6 +341,7 @@ fn spawn_world(
                     ..default()
                 },
                 npc.armor_tr,
+                NpcVisibility::default(),
             ));
         }
     }
@@ -281,6 +366,7 @@ fn spawn_world(
             },
             Visibility::default(),
             instance.tr,
+            StaticMesh::default(),
         ));
     }
 
@@ -289,7 +375,7 @@ fn spawn_world(
         commands.spawn((
             PointLight {
                 color: Color::from(tailwind::ORANGE_300),
-                intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 5.0,
+                intensity: light_consts::lumens::LUMENS_PER_HALOGEN_WATTS * 5000.0,
                 range: 5.0,
                 ..default()
             },

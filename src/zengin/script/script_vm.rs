@@ -113,25 +113,27 @@ pub struct SpawnNpc {
 }
 
 #[derive(Debug, Default)]
-pub struct SpawnWeapon {
+pub struct SpawnItem {
     pub visual: String,
     pub way_point: String,
 }
 
 #[derive(Debug, Default)]
 pub struct ClassData {
+    pub name: String,
     pub data: HashMap<u32, StoredValue>,
 }
 #[derive(Debug, Default)]
 pub struct State {
     pub stack: VecDeque<StackVVV>,
     pub spawn_npcs: Vec<SpawnNpc>,
-    pub spawn_weapons: Vec<SpawnWeapon>,
+    pub spawn_weapons: Vec<SpawnItem>,
     pub instance_data: HashMap<u32, InstanceState>,
     pub class_instance_data: HashMap<u32, ClassData>,
     pub global_data: HashMap<u32, StoredValue>,
     pub current_instance: Option<u32>,
 }
+
 impl State {
     pub fn new() -> Self {
         State::default()
@@ -471,10 +473,11 @@ impl ScriptVM {
         assert_eq!(state.current_instance, None);
         let previous_instance = state.current_instance;
         state.current_instance = Some(instance.symbol_table_index as u32);
-        let _class = state
+        let class = state
             .class_instance_data
             .entry(instance.symbol_table_index as u32)
             .or_default();
+        class.name = instance.symbol.name.clone();
 
         self.interpret_instructions(state, &instance.instructions);
 

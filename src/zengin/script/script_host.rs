@@ -4,7 +4,7 @@ use crate::{
     warn_unimplemented,
     zengin::script::{
         parse::Symbol,
-        script_vm::{RoutineEntry, ScriptVM, SpawnNpc, SpawnWeapon, State},
+        script_vm::{RoutineEntry, ScriptVM, SpawnItem, SpawnNpc, State},
     },
 };
 
@@ -122,7 +122,7 @@ impl ScriptVM {
         //     way_point_name.data, wepon_string.data
         // );
 
-        state.spawn_weapons.push(SpawnWeapon {
+        state.spawn_weapons.push(SpawnItem {
             visual: wepon_string.data.clone(),
             way_point: way_point_name.data.clone(),
         });
