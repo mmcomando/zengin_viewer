@@ -11,7 +11,9 @@ pub struct DatFile {
     pub symbols: Vec<Symbol>,
     pub functions: Vec<Function>,
     pub instances: Vec<Instance>,
+    pub prototypes: Vec<Prototype>,
     pub strings: HashMap<u32, String>,
+    pub class_offsets: HashMap<u32, u32>,
 }
 
 impl DatFile {
@@ -27,6 +29,12 @@ impl DatFile {
         self.functions
             .iter()
             .find(|func| func.symbol_table_index == index as usize)
+    }
+
+    pub fn get_prototype_by_index(&self, index: u32) -> Option<&Prototype> {
+        self.prototypes
+            .iter()
+            .find(|el| el.symbol_table_index == index as usize)
     }
 
     // pub fn get_instance(&self, name: &str) -> Option<&Instance> {
@@ -135,6 +143,7 @@ pub struct SymbolInstance {
 #[derive(Debug, Clone)]
 pub struct SymbolPrototype {
     pub name: String,
+    pub offset: u32,
     pub class_index_id: u32,
 }
 #[allow(dead_code)]
@@ -184,9 +193,18 @@ impl Symbol {
 
 #[allow(dead_code)]
 #[derive(Debug)]
+pub struct Prototype {
+    pub symbol: SymbolPrototype,
+    pub symbol_table_index: usize,
+    pub instructions: Vec<Instruction>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
 pub struct Instance {
     pub symbol: SymbolInstance,
     pub symbol_table_index: usize,
+    pub class_index_id: Option<u32>,
     pub instructions: Vec<Instruction>,
 }
 
@@ -329,9 +347,10 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
         SymbolKind::Prototype => {
             let _content = file.read_u32::<LittleEndian>()?; // Not sure what it is for
             let parent = file.read_u32::<LittleEndian>()?;
-            assert!(parent != u32::MAX, "Prototype should not have a parent");
+            assert!(parent != u32::MAX, "Prototype should have a parent");
             return Ok(Symbol::SymbolPrototype(SymbolPrototype {
                 name,
+                offset,
                 class_index_id: parent,
             }));
         }
@@ -429,7 +448,9 @@ pub fn parse_dat(path: &str) -> io::Result<DatFile> {
 
     let mut functions = Vec::new();
     let mut instances = Vec::new();
+    let mut prototypes = Vec::new();
     let mut strings = HashMap::new();
+    let mut class_offsets = HashMap::new();
     for (index, symbol) in symbols.iter().enumerate() {
         if let Symbol::SymbolFunc(func) = symbol {
             if func.external {
@@ -449,13 +470,28 @@ pub fn parse_dat(path: &str) -> io::Result<DatFile> {
             let instance = Instance {
                 symbol: instance.clone(),
                 symbol_table_index: index,
+                class_index_id: instance.class_index_id,
                 instructions,
             };
             strings.insert(index as u32, instance.symbol.name.clone());
             instances.push(instance);
         }
+        if let Symbol::SymbolPrototype(prototype) = symbol {
+            let instructions = decode_bytecode(&remaining, prototype.offset as usize);
+            let prototype = Prototype {
+                symbol: prototype.clone(),
+                symbol_table_index: index,
+                instructions,
+            };
+            strings.insert(index as u32, prototype.symbol.name.clone());
+            prototypes.push(prototype);
+        }
+
         if let Symbol::SymbolString(string) = symbol {
             strings.insert(index as u32, string.data.clone());
+        }
+        if let Symbol::SymbolClassVariable(var) = symbol {
+            class_offsets.insert(index as u32, var.in_class_offset);
         }
     }
 
@@ -465,7 +501,9 @@ pub fn parse_dat(path: &str) -> io::Result<DatFile> {
         symbols,
         functions,
         instances,
+        prototypes,
         strings,
+        class_offsets,
     })
 }
 

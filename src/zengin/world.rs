@@ -238,7 +238,7 @@ pub fn load_zengin_world_data(
         if let Some(instance) = vm_state.instance_data.get(&npc_spawn.npc_index) {
             load_npc(instance, npc_spawn, &mut data, &vfs);
         } else {
-            println!("not handled npc_spawn.npc_index({})", npc_spawn.npc_index);
+            // println!("not handled npc_spawn.npc_index({})", npc_spawn.npc_index);
             warn_unimplemented!("Not all NPC instances are handled");
         }
     }

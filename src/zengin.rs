@@ -5,6 +5,8 @@ pub mod script;
 pub mod visual;
 pub mod world;
 
+use std::sync::Arc;
+
 use crate::zengin::common::{ZenGinModel, gothic2_dir};
 use crate::zengin::loaders::model::ZenGinModelLoader;
 use crate::zengin::loaders::texture::ZenGinTextureLoader;
@@ -267,8 +269,10 @@ fn get_zen_gin_world_init_state() -> crate::zengin::script::script_vm::State {
     let _span = info_span!("InitScripts",).entered();
     let path_str = gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT";
     let dat_data = parse_dat(&path_str).unwrap();
-    let script_vm = ScriptVM::new(dat_data);
-    let mut vm_state = crate::zengin::script::script_vm::State::new();
+    let dat_data = Arc::from(dat_data);
+    let mut vm_state = crate::zengin::script::script_vm::State::new(dat_data.clone());
+    let script_vm = ScriptVM::new(dat_data.clone());
+
     script_vm.initialize_variables(&mut vm_state);
     script_vm.interpret_script_function(&mut vm_state, "startup_newworld");
     vm_state
