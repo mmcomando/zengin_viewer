@@ -4,7 +4,7 @@ use std::sync::Arc;
 use bevy::ecs::error::{BevyError, Result};
 
 use crate::zengin::script::memory::{MemRef, MemValue, ScriptMem};
-use crate::zengin::script::parse::{Prototype, Symbol, SymbolClass};
+use crate::zengin::script::parse::{Prototype, Symbol};
 use crate::{
     warn_unimplemented,
     zengin::script::parse::{DatFile, Function, Instance, Instruction},
@@ -63,8 +63,13 @@ pub struct SpawnNpc {
 
 #[derive(Debug, Default)]
 pub struct SpawnItem {
-    pub visual: String,
+    pub instance_name: String,
     pub way_point: String,
+}
+
+#[derive(Debug, Default)]
+pub struct ItemInstance {
+    pub model: String,
 }
 
 #[derive(Debug)]
@@ -73,6 +78,7 @@ pub struct State {
     pub spawn_npcs: Vec<SpawnNpc>,
     pub spawn_weapons: Vec<SpawnItem>,
     pub instance_data: HashMap<u32, InstanceState>,
+    pub item_instances: HashMap<String, ItemInstance>,
     pub current_instance: Option<u32>,
     pub mem: ScriptMem,
 }
@@ -85,6 +91,7 @@ impl State {
             spawn_npcs: Vec::new(),
             spawn_weapons: Vec::new(),
             instance_data: HashMap::new(),
+            item_instances: HashMap::new(),
             current_instance: None,
             mem,
         }
@@ -195,6 +202,69 @@ impl ScriptVM {
                 self.interpret_instance(state, instance);
             }
         }
+        self.instantiate_item_instances(state);
+    }
+
+    pub fn instantiate_item_instances(&self, state: &mut State) {
+        for instance in &self.script_data.instances {
+            let index = instance.symbol_table_index;
+            if instance.symbol.instructions_offset == 0 {
+                continue;
+            }
+            if !state.mem.id_exists(index) {
+                continue;
+            }
+            if self.get_type_by_index(index) != Some(ClassType::Item) {
+                continue;
+            }
+            let visual_offset = 524;
+            let wepon_visual_index = state.mem.get_int(MemRef::class(index, visual_offset));
+            if wepon_visual_index == 0 {
+                // println!("Weapon visual_offset is not set for item({index})");
+                continue;
+            }
+            let Ok(model) = self.get_string(wepon_visual_index) else {
+                println!("Weapon({visual_offset}) visual_offset not found on instance({index})");
+                continue;
+            };
+            let model = model.to_uppercase().replace(".3DS", "");
+
+            let item = ItemInstance { model };
+            // println!(
+            //     "init item instance name({}) item({:?})",
+            //     instance.symbol.name, item
+            // );
+            state
+                .item_instances
+                .insert(instance.symbol.name.clone(), item);
+        }
+    }
+
+    pub fn instantiate_npc_routines(&self, state: &mut State) {
+        for instance in &self.script_data.instances {
+            self.instantiate_npc_routine(state, instance);
+        }
+    }
+    pub fn instantiate_npc_routine(&self, state: &mut State, instance: &Instance) {
+        let previous_instance = state.current_instance;
+        state.current_instance = Some(instance.symbol_table_index);
+
+        if self.get_type_by_index(instance.symbol_table_index) != Some(ClassType::Npc) {
+            return;
+        }
+        if !state.mem.id_exists(instance.symbol_table_index) {
+            return;
+        }
+        // Hardcoded routine handling
+        let daily_routine_func_offset = 608;
+        let index = state.mem.get_int(MemRef::class(
+            instance.symbol_table_index as u32,
+            daily_routine_func_offset,
+        ));
+        if let Some(func) = self.script_data.get_function_by_index(index) {
+            self.interpret_function(state, func);
+        }
+        state.current_instance = previous_instance;
     }
 
     pub fn interpret_script_function(&self, state: &mut State, func_name: &str) {
@@ -301,7 +371,6 @@ impl ScriptVM {
         let previous_instance = state.current_instance;
         state.current_instance = Some(instance.symbol_table_index);
 
-        let is_npc = self.get_type_by_index(instance.symbol_table_index) == Some(ClassType::Npc);
         if let Some(parent) = instance.parent {
             self.initialize_class_memory(state, parent);
             if let Some(prototype) = self.script_data.get_prototype_by_index(parent) {
@@ -309,18 +378,6 @@ impl ScriptVM {
             }
         }
         self.interpret_instructions(state, &instance.instructions);
-
-        if is_npc {
-            // Hardcoded routine handling
-            let daily_routine_func_offset = 608;
-            let index = state.mem.get_int(MemRef::class(
-                instance.symbol_table_index as u32,
-                daily_routine_func_offset,
-            ));
-            if let Some(func) = self.script_data.get_function_by_index(index) {
-                self.interpret_function(state, func);
-            }
-        }
 
         state.current_instance = previous_instance;
         // println!("Interpret Instance({}) END", instance.symbol.name);

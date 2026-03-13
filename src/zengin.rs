@@ -275,6 +275,7 @@ fn get_zen_gin_world_init_state() -> crate::zengin::script::script_vm::State {
 
     script_vm.initialize_variables(&mut vm_state);
     script_vm.interpret_script_function(&mut vm_state, "startup_newworld");
+    script_vm.instantiate_npc_routines(&mut vm_state);
     vm_state
 }
 
