@@ -23,18 +23,18 @@ impl DatFile {
     pub fn get_function_by_offset(&self, offset: u32) -> Option<&Function> {
         self.functions
             .iter()
-            .find(|func| func.symbol.offset == offset)
+            .find(|func| func.symbol.instructions_offset == offset)
     }
     pub fn get_function_by_index(&self, index: u32) -> Option<&Function> {
         self.functions
             .iter()
-            .find(|func| func.symbol_table_index == index as usize)
+            .find(|func| func.symbol_table_index == index)
     }
 
     pub fn get_prototype_by_index(&self, index: u32) -> Option<&Prototype> {
         self.prototypes
             .iter()
-            .find(|el| el.symbol_table_index == index as usize)
+            .find(|el| el.symbol_table_index == index)
     }
 
     // pub fn get_instance(&self, name: &str) -> Option<&Instance> {
@@ -105,13 +105,6 @@ pub struct SymbolArrString {
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct SymbolFunc {
-    pub name: String,
-    pub offset: u32,
-    pub external: bool,
-}
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
 pub struct SymbolArrFunc {
     pub name: String,
     pub arr: Vec<u32>,
@@ -133,19 +126,26 @@ pub struct SymbolClassVariable {
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
+pub struct SymbolFunc {
+    pub name: String,
+    pub instructions_offset: u32,
+    pub external: bool,
+}
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct SymbolInstance {
     pub name: String,
-    pub offset: u32,
-    pub class_index_id: Option<u32>,
+    pub instructions_offset: u32,
+    pub parent: Option<u32>,
 }
-
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SymbolPrototype {
     pub name: String,
-    pub offset: u32,
-    pub class_index_id: u32,
+    pub instructions_offset: u32,
+    pub parent: u32,
 }
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SymbolVariableArgument {
@@ -161,10 +161,10 @@ pub enum Symbol {
     SymbolArrFloat(SymbolArrFloat),
     SymbolString(SymbolString),
     SymbolArrString(SymbolArrString),
-    SymbolFunc(SymbolFunc),
     SymbolArrFunc(SymbolArrFunc),
     SymbolClass(SymbolClass),
     SymbolClassVariable(SymbolClassVariable),
+    SymbolFunc(SymbolFunc),
     SymbolInstance(SymbolInstance),
     SymbolPrototype(SymbolPrototype),
     SymbolVariableArgument(SymbolVariableArgument),
@@ -180,13 +180,32 @@ impl Symbol {
             Self::SymbolArrFloat(el) => &el.name,
             Self::SymbolString(el) => &el.name,
             Self::SymbolArrString(el) => &el.name,
-            Self::SymbolFunc(el) => &el.name,
             Self::SymbolArrFunc(el) => &el.name,
             Self::SymbolClass(el) => &el.name,
             Self::SymbolClassVariable(el) => &el.name,
+            Self::SymbolFunc(el) => &el.name,
             Self::SymbolInstance(el) => &el.name,
             Self::SymbolPrototype(el) => &el.name,
             Self::SymbolVariableArgument(el) => &el.name,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn parent(&self) -> Option<u32> {
+        match self {
+            Self::SymbolInstance(el) => el.parent,
+            Self::SymbolPrototype(el) => Some(el.parent),
+            Self::SymbolInt(_)
+            | Self::SymbolArrInt(_)
+            | Self::SymbolFloat(_)
+            | Self::SymbolArrFloat(_)
+            | Self::SymbolString(_)
+            | Self::SymbolArrString(_)
+            | Self::SymbolFunc(_)
+            | Self::SymbolArrFunc(_)
+            | Self::SymbolClass(_)
+            | Self::SymbolClassVariable(_)
+            | Self::SymbolVariableArgument(_) => None,
         }
     }
 }
@@ -195,7 +214,7 @@ impl Symbol {
 #[derive(Debug)]
 pub struct Prototype {
     pub symbol: SymbolPrototype,
-    pub symbol_table_index: usize,
+    pub symbol_table_index: u32,
     pub instructions: Vec<Instruction>,
 }
 
@@ -203,8 +222,8 @@ pub struct Prototype {
 #[derive(Debug)]
 pub struct Instance {
     pub symbol: SymbolInstance,
-    pub symbol_table_index: usize,
-    pub class_index_id: Option<u32>,
+    pub symbol_table_index: u32,
+    pub parent: Option<u32>,
     pub instructions: Vec<Instruction>,
 }
 
@@ -212,7 +231,7 @@ pub struct Instance {
 #[derive(Debug)]
 pub struct Function {
     pub symbol: SymbolFunc,
-    pub symbol_table_index: usize,
+    pub symbol_table_index: u32,
     pub instructions: Vec<Instruction>,
 }
 
@@ -334,26 +353,6 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
                 size: offset,
             }));
         }
-        SymbolKind::Func => {
-            let offset = file.read_u32::<LittleEndian>()?;
-            let parent = file.read_u32::<LittleEndian>()?;
-            assert!(parent == u32::MAX, "Function should not have a parent");
-            return Ok(Symbol::SymbolFunc(SymbolFunc {
-                name,
-                offset,
-                external: flags.is_external(),
-            }));
-        }
-        SymbolKind::Prototype => {
-            let _content = file.read_u32::<LittleEndian>()?; // Not sure what it is for
-            let parent = file.read_u32::<LittleEndian>()?;
-            assert!(parent != u32::MAX, "Prototype should have a parent");
-            return Ok(Symbol::SymbolPrototype(SymbolPrototype {
-                name,
-                offset,
-                class_index_id: parent,
-            }));
-        }
         SymbolKind::Float => {
             let arr: Vec<f32> = (0..elements_count)
                 .map(|_index| file.read_f32::<LittleEndian>().unwrap())
@@ -393,8 +392,18 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
                 data: arr[0].clone(),
             }));
         }
+        SymbolKind::Func => {
+            let instructions_offset = file.read_u32::<LittleEndian>()?;
+            let parent = file.read_u32::<LittleEndian>()?;
+            assert!(parent == u32::MAX, "Function should not have a parent");
+            return Ok(Symbol::SymbolFunc(SymbolFunc {
+                name,
+                instructions_offset,
+                external: flags.is_external(),
+            }));
+        }
         SymbolKind::Instance => {
-            let offset = file.read_u32::<LittleEndian>()?;
+            let instructions_offset = file.read_u32::<LittleEndian>()?;
             let elements_count = elements_count.max(1);
             let _arr: Vec<u32> = (0..elements_count - 1)
                 .map(|_index| file.read_u32::<LittleEndian>().unwrap())
@@ -402,8 +411,18 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
             let parent = file.read_u32::<LittleEndian>()?;
             return Ok(Symbol::SymbolInstance(SymbolInstance {
                 name,
-                offset,
-                class_index_id: make_parent_option(parent),
+                instructions_offset,
+                parent: make_parent_option(parent),
+            }));
+        }
+        SymbolKind::Prototype => {
+            let instructions_offset = file.read_u32::<LittleEndian>()?; // Not sure what it is for
+            let parent = file.read_u32::<LittleEndian>()?;
+            assert!(parent != u32::MAX, "Prototype should have a parent");
+            return Ok(Symbol::SymbolPrototype(SymbolPrototype {
+                name,
+                instructions_offset,
+                parent,
             }));
         }
         SymbolKind::VariableArgument => {
@@ -456,31 +475,31 @@ pub fn parse_dat(path: &str) -> io::Result<DatFile> {
             if func.external {
                 continue;
             }
-            let instructions = decode_bytecode(&remaining, func.offset as usize);
+            let instructions = decode_bytecode(&remaining, func.instructions_offset as usize);
             let function = Function {
                 symbol: func.clone(),
-                symbol_table_index: index,
+                symbol_table_index: index as u32,
                 instructions,
             };
             functions.push(function);
             strings.insert(index as u32, func.name.clone());
         }
         if let Symbol::SymbolInstance(instance) = symbol {
-            let instructions = decode_bytecode(&remaining, instance.offset as usize);
+            let instructions = decode_bytecode(&remaining, instance.instructions_offset as usize);
             let instance = Instance {
                 symbol: instance.clone(),
-                symbol_table_index: index,
-                class_index_id: instance.class_index_id,
+                symbol_table_index: index as u32,
+                parent: instance.parent,
                 instructions,
             };
             strings.insert(index as u32, instance.symbol.name.clone());
             instances.push(instance);
         }
         if let Symbol::SymbolPrototype(prototype) = symbol {
-            let instructions = decode_bytecode(&remaining, prototype.offset as usize);
+            let instructions = decode_bytecode(&remaining, prototype.instructions_offset as usize);
             let prototype = Prototype {
                 symbol: prototype.clone(),
-                symbol_table_index: index,
+                symbol_table_index: index as u32,
                 instructions,
             };
             strings.insert(index as u32, prototype.symbol.name.clone());

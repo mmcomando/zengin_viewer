@@ -4,14 +4,11 @@ use std::sync::Arc;
 use bevy::ecs::error::{BevyError, Result};
 
 use crate::zengin::script::memory::{MemRef, MemValue, ScriptMem};
-use crate::zengin::script::parse::{Prototype, Symbol};
+use crate::zengin::script::parse::{Prototype, Symbol, SymbolClass};
 use crate::{
     warn_unimplemented,
     zengin::script::parse::{DatFile, Function, Instance, Instruction},
 };
-
-// const ITEM_CLASS_INDEX: u32 = 1521;
-const NPC_CLASS_INDEX: u32 = 1474;
 
 #[derive(Debug, Clone)]
 pub enum StackVVV {
@@ -172,6 +169,12 @@ impl State {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub enum ClassType {
+    Npc,
+    Item,
+}
+
 pub struct ScriptVM {
     pub script_data: Arc<DatFile>,
 }
@@ -201,6 +204,7 @@ impl ScriptVM {
 
     pub fn interpret_instructions(&self, state: &mut State, instructions: &[Instruction]) {
         for instruction in instructions {
+            // println!("III: {:?}", instruction);
             if let Instruction::Call(func_offset) = instruction {
                 let Some(call_func) = self.script_data.get_function_by_offset(*func_offset) else {
                     // println!("Skipped call to func_offset({})", *func_offset);
@@ -246,23 +250,11 @@ impl ScriptVM {
         }
     }
     pub fn initialize_class_memory(&self, state: &mut State, class_index: u32) {
-        let Some(current_instance) = state.current_instance else {
-            println!(
-                "Curent instance not set, can't init memory, current_instance({:?})",
-                state.current_instance
-            );
-            return;
-        };
-        // Initialize memory
+        let current_instance = state.current_instance.unwrap();
+        // Initialize memory to 0
         if let Some(Symbol::SymbolClass(class)) = self.script_data.symbols.get(class_index as usize)
         {
-            assert!(class.size % 4 == 0);
-            let var_num = class.size;
-            // println!(
-            //     "Init memory var_num({var_num}), current_instance({:?}), var_num({var_num})",
-            //     current_instance
-            // );
-            for index in 0..=var_num {
+            for index in 0..=class.size {
                 state
                     .mem
                     .set_int(MemRef::class(current_instance, index * 4), 0);
@@ -270,20 +262,36 @@ impl ScriptVM {
         }
     }
 
-    pub fn interpret_prototype(&self, state: &mut State, prototype: &Prototype) -> bool {
+    pub fn interpret_prototype(&self, state: &mut State, prototype: &Prototype) {
         // println!("-> Interpret Prototype({:?})", prototype.symbol.name);
-        self.initialize_class_memory(state, prototype.symbol.class_index_id);
-        let mut is_npc = prototype.symbol.class_index_id == NPC_CLASS_INDEX;
+        self.initialize_class_memory(state, prototype.symbol.parent);
         if let Some(parent_prototype) = self
             .script_data
-            .get_prototype_by_index(prototype.symbol.class_index_id)
+            .get_prototype_by_index(prototype.symbol.parent)
         {
-            is_npc |= self.interpret_prototype(state, parent_prototype);
+            self.interpret_prototype(state, parent_prototype);
         }
 
         self.interpret_instructions(state, &prototype.instructions);
         // println!("<- Interpret Prototype({:?}) END", prototype.symbol.name);
-        return is_npc;
+    }
+
+    pub fn get_type_by_index(&self, index: u32) -> Option<ClassType> {
+        const ITEM_CLASS_INDEX: u32 = 1521;
+        const NPC_CLASS_INDEX: u32 = 1474;
+        if index == NPC_CLASS_INDEX {
+            return Some(ClassType::Npc);
+        }
+        if index == ITEM_CLASS_INDEX {
+            return Some(ClassType::Item);
+        }
+        let Some(symbol) = self.script_data.symbols.get(index as usize) else {
+            return None;
+        };
+        if let Some(parent) = symbol.parent() {
+            return self.get_type_by_index(parent);
+        }
+        None
     }
 
     pub fn interpret_instance(&self, state: &mut State, instance: &Instance) {
@@ -291,14 +299,13 @@ impl ScriptVM {
 
         assert_eq!(state.current_instance, None);
         let previous_instance = state.current_instance;
-        state.current_instance = Some(instance.symbol_table_index as u32);
+        state.current_instance = Some(instance.symbol_table_index);
 
-        let mut is_npc = false;
-        if let Some(parent) = instance.class_index_id {
-            is_npc |= parent == NPC_CLASS_INDEX;
+        let is_npc = self.get_type_by_index(instance.symbol_table_index) == Some(ClassType::Npc);
+        if let Some(parent) = instance.parent {
             self.initialize_class_memory(state, parent);
             if let Some(prototype) = self.script_data.get_prototype_by_index(parent) {
-                is_npc |= self.interpret_prototype(state, prototype);
+                self.interpret_prototype(state, prototype);
             }
         }
         self.interpret_instructions(state, &instance.instructions);

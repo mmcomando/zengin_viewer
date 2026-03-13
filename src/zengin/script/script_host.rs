@@ -98,6 +98,10 @@ impl ScriptVM {
 
         let visual_offset = 524;
         let wepon_visual_index = state.mem.get_int(MemRef::class(item_index, visual_offset));
+        if wepon_visual_index == 0 {
+            println!("Weapon visual_offset is not set for item({item_index})");
+            return Ok(());
+        }
         let Ok(wepon_string) = self.get_string(wepon_visual_index) else {
             println!("Weapon({visual_offset}) visual_offset not found on instance({item_index})");
             return Ok(());
