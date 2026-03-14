@@ -365,7 +365,10 @@ impl ScriptVM {
     }
 
     pub fn interpret_instance(&self, state: &mut State, instance: &Instance) {
-        // println!("Interpret Instance({})", instance.symbol.name);
+        // println!(
+        //     "Interpret Instance({})({})",
+        //     instance.symbol.name, instance.symbol_table_index
+        // );
 
         assert_eq!(state.current_instance, None);
         let previous_instance = state.current_instance;

@@ -1,6 +1,9 @@
 use bevy::ecs::error::Result;
 
-use crate::zengin::script::script_vm::{RoutineEntry, ScriptVM, SpawnItem, SpawnNpc, State};
+use crate::{
+    warn_once,
+    zengin::script::script_vm::{RoutineEntry, ScriptVM, SpawnItem, SpawnNpc, State},
+};
 
 impl ScriptVM {
     pub fn handle_mdl_setvisualbody(&self, state: &mut State) -> Result {
@@ -42,15 +45,20 @@ impl ScriptVM {
             None
         };
 
-        let npc_index = if let Ok(npc_index) = npc_index {
+        let npc_index = if let Ok(npc_index) = npc_index
+        // && npc_index != 0
+        {
             npc_index
         } else if let Some(npc_index) = state.current_instance {
             npc_index
         } else {
-            println!("No instance for mdl_setvisualbody");
-            return Ok(());
+            panic!();
         };
 
+        if npc_index == 0 {
+            warn_once!("Set visual for wrong npc_index(0)");
+            return Ok(());
+        }
         let entry = state.instance_data.entry(npc_index).or_default();
 
         entry.body_texture = body_texture;

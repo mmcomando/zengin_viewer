@@ -69,15 +69,20 @@ fn object_to_entities(
                 tr,
             ));
             if spawn_state.finished_spawninig() {
-                println!("finished_spawninig only body");
                 entity.insert(ObjectEntitiesSpawned::default());
             }
             entity.insert(spawn_state);
             continue;
         };
 
+        let body_load_state = asset_server.load_state(spawn_state.body_handle.id());
+
+        if body_load_state.is_failed() {
+            entity.insert(ObjectEntitiesSpawned::default());
+            continue;
+        }
+
         let Some(model_data) = models.get(&spawn_state.body_handle) else {
-            println!("model data not loaded yet");
             continue;
         };
 
@@ -118,7 +123,6 @@ fn object_to_entities(
             ));
             spawn_state.head_spawned = true;
             if spawn_state.finished_spawninig() {
-                println!("finished_spawninig after head");
                 entity.insert(ObjectEntitiesSpawned::default());
             }
         }
@@ -134,7 +138,6 @@ fn object_to_entities(
             ));
             spawn_state.armor_spawned = true;
             if spawn_state.finished_spawninig() {
-                println!("finished_spawninig after armor");
                 entity.insert(ObjectEntitiesSpawned::default());
             }
         }

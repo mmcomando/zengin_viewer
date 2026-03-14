@@ -223,7 +223,10 @@ pub fn load_zengin_world_data(
             load_npc(instance, npc_spawn, &mut data, &vfs);
         } else {
             // println!("not handled npc_spawn.npc_index({})", npc_spawn.npc_index);
-            warn_unimplemented!("Not all NPC instances are handled");
+            warn_unimplemented!(
+                "Not all NPC instances are handled, Ex. npc_index({})",
+                npc_spawn.npc_index
+            );
         }
     }
 
