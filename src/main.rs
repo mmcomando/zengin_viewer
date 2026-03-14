@@ -14,10 +14,13 @@
 
 mod gui;
 mod skybox;
+mod toggle_visibility;
 mod zengin;
+mod zengin_resources;
 
 use crate::gui::{CameraSettingsPlugin, get_overlay_plugin};
 use crate::skybox::SkyBoxPlugin;
+use crate::toggle_visibility::ToggleVisibility;
 use crate::zengin::ZenGinWorldPlugin;
 use crate::zengin::loaders::vdf_reader::create_zengin_asset_loader;
 use avian3d::prelude::*;
@@ -53,6 +56,7 @@ fn main() {
         .add_plugins(ZenGinWorldPlugin)
         .add_plugins(CameraSettingsPlugin)
         .add_plugins(SkyBoxPlugin)
+        .add_plugins(ToggleVisibility)
         // Run
         .run();
 }

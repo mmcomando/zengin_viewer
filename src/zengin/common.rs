@@ -93,7 +93,7 @@ pub struct LightInstance {
 #[derive(Debug, Default, Clone, Asset, TypePath)]
 pub struct ZenGinModel {
     pub sub_meshes: Vec<ZenGinSubMesh>,
-    // pub nodes_tr: HashMap<String, Transform>,
+    pub nodes_tr: HashMap<String, Transform>,
 }
 
 #[derive(Debug, Default)]
@@ -101,7 +101,7 @@ pub struct ZenGinItem {
     pub tr: Transform,
     pub model: String,
 }
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct ZenGinNpc {
     pub head_tr: Transform,
     pub head_model: Option<String>,

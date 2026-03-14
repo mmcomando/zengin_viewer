@@ -130,5 +130,6 @@ pub fn meshes_from_zengin_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
 
     ZenGinModel {
         sub_meshes: bevy_meshes,
+        nodes_tr: HashMap::new(),
     }
 }
