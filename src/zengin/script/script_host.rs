@@ -113,6 +113,9 @@ impl ScriptVM {
             println!("world_point_name_index should point to instance type");
             return Ok(());
         };
+        // if npc_symbol_index != 11156 {
+        //     return Ok(());
+        // }
 
         // println!(
         //     "Spawn npc({})({npc_symbol_index}) on pos({})",

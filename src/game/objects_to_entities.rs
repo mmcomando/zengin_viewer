@@ -1,0 +1,142 @@
+use crate::game::objects::GameNpc;
+use crate::toggle_visibility::NpcVisibility;
+use crate::zengin::common::ZenGinModel;
+use crate::zengin_resources::{MaterialHandles, ZenGinModelComponent};
+use bevy::prelude::*;
+
+#[derive(Default)]
+pub struct GameObjectSpawnEntities;
+
+impl Plugin for GameObjectSpawnEntities {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Update, object_to_entities);
+    }
+}
+
+/// Check only entities which were not handled previously
+#[derive(Component, Default)]
+struct ObjectEntitiesSpawned {}
+
+#[derive(Component, Default)]
+struct NpcSpawnState {
+    body_handle: Handle<ZenGinModel>,
+    body_spawned: bool,
+    head_spawned: bool,
+    armor_spawned: bool,
+}
+
+impl NpcSpawnState {
+    fn finished_spawninig(&self) -> bool {
+        return self.body_spawned && self.head_spawned && self.armor_spawned;
+    }
+}
+
+#[allow(clippy::type_complexity)]
+fn object_to_entities(
+    models: ResMut<Assets<ZenGinModel>>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+    mut handles_map: ResMut<MaterialHandles>,
+    mut query: Query<
+        (Entity, &GameNpc, Option<&mut NpcSpawnState>),
+        Without<ObjectEntitiesSpawned>,
+    >,
+) {
+    for (entity_id, npc_component, spawn_state) in &mut query {
+        let mut entity = commands.entity(entity_id);
+
+        let Some(mut spawn_state) = spawn_state else {
+            let spawn_state = NpcSpawnState {
+                body_handle: handles_map.get_model_handle(&asset_server, &npc_component.body_model),
+                body_spawned: true,
+                head_spawned: npc_component.head_model.is_none(),
+                armor_spawned: npc_component.armor_model.is_none(),
+            };
+
+            let tr = Transform::from_translation(Vec3 {
+                x: -0.01,
+                y: 0.0,
+                z: 0.0,
+            });
+
+            entity.with_child((
+                Visibility::default(),
+                ZenGinModelComponent {
+                    model_handle: spawn_state.body_handle.clone(),
+                    override_texture: npc_component.body_texture.clone(),
+                    ..default()
+                },
+                tr,
+            ));
+            if spawn_state.finished_spawninig() {
+                println!("finished_spawninig only body");
+                entity.insert(ObjectEntitiesSpawned::default());
+            }
+            entity.insert(spawn_state);
+            continue;
+        };
+
+        let Some(model_data) = models.get(&spawn_state.body_handle) else {
+            println!("model data not loaded yet");
+            continue;
+        };
+
+        if let Some(head_model) = &npc_component.head_model {
+            // for (key, tr) in &model_data.nodes_tr {
+            //     println!("nn({key:20}): {:+5.2}", tr.translation);
+            //     let tr = (*tr).with_scale(Vec3 {
+            //         x: 0.02,
+            //         y: 0.02,
+            //         z: 0.02,
+            //     });
+            //     entity.with_child((
+            //         Visibility::default(),
+            //         ZenGinModelComponent {
+            //             model_handle: handles_map.get_model_handle(
+            //                 &asset_server,
+            //                 "zengin://_WORK/DATA/MESHES/_COMPILED/SPHERE.MRM",
+            //             ),
+            //             ..default()
+            //         },
+            //         tr,
+            //     ));
+            // }
+
+            let tr = if let Some(tr) = model_data.nodes_tr.get("BIP01 HEAD") {
+                *tr
+            } else {
+                Transform::IDENTITY
+            };
+            entity.with_child((
+                Visibility::default(),
+                ZenGinModelComponent {
+                    model_handle: handles_map.get_model_handle(&asset_server, head_model),
+                    override_texture: npc_component.head_texture.clone(),
+                    ..default()
+                },
+                tr,
+            ));
+            spawn_state.head_spawned = true;
+            if spawn_state.finished_spawninig() {
+                println!("finished_spawninig after head");
+                entity.insert(ObjectEntitiesSpawned::default());
+            }
+        }
+        if let Some(armor_model) = &npc_component.armor_model {
+            entity.with_child((
+                Visibility::default(),
+                ZenGinModelComponent {
+                    model_handle: handles_map.get_model_handle(&asset_server, armor_model),
+                    ..default()
+                },
+                Transform::IDENTITY,
+                NpcVisibility::default(),
+            ));
+            spawn_state.armor_spawned = true;
+            if spawn_state.finished_spawninig() {
+                println!("finished_spawninig after armor");
+                entity.insert(ObjectEntitiesSpawned::default());
+            }
+        }
+    }
+}

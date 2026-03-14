@@ -16,7 +16,7 @@ use crate::zengin::{
     },
 };
 
-const HUMAN_MODEL: &str = "/_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM";
+const HUMAN_MODEL: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM";
 const HUMAN_MODEL_HIERARCHY: &str = "/_WORK/DATA/ANIMS/_COMPILED/HUMANS_RELAXED.MDH";
 
 #[derive(Default, TypePath)]

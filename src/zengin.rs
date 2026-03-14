@@ -7,16 +7,15 @@ pub mod world;
 
 use std::sync::Arc;
 
+use crate::game::objects::GameNpc;
+use crate::game::objects_to_entities::GameObjectSpawnEntities;
 use crate::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::{ZenGinModel, gothic2_dir};
-use crate::zengin::loaders::model::ZenGinModelLoader;
-use crate::zengin::loaders::texture::ZenGinTextureLoader;
 use crate::zengin::script::parse::*;
 use crate::zengin::script::script_vm::ScriptVM;
 use crate::zengin::world::load_zengin_world_data;
 use crate::zengin_resources::{
-    DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinModelComponent,
-    convert_zengin_model_to_entities, run_convert_zengin_model_to_entities,
+    DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
 };
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
@@ -26,21 +25,11 @@ pub struct ZenGinWorldPlugin;
 
 impl Plugin for ZenGinWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<ZenGinModel>();
-        app.init_asset_loader::<ZenGinTextureLoader>();
-        app.init_asset_loader::<ZenGinModelLoader>();
-        app.add_systems(Startup, insert_resources);
-        app.add_systems(Startup, spawn_world.after(insert_resources));
+        app.add_plugins(ZenGinInsertResources::default());
+        app.add_plugins(GameObjectSpawnEntities::default());
 
-        app.add_systems(
-            Update,
-            convert_zengin_model_to_entities.run_if(run_convert_zengin_model_to_entities),
-        );
+        app.add_systems(Startup, spawn_world);
     }
-}
-
-fn insert_resources(mut commands: Commands) {
-    commands.insert_resource(MaterialHandles::default());
 }
 
 fn get_zen_gin_world_init_state() -> crate::zengin::script::script_vm::State {
@@ -96,37 +85,16 @@ fn spawn_world(
     for npc in world_data.npcs {
         commands.spawn((
             Visibility::default(),
-            ZenGinModelComponent {
-                model_handle: handles_map.get_model_handle(&asset_server, &npc.body_model),
-                override_texture: npc.body_texture.clone(),
-                ..default()
+            GameNpc {
+                body_model: npc.body_model.clone(),
+                body_texture: npc.body_texture.clone(),
+                head_model: npc.head_model.clone(),
+                head_texture: npc.head_texture.clone(),
+                armor_model: npc.armor_model.clone(),
             },
             npc.body_tr,
             NpcVisibility::default(),
         ));
-        if let Some(head_model) = &npc.head_model {
-            commands.spawn((
-                Visibility::default(),
-                ZenGinModelComponent {
-                    model_handle: handles_map.get_model_handle(&asset_server, head_model),
-                    override_texture: npc.head_texture.clone(),
-                    ..default()
-                },
-                npc.head_tr,
-                NpcVisibility::default(),
-            ));
-        }
-        if let Some(armor_model) = &npc.armor_model {
-            commands.spawn((
-                Visibility::default(),
-                ZenGinModelComponent {
-                    model_handle: handles_map.get_model_handle(&asset_server, armor_model),
-                    ..default()
-                },
-                npc.armor_tr,
-                NpcVisibility::default(),
-            ));
-        }
     }
     for instance in &world_data.items {
         let model_handle = handles_map.get_model_handle(&asset_server, &instance.model);
