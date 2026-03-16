@@ -5,7 +5,7 @@ edition = "2024"
 
 
 [dependencies]
-bevy = { version = "0.18.1", features = ["dynamic_linking", "bevy_dev_tools", "free_camera", "debug"] }
+bevy = { version = "0.18.1", features = ["dynamic_linking", "bevy_dev_tools", "free_camera"] }
 # v0.6.0-rc.1 fixes performance issue when there are 20k static objects
 avian3d = { git = "https://github.com/avianphysics/avian.git", tag = "v0.6.0-rc.1" }
 # avian3d = "0.5.0"

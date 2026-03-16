@@ -53,21 +53,24 @@ fn object_to_entities(
                 armor_spawned: npc_component.armor_model.is_none(),
             };
 
-            let tr = Transform::from_translation(Vec3 {
-                x: -0.01,
-                y: 0.0,
-                z: 0.0,
-            });
-
-            entity.with_child((
-                Visibility::default(),
-                ZenGinModelComponent {
-                    model_handle: spawn_state.body_handle.clone(),
-                    override_texture: npc_component.body_texture.clone(),
-                    ..default()
-                },
-                tr,
-            ));
+            if npc_component.armor_model.is_none() {
+                warn_once!("Body placement requires hardcoding");
+                let tr = Transform::from_translation(Vec3 {
+                    x: -0.01,
+                    y: 0.0,
+                    z: 0.0,
+                });
+                // let tr = Transform::IDENTITY;
+                entity.with_child((
+                    Visibility::default(),
+                    ZenGinModelComponent {
+                        model_handle: spawn_state.body_handle.clone(),
+                        override_texture: npc_component.body_texture.clone(),
+                        ..default()
+                    },
+                    tr,
+                ));
+            }
             if spawn_state.finished_spawninig() {
                 entity.insert(ObjectEntitiesSpawned::default());
             }
@@ -127,13 +130,19 @@ fn object_to_entities(
             }
         }
         if let Some(armor_model) = &npc_component.armor_model {
+            warn_once!("Armor detailed placing requires hardcoding");
+            let tr = Transform::from_translation(Vec3 {
+                x: -0.02,
+                y: 0.018,
+                z: 0.15,
+            });
             entity.with_child((
                 Visibility::default(),
                 ZenGinModelComponent {
                     model_handle: handles_map.get_model_handle(&asset_server, armor_model),
                     ..default()
                 },
-                Transform::IDENTITY,
+                tr,
                 NpcVisibility::default(),
             ));
             spawn_state.armor_spawned = true;

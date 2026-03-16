@@ -81,6 +81,16 @@ fn spawn_camera(mut commands: Commands) {
             ..default()
         },
         Camera3d::default(),
+        // Xardas
+        // Transform::from_xyz(-297.0 - 2.0, 55.0, -159.5 + 5.0).looking_at(
+        //     Vec3 {
+        //         x: -297.4256,
+        //         y: 51.482346 + 1.0,
+        //         z: -159.4824,
+        //     },
+        //     Vec3::Y,
+        // ),
+        // Khorinis
         Transform::from_xyz(40.0, 20.0, -10.0).looking_at(
             Vec3 {
                 x: 0.0,
@@ -135,15 +145,15 @@ fn spawn_lights(mut commands: Commands) {
 
     commands.insert_resource(GlobalAmbientLight {
         color: Color::linear_rgb(1.0, 1.0, 1.0),
-        brightness: 300.0,
+        brightness: 100.0,
         ..default()
     });
     commands.spawn((
         DirectionalLight {
-            // color: Color::srgb_u8(172, 172, 193), // Moon color
-            color: Color::from(tailwind::SKY_50),
+            color: Color::srgb_u8(172, 172, 193), // Moon color
+            // color: Color::from(tailwind::SKY_50),
             // illuminance: bevy::light::light_consts::lux::FULL_MOON_NIGHT,
-            illuminance: bevy::light::light_consts::lux::AMBIENT_DAYLIGHT / 10.0,
+            illuminance: bevy::light::light_consts::lux::AMBIENT_DAYLIGHT / 15.0,
             shadows_enabled: true,
             ..default()
         },

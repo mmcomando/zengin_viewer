@@ -32,9 +32,8 @@ pub fn meshes_from_zengin_model_mesh(
     //     model_with_hierarchy.is_some(),
     // );
     for soft_skin_mesh in &soft_skin_meshes {
-        let mesh = soft_skin_mesh.mesh();
-        let new_meshes = meshes_from_zengin_mrs_mesh(&mesh);
-        model.sub_meshes.extend(new_meshes.sub_meshes);
+        let new_model = meshes_from_zengin_soft_skin_mesh(soft_skin_mesh);
+        model.sub_meshes.extend(new_model.sub_meshes);
     }
 
     if let Some(model_with_hierarchy) = model_with_hierarchy {
@@ -109,4 +108,39 @@ fn compute_final_tr(node_index: usize, nodes: &[ModelHierarchyNode], final_tr: &
             compute_final_tr(child_index, nodes, final_tr);
         }
     }
+}
+
+pub fn meshes_from_zengin_soft_skin_mesh(
+    soft_skin_mesh: &zen_kit_rs::model::SoftSkinMesh,
+) -> ZenGinModel {
+    let mesh = soft_skin_mesh.mesh();
+    let model = meshes_from_zengin_mrs_mesh(&mesh);
+
+    // let vertices_count = mesh.position_count();
+    // let mut skin_verter_data: Vec<[SoftSkinWeightEntry; 4]> =
+    //     Vec::with_capacity(vertices_count as usize);
+    // println!("soft_skin_mesh");
+    // println!(" vertices_count({})", vertices_count);
+    // println!(" node_count({})", soft_skin_mesh.node_count());
+    // println!(" weight_total({})", soft_skin_mesh.weight_total());
+    // for vertex_index in 0..vertices_count {
+    //     let mut data: [SoftSkinWeightEntry; 4] = default();
+    //     println!(
+    //         "  vertex_index({vertex_index}) weight_count({})",
+    //         soft_skin_mesh.weight_count(vertex_index)
+    //     );
+    //     for weight_index in 0..soft_skin_mesh.weight_count(vertex_index) {
+    //         println!(
+    //             "   weight({:?})",
+    //             soft_skin_mesh.weight(vertex_index, weight_index)
+    //         );
+    //         data[weight_index as usize] = soft_skin_mesh.weight(vertex_index, weight_index);
+    //     }
+
+    //     skin_verter_data.push(data);
+    // }
+
+    // println!("skin data: {:#?}", skin_verter_data);
+
+    return model;
 }
