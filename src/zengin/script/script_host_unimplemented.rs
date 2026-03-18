@@ -5,7 +5,7 @@ use crate::{
     zengin::script::script_vm::{ScriptVM, State},
 };
 
-const UNKNOWN_STACK_VAR: u32 = 888888;
+const UNKNOWN_STACK_VAR: u32 = 7777777;
 
 impl ScriptVM {
     pub fn handle_createinvitem(state: &mut State) -> Result {
@@ -47,7 +47,7 @@ impl ScriptVM {
     pub fn handle_hlp_isvalidnpc(state: &mut State) -> Result {
         warn_unimplemented!("hlp_isvalidnpc not implemented");
         let _instance = state.pop_stack_var()?;
-        state.push_stack_int(1);
+        state.push_stack_int(0);
         return Ok(());
     }
 

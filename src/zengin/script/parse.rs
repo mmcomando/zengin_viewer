@@ -31,6 +31,13 @@ impl DatFile {
             .find(|func| func.symbol_table_index == index)
     }
 
+    pub fn is_instance_with_code(&self, index: u32) -> bool {
+        if let Symbol::SymbolInstance(instance) = &self.symbols[index as usize] {
+            return instance.instructions_offset != 0;
+        }
+        return false;
+    }
+
     pub fn get_prototype_by_index(&self, index: u32) -> Option<&Prototype> {
         self.prototypes
             .iter()

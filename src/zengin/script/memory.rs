@@ -130,8 +130,7 @@ impl ScriptMem {
     pub fn get_value(&self, mem_ref: MemRef) -> MemValue {
         let Some(mem_under_id) = self.mem.get(&mem_ref.id) else {
             println!("There is no id under ref({mem_ref:?}), returning({INVALID_VALUE})");
-            panic!();
-            // return MemValue::from(INVALID_VALUE);
+            return MemValue::from(INVALID_VALUE);
         };
         let mut value_index = 0;
         if let Some(offset) = mem_ref.offset {
@@ -146,8 +145,7 @@ impl ScriptMem {
             return *val;
         }
         println!("There is no value under ref({mem_ref:?}), returning({INVALID_VALUE})");
-        panic!();
-        // MemValue::from(INVALID_VALUE)
+        MemValue::from(INVALID_VALUE)
     }
 
     pub fn get_int(&self, mem_ref: MemRef) -> u32 {
@@ -159,6 +157,13 @@ impl ScriptMem {
     }
 
     pub fn set_int(&mut self, mem_ref: MemRef, val: u32) {
+        if mem_ref.id > 100_000 {
+            println!(
+                "Invalid memory set, mem_ref({:?})={val}, id should be less than 100_000",
+                mem_ref
+            );
+            return;
+        }
         let mem_under_id = self.mem.entry(mem_ref.id).or_default();
         let mut value_index = 0;
         if let Some(offset) = mem_ref.offset {
@@ -169,6 +174,14 @@ impl ScriptMem {
             value_index += arr_index as u32;
         }
         let value_index = value_index as usize;
+        if value_index > 11000 {
+            println!(
+                "Invalid memory set, mem_ref({:?})={val}, value_index should be less than 11_000",
+                mem_ref
+            );
+            return;
+        }
+
         ensure_arr_lenght(mem_under_id, value_index + 1);
         mem_under_id[value_index].set_int(val);
     }

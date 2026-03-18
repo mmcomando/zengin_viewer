@@ -38,8 +38,6 @@ impl AssetLoader for ZenGinModelLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
 
-        // println!("Asset Path: {}", path);
-
         let model = if path_str.ends_with(".MRM") {
             let read = Read::from_slice(&bytes).unwrap();
             let mesh = zen_kit_rs::mrs_mesh::MrsMesh::load(&read).unwrap();
