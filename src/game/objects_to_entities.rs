@@ -55,11 +55,12 @@ fn object_to_entities(
 
             if npc_component.armor_model.is_none() {
                 warn_once!("Body placement requires hardcoding");
-                let tr = Transform::from_translation(Vec3 {
-                    x: -0.01,
-                    y: 0.0,
-                    z: 0.0,
-                });
+                let tr = npc_component.tr
+                    * Transform::from_translation(Vec3 {
+                        x: -0.01,
+                        y: 0.0,
+                        z: 0.0,
+                    });
                 // let tr = Transform::IDENTITY;
                 entity.with_child((
                     Visibility::default(),
@@ -110,11 +111,12 @@ fn object_to_entities(
             //     ));
             // }
 
-            let tr = if let Some(tr) = model_data.nodes_tr.get("BIP01 HEAD") {
-                *tr
-            } else {
-                Transform::IDENTITY
-            };
+            let tr = npc_component.tr
+                * if let Some(tr) = model_data.nodes_tr.get("BIP01 HEAD") {
+                    *tr
+                } else {
+                    Transform::IDENTITY
+                };
             entity.with_child((
                 Visibility::default(),
                 ZenGinModelComponent {
@@ -131,11 +133,12 @@ fn object_to_entities(
         }
         if let Some(armor_model) = &npc_component.armor_model {
             warn_once!("Armor detailed placing requires hardcoding");
-            let tr = Transform::from_translation(Vec3 {
-                x: -0.02,
-                y: 0.018,
-                z: 0.15,
-            });
+            let tr = npc_component.tr
+                * Transform::from_translation(Vec3 {
+                    x: -0.02,
+                    y: 0.018,
+                    z: 0.15,
+                });
             entity.with_child((
                 Visibility::default(),
                 ZenGinModelComponent {

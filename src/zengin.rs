@@ -7,6 +7,9 @@ pub mod world;
 
 use std::sync::Arc;
 
+use crate::character::{
+    CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
+};
 use crate::game::objects::GameNpc;
 use crate::game::objects_to_entities::GameObjectSpawnEntities;
 use crate::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
@@ -17,6 +20,7 @@ use crate::zengin::world::load_zengin_world_data;
 use crate::zengin_resources::{
     DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
 };
+use avian3d::math::PI;
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
@@ -25,12 +29,15 @@ pub struct ZenGinWorldPlugin;
 
 impl Plugin for ZenGinWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ZenGinInsertResources::default());
-        app.add_plugins(GameObjectSpawnEntities::default());
+        app.add_plugins(ZenGinInsertResources);
+        app.add_plugins(GameObjectSpawnEntities);
 
         app.add_systems(Startup, spawn_world);
     }
 }
+
+#[derive(Default, Component)]
+pub struct PlayerMarker;
 
 fn get_zen_gin_world_init_state() -> crate::zengin::script::script_vm::State {
     let _span = info_span!("InitScripts",).entered();
@@ -82,11 +89,12 @@ fn spawn_world(
         WorldMesh::default(),
     ));
 
-    println!("npcs len({})", world_data.npcs.len());
     for npc in &world_data.npcs {
+        println!("npc.body_model ({:?})", npc);
         commands.spawn((
             Visibility::default(),
             GameNpc {
+                tr: Transform::IDENTITY,
                 body_model: npc.body_model.clone(),
                 body_texture: npc.body_texture.clone(),
                 head_model: npc.head_model.clone(),
@@ -150,4 +158,35 @@ fn spawn_world(
             ));
         }
     }
+
+    // Player
+    commands.spawn((
+        PlayerMarker,
+        CharacterController,
+        CharacterMovementSettings::default(),
+        CharacterCollisions::default(),
+        GroundDetection {
+            // Use a slightly smaller capsule for shape casts used for ground detection
+            cast_shape: Some(Collider::capsule(0.499, 0.8)),
+            max_angle: PI / 3.0,
+            max_distance: 0.2,
+        },
+        Collider::capsule(0.4, 1.0),
+        // Mesh3d(meshes.add(Capsule3d::new(0.5, 0.8))),
+        // MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+        Transform::from_xyz(0.0, 1.5, 0.0),
+        TransformInterpolation,
+        GameNpc {
+            tr: Transform::from_xyz(0.0, -0.9, 0.0),
+            body_model: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM".to_string(),
+            body_texture: Some(
+                "zengin://_WORK/DATA/TEXTURES/_COMPILED/HUM_BODY_NAKED_V9_C0-C.TEX".to_string(),
+            ),
+            head_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_HEAD_PONY.MMB".to_string()),
+            head_texture: Some(
+                "zengin://_WORK/DATA/TEXTURES/_COMPILED/HUM_HEAD_V18_C0-C.TEX".to_string(),
+            ),
+            armor_model: None,
+        },
+    ));
 }

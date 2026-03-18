@@ -218,7 +218,7 @@ impl ScriptVM {
             //     continue;
             // }
 
-            if !state.mem.id_exists(instance.symbol_table_index as u32) {
+            if !state.mem.id_exists(instance.symbol_table_index) {
                 if self.get_type_by_index(instance.symbol_table_index) != Some(ClassType::Info) {
                     self.interpret_instance(state, instance);
                 }
@@ -286,7 +286,7 @@ impl ScriptVM {
         // Hardcoded routine handling
         let daily_routine_func_offset = 608;
         let index = state.mem.get_int(MemRef::class(
-            instance.symbol_table_index as u32,
+            instance.symbol_table_index,
             daily_routine_func_offset,
         ));
         if let Some(func) = self.script_data.get_function_by_index(index) {
@@ -381,9 +381,7 @@ impl ScriptVM {
         if index == INFO_CLASS_INDEX {
             return Some(ClassType::Info);
         }
-        let Some(symbol) = self.script_data.symbols.get(index as usize) else {
-            return None;
-        };
+        let symbol = self.script_data.symbols.get(index as usize)?;
         if let Some(parent) = symbol.parent() {
             return self.get_type_by_index(parent);
         }
@@ -414,7 +412,7 @@ impl ScriptVM {
 
         state.current_instance = previous_instance;
 
-        state.mem.set_int(MemRef::global(1616), 8888888);
+        state.mem.set_int(MemRef::global(1616), 8_888_888);
         println_vm!("Interpret Instance({}) END", instance.symbol.name);
     }
     pub fn interpret_function(&self, state: &mut State, func: &Function) {
@@ -560,7 +558,7 @@ impl ScriptVM {
     }
 
     pub fn handle_push_var(&self, state: &mut State, mut id: u32, arr_index: Option<u8>) {
-        let class_offset = self.script_data.class_offsets.get(&id).cloned();
+        let class_offset = self.script_data.class_offsets.get(&id).copied();
         if class_offset.is_some() {
             id = state.current_instance.unwrap();
         }

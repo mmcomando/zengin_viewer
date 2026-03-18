@@ -1,4 +1,4 @@
-use std::{collections::HashMap, u32};
+use std::collections::HashMap;
 
 use crate::{
     warn_unimplemented,
@@ -16,7 +16,7 @@ impl MemValue {
     pub fn from(num: u32) -> Self {
         Self { val: num }
     }
-    pub fn get_int(&self) -> u32 {
+    pub fn get_int(self) -> u32 {
         self.val
     }
     pub fn set_int(&mut self, val: u32) {
@@ -97,27 +97,27 @@ impl ScriptMem {
                     mem.set_int(MemRef::global(id), id);
                 }
                 Symbol::SymbolArrString(var) => {
-                    assert!(var.arr.len() <= u8::MAX as usize);
+                    assert!(u8::try_from(var.arr.len()).is_ok());
                     for (arr_index, _el) in var.arr.iter().enumerate() {
                         let arr_index = arr_index as u8;
                         mem.set_int(MemRef::global_arr(id, arr_index), id);
                     }
                 }
                 Symbol::SymbolArrFunc(var) => {
-                    assert!(var.arr.len() <= u8::MAX as usize);
+                    assert!(u8::try_from(var.arr.len()).is_ok());
                     for (arr_index, _el) in var.arr.iter().enumerate() {
                         let arr_index = arr_index as u8;
                         mem.set_int(MemRef::global_arr(id, arr_index), id);
                     }
                 }
                 // This don't contain any data, so there is nothing to initialize
-                Symbol::SymbolClassVariable(_) => {}
+                Symbol::SymbolClassVariable(_) |
 
                 // This are initialized using scripts
                 Symbol::SymbolInstance(_) | Symbol::SymbolPrototype(_) => {}
 
                 Symbol::SymbolFloat(_) | Symbol::SymbolArrFloat(_) => {
-                    warn_unimplemented!("Floats in scripts not supported")
+                    warn_unimplemented!("Floats in scripts not supported");
                 }
                 Symbol::SymbolVariableArgument(_) => {
                     println!("Init memory for symbol({id}) type({:?})", symbol);
@@ -138,7 +138,7 @@ impl ScriptMem {
             value_index = offset / 4;
         }
         if let Some(arr_index) = mem_ref.arr_index {
-            value_index += arr_index as u32;
+            value_index += u32::from(arr_index);
         }
         let value_index = value_index as usize;
         if let Some(val) = mem_under_id.get(value_index) {
@@ -171,7 +171,7 @@ impl ScriptMem {
             value_index = offset / 4;
         }
         if let Some(arr_index) = mem_ref.arr_index {
-            value_index += arr_index as u32;
+            value_index += u32::from(arr_index);
         }
         let value_index = value_index as usize;
         if value_index > 11000 {

@@ -70,6 +70,7 @@ pub fn meshes_from_zengin_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
         ]);
 
         mesh_data.material = get_standard_material(&zengin_material);
+        mesh_data.collides = !zengin_material.disable_collision();
 
         let triangles_num = polygon_indices.len() - 2;
         let trinagle_indices_num = 3;
@@ -125,6 +126,7 @@ pub fn meshes_from_zengin_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
             mesh,
             transform: Transform::IDENTITY,
             name: String::new(),
+            collides: mesh_data.collides,
         });
     }
 

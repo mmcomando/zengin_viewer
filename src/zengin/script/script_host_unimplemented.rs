@@ -5,7 +5,7 @@ use crate::{
     zengin::script::script_vm::{ScriptVM, State},
 };
 
-const UNKNOWN_STACK_VAR: u32 = 7777777;
+const UNKNOWN_STACK_VAR: u32 = 7_777_777;
 
 impl ScriptVM {
     pub fn handle_createinvitem(state: &mut State) -> Result {

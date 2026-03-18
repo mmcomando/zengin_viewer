@@ -58,7 +58,7 @@ fn toggle_visibility_static_meshes(
     mut toggle_info: ResMut<ToggleHide>,
     mut query: Query<(&mut Visibility, &StaticMesh)>,
 ) {
-    if !keys.just_pressed(KeyCode::KeyV) {
+    if !keys.just_pressed(KeyCode::Digit1) {
         return;
     }
     info!("Toggle static meshes visibility");
@@ -78,7 +78,7 @@ fn toggle_visibility_npcs(
     mut toggle_info: ResMut<ToggleHide>,
     mut query: Query<(&mut Visibility, &NpcVisibility)>,
 ) {
-    if !keys.just_pressed(KeyCode::KeyB) {
+    if !keys.just_pressed(KeyCode::Digit2) {
         return;
     }
     info!("Toggle npcs visibility");

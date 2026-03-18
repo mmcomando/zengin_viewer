@@ -1,7 +1,8 @@
-use bevy::ecs::component::Component;
+use bevy::{ecs::component::Component, transform::components::Transform};
 
 #[derive(Debug, Default, Component)]
 pub struct GameNpc {
+    pub tr: Transform,
     pub body_model: String,
     /// Override default body texture
     pub body_texture: Option<String>,
