@@ -90,7 +90,6 @@ fn spawn_world(
     ));
 
     for npc in &world_data.npcs {
-        println!("npc.body_model ({:?})", npc);
         commands.spawn((
             Visibility::default(),
             GameNpc {
@@ -161,6 +160,7 @@ fn spawn_world(
 
     // Player
     commands.spawn((
+        Visibility::default(),
         PlayerMarker,
         CharacterController,
         CharacterMovementSettings::default(),
