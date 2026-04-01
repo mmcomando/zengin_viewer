@@ -16,10 +16,13 @@ use crate::gothic_asset_loader::create_gothic_asset_loader;
 use crate::gothic_mesh::create_gothic_world_mesh;
 use crate::gothic_texture_asset::GothicTextureLoader;
 
+use avian3d::prelude::*;
+
 fn main() {
     App::new()
         .register_asset_source("gothic", create_gothic_asset_loader())
         .add_plugins(DefaultPlugins)
+        .add_plugins(PhysicsPlugins::default())
         .init_asset_loader::<GothicTextureLoader>()
         // Plugin that enables FreeCamera functionality
         .add_plugins(FreeCameraPlugin)
@@ -280,9 +283,24 @@ fn spawn_world(
         });
 
         commands.spawn((
+            RigidBody::Static,
+            ColliderConstructor::TrimeshFromMesh,
             Mesh3d(mesh_handle.clone()),
             MeshMaterial3d(mesh_material.clone()),
         ));
+    }
+
+    for x in -10..10 {
+        for z in -10..10 {
+            commands.spawn((
+                RigidBody::Dynamic,
+                Collider::cuboid(1.0, 1.0, 1.0),
+                AngularVelocity(Vec3::new(2.5, 3.5, 1.5)),
+                Mesh3d(meshes.add(Cuboid::from_length(1.0))),
+                MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+                Transform::from_xyz(-30.0 + x as f32 * 5.0, 30.0, z as f32 * 5.0),
+            ));
+        }
     }
 
     commands.spawn(SceneRoot(

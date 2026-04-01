@@ -9,6 +9,7 @@ bevy = { version = "0.18.0", features = ["free_camera", "tga"] }
 
 ZenKitCAPI-sys = { path = "/home/pc/prog/experiments/2026_01/ZenKit-sys" }
 ron = "0.12.0"
+avian3d = "0.5.0"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]
