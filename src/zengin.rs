@@ -93,14 +93,13 @@ fn spawn_world(
         commands.spawn((
             Visibility::default(),
             GameNpc {
-                tr: Transform::IDENTITY,
                 body_model: npc.body_model.clone(),
                 body_texture: npc.body_texture.clone(),
                 head_model: npc.head_model.clone(),
                 head_texture: npc.head_texture.clone(),
                 armor_model: npc.armor_model.clone(),
             },
-            npc.body_tr,
+            Transform::from_xyz(0.0, 1.0, 0.0) * npc.body_tr,
             NpcVisibility::default(),
         ));
     }
@@ -171,13 +170,12 @@ fn spawn_world(
             max_angle: PI / 3.0,
             max_distance: 0.2,
         },
-        Collider::capsule(0.4, 1.0),
+        Collider::capsule(0.4, 1.2),
         // Mesh3d(meshes.add(Capsule3d::new(0.5, 0.8))),
         // MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         Transform::from_xyz(0.0, 1.5, 0.0),
         TransformInterpolation,
         GameNpc {
-            tr: Transform::from_xyz(0.0, -0.9, 0.0),
             body_model: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM".to_string(),
             body_texture: Some(
                 "zengin://_WORK/DATA/TEXTURES/_COMPILED/HUM_BODY_NAKED_V9_C0-C.TEX".to_string(),
@@ -187,6 +185,9 @@ fn spawn_world(
                 "zengin://_WORK/DATA/TEXTURES/_COMPILED/HUM_HEAD_V18_C0-C.TEX".to_string(),
             ),
             armor_model: None,
+            // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_SLD_H.MDL".to_string()),
+            // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PAL_H.MDM".to_string()),
+            // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_LESTER.MDM".to_string()),
         },
     ));
 }

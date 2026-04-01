@@ -27,6 +27,7 @@ pub struct WorldMesh {}
 #[derive(Component, Default)]
 pub struct StaticMesh {}
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Resource, Default)]
 pub struct ShowOptions {
     pub show_world_mesh: bool,

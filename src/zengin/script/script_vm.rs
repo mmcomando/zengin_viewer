@@ -218,10 +218,10 @@ impl ScriptVM {
             //     continue;
             // }
 
-            if !state.mem.id_exists(instance.symbol_table_index) {
-                if self.get_type_by_index(instance.symbol_table_index) != Some(ClassType::Info) {
-                    self.interpret_instance(state, instance);
-                }
+            if !state.mem.id_exists(instance.symbol_table_index)
+                && self.get_type_by_index(instance.symbol_table_index) != Some(ClassType::Info)
+            {
+                self.interpret_instance(state, instance);
             }
         }
         self.instantiate_item_instances(state);

@@ -7,7 +7,7 @@ use zen_kit_rs::vfs::VfsNode;
 pub const MIRROR_X: bool = true;
 
 pub fn gothic2_dir() -> String {
-    if let Some(dir) = std::env::var("GOTHIC2_DIR").ok() {
+    if let Ok(dir) = std::env::var("GOTHIC2_DIR") {
         let path = PathBuf::from(dir);
         return path.to_str().unwrap().to_string();
     }
@@ -81,6 +81,10 @@ pub struct MeshData {
     pub uvs: Vec<Vec2>,
     pub normals: Vec<Vec3>,
     pub colors: Vec<Vec4>,
+
+    pub weights: Vec<[f32; 4]>,
+    pub bone_indices: Vec<[u16; 4]>,
+
     pub material: StandardMaterial,
     pub collides: bool,
 }
@@ -94,6 +98,7 @@ pub struct ZenGinSubMesh {
     // pub head_transform: Option<Transform>,
     pub name: String,
     pub collides: bool,
+    pub is_skinned: bool,
 }
 
 #[derive(Debug)]
@@ -105,7 +110,11 @@ pub struct LightInstance {
 #[derive(Debug, Default, Clone, Asset, TypePath)]
 pub struct ZenGinModel {
     pub sub_meshes: Vec<ZenGinSubMesh>,
-    pub nodes_tr: HashMap<String, Transform>,
+    pub final_tr: Vec<Transform>,
+    pub node_names: Vec<String>,
+    pub nodes: Vec<Transform>,
+    pub inverse_bindposes: Vec<Mat4>,
+    pub parents: Vec<i16>,
 }
 
 #[derive(Debug, Default)]

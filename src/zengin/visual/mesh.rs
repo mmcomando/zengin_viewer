@@ -127,11 +127,16 @@ pub fn meshes_from_zengin_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
             transform: Transform::IDENTITY,
             name: String::new(),
             collides: mesh_data.collides,
+            is_skinned: false,
         });
     }
 
     ZenGinModel {
         sub_meshes: bevy_meshes,
-        nodes_tr: HashMap::new(),
+        final_tr: vec![],
+        node_names: vec![],
+        nodes: vec![],
+        inverse_bindposes: vec![],
+        parents: vec![],
     }
 }

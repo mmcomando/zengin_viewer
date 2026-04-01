@@ -94,7 +94,16 @@ fn spawn_camera(mut commands: Commands) {
         //     Vec3::Y,
         // ),
         // Khorinis
-        Transform::from_xyz(40.0, 20.0, -10.0).looking_at(
+        // Transform::from_xyz(40.0, 20.0, -10.0).looking_at(
+        //     Vec3 {
+        //         x: 0.0,
+        //         y: 0.0,
+        //         z: 0.0,
+        //     },
+        //     Vec3::Y,
+        // ),
+        // Khorinis Close Look at 0,1,0
+        Transform::from_xyz(2.0, 1.0, 4.0).looking_at(
             Vec3 {
                 x: 0.0,
                 y: 0.0,
