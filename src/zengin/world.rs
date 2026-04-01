@@ -125,13 +125,23 @@ pub fn load_npc(
         return;
     };
     let head_model = if let Some(head_model) = &instance.head_model {
-        find_mesh_path(vfs, head_model)
+        if let Some(head_model) = find_mesh_path(vfs, head_model) {
+            Some(head_model)
+        } else {
+            println!("not found mesh for head model({})", head_model);
+            None
+        }
     } else {
         None
     };
 
     let armor_model = if let Some(armor_model) = &instance.armor_model {
-        get_item_mesh_path(vfs, vm_state, armor_model)
+        if let Some(armor_model) = get_item_mesh_path(vfs, vm_state, armor_model) {
+            Some(armor_model)
+        } else {
+            println!("not found mesh for item model({})", armor_model);
+            None
+        }
     } else {
         None
     };
@@ -150,6 +160,7 @@ pub fn load_npc(
             .map(|el| get_full_texture_path(el)),
         armor_model,
     };
+    // println!("Create ZenGinNpc({:?})", npc.body_model);
     data.npcs.push(npc);
 }
 
@@ -227,11 +238,7 @@ pub fn load_zengin_world_data(
         if let Some(instance) = vm_state.instance_data.get(&npc_spawn.npc_index) {
             load_npc(&mut data, &vfs, vm_state, instance, npc_spawn);
         } else {
-            // println!("not handled npc_spawn.npc_index({})", npc_spawn.npc_index);
-            warn_unimplemented!(
-                "Not all NPC instances are handled, Ex. npc_index({})",
-                npc_spawn.npc_index
-            );
+            panic!();
         }
     }
 

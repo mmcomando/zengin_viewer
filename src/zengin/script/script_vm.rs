@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use bevy::ecs::error::{BevyError, Result};
 
+use crate::println_vm;
 use crate::zengin::script::memory::{MemRef, MemValue, ScriptMem};
 use crate::zengin::script::parse::{Prototype, Symbol};
 use crate::{
@@ -82,6 +83,7 @@ pub struct State {
     pub item_instances: HashMap<String, ItemInstance>,
     pub current_instance: Option<u32>,
     pub mem: ScriptMem,
+    pub script_data: Arc<DatFile>,
 }
 
 impl State {
@@ -95,6 +97,7 @@ impl State {
             item_instances: HashMap::new(),
             current_instance: None,
             mem,
+            script_data,
         }
     }
 
@@ -103,7 +106,20 @@ impl State {
             StackVVV::MemValue(val) => {
                 return Some(*val);
             }
-            StackVVV::MemRef(var_ref) => Some(self.mem.get_value(*var_ref)),
+            StackVVV::MemRef(var_ref) => {
+                if var_ref.arr_index.is_none()
+                    && var_ref.offset.is_none()
+                    && self.script_data.is_instance_with_code(var_ref.id)
+                {
+                    // println!(
+                    //     "get mem ret({}) instead of ({})",
+                    //     var_ref.id,
+                    //     self.mem.get_value(*var_ref).get_int()
+                    // );
+                    return Some(MemValue::from(var_ref.id));
+                }
+                return Some(self.mem.get_value(*var_ref));
+            }
         }
     }
 
@@ -117,10 +133,11 @@ impl State {
         return Ok(mem_ref);
     }
     pub fn pop_stack_var(&mut self) -> Result<StackVVV> {
-        let Some(world_point_name_index) = self.stack.pop_back() else {
+        let Some(var) = self.stack.pop_back() else {
             return Err(BevyError::from("There is no var on stack to pop"));
         };
-        return Ok(world_point_name_index);
+        // println!("pop_stack_var: {:?}  ({:?})", var, self.get_value(&var));
+        return Ok(var);
     }
 
     pub fn pop_stack_value(&mut self) -> Result<MemValue> {
@@ -141,35 +158,33 @@ impl State {
     }
 
     pub fn push_stack_int(&mut self, val: u32) {
+        // println!("push int: {val}");
         self.stack
             .push_back(StackVVV::MemValue(MemValue::from(val)));
+    }
+
+    pub fn push_stack_mem_ref(&mut self, mem_ref: MemRef) {
+        // println!(
+        //     "push ref: {:?}  ({:?})",
+        //     mem_ref,
+        //     self.get_value(&StackVVV::MemRef(mem_ref))
+        // );
+        self.stack.push_back(StackVVV::MemRef(mem_ref));
     }
 
     pub fn set_value(&mut self, dest_var: MemRef, val: MemValue) {
         self.mem.set_int(dest_var, val.get_int());
     }
-    pub fn handle_assign_instruction(&mut self, is_instance: bool) -> Result {
+    pub fn handle_assign_instruction(&mut self) -> Result {
         let dest_mem_loc = self.pop_mem_ref()?;
         let src_var = self.pop_stack_var()?;
-        if is_instance && let StackVVV::MemRef(instance_ref) = &src_var {
-            let value = MemValue::from(instance_ref.id);
-            // println!(
-            //     "assign instance to({dest_mem_loc:?}) = ({src_var:?}), current_instance({:?}) ",
-            //     self.current_instance
-            // );
-            assert!(instance_ref.offset.is_none());
-            assert!(instance_ref.arr_index.is_none());
-
-            self.set_value(dest_mem_loc, value);
-            return Ok(());
-        }
-
         let value = self.get_value(&src_var).ok_or_else(|| {
             BevyError::from(format!("Failed to get value from src_var({:?})", src_var,))
         })?;
 
         // println!(
-        //     "assign to({dest_mem_loc:?}) = ({value:?}), current_instance({:?}) ",
+        //     "assign{} to({dest_mem_loc:?}) = ({value:?}), current_instance({:?}) ",
+        //     if is_instance { " INSTANCE" } else { "" },
         //     self.current_instance
         // );
         self.set_value(dest_mem_loc, value);
@@ -181,6 +196,7 @@ impl State {
 pub enum ClassType {
     Npc,
     Item,
+    Info,
 }
 
 pub struct ScriptVM {
@@ -198,9 +214,14 @@ impl ScriptVM {
             // if instance.symbol.name != "none_100_xardas" {
             //     continue;
             // }
+            // if instance.symbol.name != "pc_hero" {
+            //     continue;
+            // }
 
             if !state.mem.id_exists(instance.symbol_table_index as u32) {
-                self.interpret_instance(state, instance);
+                if self.get_type_by_index(instance.symbol_table_index) != Some(ClassType::Info) {
+                    self.interpret_instance(state, instance);
+                }
             }
         }
         self.instantiate_item_instances(state);
@@ -281,7 +302,6 @@ impl ScriptVM {
 
     pub fn interpret_instructions(&self, state: &mut State, instructions: &[Instruction]) {
         for instruction in instructions {
-            // println!("III: {:?}", instruction);
             if let Instruction::Call(func_offset) = instruction {
                 let Some(call_func) = self.script_data.get_function_by_offset(*func_offset) else {
                     // println!("Skipped call to func_offset({})", *func_offset);
@@ -292,28 +312,23 @@ impl ScriptVM {
             if let Instruction::CallExternal(func_offset) = instruction {
                 self.interpret_external_function(state, *func_offset);
             } else if let Instruction::PushInt(var) = instruction {
-                // println!("pushi ({:?})", var);
                 state.push_stack_int(*var as u32);
             } else if let Instruction::PushVar(var) = instruction {
-                // println!("pushv ({:?})", var);
                 self.handle_push_var(state, *var, None);
             } else if let Instruction::PushInstance(var) = instruction {
-                // println!("push_instance ({:?})", var);
                 self.handle_push_var(state, *var, None);
             } else if let Instruction::PushArrayVar(var, index) = instruction {
-                // println!("push_array_var ({:?}[{}])", var, index);
                 self.handle_push_var(state, *var, Some(*index));
             } else if let Instruction::Assign = instruction {
-                state.handle_assign_instruction(false).unwrap();
+                state.handle_assign_instruction().unwrap();
             } else if let Instruction::AssignString = instruction {
-                state.handle_assign_instruction(false).unwrap();
+                state.handle_assign_instruction().unwrap();
             } else if let Instruction::AssignFunc = instruction {
-                state.handle_assign_instruction(false).unwrap();
+                state.handle_assign_instruction().unwrap();
             } else if let Instruction::AssignFloat = instruction {
                 // panic!();
             } else if let Instruction::AssignInstance = instruction {
-                // println!("Assign Instance:");
-                state.handle_assign_instruction(true).unwrap();
+                state.handle_assign_instruction().unwrap();
             } else if let Instruction::Return = instruction {
                 // println!("<- return");
                 break;
@@ -340,7 +355,7 @@ impl ScriptVM {
     }
 
     pub fn interpret_prototype(&self, state: &mut State, prototype: &Prototype) {
-        // println!("-> Interpret Prototype({:?})", prototype.symbol.name);
+        println_vm!("-> Interpret Prototype({:?})", prototype.symbol.name);
         self.initialize_class_memory(state, prototype.symbol.parent);
         if let Some(parent_prototype) = self
             .script_data
@@ -350,17 +365,21 @@ impl ScriptVM {
         }
 
         self.interpret_instructions(state, &prototype.instructions);
-        // println!("<- Interpret Prototype({:?}) END", prototype.symbol.name);
+        println_vm!("<- Interpret Prototype({:?}) END", prototype.symbol.name);
     }
 
     pub fn get_type_by_index(&self, index: u32) -> Option<ClassType> {
         const ITEM_CLASS_INDEX: u32 = 1521;
         const NPC_CLASS_INDEX: u32 = 1474;
+        const INFO_CLASS_INDEX: u32 = 1586;
         if index == NPC_CLASS_INDEX {
             return Some(ClassType::Npc);
         }
         if index == ITEM_CLASS_INDEX {
             return Some(ClassType::Item);
+        }
+        if index == INFO_CLASS_INDEX {
+            return Some(ClassType::Info);
         }
         let Some(symbol) = self.script_data.symbols.get(index as usize) else {
             return None;
@@ -372,12 +391,16 @@ impl ScriptVM {
     }
 
     pub fn interpret_instance(&self, state: &mut State, instance: &Instance) {
-        // println!(
-        //     "Interpret Instance({})({})",
-        //     instance.symbol.name, instance.symbol_table_index
-        // );
+        println_vm!(
+            "Interpret Instance({})({})",
+            instance.symbol.name,
+            instance.symbol_table_index
+        );
 
         assert_eq!(state.current_instance, None);
+        state
+            .mem
+            .set_int(MemRef::global(1616), instance.symbol_table_index);
         let previous_instance = state.current_instance;
         state.current_instance = Some(instance.symbol_table_index);
 
@@ -390,15 +413,17 @@ impl ScriptVM {
         self.interpret_instructions(state, &instance.instructions);
 
         state.current_instance = previous_instance;
-        // println!("Interpret Instance({}) END", instance.symbol.name);
+
+        state.mem.set_int(MemRef::global(1616), 8888888);
+        println_vm!("Interpret Instance({}) END", instance.symbol.name);
     }
     pub fn interpret_function(&self, state: &mut State, func: &Function) {
         assert!(!func.symbol.external);
-        // println!("-> Interpret Func({})", func.symbol.name);
+        println_vm!("-> Interpret Func({})", func.symbol.name);
         let previous_instance = state.current_instance;
         self.interpret_instructions(state, &func.instructions);
         state.current_instance = previous_instance;
-        // println!("<- Interpret Func({}) ENDD", func.symbol.name);
+        println_vm!("<- Interpret Func({}) ENDD", func.symbol.name);
     }
 
     pub fn get_string(&self, index: u32) -> Result<&String> {
@@ -540,6 +565,6 @@ impl ScriptVM {
             id = state.current_instance.unwrap();
         }
         let mem_ref = MemRef::from(id, class_offset, arr_index);
-        state.stack.push_back(StackVVV::MemRef(mem_ref));
+        state.push_stack_mem_ref(mem_ref);
     }
 }

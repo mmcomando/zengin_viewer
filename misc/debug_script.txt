@@ -1,0 +1,27 @@
+# gdb -x misc/debug_script.txt --args ./target/debug/ZenGinViewer
+
+set confirm off
+set pagination off
+set debuginfod enabled off
+
+set logging file gdb_output.log
+set logging on
+
+
+start
+
+
+break Boxes.cc:27
+commands
+print this->center
+print this->axes[0]
+print this->axes[1]
+print this->axes[2]
+print this->half_width
+print this->children.size()
+#return
+continue
+end
+
+
+run

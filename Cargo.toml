@@ -10,7 +10,7 @@ bevy = { version = "0.18.1", features = ["dynamic_linking", "bevy_dev_tools", "f
 avian3d = { git = "https://github.com/avianphysics/avian.git", tag = "v0.6.0-rc.1" }
 # avian3d = "0.5.0"
 byteorder = "1.5"
-ZenKit-rs = { git = "https://github.com/mmcomando/ZenKit-rs.git", rev = "76ddccaf63d8833d684d27e0e25b8ffbd205f805" }
+ZenKit-rs = { git = "https://github.com/mmcomando/ZenKit-rs.git", rev = "cc5261e9dd38c169d708fb65d49765959f68d487" }
 ron = "0.12.0"
 
 # Enable a small amount of optimization in the dev profile.

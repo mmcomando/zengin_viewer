@@ -15,3 +15,13 @@ macro_rules! warn_unimplemented {
         $crate::warn_once!("ZenKit unimplemented: {}", format_args!($($arg)*));
     }};
 }
+
+#[macro_export]
+macro_rules! println_vm {
+    ($($arg:tt)*) => {{
+        static DO_PRINT: bool = false;
+        if DO_PRINT {
+            println!($($arg)*);
+        }
+    }};
+}

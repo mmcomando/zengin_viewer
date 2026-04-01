@@ -1,9 +1,6 @@
 use bevy::ecs::error::Result;
 
-use crate::{
-    warn_once,
-    zengin::script::script_vm::{RoutineEntry, ScriptVM, SpawnItem, SpawnNpc, State},
-};
+use crate::zengin::script::script_vm::{RoutineEntry, ScriptVM, SpawnItem, SpawnNpc, State};
 
 impl ScriptVM {
     pub fn handle_mdl_setvisualbody(&self, state: &mut State) -> Result {
@@ -38,16 +35,8 @@ impl ScriptVM {
             // Sometimes there is model "Hum_Head_Babe." (dot at the end), engine or scripts bug?
             Some(head_model.replace('.', ""))
         };
-
-        let armor_model = if let Ok(armor_var) = &armor_var {
-            self.get_string(*armor_var).ok()
-        } else {
-            None
-        };
-
-        let npc_index = if let Ok(npc_index) = npc_index
-        // && npc_index != 0
-        {
+        let npc_index = if let Ok(npc_index) = npc_index {
+            assert!(npc_index != 0);
             npc_index
         } else if let Some(npc_index) = state.current_instance {
             npc_index
@@ -55,10 +44,12 @@ impl ScriptVM {
             panic!();
         };
 
-        if npc_index == 0 {
-            warn_once!("Set visual for wrong npc_index(0)");
-            return Ok(());
-        }
+        let armor_model = if let Ok(armor_var) = &armor_var {
+            self.get_string(*armor_var).ok()
+        } else {
+            None
+        };
+
         let entry = state.instance_data.entry(npc_index).or_default();
 
         entry.body_texture = body_texture;
@@ -81,7 +72,7 @@ impl ScriptVM {
 
         let instance = state.current_instance.unwrap();
 
-        let entry = state.instance_data.entry(instance).or_default();
+        let entry = state.instance_data.get_mut(&instance).unwrap();
 
         let routine_entry = RoutineEntry {
             start_h,
@@ -103,7 +94,7 @@ impl ScriptVM {
             return Ok(());
         };
         // println!(
-        //     "wld_insertitem way_point({:?}), www({:?})",
+        //     "wld_insertitem way_point({:?}), wepon_string({:?})",
         //     way_point_name.data, wepon_string.data
         // );
 
@@ -125,16 +116,12 @@ impl ScriptVM {
         //     return Ok(());
         // }
 
-        // println!(
-        //     "Spawn npc({})({npc_symbol_index}) on pos({})",
-        //     npc_symbol.name, point_symbol.data
-        // );
-
-        state.spawn_npcs.push(SpawnNpc {
-            // npc: npc_symbol.name.clone(),
+        let npc = SpawnNpc {
             npc_index: npc_symbol_index,
             way_point: point_symbol.clone(),
-        });
+        };
+
+        state.spawn_npcs.push(npc);
         Ok(())
     }
 }
