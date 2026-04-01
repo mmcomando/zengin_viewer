@@ -5,6 +5,8 @@ use crate::{
     zengin::script::script_vm::{ScriptVM, State},
 };
 
+const UNKNOWN_STACK_VAR: u32 = 888888;
+
 impl ScriptVM {
     pub fn handle_createinvitem(state: &mut State) -> Result {
         warn_unimplemented!("createinvitem not implemented");
@@ -24,24 +26,28 @@ impl ScriptVM {
     pub fn handle_npc_isdead(state: &mut State) -> Result {
         warn_unimplemented!("npc_isdead not implemented");
         let _instance = state.pop_stack_var()?;
+        state.push_stack_int(0);
         return Ok(());
     }
 
     pub fn handle_playvideo(state: &mut State) -> Result {
         warn_unimplemented!("playvideo not implemented");
         let _video_string = state.pop_stack_var()?;
+        state.push_stack_int(0);
         return Ok(());
     }
 
     pub fn handle_hlp_getnpc(state: &mut State) -> Result {
         warn_unimplemented!("hlp_getnpc not implemented");
         let _instance = state.pop_stack_var()?;
+        state.push_stack_int(UNKNOWN_STACK_VAR);
         return Ok(());
     }
 
     pub fn handle_hlp_isvalidnpc(state: &mut State) -> Result {
         warn_unimplemented!("hlp_isvalidnpc not implemented");
         let _instance = state.pop_stack_var()?;
+        state.push_stack_int(1);
         return Ok(());
     }
 
@@ -102,6 +108,7 @@ impl ScriptVM {
     pub fn handle_hlp_random(state: &mut State) -> Result {
         warn_unimplemented!("hlp_random not implemented");
         let _par_0 = state.pop_stack_var()?;
+        state.push_stack_int(UNKNOWN_STACK_VAR);
         return Ok(());
     }
 
@@ -120,6 +127,7 @@ impl ScriptVM {
     pub fn handle_inttostring(state: &mut State) -> Result {
         warn_unimplemented!("inttostring not implemented");
         let _par_0 = state.pop_stack_var()?;
+        state.push_stack_int(UNKNOWN_STACK_VAR);
         return Ok(());
     }
     pub fn handle_npc_setattitude(state: &mut State) -> Result {
@@ -138,6 +146,7 @@ impl ScriptVM {
         warn_unimplemented!("concatstrings not implemented");
         let _par_0 = state.pop_stack_var()?;
         let _par_1 = state.pop_stack_var()?;
+        state.push_stack_int(UNKNOWN_STACK_VAR);
         return Ok(());
     }
 }

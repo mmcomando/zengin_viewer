@@ -2,12 +2,14 @@ use bevy::ecs::error::Result;
 
 use crate::{
     warn_unimplemented,
-    zengin::script::script_vm::{RoutineEntry, ScriptVM, SpawnItem, SpawnNpc, State},
+    zengin::script::{
+        memory::MemRef,
+        script_vm::{RoutineEntry, ScriptVM, SpawnItem, SpawnNpc, State},
+    },
 };
 
 impl ScriptVM {
     pub fn handle_mdl_setvisualbody(&self, state: &mut State) -> Result {
-        warn_unimplemented!("handle_mdl_setvisualbody not implemented");
         let armor_var = state.pop_stack_var_int();
         let _par_1 = state.pop_stack_var()?;
         let face_texture_index = state.pop_stack_var_int()?;
@@ -40,9 +42,7 @@ impl ScriptVM {
             Some(head_model.replace('.', ""))
         };
 
-        // let armor_model = self.get_string(armor_var.0).ok();
         let armor_model = if let Ok(armor_var) = &armor_var {
-            // Some(armor_var.1.name.clone())
             self.get_string(*armor_var).ok()
         } else {
             None
@@ -69,7 +69,6 @@ impl ScriptVM {
     }
 
     pub fn handle_ta_min(&self, state: &mut State) -> Result {
-        warn_unimplemented!("handle_ta_min not implemented");
         let way_point = self.pop_stack_string(state)?.clone();
         let _func_index = state.pop_stack_var()?;
         let _stop_m = state.pop_stack_var_int()?;
@@ -97,18 +96,12 @@ impl ScriptVM {
         let way_point_name = self.pop_stack_string(state)?;
         let item_index = state.pop_stack_var_int()?;
 
-        let Some(wepon_instance) = state.class_instance_data.get(&item_index) else {
-            println!("Weapon({item_index}) instance index not found");
-            return Ok(());
-        };
-
         let visual_offset = 524;
-        let Some(visual_data) = wepon_instance.data.get(&visual_offset) else {
+        let wepon_visual_index = state.mem.get_int(MemRef::class(item_index, visual_offset));
+        let Ok(wepon_string) = self.get_string(wepon_visual_index) else {
             println!("Weapon({visual_offset}) visual_offset not found on instance({item_index})");
             return Ok(());
         };
-        let wepon_visual_index = visual_data.get_int()?;
-        let wepon_string = self.get_string(wepon_visual_index)?;
         // println!(
         //     "wld_insertitem way_point({:?}), www({:?})",
         //     way_point_name.data, wepon_string.data

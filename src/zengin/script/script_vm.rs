@@ -1,45 +1,22 @@
 use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 
 use bevy::ecs::error::{BevyError, Result};
-use bevy::log::warn;
 
+use crate::zengin::script::memory::{MemRef, MemValue, ScriptMem};
+use crate::zengin::script::parse::{Prototype, Symbol};
 use crate::{
     warn_unimplemented,
-    zengin::script::parse::{DatFile, Function, Instance, Instruction, Symbol},
+    zengin::script::parse::{DatFile, Function, Instance, Instruction},
 };
 
-#[derive(Debug, Clone)]
-pub enum StoredValue {
-    Int(u32),
-    IntArr(Vec<u32>),
-}
-
-impl StoredValue {
-    pub fn get_int(&self) -> Result<u32> {
-        let StoredValue::Int(int) = self else {
-            return Err(BevyError::from(format!(
-                "StoredValue({:?}) is not an int",
-                self,
-            )));
-        };
-        return Ok(*int);
-    }
-}
-#[derive(Debug, Clone)]
-pub struct VmValue(pub i32);
-
-#[derive(Debug, Clone)]
-pub enum VariableRef {
-    GlobalVar(u32),
-    ClassVar(u32),
-    GlobalArrVar(u32, u32),
-    ClassArrVar(u32, u32),
-}
+// const ITEM_CLASS_INDEX: u32 = 1521;
+const NPC_CLASS_INDEX: u32 = 1474;
 
 #[derive(Debug, Clone)]
 pub enum StackVVV {
-    VmValue(VmValue),
-    VariableRef(VariableRef),
+    MemValue(MemValue),
+    MemRef(MemRef),
 }
 
 #[derive(Debug, Default)]
@@ -93,96 +70,47 @@ pub struct SpawnItem {
     pub way_point: String,
 }
 
-#[derive(Debug, Default)]
-pub struct ClassData {
-    pub name: String,
-    pub data: HashMap<u32, StoredValue>,
-}
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct State {
     pub stack: VecDeque<StackVVV>,
     pub spawn_npcs: Vec<SpawnNpc>,
     pub spawn_weapons: Vec<SpawnItem>,
     pub instance_data: HashMap<u32, InstanceState>,
-    pub class_instance_data: HashMap<u32, ClassData>,
-    pub global_data: HashMap<u32, StoredValue>,
     pub current_instance: Option<u32>,
+    pub mem: ScriptMem,
 }
 
 impl State {
-    pub fn new() -> Self {
-        State::default()
-    }
-
-    pub fn set_data(&mut self, offset: u32, arr_index: Option<u32>, value: StoredValue) {
-        let Some(instance_name) = &self.current_instance else {
-            println!(
-                "Can't assign to class member variable as there is no current class in context, value({:?})",
-                value
-            );
-            return;
-        };
-
-        let class = self.class_instance_data.entry(*instance_name).or_default();
-        if let Some(arr_index) = arr_index {
-            insert_arr_value_to_store(&mut class.data, offset, arr_index, value);
-            return;
+    pub fn new(script_data: Arc<DatFile>) -> Self {
+        let mem = ScriptMem::from(&script_data);
+        State {
+            stack: VecDeque::new(),
+            spawn_npcs: Vec::new(),
+            spawn_weapons: Vec::new(),
+            instance_data: HashMap::new(),
+            current_instance: None,
+            mem,
         }
-        class.data.insert(offset, value);
     }
 
-    fn get_value_inner(&self, offset: u32) -> Option<StoredValue> {
-        let Some(instance_name) = &self.current_instance else {
-            println!("Can't get class member variable as there is no current class in context");
-            return None;
-        };
-
-        let Some(class_data) = self.class_instance_data.get(instance_name) else {
-            println!("Class instance({instance_name}) is not present");
-            return None;
-        };
-
-        let Some(value) = class_data.data.get(&offset) else {
-            // println!("Class instance({instance_name}) doesn't contain offset({offset})");
-            return None;
-        };
-        return Some(value.clone());
-    }
-
-    pub fn get_value(&mut self, var: &StackVVV) -> Option<StoredValue> {
+    pub fn get_value(&mut self, var: &StackVVV) -> Option<MemValue> {
         match var {
-            StackVVV::VmValue(val) => {
-                return Some(StoredValue::Int(val.0 as u32));
+            StackVVV::MemValue(val) => {
+                return Some(*val);
             }
-            StackVVV::VariableRef(var_ref) => match var_ref {
-                VariableRef::ClassVar(offset_in_class) => {
-                    return self.get_value_inner(*offset_in_class);
-                }
-                VariableRef::GlobalVar(var_index) => {
-                    return self.global_data.get(var_index).cloned();
-                }
-                VariableRef::GlobalArrVar(var_index, in_var_index) => {
-                    let arr = self.global_data.get(var_index)?;
-                    let StoredValue::IntArr(arr) = arr else {
-                        println!("Tried to get array value from data which is not an array");
-                        return None;
-                    };
-                    let value = arr.get(*in_var_index as usize).unwrap();
-                    return Some(StoredValue::Int(*value));
-                }
-                VariableRef::ClassArrVar(offset_in_class, in_var_index) => {
-                    let arr = self.get_value_inner(*offset_in_class)?;
-                    let StoredValue::IntArr(arr) = arr else {
-                        println!("Tried to get array value from data which is not an array");
-                        return None;
-                    };
-                    let value = arr.get(*in_var_index as usize)?;
-                    return Some(StoredValue::Int(*value));
-                }
-            },
+            StackVVV::MemRef(var_ref) => Some(self.mem.get_value(*var_ref)),
         }
     }
 
+    pub fn pop_mem_ref(&mut self) -> Result<MemRef> {
+        let var = self.pop_stack_var()?;
+        let StackVVV::MemRef(mem_ref) = var else {
+            return Err(BevyError::from(
+                "Popped variable is not a variable reference",
+            ));
+        };
+        return Ok(mem_ref);
+    }
     pub fn pop_stack_var(&mut self) -> Result<StackVVV> {
         let Some(world_point_name_index) = self.stack.pop_back() else {
             return Err(BevyError::from("There is no var on stack to pop"));
@@ -190,9 +118,8 @@ impl State {
         return Ok(world_point_name_index);
     }
 
-    pub fn pop_stack_value(&mut self) -> Result<StoredValue> {
+    pub fn pop_stack_value(&mut self) -> Result<MemValue> {
         let var = self.pop_stack_var()?;
-        // println!("pop_stack_value: ({:?})", var);
         let Some(value) = self.get_value(&var) else {
             return Err(BevyError::from(format!(
                 "Failed to get value from stack var({:?})",
@@ -204,145 +131,77 @@ impl State {
 
     pub fn pop_stack_var_int(&mut self) -> Result<u32> {
         let val = self.pop_stack_value()?;
-        let int = val.get_int()?;
-
+        let int = val.get_int();
         return Ok(int);
     }
 
-    pub fn set_value(&mut self, dest_var: VariableRef, val: StoredValue) {
-        match dest_var {
-            VariableRef::GlobalVar(var_index) => {
-                self.global_data.insert(var_index, val);
-            }
-            VariableRef::GlobalArrVar(var_index, in_var_index) => {
-                insert_arr_value_to_store(&mut self.global_data, var_index, in_var_index, val);
-            }
-            VariableRef::ClassVar(class_offset) => {
-                self.set_data(class_offset, None, val);
-            }
-
-            VariableRef::ClassArrVar(class_offset, in_var_index) => {
-                self.set_data(class_offset, Some(in_var_index), val);
-            }
-        }
+    pub fn push_stack_int(&mut self, val: u32) {
+        self.stack
+            .push_back(StackVVV::MemValue(MemValue::from(val)));
     }
-    pub fn handle_assign_instruction(&mut self, is_instance: bool) {
-        let Some(StackVVV::VariableRef(dest_var)) = self.stack.pop_back() else {
-            println!("handle_assign_instruction expected Var on stack");
-            return;
-        };
-        let Some(source_var) = self.stack.pop_back() else {
-            println!("handle_assign_instruction expected Var on stack");
-            return;
-        };
 
-        if is_instance
-            && let StackVVV::VariableRef(VariableRef::GlobalVar(source_value)) = source_var
-        {
-            // println!("assign1 to({dest_var:?}) = ({source_value:?})");
-            self.set_value(dest_var, StoredValue::Int(source_value));
-            return;
+    pub fn set_value(&mut self, dest_var: MemRef, val: MemValue) {
+        self.mem.set_int(dest_var, val.get_int());
+    }
+    pub fn handle_assign_instruction(&mut self, is_instance: bool) -> Result {
+        let dest_mem_loc = self.pop_mem_ref()?;
+        let src_var = self.pop_stack_var()?;
+        if is_instance && let StackVVV::MemRef(instance_ref) = &src_var {
+            let value = MemValue::from(instance_ref.id);
+            // println!(
+            //     "assign instance to({dest_mem_loc:?}) = ({src_var:?}), current_instance({:?}) ",
+            //     self.current_instance
+            // );
+            assert!(instance_ref.offset.is_none());
+            assert!(instance_ref.arr_index.is_none());
+
+            self.set_value(dest_mem_loc, value);
+            return Ok(());
         }
-        let Some(source_value) = self.get_value(&source_var) else {
-            // println!("handle_assign_instruction failed to get value");
-            return;
-        };
+
+        let value = self.get_value(&src_var).ok_or_else(|| {
+            BevyError::from(format!("Failed to get value from src_var({:?})", src_var,))
+        })?;
+
         // println!(
-        //     "assign to({dest_var:?}) = ({source_value:?}), current_instance({:?})",
+        //     "assign to({dest_mem_loc:?}) = ({value:?}), current_instance({:?}) ",
         //     self.current_instance
         // );
-        self.set_value(dest_var, source_value);
+        self.set_value(dest_mem_loc, value);
+        Ok(())
     }
 }
 
 pub struct ScriptVM {
-    pub script_data: DatFile,
-}
-
-fn insert_arr_value_to_store(
-    store: &mut HashMap<u32, StoredValue>,
-    offset: u32,
-    in_var_index: u32,
-    val: StoredValue,
-) {
-    match val {
-        StoredValue::Int(val) => {
-            let entry = store.entry(offset).or_insert(StoredValue::IntArr(vec![]));
-
-            let arr = if let StoredValue::IntArr(arr) = entry {
-                arr
-            } else if let StoredValue::Int(var) = entry.clone() {
-                // println!("Upgrade to array");
-                store.insert(offset, StoredValue::IntArr(vec![var]));
-                if let StoredValue::IntArr(arr) = store.get_mut(&offset).unwrap() {
-                    arr
-                } else {
-                    panic!();
-                }
-            } else {
-                panic!(
-                    "Not handled insert to array entry({:?}) in_var_index({})",
-                    entry, in_var_index
-                );
-            };
-
-            if (in_var_index as usize) >= arr.len() {
-                // println!("AAAADD TO ARR INDEX DEFAULT");
-                for _ in 0..=((in_var_index as usize) - arr.len()) {
-                    arr.push(u32::MAX);
-                }
-            }
-            // println!("set var_index({offset}[{in_var_index}]) = {val}");
-            arr[in_var_index as usize] = val;
-        }
-        StoredValue::IntArr(_) => {
-            panic!("Should not set array in array")
-        }
-    }
+    pub script_data: Arc<DatFile>,
 }
 
 impl ScriptVM {
-    pub fn new(script_data: DatFile) -> Self {
+    pub fn new(script_data: Arc<DatFile>) -> Self {
         warn_unimplemented!("Scripts support is hacked to just somehow spawn NPCs");
         ScriptVM { script_data }
     }
 
     pub fn initialize_variables(&self, state: &mut State) {
-        for (index, symbol) in self.script_data.symbols.iter().enumerate() {
-            if let Some(val) = get_symbol_value(symbol, index as u32) {
-                let dest_var = VariableRef::GlobalVar(index as u32);
-                state.set_value(dest_var, val.clone());
-            }
-        }
-        // let xardas = 11156;
         for instance in &self.script_data.instances {
-            // if instance.symbol.name != "itmw_zweihaender1" {
+            // if instance.symbol.name != "none_100_xardas" {
             //     continue;
             // }
-            // println!("instance: {:?}", instance.symbol.name);
-            // if instance.symbol_table_index != xardas {
-            //     continue;
-            // }
-            if !state
-                .class_instance_data
-                .contains_key(&(instance.symbol_table_index as u32))
-            {
+
+            if !state.mem.id_exists(instance.symbol_table_index as u32) {
                 self.interpret_instance(state, instance);
             }
         }
     }
 
     pub fn interpret_script_function(&self, state: &mut State, func_name: &str) {
-        // println!("Interpret func_name({func_name})");
         let function = self.script_data.get_function(func_name).unwrap();
         self.interpret_function(state, function);
-        // println!("Interpret func_name({func_name}) ENDDDD");
     }
 
     pub fn interpret_instructions(&self, state: &mut State, instructions: &[Instruction]) {
         for instruction in instructions {
             if let Instruction::Call(func_offset) = instruction {
-                // println!("call func({})", func_offset);
                 let Some(call_func) = self.script_data.get_function_by_offset(*func_offset) else {
                     // println!("Skipped call to func_offset({})", *func_offset);
                     continue;
@@ -353,7 +212,7 @@ impl ScriptVM {
                 self.interpret_external_function(state, *func_offset);
             } else if let Instruction::PushInt(var) = instruction {
                 // println!("pushi ({:?})", var);
-                state.stack.push_back(StackVVV::VmValue(VmValue(*var)));
+                state.push_stack_int(*var as u32);
             } else if let Instruction::PushVar(var) = instruction {
                 // println!("pushv ({:?})", var);
                 self.handle_push_var(state, *var, None);
@@ -364,65 +223,100 @@ impl ScriptVM {
                 // println!("push_array_var ({:?}[{}])", var, index);
                 self.handle_push_var(state, *var, Some(*index));
             } else if let Instruction::Assign = instruction {
-                state.handle_assign_instruction(false);
+                state.handle_assign_instruction(false).unwrap();
             } else if let Instruction::AssignString = instruction {
-                state.handle_assign_instruction(false);
+                state.handle_assign_instruction(false).unwrap();
             } else if let Instruction::AssignFunc = instruction {
-                state.handle_assign_instruction(false);
-                // panic!();
+                state.handle_assign_instruction(false).unwrap();
             } else if let Instruction::AssignFloat = instruction {
                 // panic!();
             } else if let Instruction::AssignInstance = instruction {
                 // println!("Assign Instance:");
-                state.handle_assign_instruction(true);
-                // panic!();
+                state.handle_assign_instruction(true).unwrap();
             } else if let Instruction::Return = instruction {
                 // println!("<- return");
                 break;
-            } else if let Instruction::SetInstance(instance) = instruction {
-                let source_var = StackVVV::VariableRef(VariableRef::GlobalVar(*instance));
+            } else if let Instruction::SetInstance(instance_index) = instruction {
+                let source_var = StackVVV::MemRef(MemRef::global(*instance_index));
                 let Some(source_value) = state.get_value(&source_var) else {
                     continue;
                 };
-                if let Ok(index) = source_value.get_int() {
-                    state.current_instance = Some(index);
-                    // println!("Set Instance({:?})", instruction);
-                } else {
-                    println!("Failed to set instance({:?})", instruction);
-                }
+                state.current_instance = Some(source_value.get_int());
+            }
+        }
+    }
+    pub fn initialize_class_memory(&self, state: &mut State, class_index: u32) {
+        let Some(current_instance) = state.current_instance else {
+            println!(
+                "Curent instance not set, can't init memory, current_instance({:?})",
+                state.current_instance
+            );
+            return;
+        };
+        // Initialize memory
+        if let Some(Symbol::SymbolClass(class)) = self.script_data.symbols.get(class_index as usize)
+        {
+            assert!(class.size % 4 == 0);
+            let var_num = class.size;
+            // println!(
+            //     "Init memory var_num({var_num}), current_instance({:?}), var_num({var_num})",
+            //     current_instance
+            // );
+            for index in 0..=var_num {
+                state
+                    .mem
+                    .set_int(MemRef::class(current_instance, index * 4), 0);
             }
         }
     }
 
+    pub fn interpret_prototype(&self, state: &mut State, prototype: &Prototype) -> bool {
+        // println!("-> Interpret Prototype({:?})", prototype.symbol.name);
+        self.initialize_class_memory(state, prototype.symbol.class_index_id);
+        let mut is_npc = prototype.symbol.class_index_id == NPC_CLASS_INDEX;
+        if let Some(parent_prototype) = self
+            .script_data
+            .get_prototype_by_index(prototype.symbol.class_index_id)
+        {
+            is_npc |= self.interpret_prototype(state, parent_prototype);
+        }
+
+        self.interpret_instructions(state, &prototype.instructions);
+        // println!("<- Interpret Prototype({:?}) END", prototype.symbol.name);
+        return is_npc;
+    }
+
     pub fn interpret_instance(&self, state: &mut State, instance: &Instance) {
         // println!("Interpret Instance({})", instance.symbol.name);
+
         assert_eq!(state.current_instance, None);
         let previous_instance = state.current_instance;
         state.current_instance = Some(instance.symbol_table_index as u32);
-        let class = state
-            .class_instance_data
-            .entry(instance.symbol_table_index as u32)
-            .or_default();
-        class.name.clone_from(&instance.symbol.name);
 
+        let mut is_npc = false;
+        if let Some(parent) = instance.class_index_id {
+            is_npc |= parent == NPC_CLASS_INDEX;
+            self.initialize_class_memory(state, parent);
+            if let Some(prototype) = self.script_data.get_prototype_by_index(parent) {
+                is_npc |= self.interpret_prototype(state, prototype);
+            }
+        }
         self.interpret_instructions(state, &instance.instructions);
 
-        let class = state
-            .class_instance_data
-            .entry(instance.symbol_table_index as u32)
-            .or_default();
-
-        // Interpret routines immediatelly as they contain data where NPC stands at given hour
-        let daily_routine_func_offset = 608;
-        if let Some(var) = class.data.get(&daily_routine_func_offset) {
-            let index = var.get_int().unwrap();
+        if is_npc {
+            // Hardcoded routine handling
+            let daily_routine_func_offset = 608;
+            let index = state.mem.get_int(MemRef::class(
+                instance.symbol_table_index as u32,
+                daily_routine_func_offset,
+            ));
             if let Some(func) = self.script_data.get_function_by_index(index) {
                 self.interpret_function(state, func);
             }
         }
 
-        // println!("Interpret Instance({}) END", instance.symbol.name);
         state.current_instance = previous_instance;
+        // println!("Interpret Instance({}) END", instance.symbol.name);
     }
     pub fn interpret_function(&self, state: &mut State, func: &Function) {
         assert!(!func.symbol.external);
@@ -430,6 +324,7 @@ impl ScriptVM {
         let previous_instance = state.current_instance;
         self.interpret_instructions(state, &func.instructions);
         state.current_instance = previous_instance;
+        // println!("<- Interpret Func({}) ENDD", func.symbol.name);
     }
 
     pub fn get_string(&self, index: u32) -> Result<&String> {
@@ -557,83 +452,12 @@ impl ScriptVM {
         );
     }
 
-    pub fn handle_push_var(&self, state: &mut State, var_index: u32, arr_index: Option<u8>) {
-        let symbol = self.script_data.get_symbol_by_index(var_index).unwrap();
-        match symbol {
-            Symbol::SymbolInt(_) | Symbol::SymbolString(_) | Symbol::SymbolInstance(_) => {
-                state
-                    .stack
-                    .push_back(StackVVV::VariableRef(VariableRef::GlobalVar(var_index)));
-            }
-            Symbol::SymbolArrInt(_) => {
-                state
-                    .stack
-                    .push_back(StackVVV::VariableRef(VariableRef::GlobalArrVar(
-                        var_index,
-                        u32::from(arr_index.unwrap_or(0)),
-                    )));
-            }
-            Symbol::SymbolClassVariable(var) => {
-                if let Some(arr_index) = arr_index {
-                    state
-                        .stack
-                        .push_back(StackVVV::VariableRef(VariableRef::ClassArrVar(
-                            var_index,
-                            u32::from(arr_index),
-                        )));
-                    return;
-                }
-                state
-                    .stack
-                    .push_back(StackVVV::VariableRef(VariableRef::ClassVar(
-                        var.in_class_offset,
-                    )));
-            }
-
-            Symbol::SymbolFloat(_)
-            | Symbol::SymbolArrFloat(_)
-            | Symbol::SymbolArrString(_)
-            | Symbol::SymbolFunc(_)
-            | Symbol::SymbolArrFunc(_)
-            | Symbol::SymbolClass(_)
-            | Symbol::SymbolPrototype(_)
-            | Symbol::SymbolVariableArgument(_) => {
-                warn!("not handled symbol type({:?}) in pushv instruction", symbol);
-            }
+    pub fn handle_push_var(&self, state: &mut State, mut id: u32, arr_index: Option<u8>) {
+        let class_offset = self.script_data.class_offsets.get(&id).cloned();
+        if class_offset.is_some() {
+            id = state.current_instance.unwrap();
         }
+        let mem_ref = MemRef::from(id, class_offset, arr_index);
+        state.stack.push_back(StackVVV::MemRef(mem_ref));
     }
-}
-
-pub fn get_symbol_value(symbol: &Symbol, var_index: u32) -> Option<StoredValue> {
-    match symbol {
-        Symbol::SymbolInt(var) => {
-            return Some(StoredValue::Int(var.data));
-        }
-        Symbol::SymbolArrInt(var) => {
-            if var.arr.is_empty() {
-                return None;
-            }
-            return Some(StoredValue::Int(var.arr[0]));
-        }
-        Symbol::SymbolString(_var) => {
-            return Some(StoredValue::Int(var_index));
-        }
-
-        Symbol::SymbolFloat(_)
-        | Symbol::SymbolClassVariable(_)
-        | Symbol::SymbolArrFloat(_)
-        | Symbol::SymbolArrString(_)
-        | Symbol::SymbolFunc(_)
-        | Symbol::SymbolArrFunc(_)
-        | Symbol::SymbolClass(_)
-        | Symbol::SymbolInstance(_)
-        | Symbol::SymbolPrototype(_)
-        | Symbol::SymbolVariableArgument(_) => {
-            // warn!(
-            //     "get_symbol_value not handled symbol type({:?}) in pushv instruction",
-            //     symbol
-            // );
-        }
-    }
-    return None;
 }
