@@ -8,7 +8,7 @@ use bevy::{
 
 use crate::zengin::{common::*, visual::material::get_standard_material};
 
-pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshData> {
+pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<ZenGinSubMesh> {
     let mut meshes: HashMap<String, MeshData> = HashMap::new();
 
     let polygons_count = mesh.polygon_count();
@@ -105,27 +105,26 @@ pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshD
         }
     }
 
-    let mut bevy_meshes: Vec<LoadedMeshData> = Vec::new();
+    let mut bevy_meshes: Vec<ZenGinSubMesh> = Vec::new();
 
     for (texture_str, mesh_data) in meshes {
         let mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, mesh_data.colors)
+        // .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, mesh_data.colors)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh_data.vertices)
         .with_inserted_indices(Indices::U32(mesh_data.indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, mesh_data.normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, mesh_data.uvs)
         .with_generated_tangents()
         .unwrap();
-        bevy_meshes.push(LoadedMeshData {
-            texture: texture_str,
+        bevy_meshes.push(ZenGinSubMesh {
+            texture: get_full_texture_path(&texture_str),
             material: mesh_data.material,
             mesh,
             transform: Transform::IDENTITY,
             name: String::new(),
-            head_transform: None,
         });
     }
 

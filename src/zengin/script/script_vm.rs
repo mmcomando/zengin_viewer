@@ -280,7 +280,7 @@ impl ScriptVM {
             return;
         };
 
-        // if npc_symbol.name != "NONE_100_XARDAS" {
+        // if npc_symbol.name != "none_100_xardas" {
         //     return;
         // }
         // println!(

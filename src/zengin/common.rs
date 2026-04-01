@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bevy::prelude::*;
 use zen_kit_rs::vfs::VfsNode;
 
@@ -40,6 +42,11 @@ pub fn get_world_rot(rot_mat: Mat3) -> Quat {
     quat
 }
 
+pub fn get_full_texture_path(short_tex: &str) -> String {
+    let texture = short_tex.to_uppercase().replace(".TGA", "-C.TEX");
+    format!("gothic://_WORK/DATA/TEXTURES/_COMPILED/{texture}")
+}
+
 pub fn print_nodes(node: &VfsNode, level: u8) {
     let name = node.name();
     for _i in 0..level {
@@ -64,25 +71,51 @@ pub struct MeshData {
 }
 
 #[derive(Debug, Clone)]
-pub struct LoadedMeshData {
+pub struct ZenGinSubMesh {
     pub texture: String,
     pub material: StandardMaterial,
     pub mesh: Mesh,
     pub transform: Transform,
-    pub head_transform: Option<Transform>,
+    // pub head_transform: Option<Transform>,
     pub name: String,
 }
 
 #[derive(Debug)]
-pub struct MeshInstance {
-    pub mesh_path: String,
-    pub pos: Vec3,
-    pub rot: Quat,
-    pub is_colider: bool,
-    pub texture_override: Option<String>,
-}
-#[derive(Debug)]
 pub struct LightInstance {
     pub pos: Vec3,
     pub rot: Quat,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct ZenGinModel {
+    pub sub_meshes: Vec<ZenGinSubMesh>,
+    // pub nodes_tr: HashMap<String, Transform>,
+}
+
+#[derive(Debug, Default)]
+pub struct ZenGinNpc {
+    pub head_tr: Transform,
+    pub head_model: ZenGinModel,
+    pub head_texture: String,
+    pub body_tr: Transform,
+    pub body_model: ZenGinModel,
+    pub body_texture: String,
+}
+
+#[derive(Debug, Default)]
+pub struct ZenGinInstance {
+    pub tr: Transform,
+    pub archetype: String,
+}
+
+#[derive(Debug, Default)]
+pub struct ZenGinWorldData {
+    // pub tr: Transform,
+    pub world_meshes: Vec<ZenGinSubMesh>,
+    pub model_archetypes: HashMap<String, ZenGinModel>,
+    pub static_models: Vec<ZenGinInstance>,
+    pub light_instances: Vec<LightInstance>,
+    pub npcs: Vec<ZenGinNpc>,
+    pub spots: HashMap<String, Transform>,
+    pub way_points: HashMap<String, Transform>,
 }

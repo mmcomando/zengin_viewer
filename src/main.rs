@@ -132,13 +132,14 @@ fn spawn_lights(mut commands: Commands) {
 
     commands.insert_resource(GlobalAmbientLight {
         color: Color::linear_rgb(1.0, 1.0, 1.0),
-        brightness: 500.0,
+        brightness: 100.0,
         ..default()
     });
     commands.spawn((
         DirectionalLight {
             color: Color::srgb_u8(172, 172, 193), // Moon color
-            illuminance: bevy::light::light_consts::lux::AMBIENT_DAYLIGHT / 2.0, // Full moon clear sky
+            illuminance: bevy::light::light_consts::lux::FULL_MOON_NIGHT,
+            // illuminance: bevy::light::light_consts::lux::AMBIENT_DAYLIGHT / 2.0,
             shadows_enabled: true,
             ..default()
         },
