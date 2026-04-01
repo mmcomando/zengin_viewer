@@ -58,13 +58,31 @@ fn get_tr_from_point_name(data: &ZenGinWorldData, name: &str) -> Option<Transfor
     };
     Some(*tr)
 }
-pub fn load_weapon(item: &SpawnItem, data: &mut ZenGinWorldData, vfs: &Vfs) {
+
+pub fn get_item_mesh_path(
+    vfs: &Vfs,
+    vm_state: &crate::zengin::script::script_vm::State,
+    name: &str,
+) -> Option<String> {
+    let Some(item_instance) = vm_state.item_instances.get(name) else {
+        println!("Failed to find item({}) instance", name);
+        return None;
+    };
+    let visual = &item_instance.model;
+    find_mesh_path(vfs, &visual)
+}
+pub fn load_weapon(
+    data: &mut ZenGinWorldData,
+    vfs: &Vfs,
+    vm_state: &crate::zengin::script::script_vm::State,
+    item: &SpawnItem,
+) {
     let Some(tr) = get_tr_from_point_name(data, &item.way_point) else {
         return;
     };
 
-    let Some(asset_path) = find_mesh_path(vfs, &item.visual) else {
-        println!("not found mesh for item({})", item.visual);
+    let Some(asset_path) = get_item_mesh_path(vfs, vm_state, &item.instance_name) else {
+        println!("not found mesh for item({})", &item.instance_name);
         return;
     };
     let item = ZenGinItem {
@@ -230,7 +248,7 @@ pub fn load_zengin_world_data(
     check_if_path_exists(PLARCEHOLDER_MESH, &vfs);
 
     for obj in world.root_objects() {
-        load_objects(&vfs, &mut data, &obj);
+        load_objects(&vfs, &mut data, vm_state, &obj);
     }
     let way_net = world.way_net();
     load_way_net_points(&way_net, &mut data);
@@ -244,7 +262,7 @@ pub fn load_zengin_world_data(
     }
 
     for weapon in &vm_state.spawn_weapons {
-        load_weapon(weapon, &mut data, &vfs);
+        load_weapon(&mut data, &vfs, vm_state, weapon);
     }
 
     if !world.npcs().is_empty() {
@@ -292,7 +310,12 @@ fn try_load_mesh(asset_paths: &[String], vfs: &Vfs) -> Option<String> {
     return None;
 }
 
-fn load_objects(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject) {
+fn load_objects(
+    vfs: &Vfs,
+    data: &mut ZenGinWorldData,
+    vm_state: &crate::zengin::script::script_vm::State,
+    obj: &VirtualObject,
+) {
     let visual = obj.visual();
     let visual_name = visual.name();
     let visual_type = visual.get_type();
@@ -379,10 +402,10 @@ fn load_objects(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject) {
             });
         }
     } else {
-        handle_other_vob(data, vfs, obj);
+        handle_other_vob(data, vfs, vm_state, obj);
     }
     for child in obj.children() {
-        load_objects(vfs, data, &child);
+        load_objects(vfs, data, vm_state, &child);
     }
 }
 
@@ -400,24 +423,21 @@ fn handle_light(obj: &VirtualObject, data: &mut ZenGinWorldData) {
     }
     data.light_instances.push(LightInstance { pos, rot });
 }
-fn handle_other_vob(data: &mut ZenGinWorldData, vfs: &Vfs, obj: &VirtualObject) {
+fn handle_other_vob(
+    data: &mut ZenGinWorldData,
+    vfs: &Vfs,
+    vm_state: &crate::zengin::script::script_vm::State,
+    obj: &VirtualObject,
+) {
     let name = obj.name();
     let type_ = obj.get_type();
     match type_ {
-        VobType::zCVob => {
-            warn_unimplemented!("VobType::zCVo");
-            return;
-        }
-        VobType::zCVobLevelCompo => {
-            warn_unimplemented!("VobType::zCVobLevelComp");
-            return;
-        }
         VobType::oCItem => {
-            warn_unimplemented!("Placing items should be based on name of object instance");
             let tr = get_obj_tr(obj);
+            let name = name.to_lowercase();
 
-            let Some(asset_path) = find_mesh_path(vfs, &name) else {
-                // println!("not found mesh for item({})", name);
+            let Some(asset_path) = get_item_mesh_path(vfs, vm_state, &name) else {
+                warn!("Not found mesh for item({}) vob", name);
                 return;
             };
             let npc = ZenGinItem {
@@ -428,34 +448,6 @@ fn handle_other_vob(data: &mut ZenGinWorldData, vfs: &Vfs, obj: &VirtualObject) 
 
             return;
         }
-        VobType::oCNpc => {
-            warn_unimplemented!("VobType::oCNp");
-            return;
-        }
-        VobType::zCMoverController => {
-            warn_unimplemented!("VobType::zCMoverControlle");
-            return;
-        }
-        VobType::zCVobScreenFX => {
-            warn_unimplemented!("VobType::zCVobScreenF");
-            return;
-        }
-        VobType::zCVobStair => {
-            warn_unimplemented!("VobType::zCVobStai");
-            return;
-        }
-        VobType::zCPFXController => {
-            warn_unimplemented!("VobType::zCPFXControlle");
-            return;
-        }
-        VobType::zCVobAnimate => {
-            warn_unimplemented!("VobType::zCVobAnimat");
-            return;
-        }
-        VobType::zCVobLensFlare => {
-            warn_unimplemented!("VobType::zCVobLensFlar");
-            return;
-        }
         VobType::zCVobLight => {
             handle_light(obj, data);
             return;
@@ -463,146 +455,109 @@ fn handle_other_vob(data: &mut ZenGinWorldData, vfs: &Vfs, obj: &VirtualObject) 
         VobType::zCVobSpot => {
             let tr = get_obj_tr(obj);
             data.spots.insert(name.to_lowercase().clone(), tr);
-            // warn_unimplemented!("VobType::zCVobSpot");
             return;
         }
-        VobType::zCVobStartpoint => {
-            warn_unimplemented!("VobType::zCVobStartpoint");
-            return;
+        VobType::zCVob => {
+            warn_unimplemented!("VobType::zCVob");
         }
+        VobType::zCVobLevelCompo => {
+            warn_unimplemented!("VobType::zCVobLevelCompo");
+        }
+        VobType::zCPFXController => {
+            warn_unimplemented!("VobType::zCPFXControlle");
+        }
+
         VobType::zCMessageFilter => {
             warn_unimplemented!("VobType::zCMessageFilter");
-            return;
         }
         VobType::zCCodeMaster => {
             warn_unimplemented!("VobType::zCCodeMaster");
-            return;
         }
         VobType::zCTriggerWorldStart => {
             warn_unimplemented!("VobType::zCTriggerWorldStart");
-            return;
         }
         VobType::zCCSCamera => {
             warn_unimplemented!("VobType::zCCSCamera");
-            return;
         }
         VobType::zCCamTrj_KeyFrame => {
             warn_unimplemented!("VobType::zCCamTrj_KeyFrame");
-            return;
         }
         VobType::oCTouchDamage => {
             warn_unimplemented!("VobType::oCTouchDamage");
-            return;
         }
         VobType::zCTriggerUntouch => {
             warn_unimplemented!("VobType::zCTriggerUntouch");
-            return;
         }
         VobType::zCEarthquake => {
             warn_unimplemented!("VobType::zCEarthquake");
-            return;
-        }
-        VobType::oCMOB => {
-            warn_unimplemented!("VobType::oCMOB");
-            return;
         }
         VobType::oCMobInter => {
             warn_unimplemented!("VobType::oCMobInter");
-            return;
-        }
-        VobType::oCMobBed => {
-            warn_unimplemented!("VobType::oCMobBed");
-
-            return;
-        }
-        VobType::oCMobFire => {
-            warn_unimplemented!("VobType::oCMobFire");
-            return;
-        }
-        VobType::oCMobLadder => {
-            warn_unimplemented!("VobType::oCMobLadder");
-            return;
         }
         VobType::oCMobSwitch => {
             warn_unimplemented!("VobType::oCMobSwitch");
-            return;
-        }
-        VobType::oCMobWheel => {
-            warn_unimplemented!("VobType::oCMobWheel");
-            return;
-        }
-        VobType::oCMobContainer => {
-            warn_unimplemented!("VobType::oCMobContainer");
-            return;
-        }
-        VobType::oCMobDoor => {
-            warn_unimplemented!("VobType::oCMobDoor");
-            return;
         }
         VobType::zCTrigger => {
             warn_unimplemented!("VobType::zCTrigger");
-            return;
         }
         VobType::zCTriggerList => {
             warn_unimplemented!("VobType::zCTriggerList");
-            return;
         }
         VobType::oCTriggerScript => {
             warn_unimplemented!("VobType::oCTriggerScript");
-            return;
         }
         VobType::oCTriggerChangeLevel => {
             warn_unimplemented!("VobType::oCTriggerChangeLevel");
-            return;
-        }
-        VobType::oCCSTrigger => {
-            warn_unimplemented!("VobType::oCCSTrigger");
-            return;
         }
         VobType::zCMover => {
             warn_unimplemented!("VobType::zCMover");
+        }
+
+        VobType::zCVobSound
+        | VobType::zCVobSoundDaytime
+        | VobType::oCZoneMusic
+        | VobType::oCZoneMusicDefault => {
+            warn_unimplemented!("Sound Vobs unimplemented");
             return;
         }
-        VobType::zCVobSound => {
-            warn_unimplemented!("VobType::zCVobSound");
-            return;
-        }
-        VobType::zCVobSoundDaytime => {
-            warn_unimplemented!("VobType::zCVobSoundDaytime");
-            return;
-        }
-        VobType::oCZoneMusic => {
-            warn_unimplemented!("VobType::oCZoneMusic");
-            return;
-        }
-        VobType::oCZoneMusicDefault => {
-            warn_unimplemented!("VobType::oCZoneMusicDefault");
-            return;
-        }
+
         VobType::zCZoneZFog => {
             warn_unimplemented!("VobType::zCZoneZFog");
-            return;
         }
         VobType::zCZoneZFogDefault => {
             warn_unimplemented!("VobType::zCZoneZFogDefault");
-            return;
         }
         VobType::zCZoneVobFarPlane => {
             warn_unimplemented!("VobType::zCZoneVobFarPlane");
-            return;
         }
         VobType::zCZoneVobFarPlaneDefault => {
             warn_unimplemented!("VobType::zCZoneVobFarPlaneDefault");
-            return;
         }
         VobType::ignored => {
             return;
         }
-        VobType::unknown => {
-            warn_unimplemented!("VobType::unknown");
-            return;
+
+        // These are not used in NEWWORLD.ZEN
+        VobType::oCNpc
+        | VobType::zCMoverController
+        | VobType::zCVobScreenFX
+        | VobType::zCVobStair
+        | VobType::zCVobAnimate
+        | VobType::zCVobLensFlare
+        | VobType::oCMOB
+        | VobType::oCMobBed
+        | VobType::oCMobFire
+        | VobType::oCMobLadder
+        | VobType::oCMobWheel
+        | VobType::oCMobContainer
+        | VobType::oCMobDoor
+        | VobType::oCCSTrigger
+        | VobType::zCVobStartpoint
+        | VobType::unknown => {
+            panic!();
         }
     }
+    // println!("VOB kind({type_:?}), name({name}) not handled");
 }
 
 fn compiled_asset_path(present_name: &str, replace_from: &str, replace_to: &str) -> String {

@@ -1,12 +1,6 @@
 use bevy::ecs::error::Result;
 
-use crate::{
-    warn_unimplemented,
-    zengin::script::{
-        memory::MemRef,
-        script_vm::{RoutineEntry, ScriptVM, SpawnItem, SpawnNpc, State},
-    },
-};
+use crate::zengin::script::script_vm::{RoutineEntry, ScriptVM, SpawnItem, SpawnNpc, State};
 
 impl ScriptVM {
     pub fn handle_mdl_setvisualbody(&self, state: &mut State) -> Result {
@@ -96,14 +90,8 @@ impl ScriptVM {
         let way_point_name = self.pop_stack_string(state)?;
         let item_index = state.pop_stack_var_int()?;
 
-        let visual_offset = 524;
-        let wepon_visual_index = state.mem.get_int(MemRef::class(item_index, visual_offset));
-        if wepon_visual_index == 0 {
-            println!("Weapon visual_offset is not set for item({item_index})");
-            return Ok(());
-        }
-        let Ok(wepon_string) = self.get_string(wepon_visual_index) else {
-            println!("Weapon({visual_offset}) visual_offset not found on instance({item_index})");
+        let Ok(wepon_string) = self.get_string(item_index) else {
+            println!("Weapon({item_index}) visual_offset not found on instance({item_index})");
             return Ok(());
         };
         // println!(
@@ -112,7 +100,7 @@ impl ScriptVM {
         // );
 
         state.spawn_weapons.push(SpawnItem {
-            visual: wepon_string.clone(),
+            instance_name: wepon_string.clone(),
             way_point: way_point_name.clone(),
         });
 
