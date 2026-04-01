@@ -2,9 +2,11 @@ mod gui;
 mod zengin;
 
 use crate::gui::{CameraSettingsPlugin, get_overlay_plugin};
-use crate::zengin::common::LoadedMeshData;
+use crate::zengin::common::{LoadedMeshData, gothic2_dir};
 use crate::zengin::loader_asset::create_gothic_asset_loader;
 use crate::zengin::loader_texture::GothicTextureLoader;
+use crate::zengin::script::*;
+use crate::zengin::script_vm::ScriptVM;
 use crate::zengin::world::create_gothic_world_mesh;
 use avian3d::prelude::*;
 use bevy::anti_alias::smaa::Smaa;
@@ -197,38 +199,51 @@ fn spawn_world(
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
 ) {
-    let (mut gothic_world_meshes, mut object_instances, mut light_instances) =
-        create_gothic_world_mesh(false);
-    {
-        let (meshes_old_world, instances_old_world, light_instances_old_world) =
-            create_gothic_world_mesh(true);
-        for (mesh_path, data) in meshes_old_world {
-            gothic_world_meshes.entry(mesh_path.clone()).or_insert(data);
+    let path_str = gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT";
+    let dat_data = parse_dat(&path_str).unwrap();
+    let script_vm = ScriptVM::new(dat_data);
+    let mut vm_state = crate::zengin::script_vm::State::new();
+    script_vm.interpret_script_function(&mut vm_state, "startup_newworld");
+
+    let mut world_data =
+        create_gothic_world_mesh("/_WORK/DATA/WORLDS/NEWWORLD/NEWWORLD.ZEN", &vm_state);
+    if false {
+        let world_data_oldw =
+            create_gothic_world_mesh("/_WORK/DATA/WORLDS/OLDWORLD/OLDWORLD.ZEN", &vm_state);
+        for (mesh_path, data) in world_data_oldw.meshes {
+            world_data.meshes.entry(mesh_path.clone()).or_insert(data);
         }
-        for mut instance in instances_old_world {
+        for mut instance in world_data_oldw.mesh_instances {
             instance.pos += Vec3 {
                 x: -150.0,
                 y: 0.0,
                 z: -900.0,
             };
-            object_instances.push(instance);
+            world_data.mesh_instances.push(instance);
         }
-        light_instances.extend(light_instances_old_world);
+        world_data
+            .light_instances
+            .extend(world_data_oldw.light_instances);
     }
-    println!("gothic_world_meshes len({})", gothic_world_meshes.len());
+    println!("gothic_world_meshes len({})", world_data.meshes.len());
 
     let mut handles: HashMap<
         String,
-        Vec<(Handle<Mesh>, Handle<StandardMaterial>, LoadedMeshData)>,
+        Vec<(
+            Handle<Mesh>,
+            Handle<StandardMaterial>,
+            LoadedMeshData,
+            StandardMaterial,
+        )>,
     > = HashMap::new();
 
-    for (model_path, mesh_data) in gothic_world_meshes {
+    for (model_path, mesh_data) in world_data.meshes {
         for data in mesh_data {
             let data_clone = data.clone();
-            // println!(
-            //     "Add to draw model_path({model_path}), texture({})",
-            //     data.texture
-            // );
+            println!(
+                "Add to draw model_path({model_path}), texture({})",
+                data.texture
+            );
             let texture = data.texture.replace(".TGA", "-C.TEX");
             let texture_full_path = format!("gothic://_WORK/DATA/TEXTURES/_COMPILED/{texture}");
             let mesh_handle = meshes.add(data.mesh);
@@ -237,15 +252,18 @@ fn spawn_world(
             let mut material = data.material;
             material.base_color_texture = Some(texture_handle.clone());
 
-            let mesh_material = materials.add(material);
+            let mesh_material = materials.add(material.clone());
 
             let arr = handles.entry(model_path.clone()).or_default();
-            arr.push((mesh_handle, mesh_material, data_clone));
+            arr.push((mesh_handle, mesh_material, data_clone, material));
         }
     }
 
-    println!("Object intances number({})", object_instances.len());
-    for instance in object_instances {
+    println!(
+        "Object intances number({})",
+        world_data.mesh_instances.len()
+    );
+    for instance in world_data.mesh_instances {
         let Some(instance_data) = handles.get(&instance.mesh_path) else {
             println!("no data for mesh_path({})", &instance.mesh_path);
             continue;
@@ -253,25 +271,36 @@ fn spawn_world(
         for model_data in instance_data {
             let transform = Transform::from_translation(instance.pos).with_rotation(instance.rot);
             let transform = transform * model_data.2.transform;
+
+            let mut material = model_data.1.clone();
+            if let Some(override_texture) = &instance.texture_override {
+                let texture = override_texture.replace(".TGA", "-C.TEX");
+                let texture_full_path = format!("gothic://_WORK/DATA/TEXTURES/_COMPILED/{texture}");
+                let mut mat = model_data.3.clone();
+                let tex = asset_server.load(texture_full_path);
+                mat.base_color_texture = Some(tex);
+                material = materials.add(mat);
+            }
+
             if instance.is_colider {
                 commands.spawn((
                     RigidBody::Static,
                     ColliderConstructor::TrimeshFromMesh,
                     Mesh3d(model_data.0.clone()),
-                    MeshMaterial3d(model_data.1.clone()),
+                    MeshMaterial3d(material),
                     transform,
                 ));
             } else {
                 commands.spawn((
                     Mesh3d(model_data.0.clone()),
-                    MeshMaterial3d(model_data.1.clone()),
+                    MeshMaterial3d(material),
                     transform,
                 ));
             }
         }
     }
 
-    for instance in light_instances {
+    for instance in world_data.light_instances {
         let tr = Transform::from_translation(instance.pos).with_rotation(instance.rot);
 
         // let mesh_marker = handles

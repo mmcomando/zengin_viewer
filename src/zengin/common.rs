@@ -69,6 +69,7 @@ pub struct LoadedMeshData {
     pub material: StandardMaterial,
     pub mesh: Mesh,
     pub transform: Transform,
+    pub head_transform: Option<Transform>,
     pub name: String,
 }
 
@@ -78,6 +79,7 @@ pub struct MeshInstance {
     pub pos: Vec3,
     pub rot: Quat,
     pub is_colider: bool,
+    pub texture_override: Option<String>,
 }
 #[derive(Debug)]
 pub struct LightInstance {

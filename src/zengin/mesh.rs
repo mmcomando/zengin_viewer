@@ -126,6 +126,7 @@ pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshD
             mesh,
             transform: Transform::IDENTITY,
             name: String::new(),
+            head_transform: None,
         });
     }
 

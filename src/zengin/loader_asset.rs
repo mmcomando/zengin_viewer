@@ -17,17 +17,17 @@ use zen_kit_rs::{misc::VfsOverwriteBehavior, vfs::Vfs};
 
 use crate::zengin::common::gothic2_dir;
 
-pub fn get_gothic_assert_bytes(path: &str) -> Vec<u8> {
+pub fn get_gothic_assert_bytes(path: &str) -> Option<Vec<u8>> {
     let vfs = Vfs::new();
     let textures_path = format!("{}/Data/Textures.vdf", gothic2_dir());
     vfs.mount_disk_host(&textures_path, VfsOverwriteBehavior::ALL);
 
     // println!("get_gothic_assert_bytes({path})");
     let path = format!("/{}", &path);
-    let node = vfs.resolve_path(&path).unwrap();
+    let node = vfs.resolve_path(&path)?;
     let read_obj = node.open().unwrap();
 
-    read_obj.bytes()
+    Some(read_obj.bytes())
 }
 
 pub fn create_gothic_asset_loader() -> AssetSourceBuilder {
@@ -84,7 +84,9 @@ struct MyAssetReader;
 impl AssetReader for MyAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let path_str = path.as_os_str().to_str().unwrap();
-        let bytes = get_gothic_assert_bytes(path_str);
+        let Some(bytes) = get_gothic_assert_bytes(path_str) else {
+            return Err(AssetReaderError::NotFound(path.to_path_buf()));
+        };
         let val: Box<dyn Reader> = Box::new(MyAsyncReader::new(bytes));
         Ok(val)
     }

@@ -71,6 +71,7 @@ pub fn meshes_from_gothic_mrs_mesh(mesh: &zen_kit_rs::mrs_mesh::MrsMesh) -> Vec<
             mesh,
             transform: Transform::IDENTITY,
             name: String::new(),
+            head_transform: None,
         });
     }
 
