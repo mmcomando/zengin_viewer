@@ -124,6 +124,7 @@ fn spawn_world(
     for instance in world_data.light_instances {
         let tr = Transform::from_translation(instance.pos).with_rotation(instance.rot);
         commands.spawn((
+            Visibility::default(),
             PointLight {
                 color: Color::from(tailwind::ORANGE_300),
                 intensity: light_consts::lumens::LUMENS_PER_HALOGEN_WATTS * 5000.0,

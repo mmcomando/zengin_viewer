@@ -69,7 +69,8 @@ pub struct SpawnItem {
 
 #[derive(Debug, Default)]
 pub struct ItemInstance {
-    pub model: String,
+    pub visual: String,
+    pub visual_change: Option<String>,
 }
 
 #[derive(Debug)]
@@ -217,19 +218,25 @@ impl ScriptVM {
             if self.get_type_by_index(index) != Some(ClassType::Item) {
                 continue;
             }
+
             let visual_offset = 524;
-            let wepon_visual_index = state.mem.get_int(MemRef::class(index, visual_offset));
-            if wepon_visual_index == 0 {
-                // println!("Weapon visual_offset is not set for item({index})");
-                continue;
-            }
-            let Ok(model) = self.get_string(wepon_visual_index) else {
+
+            let Some(visual) = self.get_string_from_var(state, MemRef::class(index, visual_offset))
+            else {
                 println!("Weapon({visual_offset}) visual_offset not found on instance({index})");
                 continue;
             };
-            let model = model.to_uppercase().replace(".3DS", "");
+            let visual = visual.to_uppercase().replace(".3DS", "");
 
-            let item = ItemInstance { model };
+            let visual_change_offset = 544;
+            let visual_change = self
+                .get_string_from_var(state, MemRef::class(index, visual_change_offset))
+                .map(|el| el.to_uppercase().replace(".3DS", ""));
+
+            let item = ItemInstance {
+                visual,
+                visual_change,
+            };
             // println!(
             //     "init item instance name({}) item({:?})",
             //     instance.symbol.name, item
@@ -401,6 +408,14 @@ impl ScriptVM {
             .ok_or(BevyError::from(format!(
                 "Failed to get string from index({index})"
             )))
+    }
+
+    pub fn get_string_from_var(&self, state: &mut State, mem_ref: MemRef) -> Option<&String> {
+        let string_index = state.mem.get_int(mem_ref);
+        if string_index == 0 {
+            return None;
+        }
+        return self.get_string(string_index).ok();
     }
 
     pub fn pop_stack_string(&self, state: &mut State) -> Result<&String> {

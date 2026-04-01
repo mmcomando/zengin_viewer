@@ -7,8 +7,7 @@ use zen_kit_rs::vfs::VfsNode;
 pub const MIRROR_X: bool = true;
 
 pub fn gothic2_dir() -> String {
-    let dir =
-        std::env::var("GOTHIC2_DIR").expect("GOTHIC_DIR2 environment varialdle has to be set");
+    let dir = std::env::var("GOTHIC2_DIR").expect("GOTHIC2_DIR environment variable has to be set");
     if let Some(dir_no_prefix) = dir.strip_suffix("/") {
         return dir_no_prefix.to_string();
     }

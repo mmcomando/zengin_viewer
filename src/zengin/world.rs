@@ -67,7 +67,10 @@ pub fn get_item_mesh_path(
         println!("Failed to find item({}) instance", name);
         return None;
     };
-    let visual = &item_instance.model;
+    let visual = item_instance
+        .visual_change
+        .as_ref()
+        .unwrap_or(&item_instance.visual);
     find_mesh_path(vfs, &visual)
 }
 pub fn load_weapon(
@@ -343,9 +346,9 @@ fn get_obj_tr(obj: &VirtualObject) -> Transform {
 fn handle_light(obj: &VirtualObject, data: &mut ZenGinWorldData) {
     let pos = get_world_pos(obj.position());
     let rot = get_world_rot(obj.rotation());
-    if !obj.cd_dynamic() {
-        return;
-    }
+    // if !obj.cd_dynamic() {
+    //     return;
+    // }
     data.light_instances.push(LightInstance { pos, rot });
 }
 
