@@ -32,6 +32,7 @@ fn find_mesh_path(vfs: &Vfs, name: &str) -> Option<String> {
         format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MMB", name),
         format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MDL", name),
         format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MDM", name),
+        format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MDH", name),
         format!("/_WORK/DATA/MESHES/_COMPILED/{}.MDB", name),
         format!("/_WORK/DATA/MESHES/_COMPILED/{}.MRM", name),
         format!("/_WORK/DATA/MESHES/_COMPILED/{}.MSH", name),
@@ -145,8 +146,19 @@ pub fn load_npc(
     } else {
         None
     };
+    let hierarchy = if let Some(hierarchy) = &instance.hierarchy {
+        if let Some(hierarchy) = find_mesh_path(vfs, hierarchy) {
+            Some(hierarchy)
+        } else {
+            println!("not found mesh for model({})", hierarchy);
+            None
+        }
+    } else {
+        None
+    };
 
     let npc = ZenGinNpc {
+        hierarchy,
         head_model,
         head_texture: instance
             .face_texture

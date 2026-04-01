@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::game::objects_to_entities::AnimatedJoint;
 use crate::zengin::common::ZenGinModel;
-use crate::zengin::loaders::model::ZenGinModelLoader;
+use crate::zengin::loaders::model::{ZenGinModelLoader, ZenGinModelLoaderSettings};
 use crate::zengin::loaders::texture::ZenGinTextureLoader;
 use crate::zengin::visual::material::MatrialHashed;
 use avian3d::prelude::*;
@@ -85,11 +85,17 @@ impl MaterialHandles {
         &mut self,
         asset_server: &Res<AssetServer>,
         model_path: &str,
+        hierarchy_path: Option<&str>,
     ) -> Handle<ZenGinModel> {
         if let Some(handle) = self.models.get(model_path) {
             return handle.clone();
         }
-        let handle = asset_server.load(model_path.to_string());
+
+        let hierarchy_path = hierarchy_path.map(std::string::ToString::to_string);
+        let handle = asset_server.load_with_settings(
+            model_path.to_string(),
+            move |s: &mut ZenGinModelLoaderSettings| s.hierarchy_path.clone_from(&hierarchy_path),
+        );
         self.models.insert(model_path.to_string(), handle.clone());
         handle
     }

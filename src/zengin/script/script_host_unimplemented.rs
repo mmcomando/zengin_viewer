@@ -58,12 +58,6 @@ impl ScriptVM {
         let _par_c = state.pop_stack_var()?;
         return Ok(());
     }
-    pub fn handle_mdl_setvisual(state: &mut State) -> Result {
-        warn_unimplemented!("mdl_setvisual not implemented");
-        let _par_a = state.pop_stack_var()?;
-        let _par_b = state.pop_stack_var()?;
-        return Ok(());
-    }
 
     pub fn handle_mdl_setmodelscale(state: &mut State) -> Result {
         warn_unimplemented!("mdl_setmodelscale not implemented");

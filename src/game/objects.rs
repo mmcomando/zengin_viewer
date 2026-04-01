@@ -2,6 +2,9 @@ use bevy::ecs::component::Component;
 
 #[derive(Debug, Default, Component)]
 pub struct GameNpc {
+    /// Bone hierarchy path
+    pub hierarchy: Option<String>,
+
     pub body_model: String,
     /// Override default body texture
     pub body_texture: Option<String>,

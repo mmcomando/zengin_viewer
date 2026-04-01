@@ -49,11 +49,18 @@ fn object_to_entities(
     for (entity_id, npc_component, spawn_state) in &mut query {
         let Some(mut spawn_state) = spawn_state else {
             let spawn_state = NpcSpawnState {
-                body_handle: handles_map.get_model_handle(&asset_server, &npc_component.body_model),
-                armor_handle: npc_component
-                    .armor_model
-                    .as_ref()
-                    .map(|el| handles_map.get_model_handle(&asset_server, el)),
+                body_handle: handles_map.get_model_handle(
+                    &asset_server,
+                    &npc_component.body_model,
+                    npc_component.hierarchy.as_deref(),
+                ),
+                armor_handle: npc_component.armor_model.as_ref().map(|el| {
+                    handles_map.get_model_handle(
+                        &asset_server,
+                        el,
+                        npc_component.hierarchy.as_deref(),
+                    )
+                }),
                 body_spawned: npc_component.armor_model.is_some(),
                 head_spawned: npc_component.head_model.is_none(),
                 armor_spawned: npc_component.armor_model.is_none(),
@@ -116,7 +123,7 @@ fn object_to_entities(
             entity.with_child((
                 Visibility::default(),
                 ZenGinModelComponent {
-                    model_handle: handles_map.get_model_handle(&asset_server, head_model),
+                    model_handle: handles_map.get_model_handle(&asset_server, head_model, None),
                     override_texture: npc_component.head_texture.clone(),
                     ..default()
                 },
@@ -156,7 +163,11 @@ fn object_to_entities(
             entity.with_child((
                 Visibility::default(),
                 ZenGinModelComponent {
-                    model_handle: handles_map.get_model_handle(&asset_server, armor_model),
+                    model_handle: handles_map.get_model_handle(
+                        &asset_server,
+                        armor_model,
+                        npc_component.hierarchy.as_deref(),
+                    ),
                     bones_data,
                     ..default()
                 },

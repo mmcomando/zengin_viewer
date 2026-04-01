@@ -61,6 +61,16 @@ impl ScriptVM {
         return Ok(());
     }
 
+    pub fn handle_mdl_setvisual(&self, state: &mut State) -> Result {
+        let hierarchy_file = self.pop_stack_string(state)?;
+        let npc_index = state.pop_stack_var_int();
+        let npc_index = npc_index.unwrap();
+
+        let entry = state.instance_data.entry(npc_index).or_default();
+        entry.hierarchy = Some(hierarchy_file.clone());
+        return Ok(());
+    }
+
     pub fn handle_ta_min(&self, state: &mut State) -> Result {
         let way_point = self.pop_stack_string(state)?.clone();
         let _func_index = state.pop_stack_var()?;

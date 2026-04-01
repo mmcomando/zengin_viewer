@@ -130,6 +130,7 @@ pub struct ZenGinNpc {
     pub body_model: String,
     pub body_texture: Option<String>,
     pub armor_model: Option<String>,
+    pub hierarchy: Option<String>,
 }
 
 #[derive(Debug, Default)]

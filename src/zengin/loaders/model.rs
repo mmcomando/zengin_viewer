@@ -16,20 +16,23 @@ use crate::zengin::{
     },
 };
 
-const HUMAN_MODEL_HIERARCHY: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS.MDH";
-
 #[derive(Default, TypePath)]
 pub struct ZenGinModelLoader;
 
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct ZenGinModelLoaderSettings {
+    pub hierarchy_path: Option<String>,
+}
+
 impl AssetLoader for ZenGinModelLoader {
     type Asset = ZenGinModel;
-    type Settings = ();
+    type Settings = ZenGinModelLoaderSettings;
     type Error = BevyError;
 
     async fn load(
         &self,
         reader: &mut dyn Reader,
-        _settings: &(),
+        settings: &ZenGinModelLoaderSettings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let path = load_context.path();
@@ -54,50 +57,10 @@ impl AssetLoader for ZenGinModelLoader {
         } else if path_str.ends_with(".MDM") {
             // We try to load model only file, but maybe there is coresponding hierarchy file
             // If we have hierarchy file load it and use it
-            let mut hierarchy_path = path_str.replace("MDM", "MDH");
-
-            // TODO findout how to select model from which skeleton/hierarchy is taken for given model
-            warn_once!("Choosing of model hierarchy for some models is hardcoded");
-            let use_human_hierarchy: &[&str] = &[
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PAL_M.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PAL_H.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_VLKBABE_H.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_VLKBABE_M.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_BAUBABE_L.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_BARKEEPER.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_BAU_L.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_BAU_M.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_DIEGO.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_GOVERNOR.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_NOV_L.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PIR_H_ADDON.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PIR_L_ADDON.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_RANGER_ADDON.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_VLK_M.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_VLK_H.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_KDW_H.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/LUR_BODY.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/STG_BODY.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PAL_SKELETON.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_MIL_M.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/GIANT_RAT_BODY.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/WAR_BODY.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ORC_BODYWARRIOR.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_MIL_L.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_VLKBABE_L.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/SKE_BODY.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/IRRLICHT_BODY.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/GIANT_BUG_BODY.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/MOL_BODY.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/KEILER_BODY.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ORC_BODYELITE.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ORC_BODYSHAMAN.MDM",
-                "zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_BAUBABE_M.MDM",
-            ];
-            if use_human_hierarchy.contains(&path_str.as_str()) {
-                hierarchy_path = HUMAN_MODEL_HIERARCHY.to_string();
-            }
+            let hierarchy_path = settings
+                .hierarchy_path
+                .clone()
+                .unwrap_or_else(|| path_str.replace("MDM", "MDH"));
 
             let model_hierarchy =
                 if let Ok(hierarchy_bytes) = load_context.read_asset_bytes(&hierarchy_path).await {

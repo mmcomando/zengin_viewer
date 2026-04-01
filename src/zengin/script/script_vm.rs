@@ -31,6 +31,7 @@ pub struct InstanceState {
     pub head_model: Option<String>,
     pub face_texture: Option<String>,
     pub armor_model: Option<String>,
+    pub hierarchy: Option<String>,
 
     pub routine_enties: Vec<RoutineEntry>,
 }
@@ -486,7 +487,7 @@ impl ScriptVM {
             return;
         }
         if symbol.name() == "mdl_setvisual" {
-            Self::handle_mdl_setvisual(state).unwrap();
+            self.handle_mdl_setvisual(state).unwrap();
             return;
         }
         if symbol.name() == "mdl_setvisualbody" {

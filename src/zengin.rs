@@ -93,6 +93,7 @@ fn spawn_world(
         commands.spawn((
             Visibility::default(),
             GameNpc {
+                hierarchy: npc.hierarchy.clone(),
                 body_model: npc.body_model.clone(),
                 body_texture: npc.body_texture.clone(),
                 head_model: npc.head_model.clone(),
@@ -104,7 +105,7 @@ fn spawn_world(
         ));
     }
     for instance in &world_data.items {
-        let model_handle = handles_map.get_model_handle(&asset_server, &instance.model);
+        let model_handle = handles_map.get_model_handle(&asset_server, &instance.model, None);
         commands.spawn((
             ZenGinModelComponent {
                 model_handle: model_handle.clone(),
@@ -115,7 +116,7 @@ fn spawn_world(
         ));
     }
     for instance in &world_data.static_models {
-        let model_handle = handles_map.get_model_handle(&asset_server, &instance.archetype);
+        let model_handle = handles_map.get_model_handle(&asset_server, &instance.archetype, None);
         commands.spawn((
             ZenGinModelComponent {
                 model_handle: model_handle.clone(),
@@ -176,6 +177,7 @@ fn spawn_world(
         Transform::from_xyz(0.0, 1.5, 0.0),
         TransformInterpolation,
         GameNpc {
+            hierarchy: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS.MDH".to_string()),
             body_model: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM".to_string(),
             body_texture: Some(
                 "zengin://_WORK/DATA/TEXTURES/_COMPILED/HUM_BODY_NAKED_V9_C0-C.TEX".to_string(),
