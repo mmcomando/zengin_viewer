@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::game::objects_to_entities::AnimatedJoint;
 use crate::zengin::common::ZenGinModel;
+use crate::zengin::loaders::animation::{AnimationData, ZenGinAnimationLoader};
 use crate::zengin::loaders::model::{ZenGinModelLoader, ZenGinModelLoaderSettings};
 use crate::zengin::loaders::texture::ZenGinTextureLoader;
 use crate::zengin::visual::material::MatrialHashed;
@@ -16,8 +18,11 @@ impl Plugin for ZenGinInsertResources {
     fn build(&self, app: &mut App) {
         app.insert_resource(MaterialHandles::default());
         app.init_asset::<ZenGinModel>();
+        app.init_asset::<AnimationData>();
+
         app.init_asset_loader::<ZenGinTextureLoader>();
         app.init_asset_loader::<ZenGinModelLoader>();
+        app.init_asset_loader::<ZenGinAnimationLoader>();
 
         app.add_systems(
             Update,
@@ -51,6 +56,7 @@ pub struct MaterialHandles {
     pub images: HashMap<String, Handle<Image>>,
     pub models: HashMap<String, Handle<ZenGinModel>>,
     pub meshes: HashMap<ModelMeshKey, Handle<Mesh>>,
+    pub animations: HashMap<String, Handle<AnimationData>>,
 }
 
 impl MaterialHandles {
@@ -78,6 +84,19 @@ impl MaterialHandles {
         }
         let handle = asset_server.load(image_path.to_string());
         self.images.insert(image_path.to_string(), handle.clone());
+        handle
+    }
+
+    pub fn get_animation_handle(
+        &mut self,
+        asset_server: &Res<AssetServer>,
+        path: &str,
+    ) -> Handle<AnimationData> {
+        if let Some(handle) = self.animations.get(path) {
+            return handle.clone();
+        }
+        let handle = asset_server.load(path.to_string());
+        self.animations.insert(path.to_string(), handle.clone());
         handle
     }
 
@@ -142,35 +161,51 @@ fn run_convert_zengin_model_to_entities(
     query.iter().next().is_some()
 }
 
+#[derive(Component, Debug)]
+pub struct BoneAnimationData {
+    pub animation_data: Arc<AnimationData>,
+    pub bone_index: usize,
+    pub time_dt: f32,
+}
+
 pub fn create_skined_mesh_data(
     commands: &mut Commands,
     skinned_mesh_inverse_bindposes_assets: &mut ResMut<Assets<SkinnedMeshInverseBindposes>>,
     skeleton_parent: Entity,
     model: &ZenGinModel,
+    animation_data: Option<&AnimationData>,
 ) -> Option<SkinnedMesh> {
     let is_skinned = model.sub_meshes.iter().any(|el| el.is_skinned);
     if !is_skinned {
         return None;
     }
 
-    let r_forearm = model
-        .node_names
-        .iter()
-        .position(|el| el == "BIP01 R FOREARM")
-        .unwrap_or(16);
+    let animation_data = animation_data.cloned().unwrap_or(AnimationData::default());
+    let animation_data = Arc::new(animation_data);
 
     let joint_entities: Vec<_> = model
         .nodes
         .iter()
         .enumerate()
         .map(|(index, el)| {
-            commands
-                .spawn((
-                    AnimatedJoint(if index == r_forearm { -3 } else { 0 }),
-                    *el,
-                    Visibility::Inherited,
-                ))
-                .id()
+            if let Some(local_index) = animation_data.get_index_for_bone(index) {
+                commands
+                    .spawn((
+                        AnimatedJoint,
+                        BoneAnimationData {
+                            animation_data: animation_data.clone(),
+                            bone_index: local_index,
+                            time_dt: 0.0,
+                        },
+                        *el,
+                        Visibility::Inherited,
+                    ))
+                    .id()
+            } else {
+                commands
+                    .spawn((AnimatedJoint, *el, Visibility::Inherited))
+                    .id()
+            }
         })
         .collect();
 

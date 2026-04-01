@@ -18,15 +18,13 @@ cargo run
 
 # What somehow works
 - Rendering of world mesh
-- Rendering of MRS meshes
+- Rendering of items, npcs, monsters, armors
+- Animations
 - Placing NPCs
 - Lights
 
 # TODO
-- Display NPCs armor
-- Place monsters
 - Scripts
-- Animations
 - ZenGin skybox
 - Weather
 - Dialogs

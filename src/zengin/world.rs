@@ -279,11 +279,8 @@ fn load_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
             x: direction.x,
             y: direction.z,
         };
-        let mut rot = Quaternion::from_rotation_y(dir_2d.to_angle());
-        if MIRROR_X {
-            rot.y = -rot.y;
-            rot.z = -rot.z;
-        }
+        let rot = Quaternion::from_rotation_y(dir_2d.to_angle());
+        let rot = get_world_quat(rot);
         let tr = Transform::from_translation(pos).with_rotation(rot);
         data.way_points.insert(name, tr);
     }

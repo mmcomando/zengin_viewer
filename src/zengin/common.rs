@@ -33,7 +33,7 @@ pub fn to_asset_path(zengin_asset_path: &str) -> String {
 pub fn get_world_transform(zengin_mat: Mat4) -> Transform {
     let tr = Transform::from_matrix(zengin_mat);
     let pos = get_world_pos(tr.translation);
-    let rot = get_world_rot(Mat3::from_quat(tr.rotation));
+    let rot = get_world_quat(tr.rotation);
     Transform::from_translation(pos).with_rotation(rot)
 }
 
@@ -45,15 +45,19 @@ pub fn get_world_pos(mut zengin_pos: Vec3) -> Vec3 {
     // World units are different
     zengin_pos / 100.0
 }
-pub fn get_world_rot(rot_mat: Mat3) -> Quat {
-    let mut quat = Quat::from_mat3(&rot_mat);
 
+pub fn get_world_quat(mut quat: Quat) -> Quat {
     if MIRROR_X {
         // Do to X cords beeing mirrored we also have to modify rotation
         quat.y = -quat.y;
         quat.z = -quat.z;
     }
     quat
+}
+
+pub fn get_world_rot(rot_mat: Mat3) -> Quat {
+    let quat = Quat::from_mat3(&rot_mat);
+    get_world_quat(quat)
 }
 
 pub fn get_full_texture_path(short_tex: &str) -> String {

@@ -102,6 +102,8 @@ impl State {
         }
     }
 
+    // TODO fix lint
+    #[allow(clippy::unnecessary_wraps)]
     pub fn get_value(&mut self, var: &StackVVV) -> Option<MemValue> {
         match var {
             StackVVV::MemValue(val) => {

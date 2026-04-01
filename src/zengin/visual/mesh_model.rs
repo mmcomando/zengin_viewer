@@ -62,16 +62,6 @@ pub fn meshes_from_zengin_model_mesh(
         model.inverse_bindposes = final_tr.iter().map(|el| el.to_matrix().inverse()).collect();
         model.final_tr.clone_from(&final_tr);
         model.node_names = nodes.iter().map(|el| el.name.clone()).collect();
-
-        // for new_mesh in &mut model.sub_meshes {
-        //     if let Some(node_index) = nodes.iter().position(|el| el.name == new_mesh.name) {
-        //         new_mesh.transform = final_tr[node_index];
-        //         // println!(
-        //         //     "  set tr name({})  pos({}) rot({})",
-        //         //     new_mesh.name, new_mesh.transform.translation, new_mesh.transform.rotation
-        //         // );
-        //     }
-        // }
     }
 
     for (name, mrs_mesh) in &attachements {
@@ -99,6 +89,16 @@ pub fn meshes_from_zengin_model_mesh(
     let is_skinned = model.sub_meshes.iter().any(|el| el.is_skinned);
     if is_skinned {
         assert!(model_with_hierarchy.is_some());
+    }
+
+    for new_mesh in &mut model.sub_meshes {
+        if let Some(node_index) = model.node_names.iter().position(|el| *el == new_mesh.name) {
+            new_mesh.transform = model.final_tr[node_index];
+            // println!(
+            //     "  set tr name({})  pos({}) rot({})",
+            //     new_mesh.name, new_mesh.transform.translation, new_mesh.transform.rotation
+            // );
+        }
     }
 
     // println!(

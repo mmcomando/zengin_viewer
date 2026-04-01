@@ -34,6 +34,7 @@ pub struct ShowOptions {
     pub show_static_meshes: bool,
     pub show_npcs: bool,
     pub show_gizmos: bool,
+    pub code_switch: u8,
 }
 
 pub fn show_gizmos(info: Res<ShowOptions>) -> bool {
@@ -104,5 +105,10 @@ fn toggle_visibility_gizmos(keys: Res<ButtonInput<KeyCode>>, mut toggle_info: Re
     if keys.just_pressed(KeyCode::Digit5) {
         info!("Toggle gizmos visibility");
         toggle_info.show_gizmos = !toggle_info.show_gizmos;
+    }
+
+    if keys.just_pressed(KeyCode::KeyD) {
+        toggle_info.code_switch = (toggle_info.code_switch + 1) % 6;
+        info!("Change Code Switch to {}", toggle_info.code_switch);
     }
 }

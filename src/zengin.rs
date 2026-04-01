@@ -100,7 +100,7 @@ fn spawn_world(
                 head_texture: npc.head_texture.clone(),
                 armor_model: npc.armor_model.clone(),
             },
-            Transform::from_xyz(0.0, 1.0, 0.0) * npc.body_tr,
+            npc.body_tr,
             NpcVisibility::default(),
         ));
     }
@@ -130,6 +130,10 @@ fn spawn_world(
     }
 
     for instance in world_data.light_instances {
+        if true {
+            // For now ignore light for performance
+            continue;
+        }
         let tr = Transform::from_translation(instance.pos).with_rotation(instance.rot);
         commands.spawn((
             Visibility::default(),
@@ -172,10 +176,10 @@ fn spawn_world(
             max_distance: 0.2,
         },
         Collider::capsule(0.4, 1.2),
+        TransformInterpolation,
         // Mesh3d(meshes.add(Capsule3d::new(0.5, 0.8))),
         // MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         Transform::from_xyz(0.0, 1.5, 0.0),
-        TransformInterpolation,
         GameNpc {
             hierarchy: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS.MDH".to_string()),
             body_model: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM".to_string(),

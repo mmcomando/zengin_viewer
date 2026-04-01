@@ -1,9 +1,10 @@
-use std::f32::consts::FRAC_PI_2;
-
 use crate::game::objects::GameNpc;
 use crate::toggle_visibility::{NpcVisibility, show_gizmos};
 use crate::zengin::common::ZenGinModel;
-use crate::zengin_resources::{MaterialHandles, ZenGinModelComponent, create_skined_mesh_data};
+use crate::zengin::loaders::animation::AnimationData;
+use crate::zengin_resources::{
+    BoneAnimationData, MaterialHandles, ZenGinModelComponent, create_skined_mesh_data,
+};
 use bevy::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy::prelude::*;
 
@@ -13,8 +14,8 @@ pub struct GameObjectSpawnEntities;
 impl Plugin for GameObjectSpawnEntities {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, object_to_entities);
-        app.add_systems(Update, joint_animation);
         app.add_systems(Update, draw_bones.run_if(show_gizmos));
+        app.add_systems(Update, compute_animations);
     }
 }
 
@@ -26,17 +27,19 @@ struct ObjectEntitiesSpawned {}
 struct NpcSpawnState {
     body_handle: Handle<ZenGinModel>,
     armor_handle: Option<Handle<ZenGinModel>>,
+    animation_handle: Option<Handle<AnimationData>>,
     body_spawned: bool,
     head_spawned: bool,
     armor_spawned: bool,
 }
 
 #[derive(Component)]
-pub struct AnimatedJoint(pub isize);
+pub struct AnimatedJoint;
 
 #[allow(clippy::type_complexity)]
 fn object_to_entities(
     models: ResMut<Assets<ZenGinModel>>,
+    animations: ResMut<Assets<AnimationData>>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
     mut handles_map: ResMut<MaterialHandles>,
@@ -61,6 +64,9 @@ fn object_to_entities(
                         npc_component.hierarchy.as_deref(),
                     )
                 }),
+                animation_handle: Some(
+                    handles_map.get_animation_handle(&asset_server, EXAMPLE_ANIMATION),
+                ),
                 body_spawned: npc_component.armor_model.is_some(),
                 head_spawned: npc_component.head_model.is_none(),
                 armor_spawned: npc_component.armor_model.is_none(),
@@ -90,6 +96,13 @@ fn object_to_entities(
         if spawn_state.armor_handle.is_some() && armor_data.is_none() {
             continue;
         }
+        let animation_data = spawn_state
+            .animation_handle
+            .as_ref()
+            .and_then(|el| animations.get(el));
+        if spawn_state.animation_handle.is_some() && animation_data.is_none() {
+            continue;
+        }
 
         {
             let mut entity = commands.entity(entity_id);
@@ -101,6 +114,7 @@ fn object_to_entities(
             &mut skinned_mesh_inverse_bindposes_assets,
             entity_id,
             model_data,
+            animation_data,
         );
         let head_node_index = model_data
             .node_names
@@ -155,6 +169,7 @@ fn object_to_entities(
                 &mut skinned_mesh_inverse_bindposes_assets,
                 entity_id,
                 armor_data,
+                animation_data,
             );
 
             let tr = Transform::IDENTITY;
@@ -175,48 +190,6 @@ fn object_to_entities(
                 NpcVisibility::default(),
             ));
             spawn_state.armor_spawned = true;
-        }
-    }
-}
-
-/// Animate the joint marked with [`AnimatedJoint`] component.
-fn joint_animation(time: Res<Time>, mut query: Query<(&mut Transform, &AnimatedJoint)>) {
-    for (mut transform, animated_joint) in &mut query {
-        match animated_joint.0 {
-            -5 => {
-                transform.rotation =
-                    Quat::from_rotation_x(FRAC_PI_2 * ops::sin(time.elapsed_secs()));
-            }
-            -4 => {
-                transform.rotation =
-                    Quat::from_rotation_y(FRAC_PI_2 * ops::sin(time.elapsed_secs()));
-            }
-            -3 => {
-                transform.rotation =
-                    Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_secs()));
-            }
-            -2 => {
-                transform.scale.x = ops::sin(time.elapsed_secs()) + 1.0;
-            }
-            -1 => {
-                transform.scale.y = ops::sin(time.elapsed_secs()) + 1.0;
-            }
-            1 => {
-                transform.translation.y = ops::sin(time.elapsed_secs());
-                transform.translation.z = ops::cos(time.elapsed_secs());
-            }
-            2 => {
-                transform.translation.x = ops::sin(time.elapsed_secs());
-            }
-            3 => {
-                transform.translation.y = ops::sin(time.elapsed_secs());
-                transform.scale.x = ops::sin(time.elapsed_secs()) + 1.0;
-            }
-            4 => {
-                transform.translation.x = 0.5 * ops::sin(time.elapsed_secs());
-                transform.translation.y = ops::cos(time.elapsed_secs());
-            }
-            _ => (),
         }
     }
 }
@@ -245,5 +218,44 @@ fn draw_bones(
             //     Color::srgb(1.0, 0.0, 0.0), // Red joints
             // );
         }
+    }
+}
+
+// const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-T_YES.MAN";
+// const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WALKL.MAN";
+// const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WALKWL.MAN";
+// const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WASH.MAN";
+// const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WATCHFIGHT.MAN";
+// const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUN.MAN";
+const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUNL.MAN";
+
+fn compute_animations(time: Res<Time>, mut query: Query<(&mut Transform, &mut BoneAnimationData)>) {
+    let time_per_frame = 1.0 / 12.0; // Hardcoded fps
+    let delta = time.delta_secs();
+    for (mut transform, mut data) in &mut query {
+        #[allow(clippy::cast_precision_loss)]
+        let total_time = time_per_frame * data.animation_data.frames_num as f32 - time_per_frame;
+        data.time_dt += delta;
+        if data.time_dt >= total_time {
+            data.time_dt -= total_time;
+        }
+        let frame_num = (data.time_dt / time_per_frame) as usize;
+
+        let frame_a = data
+            .animation_data
+            .get_bone_sample(frame_num, data.bone_index);
+
+        let frame_b = data
+            .animation_data
+            .get_bone_sample(frame_num + 1, data.bone_index);
+        #[allow(clippy::cast_precision_loss)]
+        let frame_start_time = frame_num as f32 * time_per_frame;
+        let mul = (data.time_dt - frame_start_time) / time_per_frame;
+
+        transform.rotation = frame_a
+            .rotation
+            .inverse()
+            .lerp(frame_b.rotation.inverse(), mul);
+        transform.translation = frame_a.position.lerp(frame_b.position, mul);
     }
 }

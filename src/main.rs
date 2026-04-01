@@ -45,7 +45,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "ZenGin Walker".into(),
-                present_mode: PresentMode::Immediate,
+                present_mode: PresentMode::AutoVsync,
                 ..default()
             }),
             ..default()
@@ -130,7 +130,7 @@ fn spawn_lights(mut commands: Commands) {
     commands.spawn((
         PointLight {
             color: Color::from(tailwind::ORANGE_300),
-            shadows_enabled: true,
+            // shadows_enabled: true,
             ..default()
         },
         Transform::from_xyz(-12.0, 3.0, 10.0),
@@ -141,7 +141,7 @@ fn spawn_lights(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT,
             range: 100.0,
             radius: 10.0,
-            shadows_enabled: true,
+            // shadows_enabled: true,
             ..default()
         },
         Transform::from_xyz(-8.5, 1.0, -15.0),
@@ -166,7 +166,7 @@ fn spawn_lights(mut commands: Commands) {
             // color: Color::from(tailwind::SKY_50),
             // illuminance: bevy::light::light_consts::lux::FULL_MOON_NIGHT,
             illuminance: bevy::light::light_consts::lux::AMBIENT_DAYLIGHT / 15.0,
-            shadows_enabled: true,
+            // shadows_enabled: true,
             ..default()
         },
         Transform::from_xyz(4000.0, 2000.0, -10.0).looking_at(
