@@ -5,12 +5,13 @@ edition = "2024"
 
 
 [dependencies]
-bevy = { version = "0.18.1", features = ["dynamic_linking", "bevy_dev_tools", "free_camera"] }
-byteorder = "1.5"
+bevy = { version = "0.18.1", features = ["dynamic_linking", "bevy_dev_tools", "free_camera", "debug"] }
+avian3d = { git = "https://github.com/avianphysics/avian.git", tag = "v0.6.0-rc.1" }
+# avian3d = "0.5.0"
 
+byteorder = "1.5"
 ZenKit-rs = { git = "https://github.com/mmcomando/ZenKit-rs.git", rev = "76ddccaf63d8833d684d27e0e25b8ffbd205f805" }
 ron = "0.12.0"
-avian3d = "0.5.0"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]
@@ -20,6 +21,6 @@ opt-level = 1
 [profile.dev.package."*"]
 opt-level = 3
 
-# [target.x86_64-unknown-linux-gnu]
-# linker = "clang"
-# rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold"]
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold"]

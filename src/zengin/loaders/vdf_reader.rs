@@ -32,14 +32,45 @@ pub fn create_zengin_asset_loader() -> AssetSourceBuilder {
         let dir = gothic2_dir();
 
         let vfs = Vfs::new();
-        vfs.mount_disk_host(&format!("{}/Data/Worlds.vdf", dir), vfs_override);
-        vfs.mount_disk_host(&format!("{}/Data/Textures.vdf", dir), vfs_override);
-        vfs.mount_disk_host(&format!("{}/Data/Textures_Addon.vdf", dir), vfs_override);
-        vfs.mount_disk_host(&format!("{}/Data/Meshes.vdf", dir), vfs_override);
-        vfs.mount_disk_host(&format!("{}/Data/Meshes_Addon.vdf", dir), vfs_override);
         vfs.mount_disk_host(&format!("{}/Data/Anims.vdf", dir), vfs_override);
         vfs.mount_disk_host(&format!("{}/Data/Anims_Addon.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Meshes.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Meshes_Addon.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Sounds.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Sounds_Addon.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Sounds_bird_01.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Speech1.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Speech2.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Speech_Addon.vdf", dir), vfs_override);
+        vfs.mount_disk_host(
+            &format!("{}/Data/Speech_English_Patch_Atari.vdf", dir),
+            vfs_override,
+        );
+        vfs.mount_disk_host(
+            &format!("{}/Data/Speech_heyou_citygde_engl.vdf", dir),
+            vfs_override,
+        );
+        vfs.mount_disk_host(
+            &format!("{}/Data/Speech_Parlan_engl.vdf", dir),
+            vfs_override,
+        );
         vfs.mount_disk_host(&format!("{}/Data/SystemPack.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Textures.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Textures_Addon.vdf", dir), vfs_override);
+        vfs.mount_disk_host(
+            &format!("{}/Data/Textures_Addon_Menu_English.vdf", dir),
+            vfs_override,
+        );
+        vfs.mount_disk_host(
+            &format!("{}/Data/Textures_Fonts_Apostroph.vdf", dir),
+            vfs_override,
+        );
+        vfs.mount_disk_host(
+            &format!("{}/Data/Textures_multilingual_Jowood.vdf", dir),
+            vfs_override,
+        );
+        vfs.mount_disk_host(&format!("{}/Data/Worlds.vdf", dir), vfs_override);
+        vfs.mount_disk_host(&format!("{}/Data/Worlds_Addon.vdf", dir), vfs_override);
 
         let vfs = Mutex::new(vfs);
         Box::new(MyAssetReader { vfs })

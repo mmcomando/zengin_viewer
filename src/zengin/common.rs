@@ -97,13 +97,20 @@ pub struct ZenGinModel {
 }
 
 #[derive(Debug, Default)]
+pub struct ZenGinItem {
+    pub tr: Transform,
+    pub model: String,
+}
+#[derive(Debug, Default)]
 pub struct ZenGinNpc {
     pub head_tr: Transform,
-    pub head_model: String,
-    pub head_texture: String,
+    pub head_model: Option<String>,
+    pub head_texture: Option<String>,
     pub body_tr: Transform,
     pub body_model: String,
-    pub body_texture: String,
+    pub body_texture: Option<String>,
+    pub armor_model: Option<String>,
+    pub armor_tr: Transform,
 }
 
 #[derive(Debug, Default)]
@@ -119,6 +126,7 @@ pub struct ZenGinWorldData {
     pub static_models: Vec<ZenGinInstance>,
     pub light_instances: Vec<LightInstance>,
     pub npcs: Vec<ZenGinNpc>,
+    pub items: Vec<ZenGinItem>,
     pub spots: HashMap<String, Transform>,
     pub way_points: HashMap<String, Transform>,
 }

@@ -16,14 +16,20 @@ impl DatFile {
     pub fn get_function(&self, name: &str) -> Option<&Function> {
         self.functions.iter().find(|func| func.symbol.name == name)
     }
-    pub fn get_instance(&self, name: &str) -> Option<&Instance> {
-        self.instances.iter().find(|func| func.symbol.name == name)
-    }
     pub fn get_function_by_offset(&self, offset: u32) -> Option<&Function> {
         self.functions
             .iter()
             .find(|func| func.symbol.offset == offset)
     }
+    pub fn get_function_by_index(&self, index: u32) -> Option<&Function> {
+        self.functions
+            .iter()
+            .find(|func| func.symbol_table_index == index as usize)
+    }
+
+    // pub fn get_instance(&self, name: &str) -> Option<&Instance> {
+    //     self.instances.iter().find(|func| func.symbol.name == name)
+    // }
     pub fn get_symbol_by_index(&self, index: u32) -> Option<&Symbol> {
         self.symbols.get(index as usize)
     }
@@ -112,6 +118,7 @@ pub struct SymbolClass {
 pub struct SymbolClassVariable {
     pub name: String,
     pub class_index_id: u32,
+    pub in_class_offset: u32,
 }
 
 #[allow(dead_code)]
@@ -135,7 +142,7 @@ pub struct SymbolVariableArgument {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Symbol {
     SymbolInt(SymbolInt),
     SymbolArrInt(SymbolArrInt),
@@ -275,6 +282,7 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
     let _pos_anz = file.read_u32::<LittleEndian>()?;
 
     let flags = decode_flags(bitfield);
+    let kind = decode_symbol_kind(bitfield);
 
     if flags.is_classvar() {
         let parent = file.read_u32::<LittleEndian>()?;
@@ -285,11 +293,11 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
         let symbol = SymbolClassVariable {
             name,
             class_index_id: parent,
+            in_class_offset: offset,
         };
         return Ok(Symbol::SymbolClassVariable(symbol));
     }
 
-    let kind = decode_symbol_kind(bitfield);
     let elements_count = decode_data_len(bitfield);
 
     match kind {
