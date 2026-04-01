@@ -2,6 +2,8 @@ pub mod common;
 pub mod loader_asset;
 pub mod loader_texture;
 pub mod macros;
+pub mod material;
 pub mod mesh;
+pub mod mesh_model;
 pub mod mesh_mrs;
 pub mod world;

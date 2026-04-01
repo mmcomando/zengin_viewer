@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 use zen_kit_rs::vfs::VfsNode;
 
+// zenkit cords have mirrored X compared to bevy
+pub const MIRROR_X: bool = true;
+
 pub fn gothic2_dir() -> String {
     let dir =
         std::env::var("GOTHIC2_DIR").expect("GOTHIC_DIR2 environment varialdle has to be set");
@@ -10,17 +13,31 @@ pub fn gothic2_dir() -> String {
     return dir;
 }
 
+pub fn get_world_transform(gothic_mat: Mat4) -> Transform {
+    let tr = Transform::from_matrix(gothic_mat);
+    let pos = get_world_pos(tr.translation);
+    let rot = get_world_rot(Mat3::from_quat(tr.rotation));
+    Transform::from_translation(pos).with_rotation(rot)
+}
+
 pub fn get_world_pos(mut gothic_pos: Vec3) -> Vec3 {
     // X cords are mirrored
-    gothic_pos.x = -gothic_pos.x;
+    if MIRROR_X {
+        gothic_pos.x = -gothic_pos.x;
+    }
     // World units are different
     gothic_pos / 100.0
 }
 pub fn get_world_rot(rot_mat: Mat3) -> Quat {
-    let mut rot_euler = rot_mat.to_euler(EulerRot::XYZ);
-    // Do to X cords beeing mirrored we also have to modify rotation
-    rot_euler.1 = -rot_euler.1;
-    Quat::from_euler(EulerRot::XYZ, rot_euler.0, rot_euler.1, rot_euler.2)
+    let rot_euler = rot_mat.to_euler(EulerRot::XYZ);
+    let mut quat = Quat::from_euler(EulerRot::XYZ, rot_euler.0, rot_euler.1, rot_euler.2);
+
+    if MIRROR_X {
+        // Do to X cords beeing mirrored we also have to modify rotation
+        quat.y = -quat.y;
+        quat.z = -quat.z;
+    }
+    quat
 }
 
 pub fn print_nodes(node: &VfsNode, level: u8) {
@@ -43,12 +60,16 @@ pub struct MeshData {
     pub uvs: Vec<Vec2>,
     pub normals: Vec<Vec3>,
     pub colors: Vec<Vec4>,
+    pub material: StandardMaterial,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LoadedMeshData {
     pub texture: String,
+    pub material: StandardMaterial,
     pub mesh: Mesh,
+    pub transform: Transform,
+    pub name: String,
 }
 
 #[derive(Debug)]
@@ -56,4 +77,5 @@ pub struct MeshInstance {
     pub mesh_path: String,
     pub pos: Vec3,
     pub rot: Quat,
+    pub is_colider: bool,
 }

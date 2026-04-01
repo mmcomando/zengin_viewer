@@ -6,7 +6,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::zengin::common::*;
+use crate::zengin::{common::*, material::get_standard_material};
 
 pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshData> {
     let mut meshes: HashMap<String, MeshData> = HashMap::new();
@@ -52,22 +52,16 @@ pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshD
         assert!(polygon_features_indices.len() == polygon_indices.len());
 
         let material_index = polygon.material_index();
-        let material = mesh.material(u64::from(material_index));
-        let material_color = material.color();
-        let texture_path = material.texture();
+        let zengin_material = mesh.material(u64::from(material_index));
+        let material_color = zengin_material.color();
+        let texture_path = zengin_material.texture();
 
         if texture_path.is_empty() {
             // println!("Skip polygon({polygon_index}) it has empty texture");
             continue;
         }
 
-        let MeshData {
-            uvs,
-            normals,
-            indices,
-            vertices,
-            colors,
-        } = meshes.entry(texture_path.clone()).or_default();
+        let mesh_data = meshes.entry(texture_path.clone()).or_default();
 
         let material_color = Vec4::from_array([
             material_color.x as f32 / 255.0,
@@ -75,6 +69,8 @@ pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshD
             material_color.z as f32 / 255.0,
             material_color.w as f32 / 255.0,
         ]);
+
+        mesh_data.material = get_standard_material(&zengin_material);
 
         let triangles_num = polygon_indices.len() - 2;
         let trinagle_indices_num = 3;
@@ -88,22 +84,24 @@ pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshD
                 };
                 let idx_feature = polygon_features_indices[idx];
                 let feature = mesh.vertex(idx_feature as u64);
-                uvs.push(feature.texture);
-                normals.push(feature.normal);
+                mesh_data.uvs.push(feature.texture);
+                mesh_data.normals.push(feature.normal);
             }
         }
 
         for triangle_index in 0..triangles_num {
             for index in 0..trinagle_indices_num {
-                colors.push(material_color);
-                indices.push(indices.len() as u32);
+                mesh_data.colors.push(material_color);
+                mesh_data.indices.push(mesh_data.indices.len() as u32);
 
                 let idx = if index == 0 {
                     0
                 } else {
                     triangle_index + index
                 };
-                vertices.push(get_world_pos(mesh.position(polygon_indices[idx] as u64)));
+                mesh_data
+                    .vertices
+                    .push(get_world_pos(mesh.position(polygon_indices[idx] as u64)));
             }
         }
     }
@@ -124,7 +122,10 @@ pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshD
         .unwrap();
         bevy_meshes.push(LoadedMeshData {
             texture: texture_str,
+            material: mesh_data.material,
             mesh,
+            transform: Transform::IDENTITY,
+            name: String::new(),
         });
     }
 
