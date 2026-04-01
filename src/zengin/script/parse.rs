@@ -1,4 +1,5 @@
 use byteorder::{LittleEndian, ReadBytesExt};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Read};
 
@@ -10,6 +11,7 @@ pub struct DatFile {
     pub symbols: Vec<Symbol>,
     pub functions: Vec<Function>,
     pub instances: Vec<Instance>,
+    pub strings: HashMap<u32, String>,
 }
 
 impl DatFile {
@@ -427,6 +429,7 @@ pub fn parse_dat(path: &str) -> io::Result<DatFile> {
 
     let mut functions = Vec::new();
     let mut instances = Vec::new();
+    let mut strings = HashMap::new();
     for (index, symbol) in symbols.iter().enumerate() {
         if let Symbol::SymbolFunc(func) = symbol {
             if func.external {
@@ -439,15 +442,20 @@ pub fn parse_dat(path: &str) -> io::Result<DatFile> {
                 instructions,
             };
             functions.push(function);
+            strings.insert(index as u32, func.name.clone());
         }
-        if let Symbol::SymbolInstance(func) = symbol {
-            let instructions = decode_bytecode(&remaining, func.offset as usize);
+        if let Symbol::SymbolInstance(instance) = symbol {
+            let instructions = decode_bytecode(&remaining, instance.offset as usize);
             let instance = Instance {
-                symbol: func.clone(),
+                symbol: instance.clone(),
                 symbol_table_index: index,
                 instructions,
             };
+            strings.insert(index as u32, instance.symbol.name.clone());
             instances.push(instance);
+        }
+        if let Symbol::SymbolString(string) = symbol {
+            strings.insert(index as u32, string.data.clone());
         }
     }
 
@@ -457,6 +465,7 @@ pub fn parse_dat(path: &str) -> io::Result<DatFile> {
         symbols,
         functions,
         instances,
+        strings,
     })
 }
 

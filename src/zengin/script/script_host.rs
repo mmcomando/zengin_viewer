@@ -2,23 +2,20 @@ use bevy::ecs::error::Result;
 
 use crate::{
     warn_unimplemented,
-    zengin::script::{
-        parse::Symbol,
-        script_vm::{RoutineEntry, ScriptVM, SpawnItem, SpawnNpc, State},
-    },
+    zengin::script::script_vm::{RoutineEntry, ScriptVM, SpawnItem, SpawnNpc, State},
 };
 
 impl ScriptVM {
     pub fn handle_mdl_setvisualbody(&self, state: &mut State) -> Result {
         warn_unimplemented!("handle_mdl_setvisualbody not implemented");
-        let armor_var = self.pop_stack_instance(state);
+        let armor_var = state.pop_stack_var_int();
         let _par_1 = state.pop_stack_var()?;
         let face_texture_index = state.pop_stack_var_int()?;
-        let head_model = self.pop_stack_string(state)?.data;
+        let head_model = self.pop_stack_string(state)?;
         let _par_4 = state.pop_stack_var()?;
         let body_texture_index = state.pop_stack_var_int()?;
-        let body_model = self.pop_stack_string(state)?.data;
-        let npc_index = state.pop_stack_var_index();
+        let body_model = self.pop_stack_string(state)?;
+        let npc_index = state.pop_stack_var_int();
 
         // mdl_setvisualbody is called twice in b_setnpcvisual because we don't handle 'if' in scripts
         // Most models are male so ignore female bodies for now
@@ -43,8 +40,10 @@ impl ScriptVM {
             Some(head_model.replace('.', ""))
         };
 
+        // let armor_model = self.get_string(armor_var.0).ok();
         let armor_model = if let Ok(armor_var) = &armor_var {
-            Some(armor_var.1.name.clone())
+            // Some(armor_var.1.name.clone())
+            self.get_string(*armor_var).ok()
         } else {
             None
         };
@@ -62,17 +61,16 @@ impl ScriptVM {
 
         entry.body_texture = body_texture;
         entry.face_texture = face_texture;
-        entry.body_model = body_model;
+        entry.body_model.clone_from(body_model);
         entry.head_model = head_model;
-        entry.armor_model = armor_model;
+        entry.armor_model = armor_model.cloned();
 
         return Ok(());
     }
 
     pub fn handle_ta_min(&self, state: &mut State) -> Result {
         warn_unimplemented!("handle_ta_min not implemented");
-        let way_point = self.pop_stack_string(state)?.data;
-        // let _par_0 = self.pop_stack_var(state)?;
+        let way_point = self.pop_stack_string(state)?.clone();
         let _func_index = state.pop_stack_var()?;
         let _stop_m = state.pop_stack_var_int()?;
         let stop_h = state.pop_stack_var_int()?;
@@ -106,38 +104,29 @@ impl ScriptVM {
 
         let visual_offset = 524;
         let Some(visual_data) = wepon_instance.data.get(&visual_offset) else {
-            println!("Weapon({visual_offset}) visual_offset not found");
+            println!("Weapon({visual_offset}) visual_offset not found on instance({item_index})");
             return Ok(());
         };
-        let wepon_visual_index = visual_data.get_index()?;
-        let Some(Symbol::SymbolString(wepon_string)) =
-            self.script_data.get_symbol_by_index(wepon_visual_index)
-        else {
-            println!("Weapon({wepon_visual_index}) visual string not found");
-            return Ok(());
-        };
-
+        let wepon_visual_index = visual_data.get_int()?;
+        let wepon_string = self.get_string(wepon_visual_index)?;
         // println!(
         //     "wld_insertitem way_point({:?}), www({:?})",
         //     way_point_name.data, wepon_string.data
         // );
 
         state.spawn_weapons.push(SpawnItem {
-            visual: wepon_string.data.clone(),
-            way_point: way_point_name.data.clone(),
+            visual: wepon_string.clone(),
+            way_point: way_point_name.clone(),
         });
 
         return Ok(());
     }
 
-    pub fn handle_wld_insertnpc(&self, state: &mut State) {
-        let Ok(point_symbol) = self.pop_stack_string(state) else {
-            println!("world_point_name_index should point to string type");
-            return;
-        };
-        let Ok((npc_symbol_index, _npc_symbol)) = self.pop_stack_instance(state) else {
+    pub fn handle_wld_insertnpc(&self, state: &mut State) -> Result {
+        let point_symbol = self.pop_stack_string(state)?;
+        let Ok(npc_symbol_index) = state.pop_stack_var_int() else {
             println!("world_point_name_index should point to instance type");
-            return;
+            return Ok(());
         };
 
         // println!(
@@ -148,7 +137,8 @@ impl ScriptVM {
         state.spawn_npcs.push(SpawnNpc {
             // npc: npc_symbol.name.clone(),
             npc_index: npc_symbol_index,
-            way_point: point_symbol.data.clone(),
+            way_point: point_symbol.clone(),
         });
+        Ok(())
     }
 }

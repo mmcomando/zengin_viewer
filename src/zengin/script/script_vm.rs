@@ -3,7 +3,6 @@ use std::collections::{HashMap, VecDeque};
 use bevy::ecs::error::{BevyError, Result};
 use bevy::log::warn;
 
-use crate::zengin::script::parse::{SymbolInstance, SymbolString};
 use crate::{
     warn_unimplemented,
     zengin::script::parse::{DatFile, Function, Instance, Instruction, Symbol},
@@ -12,9 +11,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum StoredValue {
     Int(u32),
-    Index(u32),
     IntArr(Vec<u32>),
-    IndexArr(Vec<u32>),
 }
 
 impl StoredValue {
@@ -27,28 +24,6 @@ impl StoredValue {
         };
         return Ok(*int);
     }
-    pub fn get_index(&self) -> Result<u32> {
-        let StoredValue::Index(int) = self else {
-            return Err(BevyError::from(format!(
-                "StoredValue({:?}) is not an int",
-                self,
-            )));
-        };
-        return Ok(*int);
-    }
-
-    // pub fn get_int_or_index(&self) -> Result<u32> {
-    //     if let StoredValue::Index(int) = self {
-    //         return Ok(*int);
-    //     }
-    //     if let StoredValue::Int(int) = self {
-    //         return Ok(*int);
-    //     }
-    //     return Err(BevyError::from(format!(
-    //         "StoredValue({:?}) is not an int or index",
-    //         self,
-    //     )));
-    // }
 }
 #[derive(Debug, Clone)]
 pub struct VmValue(pub i32);
@@ -156,7 +131,7 @@ impl State {
         class.data.insert(offset, value);
     }
 
-    pub fn get_value_inner(&self, offset: u32) -> Option<StoredValue> {
+    fn get_value_inner(&self, offset: u32) -> Option<StoredValue> {
         let Some(instance_name) = &self.current_instance else {
             println!("Can't get class member variable as there is no current class in context");
             return None;
@@ -234,29 +209,6 @@ impl State {
         return Ok(int);
     }
 
-    pub fn pop_stack_var_index(&mut self) -> Result<u32> {
-        let val = self.pop_stack_value()?;
-        if let StoredValue::Index(index) = val {
-            return Ok(index);
-        }
-        if let StoredValue::Int(index) = val {
-            return Ok(index);
-        }
-        return Err(BevyError::from(format!(
-            "StoredValue({:?}) is not an index",
-            val,
-        )));
-    }
-
-    // pub fn pop_stack_symbol(&self, state: &mut State) -> Result<&Symbol> {
-    //     let index = self.pop_stack_var_index(state)?;
-    //     let symbol = self
-    //         .script_data
-    //         .get_symbol_by_index(index)
-    //         .ok_or(BevyError::from("Failed get_symbol_by_index"))?;
-    //     return Ok(symbol);
-    // }
-
     pub fn set_value(&mut self, dest_var: VariableRef, val: StoredValue) {
         match dest_var {
             VariableRef::GlobalVar(var_index) => {
@@ -288,7 +240,7 @@ impl State {
             && let StackVVV::VariableRef(VariableRef::GlobalVar(source_value)) = source_var
         {
             // println!("assign1 to({dest_var:?}) = ({source_value:?})");
-            self.set_value(dest_var, StoredValue::Index(source_value));
+            self.set_value(dest_var, StoredValue::Int(source_value));
             return;
         }
         let Some(source_value) = self.get_value(&source_var) else {
@@ -343,22 +295,7 @@ fn insert_arr_value_to_store(
             // println!("set var_index({offset}[{in_var_index}]) = {val}");
             arr[in_var_index as usize] = val;
         }
-        StoredValue::Index(val) => {
-            let entry = store.entry(offset).or_insert(StoredValue::IndexArr(vec![]));
-            let StoredValue::IndexArr(arr) = entry else {
-                panic!();
-            };
-
-            if (in_var_index as usize) >= arr.len() {
-                // println!("AAAADD TO ARR INDEX DEFAULT");
-                for _ in 0..=((in_var_index as usize) - arr.len()) {
-                    arr.push(u32::MAX);
-                }
-            }
-            // println!("set var_index({offset}[{in_var_index}]) = {val}");
-            arr[in_var_index as usize] = val;
-        }
-        StoredValue::IntArr(_) | StoredValue::IndexArr(_) => {
+        StoredValue::IntArr(_) => {
             panic!("Should not set array in array")
         }
     }
@@ -447,7 +384,7 @@ impl ScriptVM {
                 let Some(source_value) = state.get_value(&source_var) else {
                     continue;
                 };
-                if let Ok(index) = source_value.get_index() {
+                if let Ok(index) = source_value.get_int() {
                     state.current_instance = Some(index);
                     // println!("Set Instance({:?})", instruction);
                 } else {
@@ -456,17 +393,6 @@ impl ScriptVM {
             }
         }
     }
-
-    // pub fn interpret_instance_by_str(&self, state: &mut State, instance_name: &str) {
-    //     let instance = self.script_data.get_instance(instance_name).unwrap();
-
-    //     if !state
-    //         .class_instance_data
-    //         .contains_key(&(instance.symbol_table_index as u32))
-    //     {
-    //         self.interpret_instance(state, instance);
-    //     }
-    // }
 
     pub fn interpret_instance(&self, state: &mut State, instance: &Instance) {
         // println!("Interpret Instance({})", instance.symbol.name);
@@ -477,7 +403,7 @@ impl ScriptVM {
             .class_instance_data
             .entry(instance.symbol_table_index as u32)
             .or_default();
-        class.name = instance.symbol.name.clone();
+        class.name.clone_from(&instance.symbol.name);
 
         self.interpret_instructions(state, &instance.instructions);
 
@@ -506,41 +432,25 @@ impl ScriptVM {
         state.current_instance = previous_instance;
     }
 
-    pub fn pop_stack_string(&self, state: &mut State) -> Result<SymbolString> {
-        let index = state.pop_stack_var_index()?;
-        let symbol = self
-            .script_data
-            .get_symbol_by_index(index)
-            .ok_or(BevyError::from("Failed get_symbol_by_index"))?;
-        let Symbol::SymbolString(symbol) = symbol else {
-            return Err(BevyError::from(format!(
-                "Symbol({:?}) is not a SymbolString",
-                symbol,
-            )));
-        };
-        return Ok(symbol.clone());
+    pub fn get_string(&self, index: u32) -> Result<&String> {
+        self.script_data
+            .strings
+            .get(&index)
+            .ok_or(BevyError::from(format!(
+                "Failed to get string from index({index})"
+            )))
     }
 
-    pub fn pop_stack_instance(&self, state: &mut State) -> Result<(u32, SymbolInstance)> {
-        let index = state.pop_stack_var_index()?;
-        let symbol = self
-            .script_data
-            .get_symbol_by_index(index)
-            .ok_or(BevyError::from("Failed get_symbol_by_index"))?;
-        let Symbol::SymbolInstance(symbol) = symbol else {
-            return Err(BevyError::from(format!(
-                "Symbol({:?}) is not a SymbolInstance",
-                symbol,
-            )));
-        };
-        return Ok((index, symbol.clone()));
+    pub fn pop_stack_string(&self, state: &mut State) -> Result<&String> {
+        let index = state.pop_stack_var_int()?;
+        self.get_string(index)
     }
 
     pub fn interpret_external_function(&self, state: &mut State, func_offset: u32) {
         let symbol = self.script_data.get_symbol_by_index(func_offset).unwrap();
 
         if symbol.name() == "wld_insertnpc" {
-            self.handle_wld_insertnpc(state);
+            self.handle_wld_insertnpc(state).unwrap();
             return;
         }
         if symbol.name() == "createinvitem" {
@@ -706,7 +616,7 @@ pub fn get_symbol_value(symbol: &Symbol, var_index: u32) -> Option<StoredValue> 
             return Some(StoredValue::Int(var.arr[0]));
         }
         Symbol::SymbolString(_var) => {
-            return Some(StoredValue::Index(var_index));
+            return Some(StoredValue::Int(var_index));
         }
 
         Symbol::SymbolFloat(_)
