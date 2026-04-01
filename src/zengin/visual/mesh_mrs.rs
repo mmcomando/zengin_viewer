@@ -26,6 +26,7 @@ pub fn meshes_from_zengin_mrs_mesh(mesh: &zen_kit_rs::mrs_mesh::MrsMesh) -> ZenG
         let mesh_data = meshes.entry(texture_path.clone()).or_default();
 
         mesh_data.material = get_standard_material(&material);
+        mesh_data.collides = !material.disable_collision();
 
         let material_color = Vec4::from_array([
             f32::from(material_color.x) / 255.0,
@@ -70,7 +71,7 @@ pub fn meshes_from_zengin_mrs_mesh(mesh: &zen_kit_rs::mrs_mesh::MrsMesh) -> ZenG
             mesh,
             transform: Transform::IDENTITY,
             name: String::new(),
-            // head_transform: None,
+            collides: mesh_data.collides,
         });
     }
     model

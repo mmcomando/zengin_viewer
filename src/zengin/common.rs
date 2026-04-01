@@ -71,6 +71,7 @@ pub struct MeshData {
     pub normals: Vec<Vec3>,
     pub colors: Vec<Vec4>,
     pub material: StandardMaterial,
+    pub collides: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +82,7 @@ pub struct ZenGinSubMesh {
     pub transform: Transform,
     // pub head_transform: Option<Transform>,
     pub name: String,
+    pub collides: bool,
 }
 
 #[derive(Debug)]

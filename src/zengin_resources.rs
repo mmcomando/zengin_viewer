@@ -139,7 +139,7 @@ fn convert_zengin_model_to_entities(
             );
 
             let mesh_handle = meshes.add(sub_mesh.mesh.clone());
-            if model_component.convex_colider {
+            if model_component.convex_colider && sub_mesh.collides {
                 entity.with_child((
                     RigidBody::Static,
                     ColliderConstructor::ConvexHullFromMesh,

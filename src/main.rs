@@ -12,6 +12,7 @@
     clippy::wildcard_imports
 )]
 
+mod character;
 mod game;
 mod gui;
 mod skybox;
@@ -19,6 +20,7 @@ mod toggle_visibility;
 mod zengin;
 mod zengin_resources;
 
+use crate::character::CharacterControllerPlugin;
 use crate::gui::{CameraSettingsPlugin, get_overlay_plugin};
 use crate::skybox::SkyBoxPlugin;
 use crate::toggle_visibility::ToggleVisibility;
@@ -58,6 +60,7 @@ fn main() {
         .add_plugins(CameraSettingsPlugin)
         .add_plugins(SkyBoxPlugin)
         .add_plugins(ToggleVisibility)
+        .add_plugins(CharacterControllerPlugin)
         // Run
         .run();
 }

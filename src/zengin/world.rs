@@ -71,7 +71,7 @@ pub fn get_item_mesh_path(
         .visual_change
         .as_ref()
         .unwrap_or(&item_instance.visual);
-    find_mesh_path(vfs, &visual)
+    find_mesh_path(vfs, visual)
 }
 pub fn load_weapon(
     data: &mut ZenGinWorldData,
