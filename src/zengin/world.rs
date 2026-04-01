@@ -23,7 +23,11 @@ const PLARCEHOLDER_MESH: &str = "/_WORK/DATA/MESHES/_COMPILED/SPHERE.MRM";
 
 pub fn create_gothic_world_mesh(
     old_world: bool,
-) -> (HashMap<String, Vec<LoadedMeshData>>, Vec<MeshInstance>) {
+) -> (
+    HashMap<String, Vec<LoadedMeshData>>,
+    Vec<MeshInstance>,
+    Vec<LightInstance>,
+) {
     let vfs = Vfs::new();
 
     let vfs_override = VfsOverwriteBehavior::ALL;
@@ -68,8 +72,15 @@ pub fn create_gothic_world_mesh(
     // Make sure that placeholder mesh is loaded
     load_mesh(PLARCEHOLDER_MESH, &vfs, &mut bevy_meshes);
 
+    let mut light_instances: Vec<LightInstance> = Vec::new();
     for obj in world.root_objects() {
-        load_meshes(&vfs, &mut bevy_meshes, &mut object_instances, &obj);
+        load_meshes(
+            &vfs,
+            &mut bevy_meshes,
+            &mut object_instances,
+            &mut light_instances,
+            &obj,
+        );
     }
     if !world.npcs().is_empty() {
         warn_unimplemented!("Loading NPCs from world");
@@ -79,7 +90,7 @@ pub fn create_gothic_world_mesh(
         warn_unimplemented!("Handling spawn locations");
     }
 
-    (bevy_meshes, object_instances)
+    (bevy_meshes, object_instances, light_instances)
 }
 
 fn load_mesh(
@@ -166,6 +177,7 @@ fn load_meshes(
     vfs: &Vfs,
     bevy_meshes: &mut HashMap<String, Vec<LoadedMeshData>>,
     object_instances: &mut Vec<MeshInstance>,
+    light_instances: &mut Vec<LightInstance>,
     obj: &VirtualObject,
 ) {
     let visual = obj.visual();
@@ -174,7 +186,8 @@ fn load_meshes(
     let pos = get_world_pos(obj.position());
     let rot_quat = get_world_rot(obj.rotation());
 
-    if !visual_name.is_empty() {
+    if !visual_name.is_empty() && obj.show_visual() {
+        assert!(obj.get_type() != VobType::zCVobLight);
         let asset_path = match visual_type {
             VisualType::MULTI_RESOLUTION_MESH => {
                 let asset_path = compiled_asset_path(&visual_name, ".3DS", ".MRM");
@@ -258,14 +271,19 @@ fn load_meshes(
             });
         }
     } else {
-        handle_other_vob(obj);
+        handle_other_vob(obj, light_instances);
     }
     for child in obj.children() {
-        load_meshes(vfs, bevy_meshes, object_instances, &child);
+        load_meshes(vfs, bevy_meshes, object_instances, light_instances, &child);
     }
 }
 
-fn handle_other_vob(obj: &VirtualObject) {
+fn handle_light(obj: &VirtualObject, light_instances: &mut Vec<LightInstance>) {
+    let pos = get_world_pos(obj.position());
+    let rot = get_world_rot(obj.rotation());
+    light_instances.push(LightInstance { pos, rot })
+}
+fn handle_other_vob(obj: &VirtualObject, light_instances: &mut Vec<LightInstance>) {
     let type_ = obj.get_type();
     match type_ {
         VobType::zCVob => {
@@ -309,7 +327,7 @@ fn handle_other_vob(obj: &VirtualObject) {
             return;
         }
         VobType::zCVobLight => {
-            warn_unimplemented!("VobType::zCVobLight");
+            handle_light(obj, light_instances);
             return;
         }
         VobType::zCVobSpot => {
