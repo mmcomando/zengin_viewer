@@ -63,10 +63,10 @@ pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshD
         let mesh_data = meshes.entry(texture_path.clone()).or_default();
 
         let material_color = Vec4::from_array([
-            material_color.x as f32 / 255.0,
-            material_color.y as f32 / 255.0,
-            material_color.z as f32 / 255.0,
-            material_color.w as f32 / 255.0,
+            f32::from(material_color.x) / 255.0,
+            f32::from(material_color.y) / 255.0,
+            f32::from(material_color.z) / 255.0,
+            f32::from(material_color.w) / 255.0,
         ]);
 
         mesh_data.material = get_standard_material(&zengin_material);
@@ -82,7 +82,7 @@ pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshD
                     triangle_index + index
                 };
                 let idx_feature = polygon_features_indices[idx];
-                let feature = mesh.vertex(idx_feature as u64);
+                let feature = mesh.vertex(u64::from(idx_feature));
                 mesh_data.uvs.push(feature.texture);
                 mesh_data.normals.push(feature.normal);
             }
@@ -98,9 +98,9 @@ pub fn meshes_from_gothic_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> Vec<LoadedMeshD
                 } else {
                     triangle_index + index
                 };
-                mesh_data
-                    .vertices
-                    .push(get_world_pos(mesh.position(polygon_indices[idx] as u64)));
+                mesh_data.vertices.push(get_world_pos(
+                    mesh.position(u64::from(polygon_indices[idx])),
+                ));
             }
         }
     }

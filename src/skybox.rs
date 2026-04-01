@@ -1,4 +1,4 @@
-/// Based on example https://bevy.org/examples/3d-rendering/skybox/
+/// Based on example <https://bevy.org/examples/3d-rendering/skybox>
 use bevy::camera_controller::free_camera::FreeCamera;
 use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;

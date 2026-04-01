@@ -28,10 +28,10 @@ pub fn meshes_from_gothic_mrs_mesh(mesh: &zen_kit_rs::mrs_mesh::MrsMesh) -> Vec<
         mesh_data.material = get_standard_material(&material);
 
         let material_color = Vec4::from_array([
-            material_color.x as f32 / 255.0,
-            material_color.y as f32 / 255.0,
-            material_color.z as f32 / 255.0,
-            material_color.w as f32 / 255.0,
+            f32::from(material_color.x) / 255.0,
+            f32::from(material_color.y) / 255.0,
+            f32::from(material_color.z) / 255.0,
+            f32::from(material_color.w) / 255.0,
         ]);
 
         let triangles = sub_mesh.triangles();

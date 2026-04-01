@@ -18,9 +18,9 @@ pub fn meshes_from_gothic_model_mesh(
     let attachements = model_mesh.enumerate_attachments();
 
     for (name, mrs_mesh) in &attachements {
-        let mut new_meshes = meshes_from_gothic_mrs_mesh(&mrs_mesh);
-        for new_mesh in new_meshes.iter_mut() {
-            new_mesh.name = name.clone()
+        let mut new_meshes = meshes_from_gothic_mrs_mesh(mrs_mesh);
+        for new_mesh in &mut new_meshes {
+            new_mesh.name.clone_from(name);
         }
         bevy_meshes.extend(new_meshes);
     }
@@ -71,7 +71,7 @@ pub fn meshes_from_gothic_model_mesh(
             }
         }
 
-        for new_mesh in bevy_meshes.iter_mut() {
+        for new_mesh in &mut bevy_meshes {
             if let Some(node_index) = nodes.iter().position(|node| node.name == "BIP01 HEAD") {
                 new_mesh.head_transform = Some(final_tr[node_index]);
             }

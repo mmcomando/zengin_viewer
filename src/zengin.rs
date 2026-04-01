@@ -6,7 +6,7 @@ pub mod visual;
 pub mod world;
 
 use crate::zengin::common::{LoadedMeshData, gothic2_dir};
-use crate::zengin::script::script::*;
+use crate::zengin::script::parse::*;
 use crate::zengin::script::script_vm::ScriptVM;
 use crate::zengin::world::create_gothic_world_mesh;
 use avian3d::prelude::*;
@@ -20,6 +20,13 @@ impl Plugin for ZenGinWorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_world);
     }
+}
+
+struct MeshData {
+    mesh_handle: Handle<Mesh>,
+    material_handle: Handle<StandardMaterial>,
+    loaded_data: LoadedMeshData,
+    original_material: StandardMaterial,
 }
 
 fn spawn_world(
@@ -56,15 +63,7 @@ fn spawn_world(
     }
     // println!("gothic_world_meshes len({})", world_data.meshes.len());
 
-    let mut handles: HashMap<
-        String,
-        Vec<(
-            Handle<Mesh>,
-            Handle<StandardMaterial>,
-            LoadedMeshData,
-            StandardMaterial,
-        )>,
-    > = HashMap::new();
+    let mut handles: HashMap<String, Vec<MeshData>> = HashMap::new();
 
     for (model_path, mesh_data) in world_data.meshes {
         for data in mesh_data {
@@ -84,7 +83,12 @@ fn spawn_world(
             let mesh_material = materials.add(material.clone());
 
             let arr = handles.entry(model_path.clone()).or_default();
-            arr.push((mesh_handle, mesh_material, data_clone, material));
+            arr.push(MeshData {
+                mesh_handle,
+                material_handle: mesh_material,
+                loaded_data: data_clone,
+                original_material: material,
+            });
         }
     }
 
@@ -95,18 +99,17 @@ fn spawn_world(
     for instance in world_data.mesh_instances {
         let Some(instance_data) = handles.get(&instance.mesh_path) else {
             println!("no data for mesh_path({})", &instance.mesh_path);
-            panic!();
             continue;
         };
         for model_data in instance_data {
             let transform = Transform::from_translation(instance.pos).with_rotation(instance.rot);
-            let transform = transform * model_data.2.transform;
+            let transform = transform * model_data.loaded_data.transform;
 
-            let mut material = model_data.1.clone();
+            let mut material = model_data.material_handle.clone();
             if let Some(override_texture) = &instance.texture_override {
                 let texture = override_texture.replace(".TGA", "-C.TEX");
                 let texture_full_path = format!("gothic://_WORK/DATA/TEXTURES/_COMPILED/{texture}");
-                let mut mat = model_data.3.clone();
+                let mut mat = model_data.original_material.clone();
                 let tex = asset_server.load(texture_full_path);
                 mat.base_color_texture = Some(tex);
                 material = materials.add(mat);
@@ -116,13 +119,13 @@ fn spawn_world(
                 commands.spawn((
                     RigidBody::Static,
                     ColliderConstructor::TrimeshFromMesh,
-                    Mesh3d(model_data.0.clone()),
+                    Mesh3d(model_data.mesh_handle.clone()),
                     MeshMaterial3d(material),
                     transform,
                 ));
             } else {
                 commands.spawn((
-                    Mesh3d(model_data.0.clone()),
+                    Mesh3d(model_data.mesh_handle.clone()),
                     MeshMaterial3d(material),
                     transform,
                 ));
@@ -163,6 +166,7 @@ fn spawn_world(
                 AngularVelocity(Vec3::new(2.5, 3.5, 1.5)),
                 Mesh3d(meshes.add(Cuboid::from_length(1.0))),
                 MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+                #[allow(clippy::cast_precision_loss)]
                 Transform::from_xyz(-30.0 + x as f32 * 5.0, 30.0, z as f32 * 5.0),
             ));
         }

@@ -1,6 +1,9 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::zengin::script::script::{DatFile, Function, Instance, Instruction, Symbol};
+use crate::{
+    warn_unimplemented,
+    zengin::script::parse::{DatFile, Function, Instance, Instruction, Symbol},
+};
 
 pub enum StackVar {
     Int(i32),
@@ -15,14 +18,14 @@ pub struct InstanceState {
     pub head_model: String,
 }
 pub struct SpawnNpc {
-    pub npc_name: String,
-    pub way_point_name: String,
-    pub routine_way_point_name: Option<String>,
+    pub npc: String,
+    pub way_point: String,
+    pub routine_way_point: Option<String>,
 }
 pub struct State {
     pub stack: VecDeque<StackVar>,
     pub spawn_npcs: Vec<SpawnNpc>,
-    pub instance_state: HashMap<String, InstanceState>,
+    pub instance_data: HashMap<String, InstanceState>,
     pub current_instance: Option<String>,
 }
 impl State {
@@ -30,7 +33,7 @@ impl State {
         State {
             stack: VecDeque::new(),
             spawn_npcs: Vec::new(),
-            instance_state: HashMap::new(),
+            instance_data: HashMap::new(),
             current_instance: None,
         }
     }
@@ -39,14 +42,17 @@ impl State {
 pub struct ScriptVM {
     script_data: DatFile,
 }
+
+//
 impl ScriptVM {
     pub fn new(script_data: DatFile) -> Self {
+        warn_unimplemented!("Scripts support is hacked to just somehow spawn NPCs");
         ScriptVM { script_data }
     }
     pub fn interpret_script_function(&self, state: &mut State, func_name: &str) {
         // println!("Interpret func_name({func_name})");
         let function = self.script_data.get_function(func_name).unwrap();
-        self.interpret_function(state, &function);
+        self.interpret_function(state, function);
     }
 
     fn interpret_instructions(&self, state: &mut State, instructions: &[Instruction]) {
@@ -134,10 +140,7 @@ impl ScriptVM {
             println!("handle_routine_waypoint expected Var on stack");
             return;
         };
-        let waypoint = self
-            .script_data
-            .get_symbol_by_index(waypoin_index as u32)
-            .unwrap();
+        let waypoint = self.script_data.get_symbol_by_index(waypoin_index).unwrap();
         let Symbol::SymbolString(waypoint) = waypoint else {
             println!("handle_routine_waypoint routine should point to SymbolString type");
             return;
@@ -151,7 +154,7 @@ impl ScriptVM {
         let Some(npc_data) = state
             .spawn_npcs
             .iter_mut()
-            .find(|el| el.npc_name.to_lowercase() == current_instance.to_lowercase())
+            .find(|el| el.npc.to_lowercase() == current_instance.to_lowercase())
         else {
             println!(
                 "handle_routine_waypoint npc_data for({}) should be present",
@@ -163,8 +166,8 @@ impl ScriptVM {
         //     "Set routine waypoint({}) for npc({})",
         //     waypoint.data, current_instance
         // );
-        if npc_data.routine_way_point_name.is_none() {
-            npc_data.routine_way_point_name = Some(waypoint.data.clone());
+        if npc_data.routine_way_point.is_none() {
+            npc_data.routine_way_point = Some(waypoint.data.clone());
         }
     }
 
@@ -217,16 +220,13 @@ impl ScriptVM {
             println!("handle_b_setnpcvisual expected Instance on stack");
             return;
         };
-        let npc_instance = self
-            .script_data
-            .get_symbol_by_index(npc_instance as u32)
-            .unwrap();
+        let npc_instance = self.script_data.get_symbol_by_index(npc_instance).unwrap();
         let Symbol::SymbolInstance(npc_instance) = npc_instance else {
             println!("handle_b_setnpcvisual npc_instance should point to SymbolInstance type");
             return;
         };
         let entry = state
-            .instance_state
+            .instance_data
             .entry(npc_instance.name.clone())
             .or_default();
 
@@ -249,7 +249,7 @@ impl ScriptVM {
         entry.body_texture = format!("HUM_BODY_NAKED_V{}_C0.TGA", body_texture.data);
         entry.face_texture = format!("HUM_HEAD_V{}_C0.TGA", face_texture.data);
         // Sometimes there is model "Hum_Head_Babe." (dot at the end), engine or scripts bug?
-        entry.head_model = head_model.data.replace(".", "").clone();
+        entry.head_model = head_model.data.replace('.', "");
         // println!("handle_b_setnpcvisual => {:?}", entry);
     }
 
@@ -293,12 +293,12 @@ impl ScriptVM {
             .unwrap();
 
         state.spawn_npcs.push(SpawnNpc {
-            npc_name: npc_symbol.name.clone(),
-            way_point_name: point_symbol.data.clone(),
-            routine_way_point_name: None,
+            npc: npc_symbol.name.clone(),
+            way_point: point_symbol.data.clone(),
+            routine_way_point: None,
         });
 
-        if !state.instance_state.contains_key(&npc_symbol.name) {
+        if !state.instance_data.contains_key(&npc_symbol.name) {
             self.interpret_instance(state, instance);
         }
     }

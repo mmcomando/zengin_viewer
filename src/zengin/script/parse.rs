@@ -247,10 +247,10 @@ pub fn read_string(file: &mut File) -> io::Result<String> {
             // println!("strange byte({byte}) sometimes at the start of string?");
             continue;
         }
-        if byte == ('\n' as u8) {
+        if byte == b'\n' {
             return Ok(string);
         }
-        string.push(char::from_u32(byte as u32).unwrap());
+        string.push(char::from_u32(u32::from(byte)).unwrap());
     }
     panic!("decoded unexpectdly long string");
 }
@@ -283,7 +283,7 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
             "Class variable has to have parent defined"
         );
         let symbol = SymbolClassVariable {
-            name: name,
+            name,
             class_index_id: parent,
         };
         return Ok(Symbol::SymbolClassVariable(symbol));
@@ -301,7 +301,7 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
                 "Class definition should not have a parent"
             );
             return Ok(Symbol::SymbolClass(SymbolClass {
-                name: name,
+                name,
                 // Offset in case of class probably means a total class size
                 size: offset,
             }));
@@ -311,8 +311,8 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
             let parent = file.read_u32::<LittleEndian>()?;
             assert!(parent == u32::MAX, "Function should not have a parent");
             return Ok(Symbol::SymbolFunc(SymbolFunc {
-                name: name,
-                offset: offset,
+                name,
+                offset,
                 external: flags.is_external(),
             }));
         }
@@ -321,7 +321,7 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
             let parent = file.read_u32::<LittleEndian>()?;
             assert!(parent != u32::MAX, "Prototype should not have a parent");
             return Ok(Symbol::SymbolPrototype(SymbolPrototype {
-                name: name,
+                name,
                 class_index_id: parent,
             }));
         }
@@ -331,11 +331,10 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
                 .collect();
             let parent = file.read_u32::<LittleEndian>()?;
             assert!(parent == u32::MAX, "Float should not have a parent");
-            if arr.len() > 1 || arr.len() == 0 {
+            if arr.len() > 1 || arr.is_empty() {
                 return Ok(Symbol::SymbolArrFloat(SymbolArrFloat { name, arr }));
-            } else {
-                return Ok(Symbol::SymbolFloat(SymbolFloat { name, data: arr[0] }));
             }
+            return Ok(Symbol::SymbolFloat(SymbolFloat { name, data: arr[0] }));
         }
         SymbolKind::Int => {
             let arr: Vec<u32> = (0..elements_count)
@@ -345,11 +344,10 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
             let _parent = file.read_u32::<LittleEndian>()?;
             // function parameters symbols have parent set, other variables don't
             // assert!(parent == u32::MAX, "Int should not have a parent");
-            if arr.len() > 1 || arr.len() == 0 {
+            if arr.len() > 1 || arr.is_empty() {
                 return Ok(Symbol::SymbolArrInt(SymbolArrInt { name, arr }));
-            } else {
-                return Ok(Symbol::SymbolInt(SymbolInt { name, data: arr[0] }));
             }
+            return Ok(Symbol::SymbolInt(SymbolInt { name, data: arr[0] }));
         }
         SymbolKind::String => {
             let arr: Vec<String> = (0..elements_count)
@@ -358,14 +356,13 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
             let _parent = file.read_u32::<LittleEndian>()?;
             // function parameters symbols have parent set, other variables don't
             // assert!(parent == u32::MAX, "String should not have a parent");
-            if arr.len() > 1 || arr.len() == 0 {
+            if arr.len() > 1 || arr.is_empty() {
                 return Ok(Symbol::SymbolArrString(SymbolArrString { name, arr }));
-            } else {
-                return Ok(Symbol::SymbolString(SymbolString {
-                    name,
-                    data: arr[0].clone(),
-                }));
             }
+            return Ok(Symbol::SymbolString(SymbolString {
+                name,
+                data: arr[0].clone(),
+            }));
         }
         SymbolKind::Instance => {
             let offset = file.read_u32::<LittleEndian>()?;
@@ -375,7 +372,7 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
                 .collect(); // Not sure what it is for
             let parent = file.read_u32::<LittleEndian>()?;
             return Ok(Symbol::SymbolInstance(SymbolInstance {
-                name: name,
+                name,
                 offset,
                 class_index_id: make_parent_option(parent),
             }));
@@ -386,7 +383,7 @@ pub fn parse_symbol(file: &mut File) -> io::Result<Symbol> {
                 .collect(); // Not sure what it is for
             let _parent = file.read_u32::<LittleEndian>()?;
             return Ok(Symbol::SymbolVariableArgument(SymbolVariableArgument {
-                name: name,
+                name,
             }));
         }
     }
@@ -447,11 +444,11 @@ pub fn parse_dat(path: &str) -> io::Result<DatFile> {
     }
 
     Ok(DatFile {
+        stack_length,
         header,
         symbols,
         functions,
         instances,
-        stack_length,
     })
 }
 
@@ -544,13 +541,13 @@ fn decode_bytecode(all_bytecode: &[u8], offset: usize) -> Vec<Instruction> {
 
             _opcode => {
                 // result.push(Instruction::Unknown(opcode));
-                println!("{:#?}", result);
-                print_hex_bytes("a", &bytes[(i - 5)..(i - 4)], offset + i - 5);
-                print_hex_bytes("a", &bytes[(i - 4)..(i - 3)], offset + i - 4);
-                print_hex_bytes("a", &bytes[(i - 3)..(i - 2)], offset + i - 3);
-                print_hex_bytes("a", &bytes[(i - 2)..(i - 1)], offset + i - 2);
-                print_hex_bytes("a", &bytes[(i - 1)..(i + 0)], offset + i - 1);
-                print_hex_bytes("unknown ----- ", &bytes[i..i + 1], offset + i);
+                // println!("{:#?}", result);
+                // print_hex_bytes("a", &bytes[(i - 5)..(i - 4)], offset + i - 5);
+                // print_hex_bytes("a", &bytes[(i - 4)..(i - 3)], offset + i - 4);
+                // print_hex_bytes("a", &bytes[(i - 3)..(i - 2)], offset + i - 3);
+                // print_hex_bytes("a", &bytes[(i - 2)..(i - 1)], offset + i - 2);
+                // print_hex_bytes("a", &bytes[(i - 1)..(i + 0)], offset + i - 1);
+                print_hex_bytes("unknown ----- ", &bytes[i..=i], offset + i);
                 panic!();
             }
         }
@@ -604,7 +601,7 @@ fn decode_symbol_kind(bits: u32) -> SymbolKind {
 }
 
 fn decode_data_len(bits: u32) -> u32 {
-    let mask = ((1 << 12) - 1) << 0;
+    let mask = (1 << 12) - 1;
     let data_len = bits & mask;
     return data_len;
 }
