@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use zen_kit_rs::{
-    misc::{GameVersion, VfsOverwriteBehavior, VisualType},
+    misc::{GameVersion, VfsOverwriteBehavior, VisualType, VobType},
     vfs::Vfs,
     vobs::virtual_object::VirtualObject,
 };
@@ -71,12 +71,10 @@ pub fn create_gothic_world_mesh(
     for obj in world.root_objects() {
         load_meshes(&vfs, &mut bevy_meshes, &mut object_instances, &obj);
     }
-    println!("npc_count({})", world.npc_count());
     if !world.npcs().is_empty() {
         warn_unimplemented!("Loading NPCs from world");
     }
 
-    println!("spawn_location_count({})", world.spawn_location_count());
     if world.spawn_location_count() > 0 {
         warn_unimplemented!("Handling spawn locations");
     }
@@ -259,9 +257,201 @@ fn load_meshes(
                 is_colider: false,
             });
         }
+    } else {
+        handle_other_vob(obj);
     }
     for child in obj.children() {
         load_meshes(vfs, bevy_meshes, object_instances, &child);
+    }
+}
+
+fn handle_other_vob(obj: &VirtualObject) {
+    let type_ = obj.get_type();
+    match type_ {
+        VobType::zCVob => {
+            warn_unimplemented!("VobType::zCVo");
+            return;
+        }
+        VobType::zCVobLevelCompo => {
+            warn_unimplemented!("VobType::zCVobLevelComp");
+            return;
+        }
+        VobType::oCItem => {
+            warn_unimplemented!("VobType::oCIte");
+            return;
+        }
+        VobType::oCNpc => {
+            warn_unimplemented!("VobType::oCNp");
+            return;
+        }
+        VobType::zCMoverController => {
+            warn_unimplemented!("VobType::zCMoverControlle");
+            return;
+        }
+        VobType::zCVobScreenFX => {
+            warn_unimplemented!("VobType::zCVobScreenF");
+            return;
+        }
+        VobType::zCVobStair => {
+            warn_unimplemented!("VobType::zCVobStai");
+            return;
+        }
+        VobType::zCPFXController => {
+            warn_unimplemented!("VobType::zCPFXControlle");
+            return;
+        }
+        VobType::zCVobAnimate => {
+            warn_unimplemented!("VobType::zCVobAnimat");
+            return;
+        }
+        VobType::zCVobLensFlare => {
+            warn_unimplemented!("VobType::zCVobLensFlar");
+            return;
+        }
+        VobType::zCVobLight => {
+            warn_unimplemented!("VobType::zCVobLight");
+            return;
+        }
+        VobType::zCVobSpot => {
+            warn_unimplemented!("VobType::zCVobSpot");
+            return;
+        }
+        VobType::zCVobStartpoint => {
+            warn_unimplemented!("VobType::zCVobStartpoint");
+            return;
+        }
+        VobType::zCMessageFilter => {
+            warn_unimplemented!("VobType::zCMessageFilter");
+            return;
+        }
+        VobType::zCCodeMaster => {
+            warn_unimplemented!("VobType::zCCodeMaster");
+            return;
+        }
+        VobType::zCTriggerWorldStart => {
+            warn_unimplemented!("VobType::zCTriggerWorldStart");
+            return;
+        }
+        VobType::zCCSCamera => {
+            warn_unimplemented!("VobType::zCCSCamera");
+            return;
+        }
+        VobType::zCCamTrj_KeyFrame => {
+            warn_unimplemented!("VobType::zCCamTrj_KeyFrame");
+            return;
+        }
+        VobType::oCTouchDamage => {
+            warn_unimplemented!("VobType::oCTouchDamage");
+            return;
+        }
+        VobType::zCTriggerUntouch => {
+            warn_unimplemented!("VobType::zCTriggerUntouch");
+            return;
+        }
+        VobType::zCEarthquake => {
+            warn_unimplemented!("VobType::zCEarthquake");
+            return;
+        }
+        VobType::oCMOB => {
+            warn_unimplemented!("VobType::oCMOB");
+            return;
+        }
+        VobType::oCMobInter => {
+            warn_unimplemented!("VobType::oCMobInter");
+            return;
+        }
+        VobType::oCMobBed => {
+            warn_unimplemented!("VobType::oCMobBed");
+
+            return;
+        }
+        VobType::oCMobFire => {
+            warn_unimplemented!("VobType::oCMobFire");
+            return;
+        }
+        VobType::oCMobLadder => {
+            warn_unimplemented!("VobType::oCMobLadder");
+            return;
+        }
+        VobType::oCMobSwitch => {
+            warn_unimplemented!("VobType::oCMobSwitch");
+            return;
+        }
+        VobType::oCMobWheel => {
+            warn_unimplemented!("VobType::oCMobWheel");
+            return;
+        }
+        VobType::oCMobContainer => {
+            warn_unimplemented!("VobType::oCMobContainer");
+            return;
+        }
+        VobType::oCMobDoor => {
+            warn_unimplemented!("VobType::oCMobDoor");
+            return;
+        }
+        VobType::zCTrigger => {
+            warn_unimplemented!("VobType::zCTrigger");
+            return;
+        }
+        VobType::zCTriggerList => {
+            warn_unimplemented!("VobType::zCTriggerList");
+            return;
+        }
+        VobType::oCTriggerScript => {
+            warn_unimplemented!("VobType::oCTriggerScript");
+            return;
+        }
+        VobType::oCTriggerChangeLevel => {
+            warn_unimplemented!("VobType::oCTriggerChangeLevel");
+            return;
+        }
+        VobType::oCCSTrigger => {
+            warn_unimplemented!("VobType::oCCSTrigger");
+            return;
+        }
+        VobType::zCMover => {
+            warn_unimplemented!("VobType::zCMover");
+            return;
+        }
+        VobType::zCVobSound => {
+            warn_unimplemented!("VobType::zCVobSound");
+            return;
+        }
+        VobType::zCVobSoundDaytime => {
+            warn_unimplemented!("VobType::zCVobSoundDaytime");
+            return;
+        }
+        VobType::oCZoneMusic => {
+            warn_unimplemented!("VobType::oCZoneMusic");
+            return;
+        }
+        VobType::oCZoneMusicDefault => {
+            warn_unimplemented!("VobType::oCZoneMusicDefault");
+            return;
+        }
+        VobType::zCZoneZFog => {
+            warn_unimplemented!("VobType::zCZoneZFog");
+            return;
+        }
+        VobType::zCZoneZFogDefault => {
+            warn_unimplemented!("VobType::zCZoneZFogDefault");
+            return;
+        }
+        VobType::zCZoneVobFarPlane => {
+            warn_unimplemented!("VobType::zCZoneVobFarPlane");
+            return;
+        }
+        VobType::zCZoneVobFarPlaneDefault => {
+            warn_unimplemented!("VobType::zCZoneVobFarPlaneDefault");
+            return;
+        }
+        VobType::ignored => {
+            return;
+        }
+        VobType::unknown => {
+            warn_unimplemented!("VobType::unknown");
+            return;
+        }
     }
 }
 
