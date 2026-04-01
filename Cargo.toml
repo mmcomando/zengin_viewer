@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.18.0", features = ["free_camera"] }
+bevy = { version = "0.18.0", features = ["free_camera", "tga"] }
 # bevy = { version = "0.18.0", features = ["dynamic_linking", "free_camera"] }
 
 ZenKitCAPI-sys = { path = "/home/pc/prog/experiments/2026_01/ZenKit-sys" }
