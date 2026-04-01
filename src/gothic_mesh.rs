@@ -116,7 +116,6 @@ pub fn create_gothic_world_mesh() -> HashMap<String, Mesh> {
         // uvs.set_len(vertices.len());
         // normals.set_len(vertices.len());
 
-        let mut used_textures: HashMap<String, u32> = HashMap::new();
         let polygons_count = ZkMesh_getPolygonCount(mesh);
         println!("PolygonsCount({polygons_count}):");
         // for polygon_index in 378936..378937 {
@@ -161,27 +160,17 @@ pub fn create_gothic_world_mesh() -> HashMap<String, Mesh> {
             let mut features_count: ZkSize = 0;
             let features_ptr =
                 ZkPolygon_getFeatureIndices(polygon, mesh, &mut features_count as *mut _);
-            let polygon_features =
+            let polygon_features_indices =
                 std::slice::from_raw_parts(features_ptr, features_count as usize);
 
-            if polygon_indices.len() != 3 {
-                // println!(
-                //     "Skip polygon({polygon_index}) it has {} vertices and we support only polygons with 3 vertices, features_count({features_count})",
-                //     polygon_indices.len()
-                // );
-                continue;
-            }
-            assert!(polygon_features.len() == polygon_indices.len());
-
-            // for feature_index in polygon_features {
-            //     let feature = ZkMesh_getVertex(mesh, u64::from(*feature_index));
-            //     // uvs[] = Vec2::from([feature.texture.x, feature.texture.y]););
-            //     // normals.push(Vec3 {
-            //     //     x: feature.normal.x,
-            //     //     y: feature.normal.y,
-            //     //     z: feature.normal.z,
-            //     // });
+            // if polygon_indices.len() <= 3 {
+            //     // println!(
+            //     //     "Skip polygon({polygon_index}) it has {} vertices and we support only polygons with 3 vertices, features_count({features_count})",
+            //     //     polygon_indices.len()
+            //     // );
+            //     continue;
             // }
+            assert!(polygon_features_indices.len() == polygon_indices.len());
 
             // let index0 = 2;
             // let index1 = 1;
@@ -201,11 +190,6 @@ pub fn create_gothic_world_mesh() -> HashMap<String, Mesh> {
                 continue;
             }
 
-            used_textures
-                .entry(texture_path.clone())
-                .and_modify(|e| *e += 1)
-                .or_default();
-
             let MeshData {
                 uvs,
                 normals,
@@ -223,63 +207,51 @@ pub fn create_gothic_world_mesh() -> HashMap<String, Mesh> {
                 material_color.a as f32 / 255.0,
             ]);
 
-            let feature0 = ZkMesh_getVertex(mesh, u64::from(polygon_features[index0]));
-            let feature1 = ZkMesh_getVertex(mesh, u64::from(polygon_features[index1]));
-            let feature2 = ZkMesh_getVertex(mesh, u64::from(polygon_features[index2]));
+            let triangles_num = polygon_indices.len() - 2;
+            let trinagle_indices_num = 3;
 
-            uvs.push(ZkVec2f_to_Vec2(feature0.texture));
-            uvs.push(ZkVec2f_to_Vec2(feature1.texture));
-            uvs.push(ZkVec2f_to_Vec2(feature2.texture));
+            for triangle_index in 0..triangles_num {
+                for index in 0..trinagle_indices_num {
+                    let idx = if index == 0 {
+                        0
+                    } else {
+                        triangle_index + index
+                    };
+                    let idx_feature = polygon_features_indices[idx];
+                    let feature = ZkMesh_getVertex(mesh, u64::from(idx_feature));
+                    uvs.push(ZkVec2f_to_Vec2(feature.texture));
+                    normals.push(ZkVec3f_to_Vec3(feature.normal));
+                }
+            }
+            // let feature0 = ZkMesh_getVertex(mesh, u64::from(polygon_features_indices[index0]));
+            // let feature1 = ZkMesh_getVertex(mesh, u64::from(polygon_features_indices[index1]));
+            // let feature2 = ZkMesh_getVertex(mesh, u64::from(polygon_features_indices[index2]));
 
-            // uvs.extend_from_slice(&[
-            //     Vec2 { x: 0.0, y: -1.0 },
-            //     Vec2 { x: 0.0, y: -0.3 },
-            //     Vec2 { x: 0.9, y: -0.3 },
-            // ]);
+            // uvs.push(ZkVec2f_to_Vec2(feature0.texture));
+            // uvs.push(ZkVec2f_to_Vec2(feature1.texture));
+            // uvs.push(ZkVec2f_to_Vec2(feature2.texture));
 
-            // uvs.extend_from_slice(&[
-            //     Vec2 { x: 0.0, y: 1.0 },
-            //     Vec2 { x: 0.0, y: 0.3 },
-            //     Vec2 { x: 1.9, y: 0.3 },
-            // ]);
+            // normals.push(ZkVec3f_to_Vec3(feature0.normal));
+            // normals.push(ZkVec3f_to_Vec3(feature1.normal));
+            // normals.push(ZkVec3f_to_Vec3(feature2.normal));
 
-            normals.push(ZkVec3f_to_Vec3(feature0.normal));
-            normals.push(ZkVec3f_to_Vec3(feature1.normal));
-            normals.push(ZkVec3f_to_Vec3(feature2.normal));
+            for triangle_index in 0..triangles_num {
+                for index in 0..trinagle_indices_num {
+                    colors.push(material_color);
+                    indices.push(indices.len() as u32);
 
-            colors.push(material_color);
-            colors.push(material_color);
-            colors.push(material_color);
-
-            vertices.push(get_wolrld_pos(ZkMesh_getPosition(
-                mesh,
-                u64::from(polygon_indices[index0]),
-            )));
-            vertices.push(get_wolrld_pos(ZkMesh_getPosition(
-                mesh,
-                u64::from(polygon_indices[index1]),
-            )));
-            vertices.push(get_wolrld_pos(ZkMesh_getPosition(
-                mesh,
-                u64::from(polygon_indices[index2]),
-            )));
-
-            // println!("vertices: {:?}", vertices);
-            // println!("uvs: {:?}", uvs);
-            // println!("texture: {}", &texture_path);
-            // Polygon 378936
-            // vertices: [Vec3(4.2808394, -1.8159808, -6.3488526), Vec3(4.733876, -1.7221942, -10.133108), Vec3(-0.82698286, -1.8059807, -10.325498)]
-            // uvs: [Vec2(0.09486014, -1.0270786), Vec2(0.019355237, -0.39636958), Vec2(0.9461645, -0.3643043)]
-            // texture: NW_CITY_HAFENKAI_BODEN_01.TGA
-
-            // vertices: [Vec3(4.2, -1.8, -6.3), Vec3(4.7, -1.7, -10.1), Vec3(-0.8, -1.8, -10.3)]
-            // uvs:      [Vec2(0.0, -1.0), Vec2(0.0, -0.3), Vec2(0.9, -0.3)]
-
-            indices.push(indices.len() as u32);
-            indices.push(indices.len() as u32);
-            indices.push(indices.len() as u32);
+                    let idx = if index == 0 {
+                        0
+                    } else {
+                        triangle_index + index
+                    };
+                    vertices.push(get_wolrld_pos(ZkMesh_getPosition(
+                        mesh,
+                        u64::from(polygon_indices[idx]),
+                    )));
+                }
+            }
         }
-        // println!("used_textures({:?})", used_textures);
     }
 
     let mut bevy_meshes = HashMap::new();

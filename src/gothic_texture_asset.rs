@@ -4,7 +4,7 @@ use ZenKitCAPI_sys::*;
 
 use bevy::{
     asset::{AssetLoader, LoadContext, RenderAssetUsages, io::Reader},
-    image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor},
+    image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     prelude::*,
     reflect::TypePath,
     render::render_resource::{Extent3d, TextureDataOrder, TextureDimension, TextureFormat},
@@ -47,7 +47,6 @@ impl AssetLoader for GothicTextureLoader {
         //     TextureFormat::Rgba8Unorm,
         //     RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
         // );
-        // let mut image: Image = Image::from_buffer(buffer, image_type, supported_compressed_formats, is_srgb, image_sampler, asset_usage)
 
         let mut image_data = Vec::new();
         image_data.reserve_exact(
@@ -74,15 +73,12 @@ impl AssetLoader for GothicTextureLoader {
 
         image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
             // label: (),
-            // address_mode_u: ImageAddressMode::MirrorRepeat,
-            // address_mode_v: ImageAddressMode::MirrorRepeat,
-            // address_mode_w: ImageAddressMode::MirrorRepeat,
             address_mode_u: ImageAddressMode::Repeat,
             address_mode_v: ImageAddressMode::Repeat,
             address_mode_w: ImageAddressMode::Repeat,
-            // mag_filter: (),
-            // min_filter: (),
-            // mipmap_filter: (),
+            mag_filter: ImageFilterMode::Linear,
+            min_filter: ImageFilterMode::Linear,
+            mipmap_filter: ImageFilterMode::Linear,
             // lod_min_clamp: (),
             // lod_max_clamp: (),
             // compare: (),
