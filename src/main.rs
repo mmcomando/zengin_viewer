@@ -2,9 +2,11 @@ mod gothic_asset_loader;
 mod gothic_mesh;
 mod gothic_texture_asset;
 mod gui;
+mod log_extend;
 
 use bevy::anti_alias::smaa::Smaa;
 use bevy::light::CascadeShadowConfigBuilder;
+use bevy::platform::collections::HashMap;
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::tailwind,
@@ -135,46 +137,67 @@ fn spawn_world(
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
 ) {
-    let gothic_world_meshes = create_gothic_world_mesh();
+    let (gothic_world_meshes, object_instances) = create_gothic_world_mesh();
     println!("gothic_world_meshes len({})", gothic_world_meshes.len());
 
-    for (texture, mesh) in gothic_world_meshes {
-        let texture = texture.replace(".TGA", "-C.TEX");
-        let texture_full_path = format!("gothic://_WORK/DATA/TEXTURES/_COMPILED/{texture}");
-        let mesh_handle = meshes.add(mesh);
-        let texture_handle = asset_server.load(texture_full_path);
+    let mut handles: HashMap<String, Vec<(Handle<Mesh>, Handle<StandardMaterial>)>> =
+        HashMap::new();
 
-        let mesh_material = materials.add(StandardMaterial {
-            base_color_texture: Some(texture_handle.clone()),
-            alpha_mode: AlphaMode::Mask(0.5),
-            cull_mode: None,
-            double_sided: true,
-            perceptual_roughness: 0.5,
-            reflectance: 0.4,
-            specular_tint: Color::BLACK,
-            ..default()
-        });
+    for (model_path, mesh_data) in gothic_world_meshes {
+        for data in mesh_data {
+            // println!(
+            //     "Add to draw model_path({model_path}), texture({})",
+            //     data.texture
+            // );
+            let texture = data.texture.replace(".TGA", "-C.TEX");
+            let texture_full_path = format!("gothic://_WORK/DATA/TEXTURES/_COMPILED/{texture}");
+            let mesh_handle = meshes.add(data.mesh);
+            let texture_handle = asset_server.load(texture_full_path);
 
-        commands.spawn((
-            RigidBody::Static,
-            ColliderConstructor::TrimeshFromMesh,
-            Mesh3d(mesh_handle.clone()),
-            MeshMaterial3d(mesh_material.clone()),
-        ));
+            let mesh_material = materials.add(StandardMaterial {
+                base_color_texture: Some(texture_handle.clone()),
+                alpha_mode: AlphaMode::Mask(0.5),
+                cull_mode: None,
+                double_sided: true,
+                perceptual_roughness: 0.5,
+                reflectance: 0.4,
+                specular_tint: Color::BLACK,
+                ..default()
+            });
+
+            let arr = handles.entry(model_path.clone()).or_default();
+            arr.push((mesh_handle, mesh_material));
+        }
     }
 
-    for x in -10..10 {
-        for z in -10..10 {
+    for instance in object_instances {
+        let Some(instance_data) = handles.get(&instance.mesh_path) else {
+            println!("no data for mesh_path({})", &instance.mesh_path);
+            continue;
+        };
+        for model_data in instance_data {
             commands.spawn((
-                RigidBody::Dynamic,
-                Collider::cuboid(1.0, 1.0, 1.0),
-                AngularVelocity(Vec3::new(2.5, 3.5, 1.5)),
-                Mesh3d(meshes.add(Cuboid::from_length(1.0))),
-                MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-                Transform::from_xyz(-30.0 + x as f32 * 5.0, 30.0, z as f32 * 5.0),
+                // RigidBody::Static,
+                // ColliderConstructor::TrimeshFromMesh,
+                Mesh3d(model_data.0.clone()),
+                MeshMaterial3d(model_data.1.clone()),
+                Transform::from_translation(instance.pos).with_rotation(instance.rot),
             ));
         }
     }
+
+    // for x in -10..10 {
+    //     for z in -10..10 {
+    //         commands.spawn((
+    //             RigidBody::Dynamic,
+    //             Collider::cuboid(1.0, 1.0, 1.0),
+    //             AngularVelocity(Vec3::new(2.5, 3.5, 1.5)),
+    //             Mesh3d(meshes.add(Cuboid::from_length(1.0))),
+    //             MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+    //             Transform::from_xyz(-30.0 + x as f32 * 5.0, 30.0, z as f32 * 5.0),
+    //         ));
+    //     }
+    // }
 
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("FlightHelmet.gltf")),
