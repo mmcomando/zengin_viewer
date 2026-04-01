@@ -6,9 +6,7 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.18.1", features = ["dynamic_linking", "bevy_dev_tools", "free_camera"] }
-# v0.6.0-rc.1 fixes performance issue when there are 20k static objects
-avian3d = { git = "https://github.com/avianphysics/avian.git", tag = "v0.6.0-rc.1" }
-# avian3d = "0.5.0"
+avian3d = "0.6.0"
 byteorder = "1.5"
 ZenKit-rs = { git = "https://github.com/mmcomando/ZenKit-rs.git", rev = "cc5261e9dd38c169d708fb65d49765959f68d487" }
 ron = "0.12.0"
