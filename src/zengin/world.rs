@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use avian3d::math::Quaternion;
 use bevy::prelude::*;
 
@@ -43,8 +41,6 @@ fn find_mesh_path(vfs: &Vfs, name: &str) -> Option<String> {
         warn!("Some meshes are not found, example({})", name);
         return None;
     };
-
-    println!("AAA: {asset_path}");
 
     let asset_path = to_asset_path(&asset_path);
     return Some(asset_path);
@@ -109,9 +105,6 @@ pub fn load_npc(
         return;
     };
 
-    // println!("load npc ({instance:?})");
-
-    warn_once!("Placing human NPC is hacks and hardcoding");
     let tr = tr.to_matrix();
     let tr = Transform::from_translation(Vec3 {
         x: 0.0,
@@ -122,30 +115,6 @@ pub fn load_npc(
         * tr;
 
     let tr_body = tr;
-    let armor_tr = Transform::from_translation(Vec3 {
-        x: 0.5,
-        y: 0.5,
-        z: 0.0,
-    })
-    .to_matrix()
-        * tr;
-
-    let head_dt = Vec3 {
-        x: 0.00,
-        y: 1.62,
-        z: 0.045,
-    };
-    let head_rot = Quat::from_axis_angle(
-        Vec3 {
-            x: 0.0,
-            y: 0.0,
-            z: 1.0,
-        },
-        -PI / 2.0,
-    );
-    let head_transform = tr;
-    let head_transform = head_transform * Transform::from_translation(head_dt).to_matrix();
-    let head_transform = head_transform * Mat4::from_quat(head_rot);
 
     let Some(body_model) = find_mesh_path(vfs, &instance.body_model) else {
         println!("not found mesh for body model({})", instance.body_model);
@@ -163,7 +132,6 @@ pub fn load_npc(
     };
 
     let npc = ZenGinNpc {
-        head_tr: Transform::from_matrix(head_transform),
         head_model,
         head_texture: instance
             .face_texture
@@ -176,7 +144,6 @@ pub fn load_npc(
             .as_ref()
             .map(|el| get_full_texture_path(el)),
         armor_model,
-        armor_tr: Transform::from_matrix(armor_tr),
     };
     data.npcs.push(npc);
 }

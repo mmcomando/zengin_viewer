@@ -12,6 +12,7 @@
     clippy::wildcard_imports
 )]
 
+mod game;
 mod gui;
 mod skybox;
 mod toggle_visibility;

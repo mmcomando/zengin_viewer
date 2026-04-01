@@ -1,8 +1,27 @@
 use crate::zengin::common::ZenGinModel;
+use crate::zengin::loaders::model::ZenGinModelLoader;
+use crate::zengin::loaders::texture::ZenGinTextureLoader;
 use crate::zengin::visual::material::MatrialHashed;
 use avian3d::prelude::*;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
+
+#[derive(Default)]
+pub struct ZenGinInsertResources;
+
+impl Plugin for ZenGinInsertResources {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(MaterialHandles::default());
+        app.init_asset::<ZenGinModel>();
+        app.init_asset_loader::<ZenGinTextureLoader>();
+        app.init_asset_loader::<ZenGinModelLoader>();
+
+        app.add_systems(
+            Update,
+            convert_zengin_model_to_entities.run_if(run_convert_zengin_model_to_entities),
+        );
+    }
+}
 
 pub const STATIC_OBJECT: u32 = 1 << 1;
 pub const DYNAMIC_OBJECT: u32 = 1 << 2;
@@ -79,16 +98,16 @@ impl MaterialHandles {
 
 /// Check only entities which were not handled previously
 #[derive(Component, Default)]
-pub struct ZenGinModelComponentLoaded {}
+struct ZenGinModelComponentLoaded {}
 
-pub fn run_convert_zengin_model_to_entities(
+fn run_convert_zengin_model_to_entities(
     query: Query<&ZenGinModelComponent, Without<ZenGinModelComponentLoaded>>,
 ) -> bool {
     query.iter().next().is_some()
 }
 
 #[allow(clippy::type_complexity)]
-pub fn convert_zengin_model_to_entities(
+fn convert_zengin_model_to_entities(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     models: ResMut<Assets<ZenGinModel>>,

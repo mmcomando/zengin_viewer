@@ -101,16 +101,14 @@ pub struct ZenGinItem {
     pub tr: Transform,
     pub model: String,
 }
-#[derive(Debug, Default, Component)]
+#[derive(Debug, Default)]
 pub struct ZenGinNpc {
-    pub head_tr: Transform,
     pub head_model: Option<String>,
     pub head_texture: Option<String>,
     pub body_tr: Transform,
     pub body_model: String,
     pub body_texture: Option<String>,
     pub armor_model: Option<String>,
-    pub armor_tr: Transform,
 }
 
 #[derive(Debug, Default)]

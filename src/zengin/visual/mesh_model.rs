@@ -41,6 +41,8 @@ pub fn meshes_from_zengin_model_mesh(
         let hierarchy = model_with_hierarchy.hierarchy();
         let nodes = hierarchy.nodes();
 
+        let root_pos = get_world_pos(hierarchy.root_translation());
+
         // println!("ZenGinModel:");
         // if nodes.is_empty() {
         //     println!(" No Nodes")
@@ -49,7 +51,7 @@ pub fn meshes_from_zengin_model_mesh(
         //     for node in &nodes {
         //         let tr = get_world_transform(node.transform);
         //         println!(
-        //             "  name({}) parent_index({}) pos({}) rot({})",
+        //             "  name({:20}) parent_index({:3}) pos({:4.2}) rot({:.2})",
         //             node.name, node.parent_index, tr.translation, tr.rotation
         //         );
         //     }
@@ -60,15 +62,15 @@ pub fn meshes_from_zengin_model_mesh(
             .map(|node| get_world_transform(node.transform))
             .collect();
 
-        for (i, node) in nodes.iter().enumerate() {
-            if node.parent_index < 0 {
-                compute_final_tr(i, &nodes, &mut final_tr);
-            }
-        }
         for i in 0..nodes.len() {
             if nodes[i].parent_index < 0 {
                 compute_final_tr(i, &nodes, &mut final_tr);
             }
+        }
+
+        let root_tr = Transform::from_translation(root_pos);
+        for tr in &mut final_tr {
+            *tr = root_tr * *tr;
         }
 
         for (node_index, node) in nodes.iter().enumerate() {
