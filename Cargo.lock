@@ -3,6 +3,14 @@
 version = 4
 
 [[package]]
+name = "ZenKit-rs"
+version = "0.1.0"
+dependencies = [
+ "ZenKitCAPI-sys",
+ "glam 0.30.10",
+]
+
+[[package]]
 name = "ZenKitCAPI-sys"
 version = "0.1.0"
 dependencies = [
@@ -3369,7 +3377,7 @@ dependencies = [
 name = "my_bevy_game"
 version = "0.1.0"
 dependencies = [
- "ZenKitCAPI-sys",
+ "ZenKit-rs",
  "avian3d",
  "bevy",
  "ron",

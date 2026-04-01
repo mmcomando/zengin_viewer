@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use ZenKitCAPI_sys::*;
+use zen_kit_rs::{stream::Read, texture::Texture};
 
 use bevy::{
     asset::{AssetLoader, LoadContext, RenderAssetUsages, io::Reader},
@@ -107,40 +107,31 @@ pub struct GothicTextureWithMips {
 }
 
 pub fn get_gothic_texture_data(bytes: &[u8]) -> GothicTextureWithMips {
-    unsafe {
-        let texture_read = ZkRead_newMem(bytes.as_ptr(), bytes.len() as ZkSize);
-        let texture = ZkTexture_load(texture_read);
+    let texture_read = Read::from_slice(bytes).unwrap();
+    let texture = Texture::load(&texture_read).unwrap();
 
-        let mips_count = ZkTexture_getMipmapCount(texture);
+    let mips_count = texture.mipmap_count();
 
-        let mut mips: Vec<GothicTexture> = vec![];
-        for mip_index in 0..mips_count {
-            let width = ZkTexture_getWidthMipmap(texture, u64::from(mip_index));
-            let height = ZkTexture_getHeightMipmap(texture, u64::from(mip_index));
+    let mut mips: Vec<GothicTexture> = vec![];
+    for mip_index in 0..mips_count {
+        let width = texture.width_mipmap(u64::from(mip_index));
+        let height = texture.height_mipmap(u64::from(mip_index));
 
-            let size = (4 * width * height) as usize;
-            let mut data = Vec::with_capacity(size);
-            data.set_len(size);
-            let written_bytes = ZkTexture_getMipmapRgba(
-                texture,
-                u64::from(mip_index),
-                data.as_mut_ptr(),
-                data.len() as ZkSize,
-            );
-            assert!(written_bytes as usize == data.len());
+        let size = (4 * width * height) as usize;
+        let data = texture.mipmap_rgba(u64::from(mip_index));
+        assert!(size == data.len());
 
-            let gothic_texture = GothicTexture {
-                data_rgba: data,
-                size: Extent3d {
-                    width: width,
-                    height: height,
-                    depth_or_array_layers: 1,
-                },
-            };
-            // println!("loaded gothic_texture({:?})", gothic_texture.size);
-            mips.push(gothic_texture);
-        }
-
-        return GothicTextureWithMips { mips };
+        let gothic_texture = GothicTexture {
+            data_rgba: data,
+            size: Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        };
+        // println!("loaded gothic_texture({:?})", gothic_texture.size);
+        mips.push(gothic_texture);
     }
+
+    GothicTextureWithMips { mips }
 }
