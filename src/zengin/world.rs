@@ -14,7 +14,7 @@ use crate::{
     warn_unimplemented,
     zengin::{
         common::*,
-        script::script_vm::{InstanceState, SpawnNpc, SpawnWeapon},
+        script::script_vm::{InstanceState, SpawnItem, SpawnNpc},
         visual::mesh::meshes_from_zengin_mesh,
     },
 };
@@ -58,20 +58,20 @@ fn get_tr_from_point_name(data: &ZenGinWorldData, name: &str) -> Option<Transfor
     };
     Some(*tr)
 }
-pub fn load_weapon(weapon: &SpawnWeapon, data: &mut ZenGinWorldData, vfs: &Vfs) {
-    let Some(tr) = get_tr_from_point_name(data, &weapon.way_point) else {
+pub fn load_weapon(item: &SpawnItem, data: &mut ZenGinWorldData, vfs: &Vfs) {
+    let Some(tr) = get_tr_from_point_name(data, &item.way_point) else {
         return;
     };
 
-    let Some(asset_path) = find_mesh_path(vfs, &weapon.visual) else {
-        println!("nof found mesh for item({})", weapon.visual);
+    let Some(asset_path) = find_mesh_path(vfs, &item.visual) else {
+        println!("not found mesh for item({})", item.visual);
         return;
     };
-    let npc = ZenGinItem {
+    let item = ZenGinItem {
         tr,
         model: asset_path,
     };
-    data.items.push(npc);
+    data.items.push(item);
 }
 
 pub fn load_npc(
@@ -127,7 +127,7 @@ pub fn load_npc(
     let head_transform = head_transform * Mat4::from_quat(head_rot);
 
     let Some(body_model) = find_mesh_path(vfs, &instance.body_model) else {
-        println!("nof found mesh for body model({})", instance.body_model);
+        println!("not found mesh for body model({})", instance.body_model);
         return;
     };
     let head_model = if let Some(head_model) = &instance.head_model {
@@ -230,7 +230,7 @@ pub fn load_zengin_world_data(
     check_if_path_exists(PLARCEHOLDER_MESH, &vfs);
 
     for obj in world.root_objects() {
-        load_meshes(&vfs, &mut data, &obj);
+        load_objects(&vfs, &mut data, &obj);
     }
     let way_net = world.way_net();
     load_way_net_points(&way_net, &mut data);
@@ -292,7 +292,7 @@ fn try_load_mesh(asset_paths: &[String], vfs: &Vfs) -> Option<String> {
     return None;
 }
 
-fn load_meshes(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject) {
+fn load_objects(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject) {
     let visual = obj.visual();
     let visual_name = visual.name();
     let visual_type = visual.get_type();
@@ -379,10 +379,10 @@ fn load_meshes(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject) {
             });
         }
     } else {
-        handle_other_vob(obj, data);
+        handle_other_vob(data, vfs, obj);
     }
     for child in obj.children() {
-        load_meshes(vfs, data, &child);
+        load_objects(vfs, data, &child);
     }
 }
 
@@ -395,9 +395,12 @@ fn get_obj_tr(obj: &VirtualObject) -> Transform {
 fn handle_light(obj: &VirtualObject, data: &mut ZenGinWorldData) {
     let pos = get_world_pos(obj.position());
     let rot = get_world_rot(obj.rotation());
+    if !obj.cd_dynamic() {
+        return;
+    }
     data.light_instances.push(LightInstance { pos, rot });
 }
-fn handle_other_vob(obj: &VirtualObject, data: &mut ZenGinWorldData) {
+fn handle_other_vob(data: &mut ZenGinWorldData, vfs: &Vfs, obj: &VirtualObject) {
     let name = obj.name();
     let type_ = obj.get_type();
     match type_ {
@@ -410,7 +413,19 @@ fn handle_other_vob(obj: &VirtualObject, data: &mut ZenGinWorldData) {
             return;
         }
         VobType::oCItem => {
-            warn_unimplemented!("VobType::oCIte");
+            warn_unimplemented!("Placing items should be based on name of object instance");
+            let tr = get_obj_tr(obj);
+
+            let Some(asset_path) = find_mesh_path(vfs, &name) else {
+                // println!("not found mesh for item({})", name);
+                return;
+            };
+            let npc = ZenGinItem {
+                tr,
+                model: asset_path,
+            };
+            data.items.push(npc);
+
             return;
         }
         VobType::oCNpc => {
