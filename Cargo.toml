@@ -8,6 +8,7 @@ bevy = { version = "0.18.0", features = ["free_camera", "tga"] }
 # bevy = { version = "0.18.0", features = ["dynamic_linking", "free_camera"] }
 
 ZenKitCAPI-sys = { path = "/home/pc/prog/experiments/2026_01/ZenKit-sys" }
+ron = "0.12.0"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

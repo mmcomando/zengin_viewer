@@ -1,20 +1,24 @@
 mod gothic_asset_loader;
 mod gothic_mesh;
+mod gothic_texture_asset;
 
-use crate::gothic_mesh::create_gothic_world_mesh;
-
-use crate::gothic_asset_loader::create_gothic_asset_loader;
 use bevy::anti_alias::smaa::Smaa;
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
-    color::palettes::css::*,
+    // color::palettes::css::*,
     color::palettes::tailwind,
     prelude::*,
 };
+
+use crate::gothic_asset_loader::create_gothic_asset_loader;
+use crate::gothic_mesh::create_gothic_world_mesh;
+use crate::gothic_texture_asset::GothicTextureLoader;
+
 fn main() {
     App::new()
         .register_asset_source("gothic", create_gothic_asset_loader())
         .add_plugins(DefaultPlugins)
+        .init_asset_loader::<GothicTextureLoader>()
         // Plugin that enables FreeCamera functionality
         .add_plugins(FreeCameraPlugin)
         // Example code plugins
@@ -34,8 +38,9 @@ fn spawn_camera(mut commands: Commands) {
     // ambient light
     // ambient lights' brightnesses are measured in candela per meter square, calculable as (color * brightness)
     commands.insert_resource(GlobalAmbientLight {
-        color: WHITE.into(),
-        brightness: 200.0,
+        // color: WHITE.into(),
+        color: Color::linear_rgb(1.0, 1.0, 1.0).into(),
+        brightness: 400.0,
         ..default()
     });
     commands.spawn((
@@ -55,6 +60,9 @@ fn spawn_camera(mut commands: Commands) {
             friction: 25.0,
             walk_speed: 3.0,
             run_speed: 9.0,
+            key_back: KeyCode::KeyR,
+            key_right: KeyCode::KeyS,
+            key_up: KeyCode::KeyF,
             ..default()
         },
     ));
@@ -64,9 +72,9 @@ fn spawn_camera(mut commands: Commands) {
 struct CameraSettingsPlugin;
 impl Plugin for CameraSettingsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostStartup, spawn_text)
-            // .add_systems(Update, update_cameras)
-            .add_systems(Update, (update_camera_settings, update_text));
+        // app.add_systems(PostStartup, spawn_text)
+        //     // .add_systems(Update, update_cameras)
+        //     .add_systems(Update, (update_camera_settings, update_text));
     }
 }
 
@@ -184,26 +192,38 @@ fn spawn_lights(mut commands: Commands) {
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(0.0, 3.0, 0.0),
+        Transform::from_xyz(-12.0, 3.0, 10.0),
     ));
-    // Light behind wall
     commands.spawn((
         PointLight {
-            color: Color::WHITE,
+            color: Color::from(tailwind::ORANGE_300),
+            intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT,
+            range: 100.0,
+            radius: 10.0,
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(-3.5, 3.0, 0.0),
+        Transform::from_xyz(-8.5, 1.0, -15.0),
     ));
-    // Light under floor
-    commands.spawn((
-        PointLight {
-            color: Color::from(tailwind::RED_300),
-            shadows_enabled: true,
-            ..default()
-        },
-        Transform::from_xyz(0.0, -0.5, 0.0),
-    ));
+
+    // // Light behind wall
+    // commands.spawn((
+    //     PointLight {
+    //         color: Color::WHITE,
+    //         shadows_enabled: true,
+    //         ..default()
+    //     },
+    //     Transform::from_xyz(-3.5, 3.0, 0.0),
+    // ));
+    // // Light under floor
+    // commands.spawn((
+    //     PointLight {
+    //         color: Color::from(tailwind::RED_300),
+    //         shadows_enabled: true,
+    //         ..default()
+    //     },
+    //     Transform::from_xyz(0.0, -0.5, 0.0),
+    // ));
 }
 
 fn spawn_world(
@@ -221,25 +241,58 @@ fn spawn_world(
     // let red_material = materials.add(Color::from(tailwind::RED_950));
     // let white_material = materials.add(Color::WHITE);
 
-    let mesh = create_gothic_world_mesh();
-    let mesh_handle = meshes.add(mesh);
-    let mesh_material = materials.add(Color::WHITE);
+    // let mesh = create_gothic_world_mesh();
+    // let mesh_handle = meshes.add(mesh);
+    // // let mesh_material = materials.add(Color::WHITE);
 
-    // NW_NATURE_BARK_04.TGA
-    // let texture_handle = asset_server.load("FlightHelmet_Materials_LeatherPartsMat_BaseColor.png");
-    let texture_handle = asset_server.load("gothic://earth.tga");
+    // // NW_NATURE_BARK_04.TGA
+    // // let texture_handle = asset_server.load("FlightHelmet_Materials_LeatherPartsMat_BaseColor.png");
+    // // let texture_handle = asset_server.load("gothic://earth.tga");
+    // let texture_handle =
+    //     asset_server.load("gothic://_WORK/DATA/TEXTURES/_COMPILED/NW_NATURE_BARK_04-C.TEX");
 
-    let mesh_material = materials.add(StandardMaterial {
-        base_color_texture: Some(texture_handle.clone()),
-        alpha_mode: AlphaMode::Blend,
-        unlit: true,
-        ..default()
-    });
+    // // let texture_handle = asset_server.load("earth.tga");
 
-    commands.spawn((
-        Mesh3d(mesh_handle.clone()),
-        MeshMaterial3d(mesh_material.clone()),
-    ));
+    // let mesh_material = materials.add(StandardMaterial {
+    //     base_color_texture: Some(texture_handle.clone()),
+    //     cull_mode: None,
+    //     ..default()
+    // });
+
+    // commands.spawn((
+    //     Mesh3d(mesh_handle.clone()),
+    //     MeshMaterial3d(mesh_material.clone()),
+    // ));
+
+    let gothic_world_meshes = create_gothic_world_mesh();
+    println!("gothic_world_meshes len({})", gothic_world_meshes.len());
+
+    let mut index = 0;
+    for (texture, mesh) in gothic_world_meshes {
+        index += 1;
+        if index > 180 {
+            // continue;
+        }
+        let texture = texture.replace(".TGA", "-C.TEX");
+        let texture_full_path = format!("gothic://_WORK/DATA/TEXTURES/_COMPILED/{texture}");
+        let mesh_handle = meshes.add(mesh);
+        let texture_handle = asset_server.load(texture_full_path);
+
+        let mesh_material = materials.add(StandardMaterial {
+            base_color_texture: Some(texture_handle.clone()),
+            cull_mode: None,
+            double_sided: true,
+            perceptual_roughness: 0.5,
+            reflectance: 0.4,
+            specular_tint: Color::BLACK,
+            ..default()
+        });
+
+        commands.spawn((
+            Mesh3d(mesh_handle.clone()),
+            MeshMaterial3d(mesh_material.clone()),
+        ));
+    }
 
     // let mesh = create_my_mesh();
     // let mesh_handle = meshes.add(mesh);
