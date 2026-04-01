@@ -3,8 +3,20 @@
 version = 4
 
 [[package]]
+name = "ZenGinViewer"
+version = "0.1.0"
+dependencies = [
+ "ZenKit-rs",
+ "avian3d",
+ "bevy",
+ "byteorder",
+ "ron",
+]
+
+[[package]]
 name = "ZenKit-rs"
 version = "0.1.0"
+source = "git+https://github.com/mmcomando/ZenKit-rs.git?rev=76ddccaf63d8833d684d27e0e25b8ffbd205f805#76ddccaf63d8833d684d27e0e25b8ffbd205f805"
 dependencies = [
  "ZenKitCAPI-sys",
  "glam 0.30.10",
@@ -13,6 +25,7 @@ dependencies = [
 [[package]]
 name = "ZenKitCAPI-sys"
 version = "0.1.0"
+source = "git+https://github.com/mmcomando/ZenKit-sys.git?rev=403bf12fdcd0e8ed91430dfef93fff5489418e60#403bf12fdcd0e8ed91430dfef93fff5489418e60"
 dependencies = [
  "cmake",
 ]
@@ -385,6 +398,7 @@ version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd310426290cec560221f9750c2f4484be4a8eeea7de3483c423329b465c40e"
 dependencies = [
+ "bevy_dylib",
  "bevy_internal",
 ]
 
@@ -716,6 +730,15 @@ dependencies = [
  "log",
  "serde",
  "sysinfo",
+]
+
+[[package]]
+name = "bevy_dylib"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "603d142e406440bf7508bb70188a5c8c48339151ccfa18aebf6f353d7a3e4134"
+dependencies = [
+ "bevy_internal",
 ]
 
 [[package]]
@@ -3371,17 +3394,6 @@ checksum = "ac9557c559cd6fc9867e122e20d2cbefc9ca29d80d027a8e39310920ed2f0a97"
 dependencies = [
  "num-traits",
  "pxfm",
-]
-
-[[package]]
-name = "my_bevy_game"
-version = "0.1.0"
-dependencies = [
- "ZenKit-rs",
- "avian3d",
- "bevy",
- "byteorder",
- "ron",
 ]
 
 [[package]]

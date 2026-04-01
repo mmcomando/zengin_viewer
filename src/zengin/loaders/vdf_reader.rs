@@ -18,8 +18,7 @@ use zen_kit_rs::{misc::VfsOverwriteBehavior, vfs::Vfs};
 
 use crate::zengin::common::gothic2_dir;
 
-pub fn get_gothic_assert_bytes(vfs: &Vfs, path: &str) -> Option<Vec<u8>> {
-    // println!("get_gothic_assert_bytes({path})");
+pub fn get_zengin_asset_bytes(vfs: &Vfs, path: &str) -> Option<Vec<u8>> {
     let path = format!("/{}", &path);
     let node = vfs.resolve_path(&path)?;
     let read_obj = node.open()?;
@@ -27,7 +26,7 @@ pub fn get_gothic_assert_bytes(vfs: &Vfs, path: &str) -> Option<Vec<u8>> {
     Some(read_obj.bytes())
 }
 
-pub fn create_gothic_asset_loader() -> AssetSourceBuilder {
+pub fn create_zengin_asset_loader() -> AssetSourceBuilder {
     AssetSourceBuilder::new(move || {
         let vfs_override = VfsOverwriteBehavior::ALL;
         let dir = gothic2_dir();
@@ -100,7 +99,7 @@ impl AssetReader for MyAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let path_str = path.as_os_str().to_str().unwrap();
         let vfs = self.vfs.lock().unwrap();
-        let Some(bytes) = get_gothic_assert_bytes(&vfs, path_str) else {
+        let Some(bytes) = get_zengin_asset_bytes(&vfs, path_str) else {
             return Err(AssetReaderError::NotFound(path.to_path_buf()));
         };
         let val: Box<dyn Reader> = Box::new(MyAsyncReader::new(bytes));
@@ -111,7 +110,7 @@ impl AssetReader for MyAssetReader {
         &'a self,
         _path: &'a Path,
     ) -> Result<impl Reader + 'a, AssetReaderError> {
-        // No metadata for assets from gothic
+        // No metadata for assets from zengit vfs
         Err::<Box<dyn Reader>, AssetReaderError>(AssetReaderError::NotFound(PathBuf::new()))
     }
 

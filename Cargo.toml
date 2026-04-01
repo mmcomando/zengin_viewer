@@ -1,15 +1,14 @@
 [package]
-name = "my_bevy_game"
+name = "ZenGinViewer"
 version = "0.1.0"
 edition = "2024"
 
 
 [dependencies]
-bevy = { version = "0.18.1", features = ["bevy_dev_tools", "free_camera", "tga"] }
+bevy = { version = "0.18.1", features = ["dynamic_linking", "bevy_dev_tools", "free_camera"] }
 byteorder = "1.5"
-# bevy = { version = "0.18.0", features = ["dynamic_linking", "free_camera"] }
 
-ZenKit-rs = { path = "/home/pc/prog/experiments/2026_01/ZenKit-rs" }
+ZenKit-rs = { git = "https://github.com/mmcomando/ZenKit-rs.git", rev = "76ddccaf63d8833d684d27e0e25b8ffbd205f805" }
 ron = "0.12.0"
 avian3d = "0.5.0"
 

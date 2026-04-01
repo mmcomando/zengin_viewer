@@ -11,7 +11,7 @@ use crate::zengin::loaders::texture::ZenGinTextureLoader;
 use crate::zengin::script::parse::*;
 use crate::zengin::script::script_vm::ScriptVM;
 use crate::zengin::visual::material::MatrialHashed;
-use crate::zengin::world::load_gothic_world_data;
+use crate::zengin::world::load_zengin_world_data;
 use avian3d::prelude::*;
 use bevy::platform::collections::HashMap;
 use bevy::{color::palettes::tailwind, prelude::*};
@@ -99,10 +99,11 @@ fn insert_resources(mut commands: Commands) {
 }
 
 /// Adding this component will spawn child entities with 3d meshes contained in `model_handle`
-#[derive(Component)]
+#[derive(Component, Default)]
 struct ZenGinModelComponent {
     model_handle: Handle<ZenGinModel>,
     override_texture: Option<String>,
+    trimesh_collider: bool,
 }
 
 /// Check only entities which were not handled previously
@@ -147,12 +148,21 @@ fn convert_zengin_model_to_entities(
             );
 
             let mesh_handle = meshes.add(sub_mesh.mesh.clone());
-
-            entity.with_child((
-                sub_mesh.transform,
-                Mesh3d(mesh_handle),
-                MeshMaterial3d(material_handle),
-            ));
+            if model_component.trimesh_collider {
+                entity.with_child((
+                    RigidBody::Static,
+                    ColliderConstructor::TrimeshFromMesh,
+                    sub_mesh.transform,
+                    Mesh3d(mesh_handle),
+                    MeshMaterial3d(material_handle),
+                ));
+            } else {
+                entity.with_child((
+                    sub_mesh.transform,
+                    Mesh3d(mesh_handle),
+                    MeshMaterial3d(material_handle),
+                ));
+            }
         }
     }
 }
@@ -177,10 +187,10 @@ fn spawn_world(
     let vm_state = get_zen_gin_world_init_state();
     println!("\n-----LOAD WORLD ZEN DATA-----\n");
     let mut world_data =
-        load_gothic_world_data("/_WORK/DATA/WORLDS/NEWWORLD/NEWWORLD.ZEN", &vm_state);
+        load_zengin_world_data("/_WORK/DATA/WORLDS/NEWWORLD/NEWWORLD.ZEN", &vm_state);
     if false {
         let world_data_oldw =
-            load_gothic_world_data("/_WORK/DATA/WORLDS/OLDWORLD/OLDWORLD.ZEN", &vm_state);
+            load_zengin_world_data("/_WORK/DATA/WORLDS/OLDWORLD/OLDWORLD.ZEN", &vm_state);
         world_data
             .light_instances
             .extend(world_data_oldw.light_instances);
@@ -194,7 +204,8 @@ fn spawn_world(
         Visibility::default(),
         ZenGinModelComponent {
             model_handle: world_model_handle,
-            override_texture: None,
+            trimesh_collider: true,
+            ..default()
         },
         Transform::IDENTITY,
     ));
@@ -205,6 +216,7 @@ fn spawn_world(
             ZenGinModelComponent {
                 model_handle: handles_map.get_model_handle(&asset_server, &npc.body_model),
                 override_texture: Some(npc.body_texture.clone()),
+                ..default()
             },
             npc.body_tr,
         ));
@@ -213,6 +225,7 @@ fn spawn_world(
             ZenGinModelComponent {
                 model_handle: handles_map.get_model_handle(&asset_server, &npc.head_model),
                 override_texture: Some(npc.head_texture.clone()),
+                ..default()
             },
             npc.head_tr,
         ));
@@ -223,7 +236,7 @@ fn spawn_world(
         commands.spawn((
             ZenGinModelComponent {
                 model_handle: model_handle.clone(),
-                override_texture: None,
+                ..default()
             },
             Visibility::default(),
             instance.tr,

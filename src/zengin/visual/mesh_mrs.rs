@@ -8,7 +8,7 @@ use bevy::{
 
 use crate::zengin::{common::*, visual::material::get_standard_material};
 
-pub fn meshes_from_gothic_mrs_mesh(mesh: &zen_kit_rs::mrs_mesh::MrsMesh) -> ZenGinModel {
+pub fn meshes_from_zengin_mrs_mesh(mesh: &zen_kit_rs::mrs_mesh::MrsMesh) -> ZenGinModel {
     let mut meshes: HashMap<String, MeshData> = HashMap::new();
     let sub_meshes = mesh.sub_meshes();
     let positions = mesh.positions();

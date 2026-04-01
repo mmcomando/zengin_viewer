@@ -14,7 +14,7 @@ use crate::{
     zengin::{
         common::*,
         script::script_vm::{InstanceState, SpawnNpc},
-        visual::mesh::meshes_from_gothic_mesh,
+        visual::mesh::meshes_from_zengin_mesh,
     },
 };
 
@@ -77,7 +77,7 @@ pub fn load_npc(instance: &InstanceState, spawn_npc: &SpawnNpc, data: &mut ZenGi
     data.npcs.push(npc);
 }
 
-pub fn load_gothic_world_data(
+pub fn load_zengin_world_data(
     world_path: &str,
     vm_state: &crate::zengin::script::script_vm::State,
 ) -> ZenGinWorldData {
@@ -103,7 +103,7 @@ pub fn load_gothic_world_data(
         zen_kit_rs::world::World::load_versioned(&world_read, GameVersion::GOTHIC2).unwrap();
 
     let world_mesh = world.mesh();
-    let world_bevy_meshes = meshes_from_gothic_mesh(&world_mesh);
+    let world_bevy_meshes = meshes_from_zengin_mesh(&world_mesh);
 
     let mut data = ZenGinWorldData {
         // world_meshes: world_bevy_meshes,

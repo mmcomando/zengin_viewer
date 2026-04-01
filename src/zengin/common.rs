@@ -16,23 +16,23 @@ pub fn gothic2_dir() -> String {
 }
 
 pub fn to_asset_path(zengin_asset_path: &str) -> String {
-    format!("gothic:/{}", zengin_asset_path)
+    format!("zengin:/{}", zengin_asset_path)
 }
 
-pub fn get_world_transform(gothic_mat: Mat4) -> Transform {
-    let tr = Transform::from_matrix(gothic_mat);
+pub fn get_world_transform(zengin_mat: Mat4) -> Transform {
+    let tr = Transform::from_matrix(zengin_mat);
     let pos = get_world_pos(tr.translation);
     let rot = get_world_rot(Mat3::from_quat(tr.rotation));
     Transform::from_translation(pos).with_rotation(rot)
 }
 
-pub fn get_world_pos(mut gothic_pos: Vec3) -> Vec3 {
+pub fn get_world_pos(mut zengin_pos: Vec3) -> Vec3 {
     // X cords are mirrored
     if MIRROR_X {
-        gothic_pos.x = -gothic_pos.x;
+        zengin_pos.x = -zengin_pos.x;
     }
     // World units are different
-    gothic_pos / 100.0
+    zengin_pos / 100.0
 }
 pub fn get_world_rot(rot_mat: Mat3) -> Quat {
     let rot_euler = rot_mat.to_euler(EulerRot::XYZ);
@@ -48,7 +48,7 @@ pub fn get_world_rot(rot_mat: Mat3) -> Quat {
 
 pub fn get_full_texture_path(short_tex: &str) -> String {
     let texture = short_tex.to_uppercase().replace(".TGA", "-C.TEX");
-    format!("gothic://_WORK/DATA/TEXTURES/_COMPILED/{texture}")
+    format!("zengin://_WORK/DATA/TEXTURES/_COMPILED/{texture}")
 }
 
 pub fn print_nodes(node: &VfsNode, level: u8) {
