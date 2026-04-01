@@ -1,28 +1,11 @@
 use bevy::prelude::*;
 use zen_kit_rs::model::ModelHierarchyNode;
 
-use crate::zengin::{common::*, mesh_mrs::meshes_from_gothic_mrs_mesh};
+use crate::zengin::{common::*, visual::mesh_mrs::meshes_from_gothic_mrs_mesh};
 
 pub fn meshes_from_gothic_model(model: &zen_kit_rs::model::Model) -> Vec<LoadedMeshData> {
     let model_mesh = model.mesh();
     return meshes_from_gothic_model_mesh(&model_mesh, Some(model));
-}
-
-fn compute_final_tr(node_index: usize, nodes: &[ModelHierarchyNode], final_tr: &mut [Transform]) {
-    let node = &nodes[node_index];
-
-    if node.parent_index >= 0 {
-        final_tr[node_index] =
-            final_tr[node.parent_index as usize] * get_world_transform(node.transform);
-    } else {
-        final_tr[node_index] = get_world_transform(node.transform);
-    }
-
-    for (child_index, child) in nodes.iter().enumerate() {
-        if child.parent_index == (node_index as i16) {
-            compute_final_tr(child_index, nodes, final_tr);
-        }
-    }
 }
 
 pub fn meshes_from_gothic_model_mesh(
@@ -102,4 +85,21 @@ pub fn meshes_from_gothic_model_mesh(
         }
     }
     bevy_meshes
+}
+
+fn compute_final_tr(node_index: usize, nodes: &[ModelHierarchyNode], final_tr: &mut [Transform]) {
+    let node = &nodes[node_index];
+
+    if node.parent_index >= 0 {
+        final_tr[node_index] =
+            final_tr[node.parent_index as usize] * get_world_transform(node.transform);
+    } else {
+        final_tr[node_index] = get_world_transform(node.transform);
+    }
+
+    for (child_index, child) in nodes.iter().enumerate() {
+        if child.parent_index == (node_index as i16) {
+            compute_final_tr(child_index, nodes, final_tr);
+        }
+    }
 }
