@@ -14,14 +14,10 @@ pub struct DatFile {
 
 impl DatFile {
     pub fn get_function(&self, name: &str) -> Option<&Function> {
-        self.functions
-            .iter()
-            .find(|func| func.symbol.name.to_lowercase() == name)
+        self.functions.iter().find(|func| func.symbol.name == name)
     }
     pub fn get_instance(&self, name: &str) -> Option<&Instance> {
-        self.instances
-            .iter()
-            .find(|func| func.symbol.name.to_lowercase() == name)
+        self.instances.iter().find(|func| func.symbol.name == name)
     }
     pub fn get_function_by_offset(&self, offset: u32) -> Option<&Function> {
         self.functions
@@ -250,7 +246,11 @@ pub fn read_string(file: &mut File) -> io::Result<String> {
         if byte == b'\n' {
             return Ok(string);
         }
-        string.push(char::from_u32(u32::from(byte)).unwrap());
+        string.push(
+            char::from_u32(u32::from(byte))
+                .unwrap()
+                .to_ascii_lowercase(),
+        );
     }
     panic!("decoded unexpectdly long string");
 }
