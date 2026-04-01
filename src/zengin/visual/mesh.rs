@@ -138,5 +138,6 @@ pub fn meshes_from_zengin_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
         nodes: vec![],
         inverse_bindposes: vec![],
         parents: vec![],
+        animation_bone_index: vec![],
     }
 }

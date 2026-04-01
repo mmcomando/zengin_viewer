@@ -67,10 +67,10 @@ impl AssetLoader for ZenGinAnimationLoader {
         &self,
         reader: &mut dyn Reader,
         _settings: &(),
-        load_context: &mut LoadContext<'_>,
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        let path = load_context.path();
-        let path_str = path.to_string();
+        // let path = load_context.path();
+        // let path_str = path.to_string();
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
 

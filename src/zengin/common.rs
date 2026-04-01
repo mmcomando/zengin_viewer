@@ -119,6 +119,7 @@ pub struct ZenGinModel {
     pub nodes: Vec<Transform>,
     pub inverse_bindposes: Vec<Mat4>,
     pub parents: Vec<i16>,
+    pub animation_bone_index: Vec<usize>,
 }
 
 #[derive(Debug, Default)]

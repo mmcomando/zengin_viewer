@@ -5,7 +5,7 @@ use crate::zengin::loaders::animation::AnimationData;
 use crate::zengin_resources::{
     BoneAnimationData, MaterialHandles, ZenGinModelComponent, create_skined_mesh_data,
 };
-use bevy::mesh::skinning::SkinnedMeshInverseBindposes;
+use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
 #[derive(Default)]
@@ -163,14 +163,18 @@ fn object_to_entities(
         }
         if let Some(armor_model) = &npc_component.armor_model {
             let armor_data = armor_data.unwrap();
+            let bones_data_anim = bones_data.unwrap();
 
-            let bones_data = create_skined_mesh_data(
-                &mut commands,
-                &mut skinned_mesh_inverse_bindposes_assets,
-                entity_id,
-                armor_data,
-                animation_data,
-            );
+            let inverse_bindposes =
+                skinned_mesh_inverse_bindposes_assets.add(armor_data.inverse_bindposes.clone());
+            let bones_data = SkinnedMesh {
+                inverse_bindposes,
+                joints: armor_data
+                    .animation_bone_index
+                    .iter()
+                    .map(|el| bones_data_anim.joints[*el])
+                    .collect(),
+            };
 
             let tr = Transform::IDENTITY;
 
@@ -183,7 +187,7 @@ fn object_to_entities(
                         armor_model,
                         npc_component.hierarchy.as_deref(),
                     ),
-                    bones_data,
+                    bones_data: Some(bones_data),
                     ..default()
                 },
                 tr,

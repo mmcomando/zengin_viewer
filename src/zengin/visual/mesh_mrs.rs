@@ -93,8 +93,9 @@ pub fn meshes_from_zengin_mrs_mesh(
 
                         dt_avg += dt * weight_entry.weight;
 
+                        let bone_index = weight_entry.node_index as usize;
                         weights[weight_index as usize] = weight_entry.weight;
-                        indices[weight_index as usize] = u16::from(weight_entry.node_index);
+                        indices[weight_index as usize] = bone_index as u16;
                         max_index = std::cmp::max(max_index, i32::from(weight_entry.node_index));
                     }
 
