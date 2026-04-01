@@ -71,6 +71,11 @@ pub fn meshes_from_zengin_model_mesh(
             }
         }
 
+        for (node_index, node) in nodes.iter().enumerate() {
+            model
+                .nodes_tr
+                .insert(node.name.clone(), final_tr[node_index]);
+        }
         for new_mesh in &mut model.sub_meshes {
             // if let Some(node_index) = nodes.iter().position(|node| node.name == "BIP01 HEAD") {
             //     new_mesh.head_transform = Some(final_tr[node_index]);
