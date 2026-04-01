@@ -92,10 +92,11 @@ pub fn load_weapon(
 }
 
 pub fn load_npc(
-    instance: &InstanceState,
-    spawn_npc: &SpawnNpc,
     data: &mut ZenGinWorldData,
     vfs: &Vfs,
+    vm_state: &crate::zengin::script::script_vm::State,
+    instance: &InstanceState,
+    spawn_npc: &SpawnNpc,
 ) {
     let way_point_name = instance
         .get_routine_entry(SIMULATE_HOUR)
@@ -125,8 +126,9 @@ pub fn load_npc(
     } else {
         None
     };
+
     let armor_model = if let Some(armor_model) = &instance.armor_model {
-        find_mesh_path(vfs, armor_model)
+        get_item_mesh_path(vfs, vm_state, armor_model)
     } else {
         None
     };
@@ -220,7 +222,7 @@ pub fn load_zengin_world_data(
     load_way_net_points(&way_net, &mut data);
     for npc_spawn in &vm_state.spawn_npcs {
         if let Some(instance) = vm_state.instance_data.get(&npc_spawn.npc_index) {
-            load_npc(instance, npc_spawn, &mut data, &vfs);
+            load_npc(&mut data, &vfs, vm_state, instance, npc_spawn);
         } else {
             // println!("not handled npc_spawn.npc_index({})", npc_spawn.npc_index);
             warn_unimplemented!(
