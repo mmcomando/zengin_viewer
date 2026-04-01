@@ -3,6 +3,7 @@ name = "my_bevy_game"
 version = "0.1.0"
 edition = "2024"
 
+
 [dependencies]
 bevy = { version = "0.18.0", features = ["free_camera", "tga"] }
 # bevy = { version = "0.18.0", features = ["dynamic_linking", "free_camera"] }
