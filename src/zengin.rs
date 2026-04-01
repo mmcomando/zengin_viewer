@@ -14,7 +14,10 @@ use crate::zengin::common::{ZenGinModel, gothic2_dir};
 use crate::zengin::script::parse::*;
 use crate::zengin::script::script_vm::ScriptVM;
 use crate::zengin::world::load_zengin_world_data;
-use crate::zengin_resources::{MaterialHandles, ZenGinInsertResources, ZenGinModelComponent};
+use crate::zengin_resources::{
+    DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
+};
+use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
 #[derive(Default)]
@@ -45,8 +48,10 @@ fn get_zen_gin_world_init_state() -> crate::zengin::script::script_vm::State {
 
 fn spawn_world(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mut handles_map: ResMut<MaterialHandles>,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let _span = info_span!("spawn_world").entered();
     println!("\n-----SCRIPTS VM-----\n");
@@ -131,18 +136,18 @@ fn spawn_world(
         ));
     }
 
-    // for x in -4..4 {
-    //     for z in -4..4 {
-    //         commands.spawn((
-    //             RigidBody::Dynamic,
-    //             Collider::cuboid(1.0, 1.0, 1.0),
-    //             AngularVelocity(Vec3::new(2.5, 3.5, 1.5)),
-    //             Mesh3d(meshes.add(Cuboid::from_length(1.0))),
-    //             MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-    //             CollisionLayers::from_bits(DYNAMIC_OBJECT, STATIC_OBJECT | DYNAMIC_OBJECT),
-    //             #[allow(clippy::cast_precision_loss)]
-    //             Transform::from_xyz(-30.0 + x as f32 * 5.0, 30.0, z as f32 * 5.0),
-    //         ));
-    //     }
-    // }
+    for x in -4..4 {
+        for z in -4..4 {
+            commands.spawn((
+                RigidBody::Dynamic,
+                Collider::cuboid(1.0, 1.0, 1.0),
+                AngularVelocity(Vec3::new(2.5, 3.5, 1.5)),
+                Mesh3d(meshes.add(Cuboid::from_length(1.0))),
+                MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+                CollisionLayers::from_bits(DYNAMIC_OBJECT, STATIC_OBJECT | DYNAMIC_OBJECT),
+                #[allow(clippy::cast_precision_loss)]
+                Transform::from_xyz(-30.0 + x as f32 * 5.0, 30.0, z as f32 * 5.0),
+            ));
+        }
+    }
 }
