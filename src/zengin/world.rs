@@ -27,21 +27,24 @@ fn find_mesh_path(vfs: &Vfs, name: &str) -> Option<String> {
         .to_uppercase()
         .replace(".3DS", "")
         .replace(".MMS", "")
-        .replace(".MDS", "");
+        .replace(".MDS", "")
+        .replace(".ASC", "");
 
     let asset_paths: Vec<String> = vec![
         format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MMB", name),
-        format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MDM", name),
         format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MDL", name),
+        format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MDM", name),
         format!("/_WORK/DATA/MESHES/_COMPILED/{}.MDB", name),
         format!("/_WORK/DATA/MESHES/_COMPILED/{}.MRM", name),
         format!("/_WORK/DATA/MESHES/_COMPILED/{}.MSH", name),
     ];
 
-    let Some(asset_path) = try_load_mesh(&asset_paths, vfs) else {
-        warn_once!("Some meshes are not found, example({})", name);
+    let Some(asset_path) = try_load_mesh(vfs, &asset_paths) else {
+        warn!("Some meshes are not found, example({})", name);
         return None;
     };
+
+    println!("AAA: {asset_path}");
 
     let asset_path = to_asset_path(&asset_path);
     return Some(asset_path);
@@ -239,13 +242,9 @@ pub fn load_zengin_world_data(
     let world_bevy_meshes = meshes_from_zengin_mesh(&world_mesh);
 
     let mut data = ZenGinWorldData {
-        // world_meshes: world_bevy_meshes,
         world_model: world_bevy_meshes,
         ..Default::default()
     };
-    // data.world_meshes = world_bevy_meshes;
-    // Make sure that placeholder mesh is loaded
-    check_if_path_exists(PLARCEHOLDER_MESH, &vfs);
 
     for obj in world.root_objects() {
         load_objects(&vfs, &mut data, vm_state, &obj);
@@ -296,13 +295,9 @@ fn load_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
     }
 }
 
-fn check_if_path_exists(mesh_path: &str, vfs: &Vfs) -> bool {
-    vfs.resolve_path(mesh_path).is_some()
-}
-
-fn try_load_mesh(asset_paths: &[String], vfs: &Vfs) -> Option<String> {
+fn try_load_mesh(vfs: &Vfs, asset_paths: &[String]) -> Option<String> {
     for asset_path in asset_paths {
-        if check_if_path_exists(asset_path, vfs) {
+        if vfs.resolve_path(asset_path).is_some() {
             return Some(asset_path.clone());
         }
     }
@@ -323,19 +318,14 @@ fn load_objects(
     if !visual_name.is_empty() && obj.show_visual() {
         assert!(obj.get_type() != VobType::zCVobLight);
         let asset_path = match visual_type {
-            VisualType::MULTI_RESOLUTION_MESH => {
-                let asset_path = compiled_asset_path(&visual_name, ".3DS", ".MRM");
-                if check_if_path_exists(&asset_path, vfs) {
+            VisualType::MULTI_RESOLUTION_MESH
+            | VisualType::MODEL
+            | VisualType::MORPH_MESH
+            | VisualType::MESH => {
+                if let Some(asset_path) = find_mesh_path(vfs, &visual_name) {
                     Some(asset_path)
                 } else {
-                    Some(PLARCEHOLDER_MESH.to_string())
-                }
-            }
-            VisualType::MESH => {
-                let asset_path = compiled_asset_path(&visual_name, ".3DS", ".MSH");
-                if check_if_path_exists(&asset_path, vfs) {
-                    Some(asset_path)
-                } else {
+                    println!("Failed to find mesh for visual({})", visual_name);
                     Some(PLARCEHOLDER_MESH.to_string())
                 }
             }
@@ -351,43 +341,6 @@ fn load_objects(
                 warn_unimplemented!("load VisualType::CAMERA");
                 None
             }
-            VisualType::MODEL => {
-                let asset_paths: Vec<String> = vec![
-                    // Model with hierarchy
-                    format!(
-                        "/_WORK/DATA/ANIMS/_COMPILED/{}",
-                        visual_name.replace(".MDS", ".MDL")
-                    ),
-                    // Model only
-                    format!(
-                        "/_WORK/DATA/ANIMS/_COMPILED/{}",
-                        visual_name.replace(".MDS", ".MDM")
-                    ),
-                ];
-
-                if visual_name.ends_with(".ASC") {
-                    warn_unimplemented!("load .ASC objects");
-                    None
-                } else if let Some(asset_path) = try_load_mesh(&asset_paths, vfs) {
-                    Some(asset_path)
-                } else {
-                    warn!("Failed to load visual({})", visual_name);
-                    Some(PLARCEHOLDER_MESH.to_string())
-                }
-            }
-            VisualType::MORPH_MESH => {
-                let asset_path = format!(
-                    "/_WORK/DATA/ANIMS/_COMPILED/{}",
-                    visual_name.replace(".MMS", ".MMB")
-                );
-
-                if check_if_path_exists(&asset_path, vfs) {
-                    Some(asset_path)
-                } else {
-                    warn!("Failed to load morph mesh({})", visual_name);
-                    Some(PLARCEHOLDER_MESH.to_string())
-                }
-            }
             VisualType::UNKNOWN => {
                 warn_unimplemented!("load VisualType::UNKNOWN");
                 None
@@ -398,7 +351,7 @@ fn load_objects(
             let tr = get_obj_tr(obj);
             data.static_models.push(ZenGinInstance {
                 tr,
-                archetype: to_asset_path(&asset_path),
+                archetype: asset_path,
             });
         }
     } else {
@@ -423,6 +376,7 @@ fn handle_light(obj: &VirtualObject, data: &mut ZenGinWorldData) {
     }
     data.light_instances.push(LightInstance { pos, rot });
 }
+
 fn handle_other_vob(
     data: &mut ZenGinWorldData,
     vfs: &Vfs,
@@ -558,9 +512,4 @@ fn handle_other_vob(
         }
     }
     // println!("VOB kind({type_:?}), name({name}) not handled");
-}
-
-fn compiled_asset_path(present_name: &str, replace_from: &str, replace_to: &str) -> String {
-    let name = present_name.replace(replace_from, replace_to);
-    format!("/_WORK/DATA/MESHES/_COMPILED/{name}")
 }
