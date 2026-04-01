@@ -19,7 +19,6 @@ mod zengin;
 use crate::gui::{CameraSettingsPlugin, get_overlay_plugin};
 use crate::skybox::SkyBoxPlugin;
 use crate::zengin::ZenGinWorldPlugin;
-use crate::zengin::loaders::texture::GothicTextureLoader;
 use crate::zengin::loaders::vdf_reader::create_gothic_asset_loader;
 use avian3d::prelude::*;
 use bevy::anti_alias::smaa::Smaa;
@@ -50,7 +49,6 @@ fn main() {
         .add_plugins(FreeCameraPlugin)
         .add_plugins(get_overlay_plugin())
         // This app custom plugins
-        .init_asset_loader::<GothicTextureLoader>()
         .add_plugins(BasicContentPlugin)
         .add_plugins(ZenGinWorldPlugin)
         .add_plugins(CameraSettingsPlugin)

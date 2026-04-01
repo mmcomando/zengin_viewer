@@ -26,6 +26,7 @@ impl Eq for MatrialHashed {}
 
 // CAREFUL! list here all data which might change in zengin assets
 // If some data will be missed wrong materials might be used on some models
+#[allow(clippy::float_cmp)]
 pub fn same_stdandard_material(aa: &StandardMaterial, bb: &StandardMaterial) -> bool {
     aa.flip_normal_map_y == bb.flip_normal_map_y
         && aa.cull_mode == bb.cull_mode
@@ -45,7 +46,7 @@ pub fn hash_stdandard_material<H: Hasher>(state: &mut H, mat: &StandardMaterial)
     mat.reflectance.to_bits().hash(state);
     mat.metallic.to_bits().hash(state);
     hash_color(state, &mat.specular_tint);
-    hash_alpha(state, &mat.alpha_mode);
+    hash_alpha(state, mat.alpha_mode);
 }
 
 fn hash_color<H: Hasher>(state: &mut H, color: &Color) {
@@ -56,7 +57,7 @@ fn hash_color<H: Hasher>(state: &mut H, color: &Color) {
     color.alpha.to_bits().hash(state);
 }
 
-fn hash_alpha<H: Hasher>(state: &mut H, mode: &AlphaMode) {
+fn hash_alpha<H: Hasher>(state: &mut H, mode: AlphaMode) {
     match mode {
         AlphaMode::Opaque => 1.hash(state),
         AlphaMode::Mask(val) => val.to_bits().hash(state),

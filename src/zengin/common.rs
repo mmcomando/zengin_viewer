@@ -15,6 +15,10 @@ pub fn gothic2_dir() -> String {
     dir
 }
 
+pub fn to_asset_path(zengin_asset_path: &str) -> String {
+    format!("gothic:/{}", zengin_asset_path)
+}
+
 pub fn get_world_transform(gothic_mat: Mat4) -> Transform {
     let tr = Transform::from_matrix(gothic_mat);
     let pos = get_world_pos(tr.translation);
@@ -86,7 +90,7 @@ pub struct LightInstance {
     pub rot: Quat,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Asset, TypePath)]
 pub struct ZenGinModel {
     pub sub_meshes: Vec<ZenGinSubMesh>,
     // pub nodes_tr: HashMap<String, Transform>,
@@ -95,10 +99,10 @@ pub struct ZenGinModel {
 #[derive(Debug, Default)]
 pub struct ZenGinNpc {
     pub head_tr: Transform,
-    pub head_model: ZenGinModel,
+    pub head_model: String,
     pub head_texture: String,
     pub body_tr: Transform,
-    pub body_model: ZenGinModel,
+    pub body_model: String,
     pub body_texture: String,
 }
 
@@ -111,8 +115,7 @@ pub struct ZenGinInstance {
 #[derive(Debug, Default)]
 pub struct ZenGinWorldData {
     // pub tr: Transform,
-    pub world_meshes: Vec<ZenGinSubMesh>,
-    pub model_archetypes: HashMap<String, ZenGinModel>,
+    pub world_model: ZenGinModel,
     pub static_models: Vec<ZenGinInstance>,
     pub light_instances: Vec<LightInstance>,
     pub npcs: Vec<ZenGinNpc>,

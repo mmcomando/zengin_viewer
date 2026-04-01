@@ -11,9 +11,9 @@ use bevy::{
 };
 
 #[derive(Default, TypePath)]
-pub struct GothicTextureLoader;
+pub struct ZenGinTextureLoader;
 
-impl AssetLoader for GothicTextureLoader {
+impl AssetLoader for ZenGinTextureLoader {
     type Asset = Image;
     type Settings = ();
     type Error = BevyError;
@@ -24,14 +24,11 @@ impl AssetLoader for GothicTextureLoader {
         _settings: &(),
         _load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        // info!("Loading Gothic Texture...");
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        // info!("Loading Gothic Texture bytes({})", bytes.len());
 
         let gothic_data_with_mips = get_gothic_texture_data(&bytes);
         let gothic_data = gothic_data_with_mips.mips[0].clone();
-        // println!("gothic_data({:?})", gothic_data);
         assert!(
             gothic_data.size.width * gothic_data.size.height * 4
                 == gothic_data.data_rgba.len() as u32
@@ -39,14 +36,6 @@ impl AssetLoader for GothicTextureLoader {
         if gothic_data.size.width == 0 || gothic_data.size.height == 0 {
             return Err(BevyError::from("Texture has 0 dimensions"));
         }
-
-        // let mut image: Image = Image::new(
-        //     gothic_data.size,
-        //     TextureDimension::D2,
-        //     gothic_data.data_rgba,
-        //     TextureFormat::Rgba8Unorm,
-        //     RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-        // );
 
         let mut image_data = Vec::new();
         image_data.reserve_exact(
@@ -72,18 +61,12 @@ impl AssetLoader for GothicTextureLoader {
         image.asset_usage = RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD;
 
         image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-            // label: (),
             address_mode_u: ImageAddressMode::Repeat,
             address_mode_v: ImageAddressMode::Repeat,
             address_mode_w: ImageAddressMode::Repeat,
             mag_filter: ImageFilterMode::Linear,
             min_filter: ImageFilterMode::Linear,
             mipmap_filter: ImageFilterMode::Linear,
-            // lod_min_clamp: (),
-            // lod_max_clamp: (),
-            // compare: (),
-            // anisotropy_clamp: (),
-            // border_color: (),
             ..ImageSamplerDescriptor::default()
         });
 
@@ -129,7 +112,6 @@ pub fn get_gothic_texture_data(bytes: &[u8]) -> GothicTextureWithMips {
                 depth_or_array_layers: 1,
             },
         };
-        // println!("loaded gothic_texture({:?})", gothic_texture.size);
         mips.push(gothic_texture);
     }
 
