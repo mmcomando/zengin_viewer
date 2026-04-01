@@ -1,5 +1,5 @@
 use crate::game::objects::GameNpc;
-use crate::toggle_visibility::NpcVisibility;
+use crate::toggle_visibility::{NpcVisibility, show_gizmos};
 use crate::zengin::common::ZenGinModel;
 use crate::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 use bevy::prelude::*;
@@ -10,6 +10,7 @@ pub struct GameObjectSpawnEntities;
 impl Plugin for GameObjectSpawnEntities {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, object_to_entities);
+        app.add_systems(Update, show_bones.run_if(show_gizmos));
     }
 }
 
@@ -48,33 +49,11 @@ fn object_to_entities(
         let Some(mut spawn_state) = spawn_state else {
             let spawn_state = NpcSpawnState {
                 body_handle: handles_map.get_model_handle(&asset_server, &npc_component.body_model),
-                body_spawned: true,
+                body_spawned: npc_component.armor_model.is_some(),
                 head_spawned: npc_component.head_model.is_none(),
                 armor_spawned: npc_component.armor_model.is_none(),
             };
 
-            if npc_component.armor_model.is_none() {
-                warn_once!("Body placement requires hardcoding");
-                let tr = npc_component.tr
-                    * Transform::from_translation(Vec3 {
-                        x: -0.01,
-                        y: 0.0,
-                        z: 0.0,
-                    });
-                // let tr = Transform::IDENTITY;
-                entity.with_child((
-                    Visibility::default(),
-                    ZenGinModelComponent {
-                        model_handle: spawn_state.body_handle.clone(),
-                        override_texture: npc_component.body_texture.clone(),
-                        ..default()
-                    },
-                    tr,
-                ));
-            }
-            if spawn_state.finished_spawninig() {
-                entity.insert(ObjectEntitiesSpawned::default());
-            }
             entity.insert(spawn_state);
             continue;
         };
@@ -90,33 +69,32 @@ fn object_to_entities(
             continue;
         };
 
-        if let Some(head_model) = &npc_component.head_model {
-            // for (key, tr) in &model_data.nodes_tr {
-            //     println!("nn({key:20}): {:+5.2}", tr.translation);
-            //     let tr = (*tr).with_scale(Vec3 {
-            //         x: 0.02,
-            //         y: 0.02,
-            //         z: 0.02,
-            //     });
-            //     entity.with_child((
-            //         Visibility::default(),
-            //         ZenGinModelComponent {
-            //             model_handle: handles_map.get_model_handle(
-            //                 &asset_server,
-            //                 "zengin://_WORK/DATA/MESHES/_COMPILED/SPHERE.MRM",
-            //             ),
-            //             ..default()
-            //         },
-            //         tr,
-            //     ));
-            // }
+        if !spawn_state.body_spawned {
+            spawn_state.body_spawned = true;
+            let tr = Transform::IDENTITY;
+            let tr = npc_component.tr * tr;
+            entity.with_child((
+                Visibility::default(),
+                ZenGinModelComponent {
+                    model_handle: spawn_state.body_handle.clone(),
+                    override_texture: npc_component.body_texture.clone(),
+                    ..default()
+                },
+                tr,
+            ));
 
-            let tr = npc_component.tr
-                * if let Some(tr) = model_data.nodes_tr.get("BIP01 HEAD") {
-                    *tr
-                } else {
-                    Transform::IDENTITY
-                };
+            if spawn_state.finished_spawninig() {
+                entity.insert(ObjectEntitiesSpawned::default());
+            }
+        }
+
+        if let Some(head_model) = &npc_component.head_model {
+            let tr = if let Some(tr) = model_data.nodes_tr.get("BIP01 HEAD") {
+                *tr
+            } else {
+                Transform::IDENTITY
+            };
+            let tr = npc_component.tr * tr;
             entity.with_child((
                 Visibility::default(),
                 ZenGinModelComponent {
@@ -133,12 +111,12 @@ fn object_to_entities(
         }
         if let Some(armor_model) = &npc_component.armor_model {
             warn_once!("Armor detailed placing requires hardcoding");
-            let tr = npc_component.tr
-                * Transform::from_translation(Vec3 {
-                    x: -0.02,
-                    y: 0.018,
-                    z: 0.15,
-                });
+            let tr = Transform::from_translation(Vec3 {
+                x: -0.02,
+                y: 0.018,
+                z: 0.15,
+            });
+            let tr = npc_component.tr * tr;
             entity.with_child((
                 Visibility::default(),
                 ZenGinModelComponent {
@@ -152,6 +130,29 @@ fn object_to_entities(
             if spawn_state.finished_spawninig() {
                 entity.insert(ObjectEntitiesSpawned::default());
             }
+        }
+    }
+}
+
+fn show_bones(
+    models: ResMut<Assets<ZenGinModel>>,
+    query: Query<(&Transform, &NpcSpawnState), With<ObjectEntitiesSpawned>>,
+    mut gizmos: Gizmos,
+) {
+    for (entity_tr, spawn_state) in &query {
+        let Some(model_data) = models.get(&spawn_state.body_handle) else {
+            continue;
+        };
+
+        gizmos.axes(*entity_tr, 1.0);
+
+        for (key, tr) in &model_data.nodes_tr {
+            let show = key == "BIP01 HEAD" || key == "BIP01 PELVIS";
+            if !show {
+                continue;
+            }
+            let tr = *entity_tr * *tr;
+            gizmos.axes(tr, 0.2);
         }
     }
 }

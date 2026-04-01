@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, env::home_dir, path::PathBuf};
 
 use bevy::prelude::*;
 use zen_kit_rs::vfs::VfsNode;
@@ -7,11 +7,23 @@ use zen_kit_rs::vfs::VfsNode;
 pub const MIRROR_X: bool = true;
 
 pub fn gothic2_dir() -> String {
-    let dir = std::env::var("GOTHIC2_DIR").expect("GOTHIC2_DIR environment variable has to be set");
-    if let Some(dir_no_prefix) = dir.strip_suffix("/") {
-        return dir_no_prefix.to_string();
+    if let Some(dir) = std::env::var("GOTHIC2_DIR").ok() {
+        let path = PathBuf::from(dir);
+        return path.to_str().unwrap().to_string();
     }
-    dir
+
+    // Try to detect gothic2 location
+
+    if let Some(home) = home_dir() {
+        let linux_steam = home.join(".local/share/Steam/steamapps/common/Gothic II");
+        if linux_steam.is_dir() {
+            return linux_steam.to_str().unwrap().to_string();
+        }
+    }
+
+    panic!(
+        "Gothic2 location not found automatically. Set GOTHIC2_DIR environment variable to explicitly state game directory."
+    );
 }
 
 pub fn to_asset_path(zengin_asset_path: &str) -> String {
@@ -34,8 +46,7 @@ pub fn get_world_pos(mut zengin_pos: Vec3) -> Vec3 {
     zengin_pos / 100.0
 }
 pub fn get_world_rot(rot_mat: Mat3) -> Quat {
-    let rot_euler = rot_mat.to_euler(EulerRot::XYZ);
-    let mut quat = Quat::from_euler(EulerRot::XYZ, rot_euler.0, rot_euler.1, rot_euler.2);
+    let mut quat = Quat::from_mat3(&rot_mat);
 
     if MIRROR_X {
         // Do to X cords beeing mirrored we also have to modify rotation

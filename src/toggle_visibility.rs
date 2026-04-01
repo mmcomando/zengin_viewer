@@ -10,11 +10,12 @@ impl Plugin for ToggleVisibility {
         app.add_systems(Update, toggle_visibility_world_mesh);
         app.add_systems(Update, toggle_visibility_static_meshes);
         app.add_systems(Update, toggle_visibility_npcs);
+        app.add_systems(Update, toggle_visibility_gizmos);
     }
 }
 
 fn insert_resources(mut commands: Commands) {
-    commands.insert_resource(ToggleHide::default());
+    commands.insert_resource(ShowOptions::default());
 }
 
 #[derive(Component, Default)]
@@ -27,15 +28,20 @@ pub struct WorldMesh {}
 pub struct StaticMesh {}
 
 #[derive(Resource, Default)]
-struct ToggleHide {
-    show_world_mesh: bool,
-    show_static_meshes: bool,
-    show_npcs: bool,
+pub struct ShowOptions {
+    pub show_world_mesh: bool,
+    pub show_static_meshes: bool,
+    pub show_npcs: bool,
+    pub show_gizmos: bool,
+}
+
+pub fn show_gizmos(info: Res<ShowOptions>) -> bool {
+    info.show_gizmos
 }
 
 fn toggle_visibility_world_mesh(
     keys: Res<ButtonInput<KeyCode>>,
-    mut toggle_info: ResMut<ToggleHide>,
+    mut toggle_info: ResMut<ShowOptions>,
     mut query: Query<(&mut Visibility, &WorldMesh)>,
 ) {
     if !keys.just_pressed(KeyCode::KeyT) {
@@ -55,7 +61,7 @@ fn toggle_visibility_world_mesh(
 
 fn toggle_visibility_static_meshes(
     keys: Res<ButtonInput<KeyCode>>,
-    mut toggle_info: ResMut<ToggleHide>,
+    mut toggle_info: ResMut<ShowOptions>,
     mut query: Query<(&mut Visibility, &StaticMesh)>,
 ) {
     if !keys.just_pressed(KeyCode::Digit1) {
@@ -75,7 +81,7 @@ fn toggle_visibility_static_meshes(
 
 fn toggle_visibility_npcs(
     keys: Res<ButtonInput<KeyCode>>,
-    mut toggle_info: ResMut<ToggleHide>,
+    mut toggle_info: ResMut<ShowOptions>,
     mut query: Query<(&mut Visibility, &NpcVisibility)>,
 ) {
     if !keys.just_pressed(KeyCode::Digit2) {
@@ -90,5 +96,12 @@ fn toggle_visibility_npcs(
     };
     for (mut visibility, _mesh) in &mut query {
         *visibility = vis;
+    }
+}
+
+fn toggle_visibility_gizmos(keys: Res<ButtonInput<KeyCode>>, mut toggle_info: ResMut<ShowOptions>) {
+    if keys.just_pressed(KeyCode::Digit5) {
+        info!("Toggle gizmos visibility");
+        toggle_info.show_gizmos = !toggle_info.show_gizmos;
     }
 }

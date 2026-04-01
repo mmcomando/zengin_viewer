@@ -61,15 +61,13 @@ pub fn meshes_from_zengin_model_mesh(
             .map(|node| get_world_transform(node.transform))
             .collect();
 
+        let root_tr = Transform::from_translation(root_pos);
+
         for i in 0..nodes.len() {
             if nodes[i].parent_index < 0 {
+                final_tr[i] = root_tr * final_tr[i];
                 compute_final_tr(i, &nodes, &mut final_tr);
             }
-        }
-
-        let root_tr = Transform::from_translation(root_pos);
-        for tr in &mut final_tr {
-            *tr = root_tr * *tr;
         }
 
         for (node_index, node) in nodes.iter().enumerate() {
@@ -78,9 +76,6 @@ pub fn meshes_from_zengin_model_mesh(
                 .insert(node.name.clone(), final_tr[node_index]);
         }
         for new_mesh in &mut model.sub_meshes {
-            // if let Some(node_index) = nodes.iter().position(|node| node.name == "BIP01 HEAD") {
-            //     new_mesh.head_transform = Some(final_tr[node_index]);
-            // }
             if let Some(node_index) = nodes.iter().position(|el| el.name == new_mesh.name) {
                 new_mesh.transform = final_tr[node_index];
                 // println!(
@@ -97,10 +92,7 @@ fn compute_final_tr(node_index: usize, nodes: &[ModelHierarchyNode], final_tr: &
     let node = &nodes[node_index];
 
     if node.parent_index >= 0 {
-        final_tr[node_index] =
-            final_tr[node.parent_index as usize] * get_world_transform(node.transform);
-    } else {
-        final_tr[node_index] = get_world_transform(node.transform);
+        final_tr[node_index] = final_tr[node.parent_index as usize] * final_tr[node_index];
     }
 
     for (child_index, child) in nodes.iter().enumerate() {

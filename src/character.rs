@@ -20,7 +20,7 @@ impl Plugin for CharacterControllerPlugin {
             (
                 update_grounded,
                 apply_gravity,
-                movement,
+                movement.run_if(use_character_camera),
                 apply_movement_damping,
                 move_and_slide,
                 apply_forces_to_dynamic_bodies,
@@ -30,8 +30,9 @@ impl Plugin for CharacterControllerPlugin {
         );
     }
 }
-fn use_character_camera(toggle_info: Res<ToggleCamera>) -> bool {
-    toggle_info.character_camera
+
+fn use_character_camera(info: Res<ToggleCamera>) -> bool {
+    info.character_camera
 }
 
 /// A [`Message`] written for a movement input action.

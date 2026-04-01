@@ -7,7 +7,7 @@ use bevy::{
 };
 
 use crate::zengin::{
-    common::{ZenGinModel, to_asset_path},
+    common::ZenGinModel,
     visual::{
         mesh::meshes_from_zengin_mesh,
         mesh_model::{meshes_from_zengin_model, meshes_from_zengin_model_mesh},
@@ -17,7 +17,7 @@ use crate::zengin::{
 };
 
 const HUMAN_MODEL: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM";
-const HUMAN_MODEL_HIERARCHY: &str = "/_WORK/DATA/ANIMS/_COMPILED/HUMANS_RELAXED.MDH";
+const HUMAN_MODEL_HIERARCHY: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS.MDH";
 
 #[derive(Default, TypePath)]
 pub struct ZenGinModelLoader;
@@ -38,6 +38,8 @@ impl AssetLoader for ZenGinModelLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
 
+        // println!("Load model({:?})", path_str);
+
         let model = if path_str.ends_with(".MRM") {
             let read = Read::from_slice(&bytes).unwrap();
             let mesh = zen_kit_rs::mrs_mesh::MrsMesh::load(&read).unwrap();
@@ -57,9 +59,9 @@ impl AssetLoader for ZenGinModelLoader {
             if path_str == HUMAN_MODEL {
                 hierarchy_path = HUMAN_MODEL_HIERARCHY.to_string();
             }
-            let hierarchy_path = to_asset_path(&hierarchy_path);
             let model_hierarchy =
-                if let Ok(hierarchy_bytes) = load_context.read_asset_bytes(hierarchy_path).await {
+                if let Ok(hierarchy_bytes) = load_context.read_asset_bytes(&hierarchy_path).await {
+                    // println!("Load hierarchy({:?})", hierarchy_path);
                     let hierarchy_read = Read::from_slice(&hierarchy_bytes).unwrap();
                     zen_kit_rs::model::Model::load(&hierarchy_read)
                 } else {
