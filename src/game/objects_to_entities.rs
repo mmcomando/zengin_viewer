@@ -3,8 +3,10 @@ use crate::toggle_visibility::{NpcVisibility, show_gizmos};
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::loaders::animation::AnimationData;
 use crate::zengin_resources::{
-    BoneAnimationData, MaterialHandles, ZenGinModelComponent, create_skined_mesh_data,
+    BoneAnimationData, BoneAnimationJontsSharedData, MaterialHandles, ZenGinModelComponent,
+    create_skined_mesh_data,
 };
+use avian3d::prelude::LinearVelocity;
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
@@ -15,7 +17,11 @@ impl Plugin for GameObjectSpawnEntities {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, object_to_entities);
         app.add_systems(Update, draw_bones.run_if(show_gizmos));
-        app.add_systems(Update, compute_animations);
+        app.add_systems(Update, update_shared_animation_state);
+        app.add_systems(
+            Update,
+            compute_animations.after(update_shared_animation_state),
+        );
     }
 }
 
@@ -233,17 +239,92 @@ fn draw_bones(
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUN.MAN";
 const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUNL.MAN";
 
-fn compute_animations(time: Res<Time>, mut query: Query<(&mut Transform, &mut BoneAnimationData)>) {
-    let time_per_frame = 1.0 / 12.0; // Hardcoded fps
+// Main animation bone contains object movement component from start of aniamtion
+// We choose animation frame not on time but based on how much object have moved
+// Object movement is not linear but we assume that object moves with constant speed this
+//  results with object main bone having small viggle during aniamtion
+fn update_frame_shared_data(data: &BoneAnimationJontsSharedData, movement_in_frame: f32) {
+    // Get current movement
+    let delta_movement = data
+        .shared_data
+        .delta_movement
+        .load(std::sync::atomic::Ordering::Acquire);
+    let mut delta_movement = delta_movement as f32 / 1000.0 + movement_in_frame;
+
+    let mov = &data.shared_data.movement;
+    let frames_num = mov.len();
+
+    // We extrapolate movement for last frame
+    let total_movement = mov.last().unwrap() - mov[0];
+    let total_movement = total_movement * (1.0 + 1.0 / frames_num as f32);
+    // What place in an animation we are at (0..1)
+    let mut anim_factor = delta_movement / total_movement;
+    if anim_factor > 1.0 {
+        anim_factor -= 1.0;
+        delta_movement -= total_movement;
+    }
+
+    // start index
+    let st_i = (frames_num as f32 * anim_factor) as usize;
+    // Interpolation factor between start and end frames
+    let frame_factor = anim_factor * frames_num as f32 % 1.0;
+
+    let end_frame = if st_i == mov.len() - 1 { 0 } else { st_i + 1 };
+    let mut mov_delta = mov[end_frame] - mov[st_i];
+    if mov_delta < 0.0 {
+        mov_delta = mov[0] + total_movement - mov[st_i];
+    }
+    mov_delta = mov[st_i] - mov[0] + mov_delta * frame_factor - delta_movement;
+
+    // Convert to integers so we can use atomics
+    let delta_movement = (delta_movement * 1000.0) as u32;
+    let frame_factor_1000 = (frame_factor * 1000.0) as u32;
+    let mov_delta = (mov_delta * 1000.0) as u32;
+
+    // Save results using atomics so Rust allows shared access without locks
+    data.shared_data
+        .start_frame
+        .store(st_i as u32, std::sync::atomic::Ordering::Release);
+    data.shared_data
+        .end_frame
+        .store(end_frame as u32, std::sync::atomic::Ordering::Release);
+    data.shared_data
+        .delta_movement
+        .store(delta_movement, std::sync::atomic::Ordering::Release);
+    data.shared_data
+        .mul_1000
+        .store(frame_factor_1000, std::sync::atomic::Ordering::Release);
+    data.shared_data
+        .mov_delta
+        .store(mov_delta, std::sync::atomic::Ordering::Release);
+}
+
+fn update_shared_animation_state(
+    time: Res<Time>,
+    query: Query<(&ChildOf, &BoneAnimationJontsSharedData)>,
+    q_vel: Query<&LinearVelocity>,
+) {
     let delta = time.delta_secs();
-    for (mut transform, mut data) in &mut query {
-        #[allow(clippy::cast_precision_loss)]
-        let total_time = time_per_frame * data.animation_data.frames_num as f32 - time_per_frame;
-        data.time_dt += delta;
-        if data.time_dt >= total_time {
-            data.time_dt -= total_time;
-        }
-        let frame_num = (data.time_dt / time_per_frame) as usize;
+    // let delta_ms = (delta * 1000.0) as u32;
+    for (parent, data) in &query {
+        let vel = q_vel.get(parent.parent()).unwrap();
+        let movement_in_frame = delta * vel.length();
+        update_frame_shared_data(data, movement_in_frame);
+    }
+}
+
+fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimationData)>) {
+    for (mut transform, data) in &mut query {
+        let shared = &data.shared_data;
+        let frame_num = shared
+            .start_frame
+            .load(std::sync::atomic::Ordering::Acquire) as usize;
+
+        let end_frame = shared.end_frame.load(std::sync::atomic::Ordering::Acquire) as usize;
+
+        let mul = shared.mul_1000.load(std::sync::atomic::Ordering::Acquire) as f32 / 1000.0;
+
+        let mov_delta = shared.mov_delta.load(std::sync::atomic::Ordering::Acquire) as f32 / 1000.0;
 
         let frame_a = data
             .animation_data
@@ -251,15 +332,17 @@ fn compute_animations(time: Res<Time>, mut query: Query<(&mut Transform, &mut Bo
 
         let frame_b = data
             .animation_data
-            .get_bone_sample(frame_num + 1, data.bone_index);
-        #[allow(clippy::cast_precision_loss)]
-        let frame_start_time = frame_num as f32 * time_per_frame;
-        let mul = (data.time_dt - frame_start_time) / time_per_frame;
+            .get_bone_sample(end_frame, data.bone_index);
 
         transform.rotation = frame_a
             .rotation
             .inverse()
             .lerp(frame_b.rotation.inverse(), mul);
         transform.translation = frame_a.position.lerp(frame_b.position, mul);
+
+        if data.is_base_pos_bone {
+            transform.translation.x = 0.0;
+            transform.translation.z = -mov_delta;
+        }
     }
 }

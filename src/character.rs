@@ -75,11 +75,11 @@ pub struct CharacterMovementSettings {
 impl Default for CharacterMovementSettings {
     fn default() -> Self {
         Self {
-            acceleration: 100.0,
+            acceleration: 35.0,
             damping: 10.0,
             jump_impulse: 7.0,
             gravity: Vector::new(0.0, -9.81 * 2.0, 0.0),
-            terminal_velocity: 200.0,
+            terminal_velocity: 100.0,
         }
     }
 }

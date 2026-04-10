@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU32;
 
 use crate::game::objects_to_entities::AnimatedJoint;
 use crate::zengin::common::ZenGinModel;
@@ -165,7 +166,26 @@ fn run_convert_zengin_model_to_entities(
 pub struct BoneAnimationData {
     pub animation_data: Arc<AnimationData>,
     pub bone_index: usize,
-    pub time_dt: f32,
+    // pub time_dt: f32,
+    // pub move_dt: f32,
+    pub is_base_pos_bone: bool,
+    pub shared_data: Arc<SharedData>,
+    // pub avg: Vec3,
+}
+
+#[derive(Debug)]
+pub struct SharedData {
+    pub movement: Vec<f32>,
+    pub fps: f32,
+    pub start_frame: AtomicU32,
+    pub end_frame: AtomicU32,
+    pub delta_movement: AtomicU32,
+    pub mul_1000: AtomicU32,
+    pub mov_delta: AtomicU32,
+}
+#[derive(Component, Debug)]
+pub struct BoneAnimationJontsSharedData {
+    pub shared_data: Arc<SharedData>,
 }
 
 pub fn create_skined_mesh_data(
@@ -180,8 +200,36 @@ pub fn create_skined_mesh_data(
         return None;
     }
 
+    // Find node with name BIP01
+    let base_pos_index = model
+        .node_names
+        .iter()
+        .position(|el| el == "BIP01")
+        .unwrap_or(0);
+    // let has_movement = animation_data.bone_has_movement(base_pos_index);
+    //
     let animation_data = animation_data.cloned().unwrap_or(AnimationData::default());
+
+    // let (_, avg, _) = animation_data
+    //     .compute_average_min_max_position_for_bone(base_pos_index)
+    //     .unwrap();
+    let shared_data = Arc::new(SharedData {
+        start_frame: AtomicU32::new(1),
+        fps: animation_data.fps,
+        delta_movement: AtomicU32::new(1),
+        end_frame: AtomicU32::new(1),
+        mul_1000: AtomicU32::new(1),
+        mov_delta: AtomicU32::new(1),
+        movement: animation_data.get_movement(base_pos_index),
+    });
     let animation_data = Arc::new(animation_data);
+    {
+        commands
+            .entity(skeleton_parent)
+            .insert(BoneAnimationJontsSharedData {
+                shared_data: shared_data.clone(),
+            });
+    }
 
     let joint_entities: Vec<_> = model
         .nodes
@@ -195,7 +243,8 @@ pub fn create_skined_mesh_data(
                         BoneAnimationData {
                             animation_data: animation_data.clone(),
                             bone_index: local_index,
-                            time_dt: 0.0,
+                            is_base_pos_bone: index == base_pos_index,
+                            shared_data: shared_data.clone(),
                         },
                         *el,
                         Visibility::Inherited,

@@ -31,10 +31,12 @@ pub struct AnimationData {
     samples: Vec<AnimationSample>,
     bone_indices: Vec<u32>,
     pub frames_num: u32,
+    pub fps: f32,
 }
 
 impl AnimationData {
     pub fn get_bone_sample(&self, frame_index: usize, bone_index: usize) -> AnimationSample {
+        assert!(self.frames_num > 1);
         let bones_num = self.bone_indices.len();
         if let Some(sample) = self.samples.get(bones_num * frame_index + bone_index) {
             return *sample;
@@ -56,6 +58,58 @@ impl AnimationData {
             .iter()
             .position(|el| *el == bone_index as u32)
     }
+
+    pub fn get_movement(&self, bone_index: usize) -> Vec<f32> {
+        let local_bone_index = self.get_index_for_bone(bone_index).unwrap();
+
+        let mut movement = vec![];
+
+        for frame_index in 0..self.frames_num as usize {
+            let position = self.get_bone_sample(frame_index, local_bone_index).position;
+            movement.push(position.z);
+        }
+        return movement;
+    }
+
+    // pub fn compute_average_min_max_position_for_bone(
+    //     &self,
+    //     bone_index: usize,
+    // ) -> Option<(Vec3, Vec3, Vec3)> {
+    //     let local_bone_index = self.get_index_for_bone(bone_index)?;
+    //     let bones_num = self.bone_indices.len();
+    //     if bones_num == 0 || self.frames_num == 0 {
+    //         return None;
+    //     }
+
+    //     let first_sample = self.get_bone_sample(0, local_bone_index);
+    //     let mut position_sum = Vec3::ZERO;
+    //     let mut min_position = first_sample.position;
+    //     let mut max_position = first_sample.position;
+
+    //     for frame_index in 0..self.frames_num as usize {
+    //         let position = self.get_bone_sample(frame_index, local_bone_index).position;
+    //         position_sum += position;
+    //         min_position = min_position.min(position);
+    //         max_position = max_position.max(position);
+    //     }
+
+    //     let average_position = position_sum / self.frames_num as f32;
+    //     Some((average_position, min_position, max_position))
+    // }
+
+    // pub fn bone_has_movement(&self, bone_index: usize) -> bool {
+    //     let Some((_average_position, min_position, max_position)) =
+    //         self.compute_average_min_max_position_for_bone(bone_index)
+    //     else {
+    //         return false;
+    //     };
+
+    //     if (max_position - min_position).length_squared() < 0.1 {
+    //         return false;
+    //     }
+
+    //     return true;
+    // }
 }
 
 impl AssetLoader for ZenGinAnimationLoader {
@@ -94,6 +148,7 @@ impl AssetLoader for ZenGinAnimationLoader {
             samples,
             frames_num,
             bone_indices: Vec::from(node_indices),
+            fps: animation.fps(),
         };
 
         // println!(

@@ -162,8 +162,8 @@ fn spawn_world(
         }
     }
 
-    // Player
-    commands.spawn((
+    // Player collider
+    let mut player_collider = commands.spawn((
         Visibility::default(),
         PlayerMarker,
         CharacterController,
@@ -180,6 +180,12 @@ fn spawn_world(
         // Mesh3d(meshes.add(Capsule3d::new(0.5, 0.8))),
         // MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         Transform::from_xyz(0.0, 1.5, 0.0),
+    ));
+
+    // Player visual
+    player_collider.with_child((
+        Visibility::default(),
+        Transform::from_xyz(0.0, -1.0, 0.0),
         GameNpc {
             hierarchy: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS.MDH".to_string()),
             body_model: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM".to_string(),
@@ -191,9 +197,9 @@ fn spawn_world(
                 "zengin://_WORK/DATA/TEXTURES/_COMPILED/HUM_HEAD_V18_C0-C.TEX".to_string(),
             ),
             // armor_model: None,
-            //armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_SLD_H.MDL".to_string()),
-            armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PAL_H.MDM".to_string()),
-            // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_LESTER.MDM".to_string()),
+            // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_SLD_H.MDL".to_string()),
+            // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PAL_H.MDM".to_string()),
+            armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_LESTER.MDM".to_string()),
         },
     ));
 }
