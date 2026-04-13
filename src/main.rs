@@ -21,6 +21,7 @@ mod zengin;
 mod zengin_resources;
 
 use crate::character::CharacterControllerPlugin;
+use crate::game::disco_lamp::DiscoLamp;
 use crate::gui::{CameraSettingsPlugin, get_overlay_plugin};
 use crate::skybox::SkyBoxPlugin;
 use crate::toggle_visibility::ToggleVisibility;
@@ -61,6 +62,7 @@ fn main() {
         .add_plugins(SkyBoxPlugin)
         .add_plugins(ToggleVisibility)
         .add_plugins(CharacterControllerPlugin)
+        .add_plugins(DiscoLamp)
         // Run
         .run();
 }
@@ -125,12 +127,20 @@ fn spawn_camera(mut commands: Commands) {
     ));
 }
 
+// Lightning takes a LOT of resources as it is basicly rendering whole world with all entities
+// TODO performance:
+// - Draw only near objects
+// - Limit objects casting shadows
+// - Draw only near lights (frustum for lights takes considerable amount of time)
+// - Animate only near objects
+// - Less demanding shadows
+const PREFER_PERF: bool = true;
+
 fn spawn_lights(mut commands: Commands) {
-    // Main light
     commands.spawn((
         PointLight {
             color: Color::from(tailwind::ORANGE_300),
-            // shadows_enabled: true,
+            shadows_enabled: !PREFER_PERF,
             ..default()
         },
         Transform::from_xyz(-12.0, 3.0, 10.0),
@@ -141,7 +151,7 @@ fn spawn_lights(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT,
             range: 100.0,
             radius: 10.0,
-            // shadows_enabled: true,
+            shadows_enabled: !PREFER_PERF,
             ..default()
         },
         Transform::from_xyz(-8.5, 1.0, -15.0),
@@ -157,19 +167,19 @@ fn spawn_lights(mut commands: Commands) {
 
     commands.insert_resource(GlobalAmbientLight {
         color: Color::linear_rgb(1.0, 1.0, 1.0),
-        brightness: 100.0,
+        brightness: 20.0,
         ..default()
     });
     commands.spawn((
         DirectionalLight {
             color: Color::srgb_u8(172, 172, 193), // Moon color
             // color: Color::from(tailwind::SKY_50),
-            // illuminance: bevy::light::light_consts::lux::FULL_MOON_NIGHT,
-            illuminance: bevy::light::light_consts::lux::AMBIENT_DAYLIGHT / 15.0,
-            // shadows_enabled: true,
+            illuminance: bevy::light::light_consts::lux::FULL_MOON_NIGHT,
+            // illuminance: bevy::light::light_consts::lux::AMBIENT_DAYLIGHT / 15.0,
+            shadows_enabled: !PREFER_PERF,
             ..default()
         },
-        Transform::from_xyz(4000.0, 2000.0, -10.0).looking_at(
+        Transform::from_xyz(1000.0, 1000.0, -10.0).looking_at(
             Vec3 {
                 x: 0.0,
                 y: 0.0,

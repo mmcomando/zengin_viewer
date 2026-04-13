@@ -15,4 +15,6 @@ pub struct GameNpc {
     pub head_texture: Option<String>,
     /// Humanoids can wear armor
     pub armor_model: Option<String>,
+
+    pub animation: Option<String>,
 }

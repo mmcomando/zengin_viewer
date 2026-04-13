@@ -3,8 +3,8 @@ use crate::toggle_visibility::{NpcVisibility, show_gizmos};
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::loaders::animation::AnimationData;
 use crate::zengin_resources::{
-    BoneAnimationData, BoneAnimationJontsSharedData, MaterialHandles, ZenGinModelComponent,
-    create_skined_mesh_data,
+    AnimateBasedOnMovementComponent, BoneAnimationData, MaterialHandles,
+    StandardAnimationComponent, ZenGinModelComponent, create_skined_mesh_data,
 };
 use avian3d::prelude::LinearVelocity;
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
@@ -17,10 +17,13 @@ impl Plugin for GameObjectSpawnEntities {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, object_to_entities);
         app.add_systems(Update, draw_bones.run_if(show_gizmos));
-        app.add_systems(Update, update_shared_animation_state);
+        app.add_systems(Update, update_animation_based_on_movement);
+        app.add_systems(Update, update_animation_standard);
         app.add_systems(
             Update,
-            compute_animations.after(update_shared_animation_state),
+            compute_animations
+                .after(update_animation_based_on_movement)
+                .after(update_animation_standard),
         );
     }
 }
@@ -71,7 +74,13 @@ fn object_to_entities(
                     )
                 }),
                 animation_handle: Some(
-                    handles_map.get_animation_handle(&asset_server, EXAMPLE_ANIMATION),
+                    handles_map.get_animation_handle(
+                        &asset_server,
+                        npc_component
+                            .animation
+                            .as_ref()
+                            .map_or(EXAMPLE_ANIMATION, |el| el.as_str()),
+                    ),
                 ),
                 body_spawned: npc_component.armor_model.is_some(),
                 head_spawned: npc_component.head_model.is_none(),
@@ -206,6 +215,7 @@ fn object_to_entities(
 
 fn draw_bones(
     mut gizmos: Gizmos,
+
     bones: Query<(Entity, &GlobalTransform, Option<&ChildOf>), With<AnimatedJoint>>,
     transforms: Query<&GlobalTransform>,
 ) {
@@ -234,78 +244,80 @@ fn draw_bones(
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-T_YES.MAN";
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WALKL.MAN";
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WALKWL.MAN";
-// const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WASH.MAN";
+const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WASH.MAN";
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WATCHFIGHT.MAN";
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUN.MAN";
-const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUNL.MAN";
+// const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUNL.MAN";
 
+const ATOMIC_SCALE: f32 = 1000.0;
 // Main animation bone contains object movement component from start of aniamtion
 // We choose animation frame not on time but based on how much object have moved
 // Object movement is not linear but we assume that object moves with constant speed this
 //  results with object main bone having small viggle during aniamtion
-fn update_frame_shared_data(data: &BoneAnimationJontsSharedData, movement_in_frame: f32) {
-    // Get current movement
-    let delta_movement = data
-        .shared_data
+#[allow(clippy::cast_precision_loss)]
+fn update_frame_shared_data(data: &AnimateBasedOnMovementComponent, movement_in_frame: f32) {
+    let shared = &data.model_animation_state;
+    let movement = &shared.movement;
+    let frames_num = movement.len();
+    let frames_num_f = movement.len() as f32;
+
+    let mut accumulated_movement = shared
         .delta_movement
-        .load(std::sync::atomic::Ordering::Acquire);
-    let mut delta_movement = delta_movement as f32 / 1000.0 + movement_in_frame;
+        .load(std::sync::atomic::Ordering::Acquire) as f32
+        / ATOMIC_SCALE
+        + movement_in_frame;
 
-    let mov = &data.shared_data.movement;
-    let frames_num = mov.len();
-
-    // We extrapolate movement for last frame
-    let total_movement = mov.last().unwrap() - mov[0];
-    let total_movement = total_movement * (1.0 + 1.0 / frames_num as f32);
-    // What place in an animation we are at (0..1)
-    let mut anim_factor = delta_movement / total_movement;
-    if anim_factor > 1.0 {
-        anim_factor -= 1.0;
-        delta_movement -= total_movement;
+    // We extrapolate movement for the last frame so interpolation can wrap back to frame 0.
+    let total_time = (movement.last().unwrap()) * (1.0 + 1.0 / frames_num_f);
+    let mut animation_progress = (accumulated_movement / total_time) * frames_num_f;
+    if animation_progress > frames_num_f {
+        animation_progress -= frames_num_f;
+        accumulated_movement -= total_time;
     }
 
-    // start index
-    let st_i = (frames_num as f32 * anim_factor) as usize;
-    // Interpolation factor between start and end frames
-    let frame_factor = anim_factor * frames_num as f32 % 1.0;
+    let frame_factor = animation_progress % 1.0;
+    let start_frame = animation_progress as usize;
+    let end_frame = (start_frame + 1) % frames_num;
 
-    let end_frame = if st_i == mov.len() - 1 { 0 } else { st_i + 1 };
-    let mut mov_delta = mov[end_frame] - mov[st_i];
-    if mov_delta < 0.0 {
-        mov_delta = mov[0] + total_movement - mov[st_i];
-    }
-    mov_delta = mov[st_i] - mov[0] + mov_delta * frame_factor - delta_movement;
+    let start_movement = movement[start_frame];
+    let end_movement = movement[end_frame];
+    let frame_movement = if end_movement >= start_movement {
+        end_movement - start_movement
+    } else {
+        total_time - start_movement
+    };
+    let mov_delta = start_movement - frame_movement * frame_factor - accumulated_movement;
 
     // Convert to integers so we can use atomics
-    let delta_movement = (delta_movement * 1000.0) as u32;
-    let frame_factor_1000 = (frame_factor * 1000.0) as u32;
-    let mov_delta = (mov_delta * 1000.0) as u32;
+    let delta_movement = (accumulated_movement * ATOMIC_SCALE) as u32;
+    let frame_factor_1000 = (frame_factor * ATOMIC_SCALE) as u32;
+    let mov_delta = (mov_delta * ATOMIC_SCALE) as u32;
 
     // Save results using atomics so Rust allows shared access without locks
-    data.shared_data
-        .start_frame
-        .store(st_i as u32, std::sync::atomic::Ordering::Release);
-    data.shared_data
-        .end_frame
-        .store(end_frame as u32, std::sync::atomic::Ordering::Release);
-    data.shared_data
+    shared
         .delta_movement
         .store(delta_movement, std::sync::atomic::Ordering::Release);
-    data.shared_data
+    let frame_state = &data.frame_state;
+    frame_state
+        .start_frame
+        .store(start_frame as u32, std::sync::atomic::Ordering::Release);
+    frame_state
+        .end_frame
+        .store(end_frame as u32, std::sync::atomic::Ordering::Release);
+    frame_state
         .mul_1000
         .store(frame_factor_1000, std::sync::atomic::Ordering::Release);
-    data.shared_data
-        .mov_delta
+    frame_state
+        .mov_delta_1000
         .store(mov_delta, std::sync::atomic::Ordering::Release);
 }
 
-fn update_shared_animation_state(
+fn update_animation_based_on_movement(
     time: Res<Time>,
-    query: Query<(&ChildOf, &BoneAnimationJontsSharedData)>,
+    query: Query<(&ChildOf, &AnimateBasedOnMovementComponent)>,
     q_vel: Query<&LinearVelocity>,
 ) {
     let delta = time.delta_secs();
-    // let delta_ms = (delta * 1000.0) as u32;
     for (parent, data) in &query {
         let vel = q_vel.get(parent.parent()).unwrap();
         let movement_in_frame = delta * vel.length();
@@ -313,18 +325,76 @@ fn update_shared_animation_state(
     }
 }
 
+#[allow(clippy::cast_precision_loss)]
+fn update_frame_standard_animation(data: &StandardAnimationComponent, dt_time: f32) {
+    let shared = &data.model_animation_state;
+
+    let frames_num = data.frames_num as usize;
+    let frames_num_f = frames_num as f32;
+
+    let mut accumulated_time =
+        shared.time_ms.load(std::sync::atomic::Ordering::Acquire) as f32 / ATOMIC_SCALE + dt_time;
+
+    let one_frame_time = 1.0 / data.model_animation_state.fps;
+
+    // We extrapolate movement for the last frame so interpolation can wrap back to frame 0.
+    let total_time = one_frame_time * (frames_num_f + 1.0);
+    let mut animation_progress = (accumulated_time / total_time) * frames_num_f;
+    if animation_progress > frames_num_f {
+        animation_progress -= frames_num_f;
+        accumulated_time -= total_time;
+    }
+
+    let frame_factor = animation_progress % 1.0;
+    let start_frame = animation_progress as usize;
+    let end_frame = (start_frame + 1) % frames_num;
+
+    // Convert to integers so we can use atomics
+    let frame_factor_1000 = (frame_factor * ATOMIC_SCALE) as u32;
+    let time_ms = (accumulated_time * ATOMIC_SCALE) as u32;
+
+    // Save results using atomics so Rust allows shared access without locks
+    shared
+        .time_ms
+        .store(time_ms, std::sync::atomic::Ordering::Release);
+    let frame_state = &data.frame_state;
+    frame_state
+        .start_frame
+        .store(start_frame as u32, std::sync::atomic::Ordering::Release);
+    frame_state
+        .end_frame
+        .store(end_frame as u32, std::sync::atomic::Ordering::Release);
+    frame_state
+        .mul_1000
+        .store(frame_factor_1000, std::sync::atomic::Ordering::Release);
+    frame_state
+        .mov_delta_1000
+        .store(0, std::sync::atomic::Ordering::Release);
+}
+
+fn update_animation_standard(time: Res<Time>, query: Query<&StandardAnimationComponent>) {
+    let delta = time.delta_secs();
+    for data in &query {
+        update_frame_standard_animation(data, delta);
+    }
+}
+
+#[allow(clippy::cast_precision_loss)]
 fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimationData)>) {
     for (mut transform, data) in &mut query {
-        let shared = &data.shared_data;
+        let shared = &data.frame_state;
         let frame_num = shared
             .start_frame
             .load(std::sync::atomic::Ordering::Acquire) as usize;
 
         let end_frame = shared.end_frame.load(std::sync::atomic::Ordering::Acquire) as usize;
 
-        let mul = shared.mul_1000.load(std::sync::atomic::Ordering::Acquire) as f32 / 1000.0;
+        let mul = shared.mul_1000.load(std::sync::atomic::Ordering::Acquire) as f32 / ATOMIC_SCALE;
 
-        let mov_delta = shared.mov_delta.load(std::sync::atomic::Ordering::Acquire) as f32 / 1000.0;
+        let mov_delta = shared
+            .mov_delta_1000
+            .load(std::sync::atomic::Ordering::Acquire) as f32
+            / ATOMIC_SCALE;
 
         let frame_a = data
             .animation_data

@@ -166,26 +166,41 @@ fn run_convert_zengin_model_to_entities(
 pub struct BoneAnimationData {
     pub animation_data: Arc<AnimationData>,
     pub bone_index: usize,
-    // pub time_dt: f32,
-    // pub move_dt: f32,
     pub is_base_pos_bone: bool,
-    pub shared_data: Arc<SharedData>,
-    // pub avg: Vec3,
+    pub frame_state: Arc<FrameState>,
 }
 
 #[derive(Debug)]
-pub struct SharedData {
-    pub movement: Vec<f32>,
-    pub fps: f32,
+pub struct FrameState {
     pub start_frame: AtomicU32,
     pub end_frame: AtomicU32,
-    pub delta_movement: AtomicU32,
     pub mul_1000: AtomicU32,
-    pub mov_delta: AtomicU32,
+    pub mov_delta_1000: AtomicU32,
 }
+
+#[derive(Debug)]
+pub struct AnimateBasedOnMovement {
+    pub movement: Vec<f32>,
+    pub delta_movement: AtomicU32,
+}
+
+#[derive(Debug)]
+pub struct StandardAnimation {
+    pub time_ms: AtomicU32,
+    pub fps: f32,
+}
+
 #[derive(Component, Debug)]
-pub struct BoneAnimationJontsSharedData {
-    pub shared_data: Arc<SharedData>,
+pub struct AnimateBasedOnMovementComponent {
+    pub frame_state: Arc<FrameState>,
+    pub model_animation_state: AnimateBasedOnMovement,
+}
+
+#[derive(Component, Debug)]
+pub struct StandardAnimationComponent {
+    pub frame_state: Arc<FrameState>,
+    pub model_animation_state: StandardAnimation,
+    pub frames_num: u32,
 }
 
 pub fn create_skined_mesh_data(
@@ -206,28 +221,40 @@ pub fn create_skined_mesh_data(
         .iter()
         .position(|el| el == "BIP01")
         .unwrap_or(0);
-    // let has_movement = animation_data.bone_has_movement(base_pos_index);
     //
     let animation_data = animation_data.cloned().unwrap_or(AnimationData::default());
+    let has_movement = animation_data.bone_has_movement(base_pos_index);
 
-    // let (_, avg, _) = animation_data
-    //     .compute_average_min_max_position_for_bone(base_pos_index)
-    //     .unwrap();
-    let shared_data = Arc::new(SharedData {
+    let frame_state = Arc::new(FrameState {
         start_frame: AtomicU32::new(1),
-        fps: animation_data.fps,
-        delta_movement: AtomicU32::new(1),
         end_frame: AtomicU32::new(1),
         mul_1000: AtomicU32::new(1),
-        mov_delta: AtomicU32::new(1),
-        movement: animation_data.get_movement(base_pos_index),
+        mov_delta_1000: AtomicU32::new(1),
     });
+
     let animation_data = Arc::new(animation_data);
-    {
+    if has_movement {
+        let model_animation_state = AnimateBasedOnMovement {
+            movement: animation_data.get_movement(base_pos_index),
+            delta_movement: AtomicU32::new(1),
+        };
         commands
             .entity(skeleton_parent)
-            .insert(BoneAnimationJontsSharedData {
-                shared_data: shared_data.clone(),
+            .insert(AnimateBasedOnMovementComponent {
+                frame_state: frame_state.clone(),
+                model_animation_state,
+            });
+    } else {
+        let model_animation_state = StandardAnimation {
+            fps: animation_data.fps,
+            time_ms: AtomicU32::new(1),
+        };
+        commands
+            .entity(skeleton_parent)
+            .insert(StandardAnimationComponent {
+                frame_state: frame_state.clone(),
+                model_animation_state,
+                frames_num: animation_data.frames_num,
             });
     }
 
@@ -244,7 +271,7 @@ pub fn create_skined_mesh_data(
                             animation_data: animation_data.clone(),
                             bone_index: local_index,
                             is_base_pos_bone: index == base_pos_index,
-                            shared_data: shared_data.clone(),
+                            frame_state: frame_state.clone(),
                         },
                         *el,
                         Visibility::Inherited,

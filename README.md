@@ -4,9 +4,11 @@ Experimental project to check how hard it would be to create world viewer for Go
 Maybe it will evolve to a full game reimplementation?
 
 # Screen
+![Party](/misc/screenshots/party.jpg "Party")
+
 ![Farm](/misc/screenshots/farm.jpg "Farm")
 
-![Khorinis at night](/misc/screenshots/khorinis.png "Khorinis at night")
+![Khorinis at night](/misc/screenshots/khorinis.jpg "Khorinis at night")
 
 # Quick start on Linux
 ```bash
@@ -31,6 +33,15 @@ cargo run
 - Quests
 - Combat
 - Everything else
+
+# Note on performance
+Currently rendering shadow textures takes a LOT of time because it draws almos all objects on the map.
+All game objects are drawn and computed every frame so bad performance is expected.
+
+Due to shadows performance hit they are disabled by default. To enable them, change this constant to false:
+```rust
+const PREFER_PERF: bool = true;
+```
 
 # Plans
 I plan to support scripts by recompiling zengin binary scripts to wasm and support host functions using wasm component model.

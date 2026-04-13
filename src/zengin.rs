@@ -99,6 +99,10 @@ fn spawn_world(
                 head_model: npc.head_model.clone(),
                 head_texture: npc.head_texture.clone(),
                 armor_model: npc.armor_model.clone(),
+                animation: Some(
+                    // "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WATCHFIGHT.MAN".to_string(),
+                    "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_FIRE_VICTIM.MAN".to_string(),
+                ),
             },
             npc.body_tr,
             NpcVisibility::default(),
@@ -179,7 +183,8 @@ fn spawn_world(
         TransformInterpolation,
         // Mesh3d(meshes.add(Capsule3d::new(0.5, 0.8))),
         // MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        Transform::from_xyz(0.0, 1.5, 0.0),
+        // Transform::from_xyz(0.0, 1.5, 0.0),
+        Transform::from_xyz(-99.0, 6.0, -8.0),
     ));
 
     // Player visual
@@ -200,6 +205,7 @@ fn spawn_world(
             // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_SLD_H.MDL".to_string()),
             // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PAL_H.MDM".to_string()),
             armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_LESTER.MDM".to_string()),
+            animation: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUNL.MAN".to_string()),
         },
     ));
 }
