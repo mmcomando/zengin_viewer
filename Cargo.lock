@@ -17,7 +17,7 @@ dependencies = [
 [[package]]
 name = "ZenKit-rs"
 version = "0.1.0"
-source = "git+https://github.com/mmcomando/ZenKit-rs.git?rev=700c6e496f314f0654baef5b94a7dea642f43a3f#700c6e496f314f0654baef5b94a7dea642f43a3f"
+source = "git+https://github.com/mmcomando/ZenKit-rs.git?rev=956f4d9a157120425e3022e68c9628125dfac4d3#956f4d9a157120425e3022e68c9628125dfac4d3"
 dependencies = [
  "ZenKitCAPI-sys",
  "glam 0.30.10",
@@ -26,7 +26,7 @@ dependencies = [
 [[package]]
 name = "ZenKitCAPI-sys"
 version = "0.1.0"
-source = "git+https://github.com/mmcomando/ZenKit-sys.git?rev=d801635af091b4765094fa2aa74a6b1dc16dea8d#d801635af091b4765094fa2aa74a6b1dc16dea8d"
+source = "git+https://github.com/mmcomando/ZenKit-sys.git?rev=7f1b7e4ed5cde91c5e04250775b348efd75a49aa#7f1b7e4ed5cde91c5e04250775b348efd75a49aa"
 dependencies = [
  "cmake",
 ]
