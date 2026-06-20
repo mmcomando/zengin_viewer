@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
+use crate::zengin::{common::*, conversions::*, visual::material::get_standard_material};
 use bevy::{
     asset::RenderAssetUsages,
     mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
     prelude::*,
 };
-
-use crate::zengin::{common::*, visual::material::get_standard_material};
 
 // fn is_forearm(
 //     wedges_indices: &[u16],
@@ -86,7 +85,7 @@ pub fn meshes_from_zengin_mrs_mesh(
                     for weight_index in 0..skin.weight_count(vertex_index) {
                         let weight_entry = skin.weight(vertex_index, weight_index);
 
-                        let pos_local = get_world_pos(weight_entry.position);
+                        let pos_local = get_world_pos(weight_entry.position.to_glam());
                         let f_tr = final_tr[weight_entry.node_index as usize];
                         let dt = f_tr.to_matrix() * pos_local.to_homogeneous();
                         let dt = dt.truncate();
@@ -106,12 +105,12 @@ pub fn meshes_from_zengin_mrs_mesh(
                 } else {
                     mesh_data
                         .vertices
-                        .push(get_world_pos(positions[vertex_index as usize]));
+                        .push(get_world_pos(positions[vertex_index as usize].to_glam()));
                 }
                 mesh_data.colors.push(material_color);
                 mesh_data.indices.push(mesh_data.indices.len() as u32);
-                mesh_data.uvs.push(wedge.texture);
-                mesh_data.normals.push(wedge.normal);
+                mesh_data.uvs.push(wedge.texture.to_glam());
+                mesh_data.normals.push(wedge.normal.to_glam());
             }
         }
     }

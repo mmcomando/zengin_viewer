@@ -1,3 +1,4 @@
+use crate::zengin::conversions::*;
 use bevy::{asset::io::Reader, prelude::*};
 use zen_kit_rs::stream::Read;
 
@@ -141,8 +142,8 @@ impl AssetLoader for ZenGinAnimationLoader {
             .samples()
             .iter()
             .map(|el| AnimationSample {
-                position: get_world_pos(el.position),
-                rotation: get_world_quat(el.rotation),
+                position: get_world_pos(el.position.to_glam()),
+                rotation: get_world_quat(el.rotation.to_glam()),
             })
             .collect();
         assert_eq!(samples.len(), (bones_num * frames_num) as usize);

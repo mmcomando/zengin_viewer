@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use zen_kit_rs::model::ModelHierarchyNode;
 
-use crate::zengin::{common::*, visual::mesh_mrs::meshes_from_zengin_mrs_mesh};
+use crate::zengin::{common::*, conversions::*, visual::mesh_mrs::meshes_from_zengin_mrs_mesh};
 
 pub fn meshes_from_zengin_model(
     model: &zen_kit_rs::model::Model,
@@ -56,7 +56,7 @@ pub fn meshes_from_zengin_model_mesh(
         let hierarchy = weights_hierarchy_model.hierarchy();
         let nodes = hierarchy.nodes();
 
-        let root_pos = get_world_pos(hierarchy.root_translation());
+        let root_pos = get_world_pos(hierarchy.root_translation().to_glam());
         let root_tr = Transform::from_translation(root_pos);
 
         // println!("ZenGinModel root_pos({:.2}):", root_pos);
@@ -75,7 +75,7 @@ pub fn meshes_from_zengin_model_mesh(
 
         let mut final_tr: Vec<Transform> = nodes
             .iter()
-            .map(|node| get_world_transform(node.transform))
+            .map(|node| get_world_transform(node.transform.to_glam()))
             .collect();
 
         model.nodes.clone_from(&final_tr);

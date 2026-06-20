@@ -12,6 +12,7 @@ use crate::{
     warn_unimplemented,
     zengin::{
         common::*,
+        conversions::*,
         script::script_vm::{InstanceState, SpawnItem, SpawnNpc},
         visual::mesh::meshes_from_zengin_mesh,
     },
@@ -273,7 +274,7 @@ fn load_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
     let points = way_net.points();
     for point in points {
         let name = point.name().to_lowercase();
-        let pos = get_world_pos(point.position());
+        let pos = get_world_pos(point.position().to_glam());
         let direction = point.direction();
         let dir_2d = Vec2 {
             x: direction.x,
@@ -354,14 +355,14 @@ fn load_objects(
 }
 
 fn get_obj_tr(obj: &VirtualObject) -> Transform {
-    let pos = get_world_pos(obj.position());
-    let rot = get_world_rot(obj.rotation());
+    let pos = get_world_pos(obj.position().to_glam());
+    let rot = get_world_rot(obj.rotation().to_glam());
     return Transform::from_translation(pos).with_rotation(rot);
 }
 
 fn handle_light(obj: &VirtualObject, data: &mut ZenGinWorldData) {
-    let pos = get_world_pos(obj.position());
-    let rot = get_world_rot(obj.rotation());
+    let pos = get_world_pos(obj.position().to_glam());
+    let rot = get_world_rot(obj.rotation().to_glam());
     // if !obj.cd_dynamic() {
     //     return;
     // }

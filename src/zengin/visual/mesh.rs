@@ -1,3 +1,4 @@
+use crate::zengin::conversions::*;
 use std::collections::HashMap;
 
 use bevy::{
@@ -84,8 +85,8 @@ pub fn meshes_from_zengin_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
                 };
                 let idx_feature = polygon_features_indices[idx];
                 let feature = mesh.vertex(u64::from(idx_feature));
-                mesh_data.uvs.push(feature.texture);
-                mesh_data.normals.push(feature.normal);
+                mesh_data.uvs.push(feature.texture.to_glam());
+                mesh_data.normals.push(feature.normal.to_glam());
             }
         }
 
@@ -100,7 +101,7 @@ pub fn meshes_from_zengin_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
                     triangle_index + index
                 };
                 mesh_data.vertices.push(get_world_pos(
-                    mesh.position(u64::from(polygon_indices[idx])),
+                    mesh.position(u64::from(polygon_indices[idx])).to_glam(),
                 ));
             }
         }
