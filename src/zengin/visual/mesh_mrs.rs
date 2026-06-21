@@ -142,8 +142,7 @@ pub fn meshes_from_zengin_mrs_mesh(
                 VertexAttributeValues::Uint16x4(mesh_data.bone_indices),
             );
             mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, mesh_data.weights);
-            // TODO uncomment in bevy 0.19, this should improve frustum culling for animated objects
-            // mesh.with_generated_skinned_mesh_bounds();
+            mesh.generate_skinned_mesh_bounds().unwrap();
         }
 
         model.sub_meshes.push(ZenGinSubMesh {

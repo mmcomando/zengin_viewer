@@ -9,6 +9,7 @@ use crate::zengin::loaders::model::{ZenGinModelLoader, ZenGinModelLoaderSettings
 use crate::zengin::loaders::texture::ZenGinTextureLoader;
 use crate::zengin::visual::material::MatrialHashed;
 use avian3d::prelude::*;
+use bevy::camera::visibility::DynamicSkinnedMeshBounds;
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
@@ -379,8 +380,7 @@ fn convert_zengin_model_to_entities(
             {
                 sub_entity.insert(skinned_mesh);
                 sub_entity.insert(Transform::IDENTITY);
-                //     // upcoming in bevy 0.19
-                //     // DynamicSkinnedMeshBounds,
+                sub_entity.insert(DynamicSkinnedMeshBounds);
             }
 
             let sub_entity = sub_entity.id();
