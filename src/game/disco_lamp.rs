@@ -37,7 +37,7 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadows_enabled: !PREFER_PERF,
+            shadow_maps_enabled: !PREFER_PERF,
             ..default()
         },
         Transform::from_xyz(0.0, 0.0, 3.0),
@@ -51,7 +51,7 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadows_enabled: !PREFER_PERF,
+            shadow_maps_enabled: !PREFER_PERF,
             ..default()
         },
         Transform::from_xyz(0.0, 0.0, -3.0),
@@ -65,7 +65,7 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadows_enabled: !PREFER_PERF,
+            shadow_maps_enabled: !PREFER_PERF,
             ..default()
         },
         Transform::from_xyz(3.0, 0.0, 0.0),
@@ -79,7 +79,7 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadows_enabled: !PREFER_PERF,
+            shadow_maps_enabled: !PREFER_PERF,
             ..default()
         },
         Transform::from_xyz(-3.0, 0.0, 0.0),

@@ -140,7 +140,7 @@ fn spawn_lights(mut commands: Commands) {
     commands.spawn((
         PointLight {
             color: Color::from(tailwind::ORANGE_300),
-            shadows_enabled: !PREFER_PERF,
+            shadow_maps_enabled: !PREFER_PERF,
             ..default()
         },
         Transform::from_xyz(-12.0, 3.0, 10.0),
@@ -151,7 +151,7 @@ fn spawn_lights(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT,
             range: 100.0,
             radius: 10.0,
-            shadows_enabled: !PREFER_PERF,
+            shadow_maps_enabled: !PREFER_PERF,
             ..default()
         },
         Transform::from_xyz(-8.5, 1.0, -15.0),
@@ -176,7 +176,7 @@ fn spawn_lights(mut commands: Commands) {
             // color: Color::from(tailwind::SKY_50),
             illuminance: bevy::light::light_consts::lux::FULL_MOON_NIGHT,
             // illuminance: bevy::light::light_consts::lux::AMBIENT_DAYLIGHT / 15.0,
-            shadows_enabled: !PREFER_PERF,
+            shadow_maps_enabled: !PREFER_PERF,
             ..default()
         },
         Transform::from_xyz(1000.0, 1000.0, -10.0).looking_at(

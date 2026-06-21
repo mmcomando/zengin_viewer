@@ -44,12 +44,13 @@ fn update_skybox_texture(
     if !asset_server.load_state(&cubemap.image_handle).is_loaded() {
         return;
     }
-    let image = images.get_mut(&cubemap.image_handle).unwrap();
+    let mut image = images.get_mut(&cubemap.image_handle).unwrap();
     // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
     // so they appear as one texture. The following code reconfigures the texture as necessary.
     if image.texture_descriptor.array_layer_count() == 1 {
+        let layers = image.height() / image.width();
         image
-                .reinterpret_stacked_2d_as_array(image.height() / image.width())
+                .reinterpret_stacked_2d_as_array(layers)
                 .expect("asset should be 2d texture and height will always be evenly divisible with the given layers");
         image.texture_view_descriptor = Some(TextureViewDescriptor {
             dimension: Some(TextureViewDimension::Cube),
@@ -69,7 +70,7 @@ fn add_skybox_to_camera(
     for entity_id in query.iter() {
         commands.entity(entity_id).insert(Skybox {
             // image: skybox_handle.clone(),
-            image: cubemap.image_handle.clone(),
+            image: Some(cubemap.image_handle.clone()),
             brightness: 1000.0,
             ..default()
         });
