@@ -16,21 +16,26 @@ mod character;
 mod game;
 mod gui;
 mod skybox;
-mod toggle_visibility;
 mod zengin;
 mod zengin_resources;
 
 use crate::character::CharacterControllerPlugin;
+use crate::game::animation::SkeletalAnimations;
 use crate::game::disco_lamp::DiscoLamp;
-use crate::gui::{CameraSettingsPlugin, get_overlay_plugin};
+use crate::game::distance::DistancePlugin;
+use crate::gui::camera::{CameraSettingsPlugin, get_overlay_plugin};
+use crate::gui::egui::GameDebugUI;
+use crate::gui::statistics::StatisticsPlugin;
+use crate::gui::toggle_visibility::ToggleVisibility;
 use crate::skybox::SkyBoxPlugin;
-use crate::toggle_visibility::ToggleVisibility;
 use crate::zengin::ZenGinWorldPlugin;
 use crate::zengin::loaders::vdf_reader::create_zengin_asset_loader;
 use avian3d::prelude::*;
 use bevy::anti_alias::smaa::Smaa;
 use bevy::light::CascadeShadowConfigBuilder;
-use bevy::pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel};
+use bevy::pbr::{
+    ContactShadows, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel,
+};
 use bevy::window::PresentMode;
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
@@ -46,7 +51,8 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "ZenGin Walker".into(),
-                present_mode: PresentMode::AutoVsync,
+                present_mode: PresentMode::AutoNoVsync,
+                // present_mode: PresentMode::AutoVsync,
                 ..default()
             }),
             ..default()
@@ -63,6 +69,10 @@ fn main() {
         .add_plugins(ToggleVisibility)
         .add_plugins(CharacterControllerPlugin)
         .add_plugins(DiscoLamp)
+        .add_plugins(DistancePlugin)
+        .add_plugins(GameDebugUI)
+        .add_plugins(StatisticsPlugin)
+        .add_plugins(SkeletalAnimations)
         // Run
         .run();
 }
@@ -86,6 +96,8 @@ fn spawn_camera(mut commands: Commands) {
             ..default()
         },
         Camera3d::default(),
+        // Contact shadows introduce visible noise on models, disable it until it improves
+        ContactShadows::default(),
         // Xardas
         // Transform::from_xyz(-297.0 - 2.0, 55.0, -159.5 + 5.0).looking_at(
         //     Vec3 {
@@ -134,51 +146,43 @@ fn spawn_camera(mut commands: Commands) {
 // - Draw only near lights (frustum for lights takes considerable amount of time)
 // - Animate only near objects
 // - Less demanding shadows
-const PREFER_PERF: bool = true;
+const PREFER_PERF: bool = false;
+// Shadow maps are very heavy and disco demo uses 4 of them tanking performance
+// Enabling this make fps go from 300 to 80
+const ENABLE_DISCO_SHADOW_MAPS: bool = false;
+const DAY: bool = true;
 
 fn spawn_lights(mut commands: Commands) {
-    commands.spawn((
-        PointLight {
-            color: Color::from(tailwind::ORANGE_300),
-            shadow_maps_enabled: !PREFER_PERF,
-            ..default()
-        },
-        Transform::from_xyz(-12.0, 3.0, 10.0),
-    ));
-    commands.spawn((
-        PointLight {
-            color: Color::from(tailwind::ORANGE_300),
-            intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT,
-            range: 100.0,
-            radius: 10.0,
-            shadow_maps_enabled: !PREFER_PERF,
-            ..default()
-        },
-        Transform::from_xyz(-8.5, 1.0, -15.0),
-    ));
-
     let cascade_shadow_config = CascadeShadowConfigBuilder {
-        num_cascades: 4,
-        first_cascade_far_bound: 50.0,
-        maximum_distance: 2000.0,
+        // first_cascade_far_bound: 50.0, // default: 10.0
+        // maximum_distance: 2000.0, // default: 150.0
+        maximum_distance: 500.0, // default: 150.0
         ..default()
     }
     .build();
 
-    commands.insert_resource(GlobalAmbientLight {
+    let mut light = DirectionalLight {
+        color: Color::srgb_u8(172, 172, 193), // Moon color
+        illuminance: bevy::light::light_consts::lux::FULL_MOON_NIGHT,
+        shadow_maps_enabled: !PREFER_PERF,
+        // contact_shadows_enabled: true,
+        ..default()
+    };
+    let mut ambient_light = GlobalAmbientLight {
         color: Color::linear_rgb(1.0, 1.0, 1.0),
         brightness: 20.0,
         ..default()
-    });
+    };
+    if DAY {
+        ambient_light.brightness = 200.0;
+        light.illuminance = bevy::light::light_consts::lux::OVERCAST_DAY;
+        light.color = Color::from(tailwind::SKY_50);
+    }
+
+    commands.insert_resource(ambient_light);
+
     commands.spawn((
-        DirectionalLight {
-            color: Color::srgb_u8(172, 172, 193), // Moon color
-            // color: Color::from(tailwind::SKY_50),
-            illuminance: bevy::light::light_consts::lux::FULL_MOON_NIGHT,
-            // illuminance: bevy::light::light_consts::lux::AMBIENT_DAYLIGHT / 15.0,
-            shadow_maps_enabled: !PREFER_PERF,
-            ..default()
-        },
+        light,
         Transform::from_xyz(1000.0, 1000.0, -10.0).looking_at(
             Vec3 {
                 x: 0.0,

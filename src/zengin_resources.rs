@@ -1,16 +1,15 @@
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::atomic::AtomicU32;
 
-use crate::game::objects_to_entities::AnimatedJoint;
+use crate::game::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::loaders::animation::{AnimationData, ZenGinAnimationLoader};
 use crate::zengin::loaders::model::{ZenGinModelLoader, ZenGinModelLoaderSettings};
 use crate::zengin::loaders::texture::ZenGinTextureLoader;
 use crate::zengin::visual::material::MatrialHashed;
 use avian3d::prelude::*;
+use bevy::camera::primitives::{Aabb, MeshAabb};
 use bevy::camera::visibility::DynamicSkinnedMeshBounds;
-use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
+use bevy::mesh::skinning::SkinnedMesh;
 use bevy::prelude::*;
 
 #[derive(Default)]
@@ -30,6 +29,9 @@ impl Plugin for ZenGinInsertResources {
             Update,
             convert_zengin_model_to_entities.run_if(run_convert_zengin_model_to_entities),
         );
+
+        app.add_systems(Update, add_classify_distance);
+        app.add_systems(Last, despawn_visual_when_far_resource);
     }
 }
 
@@ -158,157 +160,12 @@ impl MaterialHandles {
 
 /// Check only entities which were not handled previously
 #[derive(Component, Default)]
-struct ZenGinModelComponentLoaded {}
+pub struct ZenGinModelComponentLoaded {}
 
 fn run_convert_zengin_model_to_entities(
     query: Query<&ZenGinModelComponent, Without<ZenGinModelComponentLoaded>>,
 ) -> bool {
     query.iter().next().is_some()
-}
-
-#[derive(Component, Debug)]
-pub struct BoneAnimationData {
-    pub animation_data: Arc<AnimationData>,
-    pub bone_index: usize,
-    pub is_base_pos_bone: bool,
-    pub frame_state: Arc<FrameState>,
-}
-
-#[derive(Debug)]
-pub struct FrameState {
-    pub start_frame: AtomicU32,
-    pub end_frame: AtomicU32,
-    pub mul_1000: AtomicU32,
-    pub mov_delta_1000: AtomicU32,
-}
-
-#[derive(Debug)]
-pub struct AnimateBasedOnMovement {
-    pub movement: Vec<f32>,
-    pub delta_movement: AtomicU32,
-}
-
-#[derive(Debug)]
-pub struct StandardAnimation {
-    pub time_ms: AtomicU32,
-    pub fps: f32,
-}
-
-#[derive(Component, Debug)]
-pub struct AnimateBasedOnMovementComponent {
-    pub frame_state: Arc<FrameState>,
-    pub model_animation_state: AnimateBasedOnMovement,
-}
-
-#[derive(Component, Debug)]
-pub struct StandardAnimationComponent {
-    pub frame_state: Arc<FrameState>,
-    pub model_animation_state: StandardAnimation,
-    pub frames_num: u32,
-}
-
-pub fn create_skined_mesh_data(
-    commands: &mut Commands,
-    skinned_mesh_inverse_bindposes_assets: &mut ResMut<Assets<SkinnedMeshInverseBindposes>>,
-    skeleton_parent: Entity,
-    model: &ZenGinModel,
-    animation_data: Option<&AnimationData>,
-) -> Option<SkinnedMesh> {
-    let is_skinned = model.sub_meshes.iter().any(|el| el.is_skinned);
-    if !is_skinned {
-        return None;
-    }
-
-    // Find node with name BIP01
-    let base_pos_index = model
-        .node_names
-        .iter()
-        .position(|el| el == "BIP01")
-        .unwrap_or(0);
-    //
-    let animation_data = animation_data.cloned().unwrap_or(AnimationData::default());
-    let has_movement = animation_data.bone_has_movement(base_pos_index);
-
-    let frame_state = Arc::new(FrameState {
-        start_frame: AtomicU32::new(1),
-        end_frame: AtomicU32::new(1),
-        mul_1000: AtomicU32::new(1),
-        mov_delta_1000: AtomicU32::new(1),
-    });
-
-    let animation_data = Arc::new(animation_data);
-    if has_movement {
-        let model_animation_state = AnimateBasedOnMovement {
-            movement: animation_data.get_movement(base_pos_index),
-            delta_movement: AtomicU32::new(1),
-        };
-        commands
-            .entity(skeleton_parent)
-            .insert(AnimateBasedOnMovementComponent {
-                frame_state: frame_state.clone(),
-                model_animation_state,
-            });
-    } else {
-        let model_animation_state = StandardAnimation {
-            fps: animation_data.fps,
-            time_ms: AtomicU32::new(1),
-        };
-        commands
-            .entity(skeleton_parent)
-            .insert(StandardAnimationComponent {
-                frame_state: frame_state.clone(),
-                model_animation_state,
-                frames_num: animation_data.frames_num,
-            });
-    }
-
-    let joint_entities: Vec<_> = model
-        .nodes
-        .iter()
-        .enumerate()
-        .map(|(index, el)| {
-            if let Some(local_index) = animation_data.get_index_for_bone(index) {
-                commands
-                    .spawn((
-                        AnimatedJoint,
-                        BoneAnimationData {
-                            animation_data: animation_data.clone(),
-                            bone_index: local_index,
-                            is_base_pos_bone: index == base_pos_index,
-                            frame_state: frame_state.clone(),
-                        },
-                        *el,
-                        Visibility::Inherited,
-                    ))
-                    .id()
-            } else {
-                commands
-                    .spawn((AnimatedJoint, *el, Visibility::Inherited))
-                    .id()
-            }
-        })
-        .collect();
-
-    for (index, ent) in joint_entities.iter().enumerate() {
-        let parent = model.parents[index];
-        if parent < 0 {
-            commands.entity(skeleton_parent).add_child(*ent);
-            continue;
-        }
-        commands
-            .entity(joint_entities[parent as usize])
-            .add_child(*ent);
-    }
-
-    let inverse_bindposes =
-        skinned_mesh_inverse_bindposes_assets.add(model.inverse_bindposes.clone());
-    assert!(!model.inverse_bindposes.is_empty());
-    assert!(!joint_entities.is_empty());
-    assert!(joint_entities.len() == model.inverse_bindposes.len());
-    return Some(SkinnedMesh {
-        inverse_bindposes,
-        joints: joint_entities,
-    });
 }
 
 #[allow(clippy::type_complexity)]
@@ -319,7 +176,10 @@ fn convert_zengin_model_to_entities(
     mut meshes: ResMut<Assets<Mesh>>,
     mut material_handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
-    query: Query<(Entity, &ZenGinModelComponent), Without<ZenGinModelComponentLoaded>>,
+    query: Query<
+        (Entity, &ZenGinModelComponent),
+        (With<DistanceNear>, Without<ZenGinModelComponentLoaded>),
+    >,
 ) {
     for (entity_id, model_component) in query.iter() {
         let handle = &model_component.model_handle;
@@ -332,7 +192,14 @@ fn convert_zengin_model_to_entities(
             main_entity.insert(ZenGinModelComponentLoaded::default());
         }
 
+        let mut aabb = Aabb::from_min_max(Vec3::ONE * -1.0, Vec3::ONE);
         for (sub_mesh_index, sub_mesh) in model.sub_meshes.iter().enumerate() {
+            if let Some(sub_aabb) = sub_mesh.mesh.compute_aabb() {
+                aabb = Aabb::from_min_max(
+                    sub_aabb.min().min(aabb.min()).into(),
+                    sub_aabb.max().max(aabb.max()).into(),
+                );
+            }
             if sub_mesh.is_skinned && model_component.bones_data.is_none() {
                 // Bevy can't show skinned meshes without SkinnedMesh component
                 // https://github.com/bevyengine/bevy/issues/22469
@@ -359,6 +226,7 @@ fn convert_zengin_model_to_entities(
                 sub_mesh.transform,
                 Mesh3d(mesh_handle),
                 MeshMaterial3d(material_handle),
+                ClassifyDistance::default(),
             ));
 
             if model_component.convex_colider && sub_mesh.collides {
@@ -386,5 +254,31 @@ fn convert_zengin_model_to_entities(
             let sub_entity = sub_entity.id();
             commands.entity(main_entity_id).add_child(sub_entity);
         }
+        {
+            let mut main_entity = commands.entity(entity_id);
+            main_entity.insert(aabb);
+        }
+    }
+}
+
+fn add_classify_distance(
+    mut commands: Commands,
+    query: Query<Entity, Added<ZenGinModelComponent>>,
+) {
+    for entity_id in query {
+        commands
+            .entity(entity_id)
+            .insert(ClassifyDistance::default());
+    }
+}
+
+pub fn despawn_visual_when_far_resource(
+    mut commands: Commands,
+    q_parent: Query<Entity, (With<DistanceFar>, With<ZenGinModelComponentLoaded>)>,
+) {
+    for entity_id in q_parent.iter() {
+        let mut main_entity = commands.entity(entity_id);
+        main_entity.remove::<ZenGinModelComponentLoaded>();
+        main_entity.despawn_children();
     }
 }

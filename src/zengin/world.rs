@@ -479,6 +479,9 @@ fn handle_other_vob(
         VobType::zCZoneVobFarPlaneDefault => {
             warn_unimplemented!("VobType::zCZoneVobFarPlaneDefault");
         }
+        VobType::zCVobLensFlare => {
+            warn_unimplemented!("VobType::zCVobLensFlare");
+        }
         VobType::ignored => {
             return;
         }
@@ -489,7 +492,6 @@ fn handle_other_vob(
         | VobType::zCVobScreenFX
         | VobType::zCVobStair
         | VobType::zCVobAnimate
-        | VobType::zCVobLensFlare
         | VobType::oCMOB
         | VobType::oCMobBed
         | VobType::oCMobFire

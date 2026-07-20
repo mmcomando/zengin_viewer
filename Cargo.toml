@@ -11,6 +11,7 @@ byteorder = "1.5"
 ZenKit-rs = { git = "https://github.com/mmcomando/ZenKit-rs.git", rev = "3569091272cac1bc2fe149aa7439ab136bfc73b9" }
 ron = "0.12.0"
 serde = "1.0.228"
+bevy_egui = "0.41.1"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

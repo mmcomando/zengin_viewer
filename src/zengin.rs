@@ -11,9 +11,10 @@ use std::sync::Arc;
 use crate::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
 };
+use crate::game::distance::ClassifyDistance;
 use crate::game::objects::GameNpc;
 use crate::game::objects_to_entities::GameObjectSpawnEntities;
-use crate::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
+use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::{ZenGinModel, gothic2_dir};
 use crate::zengin::script::parse::*;
 use crate::zengin::script::script_vm::ScriptVM;
@@ -81,6 +82,7 @@ fn spawn_world(
 
     commands.spawn((
         Visibility::default(),
+        ClassifyDistance::default(),
         ZenGinModelComponent {
             model_handle: world_model_handle,
             trimesh_collider: true,
@@ -112,6 +114,7 @@ fn spawn_world(
     for instance in &world_data.items {
         let model_handle = handles_map.get_model_handle(&asset_server, &instance.model, None);
         commands.spawn((
+            ClassifyDistance::default(),
             ZenGinModelComponent {
                 model_handle: model_handle.clone(),
                 ..default()
@@ -123,6 +126,7 @@ fn spawn_world(
     for instance in &world_data.static_models {
         let model_handle = handles_map.get_model_handle(&asset_server, &instance.archetype, None);
         commands.spawn((
+            ClassifyDistance::default(),
             ZenGinModelComponent {
                 model_handle: model_handle.clone(),
                 convex_colider: true,
@@ -136,7 +140,7 @@ fn spawn_world(
 
     for instance in world_data.light_instances {
         if true {
-            // For now ignore light for performance
+            // For now ignore lights for performance, also it seems that most lights are for baking light data, not for rendering?
             continue;
         }
         let tr = Transform::from_translation(instance.pos).with_rotation(instance.rot);

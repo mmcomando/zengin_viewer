@@ -1,4 +1,4 @@
-use crate::PREFER_PERF;
+use crate::ENABLE_DISCO_SHADOW_MAPS;
 
 use avian3d::math::PI;
 
@@ -37,7 +37,7 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadow_maps_enabled: !PREFER_PERF,
+            shadow_maps_enabled: ENABLE_DISCO_SHADOW_MAPS,
             ..default()
         },
         Transform::from_xyz(0.0, 0.0, 3.0),
@@ -51,7 +51,7 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadow_maps_enabled: !PREFER_PERF,
+            shadow_maps_enabled: ENABLE_DISCO_SHADOW_MAPS,
             ..default()
         },
         Transform::from_xyz(0.0, 0.0, -3.0),
@@ -65,7 +65,7 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadow_maps_enabled: !PREFER_PERF,
+            shadow_maps_enabled: ENABLE_DISCO_SHADOW_MAPS,
             ..default()
         },
         Transform::from_xyz(3.0, 0.0, 0.0),
@@ -79,7 +79,7 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadow_maps_enabled: !PREFER_PERF,
+            shadow_maps_enabled: ENABLE_DISCO_SHADOW_MAPS,
             ..default()
         },
         Transform::from_xyz(-3.0, 0.0, 0.0),
