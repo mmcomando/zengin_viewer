@@ -12,6 +12,10 @@ ZenKit-rs = { git = "https://github.com/mmcomando/ZenKit-rs.git", rev = "3569091
 ron = "0.12.0"
 serde = "1.0.228"
 bevy_egui = "0.41.1"
+openxr = "0.21.1"
+bevy_mod_openxr = "0.6.0"
+bevy_mod_xr = "0.6.0"
+bevy_xr_utils = "0.6.0"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

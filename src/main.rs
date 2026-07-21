@@ -27,6 +27,7 @@ use crate::gui::camera::{CameraSettingsPlugin, get_overlay_plugin};
 use crate::gui::egui::GameDebugUI;
 use crate::gui::statistics::StatisticsPlugin;
 use crate::gui::toggle_visibility::ToggleVisibility;
+use crate::gui::xr::{XrPlugin, is_xr_enabled};
 use crate::skybox::SkyBoxPlugin;
 use crate::zengin::ZenGinWorldPlugin;
 use crate::zengin::loaders::vdf_reader::create_zengin_asset_loader;
@@ -44,25 +45,33 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
-        // This app custom assert source, has to be regitred before default plugins
-        .register_asset_source("zengin", create_zengin_asset_loader())
-        // Default plugins
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "ZenGin Walker".into(),
-                present_mode: PresentMode::AutoNoVsync,
-                // present_mode: PresentMode::AutoVsync,
-                ..default()
-            }),
+    let mut app = App::new();
+    // This app custom assert source, has to be registered before default plugins
+    app.register_asset_source("zengin", create_zengin_asset_loader());
+    // Default plugin
+    let window_plugin_options = WindowPlugin {
+        primary_window: Some(Window {
+            title: "ZenGin Walker".into(),
+            present_mode: PresentMode::AutoNoVsync,
+            // present_mode: PresentMode::AutoVsync,
             ..default()
-        }))
-        // Plugins from crates
-        .add_plugins(PhysicsPlugins::default())
+        }),
+        ..default()
+    };
+    // XR or standard rendering
+    if is_xr_enabled() {
+        app.add_plugins(XrPlugin::new(window_plugin_options));
+    } else {
+        app.add_plugins(DefaultPlugins.set(window_plugin_options));
+    }
+
+    // Plugins from crates
+    app.add_plugins(PhysicsPlugins::default())
         .add_plugins(FreeCameraPlugin)
-        .add_plugins(get_overlay_plugin())
-        // This app custom plugins
-        .add_plugins(BasicContentPlugin)
+        .add_plugins(get_overlay_plugin());
+
+    // This app custom plugins
+    app.add_plugins(BasicContentPlugin)
         .add_plugins(ZenGinWorldPlugin)
         .add_plugins(CameraSettingsPlugin)
         .add_plugins(SkyBoxPlugin)
@@ -72,15 +81,18 @@ fn main() {
         .add_plugins(DistancePlugin)
         .add_plugins(GameDebugUI)
         .add_plugins(StatisticsPlugin)
-        .add_plugins(SkeletalAnimations)
-        // Run
-        .run();
+        .add_plugins(SkeletalAnimations);
+    // Run
+    app.run();
 }
 
 struct BasicContentPlugin;
 impl Plugin for BasicContentPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_camera);
+        if !is_xr_enabled() {
+            // Disable main camera for performance
+            app.add_systems(Startup, spawn_camera);
+        }
         app.add_systems(Startup, spawn_lights);
     }
 }
