@@ -59,14 +59,20 @@ fn get_camera_pos(mut state: ResMut<MainCameraPos>, query: Query<&Transform, Wit
     }
 }
 
-const DIST_FAR: f32 = 200.0;
-const DIST_FAR_SQUARED: f32 = DIST_FAR * DIST_FAR;
+const DIST_MAKE_FAR: f32 = 200.0;
+const DIST_MAKE_FAR_SQUARED: f32 = DIST_MAKE_FAR * DIST_MAKE_FAR;
+
+/// Create hysteresis between transitions from far to near
+/// It is needed for two reasons:
+/// - Make objects popping less visible
+/// - Prevent constant loading/unloading of objects at the edge of visibility
+const FAR_OVERSHOOT: f32 = 1.1;
 
 // Larger objects are hidden later
-fn obj_is_visible(camera_tr: &Transform, gl_tr: &GlobalTransform, obj_size: f32) -> bool {
+fn obj_is_visible(camera_tr: &Transform, gl_tr: &GlobalTransform, overshoot: f32) -> bool {
     let pos_dt = camera_tr.translation - gl_tr.translation();
     let distance_squared = pos_dt.length_squared();
-    return distance_squared < DIST_FAR_SQUARED * obj_size;
+    return distance_squared < DIST_MAKE_FAR_SQUARED * overshoot;
 }
 fn update_distance_state_far(
     mut commands: Commands,
@@ -91,7 +97,7 @@ fn update_distance_state_near(
 ) {
     for (entity_id, tr, aabb) in query {
         let obj_size = aabb.map_or(1.0, |el| el.max().length());
-        if !obj_is_visible(&state.tr, tr, obj_size) {
+        if !obj_is_visible(&state.tr, tr, obj_size * FAR_OVERSHOOT) {
             let mut entity_cmd = commands.entity(entity_id);
             entity_cmd.remove::<DistanceNear>();
             entity_cmd.insert(DistanceFar::default());
