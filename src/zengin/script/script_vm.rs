@@ -75,13 +75,18 @@ pub struct ItemInstance {
     pub visual_change: Option<String>,
 }
 
+#[derive(Debug, Default)]
+pub struct LoadedState {
+    pub spawn_npcs: Vec<SpawnNpc>,
+    pub spawn_items: Vec<SpawnItem>,
+    pub instance_data: HashMap<u32, InstanceState>,
+    pub item_instances: HashMap<String, ItemInstance>,
+}
+
 #[derive(Debug)]
 pub struct State {
     pub stack: VecDeque<StackVVV>,
-    pub spawn_npcs: Vec<SpawnNpc>,
-    pub spawn_weapons: Vec<SpawnItem>,
-    pub instance_data: HashMap<u32, InstanceState>,
-    pub item_instances: HashMap<String, ItemInstance>,
+    pub loaded_state: LoadedState,
     pub current_instance: Option<u32>,
     pub mem: ScriptMem,
     pub script_data: Arc<DatFile>,
@@ -92,10 +97,7 @@ impl State {
         let mem = ScriptMem::from(&script_data);
         State {
             stack: VecDeque::new(),
-            spawn_npcs: Vec::new(),
-            spawn_weapons: Vec::new(),
-            instance_data: HashMap::new(),
-            item_instances: HashMap::new(),
+            loaded_state: Default::default(),
             current_instance: None,
             mem,
             script_data,
@@ -266,6 +268,7 @@ impl ScriptVM {
             //     instance.symbol.name, item
             // );
             state
+                .loaded_state
                 .item_instances
                 .insert(instance.symbol.name.clone(), item);
         }

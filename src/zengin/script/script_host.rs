@@ -50,7 +50,11 @@ impl ScriptVM {
             None
         };
 
-        let entry = state.instance_data.entry(npc_index).or_default();
+        let entry = state
+            .loaded_state
+            .instance_data
+            .entry(npc_index)
+            .or_default();
 
         entry.body_texture = body_texture;
         entry.face_texture = face_texture;
@@ -66,7 +70,11 @@ impl ScriptVM {
         let npc_index = state.pop_stack_var_int();
         let npc_index = npc_index.unwrap();
 
-        let entry = state.instance_data.entry(npc_index).or_default();
+        let entry = state
+            .loaded_state
+            .instance_data
+            .entry(npc_index)
+            .or_default();
         entry.hierarchy = Some(hierarchy_file.clone());
         return Ok(());
     }
@@ -82,7 +90,7 @@ impl ScriptVM {
 
         let instance = state.current_instance.unwrap();
 
-        let entry = state.instance_data.get_mut(&instance).unwrap();
+        let entry = state.loaded_state.instance_data.get_mut(&instance).unwrap();
 
         let routine_entry = RoutineEntry {
             start_h,
@@ -108,7 +116,7 @@ impl ScriptVM {
         //     way_point_name.data, wepon_string.data
         // );
 
-        state.spawn_weapons.push(SpawnItem {
+        state.loaded_state.spawn_items.push(SpawnItem {
             instance_name: wepon_string.clone(),
             way_point: way_point_name.clone(),
         });
@@ -131,7 +139,7 @@ impl ScriptVM {
             way_point: point_symbol.clone(),
         };
 
-        state.spawn_npcs.push(npc);
+        state.loaded_state.spawn_npcs.push(npc);
         Ok(())
     }
 }

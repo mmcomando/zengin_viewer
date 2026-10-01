@@ -3,6 +3,7 @@ pub mod conversions;
 pub mod loaders;
 pub mod macros;
 pub mod script;
+pub mod script2;
 pub mod visual;
 pub mod world;
 
@@ -18,6 +19,7 @@ use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::{ZenGinModel, gothic2_dir};
 use crate::zengin::script::parse::*;
 use crate::zengin::script::script_vm::ScriptVM;
+use crate::zengin::script2::component::WorldScript;
 use crate::zengin::world::load_zengin_world_data;
 use crate::zengin_resources::{
     DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
@@ -41,36 +43,23 @@ impl Plugin for ZenGinWorldPlugin {
 #[derive(Default, Component)]
 pub struct PlayerMarker;
 
-fn get_zen_gin_world_init_state() -> crate::zengin::script::script_vm::State {
-    let _span = info_span!("InitScripts",).entered();
-    let path_str = gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT";
-    let dat_data = parse_dat(&path_str).unwrap();
-    let dat_data = Arc::from(dat_data);
-    let mut vm_state = crate::zengin::script::script_vm::State::new(dat_data.clone());
-    let script_vm = ScriptVM::new(dat_data.clone());
-
-    script_vm.initialize_variables(&mut vm_state);
-    script_vm.interpret_script_function(&mut vm_state, "startup_newworld");
-    script_vm.instantiate_npc_routines(&mut vm_state);
-    vm_state
-}
-
 fn spawn_world(
     mut commands: Commands,
     mut handles_map: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
+    gothic_script: Res<WorldScript>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let _span = info_span!("spawn_world").entered();
     println!("\n-----SCRIPTS VM-----\n");
-    let vm_state = get_zen_gin_world_init_state();
+    let loaded_state = gothic_script.get_loaded_state();
     println!("\n-----LOAD WORLD ZEN DATA-----\n");
     let mut world_data =
-        load_zengin_world_data("/_WORK/DATA/WORLDS/NEWWORLD/NEWWORLD.ZEN", &vm_state);
+        load_zengin_world_data("/_WORK/DATA/WORLDS/NEWWORLD/NEWWORLD.ZEN", loaded_state);
     if false {
         let world_data_oldw =
-            load_zengin_world_data("/_WORK/DATA/WORLDS/OLDWORLD/OLDWORLD.ZEN", &vm_state);
+            load_zengin_world_data("/_WORK/DATA/WORLDS/OLDWORLD/OLDWORLD.ZEN", loaded_state);
         world_data
             .light_instances
             .extend(world_data_oldw.light_instances);

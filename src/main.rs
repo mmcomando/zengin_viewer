@@ -31,6 +31,7 @@ use crate::gui::xr::{XrPlugin, is_xr_enabled};
 use crate::skybox::SkyBoxPlugin;
 use crate::zengin::ZenGinWorldPlugin;
 use crate::zengin::loaders::vdf_reader::create_zengin_asset_loader;
+use crate::zengin::script2::component::GothicScriptsPlugin;
 use avian3d::prelude::*;
 use bevy::anti_alias::smaa::Smaa;
 use bevy::light::CascadeShadowConfigBuilder;
@@ -81,6 +82,7 @@ fn main() {
         .add_plugins(DistancePlugin)
         .add_plugins(GameDebugUI)
         .add_plugins(StatisticsPlugin)
+        .add_plugins(GothicScriptsPlugin)
         .add_plugins(SkeletalAnimations);
     // Run
     app.run();

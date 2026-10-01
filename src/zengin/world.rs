@@ -62,7 +62,7 @@ fn get_tr_from_point_name(data: &ZenGinWorldData, name: &str) -> Option<Transfor
 
 pub fn get_item_mesh_path(
     vfs: &Vfs,
-    vm_state: &crate::zengin::script::script_vm::State,
+    vm_state: &crate::zengin::script::script_vm::LoadedState,
     name: &str,
 ) -> Option<String> {
     let Some(item_instance) = vm_state.item_instances.get(name) else {
@@ -78,7 +78,7 @@ pub fn get_item_mesh_path(
 pub fn load_weapon(
     data: &mut ZenGinWorldData,
     vfs: &Vfs,
-    vm_state: &crate::zengin::script::script_vm::State,
+    vm_state: &crate::zengin::script::script_vm::LoadedState,
     item: &SpawnItem,
 ) {
     let Some(tr) = get_tr_from_point_name(data, &item.way_point) else {
@@ -99,7 +99,7 @@ pub fn load_weapon(
 pub fn load_npc(
     data: &mut ZenGinWorldData,
     vfs: &Vfs,
-    vm_state: &crate::zengin::script::script_vm::State,
+    vm_state: &crate::zengin::script::script_vm::LoadedState,
     instance: &InstanceState,
     spawn_npc: &SpawnNpc,
 ) {
@@ -141,7 +141,7 @@ pub fn load_npc(
         if let Some(armor_model) = get_item_mesh_path(vfs, vm_state, armor_model) {
             Some(armor_model)
         } else {
-            println!("not found mesh for item model({})", armor_model);
+            println!("not found mesh for armor_model({})", armor_model);
             None
         }
     } else {
@@ -179,7 +179,7 @@ pub fn load_npc(
 
 pub fn load_zengin_world_data(
     world_path: &str,
-    vm_state: &crate::zengin::script::script_vm::State,
+    vm_state: &crate::zengin::script::script_vm::LoadedState,
 ) -> ZenGinWorldData {
     let vfs = Vfs::new();
 
@@ -248,14 +248,18 @@ pub fn load_zengin_world_data(
     let way_net = world.way_net();
     load_way_net_points(&way_net, &mut data);
     for npc_spawn in &vm_state.spawn_npcs {
+        // if npc_spawn.npc_index != 10347 {
+        //     continue;
+        // }
         if let Some(instance) = vm_state.instance_data.get(&npc_spawn.npc_index) {
             load_npc(&mut data, &vfs, vm_state, instance, npc_spawn);
         } else {
-            panic!();
+            println!("unknown data for npc({:?})", npc_spawn);
+            // panic!();
         }
     }
 
-    for weapon in &vm_state.spawn_weapons {
+    for weapon in &vm_state.spawn_items {
         load_weapon(&mut data, &vfs, vm_state, weapon);
     }
 
@@ -300,7 +304,7 @@ fn try_load_mesh(vfs: &Vfs, asset_paths: &[String]) -> Option<String> {
 fn load_objects(
     vfs: &Vfs,
     data: &mut ZenGinWorldData,
-    vm_state: &crate::zengin::script::script_vm::State,
+    vm_state: &crate::zengin::script::script_vm::LoadedState,
     obj: &VirtualObject,
 ) {
     let visual = obj.visual();
@@ -372,7 +376,7 @@ fn handle_light(obj: &VirtualObject, data: &mut ZenGinWorldData) {
 fn handle_other_vob(
     data: &mut ZenGinWorldData,
     vfs: &Vfs,
-    vm_state: &crate::zengin::script::script_vm::State,
+    vm_state: &crate::zengin::script::script_vm::LoadedState,
     obj: &VirtualObject,
 ) {
     let name = obj.name();
