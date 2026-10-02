@@ -13,11 +13,13 @@ pub struct CharacterControllerPlugin;
 impl Plugin for CharacterControllerPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ToggleCamera::default());
-        app.add_message::<MovementAction>();
 
-        // Collect input in `PreUpdate` so that it's processed before the physics update.
+        // Toggles in `PreUpdate` so the `Update` systems see the new value this frame.
         // Runs after leafwing's action update so this frame's actions are read.
-        app.add_systems(PreUpdate, player_input.after(InputManagerSystem::Update));
+        app.add_systems(
+            PreUpdate,
+            camera_toggle_input.after(InputManagerSystem::Update),
+        );
 
         app.add_systems(
             Update,
@@ -37,13 +39,6 @@ impl Plugin for CharacterControllerPlugin {
 
 fn use_character_camera(info: Res<ToggleCamera>) -> bool {
     info.character_camera
-}
-
-/// A [`Message`] written for a movement input action.
-#[derive(Message)]
-pub enum MovementAction {
-    Move(Vector2),
-    Jump,
 }
 
 /// A marker component indicating that an entity is using a character controller.
@@ -138,24 +133,11 @@ pub struct CharacterCollision {
     pub character_velocity: Vector,
 }
 
-/// Sends [`MovementAction`] messages based on the mapped [`PlayerAction`]s.
-fn player_input(
-    mut movement_writer: MessageWriter<MovementAction>,
+/// Toggles between the free camera and the character camera.
+fn camera_toggle_input(
     mut toggle_info: ResMut<ToggleCamera>,
     action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
 ) {
-    // Keyboard D-pads and the gamepad stick are summed, so clamp to unit length.
-    let direction = action_state
-        .axis_pair(&PlayerAction::Move)
-        .clamp_length_max(1.0);
-    if direction != Vector2::ZERO {
-        movement_writer.write(MovementAction::Move(direction));
-    }
-
-    if action_state.just_pressed(&PlayerAction::Jump) {
-        movement_writer.write(MovementAction::Jump);
-    }
-
     if action_state.just_pressed(&PlayerAction::ToggleCharacterCamera) {
         toggle_info.character_camera = !toggle_info.character_camera;
     }
@@ -200,10 +182,10 @@ fn update_grounded(
     }
 }
 
-/// Responds to [`MovementAction`] events and moves character controllers accordingly.
+/// Responds to the movement [`PlayerAction`]s and moves character controllers accordingly.
 fn movement(
     time: Res<Time>,
-    mut movement_reader: MessageReader<MovementAction>,
+    action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
     mut controllers: Query<(
         &CharacterMovementSettings,
         &mut LinearVelocity,
@@ -213,30 +195,28 @@ fn movement(
 ) {
     let delta_secs = time.delta_secs_f64().adjust_precision();
 
-    for event in movement_reader.read() {
-        for (movement, mut linear_velocity, tr, is_grounded) in &mut controllers {
-            match event {
-                MovementAction::Move(direction) => {
-                    if direction.length_squared() < 0.1 {
-                        continue;
-                    }
+    // Keyboard D-pads and the gamepad stick are summed, so clamp to unit length.
+    let direction = action_state
+        .axis_pair(&PlayerAction::Move)
+        .clamp_length_max(1.0);
+    let is_moving = direction.length_squared() >= 0.1;
+    let jump_pressed = action_state.just_pressed(&PlayerAction::Jump);
 
-                    let rot = tr.rotation.to_euler(EulerRot::YXZ);
-                    let dir = Vec3 {
-                        x: -direction.x,
-                        y: 0.0,
-                        z: direction.y,
-                    }
-                    .rotate_y(rot.0);
-                    linear_velocity.x += dir.x * movement.acceleration * delta_secs;
-                    linear_velocity.z += dir.z * movement.acceleration * delta_secs;
-                }
-                MovementAction::Jump => {
-                    if is_grounded {
-                        linear_velocity.y = movement.jump_impulse;
-                    }
-                }
+    for (movement, mut linear_velocity, tr, is_grounded) in &mut controllers {
+        if is_moving {
+            let rot = tr.rotation.to_euler(EulerRot::YXZ);
+            let dir = Vec3 {
+                x: -direction.x,
+                y: 0.0,
+                z: direction.y,
             }
+            .rotate_y(rot.0);
+            linear_velocity.x += dir.x * movement.acceleration * delta_secs;
+            linear_velocity.z += dir.z * movement.acceleration * delta_secs;
+        }
+
+        if jump_pressed && is_grounded {
+            linear_velocity.y = movement.jump_impulse;
         }
     }
 }
