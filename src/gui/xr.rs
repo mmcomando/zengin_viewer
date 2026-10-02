@@ -1,7 +1,13 @@
 use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
 use bevy::{prelude::*, window::PresentMode};
 use bevy_egui::egui::mutex::Mutex;
-use bevy_mod_openxr::{add_xr_plugins, resources::OxrSessionConfig};
+use bevy_mod_openxr::{
+    add_xr_plugins,
+    helper_traits::ToQuat,
+    openxr_session_running,
+    resources::{OxrSessionConfig, OxrViews},
+};
+use bevy_mod_xr::session::XrTrackingRoot;
 use bevy_xr_utils::actions::XRUtilsActionsPlugin;
 use openxr::EnvironmentBlendMode;
 use std::cell::Cell;
@@ -69,14 +75,52 @@ impl Plugin for XrPlugin {
         });
         // app.insert_resource(ClearColor(Color::NONE)); // Uncomment so passthrough can be seen
         app.add_plugins(bevy_mod_xr::hand_debug_gizmos::HandGizmosPlugin);
-
-        app.add_systems(Update, teleport);
         app.add_plugins(TransformUtilitiesPlugin);
         app.add_plugins(XRUtilsActionsPlugin);
+
+        app.add_systems(
+            Update,
+            (teleport, move_camera).run_if(openxr_session_running),
+        );
     }
 }
 
-// TODO: movement
+/// Smooth locomotion speed in m/s.
+/// Matches the character controller's top speed (acceleration / damping = 35 / 10).
+const XR_MOVE_SPEED: f32 = 3.5;
+
+/// Moves the XR camera by moving the [`XrTrackingRoot`] with [`PlayerAction::Move`],
+/// relative to the current head yaw.
+fn move_camera(
+    time: Res<Time>,
+    action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
+    mut root: Single<&mut Transform, With<XrTrackingRoot>>,
+    views: Res<OxrViews>,
+) {
+    // Keyboard D-pads and the gamepad stick are summed, so clamp to unit length.
+    let direction = action_state
+        .axis_pair(&PlayerAction::Move)
+        .clamp_length_max(1.0);
+    if direction.length_squared() < 0.1 {
+        return;
+    }
+    let Some(view) = views.first() else {
+        return;
+    };
+
+    // Use only the head yaw, so looking up or down doesn't change the walk speed
+    let view_rotation = root.rotation * view.pose.orientation.to_quat();
+    let yaw = view_rotation.to_euler(EulerRot::YXZ).0;
+    let dir = Vec3 {
+        x: direction.x,
+        y: 0.0,
+        z: -direction.y,
+    }
+    .rotate_y(yaw);
+
+    root.translation += dir * XR_MOVE_SPEED * time.delta_secs();
+}
+
 fn teleport(
     action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
     mut event_writer: MessageWriter<SnapToPosition>,
