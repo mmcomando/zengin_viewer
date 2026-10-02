@@ -271,7 +271,7 @@ fn apply_movement_damping(
 /// For simplicity, we assume that the character is not a child entity,
 /// and its collider is on the same entity as the `CharacterController`.
 #[allow(clippy::type_complexity)]
-fn move_and_slide(
+pub fn move_and_slide(
     mut query: Query<
         (
             Entity,
