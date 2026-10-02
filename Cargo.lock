@@ -3059,7 +3059,9 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "wasm-encoder 0.248.0",
+ "wasmparser 0.248.0",
  "wasmtime 44.0.3",
+ "wat",
  "wit-component 0.251.0",
  "wit-parser 0.251.0",
 ]
@@ -7348,8 +7350,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa4439c5eee9df71ee0c6efb37f63b1fcb1fec38f85f5142c54e7ed05d33091a"
 dependencies = [
  "bitflags 2.13.2",
+ "hashbrown 0.17.1",
  "indexmap",
  "semver",
+ "serde",
 ]
 
 [[package]]

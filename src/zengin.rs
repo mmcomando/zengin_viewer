@@ -3,11 +3,8 @@ pub mod conversions;
 pub mod loaders;
 pub mod macros;
 pub mod script;
-pub mod script2;
 pub mod visual;
 pub mod world;
-
-use std::sync::Arc;
 
 use crate::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
@@ -16,10 +13,8 @@ use crate::game::distance::ClassifyDistance;
 use crate::game::objects::GameNpc;
 use crate::game::objects_to_entities::GameObjectSpawnEntities;
 use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
-use crate::zengin::common::{ZenGinModel, gothic2_dir};
-use crate::zengin::script::parse::*;
-use crate::zengin::script::script_vm::ScriptVM;
-use crate::zengin::script2::component::WorldScript;
+use crate::zengin::common::ZenGinModel;
+use crate::zengin::script::component::WorldScript;
 use crate::zengin::world::load_zengin_world_data;
 use crate::zengin_resources::{
     DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,

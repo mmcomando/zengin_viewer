@@ -7,7 +7,7 @@ use wasmtime::{AsContextMut, Engine, Store};
 
 use wasmtime::component::{Component, HasData, Linker, bindgen};
 
-use crate::zengin::script::script_vm::{LoadedState, RoutineEntry, SpawnItem, SpawnNpc};
+use crate::zengin::script::state::{LoadedState, RoutineEntry, SpawnItem, SpawnNpc};
 use exports::mmcomando::zengine_scripts::manage::SymbolKind;
 
 bindgen!({
@@ -154,7 +154,7 @@ impl WasmExecutor {
     pub fn get_symbol_kind(
         &mut self,
         symbol_id: i32,
-    ) -> crate::zengin::script2::main::exports::mmcomando::zengine_scripts::manage::SymbolKind {
+    ) -> crate::zengin::script::main::exports::mmcomando::zengine_scripts::manage::SymbolKind {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_get_symbol_kind(&mut self.store, symbol_id)

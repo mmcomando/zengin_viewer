@@ -1,5 +1,5 @@
-use crate::zengin::script::script_vm::LoadedState;
-use crate::zengin::{common::gothic2_dir, script2::main::WasmExecutor};
+use crate::zengin::script::state::LoadedState;
+use crate::zengin::{common::gothic2_dir, script::main::WasmExecutor};
 use bevy::ecs::resource::Resource;
 use bevy::prelude::*;
 use std::path::PathBuf;

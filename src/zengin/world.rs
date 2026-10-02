@@ -13,7 +13,7 @@ use crate::{
     zengin::{
         common::*,
         conversions::*,
-        script::script_vm::{InstanceState, SpawnItem, SpawnNpc},
+        script::state::{InstanceState, SpawnItem, SpawnNpc},
         visual::mesh::meshes_from_zengin_mesh,
     },
 };
@@ -62,7 +62,7 @@ fn get_tr_from_point_name(data: &ZenGinWorldData, name: &str) -> Option<Transfor
 
 pub fn get_item_mesh_path(
     vfs: &Vfs,
-    vm_state: &crate::zengin::script::script_vm::LoadedState,
+    vm_state: &crate::zengin::script::state::LoadedState,
     name: &str,
 ) -> Option<String> {
     let Some(item_instance) = vm_state.item_instances.get(name) else {
@@ -78,7 +78,7 @@ pub fn get_item_mesh_path(
 pub fn load_weapon(
     data: &mut ZenGinWorldData,
     vfs: &Vfs,
-    vm_state: &crate::zengin::script::script_vm::LoadedState,
+    vm_state: &crate::zengin::script::state::LoadedState,
     item: &SpawnItem,
 ) {
     let Some(tr) = get_tr_from_point_name(data, &item.way_point) else {
@@ -99,7 +99,7 @@ pub fn load_weapon(
 pub fn load_npc(
     data: &mut ZenGinWorldData,
     vfs: &Vfs,
-    vm_state: &crate::zengin::script::script_vm::LoadedState,
+    vm_state: &crate::zengin::script::state::LoadedState,
     instance: &InstanceState,
     spawn_npc: &SpawnNpc,
 ) {
@@ -179,7 +179,7 @@ pub fn load_npc(
 
 pub fn load_zengin_world_data(
     world_path: &str,
-    vm_state: &crate::zengin::script::script_vm::LoadedState,
+    vm_state: &crate::zengin::script::state::LoadedState,
 ) -> ZenGinWorldData {
     let vfs = Vfs::new();
 
@@ -304,7 +304,7 @@ fn try_load_mesh(vfs: &Vfs, asset_paths: &[String]) -> Option<String> {
 fn load_objects(
     vfs: &Vfs,
     data: &mut ZenGinWorldData,
-    vm_state: &crate::zengin::script::script_vm::LoadedState,
+    vm_state: &crate::zengin::script::state::LoadedState,
     obj: &VirtualObject,
 ) {
     let visual = obj.visual();
@@ -376,7 +376,7 @@ fn handle_light(obj: &VirtualObject, data: &mut ZenGinWorldData) {
 fn handle_other_vob(
     data: &mut ZenGinWorldData,
     vfs: &Vfs,
-    vm_state: &crate::zengin::script::script_vm::LoadedState,
+    vm_state: &crate::zengin::script::state::LoadedState,
     obj: &VirtualObject,
 ) {
     let name = obj.name();
