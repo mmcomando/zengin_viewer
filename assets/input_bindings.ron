@@ -1,0 +1,83 @@
+// Input profile for ZenGinViewer.
+//
+// Maps the actions defined in `src/input.rs` (`PlayerAction`) to concrete inputs.
+// This file is loaded at startup; if it is missing or invalid, the game falls
+// back to the built-in defaults in `PlayerAction::default_input_map`.
+//
+// The format is the serde representation of `leafwing_input_manager::InputMap`.
+// Each boxed input is externally tagged, e.g. `{"KeyCode": Space}`.
+(
+    buttonlike_map: {
+        Jump: [
+            {
+                "KeyCode": Space,
+            },
+            {
+                "GamepadButton": South,
+            },
+        ],
+        ToggleCharacterCamera: [
+            {
+                "KeyCode": Digit0,
+            },
+        ],
+        TeleportOrigin: [
+            {
+                "KeyCode": Digit1,
+            },
+        ],
+        TeleportAway: [
+            {
+                "KeyCode": Digit2,
+            },
+        ],
+    },
+    axislike_map: {},
+    dual_axislike_map: {
+        Move: [
+            {
+                "VirtualDPad": (
+                    up: {
+                        "KeyCode": KeyW,
+                    },
+                    down: {
+                        "KeyCode": KeyS,
+                    },
+                    left: {
+                        "KeyCode": KeyA,
+                    },
+                    right: {
+                        "KeyCode": KeyD,
+                    },
+                    processors: [],
+                ),
+            },
+            {
+                "VirtualDPad": (
+                    up: {
+                        "KeyCode": ArrowUp,
+                    },
+                    down: {
+                        "KeyCode": ArrowDown,
+                    },
+                    left: {
+                        "KeyCode": ArrowLeft,
+                    },
+                    right: {
+                        "KeyCode": ArrowRight,
+                    },
+                    processors: [],
+                ),
+            },
+            {
+                "GamepadStick": (
+                    x: LeftStickX,
+                    y: LeftStickY,
+                    processors: [],
+                ),
+            },
+        ],
+    },
+    triple_axislike_map: {},
+    associated_gamepad: None,
+)

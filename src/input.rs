@@ -1,8 +1,14 @@
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
+use serde::{Deserialize, Serialize};
+
+/// Path of the input profile, relative to the working directory
+/// (the same `assets` folder the [`bevy::asset::AssetServer`] reads from).
+const INPUT_PROFILE_PATH: &str = "assets/input_bindings.ron";
 
 /// Adds [`leafwing_input_manager`] and spawns the global input entity with the
-/// default [`PlayerAction`] profile.
+/// input profile loaded from [`INPUT_PROFILE_PATH`], falling back to the
+/// built-in [`PlayerAction::default_input_map`] if the file can't be read.
 pub struct InputPlugin;
 
 impl Plugin for InputPlugin {
@@ -21,46 +27,26 @@ pub struct GlobalInput;
 ///
 /// Buttonlike is the default control kind; variants with a different kind are
 /// annotated with `#[actionlike(...)]`.
-#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect)]
+#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize)]
 pub enum PlayerAction {
     /// Movement direction from WASD, the arrow keys, or the left gamepad stick.
     #[actionlike(DualAxis)]
     Move,
     Jump,
     ToggleCharacterCamera,
-    TeleportOrigin, // VR teleport to fixed location
-    TeleportAway,   // VR teleport forward
-}
-
-impl PlayerAction {
-    /// The default profile, matching the previously hardcoded keybindings.
-    ///
-    /// This is the single place where inputs are mapped to actions; profiles
-    /// can later be swapped or loaded from disk, as `InputMap` is serializable.
-    pub fn default_input_map() -> InputMap<Self> {
-        InputMap::default()
-            .with_dual_axis(Self::Move, VirtualDPad::wasd())
-            // Up, down, left, right.
-            .with_dual_axis(
-                Self::Move,
-                VirtualDPad::new(
-                    KeyCode::ArrowUp,
-                    KeyCode::ArrowDown,
-                    KeyCode::ArrowLeft,
-                    KeyCode::ArrowRight,
-                ),
-            )
-            .with_dual_axis(Self::Move, GamepadStick::LEFT)
-            .with(Self::Jump, KeyCode::Space)
-            .with(Self::Jump, GamepadButton::South)
-            .with(Self::ToggleCharacterCamera, KeyCode::Digit0)
-            .with(Self::TeleportOrigin, KeyCode::Digit1)
-            .with(Self::TeleportAway, KeyCode::Digit2)
-    }
+    TeleportOrigin,
+    TeleportAway,
 }
 
 fn spawn_input_map(mut commands: Commands) {
-    // Inserting `InputMap` also inserts the required `ActionState` component.
-    // No gamepad is assigned to the map, so any connected gamepad is accepted.
-    commands.spawn((GlobalInput, PlayerAction::default_input_map()));
+    let input_map = load_input_profile().unwrap();
+    commands.spawn((GlobalInput, input_map));
+}
+
+/// Loads the input profile from [`INPUT_PROFILE_PATH`].
+fn load_input_profile() -> Result<InputMap<PlayerAction>, String> {
+    let contents = std::fs::read_to_string(INPUT_PROFILE_PATH)
+        .map_err(|error| format!("failed to read {INPUT_PROFILE_PATH}: {error}"))?;
+    ron::de::from_str(&contents)
+        .map_err(|error| format!("failed to parse {INPUT_PROFILE_PATH}: {error}"))
 }
