@@ -1,6 +1,9 @@
 use avian3d::{math::*, prelude::*};
 use bevy::{ecs::query::Has, prelude::*};
+use leafwing_input_manager::plugin::InputManagerSystem;
+use leafwing_input_manager::prelude::ActionState;
 
+use crate::input::{GlobalInput, PlayerAction};
 use crate::zengin::PlayerMarker;
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
@@ -13,7 +16,8 @@ impl Plugin for CharacterControllerPlugin {
         app.add_message::<MovementAction>();
 
         // Collect input in `PreUpdate` so that it's processed before the physics update.
-        app.add_systems(PreUpdate, (keyboard_input, gamepad_input).chain());
+        // Runs after leafwing's action update so this frame's actions are read.
+        app.add_systems(PreUpdate, player_input.after(InputManagerSystem::Update));
 
         app.add_systems(
             Update,
@@ -134,50 +138,26 @@ pub struct CharacterCollision {
     pub character_velocity: Vector,
 }
 
-/// Sends [`MovementAction`] events based on keyboard input.
-fn keyboard_input(
+/// Sends [`MovementAction`] messages based on the mapped [`PlayerAction`]s.
+fn player_input(
     mut movement_writer: MessageWriter<MovementAction>,
     mut toggle_info: ResMut<ToggleCamera>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
 ) {
-    let up = keyboard_input.any_pressed([KeyCode::KeyW, KeyCode::ArrowUp]);
-    let down = keyboard_input.any_pressed([KeyCode::KeyS, KeyCode::ArrowDown]);
-    let left = keyboard_input.any_pressed([KeyCode::KeyA, KeyCode::ArrowLeft]);
-    let right = keyboard_input.any_pressed([KeyCode::KeyD, KeyCode::ArrowRight]);
-
-    let horizontal = i8::from(right) - i8::from(left);
-    let vertical = i8::from(up) - i8::from(down);
-    let direction =
-        Vector2::new(Scalar::from(horizontal), Scalar::from(vertical)).clamp_length_max(1.0);
-
+    // Keyboard D-pads and the gamepad stick are summed, so clamp to unit length.
+    let direction = action_state
+        .axis_pair(&PlayerAction::Move)
+        .clamp_length_max(1.0);
     if direction != Vector2::ZERO {
         movement_writer.write(MovementAction::Move(direction));
     }
 
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if action_state.just_pressed(&PlayerAction::Jump) {
         movement_writer.write(MovementAction::Jump);
     }
 
-    if keyboard_input.just_pressed(KeyCode::Digit0) {
+    if action_state.just_pressed(&PlayerAction::ToggleCharacterCamera) {
         toggle_info.character_camera = !toggle_info.character_camera;
-    }
-}
-
-/// Sends [`MovementAction`] events based on gamepad input.
-fn gamepad_input(mut movement_writer: MessageWriter<MovementAction>, gamepads: Query<&Gamepad>) {
-    for gamepad in gamepads.iter() {
-        if let (Some(x), Some(y)) = (
-            gamepad.get(GamepadAxis::LeftStickX),
-            gamepad.get(GamepadAxis::LeftStickY),
-        ) {
-            movement_writer.write(MovementAction::Move(
-                Vector2::new(x as Scalar, y as Scalar).clamp_length_max(1.0),
-            ));
-        }
-
-        if gamepad.just_pressed(GamepadButton::South) {
-            movement_writer.write(MovementAction::Jump);
-        }
     }
 }
 

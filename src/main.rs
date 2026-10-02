@@ -15,6 +15,7 @@
 mod character;
 mod game;
 mod gui;
+mod input;
 mod skybox;
 mod zengin;
 mod zengin_resources;
@@ -23,11 +24,12 @@ use crate::character::CharacterControllerPlugin;
 use crate::game::animation::SkeletalAnimations;
 use crate::game::disco_lamp::DiscoLamp;
 use crate::game::distance::DistancePlugin;
-use crate::gui::camera::{CameraSettingsPlugin, get_overlay_plugin};
+use crate::gui::camera::get_overlay_plugin;
 use crate::gui::egui::GameDebugUI;
 use crate::gui::statistics::StatisticsPlugin;
 use crate::gui::toggle_visibility::ToggleVisibility;
 use crate::gui::xr::{XrPlugin, is_xr_enabled};
+use crate::input::InputPlugin;
 use crate::skybox::SkyBoxPlugin;
 use crate::zengin::ZenGinWorldPlugin;
 use crate::zengin::loaders::vdf_reader::create_zengin_asset_loader;
@@ -72,9 +74,9 @@ fn main() {
         .add_plugins(get_overlay_plugin());
 
     // This app custom plugins
-    app.add_plugins(BasicContentPlugin)
+    app.add_plugins(InputPlugin)
+        .add_plugins(BasicContentPlugin)
         .add_plugins(ZenGinWorldPlugin)
-        .add_plugins(CameraSettingsPlugin)
         .add_plugins(SkyBoxPlugin)
         .add_plugins(ToggleVisibility)
         .add_plugins(CharacterControllerPlugin)

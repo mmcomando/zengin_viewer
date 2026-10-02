@@ -7,7 +7,10 @@ use openxr::EnvironmentBlendMode;
 use std::cell::Cell;
 
 use bevy_xr_utils::transform_utils::{SnapToPosition, TransformUtilitiesPlugin};
+use leafwing_input_manager::prelude::ActionState;
 use std::sync::OnceLock;
+
+use crate::input::{GlobalInput, PlayerAction};
 
 pub fn is_xr_enabled() -> bool {
     static XR_ENABLED_STATIC: OnceLock<bool> = OnceLock::new();
@@ -74,11 +77,14 @@ impl Plugin for XrPlugin {
 }
 
 // TODO: movement
-fn teleport(keys: Res<ButtonInput<KeyCode>>, mut event_writer: MessageWriter<SnapToPosition>) {
-    if keys.just_pressed(KeyCode::Digit1) {
+fn teleport(
+    action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
+    mut event_writer: MessageWriter<SnapToPosition>,
+) {
+    if action_state.just_pressed(&PlayerAction::TeleportOrigin) {
         event_writer.write(SnapToPosition(Vec3::new(0.0, 0.0, 0.0)));
     }
-    if keys.just_pressed(KeyCode::Digit2) {
+    if action_state.just_pressed(&PlayerAction::TeleportAway) {
         event_writer.write(SnapToPosition(Vec3::new(10.0, 10.0, 10.0)));
     }
 }
