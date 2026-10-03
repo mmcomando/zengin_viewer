@@ -21,7 +21,12 @@ impl Plugin for SkeletalAnimations {
         // so move-and-slide starts from the new position and can react to it.
         app.add_systems(
             Update,
-            (update_animations.before(move_and_slide), compute_animations).chain(),
+            (
+                update_locomotion,
+                update_animations.before(move_and_slide),
+                compute_animations,
+            )
+                .chain(),
         );
     }
 }
@@ -29,11 +34,19 @@ impl Plugin for SkeletalAnimations {
 #[derive(Component)]
 pub struct AnimatedJoint;
 
+/// Data a joint needs to sample the currently played animation.
+/// Rewritten whenever the skeleton switches to another animation.
 #[derive(Component, Debug)]
 pub struct BoneAnimationData {
-    pub animation_data: Arc<AnimationData>,
-    pub bone_index: usize,
+    /// Skeleton entity owning this joint
+    pub skeleton: Entity,
+    /// Node index in the model hierarchy, shared by all animations of the model
+    pub node_index: usize,
     pub is_base_pos_bone: bool,
+    /// Local bone index in the current animation.
+    /// `None` when the animation does not animate this node (joint holds its last pose).
+    pub bone_index: Option<usize>,
+    pub animation_data: Arc<AnimationData>,
     pub frame_state: Arc<FrameState>,
 }
 
@@ -45,10 +58,7 @@ pub struct FrameState {
     pub mul_1000: AtomicU32,
 }
 
-/// Plays an animation at its natural pace (`fps`).
-///
-/// When the animation moves the base pos bone, [`AnimationState::movement`] holds
-/// that root movement and the owning entity is moved by it.
+/// Playback state of the animation currently played by a skeleton.
 #[derive(Component, Debug)]
 pub struct AnimationState {
     pub frame_state: Arc<FrameState>,
@@ -59,6 +69,44 @@ pub struct AnimationState {
     /// Forward displacement of the base pos bone for every frame, relative to frame 0.
     /// `None` when the animation does not move the base pos bone.
     pub movement: Option<Vec<f32>>,
+    /// Node index of the base pos bone, used to extract root movement of switched animations
+    pub base_pos_node_index: usize,
+}
+
+/// Playback control of a skeleton.
+///
+/// When the current animation ends, [`AnimationController::next`] is played;
+/// if it is `None`, the current animation loops. [`AnimationController::interrupt_current`]
+/// allows the queued `next` to replace a still playing animation immediately —
+/// otherwise one-shot animations have to play to their end first.
+///
+/// What to play next is decided by other systems: moving entities get their
+/// controller driven by a [`LocomotionSequencer`].
+#[derive(Component, Debug)]
+pub struct AnimationController {
+    /// Currently played animation
+    pub current: Handle<AnimationData>,
+    /// Animation to play when the current one ends; `None` loops the current one
+    pub next: Option<Handle<AnimationData>>,
+    /// Whether the queued `next` may replace `current` immediately
+    pub interrupt_current: bool,
+}
+
+/// Movement animation set driving the [`AnimationController`] of moving entities.
+///
+/// A system watches entity movement and writes `next` and `interrupt_current`
+/// of the controller. Entities without movement animations don't have this
+/// component and simply loop their controller's `current` animation.
+#[derive(Component, Debug)]
+pub struct LocomotionSequencer {
+    /// Played while the entity does not move
+    pub idle: Handle<AnimationData>,
+    /// Played once when the entity starts moving
+    pub move_start: Option<Handle<AnimationData>>,
+    /// Played while the entity moves
+    pub move_loop: Handle<AnimationData>,
+    /// Played once when the entity stops moving
+    pub move_stop: Option<Handle<AnimationData>>,
 }
 
 pub fn create_skinned_mesh_data(
@@ -80,7 +128,7 @@ pub fn create_skinned_mesh_data(
         .position(|el| el == "BIP01")
         .unwrap_or(0);
 
-    let animation_data = animation_data.cloned().unwrap_or(AnimationData::default());
+    let animation_data = Arc::new(animation_data.cloned().unwrap_or(AnimationData::default()));
 
     let frame_state = Arc::new(FrameState {
         start_frame: AtomicU32::new(0),
@@ -88,45 +136,35 @@ pub fn create_skinned_mesh_data(
         mul_1000: AtomicU32::new(0),
     });
 
-    let movement = if animation_data.bone_has_movement(base_pos_index) {
-        Some(animation_data.get_movement(base_pos_index))
-    } else {
-        None
-    };
-
     commands.entity(skeleton_parent).insert(AnimationState {
         frame_state: frame_state.clone(),
         fps: animation_data.fps,
         frames_num: animation_data.frames_num as usize,
         time_us: AtomicU32::new(0),
-        movement,
+        movement: root_movement(&animation_data, base_pos_index),
+        base_pos_node_index: base_pos_index,
     });
 
-    let animation_data = Arc::new(animation_data);
     let joint_entities: Vec<_> = model
         .nodes
         .iter()
         .enumerate()
         .map(|(index, el)| {
-            if let Some(local_index) = animation_data.get_index_for_bone(index) {
-                commands
-                    .spawn((
-                        AnimatedJoint,
-                        BoneAnimationData {
-                            animation_data: animation_data.clone(),
-                            bone_index: local_index,
-                            is_base_pos_bone: index == base_pos_index,
-                            frame_state: frame_state.clone(),
-                        },
-                        *el,
-                        Visibility::Inherited,
-                    ))
-                    .id()
-            } else {
-                commands
-                    .spawn((AnimatedJoint, *el, Visibility::Inherited))
-                    .id()
-            }
+            commands
+                .spawn((
+                    AnimatedJoint,
+                    BoneAnimationData {
+                        skeleton: skeleton_parent,
+                        node_index: index,
+                        is_base_pos_bone: index == base_pos_index,
+                        bone_index: animation_data.get_index_for_bone(index),
+                        animation_data: animation_data.clone(),
+                        frame_state: frame_state.clone(),
+                    },
+                    *el,
+                    Visibility::Inherited,
+                ))
+                .id()
         })
         .collect();
 
@@ -183,6 +221,8 @@ fn draw_bones(
 const ATOMIC_SCALE: f32 = 1000.0;
 /// Animation time is stored scaled to integers so it can be shared without locks.
 const TIME_SCALE: f32 = 1_000_000.0;
+/// Horizontal velocity above which an entity counts as moving
+const MOVEMENT_THRESHOLD_SQUARED: f32 = 0.5 * 0.5;
 
 /// Result of advancing one animation by one time step.
 struct FrameUpdate {
@@ -191,7 +231,10 @@ struct FrameUpdate {
     mul_1000: u32,
     time_us: u32,
     /// How much root movement the entity should be moved by this step.
+    #[allow(unused)]
     delta_movement: f32,
+    /// Whether the animation completed at least one loop this step
+    finished: bool,
 }
 
 /// Advances an animation by `delta` seconds on its natural pace
@@ -237,6 +280,7 @@ fn advance_animation(data: &AnimationState, delta: f32) -> Option<FrameUpdate> {
         mul_1000: (progress.fract() * ATOMIC_SCALE) as u32,
         time_us: (new_time * TIME_SCALE) as u32,
         delta_movement,
+        finished: loops > 0,
     })
 }
 
@@ -251,18 +295,151 @@ fn root_displacement(movement: &[f32], total: f32, progress: f32) -> f32 {
     start + (end - start) * factor
 }
 
+/// Root movement of the base pos bone, if the animation moves it
+fn root_movement(data: &AnimationData, base_pos_node_index: usize) -> Option<Vec<f32>> {
+    if data.bone_has_movement(base_pos_node_index) {
+        Some(data.get_movement(base_pos_node_index))
+    } else {
+        None
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum AnimationKind {
+    Idle,
+    MoveStart,
+    MoveLoop,
+    MoveStop,
+}
+
+impl AnimationKind {
+    /// Looping animations may be interrupted immediately by a queued next
+    /// animation, one-shot animations have to play to their end first.
+    fn is_loop(self) -> bool {
+        matches!(self, AnimationKind::Idle | AnimationKind::MoveLoop)
+    }
+}
+
+/// Kind of a [`LocomotionSequencer`] animation. `None` for animations the
+/// sequencer does not own (e.g. scripted actions), leaving their controller alone.
+fn animation_kind(
+    sequencer: &LocomotionSequencer,
+    handle: &Handle<AnimationData>,
+) -> Option<AnimationKind> {
+    if *handle == sequencer.idle {
+        Some(AnimationKind::Idle)
+    } else if sequencer.move_start.as_ref().is_some_and(|el| el == handle) {
+        Some(AnimationKind::MoveStart)
+    } else if *handle == sequencer.move_loop {
+        Some(AnimationKind::MoveLoop)
+    } else if sequencer.move_stop.as_ref().is_some_and(|el| el == handle) {
+        Some(AnimationKind::MoveStop)
+    } else {
+        None
+    }
+}
+
+/// Decides which animation should follow the one matching `kind`, and whether
+/// it may replace the current one immediately. `None` for the animation keeps
+/// the current one looping.
+fn desired_next(
+    sequencer: &LocomotionSequencer,
+    kind: AnimationKind,
+    moving: bool,
+) -> (Option<Handle<AnimationData>>, bool) {
+    let next = match (moving, kind) {
+        // Movement started or resumed: transition into the movement loop
+        (true, AnimationKind::Idle | AnimationKind::MoveStop) => Some(
+            sequencer
+                .move_start
+                .clone()
+                .unwrap_or_else(|| sequencer.move_loop.clone()),
+        ),
+        // The start transition leads into the movement loop
+        (true, AnimationKind::MoveStart) => Some(sequencer.move_loop.clone()),
+        // Keep running
+        (true, AnimationKind::MoveLoop) => None,
+        // Movement stopped: transition back to idle
+        (false, AnimationKind::MoveStart | AnimationKind::MoveLoop) => Some(
+            sequencer
+                .move_stop
+                .clone()
+                .unwrap_or_else(|| sequencer.idle.clone()),
+        ),
+        // The stop transition leads back to idle
+        (false, AnimationKind::MoveStop) => Some(sequencer.idle.clone()),
+        // Keep standing
+        (false, AnimationKind::Idle) => None,
+    };
+    (next, kind.is_loop())
+}
+
+/// Whether the entity owning the animation is moving (characters own the
+/// animation model as a child, their velocity drives the movement state)
+fn is_moving(parent: Option<&ChildOf>, q_vel: &Query<&LinearVelocity>) -> bool {
+    parent
+        .and_then(|child_of| q_vel.get(child_of.parent()).ok())
+        .is_some_and(|vel| vel.xz().length_squared() > MOVEMENT_THRESHOLD_SQUARED)
+}
+
+/// Bridges movement state and playback: entities with a [`LocomotionSequencer`]
+/// switch between their movement animations based on entity movement. The
+/// controller of an animation the sequencer does not own (e.g. a scripted
+/// action) is left alone.
+fn update_locomotion(
+    mut query: Query<
+        (
+            Option<&ChildOf>,
+            &LocomotionSequencer,
+            &mut AnimationController,
+        ),
+        With<DistanceNear>,
+    >,
+    q_vel: Query<&LinearVelocity>,
+) {
+    for (parent, sequencer, mut controller) in &mut query {
+        let Some(kind) = animation_kind(sequencer, &controller.current) else {
+            continue;
+        };
+        let (next, interrupt) = desired_next(sequencer, kind, is_moving(parent, &q_vel));
+        controller.next = next;
+        controller.interrupt_current = interrupt;
+    }
+}
+
 /// Applies animations to entities. Animations play purely on time; when an animation
 /// moves its base pos bone, the entity itself is moved by that root movement.
+/// Queued `next` animations are switched to when the current one ends or may
+/// be interrupted (decided by [`update_locomotion`]).
+#[allow(clippy::type_complexity)]
 fn update_animations(
     time: Res<Time>,
-    query: Query<(Entity, Option<&ChildOf>, &GlobalTransform, &AnimationState), With<DistanceNear>>,
-    q_vel: Query<&LinearVelocity>,
-    mut transforms: Query<&mut Transform>,
+    animations: Res<Assets<AnimationData>>,
+    mut query: Query<
+        (
+            Entity,
+            // Option<&ChildOf>,
+            // &GlobalTransform,
+            &mut AnimationState,
+            Option<&mut AnimationController>,
+        ),
+        With<DistanceNear>,
+    >,
+    // q_vel: Query<&LinearVelocity>,
+    // mut transforms: Query<&mut Transform>,
+    mut joints: Query<&mut BoneAnimationData>,
 ) {
     let delta = time.delta_secs();
+    let mut switches: Vec<(Entity, Arc<AnimationData>)> = Vec::new();
 
-    for (entity, parent, global_transform, data) in &query {
-        let Some(update) = advance_animation(data, delta) else {
+    for (
+        entity,
+        // parent, global_transform,
+        mut data,
+        controller,
+    ) in &mut query
+    {
+        let Some(update) = advance_animation(&data, delta) else {
             continue;
         };
 
@@ -278,26 +455,71 @@ fn update_animations(
             .store(update.mul_1000, Ordering::Release);
         data.time_us.store(update.time_us, Ordering::Release);
 
-        if update.delta_movement == 0.0 {
-            continue;
-        }
+        // TODO: Improve movement by using update.delta_movement as animations know how much model should be moved to remove sliding
+        // if update.delta_movement != 0.0 {
+        //     // The animation state lives on the model entity. Characters with a physics body
+        //     // own the model as a child, so move the physics entity, otherwise move the model itself.
+        //     let target = match parent {
+        //         Some(parent) if q_vel.contains(parent.parent()) => parent.parent(),
+        //         _ => entity,
+        //     };
+        //     if let Ok(mut transform) = transforms.get_mut(target) {
+        //         transform.translation +=
+        //             global_transform.rotation() * Vec3::Z * update.delta_movement;
+        //     }
+        // }
 
-        // The animation state lives on the model entity. Characters with a physics body
-        // own the model as a child, so move the physics entity, otherwise move the model itself.
-        let target = match parent {
-            Some(parent) if q_vel.contains(parent.parent()) => parent.parent(),
-            _ => entity,
-        };
-        let Ok(mut transform) = transforms.get_mut(target) else {
+        let Some(mut controller) = controller else {
             continue;
         };
-        transform.translation += global_transform.rotation() * Vec3::Z * update.delta_movement;
+
+        // Switch when the current animation ended. Interruptible animations are
+        // switched immediately, otherwise e.g. the 2s idle loop would delay
+        // movement start.
+        if (update.finished || controller.interrupt_current)
+            && controller
+                .next
+                .as_ref()
+                .is_some_and(|next| *next != controller.current)
+            && let Some(next) = controller.next.take()
+            && let Some(next_data) = animations.get(&next)
+        {
+            let next_data = Arc::new(next_data.clone());
+            data.fps = next_data.fps;
+            data.frames_num = next_data.frames_num as usize;
+            data.movement = root_movement(&next_data, data.base_pos_node_index);
+            // New animation starts from its first frame
+            data.time_us.store(0, Ordering::Release);
+            data.frame_state.start_frame.store(0, Ordering::Release);
+            data.frame_state.end_frame.store(1, Ordering::Release);
+            data.frame_state.mul_1000.store(0, Ordering::Release);
+            controller.current = next;
+            switches.push((entity, next_data));
+        }
+    }
+
+    // Joints of switched skeletons sample the new animation
+    if !switches.is_empty() {
+        for mut joint in &mut joints {
+            let Some((_, new_data)) = switches
+                .iter()
+                .find(|(skeleton, _)| *skeleton == joint.skeleton)
+            else {
+                continue;
+            };
+            joint.animation_data = new_data.clone();
+            joint.bone_index = new_data.get_index_for_bone(joint.node_index);
+        }
     }
 }
 
 #[allow(clippy::cast_precision_loss)]
 fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimationData)>) {
     for (mut transform, data) in &mut query {
+        let Some(bone_index) = data.bone_index else {
+            continue;
+        };
+
         let shared = &data.frame_state;
         let frame_num = shared.start_frame.load(Ordering::Acquire) as usize;
 
@@ -305,13 +527,9 @@ fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimationData)>) {
 
         let mul = shared.mul_1000.load(Ordering::Acquire) as f32 / ATOMIC_SCALE;
 
-        let frame_a = data
-            .animation_data
-            .get_bone_sample(frame_num, data.bone_index);
+        let frame_a = data.animation_data.get_bone_sample(frame_num, bone_index);
 
-        let frame_b = data
-            .animation_data
-            .get_bone_sample(end_frame, data.bone_index);
+        let frame_b = data.animation_data.get_bone_sample(end_frame, bone_index);
 
         transform.rotation = frame_a
             .rotation
@@ -330,6 +548,7 @@ fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimationData)>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::ecs::system::RunSystemOnce;
 
     /// Root movement dumped from the real `HUMANS-S_RUNL.MAN` (20 frames, 25 fps).
     fn runl_movement() -> Vec<f32> {
@@ -351,6 +570,7 @@ mod tests {
             frames_num: 20,
             time_us: AtomicU32::new(0),
             movement,
+            base_pos_node_index: 0,
         }
     }
 
@@ -363,6 +583,7 @@ mod tests {
         assert_eq!(update.start_frame, 0);
         assert_eq!(update.end_frame, 1);
         assert!((update.mul_1000 as f32 / ATOMIC_SCALE - 0.5).abs() < 0.01);
+        assert!(!update.finished);
         // Movement of half a frame: linear interpolation into the first frame step
         assert!((update.delta_movement - 0.5 * 0.13519135).abs() < 1e-4);
     }
@@ -376,6 +597,7 @@ mod tests {
         assert_eq!(update.start_frame, 1);
         assert_eq!(update.end_frame, 2);
         assert_eq!(update.mul_1000, 0);
+        assert!(!update.finished);
         assert!((update.delta_movement - 0.13519135).abs() < 1e-3);
         assert!((update.time_us as f32 / TIME_SCALE - 0.04).abs() < 1e-5);
     }
@@ -409,6 +631,7 @@ mod tests {
         let expected = 2.0 * total + movement[2] + (movement[3] - movement[2]) * 0.5;
         assert!((update.delta_movement - expected).abs() < 1e-3);
         assert_eq!(update.start_frame, 2);
+        assert!(update.finished);
     }
 
     #[test]
@@ -429,5 +652,214 @@ mod tests {
             ..state
         };
         assert!(advance_animation(&state, 0.02).is_none());
+    }
+
+    /// Distinct handles backed by a real asset store
+    fn test_sequencer() -> (Assets<AnimationData>, LocomotionSequencer) {
+        let mut assets = Assets::<AnimationData>::default();
+        let idle = assets.add(AnimationData::default());
+        let move_start = assets.add(AnimationData::default());
+        let move_loop = assets.add(AnimationData::default());
+        let move_stop = assets.add(AnimationData::default());
+        (
+            assets,
+            LocomotionSequencer {
+                idle,
+                move_start: Some(move_start),
+                move_loop,
+                move_stop: Some(move_stop),
+            },
+        )
+    }
+
+    #[test]
+    fn movement_starts_with_transition_into_loop() {
+        let (_assets, sequencer) = test_sequencer();
+        let move_start = sequencer.move_start.clone().unwrap();
+
+        // Standing still keeps looping the idle animation
+        assert_eq!(
+            animation_kind(&sequencer, &sequencer.idle),
+            Some(AnimationKind::Idle)
+        );
+        assert_eq!(
+            desired_next(&sequencer, AnimationKind::Idle, false),
+            (None, true)
+        );
+
+        // Starting to move queues the start transition, replacing the idle
+        // loop immediately
+        assert_eq!(
+            desired_next(&sequencer, AnimationKind::Idle, true),
+            (Some(move_start.clone()), true)
+        );
+
+        // The start transition leads into the movement loop, playing out first
+        assert_eq!(
+            animation_kind(&sequencer, &move_start),
+            Some(AnimationKind::MoveStart)
+        );
+        assert_eq!(
+            desired_next(&sequencer, AnimationKind::MoveStart, true),
+            (Some(sequencer.move_loop.clone()), false)
+        );
+    }
+
+    #[test]
+    fn stopping_movement_transitions_back_to_idle() {
+        let (_assets, sequencer) = test_sequencer();
+        let move_stop = sequencer.move_stop.clone().unwrap();
+
+        // Running keeps the movement loop
+        assert_eq!(
+            animation_kind(&sequencer, &sequencer.move_loop),
+            Some(AnimationKind::MoveLoop)
+        );
+        assert_eq!(
+            desired_next(&sequencer, AnimationKind::MoveLoop, true),
+            (None, true)
+        );
+
+        // Stopping queues the stop transition, replacing the run loop
+        // immediately
+        assert_eq!(
+            desired_next(&sequencer, AnimationKind::MoveLoop, false),
+            (Some(move_stop.clone()), true)
+        );
+
+        // The stop transition leads back to idle, playing out first
+        assert_eq!(
+            animation_kind(&sequencer, &move_stop),
+            Some(AnimationKind::MoveStop)
+        );
+        assert_eq!(
+            desired_next(&sequencer, AnimationKind::MoveStop, false),
+            (Some(sequencer.idle.clone()), false)
+        );
+        assert_eq!(
+            desired_next(&sequencer, AnimationKind::MoveStop, true),
+            (Some(sequencer.move_start.clone().unwrap()), false)
+        );
+    }
+
+    #[test]
+    fn missing_transitions_fall_back_to_loops() {
+        let (_assets, mut sequencer) = test_sequencer();
+        sequencer.move_start = None;
+        sequencer.move_stop = None;
+
+        // Start of movement goes straight into the movement loop
+        assert_eq!(
+            desired_next(&sequencer, AnimationKind::Idle, true),
+            (Some(sequencer.move_loop.clone()), true)
+        );
+        // Stop of movement goes straight back to idle
+        assert_eq!(
+            desired_next(&sequencer, AnimationKind::MoveLoop, false),
+            (Some(sequencer.idle.clone()), true)
+        );
+    }
+
+    #[test]
+    fn foreign_animations_are_left_alone() {
+        let (mut assets, sequencer) = test_sequencer();
+        let scripted = assets.add(AnimationData::default());
+
+        // Animations the sequencer does not own (e.g. scripted actions) have
+        // no kind; update_locomotion leaves their controller alone
+        assert_eq!(animation_kind(&sequencer, &scripted), None);
+    }
+
+    /// Builds a world with a single near skeleton for `update_animations`.
+    /// Time does not advance; the animation progress is pre-loaded via the
+    /// state's `time_us`.
+    fn run_update_animations(
+        assets: Assets<AnimationData>,
+        state: AnimationState,
+        controller: AnimationController,
+    ) -> (World, Entity) {
+        let mut world = World::new();
+        world.insert_resource(assets);
+        world.insert_resource(Time::<Real>::default());
+        let model = world
+            .spawn((
+                DistanceNear::default(),
+                state,
+                controller,
+                GlobalTransform::default(),
+            ))
+            .id();
+        (world, model)
+    }
+
+    #[test]
+    fn queued_next_replaces_finished_animation() {
+        let mut assets = Assets::<AnimationData>::default();
+        let first = assets.add(AnimationData::default());
+        let second = assets.add(AnimationData::default());
+
+        // 2 s into the 0.8 s loop: the animation finished this step
+        let state = runl_state(Some(runl_movement()));
+        state.time_us.store(2_000_000, Ordering::Release);
+        let (mut world, model) = run_update_animations(
+            assets,
+            state,
+            AnimationController {
+                current: first,
+                next: Some(second.clone()),
+                interrupt_current: false,
+            },
+        );
+        world.run_system_once(update_animations).unwrap();
+
+        let controller = world.get::<AnimationController>(model).unwrap();
+        assert_eq!(controller.current, second);
+        assert_eq!(controller.next, None);
+    }
+
+    #[test]
+    fn interrupt_current_replaces_playing_animation() {
+        let mut assets = Assets::<AnimationData>::default();
+        let first = assets.add(AnimationData::default());
+        let second = assets.add(AnimationData::default());
+
+        // The animation just started, but the queued next may interrupt it
+        let (mut world, model) = run_update_animations(
+            assets,
+            runl_state(Some(runl_movement())),
+            AnimationController {
+                current: first,
+                next: Some(second.clone()),
+                interrupt_current: true,
+            },
+        );
+        world.run_system_once(update_animations).unwrap();
+
+        let controller = world.get::<AnimationController>(model).unwrap();
+        assert_eq!(controller.current, second);
+        assert_eq!(controller.next, None);
+    }
+
+    #[test]
+    fn queued_next_waits_for_current_to_end() {
+        let mut assets = Assets::<AnimationData>::default();
+        let first = assets.add(AnimationData::default());
+        let second = assets.add(AnimationData::default());
+
+        // The animation just started and may not be interrupted
+        let (mut world, model) = run_update_animations(
+            assets,
+            runl_state(Some(runl_movement())),
+            AnimationController {
+                current: first.clone(),
+                next: Some(second.clone()),
+                interrupt_current: false,
+            },
+        );
+        world.run_system_once(update_animations).unwrap();
+
+        let controller = world.get::<AnimationController>(model).unwrap();
+        assert_eq!(controller.current, first);
+        assert_eq!(controller.next, Some(second));
     }
 }
