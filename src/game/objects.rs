@@ -2,6 +2,7 @@ use bevy::ecs::component::Component;
 
 #[derive(Debug, Default, Component)]
 pub struct GameNpc {
+    pub npc_intance_id: i32,
     /// Bone hierarchy path
     pub hierarchy: Option<String>,
 

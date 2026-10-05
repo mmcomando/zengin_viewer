@@ -80,6 +80,7 @@ fn spawn_world(
         commands.spawn((
             Visibility::default(),
             GameNpc {
+                npc_intance_id: npc.npc_intance_id,
                 hierarchy: npc.hierarchy.clone(),
                 body_model: npc.body_model.clone(),
                 body_texture: npc.body_texture.clone(),
@@ -182,6 +183,7 @@ fn spawn_world(
         Visibility::default(),
         Transform::from_xyz(0.0, -1.0, 0.0),
         GameNpc {
+            npc_intance_id: 1620, // TODO hardcoded player instance id
             hierarchy: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS.MDH".to_string()),
             body_model: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM".to_string(),
             body_texture: Some(

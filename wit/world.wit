@@ -332,6 +332,19 @@ interface manage {
         instance,
         variable-argument,
     }
+    record dialog-info {
+        npc: s32,
+        condition: s32,
+        information: s32,
+        description: s32,
+        important: bool,
+        permanent: bool,
+    }
+    record symbol-info {
+        kind: symbol-kind,
+        parent: option<s32>,
+        function: option<s32>,
+    }
     test-func: func() -> s32;
     set-instance: func(instance-id: s32);
     call-npc-routine: func(instance-id: s32);
@@ -342,7 +355,8 @@ interface manage {
     get-item-visual-change: func(symbol-id: s32) -> option<string>;
     initialize-all-instances: func();
     get-all-symbols-num: func() -> s32;
-    get-symbol-kind: func(symbol-id: s32)-> symbol-kind;
+    get-dialog-info: func(symbol-id: s32) -> dialog-info;
+    get-symbol-info: func(symbol-id: s32) -> symbol-info;
 }
 
 world mm-world {

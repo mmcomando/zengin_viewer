@@ -46,6 +46,8 @@ impl WorldScript {
         executor.load_item_instances();
         println!("Call script load npc instances");
         executor.load_npc_instances();
+        println!("Call script load dialog options");
+        executor.load_dialogs_information();
 
         Self { script: executor }
     }

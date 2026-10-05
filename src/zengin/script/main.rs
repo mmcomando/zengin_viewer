@@ -7,7 +7,9 @@ use wasmtime::{AsContextMut, Engine, Store};
 
 use wasmtime::component::{Component, HasData, Linker, bindgen};
 
-use crate::zengin::script::state::{LoadedState, RoutineEntry, SpawnItem, SpawnNpc};
+use crate::zengin::script::state::{
+    DialogLine, DialogRoot, DialogState, LoadedState, RoutineEntry, SpawnItem, SpawnNpc,
+};
 use exports::mmcomando::zengine_scripts::manage::SymbolKind;
 
 bindgen!({
@@ -19,6 +21,7 @@ bindgen!({
         "mmcomando:zengine-scripts/scripts.mdl-setvisual": store,
         "mmcomando:zengine-scripts/scripts.ta-min": store,
         "mmcomando:zengine-scripts/scripts.wld-insertitem": store,
+        "mmcomando:zengine-scripts/scripts.ai-output": store,
 
     },
 
@@ -38,6 +41,7 @@ pub struct InstanceStateRaw {
 pub struct ImportCallState {
     pub world: Option<Arc<MmWorld>>,
     pub loaded_state: LoadedState,
+    pub dialog_state: DialogState,
     pub raw_instances: HashMap<u32, InstanceStateRaw>,
 }
 
@@ -151,13 +155,23 @@ impl WasmExecutor {
             .unwrap()
     }
 
-    pub fn get_symbol_kind(
+    pub fn get_symbol_info(
         &mut self,
         symbol_id: i32,
-    ) -> crate::zengin::script::main::exports::mmcomando::zengine_scripts::manage::SymbolKind {
+    ) -> crate::zengin::script::main::exports::mmcomando::zengine_scripts::manage::SymbolInfo {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_get_symbol_kind(&mut self.store, symbol_id)
+            .call_get_symbol_info(&mut self.store, symbol_id)
+            .unwrap()
+    }
+
+    pub fn get_dialog_info(
+        &mut self,
+        symbol_id: i32,
+    ) -> crate::zengin::script::main::exports::mmcomando::zengine_scripts::manage::DialogInfo {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_get_dialog_info(&mut self.store, symbol_id)
             .unwrap()
     }
 
@@ -187,20 +201,44 @@ impl WasmExecutor {
         guest.call_get_all_symbols_num(&mut self.store).unwrap()
     }
 
+    fn has_ancestor(
+        &mut self,
+        symbol_info: &crate::zengin::script::main::exports::mmcomando::zengine_scripts::manage::SymbolInfo,
+        ancestor_id: i32,
+    ) -> bool {
+        let Some(parent) = symbol_info.parent else {
+            return false;
+        };
+        if parent == ancestor_id {
+            return true;
+        }
+        let symbol_info = self.get_symbol_info(parent);
+
+        return self.has_ancestor(&symbol_info, ancestor_id);
+    }
+
     pub fn load_item_instances(&mut self) {
         let symbols_num = self.get_all_symbols_num();
 
+        let item_class_id = self.get_symbol_id("c_item");
+
         for index in 0..symbols_num {
-            if self.get_symbol_kind(index) != SymbolKind::Instance {
+            let symbol_info = self.get_symbol_info(index);
+            if symbol_info.kind != SymbolKind::Instance {
                 continue;
             }
-            let item_name = self.call_get_name(index as u32);
-            // TODO better way to tell if symbol is an item (c_item class)
-            if !item_name.starts_with("it") && item_name != "holy_hammer_mis" {
+
+            if !self.has_ancestor(&symbol_info, item_class_id) {
                 continue;
             }
+            if symbol_info.function.is_none() {
+                // Instance doesn't have init code, so it won't have meaningful data
+                continue;
+            }
+            let symbol_name = self.call_get_name(index as u32);
+
             let Some(visual) = self.get_item_visual(index) else {
-                println!("No visual for item({})", &item_name);
+                println!("No visual for item({})", &symbol_name);
                 continue;
             };
 
@@ -210,11 +248,63 @@ impl WasmExecutor {
                 .data_mut()
                 .loaded_state
                 .item_instances
-                .entry(item_name)
+                .entry(symbol_name)
                 .or_default();
             entry.visual = visual;
             entry.visual_change = visual_change;
         }
+    }
+
+    pub fn load_dialogs_information(&mut self) {
+        let symbols_num = self.get_all_symbols_num();
+
+        let info_class_id = self.get_symbol_id("c_info");
+
+        for index in 0..symbols_num {
+            let symbol_info = self.get_symbol_info(index);
+            if symbol_info.kind != SymbolKind::Instance {
+                continue;
+            }
+            if !self.has_ancestor(&symbol_info, info_class_id) {
+                continue;
+            }
+
+            let symbol_name = self.call_get_name(index as u32);
+            if symbol_name.starts_with("dia_lares") {
+                continue;
+            }
+            let dialog_info = self.get_dialog_info(index);
+            let description = self
+                .get_string_non_0(dialog_info.description)
+                .unwrap_or("".to_string());
+
+            let entry = self
+                .store
+                .data_mut()
+                .loaded_state
+                .dialog_roots
+                .entry(dialog_info.npc as u32)
+                .or_default();
+            entry.push(DialogRoot {
+                sequence_function_id: dialog_info.information,
+                description,
+            });
+        }
+
+        // dbg!(&self.store.data_mut().loaded_state.dialog_roots);
+    }
+
+    pub fn call_dialog_sequence_function(&mut self, sequence_function_id: i32) {
+        // TODO some dialog options are skipped as they cause problems
+        if [15670, 15678, 20246].contains(&sequence_function_id) {
+            // Function has return value but should not have
+            return;
+        }
+        if [18914, 21446, 21880, 23103].contains(&sequence_function_id) {
+            // Real problem with script
+            return;
+        }
+        self.call_function(sequence_function_id);
     }
 
     pub fn load_npc_instances(&mut self) {
@@ -434,6 +524,24 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
             .or_default();
         entry.routine_enties.push(routine_entry);
     }
+
+    fn ai_output(
+        mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
+        npc_a: i32,
+        npc_b: i32,
+        line_id: i32,
+    ) {
+        let line_str = Self::get_string_non_0(&mut access, line_id).unwrap();
+        println!(
+            "ai_output npc_a({npc_a}), npc_b({npc_b}), line_id({line_id}), line_str({line_str})"
+        );
+        let state = access.data_mut();
+        state.dialog_state.dialog_lines.push(DialogLine {
+            npc_a,
+            npc_b,
+            line_id,
+        });
+    }
 }
 
 impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
@@ -530,7 +638,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(ai_continueroutine(_0));
     count_import!(npc_getstatetime(_0) -> i32);
     count_import!(npc_setstatetime(_0, _1));
-    count_import!(ai_output(_0, _1, _2));
+    // count_import!(ai_output(_0, _1, _2));
     count_import!(ai_outputsvm(_0, _1, _2));
     count_import!(ai_outputsvm_overlay(_0, _1, _2));
     count_import!(ai_playcutscene(_0, _1));

@@ -58,10 +58,29 @@ pub struct ItemInstance {
     pub visual_change: Option<String>,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct DialogRoot {
+    pub sequence_function_id: i32,
+    pub description: String,
+}
+
 #[derive(Debug, Default)]
 pub struct LoadedState {
     pub spawn_npcs: Vec<SpawnNpc>,
     pub spawn_items: Vec<SpawnItem>,
     pub instance_data: HashMap<u32, InstanceState>,
     pub item_instances: HashMap<String, ItemInstance>,
+    pub dialog_roots: HashMap<u32, Vec<DialogRoot>>,
+}
+
+#[derive(Debug, Default)]
+pub struct DialogLine {
+    pub npc_a: i32,
+    pub npc_b: i32,
+    pub line_id: i32,
+}
+
+#[derive(Debug, Default)]
+pub struct DialogState {
+    pub dialog_lines: Vec<DialogLine>,
 }

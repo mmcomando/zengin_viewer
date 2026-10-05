@@ -129,6 +129,7 @@ pub struct ZenGinItem {
 }
 #[derive(Debug, Default)]
 pub struct ZenGinNpc {
+    pub npc_intance_id: i32,
     pub head_model: Option<String>,
     pub head_texture: Option<String>,
     pub body_tr: Transform,
