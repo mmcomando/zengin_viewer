@@ -22,6 +22,7 @@ mod zengin_resources;
 
 use crate::character::CharacterControllerPlugin;
 use crate::game::animation::SkeletalAnimations;
+use crate::game::dialog::GameDialogPlugin;
 use crate::game::disco_lamp::DiscoLamp;
 use crate::game::distance::DistancePlugin;
 use crate::gui::camera::get_overlay_plugin;
@@ -85,6 +86,7 @@ fn main() {
         .add_plugins(GameDebugUI)
         .add_plugins(StatisticsPlugin)
         .add_plugins(GothicScriptsPlugin)
+        .add_plugins(GameDialogPlugin)
         .add_plugins(SkeletalAnimations);
     // Run
     app.run();

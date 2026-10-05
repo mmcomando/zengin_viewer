@@ -1,4 +1,4 @@
-use crate::zengin::script::state::LoadedState;
+use crate::zengin::script::state::{DialogLine, LoadedState};
 use crate::zengin::{common::gothic2_dir, script::main::WasmExecutor};
 use bevy::ecs::resource::Resource;
 use bevy::prelude::*;
@@ -50,6 +50,26 @@ impl WorldScript {
         executor.load_dialogs_information();
 
         Self { script: executor }
+    }
+}
+
+impl WorldScript {
+    pub fn clear_dialog_lines(&mut self) {
+        self.script
+            .store
+            .data_mut()
+            .dialog_state
+            .dialog_lines
+            .clear();
+    }
+
+    pub fn dialog_lines(&self) -> &[DialogLine] {
+        &self.script.store.data().dialog_state.dialog_lines
+    }
+
+    pub fn call_dialog_sequence_function(&mut self, sequence_function_id: i32) {
+        self.script
+            .call_dialog_sequence_function(sequence_function_id);
     }
 }
 
