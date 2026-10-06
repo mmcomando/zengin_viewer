@@ -532,14 +532,15 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         line_id: i32,
     ) {
         let line_str = Self::get_string_non_0(&mut access, line_id).unwrap();
-        println!(
-            "ai_output npc_a({npc_a}), npc_b({npc_b}), line_id({line_id}), line_str({line_str})"
-        );
+        // println!(
+        //     "ai_output npc_a({npc_a}), npc_b({npc_b}), line_id({line_id}), line_str({line_str})"
+        // );
         let state = access.data_mut();
         state.dialog_state.dialog_lines.push(DialogLine {
             npc_a,
             npc_b,
             line_id,
+            line_str,
         });
     }
 }

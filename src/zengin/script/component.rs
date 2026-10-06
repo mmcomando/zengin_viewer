@@ -2,13 +2,16 @@ use crate::zengin::script::state::{DialogLine, LoadedState};
 use crate::zengin::{common::gothic2_dir, script::main::WasmExecutor};
 use bevy::ecs::resource::Resource;
 use bevy::prelude::*;
+use std::collections::HashMap;
 use std::path::PathBuf;
+use zen_kit_rs::cutscene_library::CutsceneLibrary;
 
 pub struct GothicScriptsPlugin;
 
 impl Plugin for GothicScriptsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(WorldScript::new());
+        app.insert_resource(load_dialog_texts());
         app.add_systems(Startup, spawn_entities);
     }
 }
@@ -71,6 +74,52 @@ impl WorldScript {
         self.script
             .call_dialog_sequence_function(sequence_function_id);
     }
+
+    pub fn call_get_name(&mut self, symbol_id: u32) -> String {
+        self.script.call_get_name(symbol_id)
+    }
+}
+
+/// Real texts of dialog lines loaded from Ou.bin, keyed by Ou.bin block name.
+/// Script `AI_Output` references the blocks by the string literal passed to it.
+#[derive(Resource, Default)]
+pub struct DialogTexts {
+    texts: HashMap<String, String>,
+}
+
+impl DialogTexts {
+    pub fn get(&self, block_name: &str) -> Option<&String> {
+        self.texts.get(block_name)
+    }
+}
+
+fn load_dialog_texts() -> DialogTexts {
+    let path = gothic2_dir() + "/_work/Data/Scripts/CONTENT/CUTSCENE/Ou.bin";
+    let Some(library) = CutsceneLibrary::load_path(&path) else {
+        println!("Failed to load cutscene library from {path}, dialog lines will miss real texts");
+        return DialogTexts::default();
+    };
+
+    let block_count = library.block_count();
+    let blocks = library.blocks();
+    let mut texts = HashMap::with_capacity(blocks.len());
+    let mut blocks_without_message = 0;
+    for block in blocks {
+        let Some(message) = block.message() else {
+            blocks_without_message += 1;
+            continue;
+        };
+        texts.insert(block.name().to_lowercase(), message.text());
+    }
+
+    println!(
+        "Loaded dialog texts from Ou.bin: blocks({}), with_text({}), blocks_without_message({})",
+        block_count,
+        texts.len(),
+        blocks_without_message
+    );
+
+    DialogTexts { texts }
 }
 
 fn spawn_entities(_script: ResMut<WorldScript>) {

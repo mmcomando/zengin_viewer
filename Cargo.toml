@@ -8,7 +8,7 @@ edition = "2024"
 bevy = { version = "0.19.0", features = ["dynamic_linking", "bevy_dev_tools", "free_camera", "serialize"] }
 avian3d = "0.7.0"
 byteorder = "1.5"
-ZenKit-rs = { git = "https://github.com/mmcomando/ZenKit-rs.git", rev = "3569091272cac1bc2fe149aa7439ab136bfc73b9" }
+ZenKit-rs = { path = "/home/pc/prog/experiments/2026_01/ZenKit-rs" }
 daedalus_wasm = { path = "/home/pc/prog/experiments/2026_04/daedalus_wasm" }
 ron = "0.12.0"
 serde = "1.0.228"

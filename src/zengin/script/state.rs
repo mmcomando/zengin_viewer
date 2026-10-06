@@ -73,11 +73,12 @@ pub struct LoadedState {
     pub dialog_roots: HashMap<u32, Vec<DialogRoot>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct DialogLine {
     pub npc_a: i32,
     pub npc_b: i32,
     pub line_id: i32,
+    pub line_str: String,
 }
 
 #[derive(Debug, Default)]

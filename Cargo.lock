@@ -25,7 +25,6 @@ dependencies = [
 [[package]]
 name = "ZenKit-rs"
 version = "0.1.0"
-source = "git+https://github.com/mmcomando/ZenKit-rs.git?rev=3569091272cac1bc2fe149aa7439ab136bfc73b9#3569091272cac1bc2fe149aa7439ab136bfc73b9"
 dependencies = [
  "ZenKitCAPI-sys",
 ]
