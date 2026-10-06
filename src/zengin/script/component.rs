@@ -5,6 +5,8 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use zen_kit_rs::cutscene_library::CutsceneLibrary;
+use zen_kit_rs::misc::TextEncoding;
+use zen_kit_rs::stream::Read;
 
 pub struct GothicScriptsPlugin;
 
@@ -95,7 +97,13 @@ impl DialogTexts {
 
 fn load_dialog_texts() -> DialogTexts {
     let path = gothic2_dir() + "/_work/Data/Scripts/CONTENT/CUTSCENE/Ou.bin";
-    let Some(library) = CutsceneLibrary::load_path(&path) else {
+    let Some(bytes) = std::fs::read(&path).ok() else {
+        println!("Failed to read cutscene library from {path}, dialog lines will miss real texts");
+        return DialogTexts::default();
+    };
+    let read = Read::from_slice(&bytes).expect("failed to create reader for Ou.bin");
+    let Some(library) = CutsceneLibrary::load_with_encoding(&read, TextEncoding::Windows1250)
+    else {
         println!("Failed to load cutscene library from {path}, dialog lines will miss real texts");
         return DialogTexts::default();
     };

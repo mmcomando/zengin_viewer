@@ -27,6 +27,7 @@ name = "ZenKit-rs"
 version = "0.1.0"
 dependencies = [
  "ZenKitCAPI-sys",
+ "encoding_rs",
 ]
 
 [[package]]

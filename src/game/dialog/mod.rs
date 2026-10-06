@@ -12,6 +12,7 @@ pub struct GameDialogPlugin;
 impl Plugin for GameDialogPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DialogUiState>();
+        app.add_systems(Startup, ui::override_default_font);
         app.add_systems(Startup, ui::spawn_dialog_ui);
         app.add_systems(
             Update,

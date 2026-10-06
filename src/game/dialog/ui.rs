@@ -49,6 +49,19 @@ pub(super) struct DialogNpcNameText;
 #[derive(Component)]
 pub(super) struct DialogLineText;
 
+/// Replaces bevy's built-in default font (FiraMono subset, ASCII-only) with Fira Sans,
+/// which has Latin Extended-A coverage, so Polish dialog texts render properly.
+/// Applies globally because every `TextFont { ..default() }` resolves to the default font asset id.
+pub(super) fn override_default_font(mut fonts: ResMut<Assets<Font>>) {
+    const FONT_DATA: &[u8] = include_bytes!("../../../assets/fonts/FiraSans-Regular.ttf");
+    fonts
+        .insert(
+            bevy::asset::AssetId::default(),
+            Font::from_bytes(FONT_DATA.to_vec()),
+        )
+        .unwrap();
+}
+
 /// Spawns the whole dialog UI once at startup, hidden until a dialog opens.
 /// Option rows are spawned lazily on demand and never removed, unused ones get `Display::None`.
 pub(super) fn spawn_dialog_ui(mut commands: Commands) {
@@ -517,6 +530,7 @@ fn dialog_row_display_text(root: &DialogRoot) -> String {
 /// Real text when available, otherwise everything known about the line for debugging
 fn dialog_line_display_text(view: &DialogLineView) -> String {
     if let Some(text) = &view.text {
+        println!("kkk({})", text);
         return text.clone();
     }
     format!(
