@@ -4,6 +4,7 @@ mod ui;
 use crate::game::objects::GameNpc;
 use crate::zengin::PlayerMarker;
 use crate::zengin::script::component::WorldScript;
+use crate::zengin::script::state::DialogRoot;
 use bevy::prelude::*;
 use state::DialogUiState;
 
@@ -25,6 +26,23 @@ impl Plugin for GameDialogPlugin {
                 .chain(),
         );
     }
+}
+
+/// Fetches the npc's root dialog options from the script state, filters them
+/// by their condition functions and drops the important ones
+fn npc_dialog_roots(
+    gothic_script: &mut WorldScript,
+    npc_instance_id: i32,
+) -> Option<Vec<DialogRoot>> {
+    let mut roots = gothic_script
+        .get_loaded_state()
+        .dialog_roots
+        .get(&(npc_instance_id as u32))?
+        .clone();
+    println!("npc_dialog_roots");
+    gothic_script.filter_dialog_roots(npc_instance_id, &mut roots);
+    roots.retain(|root| !root.important);
+    Some(roots)
 }
 
 /// Opens the dialog of the closest npc on demand
@@ -71,17 +89,16 @@ fn show_closest_npc_dialog(
 
     let npc_name = gothic_script.call_get_name(closest_npc.npc_intance_id as u32);
 
-    let loaded_state = gothic_script.get_loaded_state();
-    let Some(mut dialog_roots) = loaded_state
-        .dialog_roots
-        .get(&(closest_npc.npc_intance_id as u32))
-        .cloned()
+    let Some(dialog_roots) = npc_dialog_roots(&mut gothic_script, closest_npc.npc_intance_id)
     else {
         println!("No dialog_roots for npc({})", closest_npc.npc_intance_id);
         return;
     };
 
-    gothic_script.filter_dialog_roots(closest_npc.npc_intance_id, &mut dialog_roots);
-
-    dialog_ui.open(closest_entity, dialog_roots, npc_name);
+    dialog_ui.open(
+        closest_entity,
+        closest_npc.npc_intance_id,
+        dialog_roots,
+        npc_name,
+    );
 }

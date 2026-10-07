@@ -27,6 +27,8 @@ pub(super) struct DialogLineView {
 #[derive(Resource, Default)]
 pub(super) struct DialogUiState {
     pub(super) npc_entity: Option<Entity>,
+    /// Script instance id of the npc the dialog is open with
+    pub(super) npc_instance_id: i32,
     pub(super) dialog_roots: Vec<DialogRoot>,
     /// Sub dialog choices populated by the last executed option, shown instead
     /// of `dialog_roots` when not empty
@@ -54,13 +56,12 @@ impl DialogUiState {
     pub(super) fn open(
         &mut self,
         npc_entity: Entity,
-        mut dialog_roots: Vec<DialogRoot>,
+        npc_instance_id: i32,
+        dialog_roots: Vec<DialogRoot>,
         npc_name: String,
     ) {
-        // Important roots should not be shown, they are automatically started when player is near
-        dialog_roots.retain(|el| !el.important);
-
         self.npc_entity = Some(npc_entity);
+        self.npc_instance_id = npc_instance_id;
         self.dialog_roots = dialog_roots;
         self.sub_choices.clear();
         self.dialog_lines.clear();
@@ -116,11 +117,6 @@ impl DialogUiState {
         gothic_script.clear_dialog_lines();
         gothic_script.call_dialog_sequence_function(sequence_function_id);
 
-        if gothic_script.close_dialog() {
-            self.close();
-            return;
-        }
-
         // The executed option may have registered sub dialog choices, take a
         // snapshot so they can be shown instead of the root options
         self.sync_sub_choices(gothic_script);
@@ -143,6 +139,9 @@ impl DialogUiState {
 
         if dialog_line_views.is_empty() {
             // Nothing was produced (e.g. skipped sequence function), keep options shown
+            if self.sub_choices.is_empty() {
+                self.refresh_root_options(gothic_script);
+            }
             return;
         }
         self.begin_line_playback(dialog_line_views);
@@ -152,6 +151,22 @@ impl DialogUiState {
     pub(super) fn sync_sub_choices(&mut self, gothic_script: &WorldScript) {
         self.sub_choices = gothic_script.sub_dialog_choices().to_vec();
         self.rows_dirty = true;
+    }
+
+    /// Re-fetches the npc's root options from the script state, as executed
+    /// options may have changed which options are available
+    fn refresh_root_options(&mut self, gothic_script: &mut WorldScript) {
+        if gothic_script.close_dialog() {
+            self.close();
+            return;
+        }
+        if let Some(roots) = super::npc_dialog_roots(gothic_script, self.npc_instance_id) {
+            self.dialog_roots = roots;
+            if self.selected_index >= self.dialog_roots.len() {
+                self.selected_index = 0;
+            }
+            self.rows_dirty = true;
+        }
     }
 
     /// Closes the dialog by clearing the npc entity
@@ -168,8 +183,11 @@ impl DialogUiState {
         self.line_timer = Timer::from_seconds(LINE_DISPLAY_SECONDS, TimerMode::Once);
     }
 
-    /// Advances the line playback timer, returns to options mode after the last line
-    pub(super) fn advance_playback(&mut self, delta: Duration) {
+    /// Advances the line playback timer, returns to options mode after the last line.
+    /// When returning to the root options the roots are re-fetched from the
+    /// script state, as the executed option may have changed which options are
+    /// available
+    pub(super) fn advance_playback(&mut self, delta: Duration, gothic_script: &mut WorldScript) {
         if self.mode != DialogUiMode::Lines {
             return;
         }
@@ -183,6 +201,10 @@ impl DialogUiState {
                 self.current_line_index = 0;
                 self.selected_index = 0;
                 self.dialog_lines.clear();
+
+                if self.sub_choices.is_empty() {
+                    self.refresh_root_options(gothic_script);
+                }
             }
         }
     }
@@ -211,9 +233,13 @@ pub(super) fn handle_dialog_input(
 }
 
 /// Advances the one line at a time playback
-pub(super) fn advance_dialog_playback(time: Res<Time>, mut dialog_ui: ResMut<DialogUiState>) {
+pub(super) fn advance_dialog_playback(
+    time: Res<Time>,
+    mut dialog_ui: ResMut<DialogUiState>,
+    mut gothic_script: ResMut<WorldScript>,
+) {
     if !dialog_ui.is_open() {
         return;
     }
-    dialog_ui.advance_playback(time.delta());
+    dialog_ui.advance_playback(time.delta(), &mut gothic_script);
 }
