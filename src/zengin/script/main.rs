@@ -593,9 +593,8 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         description_text_id: i32,
         function_id: i32,
     ) {
-        let description = Self::get_string_non_0(&mut access, description_text_id)
-            .unwrap_or_default()
-            .to_lowercase();
+        let description =
+            Self::get_string_non_0(&mut access, description_text_id).unwrap_or_default();
 
         let state = access.data_mut();
         state.dialog_state.sub_dialog_choices.push(DialogRoot {

@@ -39,7 +39,6 @@ fn npc_dialog_roots(
         .dialog_roots
         .get(&(npc_instance_id as u32))?
         .clone();
-    println!("npc_dialog_roots");
     gothic_script.filter_dialog_roots(npc_instance_id, &mut roots);
     roots.retain(|root| !root.important);
     Some(roots)

@@ -34,8 +34,9 @@ use crate::gui::xr::{XrPlugin, is_xr_enabled};
 use crate::input::InputPlugin;
 use crate::skybox::SkyBoxPlugin;
 use crate::zengin::ZenGinWorldPlugin;
-use crate::zengin::loaders::vdf_reader::create_zengin_asset_loader;
+use crate::zengin::loaders::vdf_reader::{create_zengin_asset_loader, create_zengin_vfs};
 use crate::zengin::script::component::GothicScriptsPlugin;
+use crate::zengin::sounds::SpeechSounds;
 use avian3d::prelude::*;
 use bevy::anti_alias::smaa::Smaa;
 use bevy::light::CascadeShadowConfigBuilder;
@@ -51,8 +52,10 @@ use bevy::{
 
 fn main() {
     let mut app = App::new();
-    // This app custom assert source, has to be registered before default plugins
-    app.register_asset_source("zengin", create_zengin_asset_loader());
+    // This app custom assert source, has to be registered before default plugins.
+    let vfs = create_zengin_vfs();
+    app.insert_resource(SpeechSounds::new(vfs.clone()));
+    app.register_asset_source("zengin", create_zengin_asset_loader(vfs));
     // Default plugin
     let window_plugin_options = WindowPlugin {
         primary_window: Some(Window {

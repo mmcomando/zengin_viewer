@@ -53,23 +53,6 @@
                 ),
             },
             {
-                "VirtualDPad": (
-                    up: {
-                        "KeyCode": ArrowUp,
-                    },
-                    down: {
-                        "KeyCode": ArrowDown,
-                    },
-                    left: {
-                        "KeyCode": ArrowLeft,
-                    },
-                    right: {
-                        "KeyCode": ArrowRight,
-                    },
-                    processors: [],
-                ),
-            },
-            {
                 "GamepadStick": (
                     x: LeftStickX,
                     y: LeftStickY,

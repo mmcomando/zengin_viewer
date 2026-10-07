@@ -2,11 +2,15 @@ use crate::game::audio::PlaySound;
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::script::component::{DialogTexts, WorldScript};
 use crate::zengin::script::state::{DialogLine, DialogRoot};
+use crate::zengin::sounds::SpeechSounds;
 use bevy::prelude::*;
 use std::time::Duration;
 
 /// How long a single dialog line is displayed during playback
 const LINE_DISPLAY_SECONDS: f32 = 1.0;
+
+/// Extra pause after a line's sound finished before the next line is shown
+const LINE_GAP_SECONDS: f32 = 0.2;
 
 /// What is currently presented by the dialog UI
 #[derive(Default, PartialEq)]
@@ -23,6 +27,8 @@ pub(super) struct DialogLineView {
     pub(super) line: DialogLine,
     /// Real line text, None if the block was not found
     pub(super) text: Option<String>,
+    /// Duration of the line's sound file, None if not found/parseable
+    pub(super) sound_duration: Option<f32>,
 }
 
 /// State driving the dialog UI, it is shown only while `npc_entity` is present
@@ -108,6 +114,7 @@ impl DialogUiState {
         &mut self,
         gothic_script: &mut WorldScript,
         dialog_texts: &DialogTexts,
+        speech_sounds: &SpeechSounds,
         sounds: &mut MessageWriter<PlaySound>,
     ) {
         let Some(sequence_function_id) = self.selected_option_function() else {
@@ -136,7 +143,12 @@ impl DialogUiState {
                         line.npc_a, line.npc_b, line.line_id, line.line_str
                     );
                 }
-                DialogLineView { line, text }
+                let sound_duration = speech_sounds.duration(&get_dialog_sound_path(&line.line_str));
+                DialogLineView {
+                    line,
+                    text,
+                    sound_duration,
+                }
             })
             .collect::<Vec<_>>();
 
@@ -187,7 +199,11 @@ impl DialogUiState {
         self.dialog_lines = dialog_lines;
         self.mode = DialogUiMode::Lines;
         self.current_line_index = 0;
-        self.line_timer = Timer::from_seconds(LINE_DISPLAY_SECONDS, TimerMode::Once);
+        self.line_timer = self
+            .dialog_lines
+            .first()
+            .map(|line| Timer::from_seconds(line_display_seconds(line), TimerMode::Once))
+            .unwrap_or_default();
 
         if let Some(line) = self.dialog_lines.first() {
             sounds.write(PlaySound {
@@ -212,7 +228,6 @@ impl DialogUiState {
         self.line_timer.tick(delta);
         if self.line_timer.is_finished() {
             self.current_line_index += 1;
-            self.line_timer = Timer::from_seconds(LINE_DISPLAY_SECONDS, TimerMode::Once);
             if self.current_line_index >= self.dialog_lines.len() {
                 // Playback finished, show root options again
                 self.mode = DialogUiMode::Options;
@@ -224,6 +239,7 @@ impl DialogUiState {
                     self.refresh_root_options(gothic_script);
                 }
             } else if let Some(line) = self.dialog_lines.get(self.current_line_index) {
+                self.line_timer = Timer::from_seconds(line_display_seconds(line), TimerMode::Once);
                 sounds.write(PlaySound {
                     asset_path: get_dialog_sound_path(&line.line.line_str),
                 });
@@ -238,6 +254,7 @@ pub(super) fn handle_dialog_input(
     mut dialog_ui: ResMut<DialogUiState>,
     mut gothic_script: ResMut<WorldScript>,
     dialog_texts: Res<DialogTexts>,
+    speech_sounds: Res<SpeechSounds>,
     mut sounds: MessageWriter<PlaySound>,
 ) {
     if !dialog_ui.is_open() || dialog_ui.mode != DialogUiMode::Options {
@@ -251,7 +268,21 @@ pub(super) fn handle_dialog_input(
         dialog_ui.move_selection(1);
     }
     if keys.just_pressed(KeyCode::Enter) {
-        dialog_ui.execute_selected(&mut gothic_script, &dialog_texts, &mut sounds);
+        dialog_ui.execute_selected(
+            &mut gothic_script,
+            &dialog_texts,
+            &speech_sounds,
+            &mut sounds,
+        );
+    }
+}
+
+/// Display time of a single dialog line: sound duration with a gap after
+/// it, but at least the minimum display time
+fn line_display_seconds(view: &DialogLineView) -> f32 {
+    match view.sound_duration {
+        Some(duration) => (duration + LINE_GAP_SECONDS).max(LINE_DISPLAY_SECONDS),
+        None => LINE_DISPLAY_SECONDS,
     }
 }
 

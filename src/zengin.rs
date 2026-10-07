@@ -3,6 +3,7 @@ pub mod conversions;
 pub mod loaders;
 pub mod macros;
 pub mod script;
+pub mod sounds;
 pub mod visual;
 pub mod world;
 
