@@ -98,6 +98,12 @@ impl WorldScript {
     pub fn call_get_name(&mut self, symbol_id: u32) -> String {
         self.script.call_get_name(symbol_id)
     }
+
+    /// Evaluates the condition function of every root with the npc instance
+    /// set, dropping roots whose condition returns false
+    pub fn filter_dialog_roots(&mut self, npc_instance_id: i32, roots: &mut Vec<DialogRoot>) {
+        self.script.filter_dialog_roots(npc_instance_id, roots)
+    }
 }
 
 /// Real texts of dialog lines loaded from Ou.bin, keyed by Ou.bin block name.

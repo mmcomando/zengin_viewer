@@ -152,6 +152,25 @@ impl WasmExecutor {
             .unwrap()
     }
 
+    pub fn call_function_bool(&mut self, symbol_id: i32) -> bool {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_call_function_bool(&mut self.store, symbol_id)
+            .unwrap()
+    }
+
+    /// Evaluates the condition function of every root with the npc instance
+    /// set, dropping roots whose condition returns false
+    pub fn filter_dialog_roots(&mut self, npc_index: i32, roots: &mut Vec<DialogRoot>) {
+        roots.retain(|root| {
+            if root.condition_function_id == 0 {
+                return true;
+            }
+            self.set_instance(npc_index as u32);
+            self.call_function_bool(root.condition_function_id)
+        });
+    }
+
     pub fn initialize_instances(&mut self) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
@@ -291,6 +310,7 @@ impl WasmExecutor {
                 .or_default();
             entry.push(DialogRoot {
                 sequence_function_id: dialog_info.information,
+                condition_function_id: dialog_info.condition,
                 description,
                 important: dialog_info.important,
                 order: dialog_info.order,
@@ -580,6 +600,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         let state = access.data_mut();
         state.dialog_state.sub_dialog_choices.push(DialogRoot {
             sequence_function_id: function_id,
+            condition_function_id: 0,
             order: state.dialog_state.sub_dialog_choices.len() as i32,
             description,
             important: false,

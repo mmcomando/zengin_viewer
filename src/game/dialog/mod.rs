@@ -72,13 +72,16 @@ fn show_closest_npc_dialog(
     let npc_name = gothic_script.call_get_name(closest_npc.npc_intance_id as u32);
 
     let loaded_state = gothic_script.get_loaded_state();
-    let Some(dialog_roots) = loaded_state
+    let Some(mut dialog_roots) = loaded_state
         .dialog_roots
         .get(&(closest_npc.npc_intance_id as u32))
+        .cloned()
     else {
         println!("No dialog_roots for npc({})", closest_npc.npc_intance_id);
         return;
     };
 
-    dialog_ui.open(closest_entity, dialog_roots.clone(), npc_name);
+    gothic_script.filter_dialog_roots(closest_npc.npc_intance_id, &mut dialog_roots);
+
+    dialog_ui.open(closest_entity, dialog_roots, npc_name);
 }
