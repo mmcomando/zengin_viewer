@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// Path of the input profile, relative to the working directory
 /// (the same `assets` folder the [`bevy::asset::AssetServer`] reads from).
-const INPUT_PROFILE_PATH: &str = "assets/input_bindings.ron";
+const INPUT_PROFILE_PATH: &str = "crates/zengin_viewer/assets/input_bindings.ron";
 
 /// Adds [`leafwing_input_manager`] and spawns the global input entity with the
 /// input profile loaded from [`INPUT_PROFILE_PATH`], falling back to the
