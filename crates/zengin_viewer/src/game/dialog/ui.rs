@@ -7,7 +7,7 @@ pub(super) struct DialogStyle;
 
 impl DialogStyle {
     pub(super) const FONT_SIZE: f32 = 22.0;
-    pub(super) const SELECTED_FONT_SIZE: f32 = 20.0;
+    pub(super) const SELECTED_FONT_SIZE: f32 = 24.0;
     pub(super) const ROW_HEIGHT: f32 = 26.0;
     pub(super) const OPTIONS_WIDTH: f32 = 800.0;
     pub(super) const OPTIONS_MAX_HEIGHT: f32 = 280.0;
