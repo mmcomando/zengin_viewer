@@ -2,3 +2,6 @@
 	path = crates/ZenKit-sys/vendor/ZenKitCAPI
 	url = https://github.com/GothicKit/ZenKitCAPI.git
 	branch = main
+[submodule "crates/ZenKit-sys/vendor/ZenKitCAPI"]
+	path = crates/ZenKit-sys/vendor/ZenKitCAPI
+	url = https://github.com/GothicKit/ZenKitCAPI
