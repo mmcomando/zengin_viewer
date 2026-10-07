@@ -1,4 +1,4 @@
-use super::state::{DialogLineView, DialogUiMode, DialogUiState};
+use super::state::{DialogLineView, DialogUiState};
 use crate::zengin::script::state::DialogRoot;
 use bevy::prelude::*;
 
@@ -233,7 +233,7 @@ pub(super) fn sync_dialog_ui(
             &mut rows_container,
         );
     }
-    if dialog_ui.mode == DialogUiMode::Options {
+    if dialog_ui.is_showing_options() {
         sync_row_highlight(&dialog_ui, &mut rows);
         sync_scroll_follow(&dialog_ui, &mut rows_container);
     } else {
@@ -257,14 +257,14 @@ fn sync_container_visibility(
                 }
             }
             DialogContainer::OptionsPanel => {
-                if open && dialog_ui.mode == DialogUiMode::Options {
+                if open && dialog_ui.is_showing_options() {
                     Visibility::Visible
                 } else {
                     Visibility::Hidden
                 }
             }
             DialogContainer::LinesPanel => {
-                if open && dialog_ui.mode == DialogUiMode::Lines {
+                if open && dialog_ui.is_playing_lines() {
                     Visibility::Visible
                 } else {
                     Visibility::Hidden
@@ -433,7 +433,7 @@ fn sync_line_texts(
     if let Ok(mut text) = npc_name_text.single_mut() {
         set_text_if_changed(&mut text, dialog_ui.npc_name.clone());
     }
-    if let Some(view) = dialog_ui.dialog_lines.get(dialog_ui.current_line_index) {
+    if let Some(view) = dialog_ui.current_line() {
         if let Ok(mut text) = line_text.single_mut() {
             set_text_if_changed(&mut text, dialog_line_display_text(view));
         }

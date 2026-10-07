@@ -13,13 +13,19 @@ const LINE_DISPLAY_SECONDS: f32 = 1.0;
 const LINE_GAP_SECONDS: f32 = 0.2;
 
 /// What is currently presented by the dialog UI
-#[derive(Default, PartialEq)]
-pub(super) enum DialogUiMode {
+#[derive(Default)]
+enum DialogUiMode {
     /// Root options of the npc, shown at the bottom center
     #[default]
     Options,
     /// Lines produced by the last executed option, shown one by one at the top
-    Lines,
+    Lines {
+        lines: Vec<DialogLineView>,
+        /// Index of the currently displayed line
+        index: usize,
+        /// Display timer of the current line
+        timer: Timer,
+    },
 }
 
 /// Dialog line prepared for display, with the real text resolved
@@ -41,13 +47,9 @@ pub(super) struct DialogUiState {
     /// Sub dialog choices populated by the last executed option, shown instead
     /// of `dialog_roots` when not empty
     pub(super) sub_choices: Vec<DialogRoot>,
-    pub(super) dialog_lines: Vec<DialogLineView>,
-    pub(super) mode: DialogUiMode,
     /// Highlighted entry in options mode
     pub(super) selected_index: usize,
-    /// Index of the currently displayed line in lines mode
-    pub(super) current_line_index: usize,
-    line_timer: Timer,
+    mode: DialogUiMode,
     /// Symbol name of the npc the dialog is open with, resolved when the dialog opens
     pub(super) npc_name: String,
     /// Set when `dialog_roots` changed and the option rows have to be re-synced
@@ -72,10 +74,7 @@ impl DialogUiState {
         self.npc_instance_id = npc_instance_id;
         self.dialog_roots = dialog_roots;
         self.sub_choices.clear();
-        self.dialog_lines.clear();
-        self.mode = DialogUiMode::Options;
-        self.selected_index = 0;
-        self.current_line_index = 0;
+        self.reset_to_options();
         self.npc_name = npc_name;
         self.rows_dirty = true;
     }
@@ -87,6 +86,24 @@ impl DialogUiState {
         } else {
             &self.sub_choices
         }
+    }
+
+    /// The line currently being played back in lines mode, if any
+    pub(super) fn current_line(&self) -> Option<&DialogLineView> {
+        let DialogUiMode::Lines { lines, index, .. } = &self.mode else {
+            return None;
+        };
+        lines.get(*index)
+    }
+
+    /// Whether root/sub options are currently shown
+    pub(super) fn is_showing_options(&self) -> bool {
+        matches!(self.mode, DialogUiMode::Options)
+    }
+
+    /// Whether dialog lines are currently played back
+    pub(super) fn is_playing_lines(&self) -> bool {
+        matches!(self.mode, DialogUiMode::Lines { .. })
     }
 
     /// Moves the selection by one entry
@@ -101,11 +118,9 @@ impl DialogUiState {
 
     /// Sequence function id of the selected option
     fn selected_option_function(&self) -> Option<i32> {
-        Some(
-            self.active_choices()
-                .get(self.selected_index)?
-                .sequence_function_id,
-        )
+        self.active_choices()
+            .get(self.selected_index)
+            .map(|root| root.sequence_function_id)
     }
 
     /// Runs the selected option sequence and starts displaying the produced lines.
@@ -131,32 +146,12 @@ impl DialogUiState {
         // snapshot so they can be shown instead of the root options
         self.sync_sub_choices(gothic_script);
 
-        let dialog_line_views = gothic_script
-            .dialog_lines()
-            .to_vec()
-            .into_iter()
-            .map(|line| {
-                let text = dialog_texts.get(&line.line_str).cloned();
-                if text.is_none() {
-                    println!(
-                        "Missing dialog text: npc_a({}) npc_b({}) line_id({}) block({})",
-                        line.npc_a, line.npc_b, line.line_id, line.line_str
-                    );
-                }
-                let sound_duration = speech_sounds.duration(&get_dialog_sound_path(&line.line_str));
-                DialogLineView {
-                    line,
-                    text,
-                    sound_duration,
-                }
-            })
-            .collect::<Vec<_>>();
+        let dialog_line_views =
+            build_line_views(gothic_script.dialog_lines(), dialog_texts, speech_sounds);
 
         if dialog_line_views.is_empty() {
             // Nothing was produced (e.g. skipped sequence function), keep options shown
-            if self.sub_choices.is_empty() {
-                self.refresh_root_options(gothic_script);
-            }
+            self.refresh_root_options(gothic_script);
             return;
         }
         self.begin_line_playback(dialog_line_views, sounds);
@@ -169,8 +164,12 @@ impl DialogUiState {
     }
 
     /// Re-fetches the npc's root options from the script state, as executed
-    /// options may have changed which options are available
+    /// options may have changed which options are available. Skipped while sub
+    /// dialog choices are shown, they stay until one of their options runs.
     fn refresh_root_options(&mut self, gothic_script: &mut WorldScript) {
+        if !self.sub_choices.is_empty() {
+            return;
+        }
         if gothic_script.close_dialog() {
             self.close();
             return;
@@ -188,28 +187,46 @@ impl DialogUiState {
     fn close(&mut self) {
         self.npc_entity = None;
         self.sub_choices.clear();
+        self.reset_to_options();
     }
 
     /// Starts the one line at a time playback of the given lines
     fn begin_line_playback(
         &mut self,
-        dialog_lines: Vec<DialogLineView>,
+        lines: Vec<DialogLineView>,
         sounds: &mut MessageWriter<PlaySound>,
     ) {
-        self.dialog_lines = dialog_lines;
-        self.mode = DialogUiMode::Lines;
-        self.current_line_index = 0;
-        self.line_timer = self
-            .dialog_lines
-            .first()
-            .map(|line| Timer::from_seconds(line_display_seconds(line), TimerMode::Once))
-            .unwrap_or_default();
+        self.mode = DialogUiMode::Lines {
+            lines,
+            index: 0,
+            timer: Timer::default(),
+        };
+        self.start_current_line(sounds);
+    }
 
-        if let Some(line) = self.dialog_lines.first() {
-            sounds.write(PlaySound {
-                asset_path: get_dialog_sound_path(&line.line.line_str),
-            });
-        }
+    /// Restarts the display timer of the current line and plays its sound
+    fn start_current_line(&mut self, sounds: &mut MessageWriter<PlaySound>) {
+        let DialogUiMode::Lines {
+            lines,
+            index,
+            timer,
+        } = &mut self.mode
+        else {
+            return;
+        };
+        let Some(line) = lines.get(*index) else {
+            return;
+        };
+        *timer = Timer::from_seconds(line_display_seconds(line), TimerMode::Once);
+        sounds.write(PlaySound {
+            asset_path: get_dialog_sound_path(&line.line.line_str),
+        });
+    }
+
+    /// Returns the ui to options mode without any line playback
+    fn reset_to_options(&mut self) {
+        self.mode = DialogUiMode::Options;
+        self.selected_index = 0;
     }
 
     /// Advances the line playback timer, returns to options mode after the last line.
@@ -222,29 +239,27 @@ impl DialogUiState {
         gothic_script: &mut WorldScript,
         sounds: &mut MessageWriter<PlaySound>,
     ) {
-        if self.mode != DialogUiMode::Lines {
+        let DialogUiMode::Lines {
+            lines,
+            index,
+            timer,
+        } = &mut self.mode
+        else {
+            return;
+        };
+        timer.tick(delta);
+        if !timer.is_finished() {
             return;
         }
-        self.line_timer.tick(delta);
-        if self.line_timer.is_finished() {
-            self.current_line_index += 1;
-            if self.current_line_index >= self.dialog_lines.len() {
-                // Playback finished, show root options again
-                self.mode = DialogUiMode::Options;
-                self.current_line_index = 0;
-                self.selected_index = 0;
-                self.dialog_lines.clear();
-
-                if self.sub_choices.is_empty() {
-                    self.refresh_root_options(gothic_script);
-                }
-            } else if let Some(line) = self.dialog_lines.get(self.current_line_index) {
-                self.line_timer = Timer::from_seconds(line_display_seconds(line), TimerMode::Once);
-                sounds.write(PlaySound {
-                    asset_path: get_dialog_sound_path(&line.line.line_str),
-                });
-            }
+        let next_index = *index + 1;
+        if next_index >= lines.len() {
+            // Playback finished, show root options again
+            self.reset_to_options();
+            self.refresh_root_options(gothic_script);
+            return;
         }
+        *index = next_index;
+        self.start_current_line(sounds);
     }
 }
 
@@ -257,7 +272,7 @@ pub(super) fn handle_dialog_input(
     speech_sounds: Res<SpeechSounds>,
     mut sounds: MessageWriter<PlaySound>,
 ) {
-    if !dialog_ui.is_open() || dialog_ui.mode != DialogUiMode::Options {
+    if !dialog_ui.is_open() || !dialog_ui.is_showing_options() {
         return;
     }
 
@@ -275,6 +290,32 @@ pub(super) fn handle_dialog_input(
             &mut sounds,
         );
     }
+}
+
+/// Resolves display text and sound duration for the script's dialog lines
+fn build_line_views(
+    lines: &[DialogLine],
+    dialog_texts: &DialogTexts,
+    speech_sounds: &SpeechSounds,
+) -> Vec<DialogLineView> {
+    lines
+        .iter()
+        .map(|line| {
+            let text = dialog_texts.get(&line.line_str).cloned();
+            if text.is_none() {
+                println!(
+                    "Missing dialog text: npc_a({}) npc_b({}) line_id({}) block({})",
+                    line.npc_a, line.npc_b, line.line_id, line.line_str
+                );
+            }
+            let sound_duration = speech_sounds.duration(&get_dialog_sound_path(&line.line_str));
+            DialogLineView {
+                line: line.clone(),
+                text,
+                sound_duration,
+            }
+        })
+        .collect()
 }
 
 /// Display time of a single dialog line: sound duration with a gap after
