@@ -65,6 +65,13 @@ pub fn get_full_texture_path(short_tex: &str) -> String {
     format!("zengin://_WORK/DATA/TEXTURES/_COMPILED/{texture}")
 }
 
+/// Speech wav files are named after the Ou.bin block of the dialog line
+pub fn get_dialog_sound_path(block_name: &str) -> String {
+    let file = block_name.to_uppercase();
+    let file = format!("{file}.WAV");
+    format!("zengin://_WORK/DATA/SOUND/SPEECH/{file}")
+}
+
 pub fn print_nodes(node: &VfsNode, level: u8) {
     let name = node.name();
     for _i in 0..level {

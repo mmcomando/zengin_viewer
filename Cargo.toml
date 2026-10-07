@@ -19,6 +19,7 @@ bevy_mod_openxr = "0.6.0"
 bevy_mod_xr = "0.6.0"
 bevy_xr_utils = "0.6.0"
 wasmtime = "46.0.1"
+rodio = { version = "0.22.2", features = ["symphonia-wav", "symphonia-adpcm"] }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

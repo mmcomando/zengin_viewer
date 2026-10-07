@@ -1,3 +1,5 @@
+use crate::game::audio::PlaySound;
+use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::script::component::{DialogTexts, WorldScript};
 use crate::zengin::script::state::{DialogLine, DialogRoot};
 use bevy::prelude::*;
@@ -106,6 +108,7 @@ impl DialogUiState {
         &mut self,
         gothic_script: &mut WorldScript,
         dialog_texts: &DialogTexts,
+        sounds: &mut MessageWriter<PlaySound>,
     ) {
         let Some(sequence_function_id) = self.selected_option_function() else {
             self.close();
@@ -144,7 +147,7 @@ impl DialogUiState {
             }
             return;
         }
-        self.begin_line_playback(dialog_line_views);
+        self.begin_line_playback(dialog_line_views, sounds);
     }
 
     /// Takes the sub dialog choices produced by the executed option, if any
@@ -176,18 +179,33 @@ impl DialogUiState {
     }
 
     /// Starts the one line at a time playback of the given lines
-    fn begin_line_playback(&mut self, dialog_lines: Vec<DialogLineView>) {
+    fn begin_line_playback(
+        &mut self,
+        dialog_lines: Vec<DialogLineView>,
+        sounds: &mut MessageWriter<PlaySound>,
+    ) {
         self.dialog_lines = dialog_lines;
         self.mode = DialogUiMode::Lines;
         self.current_line_index = 0;
         self.line_timer = Timer::from_seconds(LINE_DISPLAY_SECONDS, TimerMode::Once);
+
+        if let Some(line) = self.dialog_lines.first() {
+            sounds.write(PlaySound {
+                asset_path: get_dialog_sound_path(&line.line.line_str),
+            });
+        }
     }
 
     /// Advances the line playback timer, returns to options mode after the last line.
     /// When returning to the root options the roots are re-fetched from the
     /// script state, as the executed option may have changed which options are
     /// available
-    pub(super) fn advance_playback(&mut self, delta: Duration, gothic_script: &mut WorldScript) {
+    pub(super) fn advance_playback(
+        &mut self,
+        delta: Duration,
+        gothic_script: &mut WorldScript,
+        sounds: &mut MessageWriter<PlaySound>,
+    ) {
         if self.mode != DialogUiMode::Lines {
             return;
         }
@@ -205,6 +223,10 @@ impl DialogUiState {
                 if self.sub_choices.is_empty() {
                     self.refresh_root_options(gothic_script);
                 }
+            } else if let Some(line) = self.dialog_lines.get(self.current_line_index) {
+                sounds.write(PlaySound {
+                    asset_path: get_dialog_sound_path(&line.line.line_str),
+                });
             }
         }
     }
@@ -216,6 +238,7 @@ pub(super) fn handle_dialog_input(
     mut dialog_ui: ResMut<DialogUiState>,
     mut gothic_script: ResMut<WorldScript>,
     dialog_texts: Res<DialogTexts>,
+    mut sounds: MessageWriter<PlaySound>,
 ) {
     if !dialog_ui.is_open() || dialog_ui.mode != DialogUiMode::Options {
         return;
@@ -228,7 +251,7 @@ pub(super) fn handle_dialog_input(
         dialog_ui.move_selection(1);
     }
     if keys.just_pressed(KeyCode::Enter) {
-        dialog_ui.execute_selected(&mut gothic_script, &dialog_texts);
+        dialog_ui.execute_selected(&mut gothic_script, &dialog_texts, &mut sounds);
     }
 }
 
@@ -237,9 +260,10 @@ pub(super) fn advance_dialog_playback(
     time: Res<Time>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut gothic_script: ResMut<WorldScript>,
+    mut sounds: MessageWriter<PlaySound>,
 ) {
     if !dialog_ui.is_open() {
         return;
     }
-    dialog_ui.advance_playback(time.delta(), &mut gothic_script);
+    dialog_ui.advance_playback(time.delta(), &mut gothic_script, &mut sounds);
 }

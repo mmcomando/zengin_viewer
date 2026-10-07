@@ -1,4 +1,5 @@
 pub mod animation;
+pub mod audio;
 pub mod dialog;
 pub mod disco_lamp;
 pub mod distance;
