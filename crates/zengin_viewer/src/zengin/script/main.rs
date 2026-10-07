@@ -126,9 +126,7 @@ impl WasmExecutor {
             return None;
         }
         let guest = self.instance.mmcomando_zengine_scripts_manage();
-        let string = guest
-            .call_get_name(&mut self.store, string_id as i32)
-            .ok()?;
+        let string = guest.call_get_name(&mut self.store, string_id).ok()?;
         if string.is_empty() {
             // TODO Empty strings should be a proper value.
             // Currently a lot of calls returns empty string which is probably a bug somewhere in scripts implementation.
@@ -215,7 +213,7 @@ impl WasmExecutor {
         let npc_indices: Vec<_> = self.store.data().raw_instances.keys().cloned().collect();
         for index in npc_indices {
             self.set_instance(index);
-            self.call_npc_routine(index as u32);
+            self.call_npc_routine(index);
         }
     }
 

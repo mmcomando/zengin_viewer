@@ -83,15 +83,15 @@ pub fn wav_duration(bytes: &[u8]) -> Option<f32> {
         offset = payload + size + (size & 1);
     }
 
-    if let (Some(samples), Some(sample_rate)) = (samples, sample_rate) {
-        if sample_rate > 0 {
-            return Some(samples as f32 / sample_rate as f32);
-        }
+    if let (Some(samples), Some(sample_rate)) = (samples, sample_rate)
+        && sample_rate > 0
+    {
+        return Some(samples as f32 / sample_rate as f32);
     }
-    if let (Some(data_size), Some(byte_rate)) = (data_size, byte_rate) {
-        if byte_rate > 0 {
-            return Some(data_size as f32 / byte_rate as f32);
-        }
+    if let (Some(data_size), Some(byte_rate)) = (data_size, byte_rate)
+        && byte_rate > 0
+    {
+        return Some(data_size as f32 / byte_rate as f32);
     }
     None
 }

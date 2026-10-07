@@ -35,7 +35,7 @@ macro_rules! count_import {
     ($name:ident($($arg:ident),*) -> i32) => {
         fn $name(&mut self, $($arg: i32),*) -> i32 {
             self.record_call(stringify!($name));
-            0
+            return 0;
         }
     };
 }
@@ -441,8 +441,7 @@ impl WasmExecutor {
     }
 
     pub fn call_count(&self, name: &str) -> u64 {
-        let key = format!("{name}");
-        dbg!(&self.store.data().call_counts);
+        let key = name.to_string();
         *self.store.data().call_counts.get(&key).unwrap_or(&0)
     }
 

@@ -88,7 +88,7 @@ fn ui_example_system(
         });
 
         if visibility_settings_changed {
-            statistics_changed.write(OptionsChanged::default());
+            statistics_changed.write(OptionsChanged);
         }
     });
     Ok(())

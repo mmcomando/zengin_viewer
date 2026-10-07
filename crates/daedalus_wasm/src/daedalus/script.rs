@@ -50,7 +50,9 @@ pub struct CompiledDaedalusScript {
     pub symbols: Vec<Symbol>,
     /// Static strings contained in this script file.
     pub static_strings: Vec<String>,
-    symbols_count: u32,
+    /// Number of symbols contained in the original script file.
+    /// Dynamically added symbols (e.g. strings) are placed after them.
+    pub symbols_count: u32,
 }
 
 impl CompiledDaedalusScript {
@@ -147,7 +149,7 @@ impl CompiledDaedalusScript {
     pub(crate) fn parse_symbol(&mut self, file: &mut BufReader<File>) -> io::Result<()> {
         let _b_has_name = file.read_u32::<LittleEndian>()?;
 
-        let name = read_utf8_string(file).unwrap();
+        let name = read_utf8_string(file)?;
         let name_lowercase = name.to_lowercase(); // Normalize non display strings to be always lowercase
         let offset = file.read_u32::<LittleEndian>()?;
         let bitfield = file.read_u32::<LittleEndian>()?;
@@ -173,7 +175,7 @@ impl CompiledDaedalusScript {
             self.symbols.push(Symbol {
                 name: name_lowercase,
                 index,
-                symbol_kind: kind,
+                kind,
                 is_class_var: flags.is_class_var(),
                 is_const: flags.is_const(),
                 elements_count,
@@ -213,7 +215,7 @@ impl CompiledDaedalusScript {
                 self.symbols.push(Symbol {
                     name: name_lowercase,
                     index,
-                    symbol_kind: kind,
+                    kind,
                     is_class_var: flags.is_class_var(),
                     is_const: flags.is_const(),
                     elements_count: my_elements_count,
@@ -241,7 +243,7 @@ impl CompiledDaedalusScript {
                 self.symbols.push(Symbol {
                     name: name_lowercase,
                     index,
-                    symbol_kind: kind,
+                    kind,
                     is_class_var: flags.is_class_var(),
                     is_const: flags.is_const(),
                     elements_count,
@@ -260,7 +262,7 @@ impl CompiledDaedalusScript {
                 self.symbols.push(Symbol {
                     name: name_lowercase,
                     index,
-                    symbol_kind: kind,
+                    kind,
                     is_class_var: flags.is_class_var(),
                     is_const: flags.is_const(),
                     elements_count,
@@ -284,7 +286,7 @@ impl CompiledDaedalusScript {
                 self.symbols.push(Symbol {
                     name: name_lowercase,
                     index,
-                    symbol_kind: kind,
+                    kind,
                     is_class_var: flags.is_class_var(),
                     is_const: flags.is_const(),
                     elements_count,
@@ -317,7 +319,7 @@ impl CompiledDaedalusScript {
                 self.symbols.push(Symbol {
                     name: name_lowercase,
                     index,
-                    symbol_kind: kind,
+                    kind,
                     is_class_var: flags.is_class_var(),
                     is_const: flags.is_const(),
                     elements_count,
@@ -357,7 +359,7 @@ impl CompiledDaedalusScript {
                 self.symbols.push(Symbol {
                     name: name_lowercase,
                     index,
-                    symbol_kind: kind,
+                    kind,
                     is_class_var: flags.is_class_var(),
                     is_const: false, // Even when flag says it is const, instances can be modified anyway
                     elements_count: my_elements_count,
@@ -394,7 +396,7 @@ impl CompiledDaedalusScript {
                 self.symbols.push(Symbol {
                     name: name_lowercase,
                     index,
-                    symbol_kind: kind,
+                    kind,
                     is_class_var: flags.is_class_var(),
                     is_const: flags.is_const(),
                     elements_count: my_elements_count,
@@ -412,7 +414,7 @@ impl CompiledDaedalusScript {
                 self.symbols.push(Symbol {
                     name: name_lowercase,
                     index,
-                    symbol_kind: kind,
+                    kind,
                     is_class_var: flags.is_class_var(),
                     is_const: flags.is_const(),
                     elements_count,
@@ -438,7 +440,7 @@ pub struct Symbol {
     /// Function data if symbol is a function.
     pub(crate) function: Option<Function>,
     pub(crate) index: u32,
-    pub(crate) symbol_kind: SymbolKind,
+    pub(crate) kind: SymbolKind,
     pub(crate) is_class_var: bool,
     pub(crate) is_const: bool,
     /// Symbol name as specified in script binary.
@@ -455,7 +457,7 @@ impl Symbol {
         Symbol {
             name: index.to_string(),
             index,
-            symbol_kind: SymbolKind::Int,
+            kind: SymbolKind::Int,
             is_class_var,
             is_const: false,
             elements_count,
@@ -478,7 +480,7 @@ impl Symbol {
 
     /// Set symbol kind.
     pub fn set_kind(&mut self, kind: SymbolKind) {
-        self.symbol_kind = kind;
+        self.kind = kind;
     }
 
     /// Set symbol parent.
@@ -600,24 +602,28 @@ impl Flags {
     // }
 }
 
-/// SymbolKind
+/// Kind of a daedalus symbol.
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "The variants come from the fixed .DAT file format, so they are complete"
+)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum SymbolKind {
-    /// Class
+    /// Class.
     Class,
-    /// Float
+    /// Float.
     Float,
-    /// Func
+    /// Func.
     Func,
-    /// Instance
+    /// Instance.
     Instance,
-    /// Int
+    /// Int.
     Int,
-    /// Prototype
+    /// Prototype.
     Prototype,
-    /// String
+    /// String.
     String,
-    /// VariableArgument
+    /// Variable argument.
     VariableArgument,
 }
 
@@ -641,7 +647,7 @@ impl SymbolKind {
     }
 
     // Values should be the same as in world.wit
-    pub(crate) fn to_num(&self) -> u8 {
+    pub(crate) fn to_num(self) -> u8 {
         match self {
             SymbolKind::Float => 0,
             SymbolKind::Int => 1,
@@ -660,7 +666,7 @@ fn read_utf8_string(file: &mut BufReader<File>) -> io::Result<String> {
     Ok(decode_dat_string(&bytes))
 }
 
-/// Convert in engine string encoding to utf-8
+/// Converts engine string encoding to utf-8.
 fn decode_dat_string(bytes: &[u8]) -> String {
     let (decoded, _, had_errors) = encoding_rs::UTF_8.decode(bytes);
     if had_errors {

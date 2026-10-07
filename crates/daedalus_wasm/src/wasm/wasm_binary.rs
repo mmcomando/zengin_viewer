@@ -131,10 +131,10 @@ pub fn create_wasm_binary(
     // Table section: extend function table to fit all daedalus functions
     let table_needed_size = converted_functions.len() as u64;
     let mut function_table = TableSection::new();
-    for table in &base.tables {
-        let mut table = *table;
-        table.minimum = table.minimum.max(table_needed_size);
-        function_table.table(table);
+    for base_table in &base.tables {
+        let mut table_type = *base_table;
+        table_type.minimum = table_type.minimum.max(table_needed_size);
+        function_table.table(table_type);
     }
     module.section(&function_table);
 
@@ -146,8 +146,8 @@ pub fn create_wasm_binary(
         memory_pages_for_layout(memory_layout.symbols_size()),
     ];
     let mut memory = MemorySection::new();
-    for (index, memory_type) in base.memories.iter().enumerate() {
-        let mut memory_type = *memory_type;
+    for (index, base_memory) in base.memories.iter().enumerate() {
+        let mut memory_type = *base_memory;
         if let Some(pages) = needed_pages.get(index) {
             memory_type.minimum = *pages;
         }
@@ -235,8 +235,11 @@ pub fn create_wasm_binary(
     module
 }
 
-#[allow(clippy::wildcard_enum_match_arm)]
-#[allow(clippy::too_many_lines)]
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "Base module can contain sections which we don't convert"
+)]
+#[expect(clippy::too_many_lines, reason = "Parser covers all wasm sections")]
 fn parse_base_module(base_bytes: &[u8], func_index_offset: u32) -> BaseModule {
     let mut base = BaseModule::default();
 
@@ -344,7 +347,10 @@ fn parse_base_module(base_bytes: &[u8], func_index_offset: u32) -> BaseModule {
     base
 }
 
-#[allow(clippy::wildcard_enum_match_arm)]
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "Operators which don't need conversion are skipped"
+)]
 fn convert_base_function(body: &wasmparser::FunctionBody, func_index_offset: u32) -> Function {
     let mut locals_reader = body.get_locals_reader().unwrap();
     let mut locals = Vec::new();

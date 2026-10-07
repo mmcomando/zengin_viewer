@@ -61,7 +61,7 @@ impl DaedalusMemoryLayout {
         };
 
         self.symbols.push(SymbolMemoryInfo {
-            kind: symbol.symbol_kind,
+            kind: symbol.kind,
             is_class_member,
             address_or_offset,
             func_index: internal_func_index.unwrap_or(u32::MAX),

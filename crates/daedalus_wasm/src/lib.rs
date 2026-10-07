@@ -3,10 +3,15 @@
 
 // We use as many lints as possible
 // It often helps learn language and reduce bugs
+// Enabled here instead of Cargo.toml so that integration tests, which are
+// separate crates, don't inherit the pedantic/restriction groups
+#![warn(clippy::pedantic, clippy::restriction)]
 #![allow(
     clippy::blanket_clippy_restriction_lints,
     reason = "We blacklist contradicting rules"
 )]
+#![allow(clippy::as_conversions, reason = "to decide")]
+#![allow(clippy::cast_possible_truncation, reason = "to decide")]
 #![allow(clippy::if_then_some_else_none, reason = "to decide")]
 #![allow(clippy::needless_pass_by_value, reason = "to decide")]
 #![allow(clippy::std_instead_of_alloc, reason = "to decide")]
@@ -89,6 +94,10 @@
 #![allow(
     clippy::arbitrary_source_item_ordering,
     reason = "There are more logical orderings than alphabetical"
+)]
+#![allow(
+    clippy::separated_literal_suffix,
+    reason = "We prefer literal suffixes separated by underscore"
 )]
 
 pub(crate) mod common;

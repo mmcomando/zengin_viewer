@@ -14,7 +14,3 @@ wit-parser = "0.251.0"
 
 [dev-dependencies]
 wasmtime = { "version" = "44.0.0", features = ["component-model", "coredump"] }
-
-[lints.clippy]
-pedantic = { level = "warn", priority = -1 }
-restriction = { level = "warn", priority = -2 }

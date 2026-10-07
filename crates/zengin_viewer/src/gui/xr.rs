@@ -24,12 +24,12 @@ pub fn is_xr_enabled() -> bool {
         return *xr_enabled;
     }
 
-    if let Ok(var) = std::env::var("ENABLE_XR") {
-        if ["1", "y", "yes"].contains(&var.to_ascii_lowercase().as_str()) {
-            println!("-- Bevy XR plugin enabled --");
-            let _ = XR_ENABLED_STATIC.set(true);
-            return true;
-        }
+    if let Ok(var) = std::env::var("ENABLE_XR")
+        && ["1", "y", "yes"].contains(&var.to_ascii_lowercase().as_str())
+    {
+        println!("-- Bevy XR plugin enabled --");
+        let _ = XR_ENABLED_STATIC.set(true);
+        return true;
     }
     let _ = XR_ENABLED_STATIC.set(false);
     return false;

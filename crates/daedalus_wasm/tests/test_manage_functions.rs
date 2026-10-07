@@ -123,10 +123,10 @@ fn test_all_symbols_num() {
 fn test_get_symbol_info() {
     use crate::common::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 
-    let class = 0usize;
-    let class_var = 1usize;
-    let func = 2usize;
-    let plain_var = 3usize;
+    let class = 0_usize;
+    let class_var = 1_usize;
+    let func = 2_usize;
+    let plain_var = 3_usize;
 
     let symbols = &mut [
         Symbol::new(class as u32, false, 1, None),

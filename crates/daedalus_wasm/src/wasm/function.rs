@@ -411,6 +411,7 @@ impl<'a> ConversionState<'a> {
         element_index: u8,
         provide_val_type: bool,
     ) {
+        const SELF_SYMBOL_INDEX: u32 = 1616;
         let array_delta = i32::from(element_index) * 4;
 
         let info = self
@@ -422,7 +423,6 @@ impl<'a> ConversionState<'a> {
         // TODO: Fix hack
         // Script has "self" symbol which contains id of current instance, but in tests it is not available.
         // Currently we just redirect this particular symbol to global variable
-        const SELF_SYMBOL_INDEX: u32 = 1616;
         if symbol_index == SELF_SYMBOL_INDEX {
             func.instruction(&Instruction::GlobalGet(CURRENT_INSTANCE_SYMBOL_INDEX));
             return;
@@ -432,7 +432,10 @@ impl<'a> ConversionState<'a> {
         // Assume that if we are doing push to symbol which has code in it, it is a instance
         let is_instance = info.func_info.is_some();
         if is_instance {
-            assert!(element_index == 0);
+            assert!(
+                element_index == 0,
+                "Instance symbol should be pushed with element index 0, got {element_index}"
+            );
             func.instruction(&Instruction::I32Const(symbol_index.cast_signed()));
             return;
         }

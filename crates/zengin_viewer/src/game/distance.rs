@@ -27,7 +27,6 @@ pub struct MainCameraPos {
     tr: Transform,
 }
 
-///
 #[derive(Component, Default)]
 #[component(on_add = on_classify_added)]
 pub struct ClassifyDistance {}

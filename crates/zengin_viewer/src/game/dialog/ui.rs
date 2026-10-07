@@ -46,6 +46,20 @@ pub(super) struct DialogNpcNameText;
 #[derive(Component)]
 pub(super) struct DialogLineText;
 
+/// Query data for the npc name text, disjoint from all other dialog texts
+pub(super) type NpcNameTextFilter = (
+    With<DialogNpcNameText>,
+    Without<DialogRow>,
+    Without<DialogLineText>,
+);
+
+/// Query data for the dialog line text, disjoint from all other dialog texts
+pub(super) type LineTextFilter = (
+    With<DialogLineText>,
+    Without<DialogRow>,
+    Without<DialogNpcNameText>,
+);
+
 /// Replaces bevy's built-in default font (FiraMono subset, ASCII-only) with Fira Sans,
 /// which has Latin Extended-A coverage, so Polish dialog texts render properly.
 /// Applies globally because every `TextFont { ..default() }` resolves to the default font asset id.
@@ -202,22 +216,8 @@ pub(super) fn sync_dialog_ui(
         (Entity, &mut ScrollPosition, &ComputedNode),
         With<DialogRowsContainer>,
     >,
-    mut npc_name_text: Query<
-        &mut Text,
-        (
-            With<DialogNpcNameText>,
-            Without<DialogRow>,
-            Without<DialogLineText>,
-        ),
-    >,
-    mut line_text: Query<
-        &mut Text,
-        (
-            With<DialogLineText>,
-            Without<DialogRow>,
-            Without<DialogNpcNameText>,
-        ),
-    >,
+    mut npc_name_text: Query<&mut Text, NpcNameTextFilter>,
+    mut line_text: Query<&mut Text, LineTextFilter>,
 ) {
     if !dialog_ui.is_open() {
         sync_container_visibility(&mut containers, &dialog_ui);
@@ -309,8 +309,8 @@ fn sync_option_rows(
 
     let active_choices = dialog_ui.active_choices();
 
-    for index in 0..active_choices.len() {
-        let display_text = dialog_row_display_text(&active_choices[index]);
+    for (index, choice) in active_choices.iter().enumerate() {
+        let display_text = dialog_row_display_text(choice);
         match indexed_rows.get(index) {
             Some((_, entity)) => {
                 let Ok((_, _, mut node, mut text, _, _)) = rows.get_mut(*entity) else {
@@ -413,30 +413,16 @@ fn sync_scroll_follow(
 /// Shows the npc name and the currently displayed dialog line
 fn sync_line_texts(
     dialog_ui: &DialogUiState,
-    npc_name_text: &mut Query<
-        &mut Text,
-        (
-            With<DialogNpcNameText>,
-            Without<DialogRow>,
-            Without<DialogLineText>,
-        ),
-    >,
-    line_text: &mut Query<
-        &mut Text,
-        (
-            With<DialogLineText>,
-            Without<DialogRow>,
-            Without<DialogNpcNameText>,
-        ),
-    >,
+    npc_name_text: &mut Query<&mut Text, NpcNameTextFilter>,
+    line_text: &mut Query<&mut Text, LineTextFilter>,
 ) {
     if let Ok(mut text) = npc_name_text.single_mut() {
         set_text_if_changed(&mut text, dialog_ui.npc_name.clone());
     }
-    if let Some(view) = dialog_ui.current_line() {
-        if let Ok(mut text) = line_text.single_mut() {
-            set_text_if_changed(&mut text, dialog_line_display_text(view));
-        }
+    if let Some(view) = dialog_ui.current_line()
+        && let Ok(mut text) = line_text.single_mut()
+    {
+        set_text_if_changed(&mut text, dialog_line_display_text(view));
     }
 }
 

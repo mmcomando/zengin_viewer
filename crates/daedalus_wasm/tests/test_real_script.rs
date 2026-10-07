@@ -44,7 +44,7 @@ fn test_real_ta_smalltalk() {
         InstDD::Return,
     ];
 
-    let mut executor = WasmExecutor::real_func_test(&data, &["ta_smalltalk"], instructions);
+    let mut executor = WasmExecutor::real_func_test(data, &["ta_smalltalk"], instructions);
     executor.call_test_func();
     assert_eq!(executor.call_count("ta_min"), 1);
 }
@@ -59,7 +59,7 @@ fn real_printdebugs() {
         InstDD::PushInt(1),
         InstDD::Return,
     ];
-    let mut executor = WasmExecutor::real_func_test(&data, &["printdebugs"], instructions);
+    let mut executor = WasmExecutor::real_func_test(data, &["printdebugs"], instructions);
 
     executor.call_test_func();
     assert_eq!(executor.call_count("printdebug"), 2);
@@ -76,7 +76,7 @@ fn real_printdebugnpc() {
         InstDD::PushInt(1),
         InstDD::Return,
     ];
-    let mut executor = WasmExecutor::real_func_test(&data, &["printdebugnpc"], instructions);
+    let mut executor = WasmExecutor::real_func_test(data, &["printdebugnpc"], instructions);
 
     executor.call_test_func();
     assert_eq!(executor.call_count("inttostring"), 1);
@@ -95,7 +95,7 @@ fn real_printglobals() {
         InstDD::Return,
     ];
     let mut executor =
-        WasmExecutor::real_func_test(&data, &["printdebugnpc", "printglobals"], instructions);
+        WasmExecutor::real_func_test(data, &["printdebugnpc", "printglobals"], instructions);
 
     executor.call_test_func();
     assert_eq!(executor.call_count("hlp_isvalidnpc"), 4);
@@ -115,8 +115,7 @@ fn real_b_awake_stoneguardian() {
         InstDD::PushInt(1),
         InstDD::Return,
     ];
-    let mut executor =
-        WasmExecutor::real_func_test(&data, &["b_awake_stoneguardian"], instructions);
+    let mut executor = WasmExecutor::real_func_test(data, &["b_awake_stoneguardian"], instructions);
 
     executor.call_test_func();
     assert_eq!(executor.call_count("wld_playeffect"), 0);
@@ -137,7 +136,7 @@ fn test_real_b_setnpcvisual() {
         InstDD::PushInt(1),
         InstDD::Return,
     ];
-    let mut executor = WasmExecutor::real_func_test(&data, &["b_setnpcvisual"], instructions);
+    let mut executor = WasmExecutor::real_func_test(data, &["b_setnpcvisual"], instructions);
 
     executor.call_test_func();
     assert_eq!(executor.call_count("mdl_setvisualbody"), 1);
@@ -156,7 +155,7 @@ fn test_none_100_xardas() {
         InstDD::Return,
     ];
     let mut executor = WasmExecutor::real_func_test(
-        &data,
+        data,
         &[
             // Needed functions
             "b_addfightskill",
@@ -193,7 +192,7 @@ fn real_c_isquarternearest() {
         InstDD::Return,
     ];
     let mut executor = WasmExecutor::real_func_test(
-        &data,
+        data,
         &[
             "printplus",
             "c_getdisttocenter",
@@ -220,7 +219,7 @@ fn real_b_makerangerreadytoleavemeeting() {
         InstDD::Return,
     ];
     let mut executor =
-        WasmExecutor::real_func_test(&data, &["b_makerangerreadytoleavemeeting"], instructions);
+        WasmExecutor::real_func_test(data, &["b_makerangerreadytoleavemeeting"], instructions);
 
     executor.call_test_func();
     assert_eq!(executor.call_count("npc_hasitems"), 2);
@@ -240,7 +239,7 @@ fn real_b_extro_avi() {
         InstDD::PushInt(1),
         InstDD::Return,
     ];
-    let mut executor = WasmExecutor::real_func_test(&data, &["b_extro_avi"], instructions);
+    let mut executor = WasmExecutor::real_func_test(data, &["b_extro_avi"], instructions);
 
     executor.call_test_func();
     assert_eq!(executor.call_count("npc_isdead"), 2);
@@ -258,7 +257,7 @@ fn real_c_npcisinquarter() {
         InstDD::Return,
     ];
     let mut executor = WasmExecutor::real_func_test(
-        &data,
+        data,
         &[
             "printplus",
             "c_getdisttocenter",
@@ -281,7 +280,7 @@ fn real_c_diegotoofar() {
         InstDD::Call(func_address),
         InstDD::Return,
     ];
-    let mut executor = WasmExecutor::real_func_test(&data, &["c_diegotoofar"], instructions);
+    let mut executor = WasmExecutor::real_func_test(data, &["c_diegotoofar"], instructions);
 
     executor.call_test_func();
     assert_eq!(executor.call_count("npc_getdisttowp"), 17);
@@ -301,7 +300,7 @@ fn real_b_openshell() {
         InstDD::Return,
     ];
     let mut executor = WasmExecutor::real_func_test(
-        &data,
+        data,
         &["b_playerfinditem", "b_say_overlay", "b_openshell"],
         instructions,
     );
@@ -323,7 +322,7 @@ fn real_b_mm_wispdetect() {
         InstDD::Return,
     ];
     let mut executor = WasmExecutor::real_func_test(
-        &data,
+        data,
         &[
             "b_getwispdetecteditem",
             "b_wispdetecteditem",
@@ -354,7 +353,7 @@ fn real_zs_talk_end() {
         InstDD::Return,
     ];
     let mut executor = WasmExecutor::real_func_test(
-        &data,
+        data,
         &["c_npcisbotheredbyplayerroomguild", "zs_talk_end"],
         instructions,
     );
@@ -371,7 +370,7 @@ fn real_find_init_newworld_symbol() {
     let data = get_main_script_data();
 
     let mut executor = WasmExecutor::real_func_test(
-        &data,
+        data,
         &["ignore_all_symbols"],
         &[InstDD::PushInt(1), InstDD::Return],
     );
@@ -397,7 +396,7 @@ fn real_test_xardas_npc_routine() {
         InstDD::Return,
     ];
 
-    let mut executor = WasmExecutor::real_func_test(&data, &[], instructions);
+    let mut executor = WasmExecutor::real_func_test(data, &[], instructions);
 
     println!("-- call_test_func --");
     executor.call_test_func();
@@ -411,7 +410,7 @@ fn real_test_dialog_info() {
 
     let instructions = &[InstDD::PushInt(1), InstDD::Return];
 
-    let mut executor = WasmExecutor::real_func_test(&data, &["dia_lares_hallo"], instructions);
+    let mut executor = WasmExecutor::real_func_test(data, &["dia_lares_hallo"], instructions);
 
     // Initialize memory of given instance
     executor.set_instance(26934);
@@ -422,6 +421,6 @@ fn real_test_dialog_info() {
     assert_eq!(info.order, 2);
     assert_eq!(info.condition, 26935);
     assert_eq!(info.information, 26936);
-    assert_eq!(info.permanent, false);
-    assert_eq!(info.important, true);
+    assert!(!info.permanent);
+    assert!(info.important);
 }

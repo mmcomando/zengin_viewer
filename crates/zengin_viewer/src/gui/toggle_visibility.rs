@@ -48,15 +48,18 @@ impl Default for ShowOptions {
 #[derive(Message, Default)]
 pub struct OptionsChanged;
 
+/// Query data used to toggle visibility of world entities
+pub type VisibilityQueryData<'a> = (
+    &'a mut Visibility,
+    Option<&'a WorldMesh>,
+    Option<&'a StaticMesh>,
+    Option<&'a NpcVisibility>,
+);
+
 fn on_show_options_changed(
     messages: MessageReader<OptionsChanged>,
     options: ResMut<ShowOptions>,
-    mut query: Query<(
-        &mut Visibility,
-        Option<&WorldMesh>,
-        Option<&StaticMesh>,
-        Option<&NpcVisibility>,
-    )>,
+    mut query: Query<VisibilityQueryData<'_>>,
 ) {
     if messages.is_empty() {
         return;
