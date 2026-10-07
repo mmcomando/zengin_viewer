@@ -334,6 +334,7 @@ interface manage {
     }
     record dialog-info {
         npc: s32,
+        order: s32,
         condition: s32,
         information: s32,
         description: s32,

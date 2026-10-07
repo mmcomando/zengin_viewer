@@ -2923,6 +2923,7 @@ name = "daedalus_wasm"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "encoding_rs",
  "wasm-encoder 0.248.0",
  "wasmparser 0.248.0",
  "wat",

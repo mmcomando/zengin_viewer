@@ -6,13 +6,13 @@ use bevy::prelude::*;
 pub(super) struct DialogStyle;
 
 impl DialogStyle {
-    pub(super) const FONT_SIZE: f32 = 18.0;
+    pub(super) const FONT_SIZE: f32 = 22.0;
     pub(super) const SELECTED_FONT_SIZE: f32 = 20.0;
     pub(super) const ROW_HEIGHT: f32 = 26.0;
-    pub(super) const OPTIONS_WIDTH: f32 = 420.0;
-    pub(super) const OPTIONS_MAX_HEIGHT: f32 = 300.0;
+    pub(super) const OPTIONS_WIDTH: f32 = 800.0;
+    pub(super) const OPTIONS_MAX_HEIGHT: f32 = 280.0;
     pub(super) const LINES_WIDTH: f32 = 640.0;
-    pub(super) const PANEL_BACKGROUND: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
+    pub(super) const PANEL_BACKGROUND: Color = Color::srgba(0.0, 0.0, 0.0, 0.75);
     pub(super) const TEXT_COLOR_NORMAL: Color = Color::srgb(0.6, 0.6, 0.6);
     pub(super) const TEXT_COLOR_SELECTED: Color = Color::srgb(0.95, 0.95, 0.95);
     pub(super) const LINE_TEXT_COLOR: Color = Color::srgb(0.9, 0.75, 0.35);
@@ -110,6 +110,12 @@ fn spawn_options_panel(commands: &mut Commands, root: Entity) {
         ScrollPosition::default(),
         BackgroundColor(DialogStyle::PANEL_BACKGROUND),
         Node {
+            padding: UiRect {
+                left: Val::Px(14.0),
+                right: Val::Px(14.0),
+                top: Val::Px(14.0),
+                bottom: Val::Px(14.0),
+            },
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
             width: Val::Px(DialogStyle::OPTIONS_WIDTH),
@@ -530,7 +536,6 @@ fn dialog_row_display_text(root: &DialogRoot) -> String {
 /// Real text when available, otherwise everything known about the line for debugging
 fn dialog_line_display_text(view: &DialogLineView) -> String {
     if let Some(text) = &view.text {
-        println!("kkk({})", text);
         return text.clone();
     }
     format!(

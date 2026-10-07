@@ -56,9 +56,12 @@ impl DialogUiState {
     pub(super) fn open(
         &mut self,
         npc_entity: Entity,
-        dialog_roots: Vec<DialogRoot>,
+        mut dialog_roots: Vec<DialogRoot>,
         npc_name: String,
     ) {
+        // Important roots should not be shown, they are automatically started when player is near
+        dialog_roots.retain(|el| !el.important);
+
         self.npc_entity = Some(npc_entity);
         self.dialog_roots = dialog_roots;
         self.dialog_lines.clear();

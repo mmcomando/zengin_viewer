@@ -61,7 +61,9 @@ pub struct ItemInstance {
 #[derive(Debug, Default, Clone)]
 pub struct DialogRoot {
     pub sequence_function_id: i32,
+    pub order: i32,
     pub description: String,
+    pub important: bool,
 }
 
 #[derive(Debug, Default)]

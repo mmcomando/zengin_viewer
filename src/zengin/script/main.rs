@@ -288,10 +288,13 @@ impl WasmExecutor {
             entry.push(DialogRoot {
                 sequence_function_id: dialog_info.information,
                 description,
+                important: dialog_info.important,
+                order: dialog_info.order,
             });
+
+            entry.sort_by_key(|el| el.order);
         }
 
-        // dbg!(&self.store.data_mut().loaded_state.dialog_roots);
     }
 
     pub fn call_dialog_sequence_function(&mut self, sequence_function_id: i32) {
@@ -423,7 +426,9 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         Self::set_instance(&mut access, npc_index);
         Self::call_function(&mut access, npc_index);
         // let npc_name = Self::get_string_non_0(&mut access, npc_index).unwrap();
-        let waypoint_name = Self::get_string_non_0(&mut access, waypoint_string_id).unwrap();
+        let waypoint_name = Self::get_string_non_0(&mut access, waypoint_string_id)
+            .unwrap()
+            .to_lowercase();
 
         // println!(
         //     "NEW wld_insertnpc npc_index({npc_index}), npc_name({npc_name}), waypoint_string_id({waypoint_string_id}), waypoint_name({waypoint_name})"
@@ -446,7 +451,9 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         Self::set_instance(&mut access, item_index);
         Self::call_function(&mut access, item_index);
         let item_name = Self::get_string_non_0(&mut access, item_index).unwrap();
-        let waypoint_name = Self::get_string_non_0(&mut access, waypoint_string_id).unwrap();
+        let waypoint_name = Self::get_string_non_0(&mut access, waypoint_string_id)
+            .unwrap()
+            .to_ascii_lowercase();
         // println!(
         //     "NEW wld_insertitem item_index({item_index}), item_name({item_name}), waypoint_string_id({waypoint_string_id}), waypoint_name({waypoint_name})"
         // );
@@ -506,7 +513,9 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         // println!(
         //     "NEW ta_min npc_index({npc_index}), start_h({start_h}), stop_h({stop_h}), way_point({way_point})"
         // );
-        let way_point = Self::get_string_non_0(&mut access, way_point).unwrap();
+        let way_point = Self::get_string_non_0(&mut access, way_point)
+            .unwrap()
+            .to_lowercase();
 
         let start_h = start_h as u32;
         let stop_h = stop_h as u32;
@@ -531,7 +540,9 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         npc_b: i32,
         line_id: i32,
     ) {
-        let line_str = Self::get_string_non_0(&mut access, line_id).unwrap();
+        let line_str = Self::get_string_non_0(&mut access, line_id)
+            .unwrap()
+            .to_lowercase();
         // println!(
         //     "ai_output npc_a({npc_a}), npc_b({npc_b}), line_id({line_id}), line_str({line_str})"
         // );
