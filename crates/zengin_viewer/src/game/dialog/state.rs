@@ -106,14 +106,14 @@ impl DialogUiState {
         matches!(self.mode, DialogUiMode::Lines { .. })
     }
 
-    /// Moves the selection by one entry
+    /// Moves the selection by one entry, wrapping around at both ends
     pub(super) fn move_selection(&mut self, delta: i32) {
-        if self.active_choices().is_empty() {
+        let count = self.active_choices().len() as i32;
+        if count == 0 {
             self.selected_index = 0;
             return;
         }
-        let selected = self.selected_index as i32 + delta;
-        self.selected_index = selected.clamp(0, (self.active_choices().len() - 1) as i32) as usize;
+        self.selected_index = (self.selected_index as i32 + delta).rem_euclid(count) as usize;
     }
 
     /// Sequence function id of the selected option
