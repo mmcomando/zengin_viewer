@@ -8,12 +8,27 @@ pub struct PlaySound {
 
 /// Plays sounds requested by other systems
 #[derive(Resource, Default)]
-pub struct SoundManager;
+pub struct SoundManager {
+    /// Entity of the most recently spawned sound, so it can be stopped again
+    active: Option<Entity>,
+}
 
 impl SoundManager {
     /// Spawns a fire-and-forget entity playing the given audio source
     pub fn play_sound(&mut self, commands: &mut Commands, audio_handle: Handle<AudioSource>) {
-        commands.spawn((AudioPlayer::new(audio_handle), PlaybackSettings::DESPAWN));
+        let entity = commands
+            .spawn((AudioPlayer::new(audio_handle), PlaybackSettings::DESPAWN))
+            .id();
+        self.active = Some(entity);
+    }
+
+    /// Despawns the most recently spawned sound, stopping its playback.
+    /// Does nothing when there is no sound or it already finished
+    pub fn stop_active(&mut self, commands: &mut Commands) {
+        let Some(entity) = self.active.take() else {
+            return;
+        };
+        commands.entity(entity).try_despawn();
     }
 }
 

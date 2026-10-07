@@ -1,4 +1,4 @@
-use crate::game::audio::PlaySound;
+use crate::game::audio::{PlaySound, SoundManager};
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::script::component::{DialogTexts, WorldScript};
 use crate::zengin::script::state::{DialogLine, DialogRoot};
@@ -229,28 +229,45 @@ impl DialogUiState {
         self.selected_index = 0;
     }
 
-    /// Advances the line playback timer, returns to options mode after the last line.
-    /// When returning to the root options the roots are re-fetched from the
-    /// script state, as the executed option may have changed which options are
-    /// available
+    /// Advances the line playback timer, the next line starts when it finishes
     pub(super) fn advance_playback(
         &mut self,
         delta: Duration,
         gothic_script: &mut WorldScript,
         sounds: &mut MessageWriter<PlaySound>,
     ) {
-        let DialogUiMode::Lines {
-            lines,
-            index,
-            timer,
-        } = &mut self.mode
-        else {
+        let DialogUiMode::Lines { timer, .. } = &mut self.mode else {
             return;
         };
         timer.tick(delta);
         if !timer.is_finished() {
             return;
         }
+        self.finish_current_line(gothic_script, sounds);
+    }
+
+    /// Ends the current line early, the next one starts immediately. After the
+    /// last line the options are shown again
+    pub(super) fn stop_current_line(
+        &mut self,
+        gothic_script: &mut WorldScript,
+        sounds: &mut MessageWriter<PlaySound>,
+    ) {
+        self.finish_current_line(gothic_script, sounds);
+    }
+
+    /// Starts the next line after the current one ended, or returns to options
+    /// mode after the last line. When returning to the root options the roots
+    /// are re-fetched from the script state, as the executed option may have
+    /// changed which options are available
+    fn finish_current_line(
+        &mut self,
+        gothic_script: &mut WorldScript,
+        sounds: &mut MessageWriter<PlaySound>,
+    ) {
+        let DialogUiMode::Lines { lines, index, .. } = &mut self.mode else {
+            return;
+        };
         let next_index = *index + 1;
         if next_index >= lines.len() {
             // Playback finished, show root options again
@@ -263,7 +280,8 @@ impl DialogUiState {
     }
 }
 
-/// Options mode input: navigation and activation
+/// Options mode input: navigation and activation. In lines mode space ends
+/// the current line early
 pub(super) fn handle_dialog_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut dialog_ui: ResMut<DialogUiState>,
@@ -271,8 +289,18 @@ pub(super) fn handle_dialog_input(
     dialog_texts: Res<DialogTexts>,
     speech_sounds: Res<SpeechSounds>,
     mut sounds: MessageWriter<PlaySound>,
+    mut sound_manager: ResMut<SoundManager>,
+    mut commands: Commands,
 ) {
-    if !dialog_ui.is_open() || !dialog_ui.is_showing_options() {
+    if !dialog_ui.is_open() {
+        return;
+    }
+
+    if !dialog_ui.is_showing_options() {
+        if keys.just_pressed(KeyCode::Space) {
+            dialog_ui.stop_current_line(&mut gothic_script, &mut sounds);
+            sound_manager.stop_active(&mut commands);
+        }
         return;
     }
 
