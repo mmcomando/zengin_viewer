@@ -30,7 +30,7 @@ pub(super) struct DialogUiState {
     pub(super) dialog_roots: Vec<DialogRoot>,
     pub(super) dialog_lines: Vec<DialogLineView>,
     pub(super) mode: DialogUiMode,
-    /// Highlighted entry in options mode, EXIT is at index `dialog_roots.len()`
+    /// Highlighted entry in options mode
     pub(super) selected_index: usize,
     /// Index of the currently displayed line in lines mode
     pub(super) current_line_index: usize,
@@ -45,11 +45,6 @@ impl DialogUiState {
     /// Dialog is open while the npc entity is present
     pub(super) fn is_open(&self) -> bool {
         self.npc_entity.is_some()
-    }
-
-    /// Index of the EXIT entry, it is right after the last root option
-    pub(super) fn exit_index(&self) -> usize {
-        self.dialog_roots.len()
     }
 
     /// Opens the dialog with the given npc
@@ -72,22 +67,27 @@ impl DialogUiState {
         self.rows_dirty = true;
     }
 
-    /// Moves the selection by one entry, clamped to the available range including EXIT
+    /// Moves the selection by one entry
     pub(super) fn move_selection(&mut self, delta: i32) {
+        if self.dialog_roots.is_empty() {
+            self.selected_index = 0;
+            return;
+        }
         let selected = self.selected_index as i32 + delta;
-        self.selected_index = selected.clamp(0, self.exit_index() as i32) as usize;
+        self.selected_index = selected.clamp(0, (self.dialog_roots.len() - 1) as i32) as usize;
     }
 
-    /// Sequence function id of the selected option, None when EXIT is selected
+    /// Sequence function id of the selected option
     fn selected_option_function(&self) -> Option<i32> {
-        if self.selected_index == self.exit_index() {
-            return None;
-        }
-        Some(self.dialog_roots[self.selected_index].sequence_function_id)
+        Some(
+            self.dialog_roots
+                .get(self.selected_index)?
+                .sequence_function_id,
+        )
     }
 
     /// Runs the selected option sequence and starts displaying the produced lines.
-    /// Closes the dialog when EXIT is selected, keeps options shown when nothing was produced.
+    /// Keeps options shown when nothing was produced.
     pub(super) fn execute_selected(
         &mut self,
         gothic_script: &mut WorldScript,
@@ -100,6 +100,11 @@ impl DialogUiState {
 
         gothic_script.clear_dialog_lines();
         gothic_script.call_dialog_sequence_function(sequence_function_id);
+
+        if gothic_script.close_dialog() {
+            self.close();
+            return;
+        }
 
         let dialog_line_views = gothic_script
             .dialog_lines()

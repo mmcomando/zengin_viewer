@@ -22,6 +22,8 @@ bindgen!({
         "mmcomando:zengine-scripts/scripts.ta-min": store,
         "mmcomando:zengine-scripts/scripts.wld-insertitem": store,
         "mmcomando:zengine-scripts/scripts.ai-output": store,
+        "mmcomando:zengine-scripts/scripts.ai-stopprocessinfos": store,
+
 
     },
 
@@ -294,7 +296,6 @@ impl WasmExecutor {
 
             entry.sort_by_key(|el| el.order);
         }
-
     }
 
     pub fn call_dialog_sequence_function(&mut self, sequence_function_id: i32) {
@@ -554,6 +555,15 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
             line_str,
         });
     }
+
+    fn ai_stopprocessinfos(
+        mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
+        _npc: i32,
+    ) {
+        let state = access.data_mut();
+        // TODO send event?
+        state.dialog_state.close_dialog = true;
+    }
 }
 
 impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
@@ -703,7 +713,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(wld_getmobstate(_0, _1) -> i32);
     count_import!(npc_clearaiqueue(_0));
     count_import!(infomanager_hasfinished() -> i32);
-    count_import!(ai_stopprocessinfos(_0));
+    // count_import!(ai_stopprocessinfos(_0));
     count_import!(ai_processinfos(_0));
     count_import!(info_addchoice(_0, _1, _2));
     count_import!(info_clearchoices(_0));

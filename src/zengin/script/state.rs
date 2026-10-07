@@ -86,4 +86,5 @@ pub struct DialogLine {
 #[derive(Debug, Default)]
 pub struct DialogState {
     pub dialog_lines: Vec<DialogLine>,
+    pub close_dialog: bool,
 }

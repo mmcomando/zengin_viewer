@@ -72,7 +72,12 @@ impl WorldScript {
         &self.script.store.data().dialog_state.dialog_lines
     }
 
+    pub fn close_dialog(&self) -> bool {
+        self.script.store.data().dialog_state.close_dialog
+    }
+
     pub fn call_dialog_sequence_function(&mut self, sequence_function_id: i32) {
+        self.script.store.data_mut().dialog_state.close_dialog = false;
         self.script
             .call_dialog_sequence_function(sequence_function_id);
     }

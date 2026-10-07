@@ -34,12 +34,9 @@ pub(super) enum DialogContainer {
 #[derive(Component)]
 pub(super) struct DialogRowsContainer;
 
-/// Single row in the options panel: an option with its root index, or the always present EXIT
+/// Single row in the options panel: an option with its root index
 #[derive(Component)]
-pub(super) enum DialogRow {
-    Option(usize),
-    Exit,
-}
+pub(super) struct DialogRow(usize);
 
 /// Text showing the symbol name of the npc the dialog is open with
 #[derive(Component)]
@@ -94,7 +91,7 @@ fn spawn_options_panel(commands: &mut Commands, root: Entity) {
                 position_type: PositionType::Absolute,
                 left: Val::Px(0.0),
                 right: Val::Px(0.0),
-                bottom: Val::Px(40.0),
+                bottom: Val::Px(24.0),
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
@@ -113,8 +110,8 @@ fn spawn_options_panel(commands: &mut Commands, root: Entity) {
             padding: UiRect {
                 left: Val::Px(14.0),
                 right: Val::Px(14.0),
-                top: Val::Px(14.0),
-                bottom: Val::Px(14.0),
+                top: Val::Px(0.0),
+                bottom: Val::Px(0.0),
             },
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
@@ -123,28 +120,6 @@ fn spawn_options_panel(commands: &mut Commands, root: Entity) {
             overflow: Overflow::scroll_y(),
             ..default()
         },
-    ));
-
-    // EXIT is a sibling below the rows container so it is always the most bottom option
-    commands.spawn((
-        ChildOf(options_panel),
-        DialogRow::Exit,
-        BackgroundColor(DialogStyle::PANEL_BACKGROUND),
-        Node {
-            display: Display::Flex,
-            width: Val::Px(DialogStyle::OPTIONS_WIDTH),
-            height: Val::Px(DialogStyle::ROW_HEIGHT),
-            margin: UiRect::top(Val::Px(2.0)),
-            ..default()
-        },
-        Text::new("EXIT"),
-        TextFont {
-            font_size: DialogStyle::FONT_SIZE.into(),
-            ..default()
-        },
-        TextLayout::justify(Justify::Center),
-        TextColor(DialogStyle::TEXT_COLOR_NORMAL),
-        DialogStyle::TEXT_SHADOW,
     ));
 }
 
@@ -324,10 +299,7 @@ fn sync_option_rows(
     // Rows are only ever appended, so their index matches their position
     let mut indexed_rows: Vec<(usize, Entity)> = rows
         .iter()
-        .filter_map(|(entity, row, _, _, _, _)| match row {
-            DialogRow::Option(index) => Some((*index, entity)),
-            DialogRow::Exit => None,
-        })
+        .map(|(entity, row, _, _, _, _)| (row.0, entity))
         .collect();
     indexed_rows.sort_unstable_by_key(|(index, _)| *index);
 
@@ -366,7 +338,7 @@ fn sync_option_rows(
     scroll_position.0 = Vec2::ZERO;
 }
 
-/// Highlights the selected row, EXIT included
+/// Highlights the selected row
 fn sync_row_highlight(
     dialog_ui: &DialogUiState,
     rows: &mut Query<(
@@ -379,10 +351,7 @@ fn sync_row_highlight(
     )>,
 ) {
     for (_, row, _, _, text_color, text_font) in rows.iter_mut() {
-        let selected = match row {
-            DialogRow::Option(index) => *index == dialog_ui.selected_index,
-            DialogRow::Exit => dialog_ui.selected_index == dialog_ui.exit_index(),
-        };
+        let selected = row.0 == dialog_ui.selected_index;
         apply_row_selection(text_color, text_font, selected);
     }
 }
@@ -479,7 +448,7 @@ fn spawn_option_row(
 ) {
     commands.spawn((
         ChildOf(parent),
-        DialogRow::Option(index),
+        DialogRow(index),
         Node {
             display: Display::Flex,
             height: Val::Px(DialogStyle::ROW_HEIGHT),
