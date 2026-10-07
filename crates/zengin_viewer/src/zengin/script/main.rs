@@ -595,13 +595,16 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
             Self::get_string_non_0(&mut access, description_text_id).unwrap_or_default();
 
         let state = access.data_mut();
-        state.dialog_state.sub_dialog_choices.push(DialogRoot {
-            sequence_function_id: function_id,
-            condition_function_id: 0,
-            order: state.dialog_state.sub_dialog_choices.len() as i32,
-            description,
-            important: false,
-        });
+        state.dialog_state.sub_dialog_choices.insert(
+            0,
+            DialogRoot {
+                sequence_function_id: function_id,
+                condition_function_id: 0,
+                order: state.dialog_state.sub_dialog_choices.len() as i32,
+                description,
+                important: false,
+            },
+        );
     }
 
     fn info_clearchoices(
