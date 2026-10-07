@@ -1,5 +1,23 @@
 use crate::{misc::VfsOverwriteBehavior, vfs::Vfs};
-use std::{env::home_dir, path::PathBuf};
+use std::{
+    env::home_dir,
+    path::PathBuf,
+    sync::{Mutex, MutexGuard},
+};
+
+/// The vendored native ZenKit library is not thread-safe. Concurrent FFI
+/// calls from parallel test threads corrupt its internal state and crash
+/// the process (SIGSEGV), so every test that touches the library must hold
+/// this lock first.
+static ZENKIT_FFI: Mutex<()> = Mutex::new(());
+
+pub fn zenkit_ffi() -> MutexGuard<'static, ()> {
+    // A panicking test leaves the lock poisoned; that must not fail the
+    // remaining FFI tests as well.
+    ZENKIT_FFI
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 pub fn gothic2_dir() -> String {
     if let Ok(dir) = std::env::var("GOTHIC2_DIR") {

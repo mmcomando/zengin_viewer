@@ -780,7 +780,9 @@ mod tests {
     ) -> (World, Entity) {
         let mut world = World::new();
         world.insert_resource(assets);
-        world.insert_resource(Time::<Real>::default());
+        // `update_animations` reads the generic `Time`, which TimePlugin
+        // normally inserts alongside the specialized ones
+        world.insert_resource(Time::<()>::default());
         let model = world
             .spawn((
                 DistanceNear::default(),

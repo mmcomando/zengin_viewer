@@ -157,6 +157,7 @@ mod tests {
 
     #[test]
     fn read_world() {
+        let _zenkit = zenkit_ffi();
         let vfs = mounted_vfs();
 
         let node = vfs

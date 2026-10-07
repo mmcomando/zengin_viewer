@@ -228,6 +228,7 @@ mod tests {
 
     #[test]
     fn read_cutscene_library() {
+        let _zenkit = zenkit_ffi();
         let library = CutsceneLibrary::load_path(&cutscene_file()).unwrap();
         assert!(library.block_count() > 0);
 
@@ -240,6 +241,7 @@ mod tests {
 
     #[test]
     fn read_cutscene_library_from_memory() {
+        let _zenkit = zenkit_ffi();
         let data = std::fs::read(cutscene_file()).expect("should read cutscene library file");
         let reader = Read::from_slice(&data).unwrap();
         let library = CutsceneLibrary::load(&reader).unwrap();
@@ -248,6 +250,7 @@ mod tests {
 
     #[test]
     fn read_cutscene_library_with_encoding() {
+        let _zenkit = zenkit_ffi();
         let data = std::fs::read(cutscene_file()).expect("should read cutscene library file");
         let reader = Read::from_slice(&data).unwrap();
         let library =
@@ -262,6 +265,7 @@ mod tests {
 
     #[test]
     fn enumerate_blocks() {
+        let _zenkit = zenkit_ffi();
         let library = CutsceneLibrary::load_path(&cutscene_file()).unwrap();
 
         let blocks = library.blocks();
