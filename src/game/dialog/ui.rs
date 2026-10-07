@@ -307,8 +307,10 @@ fn sync_option_rows(
         return;
     };
 
-    for index in 0..dialog_ui.dialog_roots.len() {
-        let display_text = dialog_row_display_text(&dialog_ui.dialog_roots[index]);
+    let active_choices = dialog_ui.active_choices();
+
+    for index in 0..active_choices.len() {
+        let display_text = dialog_row_display_text(&active_choices[index]);
         match indexed_rows.get(index) {
             Some((_, entity)) => {
                 let Ok((_, _, mut node, mut text, _, _)) = rows.get_mut(*entity) else {
@@ -328,7 +330,7 @@ fn sync_option_rows(
     }
 
     // Hide surplus rows left over from previously opened dialogs
-    for (_, entity) in indexed_rows.iter().skip(dialog_ui.dialog_roots.len()) {
+    for (_, entity) in indexed_rows.iter().skip(active_choices.len()) {
         let Ok((_, _, mut node, _, _, _)) = rows.get_mut(*entity) else {
             continue;
         };

@@ -28,6 +28,9 @@ pub(super) struct DialogLineView {
 pub(super) struct DialogUiState {
     pub(super) npc_entity: Option<Entity>,
     pub(super) dialog_roots: Vec<DialogRoot>,
+    /// Sub dialog choices populated by the last executed option, shown instead
+    /// of `dialog_roots` when not empty
+    pub(super) sub_choices: Vec<DialogRoot>,
     pub(super) dialog_lines: Vec<DialogLineView>,
     pub(super) mode: DialogUiMode,
     /// Highlighted entry in options mode
@@ -59,6 +62,7 @@ impl DialogUiState {
 
         self.npc_entity = Some(npc_entity);
         self.dialog_roots = dialog_roots;
+        self.sub_choices.clear();
         self.dialog_lines.clear();
         self.mode = DialogUiMode::Options;
         self.selected_index = 0;
@@ -67,20 +71,29 @@ impl DialogUiState {
         self.rows_dirty = true;
     }
 
+    /// Options currently shown: sub dialog choices when present, root options otherwise
+    pub(super) fn active_choices(&self) -> &Vec<DialogRoot> {
+        if self.sub_choices.is_empty() {
+            &self.dialog_roots
+        } else {
+            &self.sub_choices
+        }
+    }
+
     /// Moves the selection by one entry
     pub(super) fn move_selection(&mut self, delta: i32) {
-        if self.dialog_roots.is_empty() {
+        if self.active_choices().is_empty() {
             self.selected_index = 0;
             return;
         }
         let selected = self.selected_index as i32 + delta;
-        self.selected_index = selected.clamp(0, (self.dialog_roots.len() - 1) as i32) as usize;
+        self.selected_index = selected.clamp(0, (self.active_choices().len() - 1) as i32) as usize;
     }
 
     /// Sequence function id of the selected option
     fn selected_option_function(&self) -> Option<i32> {
         Some(
-            self.dialog_roots
+            self.active_choices()
                 .get(self.selected_index)?
                 .sequence_function_id,
         )
@@ -98,6 +111,8 @@ impl DialogUiState {
             return;
         };
 
+        // Sub choices are cleared before running a root level option
+        gothic_script.clear_sub_dialog_choices();
         gothic_script.clear_dialog_lines();
         gothic_script.call_dialog_sequence_function(sequence_function_id);
 
@@ -105,6 +120,10 @@ impl DialogUiState {
             self.close();
             return;
         }
+
+        // The executed option may have registered sub dialog choices, take a
+        // snapshot so they can be shown instead of the root options
+        self.sync_sub_choices(gothic_script);
 
         let dialog_line_views = gothic_script
             .dialog_lines()
@@ -129,9 +148,16 @@ impl DialogUiState {
         self.begin_line_playback(dialog_line_views);
     }
 
+    /// Takes the sub dialog choices produced by the executed option, if any
+    pub(super) fn sync_sub_choices(&mut self, gothic_script: &WorldScript) {
+        self.sub_choices = gothic_script.sub_dialog_choices().to_vec();
+        self.rows_dirty = true;
+    }
+
     /// Closes the dialog by clearing the npc entity
     fn close(&mut self) {
         self.npc_entity = None;
+        self.sub_choices.clear();
     }
 
     /// Starts the one line at a time playback of the given lines

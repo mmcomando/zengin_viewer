@@ -175,7 +175,7 @@ fn spawn_world(
         // Mesh3d(meshes.add(Capsule3d::new(0.5, 0.8))),
         // MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         // Transform::from_xyz(0.0, 1.5, 0.0),
-        Transform::from_xyz(-99.0, 6.0, -8.0),
+        Transform::from_xyz(-97.0, 6.0, -7.0),
     ));
 
     // Player visual

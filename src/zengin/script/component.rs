@@ -1,4 +1,4 @@
-use crate::zengin::script::state::{DialogLine, LoadedState};
+use crate::zengin::script::state::{DialogLine, DialogRoot, LoadedState};
 use crate::zengin::{common::gothic2_dir, script::main::WasmExecutor};
 use bevy::ecs::resource::Resource;
 use bevy::prelude::*;
@@ -70,6 +70,19 @@ impl WorldScript {
 
     pub fn dialog_lines(&self) -> &[DialogLine] {
         &self.script.store.data().dialog_state.dialog_lines
+    }
+
+    pub fn clear_sub_dialog_choices(&mut self) {
+        self.script
+            .store
+            .data_mut()
+            .dialog_state
+            .sub_dialog_choices
+            .clear();
+    }
+
+    pub fn sub_dialog_choices(&self) -> &[DialogRoot] {
+        &self.script.store.data().dialog_state.sub_dialog_choices
     }
 
     pub fn close_dialog(&self) -> bool {

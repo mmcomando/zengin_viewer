@@ -87,4 +87,5 @@ pub struct DialogLine {
 pub struct DialogState {
     pub dialog_lines: Vec<DialogLine>,
     pub close_dialog: bool,
+    pub sub_dialog_choices: Vec<DialogRoot>,
 }

@@ -23,6 +23,8 @@ bindgen!({
         "mmcomando:zengine-scripts/scripts.wld-insertitem": store,
         "mmcomando:zengine-scripts/scripts.ai-output": store,
         "mmcomando:zengine-scripts/scripts.ai-stopprocessinfos": store,
+        "mmcomando:zengine-scripts/scripts.info-addchoice": store,
+        "mmcomando:zengine-scripts/scripts.info-clearchoices": store,
 
 
     },
@@ -564,6 +566,33 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         // TODO send event?
         state.dialog_state.close_dialog = true;
     }
+
+    fn info_addchoice(
+        mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
+        _dialog_id: i32,
+        description_text_id: i32,
+        function_id: i32,
+    ) {
+        let description = Self::get_string_non_0(&mut access, description_text_id)
+            .unwrap_or_default()
+            .to_lowercase();
+
+        let state = access.data_mut();
+        state.dialog_state.sub_dialog_choices.push(DialogRoot {
+            sequence_function_id: function_id,
+            order: state.dialog_state.sub_dialog_choices.len() as i32,
+            description,
+            important: false,
+        });
+    }
+
+    fn info_clearchoices(
+        mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
+        _dialog_id: i32,
+    ) {
+        let state = access.data_mut();
+        state.dialog_state.sub_dialog_choices.clear();
+    }
 }
 
 impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
@@ -715,8 +744,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(infomanager_hasfinished() -> i32);
     // count_import!(ai_stopprocessinfos(_0));
     count_import!(ai_processinfos(_0));
-    count_import!(info_addchoice(_0, _1, _2));
-    count_import!(info_clearchoices(_0));
+
     count_import!(npc_knowsinfo(_0, _1) -> i32);
     count_import!(npc_checkinfo(_0, _1) -> i32);
     count_import!(npc_giveinfo(_0, _1) -> i32);
