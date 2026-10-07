@@ -1,0 +1,13 @@
+[package]
+name = "ZenKit-rs"
+version = "0.1.0"
+edition = "2024"
+
+
+[lib]
+name = "zen_kit_rs"
+path = "src/lib.rs"
+
+[dependencies]
+encoding_rs = "0.8"
+ZenKitCAPI-sys = { path = "../ZenKit-sys" }

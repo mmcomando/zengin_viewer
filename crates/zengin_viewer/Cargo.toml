@@ -8,8 +8,8 @@ edition = "2024"
 bevy = { version = "0.19.0", features = ["dynamic_linking", "bevy_dev_tools", "free_camera", "serialize"] }
 avian3d = "0.7.0"
 byteorder = "1.5"
-ZenKit-rs = { path = "/home/pc/prog/experiments/2026_01/ZenKit-rs" }
-daedalus_wasm = { path = "/home/pc/prog/experiments/2026_04/daedalus_wasm" }
+ZenKit-rs = { path = "../ZenKit-rs" }
+daedalus_wasm = { path = "../daedalus_wasm" }
 ron = "0.12.0"
 serde = "1.0.228"
 bevy_egui = "0.41.1"
@@ -20,8 +20,3 @@ bevy_mod_xr = "0.6.0"
 bevy_xr_utils = "0.6.0"
 wasmtime = "46.0.1"
 rodio = { version = "0.22.2", features = ["symphonia-wav", "symphonia-adpcm"] }
-
-
-# [target.x86_64-unknown-linux-gnu]
-# linker = "clang"
-# rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold"]

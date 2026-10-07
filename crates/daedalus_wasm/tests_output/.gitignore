@@ -1,0 +1,4 @@
+# Tests from real scripts take a lot of space
+real_*
+# We won't see binary diff anyway
+*.wasm

@@ -1,0 +1,7 @@
+build:
+    cargo build
+
+test:
+    # ZenKitCAPI-sys cmake compilatino supports only --release profile
+    # Use --test-threads=1 as ZenKit is not thread safe
+    cargo test --release -- --test-threads=1
