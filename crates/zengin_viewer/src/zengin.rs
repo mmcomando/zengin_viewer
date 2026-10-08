@@ -11,7 +11,7 @@ use crate::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
 };
 use crate::game::distance::ClassifyDistance;
-use crate::game::objects::{GameNpc, MovementAnimations};
+use crate::game::objects::{GameNpc, MovementAnimations, NpcModel};
 use crate::game::objects_to_entities::GameObjectSpawnEntities;
 use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::ZenGinModel;
@@ -81,7 +81,9 @@ fn spawn_world(
         commands.spawn((
             Visibility::default(),
             GameNpc {
-                npc_intance_id: npc.npc_intance_id,
+                npc_instance_id: npc.npc_intance_id,
+            },
+            NpcModel {
                 hierarchy: npc.hierarchy.clone(),
                 body_model: npc.body_model.clone(),
                 body_texture: npc.body_texture.clone(),
@@ -184,7 +186,9 @@ fn spawn_world(
         Visibility::default(),
         Transform::from_xyz(0.0, -1.0, 0.0),
         GameNpc {
-            npc_intance_id: 1620, // TODO hardcoded player instance id
+            npc_instance_id: 1620, // TODO hardcoded player instance id
+        },
+        NpcModel {
             hierarchy: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS.MDH".to_string()),
             body_model: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM".to_string(),
             body_texture: Some(

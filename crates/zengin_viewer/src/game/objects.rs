@@ -1,8 +1,14 @@
 use bevy::ecs::component::Component;
 
+/// Identifies the npc's script instance.
 #[derive(Debug, Default, Component)]
 pub struct GameNpc {
-    pub npc_intance_id: i32,
+    pub npc_instance_id: i32,
+}
+
+/// Visual model data of an npc, requires [`GameNpc`] on the same entity.
+#[derive(Debug, Default, Component)]
+pub struct NpcModel {
     /// Bone hierarchy path
     pub hierarchy: Option<String>,
 

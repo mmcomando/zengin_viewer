@@ -72,7 +72,7 @@ fn show_closest_npc_dialog(
         .iter()
         .filter(|(_, npc, tr)| {
             // TODO better way to discriminate player
-            tr.translation().distance(player_pos) < 5.0 && npc.npc_intance_id != 1620
+            tr.translation().distance(player_pos) < 5.0 && npc.npc_instance_id != 1620
         })
         .min_by(|a, b| {
             let a_d = a.2.translation().distance_squared(player_pos);
@@ -84,19 +84,19 @@ fn show_closest_npc_dialog(
         return;
     };
 
-    println!("Closest npc: {}", closest_npc.npc_intance_id);
+    println!("Closest npc: {}", closest_npc.npc_instance_id);
 
-    let npc_name = gothic_script.call_get_name(closest_npc.npc_intance_id as u32);
+    let npc_name = gothic_script.call_get_name(closest_npc.npc_instance_id as u32);
 
-    let Some(dialog_roots) = npc_dialog_roots(&mut gothic_script, closest_npc.npc_intance_id)
+    let Some(dialog_roots) = npc_dialog_roots(&mut gothic_script, closest_npc.npc_instance_id)
     else {
-        println!("No dialog_roots for npc({})", closest_npc.npc_intance_id);
+        println!("No dialog_roots for npc({})", closest_npc.npc_instance_id);
         return;
     };
 
     dialog_ui.open(
         closest_entity,
-        closest_npc.npc_intance_id,
+        closest_npc.npc_instance_id,
         dialog_roots,
         npc_name,
     );

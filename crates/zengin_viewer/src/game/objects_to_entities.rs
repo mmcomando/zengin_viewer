@@ -1,6 +1,6 @@
 use crate::game::animation::{AnimationController, LocomotionSequencer, create_skinned_mesh_data};
 use crate::game::distance::{ClassifyDistance, DistanceFar, DistanceNear};
-use crate::game::objects::GameNpc;
+use crate::game::objects::{GameNpc, NpcModel};
 use crate::gui::toggle_visibility::NpcVisibility;
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::loaders::animation::AnimationData;
@@ -65,15 +65,15 @@ fn spawn_npcs(
     mut commands: Commands,
     mut handles_map: ResMut<MaterialHandles>,
     mut query: Query<
-        (Entity, &GameNpc, Option<&mut NpcSpawnState>),
+        (Entity, &NpcModel, Option<&mut NpcSpawnState>),
         (With<DistanceNear>, Without<ObjectEntitiesSpawned>),
     >,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
-    for (entity_id, npc_component, spawn_state) in &mut query {
+    for (entity_id, npc_model, spawn_state) in &mut query {
         let Some(mut spawn_state) = spawn_state else {
             let movement_handles =
-                npc_component
+                npc_model
                     .movement_animations
                     .as_ref()
                     .map(|el| MovementHandles {
@@ -90,32 +90,28 @@ fn spawn_npcs(
                     });
             // Entities with movement animations start in their idle animation,
             // the rest plays the configured animation
-            let animation_path = npc_component
+            let animation_path = npc_model
                 .movement_animations
                 .as_ref()
                 .map(|el| el.idle.as_str())
-                .or(npc_component.animation.as_deref())
+                .or(npc_model.animation.as_deref())
                 .unwrap_or(EXAMPLE_ANIMATION);
             let spawn_state = NpcSpawnState {
                 body_handle: handles_map.get_model_handle(
                     &asset_server,
-                    &npc_component.body_model,
-                    npc_component.hierarchy.as_deref(),
+                    &npc_model.body_model,
+                    npc_model.hierarchy.as_deref(),
                 ),
-                armor_handle: npc_component.armor_model.as_ref().map(|el| {
-                    handles_map.get_model_handle(
-                        &asset_server,
-                        el,
-                        npc_component.hierarchy.as_deref(),
-                    )
+                armor_handle: npc_model.armor_model.as_ref().map(|el| {
+                    handles_map.get_model_handle(&asset_server, el, npc_model.hierarchy.as_deref())
                 }),
                 animation_handle: Some(
                     handles_map.get_animation_handle(&asset_server, animation_path),
                 ),
                 movement_handles,
-                body_spawned: npc_component.armor_model.is_some(),
-                head_spawned: npc_component.head_model.is_none(),
-                armor_spawned: npc_component.armor_model.is_none(),
+                body_spawned: npc_model.armor_model.is_some(),
+                head_spawned: npc_model.head_model.is_none(),
+                armor_spawned: npc_model.armor_model.is_none(),
             };
 
             let mut entity = commands.entity(entity_id);
@@ -187,7 +183,7 @@ fn spawn_npcs(
             .iter()
             .position(|el| el == "BIP01 HEAD");
 
-        if let Some(head_model) = &npc_component.head_model {
+        if let Some(head_model) = &npc_model.head_model {
             let tr = Transform::IDENTITY;
 
             let head_entity_id = if let Some(bones_data) = &bones_data
@@ -204,7 +200,7 @@ fn spawn_npcs(
                 Visibility::default(),
                 ZenGinModelComponent {
                     model_handle: handles_map.get_model_handle(&asset_server, head_model, None),
-                    override_texture: npc_component.head_texture.clone(),
+                    override_texture: npc_model.head_texture.clone(),
                     ..default()
                 },
                 tr,
@@ -220,14 +216,14 @@ fn spawn_npcs(
                 Visibility::default(),
                 ZenGinModelComponent {
                     model_handle: spawn_state.body_handle.clone(),
-                    override_texture: npc_component.body_texture.clone(),
+                    override_texture: npc_model.body_texture.clone(),
                     bones_data: bones_data.clone(),
                     ..default()
                 },
                 tr,
             ));
         }
-        if let Some(armor_model) = &npc_component.armor_model {
+        if let Some(armor_model) = &npc_model.armor_model {
             let armor_data = armor_data.unwrap();
             let bones_data_anim = bones_data.unwrap();
 
@@ -251,7 +247,7 @@ fn spawn_npcs(
                     model_handle: handles_map.get_model_handle(
                         &asset_server,
                         armor_model,
-                        npc_component.hierarchy.as_deref(),
+                        npc_model.hierarchy.as_deref(),
                     ),
                     bones_data: Some(bones_data),
                     ..default()
