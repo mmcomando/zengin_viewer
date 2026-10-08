@@ -11,8 +11,10 @@ use crate::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
 };
 use crate::game::distance::ClassifyDistance;
+use crate::game::npc_routines::WayPoints;
 use crate::game::objects::{GameNpc, MovementAnimations, NpcAnimations, NpcModel};
 use crate::game::objects_to_entities::GameObjectSpawnEntities;
+use crate::game::time::GameTime;
 use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::script::component::WorldScript;
@@ -44,6 +46,7 @@ fn spawn_world(
     mut handles_map: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
     gothic_script: Res<WorldScript>,
+    game_time: Res<GameTime>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -51,15 +54,29 @@ fn spawn_world(
     println!("\n-----SCRIPTS VM-----\n");
     let loaded_state = gothic_script.get_loaded_state();
     println!("\n-----LOAD WORLD ZEN DATA-----\n");
-    let mut world_data =
-        load_zengin_world_data("/_WORK/DATA/WORLDS/NEWWORLD/NEWWORLD.ZEN", loaded_state);
+    let mut world_data = load_zengin_world_data(
+        "/_WORK/DATA/WORLDS/NEWWORLD/NEWWORLD.ZEN",
+        loaded_state,
+        game_time.hour(),
+    );
     if false {
-        let world_data_oldw =
-            load_zengin_world_data("/_WORK/DATA/WORLDS/OLDWORLD/OLDWORLD.ZEN", loaded_state);
+        let world_data_oldw = load_zengin_world_data(
+            "/_WORK/DATA/WORLDS/OLDWORLD/OLDWORLD.ZEN",
+            loaded_state,
+            game_time.hour(),
+        );
         world_data
             .light_instances
             .extend(world_data_oldw.light_instances);
     }
+
+    // Keep waypoint positions around for runtime npc routine teleporting,
+    // spots take precedence over way points (same lookup order as npc placement).
+    let mut way_points = world_data.way_points.clone();
+    for (name, tr) in &world_data.spots {
+        way_points.insert(name.clone(), *tr);
+    }
+    commands.insert_resource(WayPoints { points: way_points });
 
     println!("\n----CREATE ENGINE ENTITIES------\n");
 

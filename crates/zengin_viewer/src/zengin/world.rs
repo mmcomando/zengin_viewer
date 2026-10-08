@@ -19,7 +19,6 @@ use crate::{
 };
 
 const PLARCEHOLDER_MESH: &str = "/_WORK/DATA/MESHES/_COMPILED/SPHERE.MRM";
-const SIMULATE_HOUR: u32 = 12;
 
 fn find_mesh_path(vfs: &Vfs, name: &str) -> Option<String> {
     let name = name
@@ -102,9 +101,10 @@ pub fn load_npc(
     vm_state: &crate::zengin::script::state::LoadedState,
     instance: &InstanceState,
     spawn_npc: &SpawnNpc,
+    start_hour: u32,
 ) {
     let way_point_name = instance
-        .get_routine_entry(SIMULATE_HOUR)
+        .get_routine_entry(start_hour)
         .map_or(&spawn_npc.way_point, |el| &el.way_point);
 
     let Some(tr) = get_tr_from_point_name(data, way_point_name) else {
@@ -181,6 +181,7 @@ pub fn load_npc(
 pub fn load_zengin_world_data(
     world_path: &str,
     vm_state: &crate::zengin::script::state::LoadedState,
+    start_hour: u32,
 ) -> ZenGinWorldData {
     let vfs = Vfs::new();
 
@@ -253,7 +254,7 @@ pub fn load_zengin_world_data(
         //     continue;
         // }
         if let Some(instance) = vm_state.instance_data.get(&npc_spawn.npc_index) {
-            load_npc(&mut data, &vfs, vm_state, instance, npc_spawn);
+            load_npc(&mut data, &vfs, vm_state, instance, npc_spawn, start_hour);
         } else {
             println!("unknown data for npc({:?})", npc_spawn);
             // panic!();

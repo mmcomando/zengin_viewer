@@ -26,6 +26,8 @@ use crate::game::audio::GameAudioPlugin;
 use crate::game::dialog::GameDialogPlugin;
 use crate::game::disco_lamp::DiscoLamp;
 use crate::game::distance::DistancePlugin;
+use crate::game::game_time::GameTimePlugin;
+use crate::game::lighting::SunLight;
 use crate::gui::camera::get_overlay_plugin;
 use crate::gui::egui::GameDebugUI;
 use crate::gui::statistics::StatisticsPlugin;
@@ -87,6 +89,7 @@ fn main() {
         .add_plugins(CharacterControllerPlugin)
         .add_plugins(DiscoLamp)
         .add_plugins(DistancePlugin)
+        .add_plugins(GameTimePlugin)
         .add_plugins(GameDebugUI)
         .add_plugins(StatisticsPlugin)
         .add_plugins(GothicScriptsPlugin)
@@ -173,7 +176,6 @@ const PREFER_PERF: bool = false;
 // Shadow maps are very heavy and disco demo uses 4 of them tanking performance
 // Enabling this make fps go from 300 to 80
 const ENABLE_DISCO_SHADOW_MAPS: bool = false;
-const DAY: bool = true;
 
 fn spawn_lights(mut commands: Commands) {
     let cascade_shadow_config = CascadeShadowConfigBuilder {
@@ -184,28 +186,26 @@ fn spawn_lights(mut commands: Commands) {
     }
     .build();
 
-    let mut light = DirectionalLight {
-        color: Color::srgb_u8(172, 172, 193), // Moon color
-        illuminance: bevy::light::light_consts::lux::FULL_MOON_NIGHT,
+    // Initial values match noon of the day/night cycle from `game_time`.
+    // The `update_day_night_lighting` system adjusts them every frame afterwards.
+    let light = DirectionalLight {
+        color: Color::from(tailwind::SKY_50),
+        illuminance: bevy::light::light_consts::lux::OVERCAST_DAY,
         shadow_maps_enabled: !PREFER_PERF,
         // contact_shadows_enabled: true,
         ..default()
     };
-    let mut ambient_light = GlobalAmbientLight {
+    let ambient_light = GlobalAmbientLight {
         color: Color::linear_rgb(1.0, 1.0, 1.0),
-        brightness: 20.0,
+        brightness: 200.0,
         ..default()
     };
-    if DAY {
-        ambient_light.brightness = 200.0;
-        light.illuminance = bevy::light::light_consts::lux::OVERCAST_DAY;
-        light.color = Color::from(tailwind::SKY_50);
-    }
 
     commands.insert_resource(ambient_light);
 
     commands.spawn((
         light,
+        SunLight,
         Transform::from_xyz(1000.0, 1000.0, -10.0).looking_at(
             Vec3 {
                 x: 0.0,
