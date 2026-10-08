@@ -36,10 +36,11 @@ struct BaseModule {
 
 pub fn create_wasm_component_model(module: Module) -> Vec<u8> {
     let mut resolve = Resolve::default();
-    // The WIT package lives in the host app crate. Resolve it relative to this
-    // crate's manifest directory instead of the process CWD, so it works no
-    // matter where tests or the app are started from.
-    let wit_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../zengin_viewer/wit");
+    // The component must embed the same WIT world that the host bindings in
+    // tests are generated from, so resolve this crate's own wit package.
+    // Resolved relative to the manifest dir instead of the process CWD, so it
+    // works no matter where tests or the app are started from.
+    let wit_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/wit");
     let (pkg, _map) = resolve.push_dir(wit_dir).unwrap();
 
     let world = resolve.select_world(&[pkg], Some("mm-world"));

@@ -13,7 +13,8 @@ use crate::zengin::script::state::{
 use exports::mmcomando::zengine_scripts::manage::SymbolKind;
 
 bindgen!({
-    path:"wit",
+    // Same WIT package daedalus_wasm embeds into the produced component
+    path:"../daedalus_wasm/wit",
 
     imports: {
         "mmcomando:zengine-scripts/scripts.wld-insertnpc": store,
