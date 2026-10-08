@@ -1,6 +1,6 @@
 use crate::game::animation::{AnimationController, LocomotionSequencer, create_skinned_mesh_data};
 use crate::game::distance::{ClassifyDistance, DistanceFar, DistanceNear};
-use crate::game::objects::{GameNpc, NpcModel};
+use crate::game::objects::{GameNpc, NpcAnimations, NpcModel};
 use crate::gui::toggle_visibility::NpcVisibility;
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::loaders::animation::AnimationData;
@@ -65,15 +65,20 @@ fn spawn_npcs(
     mut commands: Commands,
     mut handles_map: ResMut<MaterialHandles>,
     mut query: Query<
-        (Entity, &NpcModel, Option<&mut NpcSpawnState>),
+        (
+            Entity,
+            &NpcModel,
+            &NpcAnimations,
+            Option<&mut NpcSpawnState>,
+        ),
         (With<DistanceNear>, Without<ObjectEntitiesSpawned>),
     >,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
-    for (entity_id, npc_model, spawn_state) in &mut query {
+    for (entity_id, npc_model, npc_animations, spawn_state) in &mut query {
         let Some(mut spawn_state) = spawn_state else {
             let movement_handles =
-                npc_model
+                npc_animations
                     .movement_animations
                     .as_ref()
                     .map(|el| MovementHandles {
@@ -90,11 +95,11 @@ fn spawn_npcs(
                     });
             // Entities with movement animations start in their idle animation,
             // the rest plays the configured animation
-            let animation_path = npc_model
+            let animation_path = npc_animations
                 .movement_animations
                 .as_ref()
                 .map(|el| el.idle.as_str())
-                .or(npc_model.animation.as_deref())
+                .or(npc_animations.animation.as_deref())
                 .unwrap_or(EXAMPLE_ANIMATION);
             let spawn_state = NpcSpawnState {
                 body_handle: handles_map.get_model_handle(

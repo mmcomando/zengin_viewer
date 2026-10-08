@@ -22,6 +22,11 @@ pub struct NpcModel {
     pub head_texture: Option<String>,
     /// Humanoids can wear armor
     pub armor_model: Option<String>,
+}
+
+/// Animation config of an npc, requires [`GameNpc`] on the same entity.
+#[derive(Debug, Default, Component)]
+pub struct NpcAnimations {
     /// Animation played when [`Self::movement_animations`] is not set,
     /// otherwise used as fallback when the entity has no movement animations
     pub animation: Option<String>,

@@ -11,7 +11,7 @@ use crate::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
 };
 use crate::game::distance::ClassifyDistance;
-use crate::game::objects::{GameNpc, MovementAnimations, NpcModel};
+use crate::game::objects::{GameNpc, MovementAnimations, NpcAnimations, NpcModel};
 use crate::game::objects_to_entities::GameObjectSpawnEntities;
 use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::ZenGinModel;
@@ -90,6 +90,8 @@ fn spawn_world(
                 head_model: npc.head_model.clone(),
                 head_texture: npc.head_texture.clone(),
                 armor_model: npc.armor_model.clone(),
+            },
+            NpcAnimations {
                 animation: Some(
                     // "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WATCHFIGHT.MAN".to_string(),
                     "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_FIRE_VICTIM.MAN".to_string(),
@@ -202,6 +204,8 @@ fn spawn_world(
             // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_SLD_H.MDL".to_string()),
             // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PAL_H.MDM".to_string()),
             armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_LESTER.MDM".to_string()),
+        },
+        NpcAnimations {
             animation: None,
             movement_animations: Some(MovementAnimations {
                 idle: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUN.MAN".to_string(),
