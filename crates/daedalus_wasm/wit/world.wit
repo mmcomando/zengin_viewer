@@ -348,7 +348,17 @@ interface manage {
         function: option<s32>,
     }
     test-func: func() -> s32;
+    // Sets the current instance context used for class member access,
+    // equivalent of the daedalus `SetInstance` instruction
     set-instance: func(instance-id: s32);
+    // Binds well known daedalus instance variables to the given instance,
+    // like the original engine does before it invokes a script function for
+    // a specific npc. Does nothing when the script does not declare them.
+    set-self: func(instance-id: s32);
+    set-other: func(instance-id: s32);
+    set-victim: func(instance-id: s32);
+    set-item: func(instance-id: s32);
+    set-hero: func(instance-id: s32);
     call-npc-routine: func(instance-id: s32);
     get-name: func(symbol-id: s32) -> string;
     call-function: func(symbol-id: s32);

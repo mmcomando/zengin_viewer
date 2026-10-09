@@ -149,7 +149,6 @@ fn test_none_100_xardas() {
     let data = get_main_script_data();
     let func_address = data.get_function_address("none_100_xardas").unwrap();
     let instructions = &[
-        InstDD::SetInstance(1156),
         InstDD::Call(func_address),
         InstDD::PushInt(1),
         InstDD::Return,
@@ -172,6 +171,11 @@ fn test_none_100_xardas() {
         instructions,
     );
 
+    // Instance functions are invoked by the engine with the instance bound as
+    // `self` and as the member access context (like `Wld_InsertNpc` does),
+    // mirror that here
+    executor.set_self(1156);
+    executor.set_instance(1156);
     executor.call_test_func();
     assert_eq!(executor.call_count("mdl_setmodelscale"), 1);
     assert_eq!(executor.call_count("mdl_setmodelfatness"), 1);
@@ -390,7 +394,6 @@ fn real_test_xardas_npc_routine() {
 
     let func_address = data.get_function_address("none_100_xardas").unwrap();
     let instructions = &[
-        InstDD::SetInstance(11156),
         InstDD::Call(func_address),
         InstDD::PushInt(1),
         InstDD::Return,
@@ -398,6 +401,10 @@ fn real_test_xardas_npc_routine() {
 
     let mut executor = WasmExecutor::real_func_test(data, &[], instructions);
 
+    // Bind the npc instance like the engine does before invoking script
+    // functions for it
+    executor.set_self(11156);
+    executor.set_instance(11156);
     println!("-- call_test_func --");
     executor.call_test_func();
     println!("-- call_npc_routine --");
@@ -439,6 +446,7 @@ fn real_routine_state_played_animations() {
     // instances are used
     executor.initialize_all_instances();
     let npc_instance = executor.get_symbol_id("none_100_xardas");
+    executor.set_self(npc_instance as u32);
     executor.set_instance(npc_instance as u32);
 
     let state_fn = executor.get_symbol_id("zs_stand_wp");

@@ -9,10 +9,6 @@ use crate::wasm::CURRENT_INSTANCE_SYMBOL_INDEX;
 use std::collections::HashMap;
 use wasm_encoder::{BlockType, Function, Instruction, MemArg, ValType};
 
-/// Symbol index of the `self` variable in the gothic scripts. It holds the id
-/// of the current instance, this vm models it with the current instance global.
-const SELF_SYMBOL_INDEX: u32 = 1616;
-
 use crate::daedalus::Function as FuncDD;
 use crate::daedalus::Instruction as InstDD;
 use crate::wasm::BinaryBuilder;
@@ -262,17 +258,29 @@ impl<'a> ConversionState<'a> {
                 self.push_symbol_value_and_address(func, index, element_index, provide_val_type);
             }
             InstDD::SetInstance(index) => {
-                // The daedalus compiler emits `SetInstance` with the `self`
-                // symbol for every `self.<member>` access, meaning "switch to
-                // the instance the self variable points to". In this vm the
-                // self variable is the current instance, so such a switch is a
-                // no-op. Treating the symbol index as an instance would switch
-                // to the self symbol itself and corrupt every following
-                // member access.
-                if index != SELF_SYMBOL_INDEX {
+                // The daedalus compiler emits `SetInstance` before every member
+                // access through an instance variable, meaning "switch the
+                // member access context to the instance this symbol points to".
+                // For declared instances the symbol identifies the instance
+                // itself, for instance variables (`self`, `other`, `var C_Npc`
+                // locals) their value holds the reference to the instance.
+                let info = self.module_builder.symbol_to_info.get(&index).unwrap();
+                if info.func_info.is_some() {
                     func.instruction(&Instruction::I32Const(index.cast_signed()));
-                    func.instruction(&Instruction::Call(self.func_index_set_instance));
+                } else {
+                    let Some(address) = info.memory_address else {
+                        panic!(
+                            "SetInstance symbol({index}) has no memory address, it cannot hold an instance reference"
+                        );
+                    };
+                    func.instruction(&Instruction::I32Const(address.cast_signed()));
+                    func.instruction(&Instruction::I32Load(MemArg {
+                        offset: 0,
+                        align: 2,
+                        memory_index: DaedalusMemoryLayout::SYMBOLS_MEMORY_INDEX,
+                    }));
                 }
+                func.instruction(&Instruction::Call(self.func_index_set_instance));
             }
             InstDD::Jump(_) | InstDD::JumpIf(_) => {
                 panic!("Jump instructions should have been lowered in higher level steps");
@@ -283,7 +291,7 @@ impl<'a> ConversionState<'a> {
         }
     }
 
-    fn new(module_builder: &'a BinaryBuilder, dd_func: &'a FuncDD) -> ConversionState<'a> {
+    fn new(module_builder: &'a BinaryBuilder, dd_func: &'a FuncDD) -> Self {
         Self {
             module_builder,
             dd_func,
@@ -431,14 +439,6 @@ impl<'a> ConversionState<'a> {
             .symbol_to_info
             .get(&symbol_index)
             .unwrap();
-
-        // TODO: Fix hack
-        // Script has "self" symbol which contains id of current instance, but in tests it is not available.
-        // Currently we just redirect this particular symbol to global variable
-        if symbol_index == SELF_SYMBOL_INDEX {
-            func.instruction(&Instruction::GlobalGet(CURRENT_INSTANCE_SYMBOL_INDEX));
-            return;
-        }
 
         // If we push symbol which is an instance don't load value but just store symbol index
         // Assume that if we are doing push to symbol which has code in it, it is a instance

@@ -140,6 +140,11 @@ impl DialogUiState {
         // Sub choices are cleared before running a root level option
         gothic_script.clear_sub_dialog_choices();
         gothic_script.clear_dialog_lines();
+        // Dialog functions are executed with `self` bound to the npc the dialog
+        // is open with, like the original engine does for every dialog call
+        gothic_script.set_self(self.npc_instance_id);
+        gothic_script.set_instance(self.npc_instance_id);
+        // TODO call set_self and set_instance in call_dialog_sequence_function
         gothic_script.call_dialog_sequence_function(sequence_function_id);
 
         // The executed option may have registered sub dialog choices, take a

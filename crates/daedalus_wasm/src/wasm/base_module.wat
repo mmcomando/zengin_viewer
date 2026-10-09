@@ -24,6 +24,13 @@
   (global $allocator (mut i32) (i32.const 0))
   ;; Number of all symbols, patched with real value during merge with daedalus data
   (global $symbols_num (mut i32) (i32.const 0))
+  ;; Symbol indices of the well known daedalus instance variables, patched with
+  ;; real values during merge with daedalus data, -1 when not declared
+  (global $self_symbol_index (mut i32) (i32.const 0))
+  (global $other_symbol_index (mut i32) (i32.const 0))
+  (global $victim_symbol_index (mut i32) (i32.const 0))
+  (global $item_symbol_index (mut i32) (i32.const 0))
+  (global $hero_symbol_index (mut i32) (i32.const 0))
 
 
   ;; Compares two strings given as (ptr, size) pairs
@@ -119,7 +126,9 @@
     i32.add
   )
 
-  ;; Saves current instance symbol index and its memory address
+  ;; Sets the current instance context (symbol index and its member memory
+  ;; address) used for class member access. This is what the daedalus
+  ;; `SetInstance` instruction means, converted functions call this builtin.
   ;; If index of this function changes change BASE_FUNC_SET_INSTANCE
   (func $set_instance (param $symbol_id i32)
     local.get $symbol_id
@@ -128,6 +137,60 @@
     local.get $symbol_id
     call $get_memory_value_i32
     global.set $current_class_instance_memory
+  )
+
+  ;; Writes an instance reference into the value slot of the given symbol, the
+  ;; daedalus `symbol = instance` assignment. Does nothing when the symbol or
+  ;; the instance id is not valid.
+  (func $assign_instance (param $symbol_id i32) (param $instance_id i32)
+    local.get $symbol_id
+    i32.const 0
+    i32.ge_s
+    local.get $instance_id
+    i32.const 0
+    i32.gt_s
+    i32.and
+    if
+      local.get $symbol_id
+      call $get_memory_value_i32
+      local.get $instance_id
+      i32.store $symbols
+    end
+  )
+
+  ;; Binds one of the well known daedalus instance variables (`self`, `other`,
+  ;; `victim`, `item`, `hero`) to the given instance, like the original engine
+  ;; does before it invokes a script function for a specific npc (zenkit
+  ;; `ScopeVar` self/other bindings). Does nothing when the script does not
+  ;; declare the variable (its symbol index is patched to -1).
+  (func $set_self (param $instance_id i32)
+    global.get $self_symbol_index
+    local.get $instance_id
+    call $assign_instance
+  )
+
+  (func $set_other (param $instance_id i32)
+    global.get $other_symbol_index
+    local.get $instance_id
+    call $assign_instance
+  )
+
+  (func $set_victim (param $instance_id i32)
+    global.get $victim_symbol_index
+    local.get $instance_id
+    call $assign_instance
+  )
+
+  (func $set_item (param $instance_id i32)
+    global.get $item_symbol_index
+    local.get $instance_id
+    call $assign_instance
+  )
+
+  (func $set_hero (param $instance_id i32)
+    global.get $hero_symbol_index
+    local.get $instance_id
+    call $assign_instance
   )
 
   ;; Calls npc_routine function of the instance
@@ -322,6 +385,11 @@
       local.get $index
       call $set_instance
 
+      ;; Instance bodies can use `self` (e.g. npc instances pass it to helper
+      ;; functions), bind it like the original engine does
+      local.get $index
+      call $set_self
+
       local.get $index
       i32.const 16
       i32.mul ;; Address of instance symbol info record
@@ -503,6 +571,11 @@
   ;; Export section
   (export "cabi_realloc" (func $cabi_realloc))
   (export "mmcomando:zengine-scripts/manage@0.1.0#set-instance" (func $set_instance))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#set-self" (func $set_self))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#set-other" (func $set_other))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#set-victim" (func $set_victim))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#set-item" (func $set_item))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#set-hero" (func $set_hero))
   (export "mmcomando:zengine-scripts/manage@0.1.0#call-npc-routine" (func $call_npc_routine))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-name" (func $get_name))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id" (func $get_symbol_id))

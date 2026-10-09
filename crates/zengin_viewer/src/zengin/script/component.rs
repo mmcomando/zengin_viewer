@@ -99,6 +99,16 @@ impl WorldScript {
         self.script.call_get_name(symbol_id)
     }
 
+    /// Binds the given npc instance as `self` for subsequent script calls,
+    pub fn set_self(&mut self, npc_instance_id: i32) {
+        self.script.set_self(npc_instance_id as u32);
+    }
+
+    /// Sets the current instance context used for class member access
+    pub fn set_instance(&mut self, npc_instance_id: i32) {
+        self.script.set_instance(npc_instance_id as u32);
+    }
+
     /// Executes the routine state function of the npc instance, returning the
     /// animation names the script requested via `AI_PlayAni(BS)`.
     pub fn call_routine_state_function(

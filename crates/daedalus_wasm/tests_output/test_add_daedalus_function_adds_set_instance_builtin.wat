@@ -5,8 +5,9 @@
     (type (;2;) (func (param i32 i32 i32 i32) (result i32)))
     (type (;3;) (func (param i32) (result i32)))
     (type (;4;) (func (param i32)))
-    (type (;5;) (func (param i32 i32) (result i32)))
-    (type (;6;) (func (result i32)))
+    (type (;5;) (func (param i32 i32)))
+    (type (;6;) (func (param i32 i32) (result i32)))
+    (type (;7;) (func (result i32)))
     (table (;0;) 1 funcref)
     (memory (;0;) 1)
     (memory (;1;) 1)
@@ -15,22 +16,32 @@
     (global (;1;) (mut i32) i32.const 0)
     (global (;2;) (mut i32) i32.const 0)
     (global (;3;) (mut i32) i32.const 0)
+    (global (;4;) (mut i32) i32.const -1)
+    (global (;5;) (mut i32) i32.const -1)
+    (global (;6;) (mut i32) i32.const -1)
+    (global (;7;) (mut i32) i32.const -1)
+    (global (;8;) (mut i32) i32.const -1)
     (export "cabi_realloc" (func 1))
     (export "mmcomando:zengine-scripts/manage@0.1.0#set-instance" (func 3))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#call-npc-routine" (func 4))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#get-name" (func 5))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id" (func 6))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#call-function" (func 7))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#call-function-bool" (func 16))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num" (func 8))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info" (func 9))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances" (func 10))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual" (func 13))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change" (func 14))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info" (func 15))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#set-self" (func 5))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#set-other" (func 6))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#set-victim" (func 7))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#set-item" (func 8))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#set-hero" (func 9))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#call-npc-routine" (func 10))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-name" (func 11))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id" (func 12))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#call-function" (func 13))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#call-function-bool" (func 22))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num" (func 14))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info" (func 15))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances" (func 16))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual" (func 19))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change" (func 20))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info" (func 21))
     (export "memory" (memory 0))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#test-func" (func 17))
-    (elem (;0;) (table 0) (i32.const 0) func 17)
+    (export "mmcomando:zengine-scripts/manage@0.1.0#test-func" (func 23))
+    (elem (;0;) (table 0) (i32.const 0) func 23)
     (func (;0;) (type 2) (param i32 i32 i32 i32) (result i32)
       (local i32 i32 i32)
       local.get 1
@@ -167,13 +178,81 @@
       global.set 0
       ;; []
     )
-    (func (;4;) (type 4) (param i32)
+    (func (;4;) (type 5) (param i32 i32)
+      local.get 0
+      ;; [i32]
+      i32.const 0
+      ;; [i32 i32]
+      i32.ge_s
+      ;; [i32]
+      local.get 1
+      ;; [i32 i32]
+      i32.const 0
+      ;; [i32 i32 i32]
+      i32.gt_s
+      ;; [i32 i32]
+      i32.and
+      ;; [i32]
+      if ;; label = @1
+        ;; []
+        local.get 0
+        ;; [i32]
+        call 2
+        ;; [i32]
+        local.get 1
+        ;; [i32 i32]
+        i32.store 2
+        ;; []
+      end
+      ;; []
+    )
+    (func (;5;) (type 4) (param i32)
+      global.get 4
+      ;; [i32]
+      local.get 0
+      ;; [i32 i32]
+      call 4
+      ;; []
+    )
+    (func (;6;) (type 4) (param i32)
+      global.get 5
+      ;; [i32]
+      local.get 0
+      ;; [i32 i32]
+      call 4
+      ;; []
+    )
+    (func (;7;) (type 4) (param i32)
+      global.get 6
+      ;; [i32]
+      local.get 0
+      ;; [i32 i32]
+      call 4
+      ;; []
+    )
+    (func (;8;) (type 4) (param i32)
+      global.get 7
+      ;; [i32]
+      local.get 0
+      ;; [i32 i32]
+      call 4
+      ;; []
+    )
+    (func (;9;) (type 4) (param i32)
+      global.get 8
+      ;; [i32]
+      local.get 0
+      ;; [i32 i32]
+      call 4
+      ;; []
+    )
+    (func (;10;) (type 4) (param i32)
       (local i32)
       local.get 0
       ;; [i32]
       i32.const 608
       ;; [i32 i32]
-      call 11
+      call 17
       ;; [i32]
       local.tee 1
       ;; [i32]
@@ -198,7 +277,7 @@
       call_indirect (type 0)
       ;; []
     )
-    (func (;5;) (type 3) (param i32) (result i32)
+    (func (;11;) (type 3) (param i32) (result i32)
       local.get 0
       ;; [i32]
       i32.const 8
@@ -210,7 +289,7 @@
       i32.add
       ;; [i32]
     )
-    (func (;6;) (type 5) (param i32 i32) (result i32)
+    (func (;12;) (type 6) (param i32 i32) (result i32)
       (local i32 i32 i32)
       i32.const 0
       ;; [i32]
@@ -307,7 +386,7 @@
       end
       ;; [i32]
     )
-    (func (;7;) (type 4) (param i32)
+    (func (;13;) (type 4) (param i32)
       local.get 0
       ;; [i32]
       i32.const 16
@@ -319,11 +398,11 @@
       call_indirect (type 0)
       ;; []
     )
-    (func (;8;) (type 1) (result i32)
+    (func (;14;) (type 1) (result i32)
       global.get 3
       ;; [i32]
     )
-    (func (;9;) (type 3) (param i32) (result i32)
+    (func (;15;) (type 3) (param i32) (result i32)
       (local i32 i32 i32)
       i32.const 0
       ;; [i32]
@@ -404,7 +483,7 @@
       local.get 1
       ;; [i32]
     )
-    (func (;10;) (type 0)
+    (func (;16;) (type 0)
       (local i32 i32)
       loop ;; label = @1
         ;; []
@@ -452,6 +531,10 @@
         ;; []
         local.get 0
         ;; [i32]
+        call 5
+        ;; []
+        local.get 0
+        ;; [i32]
         i32.const 16
         ;; [i32 i32]
         i32.mul
@@ -495,7 +578,7 @@
       end
       ;; []
     )
-    (func (;11;) (type 5) (param i32 i32) (result i32)
+    (func (;17;) (type 6) (param i32 i32) (result i32)
       local.get 0
       ;; [i32]
       i32.const 16
@@ -511,7 +594,7 @@
       i32.load 2
       ;; [i32]
     )
-    (func (;12;) (type 5) (param i32 i32) (result i32)
+    (func (;18;) (type 6) (param i32 i32) (result i32)
       (local i32 i32 i32)
       i32.const 0
       ;; [i32]
@@ -529,7 +612,7 @@
       ;; [i32]
       local.get 1
       ;; [i32 i32]
-      call 11
+      call 17
       ;; [i32]
       local.tee 3
       ;; [i32]
@@ -600,23 +683,23 @@
       local.get 2
       ;; [i32]
     )
-    (func (;13;) (type 3) (param i32) (result i32)
+    (func (;19;) (type 3) (param i32) (result i32)
       local.get 0
       ;; [i32]
       i32.const 524
       ;; [i32 i32]
-      call 12
+      call 18
       ;; [i32]
     )
-    (func (;14;) (type 3) (param i32) (result i32)
+    (func (;20;) (type 3) (param i32) (result i32)
       local.get 0
       ;; [i32]
       i32.const 544
       ;; [i32 i32]
-      call 12
+      call 18
       ;; [i32]
     )
-    (func (;15;) (type 3) (param i32) (result i32)
+    (func (;21;) (type 3) (param i32) (result i32)
       (local i32)
       i32.const 0
       ;; [i32]
@@ -636,7 +719,7 @@
       ;; [i32 i32]
       i32.const 0
       ;; [i32 i32 i32]
-      call 11
+      call 17
       ;; [i32 i32]
       i32.store
       ;; []
@@ -646,7 +729,7 @@
       ;; [i32 i32]
       i32.const 4
       ;; [i32 i32 i32]
-      call 11
+      call 17
       ;; [i32 i32]
       i32.store offset=4
       ;; []
@@ -656,7 +739,7 @@
       ;; [i32 i32]
       i32.const 12
       ;; [i32 i32 i32]
-      call 11
+      call 17
       ;; [i32 i32]
       i32.store offset=8
       ;; []
@@ -666,7 +749,7 @@
       ;; [i32 i32]
       i32.const 16
       ;; [i32 i32 i32]
-      call 11
+      call 17
       ;; [i32 i32]
       i32.store offset=12
       ;; []
@@ -676,7 +759,7 @@
       ;; [i32 i32]
       i32.const 20
       ;; [i32 i32 i32]
-      call 11
+      call 17
       ;; [i32 i32]
       i32.store offset=16
       ;; []
@@ -686,7 +769,7 @@
       ;; [i32 i32]
       i32.const 8
       ;; [i32 i32 i32]
-      call 11
+      call 17
       ;; [i32 i32]
       i32.const 0
       ;; [i32 i32 i32]
@@ -700,7 +783,7 @@
       ;; [i32 i32]
       i32.const 44
       ;; [i32 i32 i32]
-      call 11
+      call 17
       ;; [i32 i32]
       i32.const 0
       ;; [i32 i32 i32]
@@ -711,7 +794,7 @@
       local.get 1
       ;; [i32]
     )
-    (func (;16;) (type 3) (param i32) (result i32)
+    (func (;22;) (type 3) (param i32) (result i32)
       local.get 0
       ;; [i32]
       i32.const 16
@@ -727,7 +810,7 @@
       i32.ne
       ;; [i32]
     )
-    (func (;17;) (type 6) (result i32)
+    (func (;23;) (type 7) (result i32)
       (local i32 i32)
       i32.const 2
       ;; [i32]
@@ -755,69 +838,84 @@
   (type (;5;) (func (param "instance-id" s32)))
   (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#set-instance" (core func $mmcomando:zengine-scripts/manage@0.1.0#set-instance (;2;)))
   (func $set-instance (;1;) (type 5) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#set-instance)))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#call-npc-routine" (core func $mmcomando:zengine-scripts/manage@0.1.0#call-npc-routine (;3;)))
-  (func $call-npc-routine (;2;) (type 5) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#call-npc-routine)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#set-self" (core func $mmcomando:zengine-scripts/manage@0.1.0#set-self (;3;)))
+  (func $set-self (;2;) (type 5) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#set-self)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#set-other" (core func $mmcomando:zengine-scripts/manage@0.1.0#set-other (;4;)))
+  (func $set-other (;3;) (type 5) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#set-other)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#set-victim" (core func $mmcomando:zengine-scripts/manage@0.1.0#set-victim (;5;)))
+  (func $set-victim (;4;) (type 5) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#set-victim)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#set-item" (core func $mmcomando:zengine-scripts/manage@0.1.0#set-item (;6;)))
+  (func $set-item (;5;) (type 5) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#set-item)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#set-hero" (core func $mmcomando:zengine-scripts/manage@0.1.0#set-hero (;7;)))
+  (func $set-hero (;6;) (type 5) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#set-hero)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#call-npc-routine" (core func $mmcomando:zengine-scripts/manage@0.1.0#call-npc-routine (;8;)))
+  (func $call-npc-routine (;7;) (type 5) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#call-npc-routine)))
   (type (;6;) (func (param "symbol-id" s32) (result string)))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-name" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-name (;4;)))
-  (func $get-name (;3;) (type 6) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-name) (memory $memory) string-encoding=utf8))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-name" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-name (;9;)))
+  (func $get-name (;8;) (type 6) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-name) (memory $memory) string-encoding=utf8))
   (type (;7;) (func (param "symbol-id" s32)))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#call-function" (core func $mmcomando:zengine-scripts/manage@0.1.0#call-function (;5;)))
-  (func $call-function (;4;) (type 7) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#call-function)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#call-function" (core func $mmcomando:zengine-scripts/manage@0.1.0#call-function (;10;)))
+  (func $call-function (;9;) (type 7) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#call-function)))
   (type (;8;) (func (param "symbol-id" s32) (result bool)))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#call-function-bool" (core func $mmcomando:zengine-scripts/manage@0.1.0#call-function-bool (;6;)))
-  (func $call-function-bool (;5;) (type 8) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#call-function-bool)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#call-function-bool" (core func $mmcomando:zengine-scripts/manage@0.1.0#call-function-bool (;11;)))
+  (func $call-function-bool (;10;) (type 8) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#call-function-bool)))
   (type (;9;) (func (param "symbol-name" string) (result 2)))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id (;7;)))
-  (func $get-symbol-id (;6;) (type 9) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id) (memory $memory) (realloc $cabi_realloc) string-encoding=utf8))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id (;12;)))
+  (func $get-symbol-id (;11;) (type 9) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id) (memory $memory) (realloc $cabi_realloc) string-encoding=utf8))
   (type (;10;) (option string))
   (type (;11;) (func (param "symbol-id" s32) (result 10)))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-item-visual (;8;)))
-  (func $get-item-visual (;7;) (type 11) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-item-visual) (memory $memory) string-encoding=utf8))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change (;9;)))
-  (func $get-item-visual-change (;8;) (type 11) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change) (memory $memory) string-encoding=utf8))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-item-visual (;13;)))
+  (func $get-item-visual (;12;) (type 11) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-item-visual) (memory $memory) string-encoding=utf8))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change (;14;)))
+  (func $get-item-visual-change (;13;) (type 11) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change) (memory $memory) string-encoding=utf8))
   (type (;12;) (func))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances" (core func $mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances (;10;)))
-  (func $initialize-all-instances (;9;) (type 12) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances)))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num (;11;)))
-  (func $get-all-symbols-num (;10;) (type 4) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances" (core func $mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances (;15;)))
+  (func $initialize-all-instances (;14;) (type 12) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num (;16;)))
+  (func $get-all-symbols-num (;15;) (type 4) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num)))
   (type (;13;) (func (param "symbol-id" s32) (result 1)))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info (;12;)))
-  (func $get-dialog-info (;11;) (type 13) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info) (memory $memory)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info (;17;)))
+  (func $get-dialog-info (;16;) (type 13) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info) (memory $memory)))
   (type (;14;) (func (param "symbol-id" s32) (result 3)))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info (;13;)))
-  (func $get-symbol-info (;12;) (type 14) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info) (memory $memory)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info (;18;)))
+  (func $get-symbol-info (;17;) (type 14) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info) (memory $memory)))
   (component $mmcomando:zengine-scripts/manage@0.1.0-shim-component (;0;)
     (type (;0;) (func (result s32)))
     (import "import-func-test-func" (func (;0;) (type 0)))
     (type (;1;) (func (param "instance-id" s32)))
     (import "import-func-set-instance" (func (;1;) (type 1)))
-    (import "import-func-call-npc-routine" (func (;2;) (type 1)))
+    (import "import-func-set-self" (func (;2;) (type 1)))
+    (import "import-func-set-other" (func (;3;) (type 1)))
+    (import "import-func-set-victim" (func (;4;) (type 1)))
+    (import "import-func-set-item" (func (;5;) (type 1)))
+    (import "import-func-set-hero" (func (;6;) (type 1)))
+    (import "import-func-call-npc-routine" (func (;7;) (type 1)))
     (type (;2;) (func (param "symbol-id" s32) (result string)))
-    (import "import-func-get-name" (func (;3;) (type 2)))
+    (import "import-func-get-name" (func (;8;) (type 2)))
     (type (;3;) (func (param "symbol-id" s32)))
-    (import "import-func-call-function" (func (;4;) (type 3)))
+    (import "import-func-call-function" (func (;9;) (type 3)))
     (type (;4;) (func (param "symbol-id" s32) (result bool)))
-    (import "import-func-call-function-bool" (func (;5;) (type 4)))
+    (import "import-func-call-function-bool" (func (;10;) (type 4)))
     (type (;5;) (option s32))
     (type (;6;) (func (param "symbol-name" string) (result 5)))
-    (import "import-func-get-symbol-id" (func (;6;) (type 6)))
+    (import "import-func-get-symbol-id" (func (;11;) (type 6)))
     (type (;7;) (option string))
     (type (;8;) (func (param "symbol-id" s32) (result 7)))
-    (import "import-func-get-item-visual" (func (;7;) (type 8)))
-    (import "import-func-get-item-visual-change" (func (;8;) (type 8)))
+    (import "import-func-get-item-visual" (func (;12;) (type 8)))
+    (import "import-func-get-item-visual-change" (func (;13;) (type 8)))
     (type (;9;) (func))
-    (import "import-func-initialize-all-instances" (func (;9;) (type 9)))
-    (import "import-func-get-all-symbols-num" (func (;10;) (type 0)))
+    (import "import-func-initialize-all-instances" (func (;14;) (type 9)))
+    (import "import-func-get-all-symbols-num" (func (;15;) (type 0)))
     (type (;10;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool)))
     (import "import-type-dialog-info" (type (;11;) (eq 10)))
     (type (;12;) (func (param "symbol-id" s32) (result 11)))
-    (import "import-func-get-dialog-info" (func (;11;) (type 12)))
+    (import "import-func-get-dialog-info" (func (;16;) (type 12)))
     (type (;13;) (enum "float" "int" "str" "class" "function" "prototype" "instance" "variable-argument"))
     (import "import-type-symbol-kind" (type (;14;) (eq 13)))
     (type (;15;) (record (field "kind" 14) (field "parent" 5) (field "function" 5)))
     (import "import-type-symbol-info" (type (;16;) (eq 15)))
     (type (;17;) (func (param "symbol-id" s32) (result 16)))
-    (import "import-func-get-symbol-info" (func (;12;) (type 17)))
+    (import "import-func-get-symbol-info" (func (;17;) (type 17)))
     (type (;18;) (enum "float" "int" "str" "class" "function" "prototype" "instance" "variable-argument"))
     (export (;19;) "symbol-kind" (type 18))
     (type (;20;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool)))
@@ -826,33 +924,43 @@
     (type (;23;) (record (field "kind" 19) (field "parent" 22) (field "function" 22)))
     (export (;24;) "symbol-info" (type 23))
     (type (;25;) (func (result s32)))
-    (export (;13;) "test-func" (func 0) (func (type 25)))
+    (export (;18;) "test-func" (func 0) (func (type 25)))
     (type (;26;) (func (param "instance-id" s32)))
-    (export (;14;) "set-instance" (func 1) (func (type 26)))
-    (export (;15;) "call-npc-routine" (func 2) (func (type 26)))
+    (export (;19;) "set-instance" (func 1) (func (type 26)))
+    (export (;20;) "set-self" (func 2) (func (type 26)))
+    (export (;21;) "set-other" (func 3) (func (type 26)))
+    (export (;22;) "set-victim" (func 4) (func (type 26)))
+    (export (;23;) "set-item" (func 5) (func (type 26)))
+    (export (;24;) "set-hero" (func 6) (func (type 26)))
+    (export (;25;) "call-npc-routine" (func 7) (func (type 26)))
     (type (;27;) (func (param "symbol-id" s32) (result string)))
-    (export (;16;) "get-name" (func 3) (func (type 27)))
+    (export (;26;) "get-name" (func 8) (func (type 27)))
     (type (;28;) (func (param "symbol-id" s32)))
-    (export (;17;) "call-function" (func 4) (func (type 28)))
+    (export (;27;) "call-function" (func 9) (func (type 28)))
     (type (;29;) (func (param "symbol-id" s32) (result bool)))
-    (export (;18;) "call-function-bool" (func 5) (func (type 29)))
+    (export (;28;) "call-function-bool" (func 10) (func (type 29)))
     (type (;30;) (func (param "symbol-name" string) (result 22)))
-    (export (;19;) "get-symbol-id" (func 6) (func (type 30)))
+    (export (;29;) "get-symbol-id" (func 11) (func (type 30)))
     (type (;31;) (option string))
     (type (;32;) (func (param "symbol-id" s32) (result 31)))
-    (export (;20;) "get-item-visual" (func 7) (func (type 32)))
-    (export (;21;) "get-item-visual-change" (func 8) (func (type 32)))
+    (export (;30;) "get-item-visual" (func 12) (func (type 32)))
+    (export (;31;) "get-item-visual-change" (func 13) (func (type 32)))
     (type (;33;) (func))
-    (export (;22;) "initialize-all-instances" (func 9) (func (type 33)))
-    (export (;23;) "get-all-symbols-num" (func 10) (func (type 25)))
+    (export (;32;) "initialize-all-instances" (func 14) (func (type 33)))
+    (export (;33;) "get-all-symbols-num" (func 15) (func (type 25)))
     (type (;34;) (func (param "symbol-id" s32) (result 21)))
-    (export (;24;) "get-dialog-info" (func 11) (func (type 34)))
+    (export (;34;) "get-dialog-info" (func 16) (func (type 34)))
     (type (;35;) (func (param "symbol-id" s32) (result 24)))
-    (export (;25;) "get-symbol-info" (func 12) (func (type 35)))
+    (export (;35;) "get-symbol-info" (func 17) (func (type 35)))
   )
   (instance $mmcomando:zengine-scripts/manage@0.1.0-shim-instance (;0;) (instantiate $mmcomando:zengine-scripts/manage@0.1.0-shim-component
       (with "import-func-test-func" (func $test-func))
       (with "import-func-set-instance" (func $set-instance))
+      (with "import-func-set-self" (func $set-self))
+      (with "import-func-set-other" (func $set-other))
+      (with "import-func-set-victim" (func $set-victim))
+      (with "import-func-set-item" (func $set-item))
+      (with "import-func-set-hero" (func $set-hero))
       (with "import-func-call-npc-routine" (func $call-npc-routine))
       (with "import-func-get-name" (func $get-name))
       (with "import-func-call-function" (func $call-function))

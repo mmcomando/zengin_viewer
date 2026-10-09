@@ -3,8 +3,13 @@ use crate::common::ToUsize as _;
 use crate::daedalus::Symbol;
 use crate::wasm::ConvertedFunction;
 use crate::wasm::DaedalusMemoryLayout;
+use crate::wasm::HERO_SYMBOL_GLOBAL_INDEX;
+use crate::wasm::ITEM_SYMBOL_GLOBAL_INDEX;
 use crate::wasm::ImportedFunction;
+use crate::wasm::OTHER_SYMBOL_GLOBAL_INDEX;
+use crate::wasm::SELF_SYMBOL_GLOBAL_INDEX;
 use crate::wasm::SYMBOLS_NUM_GLOBAL_INDEX;
+use crate::wasm::VICTIM_SYMBOL_GLOBAL_INDEX;
 use wasm_encoder::reencode::{Reencode as _, RoundtripReencoder};
 use wasm_encoder::{
     CodeSection, ConstExpr, DataSection, ElementSection, Elements, EntityType, ExportKind,
@@ -158,14 +163,26 @@ pub fn create_wasm_binary(
     }
     module.section(&memory);
 
-    // Global section: patch number of symbols global with real value
+    // Global section: patch number of symbols global with real value and
+    // symbol indices of the well known daedalus instance variables, resolved
+    // by name
     let symbols_num = i32::try_from(symbols.len()).unwrap();
+    let well_known_init = |name: &str| {
+        symbols
+            .iter()
+            .position(|symbol| symbol.name.eq_ignore_ascii_case(name))
+            .map_or(-1, |index| i32::try_from(index).unwrap())
+    };
     let mut globals = GlobalSection::new();
     for (global_index, global_type) in base.globals.iter().enumerate() {
-        let init = if global_index.to_u32() == SYMBOLS_NUM_GLOBAL_INDEX {
-            symbols_num
-        } else {
-            0
+        let init = match global_index.to_u32() {
+            SYMBOLS_NUM_GLOBAL_INDEX => symbols_num,
+            SELF_SYMBOL_GLOBAL_INDEX => well_known_init("self"),
+            OTHER_SYMBOL_GLOBAL_INDEX => well_known_init("other"),
+            VICTIM_SYMBOL_GLOBAL_INDEX => well_known_init("victim"),
+            ITEM_SYMBOL_GLOBAL_INDEX => well_known_init("item"),
+            HERO_SYMBOL_GLOBAL_INDEX => well_known_init("hero"),
+            _ => 0,
         };
         globals.global(*global_type, &ConstExpr::i32_const(init));
     }

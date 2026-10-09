@@ -110,6 +110,14 @@ impl WasmExecutor {
             .unwrap()
     }
 
+    /// Binds the given instance as `self` for subsequent script calls
+    pub fn set_self(&mut self, instance_index: u32) {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_set_self(&mut self.store, instance_index as i32)
+            .unwrap()
+    }
+
     pub fn call_npc_routine(&mut self, instance_index: u32) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         let result = guest.call_call_npc_routine(&mut self.store, instance_index as i32);
@@ -189,6 +197,7 @@ impl WasmExecutor {
             .loaded_state
             .routine_played_anis
             .remove(&npc_instance_id);
+        self.set_self(npc_instance_id);
         self.set_instance(npc_instance_id);
         if let Err(err) = self.try_call_function(state_fn as i32) {
             println!(
@@ -240,6 +249,7 @@ impl WasmExecutor {
             if root.condition_function_id == 0 {
                 return true;
             }
+            self.set_self(npc_index as u32);
             self.set_instance(npc_index as u32);
             self.call_function_bool(root.condition_function_id)
         });
@@ -288,6 +298,7 @@ impl WasmExecutor {
     pub fn call_npc_routines(&mut self) {
         let npc_indices: Vec<_> = self.store.data().raw_instances.keys().cloned().collect();
         for index in npc_indices {
+            self.set_self(index);
             self.set_instance(index);
             self.call_npc_routine(index);
         }
@@ -501,16 +512,20 @@ impl MyLibrary {
             .unwrap();
     }
 
-    fn set_instance(
+    /// Binds the given instance for an engine driven invocation of its
+    /// instance function: sets the current instance context and binds it as
+    /// `self`, like the original engine does when it initializes an instance
+    /// (zenkit `DaedalusVm::init_instance`)
+    fn bind_instance(
         access: &mut wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
         symbol_id: i32,
     ) {
         let world = access.get().world.clone().unwrap();
         let store_context = access.as_context_mut();
-        world
-            .mmcomando_zengine_scripts_manage()
-            .call_set_instance(store_context, symbol_id)
-            .unwrap();
+        let guest = world.mmcomando_zengine_scripts_manage();
+        guest.call_set_self(store_context, symbol_id).unwrap();
+        let store_context = access.as_context_mut();
+        guest.call_set_instance(store_context, symbol_id).unwrap();
     }
 }
 
@@ -520,7 +535,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         npc_index: i32,
         waypoint_string_id: i32,
     ) {
-        Self::set_instance(&mut access, npc_index);
+        Self::bind_instance(&mut access, npc_index);
         Self::call_function(&mut access, npc_index);
         // let npc_name = Self::get_string_non_0(&mut access, npc_index).unwrap();
         let waypoint_name = Self::get_string_non_0(&mut access, waypoint_string_id)
@@ -545,7 +560,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         waypoint_string_id: i32,
     ) {
         // println!("CCC");
-        Self::set_instance(&mut access, item_index);
+        Self::bind_instance(&mut access, item_index);
         Self::call_function(&mut access, item_index);
         let item_name = Self::get_string_non_0(&mut access, item_index).unwrap();
         let waypoint_name = Self::get_string_non_0(&mut access, waypoint_string_id)

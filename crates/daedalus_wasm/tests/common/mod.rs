@@ -466,6 +466,14 @@ impl WasmExecutor {
             .unwrap()
     }
 
+    #[allow(dead_code)]
+    pub fn set_self(&mut self, instance_index: u32) {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_set_self(&mut self.store, instance_index as i32)
+            .unwrap()
+    }
+
     pub fn call_npc_routine(&mut self, instance_index: u32) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
