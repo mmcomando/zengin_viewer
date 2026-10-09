@@ -3,8 +3,12 @@ use std::collections::HashMap;
 #[derive(Debug, Default)]
 pub struct RoutineEntry {
     pub start_h: u32,
+    pub start_m: u32,
     pub stop_h: u32,
+    pub stop_m: u32,
     pub way_point: String,
+    /// Symbol index of the routine state function (`ZS_*`), `0` when not available.
+    pub state_fn: u32,
 }
 
 #[derive(Debug, Default)]
@@ -20,15 +24,19 @@ pub struct InstanceState {
 }
 
 impl InstanceState {
-    pub fn get_routine_entry(&self, hour: u32) -> Option<&RoutineEntry> {
-        if self.routine_enties.is_empty() {
-            return None;
-        }
+    /// Routine entry active at `minutes_of_day`, matching the engine semantics:
+    /// entries start (inclusive) at their start time and stop (exclusive) at
+    /// their stop time, entries wrapping over midnight stay active past it.
+    pub fn get_routine_entry(&self, minutes_of_day: u32) -> Option<&RoutineEntry> {
+        let first = self.routine_enties.first()?;
+        let minutes = minutes_of_day % (24 * 60);
         for entry in &self.routine_enties {
-            let in_range = if entry.stop_h < entry.start_h {
-                hour > entry.start_h || hour < entry.stop_h
+            let start = entry.start_h * 60 + entry.start_m;
+            let stop = entry.stop_h * 60 + entry.stop_m;
+            let in_range = if stop <= start {
+                minutes >= start || minutes < stop
             } else {
-                hour > entry.start_h && hour < entry.stop_h
+                minutes >= start && minutes < stop
             };
 
             if in_range {
@@ -36,7 +44,7 @@ impl InstanceState {
             }
         }
 
-        return Some(&self.routine_enties[0]);
+        return Some(first);
     }
 }
 
@@ -74,6 +82,9 @@ pub struct LoadedState {
     pub instance_data: HashMap<u32, InstanceState>,
     pub item_instances: HashMap<String, ItemInstance>,
     pub dialog_roots: HashMap<u32, Vec<DialogRoot>>,
+    /// Animations requested via `AI_PlayAni(BS)` by the last executed routine
+    /// state function, keyed by npc instance index, in request order.
+    pub routine_played_anis: HashMap<u32, Vec<String>>,
 }
 
 #[derive(Debug, Default, Clone)]

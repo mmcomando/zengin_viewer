@@ -104,7 +104,7 @@ pub fn load_npc(
     start_hour: u32,
 ) {
     let way_point_name = instance
-        .get_routine_entry(start_hour)
+        .get_routine_entry(start_hour * 60)
         .map_or(&spawn_npc.way_point, |el| &el.way_point);
 
     let Some(tr) = get_tr_from_point_name(data, way_point_name) else {

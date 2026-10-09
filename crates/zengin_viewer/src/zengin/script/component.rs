@@ -99,6 +99,17 @@ impl WorldScript {
         self.script.call_get_name(symbol_id)
     }
 
+    /// Executes the routine state function of the npc instance, returning the
+    /// animation names the script requested via `AI_PlayAni(BS)`.
+    pub fn call_routine_state_function(
+        &mut self,
+        npc_instance_id: i32,
+        state_fn: u32,
+    ) -> Vec<String> {
+        self.script
+            .call_routine_state_function(npc_instance_id as u32, state_fn)
+    }
+
     /// Evaluates the condition function of every root with the npc instance
     /// set, dropping roots whose condition returns false
     pub fn filter_dialog_roots(&mut self, npc_instance_id: i32, roots: &mut Vec<DialogRoot>) {

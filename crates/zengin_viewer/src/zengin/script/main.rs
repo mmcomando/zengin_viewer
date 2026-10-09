@@ -21,6 +21,8 @@ bindgen!({
         "mmcomando:zengine-scripts/scripts.mdl-setvisualbody": store,
         "mmcomando:zengine-scripts/scripts.mdl-setvisual": store,
         "mmcomando:zengine-scripts/scripts.ta-min": store,
+        "mmcomando:zengine-scripts/scripts.ai-playani": store,
+        "mmcomando:zengine-scripts/scripts.ai-playanibs": store,
         "mmcomando:zengine-scripts/scripts.wld-insertitem": store,
         "mmcomando:zengine-scripts/scripts.ai-output": store,
         "mmcomando:zengine-scripts/scripts.ai-stopprocessinfos": store,
@@ -54,6 +56,9 @@ pub struct ImportCallState {
 pub struct WasmExecutor {
     pub store: Store<ImportCallState>,
     pub instance: Arc<MmWorld>,
+    /// Cache of resolved `_loop` function symbol ids of routine state
+    /// functions, `None` when the state has no loop function.
+    routine_loop_functions: HashMap<u32, Option<i32>>,
 }
 
 struct MyLibrary;
@@ -94,6 +99,7 @@ impl WasmExecutor {
         Self {
             store,
             instance: instance_arc,
+            routine_loop_functions: HashMap::new(),
         }
     }
 
@@ -142,6 +148,75 @@ impl WasmExecutor {
         guest
             .call_get_symbol_id(&mut self.store, symbol_name)
             .unwrap()
+            .expect("Symbol should exist")
+    }
+
+    /// Resolves a symbol id by name, `None` when the symbol does not exist.
+    /// The guest lookup does not trap for missing symbols, a trap would make
+    /// the component instance unusable for all further calls.
+    pub fn try_get_symbol_id(&mut self, symbol_name: &str) -> Option<i32> {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_get_symbol_id(&mut self.store, symbol_name)
+            .unwrap()
+    }
+
+    fn try_call_function(&mut self, symbol_id: i32) -> wasmtime::Result<()> {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest.call_call_function(&mut self.store, symbol_id)
+    }
+
+    /// Calls a function returning a value (`ZS_*_loop` functions do). The guest
+    /// function table is typed, so such functions must use the bool call path
+    /// or the call would trap on the signature mismatch.
+    fn try_call_function_bool(&mut self, symbol_id: i32) -> wasmtime::Result<bool> {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest.call_call_function_bool(&mut self.store, symbol_id)
+    }
+
+    /// Executes the routine state function (`ZS_*`) for the npc instance with
+    /// the instance set as `self`, followed by a single invocation of the
+    /// state's `_loop` function when one exists, mirroring how the engine
+    /// starts a routine state. Returns the animation names the script requested
+    /// via `AI_PlayAni(BS)` in request order.
+    pub fn call_routine_state_function(
+        &mut self,
+        npc_instance_id: u32,
+        state_fn: u32,
+    ) -> Vec<String> {
+        self.store
+            .data_mut()
+            .loaded_state
+            .routine_played_anis
+            .remove(&npc_instance_id);
+        self.set_instance(npc_instance_id);
+        if let Err(err) = self.try_call_function(state_fn as i32) {
+            println!(
+                "Routine state function instance({npc_instance_id}) state_fn({state_fn}) error: {err:?}"
+            );
+            return Vec::new();
+        }
+
+        if !self.routine_loop_functions.contains_key(&state_fn) {
+            let loop_name = format!("{}_loop", self.call_get_name(state_fn));
+            let loop_fn = self.try_get_symbol_id(&loop_name);
+            self.routine_loop_functions.insert(state_fn, loop_fn);
+        }
+        let loop_fn = self.routine_loop_functions[&state_fn];
+        if let Some(loop_fn) = loop_fn
+            && let Err(err) = self.try_call_function_bool(loop_fn)
+        {
+            println!(
+                "Routine state loop function instance({npc_instance_id}) loop_fn({loop_fn}) error: {err:?}"
+            );
+        }
+
+        self.store
+            .data_mut()
+            .loaded_state
+            .routine_played_anis
+            .remove(&npc_instance_id)
+            .unwrap_or_default()
     }
 
     pub fn call_function(&mut self, symbol_id: i32) {
@@ -526,10 +601,10 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
         npc_index: i32,
         start_h: i32,
-        _start_m: i32,
+        start_m: i32,
         stop_h: i32,
-        _stop_m: i32,
-        _func_index: i32,
+        stop_m: i32,
+        func_index: i32,
         way_point: i32,
     ) {
         // println!(
@@ -539,12 +614,13 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
             .unwrap()
             .to_lowercase();
 
-        let start_h = start_h as u32;
-        let stop_h = stop_h as u32;
         let routine_entry = RoutineEntry {
-            start_h,
-            stop_h,
+            start_h: start_h.max(0) as u32,
+            start_m: start_m.max(0) as u32,
+            stop_h: stop_h.max(0) as u32,
+            stop_m: stop_m.max(0) as u32,
             way_point,
+            state_fn: func_index.max(0) as u32,
         };
 
         let state = access.data_mut();
@@ -554,6 +630,41 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
             .entry(npc_index as u32)
             .or_default();
         entry.routine_enties.push(routine_entry);
+    }
+
+    fn ai_playani(
+        mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
+        npc_index: i32,
+        ani_id: i32,
+    ) {
+        let Some(ani) = Self::get_string_non_0(&mut access, ani_id) else {
+            return;
+        };
+        let state = access.data_mut();
+        state
+            .loaded_state
+            .routine_played_anis
+            .entry(npc_index as u32)
+            .or_default()
+            .push(ani);
+    }
+
+    fn ai_playanibs(
+        mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
+        npc_index: i32,
+        ani_id: i32,
+        _body_state: i32,
+    ) {
+        let Some(ani) = Self::get_string_non_0(&mut access, ani_id) else {
+            return;
+        };
+        let state = access.data_mut();
+        state
+            .loaded_state
+            .routine_played_anis
+            .entry(npc_index as u32)
+            .or_default()
+            .push(ani);
     }
 
     fn ai_output(
@@ -721,8 +832,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(ai_waittillend(_0, _1));
     count_import!(ai_aligntowp(_0));
     count_import!(ai_setwalkmode(_0, _1));
-    count_import!(ai_playani(_0, _1));
-    count_import!(ai_playanibs(_0, _1, _2));
+    // count_import!(ai_playani(_0, _1));
+    // count_import!(ai_playanibs(_0, _1, _2));
     count_import!(ai_gotowp(_0, _1));
     count_import!(ai_teleport(_0, _1));
     count_import!(ai_gotoitem(_0, _1));

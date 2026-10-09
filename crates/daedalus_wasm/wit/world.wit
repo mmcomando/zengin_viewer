@@ -353,7 +353,7 @@ interface manage {
     get-name: func(symbol-id: s32) -> string;
     call-function: func(symbol-id: s32);
     call-function-bool: func(symbol-id: s32) -> bool;
-    get-symbol-id: func(symbol-name: string) -> s32;
+    get-symbol-id: func(symbol-name: string) -> option<s32>;
     get-item-visual: func(symbol-id: s32) -> option<string>;
     get-item-visual-change: func(symbol-id: s32) -> option<string>;
     initialize-all-instances: func();

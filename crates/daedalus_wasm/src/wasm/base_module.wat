@@ -159,17 +159,31 @@
     i32.add
   )
 
-  ;; Returns id of symbol with given name, panics if there is no such symbol
+  ;; Returns pointer to option<s32> with id of symbol with given name,
+  ;; None when there is no such symbol. It does not trap for missing symbols,
+  ;; a trap would make the component instance unusable for all further calls.
   (func $get_symbol_id (param $symbol_str_ptr i32) (param $symbol_str_len i32) (result i32)
-    (local $index i32) (local $tested_symbol_offset i32)
+    (local $index i32) (local $tested_symbol_offset i32) (local $mem_start i32)
+
+    ;; Get memory where we will put results
+    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0))
+    local.set $mem_start
 
     (loop $symbol_loop (result i32)
-      ;; if we iterated over all symbols panic
+      ;; if we iterated over all symbols the symbol does not exist
       local.get $index
       global.get $symbols_num
       i32.ge_u
       if
-        unreachable
+        ;; None
+        local.get $mem_start
+        i32.const 0
+        i32.store8 $main offset=0 ;; value present or not
+        local.get $mem_start
+        i32.const 0
+        i32.store $main offset=4 ;; symbol id, ignored when not present
+        local.get $mem_start
+        return
       end
 
       ;; Get string (ptr, size) offset
@@ -187,7 +201,14 @@
       i32.load $main offset=16388 ;; Get len
       call $compare_strings
       if
+        ;; Some
+        local.get $mem_start
+        i32.const 1
+        i32.store8 $main offset=0 ;; value present or not
+        local.get $mem_start
         local.get $index
+        i32.store $main offset=4 ;; symbol id
+        local.get $mem_start
         return
       end
 

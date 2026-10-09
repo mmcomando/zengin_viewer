@@ -49,6 +49,9 @@ fn test_get_symbol_id() {
     assert_eq!(executor.get_symbol_id("0"), 0);
     assert_eq!(executor.get_symbol_id("1"), 1);
     assert_eq!(executor.get_symbol_id("2"), 2);
+    // Missing symbols return None instead of trapping, a trap would make the
+    // component instance unusable for all further calls.
+    assert_eq!(executor.try_get_symbol_id("3"), None);
 }
 
 #[test]

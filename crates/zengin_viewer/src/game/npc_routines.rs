@@ -3,8 +3,10 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use super::time::GameTime;
+use crate::game::animation::AnimationController;
 use crate::game::objects::GameNpc;
 use crate::zengin::script::component::WorldScript;
+use crate::zengin_resources::MaterialHandles;
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.
@@ -23,21 +25,33 @@ struct NpcRoutineState {
     assigned_waypoint: Option<String>,
 }
 
+#[derive(Component, Default)]
+struct NpcRoutineAnimation {
+    /// State function of the routine entry whose animation was applied last,
+    /// `0` when none was applied yet.
+    applied_state_fn: u32,
+}
+
 #[derive(Resource, Default)]
 pub(super) struct NpcRoutineCheckState {
-    last_checked_hour: Option<u32>,
+    last_checked_minute: Option<u32>,
 }
 
 pub(super) fn add_systems(app: &mut App) {
     app.init_resource::<NpcRoutineCheckState>();
     app.add_systems(
         Update,
-        update_npc_routines.after(super::time::advance_game_time),
+        (
+            update_npc_routines,
+            update_npc_routine_animations.after(update_npc_routines),
+        )
+            .after(super::time::advance_game_time),
     );
 }
 
-/// Periodically (on every in-game hour change) checks the active routine entry of each npc.
-/// When the routine waypoint changed, the npc is teleported to the new waypoint location.
+/// Periodically (on every in-game minute change) checks the active routine
+/// entry of each npc. When the routine waypoint changed, the npc is teleported
+/// to the new waypoint location.
 fn update_npc_routines(
     mut check_state: ResMut<NpcRoutineCheckState>,
     game_time: Res<GameTime>,
@@ -56,12 +70,12 @@ fn update_npc_routines(
         Without<ChildOf>,
     >,
 ) {
-    let hour = game_time.hour();
-    if check_state.last_checked_hour == Some(hour) {
+    let minutes = game_time.minutes_of_day();
+    if check_state.last_checked_minute == Some(minutes) {
         return;
     }
-    let first_check = check_state.last_checked_hour.is_none();
-    check_state.last_checked_hour = Some(hour);
+    let first_check = check_state.last_checked_minute.is_none();
+    check_state.last_checked_minute = Some(minutes);
 
     let loaded_state = gothic_script.get_loaded_state();
 
@@ -72,7 +86,7 @@ fn update_npc_routines(
         else {
             continue;
         };
-        let Some(entry) = instance.get_routine_entry(hour) else {
+        let Some(entry) = instance.get_routine_entry(minutes) else {
             continue;
         };
 
@@ -113,5 +127,91 @@ fn update_npc_routines(
                 });
             }
         }
+    }
+}
+
+/// Applies the animation of the active routine entry state to npcs. The
+/// routine state function (`ZS_*`) is executed in the script vm, animation
+/// names it requests via `AI_PlayAni(BS)` are collected and the resulting
+/// animation is switched to on the npc visual. The state function is only
+/// re-executed when the active routine entry state changes, so the per frame
+/// cost for already applied npcs is just the active entry lookup.
+#[allow(clippy::type_complexity)]
+fn update_npc_routine_animations(
+    game_time: Res<GameTime>,
+    mut gothic_script: ResMut<WorldScript>,
+    mut handles: ResMut<MaterialHandles>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+    mut npcs: Query<
+        (
+            Entity,
+            &GameNpc,
+            Option<&mut NpcRoutineAnimation>,
+            Option<&mut AnimationController>,
+        ),
+        // Routine npcs are world root entities, this also excludes the player visual
+        // entity which is a child of the player controller and also carries `GameNpc`.
+        Without<ChildOf>,
+    >,
+) {
+    let minutes = game_time.minutes_of_day();
+
+    for (entity, npc, routine_animation, controller) in &mut npcs {
+        let Some(mut routine_animation) = routine_animation else {
+            commands
+                .entity(entity)
+                .insert(NpcRoutineAnimation::default());
+            continue;
+        };
+        let Some(mut controller) = controller else {
+            // Npc visual is not spawned yet, retry when it is
+            continue;
+        };
+
+        let state_fn = {
+            let loaded_state = gothic_script.get_loaded_state();
+            let Some(entry) = loaded_state
+                .instance_data
+                .get(&(npc.npc_instance_id as u32))
+                .and_then(|instance| instance.get_routine_entry(minutes))
+            else {
+                continue;
+            };
+            if entry.state_fn == 0 || routine_animation.applied_state_fn == entry.state_fn {
+                continue;
+            }
+            entry.state_fn
+        };
+
+        routine_animation.applied_state_fn = state_fn;
+        let played_anis = gothic_script.call_routine_state_function(npc.npc_instance_id, state_fn);
+        let Some(ani) = choose_routine_animation(&played_anis) else {
+            continue;
+        };
+
+        let path = format!(
+            "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-{}.MAN",
+            ani.to_ascii_uppercase()
+        );
+        debug!("npc({}) routine animation({})", npc.npc_instance_id, ani);
+        // Applied via `next` so the animation system syncs its playback state on
+        // the switch. When the animation asset does not exist the switch is
+        // silently dropped and the npc keeps its current animation.
+        controller.next = Some(handles.get_animation_handle(&asset_server, &path));
+        controller.interrupt_current = true;
+    }
+}
+
+/// Picks the animation to loop from the names the routine state script
+/// requested. The engine keeps the body state animation looping after a
+/// transition, so a requested transition into a pose (`T_X_2_Y`) is replaced
+/// by the pose idle itself (`S_Y`), where standing is `S_RUN`.
+fn choose_routine_animation(played_anis: &[String]) -> Option<String> {
+    let ani = played_anis.first()?;
+    match ani.rsplit_once("_2_") {
+        Some((_, "STAND")) => Some("S_RUN".to_string()),
+        Some((_, pose)) => Some(format!("S_{pose}")),
+        None => Some(ani.clone()),
     }
 }

@@ -160,8 +160,14 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(ai_waittillend(_0, _1));
     count_import!(ai_aligntowp(_0));
     count_import!(ai_setwalkmode(_0, _1));
-    count_import!(ai_playani(_0, _1));
-    count_import!(ai_playanibs(_0, _1, _2));
+    fn ai_playani(&mut self, v_0: i32, v_1: i32) {
+        self.record_call("ai_playani");
+        self.play_ani_calls.push((v_0, v_1, 0));
+    }
+    fn ai_playanibs(&mut self, v_0: i32, v_1: i32, v_2: i32) {
+        self.record_call("ai_playanibs");
+        self.play_ani_calls.push((v_0, v_1, v_2));
+    }
     count_import!(ai_gotowp(_0, _1));
     count_import!(ai_teleport(_0, _1));
     count_import!(ai_gotoitem(_0, _1));
@@ -401,14 +407,19 @@ impl WasmExecutor {
         functions_names: &[&str],
         instructions: &[daedalus::Instruction],
     ) -> WasmExecutor {
-        Self::main_prepare_test(&dat_file.symbols, instructions, functions_names)
+        Self::main_prepare_test(
+            &dat_file.symbols,
+            instructions,
+            functions_names,
+            &dat_file.static_strings,
+        )
     }
 
     pub fn prepare_test(
         instructions: &[daedalus::Instruction],
         symbols: &[daedalus::Symbol],
     ) -> WasmExecutor {
-        Self::main_prepare_test(symbols, instructions, &[])
+        Self::main_prepare_test(symbols, instructions, &[], &[])
     }
 
     pub fn return_test(
@@ -423,11 +434,13 @@ impl WasmExecutor {
         symbols: &[daedalus::Symbol],
         instructions: &[daedalus::Instruction],
         functions_names: &[&str],
+        static_strings: &[String],
     ) -> WasmExecutor {
         let mut builder = BinaryBuilder::new();
 
         builder.whitelist_functions(functions_names);
         builder.add_symbols(symbols);
+        builder.add_static_strings(static_strings);
         builder.add_test_function(instructions);
 
         let wasm_bytes = builder.finalize();
@@ -478,6 +491,28 @@ impl WasmExecutor {
         guest
             .call_get_symbol_id(&mut self.store, symbol_name)
             .unwrap()
+            .expect("symbol should exist")
+    }
+
+    /// Resolves a symbol id by name, `None` when the symbol does not exist.
+    /// The guest lookup does not trap for missing symbols, a trap would make
+    /// the component instance unusable for all further calls.
+    pub fn try_get_symbol_id(&mut self, symbol_name: &str) -> Option<i32> {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_get_symbol_id(&mut self.store, symbol_name)
+            .unwrap()
+    }
+
+    pub fn call_function_bool(&mut self, symbol_id: i32) -> bool {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_call_function_bool(&mut self.store, symbol_id)
+            .unwrap()
+    }
+
+    pub fn play_ani_calls(&self) -> &[(i32, i32, i32)] {
+        &self.store.data().play_ani_calls
     }
     pub fn get_item_visual(&mut self, symbol_id: i32) -> Option<String> {
         let guest = self.instance.mmcomando_zengine_scripts_manage();

@@ -424,3 +424,57 @@ fn real_test_dialog_info() {
     assert!(!info.permanent);
     assert!(info.important);
 }
+
+/// Routine state functions request their animations via `AI_PlayAni(BS)`. The
+/// setup of `ZS_STAND_WP` requests none, its `_loop` function transitions into
+/// the guard pose on the first invocation.
+#[test]
+fn real_routine_state_played_animations() {
+    let data = get_main_script_data();
+
+    let mut executor =
+        WasmExecutor::real_func_test(data, &[], &[InstDD::PushInt(1), InstDD::Return]);
+
+    // Like in the viewer, instance memories have to be initialized before npc
+    // instances are used
+    executor.initialize_all_instances();
+    let npc_instance = executor.get_symbol_id("none_100_xardas");
+    executor.set_instance(npc_instance as u32);
+
+    let state_fn = executor.get_symbol_id("zs_stand_wp");
+    executor.call_function(state_fn as u32);
+    assert!(executor.play_ani_calls().is_empty());
+
+    // Loop functions return a value and have to be called through the bool path.
+    // The loop returns LOOP_CONTINUE which is 0, so only the side effects matter.
+    let loop_fn = executor.get_symbol_id("zs_stand_wp_loop");
+    let _ = executor.call_function_bool(loop_fn);
+
+    let &(npc, ani_id, body_state) = executor.play_ani_calls().first().unwrap();
+    // The npc argument must be the instance the state was executed for
+    assert_eq!(npc, npc_instance);
+    assert_eq!(body_state, 0);
+    assert_eq!(executor.call_get_name(ani_id as u32), "T_STAND_2_LGUARD");
+}
+
+/// The symbol lookup returns `None` for missing symbols, a trap would make
+/// the component instance unusable for all further calls.
+#[test]
+fn real_get_symbol_id_missing_symbol() {
+    let data = get_main_script_data();
+
+    let mut executor = WasmExecutor::real_func_test(
+        data,
+        &["zs_stand_wp_loop"],
+        &[InstDD::PushInt(1), InstDD::Return],
+    );
+
+    assert_eq!(executor.try_get_symbol_id("definitely_not_a_symbol"), None);
+    let expected = executor.get_symbol_id("zs_stand_wp_loop");
+    assert_eq!(
+        executor.try_get_symbol_id("zs_stand_wp_loop"),
+        Some(expected)
+    );
+    // The instance stays usable after the failed lookup
+    assert_eq!(executor.call_get_name(expected as u32), "zs_stand_wp_loop");
+}

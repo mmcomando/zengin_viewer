@@ -211,7 +211,19 @@
       ;; [i32]
     )
     (func (;6;) (type 5) (param i32 i32) (result i32)
-      (local i32 i32)
+      (local i32 i32 i32)
+      i32.const 0
+      ;; [i32]
+      i32.const 0
+      ;; [i32 i32]
+      i32.const 0
+      ;; [i32 i32 i32]
+      i32.const 0
+      ;; [i32 i32 i32 i32]
+      call 1
+      ;; [i32]
+      local.set 4
+      ;; []
       loop (result i32) ;; label = @1
         ;; []
         local.get 2
@@ -222,7 +234,21 @@
         ;; [i32]
         if ;; label = @2
           ;; []
-          unreachable
+          local.get 4
+          ;; [i32]
+          i32.const 0
+          ;; [i32 i32]
+          i32.store8
+          ;; []
+          local.get 4
+          ;; [i32]
+          i32.const 0
+          ;; [i32 i32]
+          i32.store offset=4
+          ;; []
+          local.get 4
+          ;; [i32]
+          return
           ;; []
         end
         ;; []
@@ -250,7 +276,19 @@
         ;; [i32]
         if ;; label = @2
           ;; []
+          local.get 4
+          ;; [i32]
+          i32.const 1
+          ;; [i32 i32]
+          i32.store8
+          ;; []
+          local.get 4
+          ;; [i32]
           local.get 2
+          ;; [i32 i32]
+          i32.store offset=4
+          ;; []
+          local.get 4
           ;; [i32]
           return
           ;; []
@@ -764,7 +802,7 @@
   (type (;8;) (func (param "symbol-id" s32) (result bool)))
   (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#call-function-bool" (core func $mmcomando:zengine-scripts/manage@0.1.0#call-function-bool (;6;)))
   (func $call-function-bool (;5;) (type 8) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#call-function-bool)))
-  (type (;9;) (func (param "symbol-name" string) (result s32)))
+  (type (;9;) (func (param "symbol-name" string) (result 2)))
   (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id (;7;)))
   (func $get-symbol-id (;6;) (type 9) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id) (memory $memory) (realloc $cabi_realloc) string-encoding=utf8))
   (type (;10;) (option string))
@@ -796,23 +834,23 @@
     (import "import-func-call-function" (func (;4;) (type 3)))
     (type (;4;) (func (param "symbol-id" s32) (result bool)))
     (import "import-func-call-function-bool" (func (;5;) (type 4)))
-    (type (;5;) (func (param "symbol-name" string) (result s32)))
-    (import "import-func-get-symbol-id" (func (;6;) (type 5)))
-    (type (;6;) (option string))
-    (type (;7;) (func (param "symbol-id" s32) (result 6)))
-    (import "import-func-get-item-visual" (func (;7;) (type 7)))
-    (import "import-func-get-item-visual-change" (func (;8;) (type 7)))
-    (type (;8;) (func))
-    (import "import-func-initialize-all-instances" (func (;9;) (type 8)))
+    (type (;5;) (option s32))
+    (type (;6;) (func (param "symbol-name" string) (result 5)))
+    (import "import-func-get-symbol-id" (func (;6;) (type 6)))
+    (type (;7;) (option string))
+    (type (;8;) (func (param "symbol-id" s32) (result 7)))
+    (import "import-func-get-item-visual" (func (;7;) (type 8)))
+    (import "import-func-get-item-visual-change" (func (;8;) (type 8)))
+    (type (;9;) (func))
+    (import "import-func-initialize-all-instances" (func (;9;) (type 9)))
     (import "import-func-get-all-symbols-num" (func (;10;) (type 0)))
-    (type (;9;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool)))
-    (import "import-type-dialog-info" (type (;10;) (eq 9)))
-    (type (;11;) (func (param "symbol-id" s32) (result 10)))
-    (import "import-func-get-dialog-info" (func (;11;) (type 11)))
-    (type (;12;) (enum "float" "int" "str" "class" "function" "prototype" "instance" "variable-argument"))
-    (import "import-type-symbol-kind" (type (;13;) (eq 12)))
-    (type (;14;) (option s32))
-    (type (;15;) (record (field "kind" 13) (field "parent" 14) (field "function" 14)))
+    (type (;10;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool)))
+    (import "import-type-dialog-info" (type (;11;) (eq 10)))
+    (type (;12;) (func (param "symbol-id" s32) (result 11)))
+    (import "import-func-get-dialog-info" (func (;11;) (type 12)))
+    (type (;13;) (enum "float" "int" "str" "class" "function" "prototype" "instance" "variable-argument"))
+    (import "import-type-symbol-kind" (type (;14;) (eq 13)))
+    (type (;15;) (record (field "kind" 14) (field "parent" 5) (field "function" 5)))
     (import "import-type-symbol-info" (type (;16;) (eq 15)))
     (type (;17;) (func (param "symbol-id" s32) (result 16)))
     (import "import-func-get-symbol-info" (func (;12;) (type 17)))
@@ -834,7 +872,7 @@
     (export (;17;) "call-function" (func 4) (func (type 28)))
     (type (;29;) (func (param "symbol-id" s32) (result bool)))
     (export (;18;) "call-function-bool" (func 5) (func (type 29)))
-    (type (;30;) (func (param "symbol-name" string) (result s32)))
+    (type (;30;) (func (param "symbol-name" string) (result 22)))
     (export (;19;) "get-symbol-id" (func 6) (func (type 30)))
     (type (;31;) (option string))
     (type (;32;) (func (param "symbol-id" s32) (result 31)))

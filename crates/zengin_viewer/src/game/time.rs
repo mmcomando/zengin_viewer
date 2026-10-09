@@ -25,6 +25,11 @@ impl GameTime {
     pub fn hour(&self) -> u32 {
         (self.total_hours.floor() as u32) % 24
     }
+
+    /// In-game minutes since midnight.
+    pub fn minutes_of_day(&self) -> u32 {
+        (self.total_hours * 60.0) as u32 % (24 * 60)
+    }
 }
 
 fn hour_of(total_hours: f32) -> u32 {
