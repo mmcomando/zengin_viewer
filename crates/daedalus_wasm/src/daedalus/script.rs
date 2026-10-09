@@ -510,6 +510,23 @@ impl Symbol {
         false
     }
 }
+
+#[must_use]
+/// Number of functions which are imported from the engine.
+/// They become imports of the created wasm module.
+pub fn imported_functions_num(symbols: &[Symbol]) -> u32 {
+    symbols
+        .iter()
+        .filter(|symbol| {
+            symbol
+                .function
+                .as_ref()
+                .is_some_and(|func| func.is_external)
+        })
+        .count()
+        .to_u32()
+}
+
 #[derive(Debug, Clone)]
 /// Daedalus function representation.
 pub struct Function {

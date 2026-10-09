@@ -1,11 +1,10 @@
 use crate::common::ToU32 as _;
 use crate::daedalus;
-use crate::wasm::BASE_BUILTIN_FUNCTIONS_NUM;
 use crate::wasm::BASE_FUNC_SET_INSTANCE;
 use crate::wasm::DaedalusMemoryLayout;
 use crate::wasm::create_wasm_binary;
 use crate::wasm::function::{ConvertedFunction, convert_daedalus_func};
-use crate::wasm::wasm_binary::create_wasm_component_model;
+use crate::wasm::wasm_binary::{BaseModule, create_wasm_component_model};
 use std::collections::HashMap;
 use wasm_encoder::ValType;
 
@@ -48,6 +47,10 @@ pub struct BinaryBuilder {
 
     // Index of `set_instance` buildin function in the final function index space
     pub(crate) func_index_set_instance: Option<u32>,
+
+    /// Base module with function indices adjusted to the final function index
+    /// space, shifted by the number of imported functions.
+    base: BaseModule,
 
     // Symbols info
     pub(crate) symbol_to_info: HashMap<u32, SymbolInformation>,
@@ -120,6 +123,7 @@ impl BinaryBuilder {
         // here only their indices in the final function index space are computed.
         self.func_index_set_instance =
             Some(self.imported_functions.len().to_u32() + BASE_FUNC_SET_INSTANCE);
+        let base_functions_num = self.base.functions.len().to_u32();
 
         let mut internal_func_index = 0;
         for symbol in symbols {
@@ -128,7 +132,7 @@ impl BinaryBuilder {
                 && !func.is_external
                 && self.compile_func(symbol)
             {
-                let index = BASE_BUILTIN_FUNCTIONS_NUM
+                let index = base_functions_num
                     + self.imported_functions.len().to_u32()
                     + internal_func_index;
                 self.instr_offset_to_func_info.insert(
@@ -245,6 +249,7 @@ impl BinaryBuilder {
     /// Consume builder and return wasm component model binary.
     pub fn finalize(self) -> Vec<u8> {
         let module = create_wasm_binary(
+            &self.base,
             &self.imported_functions,
             &self.functions,
             &self.symbols,
@@ -255,7 +260,10 @@ impl BinaryBuilder {
 
     #[must_use]
     /// Create builder instance.
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(base: BaseModule) -> Self {
+        Self {
+            base,
+            ..Self::default()
+        }
     }
 }

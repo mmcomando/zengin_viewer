@@ -11,8 +11,9 @@ pub(crate) use binary_builder::ImportedFunction;
 pub(crate) use function::ConvertedFunction;
 pub(crate) use memory::DaedalusMemoryLayout;
 pub(crate) use wasm_binary::create_wasm_binary;
+pub use wasm_binary::{BaseModule, parse_base_module};
 
-use crate::daedalus::{CompiledDaedalusScript, Instruction};
+use crate::daedalus::{CompiledDaedalusScript, Instruction, imported_functions_num};
 
 pub(crate) const CURRENT_CLASS_INSTANCE_MEMORY_GLOBAL_INDEX: u32 = 0;
 pub(crate) const CURRENT_INSTANCE_SYMBOL_INDEX: u32 = 1;
@@ -21,14 +22,13 @@ pub(crate) const CURRENT_INSTANCE_SYMBOL_INDEX: u32 = 1;
 pub(crate) const SYMBOLS_NUM_GLOBAL_INDEX: u32 = 3;
 /// Index of `set_instance` buildin function inside base module (see `base_module.wat`).
 pub(crate) const BASE_FUNC_SET_INSTANCE: u32 = 3;
-/// Number of buildin functions defined inside base module (see `base_module.wat`).
-pub(crate) const BASE_BUILTIN_FUNCTIONS_NUM: u32 = 17;
 
 #[must_use]
 /// Main functionality of this crate, convert compiled daedalus script file to wasm binary.
 pub fn convert_daedalus_script(daedalus_binary_script_file: &Path) -> Vec<u8> {
     let script_data = CompiledDaedalusScript::from_file(daedalus_binary_script_file).unwrap();
-    let mut builder = BinaryBuilder::new();
+    let base = parse_base_module(imported_functions_num(&script_data.symbols));
+    let mut builder = BinaryBuilder::new(base);
 
     builder.add_symbols(&script_data.symbols);
     builder.add_static_strings(&script_data.static_strings);

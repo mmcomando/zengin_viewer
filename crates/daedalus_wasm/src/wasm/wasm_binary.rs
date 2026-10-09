@@ -19,14 +19,17 @@ use wit_parser::Resolve;
 /// It is extended with daedalus script functionality when creating final binary.
 const BASE_MODULE_WAT: &str = include_str!("base_module.wat");
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 /// Representation of the base module (see `base_module.wat`) parsed with `wasmparser`.
 /// Function indices are already adjusted to the final function index space
 /// (shifted by the number of daedalus imported functions).
-struct BaseModule {
+pub struct BaseModule {
     types: Vec<(Vec<ValType>, Vec<ValType>)>,
     imports: Vec<(String, String, u32)>,
-    functions: Vec<u32>,
+    /// Type indices of the buildin functions defined inside base module,
+    /// their count is the number of functions in the final function index
+    /// space taken by the base module.
+    pub(crate) functions: Vec<u32>,
     tables: Vec<TableType>,
     memories: Vec<MemoryType>,
     globals: Vec<GlobalType>,
@@ -73,14 +76,13 @@ pub fn create_wasm_component_model(module: Module) -> Vec<u8> {
 /// Creates core wasm module from the base module (memories, globals, buildin functions)
 /// extended with daedalus script functions, data and tables.
 pub fn create_wasm_binary(
+    base: &BaseModule,
     imported_functions: &[ImportedFunction],
     converted_functions: &[ConvertedFunction],
     symbols: &[Symbol],
     memory_layout: &DaedalusMemoryLayout,
 ) -> Module {
-    let base_bytes = wat::parse_str(BASE_MODULE_WAT).expect("Base module WAT should be valid");
     let func_index_offset = imported_functions.len().to_u32();
-    let base = parse_base_module(&base_bytes, func_index_offset);
     assert!(
         base.imports.is_empty(),
         "Base module should not define imports, they would shift already adjusted indices"
@@ -241,10 +243,15 @@ pub fn create_wasm_binary(
     reason = "Base module can contain sections which we don't convert"
 )]
 #[expect(clippy::too_many_lines, reason = "Parser covers all wasm sections")]
-fn parse_base_module(base_bytes: &[u8], func_index_offset: u32) -> BaseModule {
+#[must_use]
+/// Parses the base module (see `base_module.wat`) with `wasmparser`, its
+/// function indices are adjusted to the final function index space where
+/// `imported_functions_num` daedalus imported functions come first.
+pub fn parse_base_module(imported_functions_num: u32) -> BaseModule {
+    let base_bytes = wat::parse_str(BASE_MODULE_WAT).expect("Base module WAT should be valid");
     let mut base = BaseModule::default();
 
-    for payload in Parser::new(0).parse_all(base_bytes) {
+    for payload in Parser::new(0).parse_all(&base_bytes) {
         match payload.unwrap() {
             wasmparser::Payload::TypeSection(section) => {
                 for rec_group in section {
@@ -327,7 +334,7 @@ fn parse_base_module(base_bytes: &[u8], func_index_offset: u32) -> BaseModule {
                 for export in section {
                     let export = export.unwrap();
                     let index = match export.kind {
-                        wasmparser::ExternalKind::Func => export.index + func_index_offset,
+                        wasmparser::ExternalKind::Func => export.index + imported_functions_num,
                         _ => export.index,
                     };
                     base.exports.push((
@@ -339,7 +346,7 @@ fn parse_base_module(base_bytes: &[u8], func_index_offset: u32) -> BaseModule {
             }
             wasmparser::Payload::CodeSectionEntry(body) => {
                 base.code
-                    .push(convert_base_function(&body, func_index_offset));
+                    .push(convert_base_function(&body, imported_functions_num));
             }
             _ => {}
         }

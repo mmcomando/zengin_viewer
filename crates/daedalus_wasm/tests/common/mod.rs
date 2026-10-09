@@ -2,7 +2,7 @@ mod imported_functions;
 
 use crate::common::imported_functions::ImportCallState;
 use daedalus_wasm::daedalus;
-use daedalus_wasm::wasm::BinaryBuilder;
+use daedalus_wasm::wasm::{BinaryBuilder, parse_base_module};
 use std::env::home_dir;
 use std::path::PathBuf;
 use std::process::Command;
@@ -436,7 +436,8 @@ impl WasmExecutor {
         functions_names: &[&str],
         static_strings: &[String],
     ) -> WasmExecutor {
-        let mut builder = BinaryBuilder::new();
+        let mut builder =
+            BinaryBuilder::new(parse_base_module(daedalus::imported_functions_num(symbols)));
 
         builder.whitelist_functions(functions_names);
         builder.add_symbols(symbols);
