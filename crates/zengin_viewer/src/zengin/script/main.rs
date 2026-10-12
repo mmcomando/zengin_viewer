@@ -50,6 +50,8 @@ pub struct ImportCallState {
     pub loaded_state: LoadedState,
     pub dialog_state: DialogState,
     pub raw_instances: HashMap<u32, InstanceStateRaw>,
+    /// State time (seconds) set via `NPC_SetStateTime`, per npc instance.
+    pub state_times: HashMap<i32, i32>,
 }
 
 #[allow(dead_code)]
@@ -750,10 +752,12 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         self.dialog_state.close_dialog = true;
     }
 
+    fn inttofloat(&mut self, v_0: i32) -> i32 {
+        (v_0 as f32).to_bits() as i32
+    }
     count_import!(inttostring(_0) -> i32);
     count_import!(floattostring(_0) -> i32);
     count_import!(floattoint(_0) -> i32);
-    count_import!(inttofloat(_0) -> i32);
     count_import!(concatstrings(_0, _1) -> i32);
     count_import!(print(_0));
     count_import!(printdebug(_0));
@@ -803,7 +807,11 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(wld_isnextfpavailable(_0, _1) -> i32);
     count_import!(npc_createspell(_0, _1));
     count_import!(npc_learnspell(_0, _1));
-    count_import!(npc_hasitems(_0, _1) -> i32);
+
+    fn npc_hasitems(&mut self, _npc: i32, _item: i32) -> i32 {
+        warn_unimplemented!("npc_hasitems");
+        1
+    }
     count_import!(npc_giveitem(_0, _1, _2));
     count_import!(createinvitem(_0, _1));
     count_import!(createinvitems(_0, _1, _2));
@@ -846,8 +854,12 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(npc_isdead(_0) -> i32);
     count_import!(ai_startstate(_0, _1, _2, _3));
     count_import!(ai_continueroutine(_0));
-    count_import!(npc_getstatetime(_0) -> i32);
-    count_import!(npc_setstatetime(_0, _1));
+    fn npc_getstatetime(&mut self, npc: i32) -> i32 {
+        self.state_times.get(&npc).copied().unwrap_or(0)
+    }
+    fn npc_setstatetime(&mut self, npc: i32, seconds: i32) {
+        self.state_times.insert(npc, seconds);
+    }
     // count_import!(ai_output(_0, _1, _2));
     count_import!(ai_outputsvm(_0, _1, _2));
     count_import!(ai_outputsvm_overlay(_0, _1, _2));
