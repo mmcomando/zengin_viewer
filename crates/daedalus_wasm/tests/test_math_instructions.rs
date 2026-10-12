@@ -16,9 +16,10 @@ fn test_add() {
 
 #[test]
 fn test_sub() {
+    // Daedalus pushes the right operand first: 5 - 2
     let result = WasmExecutor::simple_return_test(&[
-        InstDD::PushInt(5),
         InstDD::PushInt(2),
+        InstDD::PushInt(5),
         InstDD::Sub,
         InstDD::Return,
     ]);
@@ -38,9 +39,10 @@ fn test_mul() {
 
 #[test]
 fn test_div() {
+    // Daedalus pushes the right operand first: 20 / 10
     let result = WasmExecutor::simple_return_test(&[
-        InstDD::PushInt(20),
         InstDD::PushInt(10),
+        InstDD::PushInt(20),
         InstDD::Div,
         InstDD::Return,
     ]);
@@ -49,9 +51,10 @@ fn test_div() {
 
 #[test]
 fn test_mod() {
+    // Daedalus pushes the right operand first: 23 % 10
     let result = WasmExecutor::simple_return_test(&[
-        InstDD::PushInt(23),
         InstDD::PushInt(10),
+        InstDD::PushInt(23),
         InstDD::Mod,
         InstDD::Return,
     ]);
@@ -148,9 +151,10 @@ fn test_not_equal_negative() {
 
 #[test]
 fn test_lower() {
+    // Daedalus pushes the right operand first: 2 < 3
     let result = WasmExecutor::simple_return_test(&[
-        InstDD::PushInt(2),
         InstDD::PushInt(3),
+        InstDD::PushInt(2),
         InstDD::Lower,
         InstDD::Return,
     ]);
@@ -181,9 +185,10 @@ fn test_lower_eq() {
 
 #[test]
 fn test_lower_eq_negative() {
+    // 4 <= 3
     let result = WasmExecutor::simple_return_test(&[
-        InstDD::PushInt(4),
         InstDD::PushInt(3),
+        InstDD::PushInt(4),
         InstDD::LowerEqual,
         InstDD::Return,
     ]);
@@ -192,9 +197,10 @@ fn test_lower_eq_negative() {
 
 #[test]
 fn test_higher() {
+    // Daedalus pushes the right operand first: 5 > 3
     let result = WasmExecutor::simple_return_test(&[
-        InstDD::PushInt(5),
         InstDD::PushInt(3),
+        InstDD::PushInt(5),
         InstDD::Higher,
         InstDD::Return,
     ]);
@@ -225,9 +231,10 @@ fn test_higher_eq() {
 
 #[test]
 fn test_higher_eq_negative() {
+    // 2 >= 3
     let result = WasmExecutor::simple_return_test(&[
-        InstDD::PushInt(2),
         InstDD::PushInt(3),
+        InstDD::PushInt(2),
         InstDD::HigherEqual,
         InstDD::Return,
     ]);

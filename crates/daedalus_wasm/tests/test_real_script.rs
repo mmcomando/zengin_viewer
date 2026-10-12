@@ -272,7 +272,7 @@ fn real_c_npcisinquarter() {
     );
 
     executor.call_test_func();
-    assert_eq!(executor.call_count("npc_getdisttowp"), 48);
+    assert_eq!(executor.call_count("npc_getdisttowp"), 25);
 }
 
 #[test]
@@ -287,9 +287,9 @@ fn real_c_diegotoofar() {
     let mut executor = WasmExecutor::real_func_test(data, &["c_diegotoofar"], instructions);
 
     executor.call_test_func();
-    assert_eq!(executor.call_count("npc_getdisttowp"), 17);
-    assert_eq!(executor.call_count("npc_getheighttonpc"), 1);
-    assert_eq!(executor.call_count("wld_getplayerportalguild"), 1);
+    assert_eq!(executor.call_count("npc_getdisttowp"), 1);
+    assert_eq!(executor.call_count("npc_getheighttonpc"), 0);
+    assert_eq!(executor.call_count("wld_getplayerportalguild"), 0);
 }
 
 #[test]
@@ -338,10 +338,10 @@ fn real_b_mm_wispdetect() {
     );
 
     executor.call_test_func();
-    assert_eq!(executor.call_count("npc_clearaiqueue"), 1);
-    assert_eq!(executor.call_count("ai_gotonpc"), 1);
+    assert_eq!(executor.call_count("npc_clearaiqueue"), 0);
+    assert_eq!(executor.call_count("ai_gotonpc"), 0);
     assert_eq!(executor.call_count("npc_perceiveall"), 1);
-    assert_eq!(executor.call_count("npc_getdisttonpc"), 2);
+    assert_eq!(executor.call_count("npc_getdisttonpc"), 1);
     assert_eq!(executor.call_count("wld_detectnpc"), 1);
     assert_eq!(executor.call_count("hlp_getinstanceid"), 2);
 }
@@ -485,4 +485,77 @@ fn real_get_symbol_id_missing_symbol() {
     );
     // The instance stays usable after the failed lookup
     assert_eq!(executor.call_get_name(expected as u32), "zs_stand_wp_loop");
+}
+
+/// Reproduces the Constantino herbs running dialog bug: executing
+/// `dia_constantino_herbsrunning_info` must register both sub dialog choices
+/// via `Info_AddChoice` when `Npc_HasItems` reports items present.
+///
+/// The daedalus source adds `dia_constantino_herbsrunning_success` only when
+/// a chain of 11 `(Npc_HasItems(other, herb) > 0) && ...` conditions holds.
+#[test]
+fn real_dia_constantino_herbsrunning_info_adds_success_choice() {
+    let data = get_main_script_data();
+
+    let mut executor = WasmExecutor::real_func_test(
+        data,
+        &["dia_constantino_herbsrunning_info"],
+        &[InstDD::PushInt(1), InstDD::Return],
+    );
+    // The viewer host stub always reports items present
+    executor.store.data_mut().npc_hasitems_return = 1;
+
+    let info_id = executor.get_symbol_id("dia_constantino_herbsrunning_info");
+    executor.call_function(info_id as u32);
+
+    // All 11 herbs must be checked, no short circuit skipping the chain
+    assert_eq!(executor.call_count("npc_hasitems"), 11);
+    // `Rozumiem.` choice plus the success choice
+    assert_eq!(executor.call_count("info_addchoice"), 2);
+    assert_eq!(executor.call_count("info_clearchoices"), 1);
+}
+
+/// Focused check of the wasm codegen for `(Npc_HasItems(other, item) > 0)
+/// && (Npc_HasItems(other, item) > 0)`, the shape of the herbs running
+/// condition chain.
+#[test]
+fn real_logical_and_of_npc_hasitems_comparisons() {
+    let data = get_main_script_data();
+    let hasitems_symbol_index = data
+        .symbols
+        .iter()
+        .position(|symbol| symbol.name() == "npc_hasitems")
+        .expect("npc_hasitems symbol should exist") as u32;
+
+    // Real bytecode shape (from the herbs running condition chain): the
+    // comparison right operand (0) is pushed before the left operand (the
+    // Npc_HasItems call), function arguments are pushed left to right.
+    let instructions = &[
+        // comparison right operand: 0
+        InstDD::PushInt(0),
+        // other
+        InstDD::PushInt(0),
+        // item
+        InstDD::PushInt(1),
+        InstDD::CallExternal(hasitems_symbol_index),
+        InstDD::Higher,
+        // comparison right operand: 0
+        InstDD::PushInt(0),
+        // other
+        InstDD::PushInt(0),
+        // item
+        InstDD::PushInt(1),
+        InstDD::CallExternal(hasitems_symbol_index),
+        InstDD::Higher,
+        InstDD::LogicalAnd,
+        InstDD::Return,
+    ];
+
+    let mut executor = WasmExecutor::real_func_test(data, &[], instructions);
+    executor.store.data_mut().npc_hasitems_return = 1;
+    assert_eq!(executor.call_test_func(), 1);
+
+    let mut executor = WasmExecutor::real_func_test(data, &[], instructions);
+    executor.store.data_mut().npc_hasitems_return = 0;
+    assert_eq!(executor.call_test_func(), 0);
 }

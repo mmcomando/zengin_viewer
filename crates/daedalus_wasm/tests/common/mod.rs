@@ -105,7 +105,12 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(wld_isnextfpavailable(_0, _1) -> i32);
     count_import!(npc_createspell(_0, _1));
     count_import!(npc_learnspell(_0, _1));
-    count_import!(npc_hasitems(_0, _1) -> i32);
+
+    fn npc_hasitems(&mut self, _v_0: i32, _v_1: i32) -> i32 {
+        self.record_call("npc_hasitems");
+        self.npc_hasitems_return
+    }
+
     count_import!(npc_giveitem(_0, _1, _2));
     count_import!(createinvitem(_0, _1));
     count_import!(createinvitems(_0, _1, _2));

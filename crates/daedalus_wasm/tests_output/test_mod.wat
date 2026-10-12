@@ -812,9 +812,17 @@
     )
     (func (;23;) (type 7) (result i32)
       (local i32 i32)
-      i32.const 23
-      ;; [i32]
       i32.const 10
+      ;; [i32]
+      i32.const 23
+      ;; [i32 i32]
+      local.set 0
+      ;; [i32]
+      local.set 1
+      ;; []
+      local.get 0
+      ;; [i32]
+      local.get 1
       ;; [i32 i32]
       i32.rem_s
       ;; [i32]

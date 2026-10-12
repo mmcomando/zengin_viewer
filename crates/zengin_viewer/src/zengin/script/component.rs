@@ -109,9 +109,6 @@ impl WorldScript {
     /// Registers the info instance as known by the npc, used when a dialog
     /// root is actually played
     pub fn mark_info_known(&mut self, npc_instance_id: i32, info_instance_id: u32) {
-        println!(
-            "mark_info_known npc_instance_id({npc_instance_id}) npc_instance_id({info_instance_id})"
-        );
         if info_instance_id == 0 {
             return;
         }

@@ -812,11 +812,11 @@
     )
     (func (;23;) (type 7) (result i32)
       (local i32 i32)
-      i32.const 2
-      ;; [i32]
       i32.const 3
+      ;; [i32]
+      i32.const 2
       ;; [i32 i32]
-      i32.ge_s
+      i32.le_s
       ;; [i32]
       return
       ;; []

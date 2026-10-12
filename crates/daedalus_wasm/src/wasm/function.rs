@@ -119,15 +119,22 @@ impl<'a> ConversionState<'a> {
                 func.instruction(&Instruction::I32Add);
             }
             InstDD::Sub => {
+                // Daedalus pushes the right operand first, the op pops the left
+                // operand from the top (`a = pop(); b = pop(); push(a - b)`),
+                // wasm ops pop the right operand from the top, so the operands
+                // have to be swapped before the wasm op.
+                self.swap_values_on_stack(func);
                 func.instruction(&Instruction::I32Sub);
             }
             InstDD::Mul => {
                 func.instruction(&Instruction::I32Mul);
             }
             InstDD::Div => {
+                self.swap_values_on_stack(func);
                 func.instruction(&Instruction::I32DivS);
             }
             InstDD::Mod => {
+                self.swap_values_on_stack(func);
                 func.instruction(&Instruction::I32RemS);
             }
             InstDD::OrBitwise | InstDD::LogicalOr => {
@@ -154,8 +161,12 @@ impl<'a> ConversionState<'a> {
                     memory_index: DaedalusMemoryLayout::SYMBOLS_MEMORY_INDEX,
                 }));
             }
+            // Comparisons: daedalus stack is [right operand, left operand],
+            // the op means `left OP right` (`a = pop(); b = pop(); push(a > b)`
+            // where `a` is the left operand). Wasm compares `a OP b` with the
+            // top value as `b`, so the inverted comparison is used.
             InstDD::LowerEqual => {
-                func.instruction(&Instruction::I32LeS);
+                func.instruction(&Instruction::I32GeS);
             }
             InstDD::Equal => {
                 func.instruction(&Instruction::I32Eq);
@@ -164,13 +175,13 @@ impl<'a> ConversionState<'a> {
                 func.instruction(&Instruction::I32Ne);
             }
             InstDD::Lower => {
-                func.instruction(&Instruction::I32LtS);
-            }
-            InstDD::Higher => {
                 func.instruction(&Instruction::I32GtS);
             }
+            InstDD::Higher => {
+                func.instruction(&Instruction::I32LtS);
+            }
             InstDD::HigherEqual => {
-                func.instruction(&Instruction::I32GeS);
+                func.instruction(&Instruction::I32LeS);
             }
             InstDD::AddTo => {
                 self.map_compound_assign(func, false);

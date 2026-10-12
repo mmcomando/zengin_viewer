@@ -816,7 +816,7 @@
       ;; [i32]
       i32.const 3
       ;; [i32 i32]
-      i32.le_s
+      i32.ge_s
       ;; [i32]
       return
       ;; []

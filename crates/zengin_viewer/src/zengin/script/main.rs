@@ -262,7 +262,6 @@ impl WasmExecutor {
         npc_talk_to: i32,
         roots: &mut Vec<DialogRoot>,
     ) {
-        println!("filter_dialog_roots npc_player({npc_player}), npc_talk_to({npc_talk_to})");
         roots.retain(|root| {
             if root.condition_function_id == 0 {
                 return true;
