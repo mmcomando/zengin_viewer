@@ -267,6 +267,14 @@ impl WasmExecutor {
             if root.condition_function_id == 0 {
                 return true;
             }
+            if root.permanent == false {
+                if let Some(infos) = self.store.data().known_infos.get(&npc_player) {
+                    if infos.contains(&(root.info_instance_id as i32)) {
+                        return false;
+                    }
+                }
+            }
+
             self.set_instance(npc_talk_to as u32);
             self.set_self(npc_talk_to as u32);
             self.set_other(npc_player as u32);
@@ -416,6 +424,7 @@ impl WasmExecutor {
                 info_instance_id: index as u32,
                 sequence_function_id: dialog_info.information,
                 condition_function_id: dialog_info.condition,
+                permanent: dialog_info.permanent,
                 description,
                 important: dialog_info.important,
                 order: dialog_info.order,
@@ -732,6 +741,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
                 order: state.dialog_state.sub_dialog_choices.len() as i32,
                 description,
                 important: false,
+                permanent: false,
             },
         );
     }

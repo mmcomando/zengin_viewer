@@ -76,6 +76,7 @@ pub struct DialogRoot {
     pub order: i32,
     pub description: String,
     pub important: bool,
+    pub permanent: bool,
 }
 
 #[derive(Debug, Default)]
