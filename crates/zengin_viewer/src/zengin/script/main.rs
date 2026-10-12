@@ -7,6 +7,7 @@ use wasmtime::{AsContextMut, Engine, Store};
 
 use wasmtime::component::{Component, HasData, Linker, bindgen};
 
+use crate::warn_unimplemented;
 use crate::zengin::script::state::{
     DialogLine, DialogRoot, DialogState, LoadedState, RoutineEntry, SpawnItem, SpawnNpc,
 };
@@ -22,6 +23,7 @@ bindgen!({
         "mmcomando:zengine-scripts/scripts.ta-min": store,
         "mmcomando:zengine-scripts/scripts.ai-playani": store,
         "mmcomando:zengine-scripts/scripts.ai-playanibs": store,
+        "mmcomando:zengine-scripts/scripts.ai-usemob": store,
         "mmcomando:zengine-scripts/scripts.wld-insertitem": store,
         "mmcomando:zengine-scripts/scripts.ai-output": store,
         "mmcomando:zengine-scripts/scripts.info-addchoice": store,
@@ -470,10 +472,12 @@ impl WasmExecutor {
 macro_rules! count_import {
     ($name:ident($($arg:ident),*)) => {
         fn $name(&mut self, $($arg: i32),*) {
+            warn_unimplemented!(stringify!($name));
         }
     };
     ($name:ident($($arg:ident),*) -> i32) => {
         fn $name(&mut self, $($arg: i32),*) -> i32 {
+            warn_unimplemented!(stringify!($name));
             0
         }
     };
@@ -666,6 +670,29 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         });
     }
 
+    fn ai_usemob(
+        mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
+        npc_index: i32,
+        mob_name_id: i32,
+        state: i32,
+    ) -> i32 {
+        // Negative states release the mob, nothing to animate.
+        if state <= 0 {
+            return 0;
+        }
+        let Some(mob) = Self::get_string_non_0(&mut access, mob_name_id) else {
+            return 0;
+        };
+        let ani = format!("S_{}_S{state}", mob.to_uppercase());
+        let data = access.data_mut();
+        data.loaded_state
+            .routine_played_anis
+            .entry(npc_index as u32)
+            .or_default()
+            .push(ani);
+        0
+    }
+
     fn info_addchoice(
         mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
         _dialog_id: i32,
@@ -766,7 +793,12 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(wld_detectnpcexatt(_0, _1, _2, _3, _4, _5) -> i32);
     count_import!(wld_setguildattitude(_0, _1, _2));
     count_import!(wld_getguildattitude(_0, _1) -> i32);
-    count_import!(wld_ismobavailable(_0, _1) -> i32);
+    /// Minimal mob availability: all mobs count as available so routine states
+    /// reach their use-mob branch (real mob objects are not simulated)
+    fn wld_ismobavailable(&mut self, _npc: i32, _mob_name: i32) -> i32 {
+        warn_unimplemented!("wld_ismobavailable");
+        1
+    }
     count_import!(wld_isfpavailable(_0, _1) -> i32);
     count_import!(wld_isnextfpavailable(_0, _1) -> i32);
     count_import!(npc_createspell(_0, _1));
@@ -991,7 +1023,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(npc_ownedbyguild(_0, _1) -> i32);
     count_import!(ai_takemob(_0, _1));
     count_import!(ai_dropmob(_0));
-    count_import!(ai_usemob(_0, _1, _2) -> i32);
+    // count_import!(ai_usemob(_0, _1, _2) -> i32);
     count_import!(mob_createitems(_0, _1, _2));
     count_import!(mob_hasitems(_0, _1) -> i32);
     count_import!(doc_create() -> i32);

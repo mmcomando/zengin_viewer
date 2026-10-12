@@ -1,5 +1,7 @@
 pub mod common;
 pub mod conversions;
+#[cfg(test)]
+mod debug_npc_test;
 pub mod loaders;
 pub mod macros;
 pub mod script;
