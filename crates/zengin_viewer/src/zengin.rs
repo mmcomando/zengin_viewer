@@ -110,10 +110,11 @@ fn spawn_world(
                 armor_model: npc.armor_model.clone(),
             },
             NpcAnimations {
-                animation: Some(
-                    // "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WATCHFIGHT.MAN".to_string(),
-                    "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_FIRE_VICTIM.MAN".to_string(),
-                ),
+                // animation: Some(
+                //     // "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WATCHFIGHT.MAN".to_string(),
+                //     "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_FIRE_VICTIM.MAN".to_string(),
+                // ),
+                animation: None,
                 movement_animations: None,
             },
             npc.body_tr,

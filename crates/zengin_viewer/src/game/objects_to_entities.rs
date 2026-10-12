@@ -2,6 +2,7 @@ use crate::game::animation::{AnimationController, LocomotionSequencer, create_sk
 use crate::game::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::game::objects::{GameNpc, NpcAnimations, NpcModel};
 use crate::gui::toggle_visibility::NpcVisibility;
+use crate::warn_once;
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::loaders::animation::AnimationData;
 use crate::zengin_resources::{
@@ -28,7 +29,9 @@ impl Plugin for GameObjectSpawnEntities {
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-T_YES.MAN";
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WALKL.MAN";
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WALKWL.MAN";
-const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WASH.MAN";
+// const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WASH.MAN";
+const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_FIRE_VICTIM.MAN";
+
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WATCHFIGHT.MAN";
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUN.MAN";
 // const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUNL.MAN";
@@ -67,6 +70,7 @@ fn spawn_npcs(
     mut query: Query<
         (
             Entity,
+            &GameNpc,
             &NpcModel,
             &NpcAnimations,
             Option<&mut NpcSpawnState>,
@@ -75,7 +79,7 @@ fn spawn_npcs(
     >,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
-    for (entity_id, npc_model, npc_animations, spawn_state) in &mut query {
+    for (entity_id, game_npc, npc_model, npc_animations, spawn_state) in &mut query {
         let Some(mut spawn_state) = spawn_state else {
             let movement_handles =
                 npc_animations
@@ -99,8 +103,17 @@ fn spawn_npcs(
                 .movement_animations
                 .as_ref()
                 .map(|el| el.idle.as_str())
-                .or(npc_animations.animation.as_deref())
-                .unwrap_or(EXAMPLE_ANIMATION);
+                .or(npc_animations.animation.as_deref());
+            let animation_path = if let Some(animation_path) = animation_path {
+                animation_path
+            } else {
+                warn_once!(
+                    "NPC({}), body({}) doesn't have idle animation",
+                    game_npc.npc_instance_id,
+                    &npc_model.body_model
+                );
+                EXAMPLE_ANIMATION
+            };
             let spawn_state = NpcSpawnState {
                 body_handle: handles_map.get_model_handle(
                     &asset_server,
