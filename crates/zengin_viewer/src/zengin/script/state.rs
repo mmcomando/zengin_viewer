@@ -68,6 +68,9 @@ pub struct ItemInstance {
 
 #[derive(Debug, Default, Clone)]
 pub struct DialogRoot {
+    /// Symbol index of the `C_INFO` instance this root was loaded from,
+    /// `0` for sub dialog choices registered via `Info_AddChoice`
+    pub info_instance_id: u32, // TODO make optional or make Info_AddChoice a separate type
     pub sequence_function_id: i32,
     pub condition_function_id: i32,
     pub order: i32,

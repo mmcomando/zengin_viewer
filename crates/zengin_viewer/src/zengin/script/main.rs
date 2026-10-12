@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -52,6 +52,8 @@ pub struct ImportCallState {
     pub raw_instances: HashMap<u32, InstanceStateRaw>,
     /// State time (seconds) set via `NPC_SetStateTime`, per npc instance.
     pub state_times: HashMap<i32, i32>,
+    /// Info (`C_INFO`) instance ids known by each npc instance.
+    pub known_infos: HashMap<i32, HashSet<i32>>,
 }
 
 #[allow(dead_code)]
@@ -117,6 +119,14 @@ impl WasmExecutor {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_set_self(&mut self.store, instance_index as i32)
+            .unwrap()
+    }
+
+    /// Binds the given instance as `other` for subsequent script calls
+    pub fn set_other(&mut self, instance_index: u32) {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_set_other(&mut self.store, instance_index as i32)
             .unwrap()
     }
 
@@ -246,13 +256,20 @@ impl WasmExecutor {
 
     /// Evaluates the condition function of every root with the npc instance
     /// set, dropping roots whose condition returns false
-    pub fn filter_dialog_roots(&mut self, npc_index: i32, roots: &mut Vec<DialogRoot>) {
+    pub fn filter_dialog_roots(
+        &mut self,
+        npc_player: i32,
+        npc_talk_to: i32,
+        roots: &mut Vec<DialogRoot>,
+    ) {
+        println!("filter_dialog_roots npc_player({npc_player}), npc_talk_to({npc_talk_to})");
         roots.retain(|root| {
             if root.condition_function_id == 0 {
                 return true;
             }
-            self.set_self(npc_index as u32);
-            self.set_instance(npc_index as u32);
+            self.set_instance(npc_talk_to as u32);
+            self.set_self(npc_talk_to as u32);
+            self.set_other(npc_player as u32);
             self.call_function_bool(root.condition_function_id)
         });
     }
@@ -396,6 +413,7 @@ impl WasmExecutor {
                 .entry(dialog_info.npc as u32)
                 .or_default();
             entry.push(DialogRoot {
+                info_instance_id: index as u32,
                 sequence_function_id: dialog_info.information,
                 condition_function_id: dialog_info.condition,
                 description,
@@ -708,6 +726,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         state.dialog_state.sub_dialog_choices.insert(
             0,
             DialogRoot {
+                info_instance_id: 0,
                 sequence_function_id: function_id,
                 condition_function_id: 0,
                 order: state.dialog_state.sub_dialog_choices.len() as i32,
@@ -916,7 +935,15 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     // count_import!(ai_stopprocessinfos(_0));
     count_import!(ai_processinfos(_0));
 
-    count_import!(npc_knowsinfo(_0, _1) -> i32);
+    /// Knowledge is gained when a dialog root is played.
+    fn npc_knowsinfo(&mut self, npc: i32, info: i32) -> i32 {
+        if info <= 0 {
+            return 0;
+        }
+        self.known_infos
+            .get(&npc)
+            .is_some_and(|infos| infos.contains(&info)) as i32
+    }
     count_import!(npc_checkinfo(_0, _1) -> i32);
     count_import!(npc_giveinfo(_0, _1) -> i32);
     count_import!(npc_gettalentskill(_0, _1) -> i32);

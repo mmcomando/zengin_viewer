@@ -3,9 +3,9 @@ mod ui;
 
 use crate::camera::{CameraResource, CurrentCamera};
 use crate::game::objects::GameNpc;
-use crate::zengin::PlayerPhysicsBodyMarker;
 use crate::zengin::script::component::{ScriptResource, WorldScript};
 use crate::zengin::script::state::DialogRoot;
+use crate::zengin::{PlayerNpc, PlayerPhysicsBodyMarker};
 use bevy::prelude::*;
 use state::DialogUiState;
 
@@ -33,14 +33,15 @@ impl Plugin for GameDialogPlugin {
 /// by their condition functions and drops the important ones
 fn npc_dialog_roots(
     gothic_script: &mut WorldScript,
-    npc_instance_id: i32,
+    npc_player: i32,
+    npc_talk_to: i32,
 ) -> Option<Vec<DialogRoot>> {
     let mut roots = gothic_script
         .get_loaded_state()
         .dialog_roots
-        .get(&(npc_instance_id as u32))?
+        .get(&(npc_talk_to as u32))?
         .clone();
-    gothic_script.filter_dialog_roots(npc_instance_id, &mut roots);
+    gothic_script.filter_dialog_roots(npc_player, npc_talk_to, &mut roots);
     roots.retain(|root| !root.important);
     Some(roots)
 }
@@ -56,6 +57,7 @@ fn show_closest_npc_dialog(
         (With<GameNpc>, Without<PlayerPhysicsBodyMarker>),
     >,
     mut player: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
+    mut player_npc: Query<&GameNpc, With<PlayerNpc>>,
 ) {
     if !dialog_ui.is_open() && camera_info.current_camera == CurrentCamera::Dialog {
         camera_info.current_camera = CurrentCamera::ThirdPerson;
@@ -73,6 +75,9 @@ fn show_closest_npc_dialog(
     }
 
     let Ok(mut player_tr) = player.single_mut() else {
+        return;
+    };
+    let Ok(player_npc) = player_npc.single_mut() else {
         return;
     };
     let player_pos = player_tr.translation;
@@ -96,9 +101,15 @@ fn show_closest_npc_dialog(
     let mut gothic_script = gothic_script.lock();
     let npc_name = gothic_script.call_get_name(closest_npc.npc_instance_id as u32);
 
-    let Some(dialog_roots) = npc_dialog_roots(&mut gothic_script, closest_npc.npc_instance_id)
-    else {
-        println!("No dialog_roots for npc({})", closest_npc.npc_instance_id);
+    let Some(dialog_roots) = npc_dialog_roots(
+        &mut gothic_script,
+        player_npc.npc_instance_id,
+        closest_npc.npc_instance_id,
+    ) else {
+        println!(
+            "No dialog_roots for npc({}), player({})",
+            closest_npc.npc_instance_id, player_npc.npc_instance_id
+        );
         return;
     };
 
@@ -109,6 +120,7 @@ fn show_closest_npc_dialog(
 
     dialog_ui.open(
         closest_entity,
+        player_npc.npc_instance_id,
         closest_npc.npc_instance_id,
         dialog_roots,
         npc_name,

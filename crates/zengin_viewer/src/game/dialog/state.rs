@@ -44,8 +44,9 @@ pub(super) struct DialogUiState {
     /// functions
     script: ScriptResource,
     pub(super) npc_entity: Option<Entity>,
+    pub(super) npc_player: i32,
     /// Script instance id of the npc the dialog is open with
-    pub(super) npc_instance_id: i32,
+    pub(super) npc_talk_to: i32,
     pub(super) dialog_roots: Vec<DialogRoot>,
     /// Sub dialog choices populated by the last executed option, shown instead
     /// of `dialog_roots` when not empty
@@ -65,7 +66,8 @@ impl FromWorld for DialogUiState {
         Self {
             script: world.resource::<ScriptResource>().clone(),
             npc_entity: None,
-            npc_instance_id: 0,
+            npc_player: 0,
+            npc_talk_to: 0,
             dialog_roots: Vec::new(),
             sub_choices: Vec::new(),
             selected_index: 0,
@@ -86,12 +88,14 @@ impl DialogUiState {
     pub(super) fn open(
         &mut self,
         npc_entity: Entity,
-        npc_instance_id: i32,
+        npc_self: i32,
+        npc_talk_to: i32,
         dialog_roots: Vec<DialogRoot>,
         npc_name: String,
     ) {
         self.npc_entity = Some(npc_entity);
-        self.npc_instance_id = npc_instance_id;
+        self.npc_player = npc_self;
+        self.npc_talk_to = npc_talk_to;
         self.dialog_roots = dialog_roots;
         self.sub_choices.clear();
         self.reset_to_options();
@@ -136,11 +140,9 @@ impl DialogUiState {
         self.selected_index = (self.selected_index as i32 + delta).rem_euclid(count) as usize;
     }
 
-    /// Sequence function id of the selected option
-    fn selected_option_function(&self) -> Option<i32> {
-        self.active_choices()
-            .get(self.selected_index)
-            .map(|root| root.sequence_function_id)
+    /// Selected option
+    fn selected_root(&self) -> Option<&DialogRoot> {
+        self.active_choices().get(self.selected_index)
     }
 
     /// Runs the selected option sequence and starts displaying the produced lines.
@@ -151,20 +153,24 @@ impl DialogUiState {
         speech_sounds: &SpeechSounds,
         sounds: &mut MessageWriter<PlaySound>,
     ) {
-        let Some(sequence_function_id) = self.selected_option_function() else {
+        let Some(root) = self.selected_root() else {
             self.close();
             return;
         };
+        let sequence_function_id = root.sequence_function_id;
+        let info_instance_id = root.info_instance_id;
 
         let dialog_line_views = {
             let mut gothic_script = self.script.lock();
+            gothic_script.mark_info_known(self.npc_player, info_instance_id);
             // Sub choices are cleared before running a root level option
             gothic_script.clear_sub_dialog_choices();
             gothic_script.clear_dialog_lines();
             // Dialog functions are executed with `self` bound to the npc the dialog
             // is open with, like the original engine does for every dialog call
-            gothic_script.set_self(self.npc_instance_id);
-            gothic_script.set_instance(self.npc_instance_id);
+            gothic_script.set_self(self.npc_talk_to);
+            gothic_script.set_other(self.npc_player);
+            gothic_script.set_instance(self.npc_talk_to);
             // TODO call set_self and set_instance in call_dialog_sequence_function
             gothic_script.call_dialog_sequence_function(sequence_function_id);
 
@@ -196,7 +202,7 @@ impl DialogUiState {
         let roots = if close_dialog {
             None
         } else {
-            super::npc_dialog_roots(&mut gothic_script, self.npc_instance_id)
+            super::npc_dialog_roots(&mut gothic_script, self.npc_player, self.npc_talk_to)
         };
         // The guard borrows `self`, drop it before mutating the state
         drop(gothic_script);

@@ -106,6 +106,24 @@ impl WorldScript {
         self.script.store.data().dialog_state.close_dialog
     }
 
+    /// Registers the info instance as known by the npc, used when a dialog
+    /// root is actually played
+    pub fn mark_info_known(&mut self, npc_instance_id: i32, info_instance_id: u32) {
+        println!(
+            "mark_info_known npc_instance_id({npc_instance_id}) npc_instance_id({info_instance_id})"
+        );
+        if info_instance_id == 0 {
+            return;
+        }
+        self.script
+            .store
+            .data_mut()
+            .known_infos
+            .entry(npc_instance_id)
+            .or_default()
+            .insert(info_instance_id as i32);
+    }
+
     pub fn call_dialog_sequence_function(&mut self, sequence_function_id: i32) {
         self.script.store.data_mut().dialog_state.close_dialog = false;
         self.script
@@ -119,6 +137,11 @@ impl WorldScript {
     /// Binds the given npc instance as `self` for subsequent script calls,
     pub fn set_self(&mut self, npc_instance_id: i32) {
         self.script.set_self(npc_instance_id as u32);
+    }
+
+    /// Binds the given npc instance as `self` for subsequent script calls,
+    pub fn set_other(&mut self, npc_instance_id: i32) {
+        self.script.set_other(npc_instance_id as u32);
     }
 
     /// Sets the current instance context used for class member access
@@ -139,8 +162,14 @@ impl WorldScript {
 
     /// Evaluates the condition function of every root with the npc instance
     /// set, dropping roots whose condition returns false
-    pub fn filter_dialog_roots(&mut self, npc_instance_id: i32, roots: &mut Vec<DialogRoot>) {
-        self.script.filter_dialog_roots(npc_instance_id, roots)
+    pub fn filter_dialog_roots(
+        &mut self,
+        npc_player: i32,
+        npc_talk_to: i32,
+        roots: &mut Vec<DialogRoot>,
+    ) {
+        self.script
+            .filter_dialog_roots(npc_player, npc_talk_to, roots)
     }
 }
 
