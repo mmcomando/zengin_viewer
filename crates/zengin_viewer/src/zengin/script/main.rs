@@ -18,16 +18,14 @@ bindgen!({
 
     imports: {
         "mmcomando:zengine-scripts/scripts.wld-insertnpc": store,
-        "mmcomando:zengine-scripts/scripts.mdl-setvisualbody": store,
-        "mmcomando:zengine-scripts/scripts.mdl-setvisual": store,
+
         "mmcomando:zengine-scripts/scripts.ta-min": store,
         "mmcomando:zengine-scripts/scripts.ai-playani": store,
         "mmcomando:zengine-scripts/scripts.ai-playanibs": store,
         "mmcomando:zengine-scripts/scripts.wld-insertitem": store,
         "mmcomando:zengine-scripts/scripts.ai-output": store,
-        "mmcomando:zengine-scripts/scripts.ai-stopprocessinfos": store,
         "mmcomando:zengine-scripts/scripts.info-addchoice": store,
-        "mmcomando:zengine-scripts/scripts.info-clearchoices": store,
+        // "mmcomando:zengine-scripts/scripts.info-clearchoices": store,
 
 
     },
@@ -577,41 +575,6 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         });
     }
 
-    fn mdl_setvisualbody(
-        mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
-        npc_index: i32,
-        body_model: i32,
-        body_texture_index: i32,
-        _par_4: i32,
-        head_model: i32,
-        face_texture_index: i32,
-        _par_1: i32,
-        armor_model: i32,
-    ) {
-        // println!(
-        //     "NEW mdl_setvisualbody npc_index({npc_index}), body_model_id({body_model}), body_texture_index({body_texture_index}), head_model({head_model}), face_texture_index({face_texture_index}), armor_index({armor_model})"
-        // );
-
-        let state = access.data_mut();
-        let entry = state.raw_instances.entry(npc_index as u32).or_default();
-        entry.body_model = body_model;
-        entry.head_model = head_model;
-        entry.armor_model = armor_model;
-        entry.face_texture = face_texture_index;
-        entry.body_texture = body_texture_index;
-    }
-
-    fn mdl_setvisual(
-        mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
-        npc_index: i32,
-        body_model_id: i32,
-    ) {
-        // println!("NEW mdl_setvisual npc_index({npc_index}), body_model_id({body_model_id})");
-        let state = access.data_mut();
-        let entry = state.raw_instances.entry(npc_index as u32).or_default();
-        entry.hierarchy = body_model_id;
-    }
-
     fn ta_min(
         mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
         npc_index: i32,
@@ -703,15 +666,6 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         });
     }
 
-    fn ai_stopprocessinfos(
-        mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
-        _npc: i32,
-    ) {
-        let state = access.data_mut();
-        // TODO send event?
-        state.dialog_state.close_dialog = true;
-    }
-
     fn info_addchoice(
         mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
         _dialog_id: i32,
@@ -733,17 +687,42 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
             },
         );
     }
-
-    fn info_clearchoices(
-        mut access: wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
-        _dialog_id: i32,
-    ) {
-        let state = access.data_mut();
-        state.dialog_state.sub_dialog_choices.clear();
-    }
 }
 
 impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
+    fn info_clearchoices(&mut self, _dialog_id: i32) {
+        self.dialog_state.sub_dialog_choices.clear();
+    }
+
+    fn mdl_setvisualbody(
+        &mut self,
+        npc_index: i32,
+        body_model: i32,
+        body_texture_index: i32,
+        _par_4: i32,
+        head_model: i32,
+        face_texture_index: i32,
+        _par_1: i32,
+        armor_model: i32,
+    ) {
+        let entry = self.raw_instances.entry(npc_index as u32).or_default();
+        entry.body_model = body_model;
+        entry.head_model = head_model;
+        entry.armor_model = armor_model;
+        entry.face_texture = face_texture_index;
+        entry.body_texture = body_texture_index;
+    }
+
+    fn mdl_setvisual(&mut self, npc_index: i32, body_model_id: i32) {
+        let entry = self.raw_instances.entry(npc_index as u32).or_default();
+        entry.hierarchy = body_model_id;
+    }
+
+    fn ai_stopprocessinfos(&mut self, _npc: i32) {
+        // TODO send event?
+        self.dialog_state.close_dialog = true;
+    }
+
     count_import!(inttostring(_0) -> i32);
     count_import!(floattostring(_0) -> i32);
     count_import!(floattoint(_0) -> i32);
