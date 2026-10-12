@@ -5,7 +5,7 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::camera::{CameraResource, CurrentCamera};
 use crate::input::{GlobalInput, PlayerAction};
-use crate::zengin::PlayerMarker;
+use crate::zengin::PlayerPhysicsBodyMarker;
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
 /// with support for ground detection and configurable movement settings.
@@ -474,8 +474,8 @@ fn apply_forces_to_dynamic_bodies(
 }
 
 pub fn camera_movement_system(
-    mut player_query: Query<&mut Transform, With<PlayerMarker>>,
-    mut camera_query: Query<&mut Transform, (With<Camera3d>, Without<PlayerMarker>)>,
+    mut player_query: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
+    mut camera_query: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
 ) {
     let mut camera_transform = camera_query.single_mut().unwrap();
     let mut player_transform = player_query.single_mut().unwrap();

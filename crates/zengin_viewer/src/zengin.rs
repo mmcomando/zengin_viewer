@@ -41,7 +41,10 @@ impl Plugin for ZenGinWorldPlugin {
 }
 
 #[derive(Default, Component)]
-pub struct PlayerMarker;
+pub struct PlayerPhysicsBodyMarker;
+
+#[derive(Default, Component)]
+pub struct PlayerNpc;
 
 fn spawn_world(
     mut commands: Commands,
@@ -186,7 +189,7 @@ fn spawn_world(
     // Player collider
     let mut player_collider = commands.spawn((
         Visibility::default(),
-        PlayerMarker,
+        PlayerPhysicsBodyMarker,
         CharacterController,
         CharacterMovementSettings::default(),
         CharacterCollisions::default(),
@@ -208,6 +211,7 @@ fn spawn_world(
     player_collider.with_child((
         Visibility::default(),
         Transform::from_xyz(0.0, -1.0, 0.0),
+        PlayerNpc,
         GameNpc {
             npc_instance_id: 1620, // TODO hardcoded player instance id
         },

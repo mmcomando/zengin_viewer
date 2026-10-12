@@ -1,6 +1,6 @@
 use bevy::{
     anti_alias::smaa::Smaa,
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     pbr::{ContactShadows, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
 };
@@ -14,7 +14,11 @@ impl Plugin for CameraPlugin {
         app.add_plugins(FreeCameraPlugin);
         app.insert_resource(CameraResource::default());
         app.add_systems(Update, update_dialog_camera.run_if(use_dialog_camera));
-        app.add_systems(Update, sync_free_camera_enabled);
+
+        // Currently ThirdPerson relies on FreeCamera to change orientation of Camera
+        // TODO disable FreeCamera when other camera type is enabled
+        // app.add_systems(Update, sync_free_camera_enabled);
+
         if !is_xr_enabled() {
             // Disable main camera for performance
             app.add_systems(Startup, spawn_camera);
@@ -100,20 +104,20 @@ fn use_dialog_camera(info: Res<CameraResource>) -> bool {
     info.current_camera == CurrentCamera::Dialog
 }
 
-/// Keeps bevy's free camera controller enabled only in the free camera mode,
-/// otherwise it fights with the other camera systems for the transform
-fn sync_free_camera_enabled(
-    info: Res<CameraResource>,
-    mut query: Query<&mut FreeCameraState, With<Camera3d>>,
-) {
-    let Ok(mut state) = query.single_mut() else {
-        return;
-    };
-    let enabled = info.current_camera == CurrentCamera::Free;
-    if state.enabled != enabled {
-        state.enabled = enabled;
-    }
-}
+// /// Keeps bevy's free camera controller enabled only in the free camera mode,
+// /// otherwise it fights with the other camera systems for the transform
+// fn sync_free_camera_enabled(
+//     info: Res<CameraResource>,
+//     mut query: Query<&mut FreeCameraState, With<Camera3d>>,
+// ) {
+//     let Ok(mut state) = query.single_mut() else {
+//         return;
+//     };
+//     let enabled = info.current_camera == CurrentCamera::Free;
+//     if state.enabled != enabled {
+//         state.enabled = enabled;
+//     }
+// }
 
 struct DialogCameraStyle;
 impl DialogCameraStyle {

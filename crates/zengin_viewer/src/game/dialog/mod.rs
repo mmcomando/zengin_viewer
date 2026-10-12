@@ -3,7 +3,7 @@ mod ui;
 
 use crate::camera::{CameraResource, CurrentCamera};
 use crate::game::objects::GameNpc;
-use crate::zengin::PlayerMarker;
+use crate::zengin::PlayerPhysicsBodyMarker;
 use crate::zengin::script::component::{ScriptResource, WorldScript};
 use crate::zengin::script::state::DialogRoot;
 use bevy::prelude::*;
@@ -51,8 +51,11 @@ fn show_closest_npc_dialog(
     mut dialog_ui: ResMut<DialogUiState>,
     mut camera_info: ResMut<CameraResource>,
     gothic_script: Res<ScriptResource>,
-    npcs: Query<(Entity, &GameNpc, &GlobalTransform)>,
-    player: Query<&GlobalTransform, With<PlayerMarker>>,
+    mut npcs: Query<
+        (Entity, &GameNpc, &mut Transform),
+        (With<GameNpc>, Without<PlayerPhysicsBodyMarker>),
+    >,
+    mut player: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
 ) {
     if !dialog_ui.is_open() && camera_info.current_camera == CurrentCamera::Dialog {
         camera_info.current_camera = CurrentCamera::ThirdPerson;
@@ -69,21 +72,18 @@ fn show_closest_npc_dialog(
         return;
     }
 
-    let Ok(player_tr) = player.single() else {
+    let Ok(mut player_tr) = player.single_mut() else {
         return;
     };
-    let player_pos = player_tr.translation();
+    let player_pos = player_tr.translation;
 
     // TODO use spatial query to get closest entity, spatial query own or from physics
-    let Some((closest_entity, closest_npc, tr)) = npcs
-        .iter()
-        .filter(|(_, npc, tr)| {
-            // TODO better way to discriminate player
-            tr.translation().distance(player_pos) < 5.0 && npc.npc_instance_id != 1620
-        })
+    let Some((closest_entity, closest_npc, mut tr)) = npcs
+        .iter_mut()
+        .filter(|(_, _npc, tr)| tr.translation.distance(player_pos) < 5.0)
         .min_by(|a, b| {
-            let a_d = a.2.translation().distance_squared(player_pos);
-            let b_d = b.2.translation().distance_squared(player_pos);
+            let a_d = a.2.translation.distance_squared(player_pos);
+            let b_d = b.2.translation.distance_squared(player_pos);
             a_d.total_cmp(&b_d)
         })
     else {
@@ -102,7 +102,10 @@ fn show_closest_npc_dialog(
         return;
     };
 
-    camera_info.set_dialog_camera(tr.compute_transform());
+    face_towards(&mut tr, player_tr.translation);
+    face_towards(&mut player_tr, tr.translation);
+
+    camera_info.set_dialog_camera(*tr);
 
     dialog_ui.open(
         closest_entity,
@@ -110,4 +113,15 @@ fn show_closest_npc_dialog(
         dialog_roots,
         npc_name,
     );
+}
+
+/// Horizontally rotates the transform so its facing axis (+Z) points at `target`
+fn face_towards(tr: &mut Transform, target: Vec3) {
+    let delta = target - tr.translation;
+    let dir = Vec3::new(delta.x, 0.0, delta.z);
+    if dir.length_squared() < f32::EPSILON {
+        return;
+    }
+    let dir = dir.normalize();
+    tr.rotation = Quat::from_rotation_y(dir.x.atan2(dir.z));
 }
