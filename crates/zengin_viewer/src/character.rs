@@ -138,6 +138,8 @@ pub struct CharacterCollision {
 fn camera_toggle_input(
     mut info: ResMut<CameraResource>,
     action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
+    camera_query: Query<&Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
+    mut player_query: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
 ) {
     if action_state.just_pressed(&PlayerAction::ToggleCharacterCamera) {
         let next_camera = match info.current_camera {
@@ -145,6 +147,14 @@ fn camera_toggle_input(
             CurrentCamera::ThirdPerson => CurrentCamera::Free,
             CurrentCamera::Dialog => CurrentCamera::Free,
         };
+        if next_camera == CurrentCamera::ThirdPerson {
+            // Player starts where the free camera was looking
+            if let (Ok(camera_transform), Ok(mut player_transform)) =
+                (camera_query.single(), player_query.single_mut())
+            {
+                player_transform.translation = camera_transform.translation;
+            }
+        }
         info.current_camera = next_camera;
     }
 }
