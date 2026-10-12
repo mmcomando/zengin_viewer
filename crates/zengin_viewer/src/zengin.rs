@@ -1,7 +1,7 @@
 pub mod common;
 pub mod conversions;
 #[cfg(test)]
-mod debug_npc_test;
+mod debug_zengin_scripts;
 pub mod loaders;
 pub mod macros;
 pub mod script;
