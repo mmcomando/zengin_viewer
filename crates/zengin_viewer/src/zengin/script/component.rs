@@ -4,6 +4,7 @@ use bevy::ecs::resource::Resource;
 use bevy::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex, MutexGuard};
 use zen_kit_rs::cutscene_library::CutsceneLibrary;
 use zen_kit_rs::misc::TextEncoding;
 use zen_kit_rs::stream::Read;
@@ -12,9 +13,25 @@ pub struct GothicScriptsPlugin;
 
 impl Plugin for GothicScriptsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(WorldScript::new());
+        app.insert_resource(ScriptResource::new());
         app.insert_resource(load_dialog_texts());
         app.add_systems(Startup, spawn_entities);
+    }
+}
+
+/// Bevy resource holding the world script vm behind `Arc<Mutex>` so it can be
+/// called from any place in the code: clones share the same vm, the script is
+/// accessed by locking it instead of being threaded through function arguments
+#[derive(Resource, Clone)]
+pub struct ScriptResource(Arc<Mutex<WorldScript>>);
+
+impl ScriptResource {
+    pub fn new() -> Self {
+        Self(Arc::new(Mutex::new(WorldScript::new())))
+    }
+
+    pub fn lock(&self) -> MutexGuard<'_, WorldScript> {
+        self.0.lock().unwrap()
     }
 }
 
@@ -175,7 +192,7 @@ fn load_dialog_texts() -> DialogTexts {
     DialogTexts { texts }
 }
 
-fn spawn_entities(_script: ResMut<WorldScript>) {
+fn spawn_entities() {
     // let data = script.script.store.data();
     // for spawn_npc in &data.loaded_state.spawn_npcs {
     //     //     let npc_id = *npc_id as u32;

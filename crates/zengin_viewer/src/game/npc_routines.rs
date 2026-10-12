@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use super::time::GameTime;
 use crate::game::animation::AnimationController;
 use crate::game::objects::GameNpc;
-use crate::zengin::script::component::WorldScript;
+use crate::zengin::script::component::ScriptResource;
 use crate::zengin_resources::MaterialHandles;
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
@@ -55,7 +55,7 @@ pub(super) fn add_systems(app: &mut App) {
 fn update_npc_routines(
     mut check_state: ResMut<NpcRoutineCheckState>,
     game_time: Res<GameTime>,
-    gothic_script: Res<WorldScript>,
+    gothic_script: Res<ScriptResource>,
     way_points: Res<WayPoints>,
     mut commands: Commands,
     mut npcs: Query<
@@ -77,6 +77,7 @@ fn update_npc_routines(
     let first_check = check_state.last_checked_minute.is_none();
     check_state.last_checked_minute = Some(minutes);
 
+    let gothic_script = gothic_script.lock();
     let loaded_state = gothic_script.get_loaded_state();
 
     for (entity, npc, mut tr, routine_state) in &mut npcs {
@@ -139,7 +140,7 @@ fn update_npc_routines(
 #[allow(clippy::type_complexity)]
 fn update_npc_routine_animations(
     game_time: Res<GameTime>,
-    mut gothic_script: ResMut<WorldScript>,
+    gothic_script: Res<ScriptResource>,
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
@@ -156,6 +157,7 @@ fn update_npc_routine_animations(
     >,
 ) {
     let minutes = game_time.minutes_of_day();
+    let mut gothic_script = gothic_script.lock();
 
     for (entity, npc, routine_animation, controller) in &mut npcs {
         let Some(mut routine_animation) = routine_animation else {

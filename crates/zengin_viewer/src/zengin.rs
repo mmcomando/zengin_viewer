@@ -17,7 +17,7 @@ use crate::game::objects_to_entities::GameObjectSpawnEntities;
 use crate::game::time::GameTime;
 use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::ZenGinModel;
-use crate::zengin::script::component::WorldScript;
+use crate::zengin::script::component::ScriptResource;
 use crate::zengin::world::load_zengin_world_data;
 use crate::zengin_resources::{
     DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
@@ -45,13 +45,14 @@ fn spawn_world(
     mut commands: Commands,
     mut handles_map: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
-    gothic_script: Res<WorldScript>,
+    gothic_script: Res<ScriptResource>,
     game_time: Res<GameTime>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let _span = info_span!("spawn_world").entered();
     println!("\n-----SCRIPTS VM-----\n");
+    let gothic_script = gothic_script.lock();
     let loaded_state = gothic_script.get_loaded_state();
     println!("\n-----LOAD WORLD ZEN DATA-----\n");
     let mut world_data = load_zengin_world_data(

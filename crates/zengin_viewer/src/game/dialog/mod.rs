@@ -3,7 +3,7 @@ mod ui;
 
 use crate::game::objects::GameNpc;
 use crate::zengin::PlayerMarker;
-use crate::zengin::script::component::WorldScript;
+use crate::zengin::script::component::{ScriptResource, WorldScript};
 use crate::zengin::script::state::DialogRoot;
 use bevy::prelude::*;
 use state::DialogUiState;
@@ -48,7 +48,7 @@ fn npc_dialog_roots(
 fn show_closest_npc_dialog(
     keys: Res<ButtonInput<KeyCode>>,
     mut dialog_ui: ResMut<DialogUiState>,
-    mut gothic_script: ResMut<WorldScript>,
+    gothic_script: Res<ScriptResource>,
     npcs: Query<(Entity, &GameNpc, &GlobalTransform)>,
     player: Query<&GlobalTransform, With<PlayerMarker>>,
 ) {
@@ -86,6 +86,7 @@ fn show_closest_npc_dialog(
 
     println!("Closest npc: {}", closest_npc.npc_instance_id);
 
+    let mut gothic_script = gothic_script.lock();
     let npc_name = gothic_script.call_get_name(closest_npc.npc_instance_id as u32);
 
     let Some(dialog_roots) = npc_dialog_roots(&mut gothic_script, closest_npc.npc_instance_id)
