@@ -3,6 +3,7 @@ use bevy::{ecs::query::Has, prelude::*};
 use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::ActionState;
 
+use crate::camera::{CameraResource, CurrentCamera};
 use crate::input::{GlobalInput, PlayerAction};
 use crate::zengin::PlayerMarker;
 
@@ -12,7 +13,7 @@ pub struct CharacterControllerPlugin;
 
 impl Plugin for CharacterControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ToggleCamera::default());
+        app.insert_resource(CameraResource::default());
 
         // Toggles in `PreUpdate` so the `Update` systems see the new value this frame.
         // Runs after leafwing's action update so this frame's actions are read.
@@ -37,8 +38,8 @@ impl Plugin for CharacterControllerPlugin {
     }
 }
 
-fn use_character_camera(info: Res<ToggleCamera>) -> bool {
-    info.character_camera
+fn use_character_camera(info: Res<CameraResource>) -> bool {
+    info.current_camera == CurrentCamera::ThirdPerson
 }
 
 /// A marker component indicating that an entity is using a character controller.
@@ -135,11 +136,16 @@ pub struct CharacterCollision {
 
 /// Toggles between the free camera and the character camera.
 fn camera_toggle_input(
-    mut toggle_info: ResMut<ToggleCamera>,
+    mut info: ResMut<CameraResource>,
     action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
 ) {
     if action_state.just_pressed(&PlayerAction::ToggleCharacterCamera) {
-        toggle_info.character_camera = !toggle_info.character_camera;
+        let next_camera = match info.current_camera {
+            CurrentCamera::Free => CurrentCamera::ThirdPerson,
+            CurrentCamera::ThirdPerson => CurrentCamera::Free,
+            CurrentCamera::Dialog => CurrentCamera::Free,
+        };
+        info.current_camera = next_camera;
     }
 }
 
@@ -465,11 +471,6 @@ fn apply_forces_to_dynamic_bodies(
             forces.apply_linear_impulse_at_point(impulse, collision.point);
         }
     }
-}
-
-#[derive(Resource, Default)]
-struct ToggleCamera {
-    character_camera: bool,
 }
 
 pub fn camera_movement_system(

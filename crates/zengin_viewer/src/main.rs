@@ -12,6 +12,7 @@
     clippy::wildcard_imports
 )]
 
+mod camera;
 mod character;
 mod game;
 mod gui;
@@ -20,6 +21,7 @@ mod skybox;
 mod zengin;
 mod zengin_resources;
 
+use crate::camera::CameraPlugin;
 use crate::character::CharacterControllerPlugin;
 use crate::game::animation::SkeletalAnimations;
 use crate::game::audio::GameAudioPlugin;
@@ -40,17 +42,10 @@ use crate::zengin::loaders::vdf_reader::{create_zengin_asset_loader, create_zeng
 use crate::zengin::script::component::GothicScriptsPlugin;
 use crate::zengin::sounds::SpeechSounds;
 use avian3d::prelude::*;
-use bevy::anti_alias::smaa::Smaa;
 use bevy::light::CascadeShadowConfigBuilder;
-use bevy::pbr::{
-    ContactShadows, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel,
-};
+
 use bevy::window::PresentMode;
-use bevy::{
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    color::palettes::tailwind,
-    prelude::*,
-};
+use bevy::{color::palettes::tailwind, prelude::*};
 
 fn main() {
     let mut app = App::new();
@@ -77,7 +72,6 @@ fn main() {
 
     // Plugins from crates
     app.add_plugins(PhysicsPlugins::default())
-        .add_plugins(FreeCameraPlugin)
         .add_plugins(get_overlay_plugin());
 
     // This app custom plugins
@@ -95,6 +89,7 @@ fn main() {
         .add_plugins(GothicScriptsPlugin)
         .add_plugins(GameDialogPlugin)
         .add_plugins(GameAudioPlugin)
+        .add_plugins(CameraPlugin)
         .add_plugins(SkeletalAnimations);
     // Run
     app.run();
@@ -103,66 +98,8 @@ fn main() {
 struct BasicContentPlugin;
 impl Plugin for BasicContentPlugin {
     fn build(&self, app: &mut App) {
-        if !is_xr_enabled() {
-            // Disable main camera for performance
-            app.add_systems(Startup, spawn_camera);
-        }
         app.add_systems(Startup, spawn_lights);
     }
-}
-
-fn spawn_camera(mut commands: Commands) {
-    commands.spawn((
-        Smaa::default(),
-        Msaa::Off,
-        // Msaa::Sample4,
-        // TemporalAntiAliasing::default(),
-        ScreenSpaceAmbientOcclusion {
-            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
-            ..default()
-        },
-        Camera3d::default(),
-        // Contact shadows introduce visible noise on models, disable it until it improves
-        ContactShadows::default(),
-        // Xardas
-        // Transform::from_xyz(-297.0 - 2.0, 55.0, -159.5 + 5.0).looking_at(
-        //     Vec3 {
-        //         x: -297.4256,
-        //         y: 51.482346 + 1.0,
-        //         z: -159.4824,
-        //     },
-        //     Vec3::Y,
-        // ),
-        // Khorinis
-        // Transform::from_xyz(40.0, 20.0, -10.0).looking_at(
-        //     Vec3 {
-        //         x: 0.0,
-        //         y: 0.0,
-        //         z: 0.0,
-        //     },
-        //     Vec3::Y,
-        // ),
-        // Khorinis Close Look at 0,1,0
-        Transform::from_xyz(2.0, 1.0, 4.0).looking_at(
-            Vec3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            Vec3::Y,
-        ),
-        FreeCamera {
-            sensitivity: 0.2,
-            friction: 25.0,
-            walk_speed: 3.0,
-            run_speed: 9.0,
-            // Colemak
-            key_back: KeyCode::KeyR,
-            key_right: KeyCode::KeyS,
-            key_up: KeyCode::KeyF,
-            ..default()
-        },
-    ));
 }
 
 // Lightning takes a LOT of resources as it is basicly rendering whole world with all entities

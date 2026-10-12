@@ -1,6 +1,7 @@
 mod state;
 mod ui;
 
+use crate::camera::{CameraResource, CurrentCamera};
 use crate::game::objects::GameNpc;
 use crate::zengin::PlayerMarker;
 use crate::zengin::script::component::{ScriptResource, WorldScript};
@@ -48,10 +49,16 @@ fn npc_dialog_roots(
 fn show_closest_npc_dialog(
     keys: Res<ButtonInput<KeyCode>>,
     mut dialog_ui: ResMut<DialogUiState>,
+    mut camera_info: ResMut<CameraResource>,
     gothic_script: Res<ScriptResource>,
     npcs: Query<(Entity, &GameNpc, &GlobalTransform)>,
     player: Query<&GlobalTransform, With<PlayerMarker>>,
 ) {
+    if !dialog_ui.is_open() && camera_info.current_camera == CurrentCamera::Dialog {
+        camera_info.current_camera = CurrentCamera::ThirdPerson;
+        return;
+    }
+
     // TODO action instead of key
     if !keys.just_pressed(KeyCode::KeyE) {
         return;
@@ -68,7 +75,7 @@ fn show_closest_npc_dialog(
     let player_pos = player_tr.translation();
 
     // TODO use spatial query to get closest entity, spatial query own or from physics
-    let Some((closest_entity, closest_npc, _)) = npcs
+    let Some((closest_entity, closest_npc, tr)) = npcs
         .iter()
         .filter(|(_, npc, tr)| {
             // TODO better way to discriminate player
@@ -94,6 +101,8 @@ fn show_closest_npc_dialog(
         println!("No dialog_roots for npc({})", closest_npc.npc_instance_id);
         return;
     };
+
+    camera_info.set_dialog_camera(tr.compute_transform());
 
     dialog_ui.open(
         closest_entity,
