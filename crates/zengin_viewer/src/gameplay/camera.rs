@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::gui::xr::is_xr_enabled;
+use crate::xr::is_xr_enabled;
 
 pub struct CameraPlugin;
 

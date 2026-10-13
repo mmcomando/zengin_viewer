@@ -1,4 +1,4 @@
-use crate::game::animation::{AnimationData, AnimationSample};
+use crate::graphics::animation::{AnimationData, AnimationSample};
 use crate::zengin::conversions::*;
 use bevy::{asset::io::Reader, prelude::*};
 use zen_kit_rs::stream::Read;

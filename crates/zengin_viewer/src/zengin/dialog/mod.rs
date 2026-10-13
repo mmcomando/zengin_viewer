@@ -1,8 +1,8 @@
 mod state;
 mod ui;
 
-use crate::camera::{CameraResource, CurrentCamera};
-use crate::character::{PlayerCharacter, PlayerPhysicsBodyMarker};
+use crate::gameplay::camera::{CameraResource, CurrentCamera};
+use crate::gameplay::character::{PlayerCharacter, PlayerPhysicsBodyMarker};
 use crate::zengin::GameNpc;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::main::InstanceId;

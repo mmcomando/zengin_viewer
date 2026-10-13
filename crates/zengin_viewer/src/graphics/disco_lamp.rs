@@ -1,4 +1,4 @@
-use crate::game::render_options::RenderOptions;
+use crate::graphics::render_options::RenderOptions;
 
 use avian3d::math::PI;
 

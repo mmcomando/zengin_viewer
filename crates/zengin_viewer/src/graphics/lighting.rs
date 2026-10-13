@@ -4,8 +4,8 @@ use bevy::light::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
 use std::f32::consts::PI;
 
-use super::game_time::GameTime;
 use super::render_options::RenderOptions;
+use crate::gameplay::game_time::GameTime;
 
 /// Spawns the sun/moon light and adjusts day/night lighting from the game time.
 pub struct LightingPlugin;

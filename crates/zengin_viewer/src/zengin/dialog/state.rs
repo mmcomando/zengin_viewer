@@ -1,4 +1,4 @@
-use crate::game::audio::{PlaySound, SoundManager};
+use crate::audio::sound_manager::{PlaySound, SoundManager};
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::script::component::{DialogTexts, ScriptResource};
 use crate::zengin::script::main::InstanceId;

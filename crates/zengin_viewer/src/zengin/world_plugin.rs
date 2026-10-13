@@ -1,10 +1,10 @@
-use crate::character::{
+use crate::gameplay::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
     PlayerCharacter, PlayerPhysicsBodyMarker,
 };
-use crate::game::distance::ClassifyDistance;
-use crate::game::game_time::GameTime;
-use crate::game::objects::{MovementAnimations, NpcAnimations, NpcModel};
+use crate::gameplay::distance::ClassifyDistance;
+use crate::gameplay::game_time::GameTime;
+use crate::gameplay::objects::{MovementAnimations, NpcAnimations, NpcModel};
 use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::GameNpc;
 use crate::zengin::common::ZenGinModel;

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::game::animation::AnimationData;
-use crate::game::distance::{ClassifyDistance, DistanceFar, DistanceNear};
+use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
+use crate::graphics::animation::AnimationData;
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::loaders::animation::ZenGinAnimationLoader;
 use crate::zengin::loaders::model::{ZenGinModelLoader, ZenGinModelLoaderSettings};

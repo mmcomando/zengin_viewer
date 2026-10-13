@@ -12,30 +12,30 @@
     clippy::wildcard_imports
 )]
 
-mod camera;
-mod character;
-mod game;
+mod audio;
+mod gameplay;
+mod graphics;
 mod gui;
 mod input;
-mod skybox;
+mod xr;
 mod zengin;
 
-use crate::camera::CameraPlugin;
-use crate::character::CharacterControllerPlugin;
-use crate::game::animation::SkeletalAnimations;
-use crate::game::audio::GameAudioPlugin;
-use crate::game::disco_lamp::DiscoLamp;
-use crate::game::distance::DistancePlugin;
-use crate::game::game_time::GameTimePlugin;
-use crate::game::lighting::LightingPlugin;
-use crate::game::render_options::RenderOptionsPlugin;
+use crate::audio::sound_manager::GameAudioPlugin;
+use crate::gameplay::camera::CameraPlugin;
+use crate::gameplay::character::CharacterControllerPlugin;
+use crate::gameplay::distance::DistancePlugin;
+use crate::gameplay::game_time::GameTimePlugin;
+use crate::graphics::animation::SkeletalAnimations;
+use crate::graphics::disco_lamp::DiscoLamp;
+use crate::graphics::lighting::LightingPlugin;
+use crate::graphics::render_options::RenderOptionsPlugin;
+use crate::graphics::skybox::SkyBoxPlugin;
 use crate::gui::camera::get_overlay_plugin;
 use crate::gui::egui::GameDebugUI;
 use crate::gui::statistics::StatisticsPlugin;
 use crate::gui::toggle_visibility::ToggleVisibility;
-use crate::gui::xr::{XrPlugin, is_xr_enabled};
-use crate::input::InputPlugin;
-use crate::skybox::SkyBoxPlugin;
+use crate::input::actions::ActionsPlugin;
+use crate::xr::{XrPlugin, is_xr_enabled};
 use crate::zengin::SpeechSounds;
 use crate::zengin::ZenginPlugin;
 use crate::zengin::{create_zengin_asset_loader, create_zengin_vfs};
@@ -72,7 +72,7 @@ fn main() {
         .add_plugins(get_overlay_plugin());
 
     // This app custom plugins
-    app.add_plugins(InputPlugin)
+    app.add_plugins(ActionsPlugin)
         .add_plugins(ZenginPlugin)
         .add_plugins(SkyBoxPlugin)
         .add_plugins(ToggleVisibility)

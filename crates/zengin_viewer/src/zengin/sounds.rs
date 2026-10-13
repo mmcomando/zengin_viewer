@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use bevy::prelude::*;
 use zen_kit_rs::vfs::Vfs;
 
-use crate::game::audio::wav_duration;
+use crate::audio::sound_manager::wav_duration;
 
 /// Durations of speech wav files, read directly from the shared vfs and
 /// cached, keyed by the zengin asset path of the sound

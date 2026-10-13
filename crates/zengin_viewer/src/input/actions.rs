@@ -8,10 +8,9 @@ const INPUT_PROFILE_PATH: &str = "crates/zengin_viewer/assets/input_bindings.ron
 
 /// Adds [`leafwing_input_manager`] and spawns the global input entity with the
 /// input profile loaded from [`INPUT_PROFILE_PATH`], falling back to the
-/// built-in [`PlayerAction::default_input_map`] if the file can't be read.
-pub struct InputPlugin;
+pub struct ActionsPlugin;
 
-impl Plugin for InputPlugin {
+impl Plugin for ActionsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(InputManagerPlugin::<PlayerAction>::default());
         app.add_systems(Startup, spawn_input_map);
@@ -21,7 +20,7 @@ impl Plugin for InputPlugin {
 /// Marker for the entity holding the global [`InputMap`] (and its required
 /// [`ActionState`]) used by all gameplay and UI systems.
 #[derive(Component)]
-pub struct GlobalInput;
+pub struct GlobalInputMapMarker;
 
 /// The logical actions of the game, independent of the input device.
 ///
@@ -40,7 +39,7 @@ pub enum PlayerAction {
 
 fn spawn_input_map(mut commands: Commands) {
     let input_map = load_input_profile().unwrap();
-    commands.spawn((GlobalInput, input_map));
+    commands.spawn((GlobalInputMapMarker, input_map));
 }
 
 /// Loads the input profile from [`INPUT_PROFILE_PATH`].

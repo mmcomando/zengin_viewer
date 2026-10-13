@@ -3,8 +3,8 @@ use bevy::{ecs::query::Has, prelude::*};
 use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::camera::{CameraResource, CurrentCamera};
-use crate::input::{GlobalInput, PlayerAction};
+use crate::gameplay::camera::{CameraResource, CurrentCamera};
+use crate::input::actions::{GlobalInputMapMarker, PlayerAction};
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
 /// with support for ground detection and configurable movement settings.
@@ -144,7 +144,7 @@ pub struct CharacterCollision {
 /// Toggles between the free camera and the character camera.
 fn camera_toggle_input(
     mut info: ResMut<CameraResource>,
-    action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
+    action_state: Single<&ActionState<PlayerAction>, With<GlobalInputMapMarker>>,
     camera_query: Query<&Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
     mut player_query: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
 ) {
@@ -208,7 +208,7 @@ fn update_grounded(
 /// Responds to the movement [`PlayerAction`]s and moves character controllers accordingly.
 fn movement(
     time: Res<Time>,
-    action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
+    action_state: Single<&ActionState<PlayerAction>, With<GlobalInputMapMarker>>,
     mut controllers: Query<(
         &CharacterMovementSettings,
         &mut LinearVelocity,

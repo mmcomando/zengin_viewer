@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
-use crate::game::animation::AnimationController;
-use crate::game::game_time::{GameTime, advance_game_time};
+use crate::graphics::animation::AnimationController;
+use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::zengin::GameNpc;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::main::FunctionId;

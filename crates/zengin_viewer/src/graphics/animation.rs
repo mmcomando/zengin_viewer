@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use crate::character::move_and_slide;
-use crate::game::distance::DistanceNear;
+use crate::gameplay::character::move_and_slide;
+use crate::gameplay::distance::DistanceNear;
 use crate::gui::toggle_visibility::show_gizmos;
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;

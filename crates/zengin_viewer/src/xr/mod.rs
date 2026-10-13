@@ -16,7 +16,7 @@ use bevy_xr_utils::transform_utils::{SnapToPosition, TransformUtilitiesPlugin};
 use leafwing_input_manager::prelude::ActionState;
 use std::sync::OnceLock;
 
-use crate::input::{GlobalInput, PlayerAction};
+use crate::input::actions::{GlobalInputMapMarker, PlayerAction};
 
 pub fn is_xr_enabled() -> bool {
     static XR_ENABLED_STATIC: OnceLock<bool> = OnceLock::new();
@@ -93,7 +93,7 @@ const XR_MOVE_SPEED: f32 = 3.5;
 /// relative to the current head yaw.
 fn move_camera(
     time: Res<Time>,
-    action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
+    action_state: Single<&ActionState<PlayerAction>, With<GlobalInputMapMarker>>,
     mut root: Single<&mut Transform, With<XrTrackingRoot>>,
     views: Res<OxrViews>,
 ) {
@@ -122,7 +122,7 @@ fn move_camera(
 }
 
 fn teleport(
-    action_state: Single<&ActionState<PlayerAction>, With<GlobalInput>>,
+    action_state: Single<&ActionState<PlayerAction>, With<GlobalInputMapMarker>>,
     mut event_writer: MessageWriter<SnapToPosition>,
 ) {
     if action_state.just_pressed(&PlayerAction::TeleportOrigin) {

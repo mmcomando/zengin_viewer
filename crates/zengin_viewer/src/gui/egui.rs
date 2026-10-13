@@ -4,8 +4,8 @@ use bevy_egui::{
     egui::{self, Ui},
 };
 
-use crate::game::game_time::GameTime;
-use crate::game::render_options::RenderOptions;
+use crate::gameplay::game_time::GameTime;
+use crate::graphics::render_options::RenderOptions;
 use crate::gui::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
