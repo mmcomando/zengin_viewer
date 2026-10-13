@@ -1,5 +1,4 @@
-use crate::zengin::script::state::{DialogLine, DialogRoot, LoadedState};
-use crate::zengin::{common::gothic2_dir, script::main::WasmExecutor};
+use crate::zengin::{common::gothic2_dir, script::main::ScriptManager};
 use bevy::ecs::resource::Resource;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -23,151 +22,41 @@ impl Plugin for GothicScriptsPlugin {
 /// called from any place in the code: clones share the same vm, the script is
 /// accessed by locking it instead of being threaded through function arguments
 #[derive(Resource, Clone)]
-pub struct ScriptResource(Arc<Mutex<WorldScript>>);
+pub struct ScriptResource(Arc<Mutex<ScriptManager>>);
 
 impl ScriptResource {
     pub fn new() -> Self {
-        Self(Arc::new(Mutex::new(WorldScript::new())))
+        Self(Arc::new(Mutex::new(load_gothic_script_manager())))
     }
 
-    pub fn lock(&self) -> MutexGuard<'_, WorldScript> {
+    pub fn lock(&self) -> MutexGuard<'_, ScriptManager> {
         self.0.lock().unwrap()
     }
 }
 
-/// Component for configuring movement settings for a character controller.
-#[derive(Resource)]
-pub struct WorldScript {
-    script: WasmExecutor,
-}
+fn load_gothic_script_manager() -> ScriptManager {
+    let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
+    let cached_wasm_path = PathBuf::from("./gothic.script.wasm");
+    let mut script = ScriptManager::from_file_cached(&script_path, &cached_wasm_path);
 
-impl WorldScript {
-    pub fn get_loaded_state(&self) -> &LoadedState {
-        let data = self.script.store.data();
-        &data.loaded_state
-    }
-}
+    println!("Call script initialize instances");
+    script.initialize_instances();
+    let symbol_id = script.get_symbol_id("init_newworld");
+    println!("Call script init_newworld function");
+    script.call_function(symbol_id);
+    let symbol_id = script.get_symbol_id("startup_newworld");
+    println!("Call script startup_newworld function");
+    script.call_function(symbol_id);
+    println!("Call script npc routines");
+    script.call_npc_routines();
+    println!("Call script load item instances");
+    script.load_item_instances();
+    println!("Call script load npc instances");
+    script.load_npc_instances();
+    println!("Call script load dialog options");
+    script.load_dialogs_information();
 
-impl WorldScript {
-    fn new() -> Self {
-        let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
-        let cached_wasm_path = PathBuf::from("./gothic.script.wasm");
-        let mut executor = WasmExecutor::from_file_cached(&script_path, &cached_wasm_path);
-
-        println!("Call script initialize instances");
-        executor.initialize_instances();
-        let symbol_id = executor.get_symbol_id("init_newworld");
-        println!("Call script init_newworld function");
-        executor.call_function(symbol_id);
-        let symbol_id = executor.get_symbol_id("startup_newworld");
-        println!("Call script startup_newworld function");
-        executor.call_function(symbol_id);
-        println!("Call script npc routines");
-        executor.call_npc_routines();
-        println!("Call script load item instances");
-        executor.load_item_instances();
-        println!("Call script load npc instances");
-        executor.load_npc_instances();
-        println!("Call script load dialog options");
-        executor.load_dialogs_information();
-
-        Self { script: executor }
-    }
-}
-
-impl WorldScript {
-    pub fn clear_dialog_lines(&mut self) {
-        self.script
-            .store
-            .data_mut()
-            .dialog_state
-            .dialog_lines
-            .clear();
-    }
-
-    pub fn dialog_lines(&self) -> &[DialogLine] {
-        &self.script.store.data().dialog_state.dialog_lines
-    }
-
-    pub fn clear_sub_dialog_choices(&mut self) {
-        self.script
-            .store
-            .data_mut()
-            .dialog_state
-            .sub_dialog_choices
-            .clear();
-    }
-
-    pub fn sub_dialog_choices(&self) -> &[DialogRoot] {
-        &self.script.store.data().dialog_state.sub_dialog_choices
-    }
-
-    pub fn close_dialog(&self) -> bool {
-        self.script.store.data().dialog_state.close_dialog
-    }
-
-    /// Registers the info instance as known by the npc, used when a dialog
-    /// root is actually played
-    pub fn mark_info_known(&mut self, npc_instance_id: i32, info_instance_id: u32) {
-        if info_instance_id == 0 {
-            return;
-        }
-        self.script
-            .store
-            .data_mut()
-            .known_infos
-            .entry(npc_instance_id)
-            .or_default()
-            .insert(info_instance_id as i32);
-    }
-
-    pub fn call_dialog_sequence_function(&mut self, sequence_function_id: i32) {
-        self.script.store.data_mut().dialog_state.close_dialog = false;
-        self.script
-            .call_dialog_sequence_function(sequence_function_id);
-    }
-
-    pub fn call_get_name(&mut self, symbol_id: u32) -> String {
-        self.script.call_get_name(symbol_id)
-    }
-
-    /// Binds the given npc instance as `self` for subsequent script calls,
-    pub fn set_self(&mut self, npc_instance_id: i32) {
-        self.script.set_self(npc_instance_id as u32);
-    }
-
-    /// Binds the given npc instance as `self` for subsequent script calls,
-    pub fn set_other(&mut self, npc_instance_id: i32) {
-        self.script.set_other(npc_instance_id as u32);
-    }
-
-    /// Sets the current instance context used for class member access
-    pub fn set_instance(&mut self, npc_instance_id: i32) {
-        self.script.set_instance(npc_instance_id as u32);
-    }
-
-    /// Executes the routine state function of the npc instance, returning the
-    /// animation names the script requested via `AI_PlayAni(BS)`.
-    pub fn call_routine_state_function(
-        &mut self,
-        npc_instance_id: i32,
-        state_fn: u32,
-    ) -> Vec<String> {
-        self.script
-            .call_routine_state_function(npc_instance_id as u32, state_fn)
-    }
-
-    /// Evaluates the condition function of every root with the npc instance
-    /// set, dropping roots whose condition returns false
-    pub fn filter_dialog_roots(
-        &mut self,
-        npc_player: i32,
-        npc_talk_to: i32,
-        roots: &mut Vec<DialogRoot>,
-    ) {
-        self.script
-            .filter_dialog_roots(npc_player, npc_talk_to, roots)
-    }
+    script
 }
 
 /// Real texts of dialog lines loaded from Ou.bin, keyed by Ou.bin block name.

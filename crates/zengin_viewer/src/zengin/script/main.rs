@@ -57,7 +57,7 @@ pub struct ImportCallState {
 }
 
 #[allow(dead_code)]
-pub struct WasmExecutor {
+pub struct ScriptManager {
     pub store: Store<ImportCallState>,
     pub instance: Arc<MmWorld>,
     /// Cache of resolved `_loop` function symbol ids of routine state
@@ -72,7 +72,49 @@ impl HasData for MyLibrary {
 }
 
 #[allow(dead_code)]
-impl WasmExecutor {
+impl ScriptManager {
+    pub fn get_loaded_state(&self) -> &LoadedState {
+        &self.store.data().loaded_state
+    }
+
+    pub fn clear_dialog_lines(&mut self) {
+        self.store.data_mut().dialog_state.dialog_lines.clear();
+    }
+
+    pub fn dialog_lines(&self) -> &[DialogLine] {
+        &self.store.data().dialog_state.dialog_lines
+    }
+
+    pub fn clear_sub_dialog_choices(&mut self) {
+        self.store
+            .data_mut()
+            .dialog_state
+            .sub_dialog_choices
+            .clear();
+    }
+
+    pub fn sub_dialog_choices(&self) -> &[DialogRoot] {
+        &self.store.data().dialog_state.sub_dialog_choices
+    }
+
+    pub fn close_dialog(&self) -> bool {
+        self.store.data().dialog_state.close_dialog
+    }
+
+    /// Registers the info instance as known by the npc, used when a dialog
+    /// root is actually played
+    pub fn mark_info_known(&mut self, npc_instance_id: i32, info_instance_id: u32) {
+        if info_instance_id == 0 {
+            return;
+        }
+        self.store
+            .data_mut()
+            .known_infos
+            .entry(npc_instance_id)
+            .or_default()
+            .insert(info_instance_id as i32);
+    }
+
     pub fn from_file_cached(script_path: &Path, script_wasm_cache_path: &Path) -> Self {
         // if script_wasm_cache_path.is_file() {
         //     let wasm_bytes = std::fs::read(script_wasm_cache_path).unwrap();
@@ -107,26 +149,26 @@ impl WasmExecutor {
         }
     }
 
-    pub fn set_instance(&mut self, instance_index: u32) {
+    pub fn set_instance(&mut self, instance_index: i32) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_set_instance(&mut self.store, instance_index as i32)
+            .call_set_instance(&mut self.store, instance_index)
             .unwrap()
     }
 
     /// Binds the given instance as `self` for subsequent script calls
-    pub fn set_self(&mut self, instance_index: u32) {
+    pub fn set_self(&mut self, instance_index: i32) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_set_self(&mut self.store, instance_index as i32)
+            .call_set_self(&mut self.store, instance_index)
             .unwrap()
     }
 
     /// Binds the given instance as `other` for subsequent script calls
-    pub fn set_other(&mut self, instance_index: u32) {
+    pub fn set_other(&mut self, instance_index: i32) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_set_other(&mut self.store, instance_index as i32)
+            .call_set_other(&mut self.store, instance_index)
             .unwrap()
     }
 
@@ -201,14 +243,14 @@ impl WasmExecutor {
     /// via `AI_PlayAni(BS)` in request order.
     pub fn call_routine_state_function(
         &mut self,
-        npc_instance_id: u32,
+        npc_instance_id: i32,
         state_fn: u32,
     ) -> Vec<String> {
         self.store
             .data_mut()
             .loaded_state
             .routine_played_anis
-            .remove(&npc_instance_id);
+            .remove(&(npc_instance_id as u32));
         self.set_self(npc_instance_id);
         self.set_instance(npc_instance_id);
         if let Err(err) = self.try_call_function(state_fn as i32) {
@@ -236,7 +278,7 @@ impl WasmExecutor {
             .data_mut()
             .loaded_state
             .routine_played_anis
-            .remove(&npc_instance_id)
+            .remove(&(npc_instance_id as u32))
             .unwrap_or_default()
     }
 
@@ -274,9 +316,9 @@ impl WasmExecutor {
                 }
             }
 
-            self.set_instance(npc_talk_to as u32);
-            self.set_self(npc_talk_to as u32);
-            self.set_other(npc_player as u32);
+            self.set_instance(npc_talk_to);
+            self.set_self(npc_talk_to);
+            self.set_other(npc_player);
             self.call_function_bool(root.condition_function_id)
         });
     }
@@ -324,8 +366,8 @@ impl WasmExecutor {
     pub fn call_npc_routines(&mut self) {
         let npc_indices: Vec<_> = self.store.data().raw_instances.keys().cloned().collect();
         for index in npc_indices {
-            self.set_self(index);
-            self.set_instance(index);
+            self.set_self(index as i32);
+            self.set_instance(index as i32);
             self.call_npc_routine(index);
         }
     }
@@ -434,6 +476,7 @@ impl WasmExecutor {
     }
 
     pub fn call_dialog_sequence_function(&mut self, sequence_function_id: i32) {
+        self.store.data_mut().dialog_state.close_dialog = false;
         // TODO some dialog options are skipped as they cause problems
         if [15670, 15678, 20246].contains(&sequence_function_id) {
             // Function has return value but should not have

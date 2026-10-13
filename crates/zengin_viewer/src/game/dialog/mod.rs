@@ -3,7 +3,8 @@ mod ui;
 
 use crate::camera::{CameraResource, CurrentCamera};
 use crate::game::objects::GameNpc;
-use crate::zengin::script::component::{ScriptResource, WorldScript};
+use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::main::ScriptManager;
 use crate::zengin::script::state::DialogRoot;
 use crate::zengin::{PlayerNpc, PlayerPhysicsBodyMarker};
 use bevy::prelude::*;
@@ -32,7 +33,7 @@ impl Plugin for GameDialogPlugin {
 /// Fetches the npc's root dialog options from the script state, filters them
 /// by their condition functions and drops the important ones
 fn npc_dialog_roots(
-    gothic_script: &mut WorldScript,
+    gothic_script: &mut ScriptManager,
     npc_player: i32,
     npc_talk_to: i32,
 ) -> Option<Vec<DialogRoot>> {

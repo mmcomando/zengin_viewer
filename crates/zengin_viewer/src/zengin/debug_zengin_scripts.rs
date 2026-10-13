@@ -1,5 +1,5 @@
 use crate::zengin::common::gothic2_dir;
-use crate::zengin::script::main::WasmExecutor;
+use crate::zengin::script::main::ScriptManager;
 use crate::zengin::script::main::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use daedalus_wasm::wasm::convert_daedalus_script;
 use std::path::PathBuf;
@@ -15,7 +15,7 @@ const DEBUG_ID: u32 = 11145;
 fn debug_zengin_scripts() {
     let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
     let wasm_bytes = convert_daedalus_script(&script_path);
-    let mut executor = WasmExecutor::new(&wasm_bytes);
+    let mut executor = ScriptManager::new(&wasm_bytes);
 
     executor.initialize_instances();
     let symbol_id = executor.get_symbol_id("init_newworld");
@@ -58,7 +58,7 @@ fn debug_zengin_scripts() {
 
 /// Prints the routine entries of the npc instance and executes its active
 /// routine state function, so its import calls show up in the recording
-fn debug_npc_routine(executor: &mut WasmExecutor, npc_id: u32) {
+fn debug_npc_routine(executor: &mut ScriptManager, npc_id: u32) {
     let hour = 8;
     let debug_info = {
         let data = executor.store.data();
