@@ -9,7 +9,7 @@ use crate::gui::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
 };
-use crate::zengin::statistics::StatisticsZengin;
+use crate::zengin::StatisticsZengin;
 
 pub struct GameDebugUI;
 impl Plugin for GameDebugUI {

@@ -2,12 +2,12 @@ mod state;
 mod ui;
 
 use crate::camera::{CameraResource, CurrentCamera};
-use crate::character::PlayerPhysicsBodyMarker;
+use crate::character::{PlayerCharacter, PlayerPhysicsBodyMarker};
+use crate::zengin::GameNpc;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::main::InstanceId;
 use crate::zengin::script::main::ScriptManager;
 use crate::zengin::script::state::DialogRoot;
-use crate::zengin::{GameNpc, PlayerNpc};
 use bevy::prelude::*;
 use state::DialogUiState;
 
@@ -59,7 +59,7 @@ fn show_closest_npc_dialog(
         (With<GameNpc>, Without<PlayerPhysicsBodyMarker>),
     >,
     mut player: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
-    mut player_npc: Query<&GameNpc, With<PlayerNpc>>,
+    mut player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
     if !dialog_ui.is_open() && camera_info.current_camera == CurrentCamera::Dialog {
         camera_info.current_camera = CurrentCamera::ThirdPerson;

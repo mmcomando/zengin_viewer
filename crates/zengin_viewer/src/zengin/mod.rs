@@ -1,31 +1,46 @@
-pub mod common;
-pub mod conversions;
-pub mod dialog;
-pub mod loaders;
-pub mod macros;
-pub mod npc_routines;
-pub mod objects_to_entities;
-pub mod script;
-pub mod sounds;
-pub mod statistics;
-pub mod visual;
-pub mod world;
-pub mod world_plugin;
-pub mod zengin_resources;
+mod common;
+mod conversions;
+mod dialog;
+mod loaders;
+mod macros;
+mod npc_routines;
+mod objects_to_entities;
+mod script;
+mod sounds;
+mod statistics;
+mod visual;
+mod world;
+mod world_plugin;
+mod zengin_resources;
 
 // Used to debug data, it is more like a tool than a test
 #[cfg(test)]
 mod debug_zengin_scripts;
 
-use bevy::ecs::component::Component;
+use bevy::prelude::*;
 
 use crate::zengin::script::symbol_id::InstanceId;
 
-/// Identifies the npc's script instance.
+// Expose only what is needed for outside modules
+pub use crate::zengin::loaders::vdf_reader::{create_zengin_asset_loader, create_zengin_vfs};
+pub use crate::zengin::sounds::SpeechSounds;
+pub use crate::zengin::statistics::StatisticsZengin;
+
+/// Plugin which provides Zengin related functionality
+pub struct ZenginPlugin;
+
+impl Plugin for ZenginPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(crate::zengin::world_plugin::ZenGinWorldPlugin);
+        app.add_plugins(crate::zengin::npc_routines::NpcRoutinesPlugin);
+        app.add_plugins(crate::zengin::statistics::StatisticsZenginPlugin);
+        app.add_plugins(crate::zengin::script::component::GothicScriptsPlugin);
+        app.add_plugins(crate::zengin::dialog::GameDialogPlugin);
+    }
+}
+
+/// Identifies Entity with given Zengin script instance id
 #[derive(Debug, Component)]
 pub struct GameNpc {
     npc_instance_id: InstanceId,
 }
-
-#[derive(Default, Component)]
-pub struct PlayerNpc;

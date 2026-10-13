@@ -1,11 +1,12 @@
 use crate::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
-    PlayerPhysicsBodyMarker,
+    PlayerCharacter, PlayerPhysicsBodyMarker,
 };
 use crate::game::distance::ClassifyDistance;
 use crate::game::game_time::GameTime;
 use crate::game::objects::{MovementAnimations, NpcAnimations, NpcModel};
 use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
+use crate::zengin::GameNpc;
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::npc_routines::WayPoints;
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
@@ -14,7 +15,6 @@ use crate::zengin::world::load_zengin_world_data;
 use crate::zengin::zengin_resources::{
     DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
 };
-use crate::zengin::{GameNpc, PlayerNpc};
 use avian3d::math::PI;
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
@@ -196,7 +196,7 @@ fn spawn_world(
     player_collider.with_child((
         Visibility::default(),
         Transform::from_xyz(0.0, -1.0, 0.0),
-        PlayerNpc,
+        PlayerCharacter,
         GameNpc {
             // TODO hardcoded player instance id
             npc_instance_id: gothic_script

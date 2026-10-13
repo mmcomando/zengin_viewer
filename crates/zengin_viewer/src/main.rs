@@ -35,13 +35,9 @@ use crate::gui::toggle_visibility::ToggleVisibility;
 use crate::gui::xr::{XrPlugin, is_xr_enabled};
 use crate::input::InputPlugin;
 use crate::skybox::SkyBoxPlugin;
-use crate::zengin::dialog::GameDialogPlugin;
-use crate::zengin::loaders::vdf_reader::{create_zengin_asset_loader, create_zengin_vfs};
-use crate::zengin::npc_routines::NpcRoutinesPlugin;
-use crate::zengin::script::component::GothicScriptsPlugin;
-use crate::zengin::sounds::SpeechSounds;
-use crate::zengin::statistics::StatisticsZenginPlugin;
-use crate::zengin::world_plugin::ZenGinWorldPlugin;
+use crate::zengin::SpeechSounds;
+use crate::zengin::ZenginPlugin;
+use crate::zengin::{create_zengin_asset_loader, create_zengin_vfs};
 use avian3d::prelude::*;
 
 use bevy::prelude::*;
@@ -76,7 +72,7 @@ fn main() {
 
     // This app custom plugins
     app.add_plugins(InputPlugin)
-        .add_plugins(ZenGinWorldPlugin)
+        .add_plugins(ZenginPlugin)
         .add_plugins(SkyBoxPlugin)
         .add_plugins(ToggleVisibility)
         .add_plugins(CharacterControllerPlugin)
@@ -84,12 +80,8 @@ fn main() {
         .add_plugins(DistancePlugin)
         .add_plugins(GameTimePlugin)
         .add_plugins(LightingPlugin)
-        .add_plugins(NpcRoutinesPlugin)
         .add_plugins(GameDebugUI)
         .add_plugins(StatisticsPlugin)
-        .add_plugins(StatisticsZenginPlugin)
-        .add_plugins(GothicScriptsPlugin)
-        .add_plugins(GameDialogPlugin)
         .add_plugins(GameAudioPlugin)
         .add_plugins(CameraPlugin)
         .add_plugins(SkeletalAnimations);
