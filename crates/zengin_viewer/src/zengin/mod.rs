@@ -8,6 +8,7 @@ pub mod script;
 pub mod sounds;
 pub mod visual;
 pub mod world;
+pub mod zengin_resources;
 
 use crate::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
@@ -21,12 +22,12 @@ use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::world::load_zengin_world_data;
-use crate::zengin_resources::{
-    DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
-};
 use avian3d::math::PI;
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
+use zengin_resources::{
+    DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
+};
 
 #[derive(Default)]
 pub struct ZenGinWorldPlugin;

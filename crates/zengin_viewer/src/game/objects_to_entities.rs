@@ -5,7 +5,7 @@ use crate::gui::toggle_visibility::NpcVisibility;
 use crate::warn_once;
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::loaders::animation::AnimationData;
-use crate::zengin_resources::{
+use crate::zengin::zengin_resources::{
     MaterialHandles, ZenGinModelComponent, despawn_visual_when_far_resource,
 };
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};

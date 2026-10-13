@@ -7,7 +7,7 @@ use crate::game::animation::AnimationController;
 use crate::game::objects::GameNpc;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::main::FunctionId;
-use crate::zengin_resources::MaterialHandles;
+use crate::zengin::zengin_resources::MaterialHandles;
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.

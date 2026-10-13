@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{game::objects::GameNpc, zengin_resources::ZenGinModelComponent};
+use crate::{game::objects::GameNpc, zengin::zengin_resources::ZenGinModelComponent};
 
 pub struct StatisticsPlugin;
 impl Plugin for StatisticsPlugin {

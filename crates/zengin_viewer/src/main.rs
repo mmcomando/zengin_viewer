@@ -19,7 +19,6 @@ mod gui;
 mod input;
 mod skybox;
 mod zengin;
-mod zengin_resources;
 
 use crate::camera::CameraPlugin;
 use crate::character::CharacterControllerPlugin;
