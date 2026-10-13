@@ -5,6 +5,7 @@ use crate::camera::{CameraResource, CurrentCamera};
 use crate::game::objects::GameNpc;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::main::ScriptManager;
+use crate::zengin::script::main::SymbolId;
 use crate::zengin::script::state::DialogRoot;
 use crate::zengin::{PlayerNpc, PlayerPhysicsBodyMarker};
 use bevy::prelude::*;
@@ -100,7 +101,11 @@ fn show_closest_npc_dialog(
     println!("Closest npc: {}", closest_npc.npc_instance_id);
 
     let mut gothic_script = gothic_script.lock();
-    let npc_name = gothic_script.call_get_name(closest_npc.npc_instance_id as u32);
+    let Some(npc_instance_id) = SymbolId::new(closest_npc.npc_instance_id) else {
+        println!("Invalid npc instance id {}", closest_npc.npc_instance_id);
+        return;
+    };
+    let npc_name = gothic_script.call_get_name(npc_instance_id);
 
     let Some(dialog_roots) = npc_dialog_roots(
         &mut gothic_script,

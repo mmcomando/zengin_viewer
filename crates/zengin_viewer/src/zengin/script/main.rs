@@ -7,6 +7,7 @@ use wasmtime::{AsContextMut, Engine, Store};
 
 use wasmtime::component::{Component, HasData, Linker, bindgen};
 
+pub use super::symbol_id::SymbolId;
 use crate::warn_unimplemented;
 use crate::zengin::script::state::{
     DialogLine, DialogRoot, DialogState, LoadedState, RoutineEntry, SpawnItem, SpawnNpc,
@@ -62,7 +63,7 @@ pub struct ScriptManager {
     pub instance: Arc<MmWorld>,
     /// Cache of resolved `_loop` function symbol ids of routine state
     /// functions, `None` when the state has no loop function.
-    routine_loop_functions: HashMap<u32, Option<i32>>,
+    routine_loop_functions: HashMap<SymbolId, Option<SymbolId>>,
 }
 
 struct MyLibrary;
@@ -183,19 +184,18 @@ impl ScriptManager {
         }
     }
 
-    pub fn call_get_name(&mut self, symbol_id: u32) -> String {
+    pub fn call_get_name(&mut self, symbol_id: SymbolId) -> String {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_get_name(&mut self.store, symbol_id as i32)
+            .call_get_name(&mut self.store, symbol_id.value())
             .unwrap()
     }
 
-    pub fn get_string_non_0(&mut self, string_id: i32) -> Option<String> {
-        if string_id <= 0 {
-            return None;
-        }
+    pub fn get_string_non_0(&mut self, string_id: SymbolId) -> Option<String> {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
-        let string = guest.call_get_name(&mut self.store, string_id).ok()?;
+        let string = guest
+            .call_get_name(&mut self.store, string_id.value())
+            .ok()?;
         if string.is_empty() {
             // TODO Empty strings should be a proper value.
             // Currently a lot of calls returns empty string which is probably a bug somewhere in scripts implementation.
@@ -205,35 +205,37 @@ impl ScriptManager {
         return Some(string);
     }
 
-    pub fn get_symbol_id(&mut self, symbol_name: &str) -> i32 {
+    pub fn get_symbol_id(&mut self, symbol_name: &str) -> SymbolId {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
+        let symbol_id = guest
             .call_get_symbol_id(&mut self.store, symbol_name)
             .unwrap()
-            .expect("Symbol should exist")
+            .expect("Symbol should exist");
+        SymbolId::new(symbol_id).expect("Symbol id out of range")
     }
 
     /// Resolves a symbol id by name, `None` when the symbol does not exist.
     /// The guest lookup does not trap for missing symbols, a trap would make
     /// the component instance unusable for all further calls.
-    pub fn try_get_symbol_id(&mut self, symbol_name: &str) -> Option<i32> {
+    pub fn try_get_symbol_id(&mut self, symbol_name: &str) -> Option<SymbolId> {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_get_symbol_id(&mut self.store, symbol_name)
             .unwrap()
+            .and_then(SymbolId::new)
     }
 
-    fn try_call_function(&mut self, symbol_id: i32) -> wasmtime::Result<()> {
+    fn try_call_function(&mut self, symbol_id: SymbolId) -> wasmtime::Result<()> {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest.call_call_function(&mut self.store, symbol_id)
+        guest.call_call_function(&mut self.store, symbol_id.value())
     }
 
     /// Calls a function returning a value (`ZS_*_loop` functions do). The guest
     /// function table is typed, so such functions must use the bool call path
     /// or the call would trap on the signature mismatch.
-    fn try_call_function_bool(&mut self, symbol_id: i32) -> wasmtime::Result<bool> {
+    fn try_call_function_bool(&mut self, symbol_id: SymbolId) -> wasmtime::Result<bool> {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest.call_call_function_bool(&mut self.store, symbol_id)
+        guest.call_call_function_bool(&mut self.store, symbol_id.value())
     }
 
     /// Executes the routine state function (`ZS_*`) for the npc instance with
@@ -244,7 +246,7 @@ impl ScriptManager {
     pub fn call_routine_state_function(
         &mut self,
         npc_instance_id: i32,
-        state_fn: u32,
+        state_fn: SymbolId,
     ) -> Vec<String> {
         self.store
             .data_mut()
@@ -253,9 +255,10 @@ impl ScriptManager {
             .remove(&(npc_instance_id as u32));
         self.set_self(npc_instance_id);
         self.set_instance(npc_instance_id);
-        if let Err(err) = self.try_call_function(state_fn as i32) {
+        if let Err(err) = self.try_call_function(state_fn) {
             println!(
-                "Routine state function instance({npc_instance_id}) state_fn({state_fn}) error: {err:?}"
+                "Routine state function instance({npc_instance_id}) state_fn({}) error: {err:?}",
+                state_fn.value()
             );
             return Vec::new();
         }
@@ -270,7 +273,8 @@ impl ScriptManager {
             && let Err(err) = self.try_call_function_bool(loop_fn)
         {
             println!(
-                "Routine state loop function instance({npc_instance_id}) loop_fn({loop_fn}) error: {err:?}"
+                "Routine state loop function instance({npc_instance_id}) loop_fn({}) error: {err:?}",
+                loop_fn.value()
             );
         }
 
@@ -282,17 +286,17 @@ impl ScriptManager {
             .unwrap_or_default()
     }
 
-    pub fn call_function(&mut self, symbol_id: i32) {
+    pub fn call_function(&mut self, symbol_id: SymbolId) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_call_function(&mut self.store, symbol_id)
+            .call_call_function(&mut self.store, symbol_id.value())
             .unwrap()
     }
 
-    pub fn call_function_bool(&mut self, symbol_id: i32) -> bool {
+    pub fn call_function_bool(&mut self, symbol_id: SymbolId) -> bool {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_call_function_bool(&mut self.store, symbol_id)
+            .call_call_function_bool(&mut self.store, symbol_id.value())
             .unwrap()
     }
 
@@ -316,10 +320,14 @@ impl ScriptManager {
                 }
             }
 
+            let Some(condition_fn) = SymbolId::new(root.condition_function_id) else {
+                return true;
+            };
+
             self.set_instance(npc_talk_to);
             self.set_self(npc_talk_to);
             self.set_other(npc_player);
-            self.call_function_bool(root.condition_function_id)
+            self.call_function_bool(condition_fn)
         });
     }
 
@@ -332,34 +340,34 @@ impl ScriptManager {
 
     pub fn get_symbol_info(
         &mut self,
-        symbol_id: i32,
+        symbol_id: SymbolId,
     ) -> crate::zengin::script::main::exports::mmcomando::zengine_scripts::manage::SymbolInfo {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_get_symbol_info(&mut self.store, symbol_id)
+            .call_get_symbol_info(&mut self.store, symbol_id.value())
             .unwrap()
     }
 
     pub fn get_dialog_info(
         &mut self,
-        symbol_id: i32,
+        symbol_id: SymbolId,
     ) -> crate::zengin::script::main::exports::mmcomando::zengine_scripts::manage::DialogInfo {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_get_dialog_info(&mut self.store, symbol_id)
+            .call_get_dialog_info(&mut self.store, symbol_id.value())
             .unwrap()
     }
 
-    pub fn get_item_visual(&mut self, symbol_id: i32) -> Option<String> {
+    pub fn get_item_visual(&mut self, symbol_id: SymbolId) -> Option<String> {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_get_item_visual(&mut self.store, symbol_id)
+            .call_get_item_visual(&mut self.store, symbol_id.value())
             .unwrap()
     }
-    pub fn get_item_visual_change(&mut self, symbol_id: i32) -> Option<String> {
+    pub fn get_item_visual_change(&mut self, symbol_id: SymbolId) -> Option<String> {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_get_item_visual_change(&mut self.store, symbol_id)
+            .call_get_item_visual_change(&mut self.store, symbol_id.value())
             .unwrap()
     }
 
@@ -380,15 +388,15 @@ impl ScriptManager {
     fn has_ancestor(
         &mut self,
         symbol_info: &crate::zengin::script::main::exports::mmcomando::zengine_scripts::manage::SymbolInfo,
-        ancestor_id: i32,
+        ancestor_id: SymbolId,
     ) -> bool {
         let Some(parent) = symbol_info.parent else {
             return false;
         };
-        if parent == ancestor_id {
+        if parent == ancestor_id.value() {
             return true;
         }
-        let symbol_info = self.get_symbol_info(parent);
+        let symbol_info = self.get_symbol_info(SymbolId::new(parent).unwrap());
 
         return self.has_ancestor(&symbol_info, ancestor_id);
     }
@@ -399,6 +407,9 @@ impl ScriptManager {
         let item_class_id = self.get_symbol_id("c_item");
 
         for index in 0..symbols_num {
+            let Some(index) = SymbolId::new(index) else {
+                continue;
+            };
             let symbol_info = self.get_symbol_info(index);
             if symbol_info.kind != SymbolKind::Instance {
                 continue;
@@ -411,7 +422,7 @@ impl ScriptManager {
                 // Instance doesn't have init code, so it won't have meaningful data
                 continue;
             }
-            let symbol_name = self.call_get_name(index as u32);
+            let symbol_name = self.call_get_name(index);
 
             let Some(visual) = self.get_item_visual(index) else {
                 println!("No visual for item({})", &symbol_name);
@@ -437,6 +448,9 @@ impl ScriptManager {
         let info_class_id = self.get_symbol_id("c_info");
 
         for index in 0..symbols_num {
+            let Some(index) = SymbolId::new(index) else {
+                continue;
+            };
             let symbol_info = self.get_symbol_info(index);
             if symbol_info.kind != SymbolKind::Instance {
                 continue;
@@ -445,13 +459,13 @@ impl ScriptManager {
                 continue;
             }
 
-            let symbol_name = self.call_get_name(index as u32);
+            let symbol_name = self.call_get_name(index);
             if symbol_name.starts_with("dia_lares") {
                 continue;
             }
             let dialog_info = self.get_dialog_info(index);
-            let description = self
-                .get_string_non_0(dialog_info.description)
+            let description = SymbolId::new(dialog_info.description)
+                .and_then(|id| self.get_string_non_0(id))
                 .unwrap_or("".to_string());
 
             let entry = self
@@ -462,7 +476,7 @@ impl ScriptManager {
                 .entry(dialog_info.npc as u32)
                 .or_default();
             entry.push(DialogRoot {
-                info_instance_id: index as u32,
+                info_instance_id: index.as_u32(),
                 sequence_function_id: dialog_info.information,
                 condition_function_id: dialog_info.condition,
                 permanent: dialog_info.permanent,
@@ -475,14 +489,14 @@ impl ScriptManager {
         }
     }
 
-    pub fn call_dialog_sequence_function(&mut self, sequence_function_id: i32) {
+    pub fn call_dialog_sequence_function(&mut self, sequence_function_id: SymbolId) {
         self.store.data_mut().dialog_state.close_dialog = false;
         // TODO some dialog options are skipped as they cause problems
-        if [15670, 15678, 20246].contains(&sequence_function_id) {
+        if [15670, 15678, 20246].contains(&sequence_function_id.value()) {
             // Function has return value but should not have
             return;
         }
-        if [18914, 21446, 21880, 23103].contains(&sequence_function_id) {
+        if [18914, 21446, 21880, 23103].contains(&sequence_function_id.value()) {
             // Real problem with script
             return;
         }
@@ -492,16 +506,21 @@ impl ScriptManager {
     pub fn load_npc_instances(&mut self) {
         let instances = self.store.data().raw_instances.clone();
         for (index, spawn_npc) in &instances {
-            let Some(body_model) = self.get_string_non_0(spawn_npc.body_model) else {
+            let Some(body_model) =
+                SymbolId::new(spawn_npc.body_model).and_then(|id| self.get_string_non_0(id))
+            else {
                 println!(
                     "Not found body model string for npc({index}), body_model_index({})",
                     spawn_npc.body_model
                 );
                 continue;
             };
-            let armor_model = self.get_string_non_0(spawn_npc.armor_model);
-            let hierarchy = self.get_string_non_0(spawn_npc.hierarchy);
-            let head_model = self.get_string_non_0(spawn_npc.head_model);
+            let armor_model =
+                SymbolId::new(spawn_npc.armor_model).and_then(|id| self.get_string_non_0(id));
+            let hierarchy =
+                SymbolId::new(spawn_npc.hierarchy).and_then(|id| self.get_string_non_0(id));
+            let head_model =
+                SymbolId::new(spawn_npc.head_model).and_then(|id| self.get_string_non_0(id));
 
             // Sometimes there is model "Hum_Head_Babe." (dot at the end), engine or scripts bug?
             let head_model = head_model.map(|el| {
@@ -558,16 +577,13 @@ macro_rules! count_import {
 impl MyLibrary {
     fn get_string_non_0(
         access: &mut wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
-        string_id: i32,
+        string_id: SymbolId,
     ) -> Option<String> {
-        if string_id == 0 {
-            return None;
-        }
         let world = access.get().world.clone().unwrap();
         let store_context = access.as_context_mut();
         let string = world
             .mmcomando_zengine_scripts_manage()
-            .call_get_name(store_context, string_id)
+            .call_get_name(store_context, string_id.value())
             .unwrap();
         // .ok()?;
         Some(string)
@@ -575,13 +591,13 @@ impl MyLibrary {
 
     fn call_function(
         access: &mut wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
-        symbol_id: i32,
+        symbol_id: SymbolId,
     ) {
         let world = access.get().world.clone().unwrap();
         let store_context = access.as_context_mut();
         world
             .mmcomando_zengine_scripts_manage()
-            .call_call_function(store_context, symbol_id)
+            .call_call_function(store_context, symbol_id.value())
             .unwrap();
     }
 
@@ -591,14 +607,18 @@ impl MyLibrary {
     /// (zenkit `DaedalusVm::init_instance`)
     fn bind_instance(
         access: &mut wasmtime::component::Access<'_, ImportCallState, MyLibrary>,
-        symbol_id: i32,
+        symbol_id: SymbolId,
     ) {
         let world = access.get().world.clone().unwrap();
         let store_context = access.as_context_mut();
         let guest = world.mmcomando_zengine_scripts_manage();
-        guest.call_set_self(store_context, symbol_id).unwrap();
+        guest
+            .call_set_self(store_context, symbol_id.value())
+            .unwrap();
         let store_context = access.as_context_mut();
-        guest.call_set_instance(store_context, symbol_id).unwrap();
+        guest
+            .call_set_instance(store_context, symbol_id.value())
+            .unwrap();
     }
 }
 
@@ -608,6 +628,12 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         npc_index: i32,
         waypoint_string_id: i32,
     ) {
+        let Some(npc_index) = SymbolId::new(npc_index) else {
+            return;
+        };
+        let Some(waypoint_string_id) = SymbolId::new(waypoint_string_id) else {
+            return;
+        };
         Self::bind_instance(&mut access, npc_index);
         Self::call_function(&mut access, npc_index);
         // let npc_name = Self::get_string_non_0(&mut access, npc_index).unwrap();
@@ -620,7 +646,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         // );
 
         let npc = SpawnNpc {
-            npc_index: npc_index as u32,
+            npc_index: npc_index.as_u32(),
             way_point: waypoint_name,
         };
         let state = access.data_mut();
@@ -633,6 +659,12 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         waypoint_string_id: i32,
     ) {
         // println!("CCC");
+        let Some(item_index) = SymbolId::new(item_index) else {
+            return;
+        };
+        let Some(waypoint_string_id) = SymbolId::new(waypoint_string_id) else {
+            return;
+        };
         Self::bind_instance(&mut access, item_index);
         Self::call_function(&mut access, item_index);
         let item_name = Self::get_string_non_0(&mut access, item_index).unwrap();
@@ -663,6 +695,13 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         // println!(
         //     "NEW ta_min npc_index({npc_index}), start_h({start_h}), stop_h({stop_h}), way_point({way_point})"
         // );
+        let state_fn = SymbolId::new(func_index)
+            // Id 0 means the state has no function, keep that representation
+            .map(|id| id.as_u32())
+            .unwrap_or(0);
+        let Some(way_point) = SymbolId::new(way_point) else {
+            return;
+        };
         let way_point = Self::get_string_non_0(&mut access, way_point)
             .unwrap()
             .to_lowercase();
@@ -673,7 +712,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
             stop_h: stop_h.max(0) as u32,
             stop_m: stop_m.max(0) as u32,
             way_point,
-            state_fn: func_index.max(0) as u32,
+            state_fn,
         };
 
         let state = access.data_mut();
@@ -690,6 +729,12 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         npc_index: i32,
         ani_id: i32,
     ) {
+        let Some(npc_index) = SymbolId::new(npc_index) else {
+            return;
+        };
+        let Some(ani_id) = SymbolId::new(ani_id) else {
+            return;
+        };
         let Some(ani) = Self::get_string_non_0(&mut access, ani_id) else {
             return;
         };
@@ -697,7 +742,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         state
             .loaded_state
             .routine_played_anis
-            .entry(npc_index as u32)
+            .entry(npc_index.as_u32())
             .or_default()
             .push(ani);
     }
@@ -708,6 +753,12 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         ani_id: i32,
         _body_state: i32,
     ) {
+        let Some(npc_index) = SymbolId::new(npc_index) else {
+            return;
+        };
+        let Some(ani_id) = SymbolId::new(ani_id) else {
+            return;
+        };
         let Some(ani) = Self::get_string_non_0(&mut access, ani_id) else {
             return;
         };
@@ -715,7 +766,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         state
             .loaded_state
             .routine_played_anis
-            .entry(npc_index as u32)
+            .entry(npc_index.as_u32())
             .or_default()
             .push(ani);
     }
@@ -726,6 +777,9 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         npc_b: i32,
         line_id: i32,
     ) {
+        let Some(line_id) = SymbolId::new(line_id) else {
+            return;
+        };
         let line_str = Self::get_string_non_0(&mut access, line_id)
             .unwrap()
             .to_lowercase();
@@ -736,7 +790,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         state.dialog_state.dialog_lines.push(DialogLine {
             npc_a,
             npc_b,
-            line_id,
+            line_id: line_id.value(),
             line_str,
         });
     }
@@ -751,6 +805,12 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         if state <= 0 {
             return 0;
         }
+        let Some(npc_index) = SymbolId::new(npc_index) else {
+            return 0;
+        };
+        let Some(mob_name_id) = SymbolId::new(mob_name_id) else {
+            return 0;
+        };
         let Some(mob) = Self::get_string_non_0(&mut access, mob_name_id) else {
             return 0;
         };
@@ -758,7 +818,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         let data = access.data_mut();
         data.loaded_state
             .routine_played_anis
-            .entry(npc_index as u32)
+            .entry(npc_index.as_u32())
             .or_default()
             .push(ani);
         0
@@ -770,6 +830,9 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         description_text_id: i32,
         function_id: i32,
     ) {
+        let Some(description_text_id) = SymbolId::new(description_text_id) else {
+            return;
+        };
         let description =
             Self::get_string_non_0(&mut access, description_text_id).unwrap_or_default();
 

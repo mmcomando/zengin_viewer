@@ -1,6 +1,7 @@
 use crate::game::audio::{PlaySound, SoundManager};
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::script::component::{DialogTexts, ScriptResource};
+use crate::zengin::script::main::SymbolId;
 use crate::zengin::script::state::{DialogLine, DialogRoot};
 use crate::zengin::sounds::SpeechSounds;
 use bevy::prelude::*;
@@ -172,6 +173,10 @@ impl DialogUiState {
             gothic_script.set_other(self.npc_player);
             gothic_script.set_instance(self.npc_talk_to);
             // TODO call set_self and set_instance in call_dialog_sequence_function
+            let Some(sequence_function_id) = SymbolId::new(sequence_function_id) else {
+                println!("Invalid sequence function id {sequence_function_id}");
+                return;
+            };
             gothic_script.call_dialog_sequence_function(sequence_function_id);
 
             // The executed option may have registered sub dialog choices, take a

@@ -6,6 +6,7 @@ use super::time::GameTime;
 use crate::game::animation::AnimationController;
 use crate::game::objects::GameNpc;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::main::SymbolId;
 use crate::zengin_resources::MaterialHandles;
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
@@ -187,6 +188,9 @@ fn update_npc_routine_animations(
         };
 
         routine_animation.applied_state_fn = state_fn;
+        let Some(state_fn) = SymbolId::new(state_fn as i32) else {
+            continue;
+        };
         let played_anis = gothic_script.call_routine_state_function(npc.npc_instance_id, state_fn);
         let Some(ani) = choose_routine_animation(&played_anis) else {
             continue;
