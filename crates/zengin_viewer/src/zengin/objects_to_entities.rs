@@ -3,11 +3,11 @@ use std::sync::atomic::AtomicU32;
 
 use crate::graphics::animation::{
     AnimatedJoint, AnimationController, AnimationData, AnimationState, BoneAnimationData,
-    FrameState, LocomotionSequencer,
+    FrameState, LocomotionSequencer, NpcAnimations,
 };
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
-use crate::gameplay::objects::{NpcAnimations, NpcModel};
-use crate::gui::toggle_visibility::NpcVisibility;
+use crate::gameplay::objects::NpcModel;
+use crate::gui_debug::toggle_visibility::NpcVisibility;
 use crate::warn_once;
 use crate::zengin::GameNpc;
 use crate::zengin::common::ZenGinModel;

@@ -1,9 +1,11 @@
 use bevy::{
     anti_alias::smaa::Smaa,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin, FrameTimeGraphConfig},
     pbr::{ContactShadows, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
 };
+use std::time::Duration;
 
 use crate::xr::is_xr_enabled;
 
@@ -149,4 +151,21 @@ pub(super) fn update_dialog_camera(
         npc_position + Vec3::Y * DialogCameraStyle::LOOK_AT_HEIGHT,
         Vec3::Y,
     );
+}
+
+pub fn get_overlay_plugin() -> FpsOverlayPlugin {
+    FpsOverlayPlugin {
+        config: FpsOverlayConfig {
+            enabled: true,
+            refresh_interval: Duration::from_millis(500),
+            frame_time_graph_config: FrameTimeGraphConfig {
+                enabled: true,
+                // The minimum acceptable fps
+                min_fps: 30.0,
+                // The target fps
+                target_fps: 144.0,
+            },
+            ..default()
+        },
+    }
 }

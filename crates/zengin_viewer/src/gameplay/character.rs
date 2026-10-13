@@ -41,10 +41,6 @@ fn use_character_camera(info: Res<CameraResource>) -> bool {
     info.current_camera == CurrentCamera::ThirdPerson
 }
 
-/// Marker component to inform which entity is a player
-#[derive(Default, Component)]
-pub struct PlayerCharacter;
-
 /// A marker component indicating that an entity is using a character controller.
 ///
 /// This also requires the entity to have a `CustomPositionIntegration` component, which is used

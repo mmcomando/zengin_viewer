@@ -3,12 +3,36 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::gameplay::character::move_and_slide;
 use crate::gameplay::distance::DistanceNear;
-use crate::gui::toggle_visibility::show_gizmos;
+use crate::gui_debug::toggle_visibility::show_gizmos;
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
 #[derive(Default)]
 pub struct SkeletalAnimations;
+
+/// Animation config of an npc
+#[derive(Debug, Default, Component)]
+pub struct NpcAnimations {
+    /// Animation played when [`Self::movement_animations`] is not set,
+    /// otherwise used as fallback when the entity has no movement animations
+    pub animation: Option<String>,
+    /// When set, the animation controller switches between those animations
+    /// based on entity movement
+    pub movement_animations: Option<MovementAnimations>,
+}
+
+/// Animations driving entity movement. Transitions are played once, the others loop.
+#[derive(Debug, Clone)]
+pub struct MovementAnimations {
+    /// Played while the entity does not move
+    pub idle: String,
+    /// Played once when the entity starts moving
+    pub move_start: Option<String>,
+    /// Played while the entity moves
+    pub move_loop: String,
+    /// Played once when the entity stops moving
+    pub move_stop: Option<String>,
+}
 
 impl Plugin for SkeletalAnimations {
     fn build(&self, app: &mut App) {

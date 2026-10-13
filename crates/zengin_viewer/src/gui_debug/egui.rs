@@ -6,7 +6,7 @@ use bevy_egui::{
 
 use crate::gameplay::game_time::GameTime;
 use crate::graphics::render_options::RenderOptions;
-use crate::gui::{
+use crate::gui_debug::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
 };
