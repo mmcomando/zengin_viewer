@@ -90,29 +90,20 @@ fn load_dialog_texts() -> DialogTexts {
         return DialogTexts::default();
     };
 
-    let block_count = library.block_count();
     let blocks = library.blocks();
     let mut texts = HashMap::with_capacity(blocks.len());
-    let mut blocks_without_message = 0;
     for block in blocks {
         let Some(message) = block.message() else {
-            blocks_without_message += 1;
             continue;
         };
         texts.insert(block.name().to_lowercase(), message.text());
     }
 
-    println!(
-        "Loaded dialog texts from Ou.bin: blocks({}), with_text({}), blocks_without_message({})",
-        block_count,
-        texts.len(),
-        blocks_without_message
-    );
-
     DialogTexts { texts }
 }
 
 fn spawn_entities() {
+    // TODO more modular spawning of object instead of listing objects in spawn_world function
     // let data = script.script.store.data();
     // for spawn_npc in &data.loaded_state.spawn_npcs {
     //     //     let npc_id = *npc_id as u32;
