@@ -159,7 +159,7 @@ pub fn load_npc(
     };
 
     let npc = ZenGinNpc {
-        npc_intance_id: spawn_npc.npc_index as i32,
+        npc_intance_id: spawn_npc.npc_index,
         hierarchy,
         head_model,
         head_texture: instance

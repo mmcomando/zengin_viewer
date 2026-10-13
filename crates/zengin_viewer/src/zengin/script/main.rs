@@ -37,12 +37,14 @@ bindgen!({
 
 #[derive(Debug, Default, Clone)]
 pub struct InstanceStateRaw {
-    pub body_model: i32,
+    pub body_model: Option<SymbolId>,
+    /// Texture variant index (not a symbol id), `0` means default
     pub body_texture: i32,
-    pub head_model: i32,
+    pub head_model: Option<SymbolId>,
+    /// Texture variant index (not a symbol id), `0` means default
     pub face_texture: i32,
-    pub armor_model: i32,
-    pub hierarchy: i32,
+    pub armor_model: Option<SymbolId>,
+    pub hierarchy: Option<SymbolId>,
 }
 
 #[derive(Default)]
@@ -50,11 +52,11 @@ pub struct ImportCallState {
     pub world: Option<Arc<MmWorld>>,
     pub loaded_state: LoadedState,
     pub dialog_state: DialogState,
-    pub raw_instances: HashMap<u32, InstanceStateRaw>,
+    pub raw_instances: HashMap<SymbolId, InstanceStateRaw>,
     /// State time (seconds) set via `NPC_SetStateTime`, per npc instance.
-    pub state_times: HashMap<i32, i32>,
-    /// Info (`C_INFO`) instance ids known by each npc instance.
-    pub known_infos: HashMap<i32, HashSet<i32>>,
+    pub state_times: HashMap<SymbolId, i32>,
+    /// Info (`C_INFO`) instances known by each npc instance.
+    pub known_infos: HashMap<SymbolId, HashSet<SymbolId>>,
 }
 
 #[allow(dead_code)]
@@ -104,16 +106,20 @@ impl ScriptManager {
 
     /// Registers the info instance as known by the npc, used when a dialog
     /// root is actually played
-    pub fn mark_info_known(&mut self, npc_instance_id: i32, info_instance_id: u32) {
-        if info_instance_id == 0 {
+    pub fn mark_info_known(
+        &mut self,
+        npc_instance_id: SymbolId,
+        info_instance_id: Option<SymbolId>,
+    ) {
+        let Some(info_instance_id) = info_instance_id else {
             return;
-        }
+        };
         self.store
             .data_mut()
             .known_infos
             .entry(npc_instance_id)
             .or_default()
-            .insert(info_instance_id as i32);
+            .insert(info_instance_id);
     }
 
     pub fn from_file_cached(script_path: &Path, script_wasm_cache_path: &Path) -> Self {
@@ -150,32 +156,32 @@ impl ScriptManager {
         }
     }
 
-    pub fn set_instance(&mut self, instance_index: i32) {
+    pub fn set_instance(&mut self, instance_index: SymbolId) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_set_instance(&mut self.store, instance_index)
+            .call_set_instance(&mut self.store, instance_index.value())
             .unwrap()
     }
 
     /// Binds the given instance as `self` for subsequent script calls
-    pub fn set_self(&mut self, instance_index: i32) {
+    pub fn set_self(&mut self, instance_index: SymbolId) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_set_self(&mut self.store, instance_index)
+            .call_set_self(&mut self.store, instance_index.value())
             .unwrap()
     }
 
     /// Binds the given instance as `other` for subsequent script calls
-    pub fn set_other(&mut self, instance_index: i32) {
+    pub fn set_other(&mut self, instance_index: SymbolId) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_set_other(&mut self.store, instance_index)
+            .call_set_other(&mut self.store, instance_index.value())
             .unwrap()
     }
 
-    pub fn call_npc_routine(&mut self, instance_index: u32) {
+    pub fn call_npc_routine(&mut self, instance_index: SymbolId) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
-        let result = guest.call_call_npc_routine(&mut self.store, instance_index as i32);
+        let result = guest.call_call_npc_routine(&mut self.store, instance_index.value());
         match result {
             Ok(_) => {}
             Err(err) => {
@@ -245,14 +251,14 @@ impl ScriptManager {
     /// via `AI_PlayAni(BS)` in request order.
     pub fn call_routine_state_function(
         &mut self,
-        npc_instance_id: i32,
+        npc_instance_id: SymbolId,
         state_fn: SymbolId,
     ) -> Vec<String> {
         self.store
             .data_mut()
             .loaded_state
             .routine_played_anis
-            .remove(&(npc_instance_id as u32));
+            .remove(&npc_instance_id);
         self.set_self(npc_instance_id);
         self.set_instance(npc_instance_id);
         if let Err(err) = self.try_call_function(state_fn) {
@@ -282,7 +288,7 @@ impl ScriptManager {
             .data_mut()
             .loaded_state
             .routine_played_anis
-            .remove(&(npc_instance_id as u32))
+            .remove(&npc_instance_id)
             .unwrap_or_default()
     }
 
@@ -304,25 +310,21 @@ impl ScriptManager {
     /// set, dropping roots whose condition returns false
     pub fn filter_dialog_roots(
         &mut self,
-        npc_player: i32,
-        npc_talk_to: i32,
+        npc_player: SymbolId,
+        npc_talk_to: SymbolId,
         roots: &mut Vec<DialogRoot>,
     ) {
         roots.retain(|root| {
-            if root.condition_function_id == 0 {
-                return true;
-            }
-            if root.permanent == false {
-                if let Some(infos) = self.store.data().known_infos.get(&npc_player) {
-                    if infos.contains(&(root.info_instance_id as i32)) {
-                        return false;
-                    }
-                }
-            }
-
-            let Some(condition_fn) = SymbolId::new(root.condition_function_id) else {
+            let Some(condition_fn) = root.condition_function_id else {
                 return true;
             };
+            if !root.permanent
+                && let Some(info_instance_id) = root.info_instance_id
+                && let Some(infos) = self.store.data().known_infos.get(&npc_player)
+                && infos.contains(&info_instance_id)
+            {
+                return false;
+            }
 
             self.set_instance(npc_talk_to);
             self.set_self(npc_talk_to);
@@ -374,8 +376,8 @@ impl ScriptManager {
     pub fn call_npc_routines(&mut self) {
         let npc_indices: Vec<_> = self.store.data().raw_instances.keys().cloned().collect();
         for index in npc_indices {
-            self.set_self(index as i32);
-            self.set_instance(index as i32);
+            self.set_self(index);
+            self.set_instance(index);
             self.call_npc_routine(index);
         }
     }
@@ -464,21 +466,27 @@ impl ScriptManager {
                 continue;
             }
             let dialog_info = self.get_dialog_info(index);
+            let Some(sequence_function_id) = SymbolId::new(dialog_info.information) else {
+                continue;
+            };
             let description = SymbolId::new(dialog_info.description)
                 .and_then(|id| self.get_string_non_0(id))
                 .unwrap_or("".to_string());
 
+            let Some(npc_id) = SymbolId::new(dialog_info.npc) else {
+                continue;
+            };
             let entry = self
                 .store
                 .data_mut()
                 .loaded_state
                 .dialog_roots
-                .entry(dialog_info.npc as u32)
+                .entry(npc_id)
                 .or_default();
             entry.push(DialogRoot {
-                info_instance_id: index.as_u32(),
-                sequence_function_id: dialog_info.information,
-                condition_function_id: dialog_info.condition,
+                info_instance_id: Some(index),
+                sequence_function_id,
+                condition_function_id: SymbolId::new(dialog_info.condition),
                 permanent: dialog_info.permanent,
                 description,
                 important: dialog_info.important,
@@ -506,21 +514,23 @@ impl ScriptManager {
     pub fn load_npc_instances(&mut self) {
         let instances = self.store.data().raw_instances.clone();
         for (index, spawn_npc) in &instances {
-            let Some(body_model) =
-                SymbolId::new(spawn_npc.body_model).and_then(|id| self.get_string_non_0(id))
+            let Some(body_model) = spawn_npc
+                .body_model
+                .and_then(|id| self.get_string_non_0(id))
             else {
                 println!(
-                    "Not found body model string for npc({index}), body_model_index({})",
+                    "Not found body model string for npc({index}), body_model({:?})",
                     spawn_npc.body_model
                 );
                 continue;
             };
-            let armor_model =
-                SymbolId::new(spawn_npc.armor_model).and_then(|id| self.get_string_non_0(id));
-            let hierarchy =
-                SymbolId::new(spawn_npc.hierarchy).and_then(|id| self.get_string_non_0(id));
-            let head_model =
-                SymbolId::new(spawn_npc.head_model).and_then(|id| self.get_string_non_0(id));
+            let armor_model = spawn_npc
+                .armor_model
+                .and_then(|id| self.get_string_non_0(id));
+            let hierarchy = spawn_npc.hierarchy.and_then(|id| self.get_string_non_0(id));
+            let head_model = spawn_npc
+                .head_model
+                .and_then(|id| self.get_string_non_0(id));
 
             // Sometimes there is model "Hum_Head_Babe." (dot at the end), engine or scripts bug?
             let head_model = head_model.map(|el| {
@@ -646,7 +656,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         // );
 
         let npc = SpawnNpc {
-            npc_index: npc_index.as_u32(),
+            npc_index,
             way_point: waypoint_name,
         };
         let state = access.data_mut();
@@ -695,10 +705,9 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         // println!(
         //     "NEW ta_min npc_index({npc_index}), start_h({start_h}), stop_h({stop_h}), way_point({way_point})"
         // );
-        let state_fn = SymbolId::new(func_index)
-            // Id 0 means the state has no function, keep that representation
-            .map(|id| id.as_u32())
-            .unwrap_or(0);
+        let Some(npc_index) = SymbolId::new(npc_index) else {
+            return;
+        };
         let Some(way_point) = SymbolId::new(way_point) else {
             return;
         };
@@ -712,14 +721,15 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
             stop_h: stop_h.max(0) as u32,
             stop_m: stop_m.max(0) as u32,
             way_point,
-            state_fn,
+            // Id 0 means the state has no function
+            state_fn: SymbolId::new(func_index),
         };
 
         let state = access.data_mut();
         let entry = state
             .loaded_state
             .instance_data
-            .entry(npc_index as u32)
+            .entry(npc_index)
             .or_default();
         entry.routine_enties.push(routine_entry);
     }
@@ -742,7 +752,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         state
             .loaded_state
             .routine_played_anis
-            .entry(npc_index.as_u32())
+            .entry(npc_index)
             .or_default()
             .push(ani);
     }
@@ -766,7 +776,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         state
             .loaded_state
             .routine_played_anis
-            .entry(npc_index.as_u32())
+            .entry(npc_index)
             .or_default()
             .push(ani);
     }
@@ -777,6 +787,12 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         npc_b: i32,
         line_id: i32,
     ) {
+        let Some(npc_a) = SymbolId::new(npc_a) else {
+            return;
+        };
+        let Some(npc_b) = SymbolId::new(npc_b) else {
+            return;
+        };
         let Some(line_id) = SymbolId::new(line_id) else {
             return;
         };
@@ -818,7 +834,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         let data = access.data_mut();
         data.loaded_state
             .routine_played_anis
-            .entry(npc_index.as_u32())
+            .entry(npc_index)
             .or_default()
             .push(ani);
         0
@@ -833,6 +849,9 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         let Some(description_text_id) = SymbolId::new(description_text_id) else {
             return;
         };
+        let Some(function_id) = SymbolId::new(function_id) else {
+            return;
+        };
         let description =
             Self::get_string_non_0(&mut access, description_text_id).unwrap_or_default();
 
@@ -840,9 +859,9 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for MyL
         state.dialog_state.sub_dialog_choices.insert(
             0,
             DialogRoot {
-                info_instance_id: 0,
+                info_instance_id: None,
                 sequence_function_id: function_id,
-                condition_function_id: 0,
+                condition_function_id: None,
                 order: state.dialog_state.sub_dialog_choices.len() as i32,
                 description,
                 important: false,
@@ -868,17 +887,23 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         _par_1: i32,
         armor_model: i32,
     ) {
-        let entry = self.raw_instances.entry(npc_index as u32).or_default();
-        entry.body_model = body_model;
-        entry.head_model = head_model;
-        entry.armor_model = armor_model;
+        let Some(npc_index) = SymbolId::new(npc_index) else {
+            return;
+        };
+        let entry = self.raw_instances.entry(npc_index).or_default();
+        entry.body_model = SymbolId::new(body_model);
+        entry.head_model = SymbolId::new(head_model);
+        entry.armor_model = SymbolId::new(armor_model);
         entry.face_texture = face_texture_index;
         entry.body_texture = body_texture_index;
     }
 
     fn mdl_setvisual(&mut self, npc_index: i32, body_model_id: i32) {
-        let entry = self.raw_instances.entry(npc_index as u32).or_default();
-        entry.hierarchy = body_model_id;
+        let Some(npc_index) = SymbolId::new(npc_index) else {
+            return;
+        };
+        let entry = self.raw_instances.entry(npc_index).or_default();
+        entry.hierarchy = SymbolId::new(body_model_id);
     }
 
     fn ai_stopprocessinfos(&mut self, _npc: i32) {
@@ -989,9 +1014,15 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(ai_startstate(_0, _1, _2, _3));
     count_import!(ai_continueroutine(_0));
     fn npc_getstatetime(&mut self, npc: i32) -> i32 {
+        let Some(npc) = SymbolId::new(npc) else {
+            return 0;
+        };
         self.state_times.get(&npc).copied().unwrap_or(0)
     }
     fn npc_setstatetime(&mut self, npc: i32, seconds: i32) {
+        let Some(npc) = SymbolId::new(npc) else {
+            return;
+        };
         self.state_times.insert(npc, seconds);
     }
     // count_import!(ai_output(_0, _1, _2));
@@ -1052,9 +1083,12 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
 
     /// Knowledge is gained when a dialog root is played.
     fn npc_knowsinfo(&mut self, npc: i32, info: i32) -> i32 {
-        if info <= 0 {
+        let Some(npc) = SymbolId::new(npc) else {
             return 0;
-        }
+        };
+        let Some(info) = SymbolId::new(info) else {
+            return 0;
+        };
         self.known_infos
             .get(&npc)
             .is_some_and(|infos| infos.contains(&info)) as i32

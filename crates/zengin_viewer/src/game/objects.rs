@@ -1,9 +1,11 @@
 use bevy::ecs::component::Component;
 
+use crate::zengin::script::symbol_id::SymbolId;
+
 /// Identifies the npc's script instance.
-#[derive(Debug, Default, Component)]
+#[derive(Debug, Component)]
 pub struct GameNpc {
-    pub npc_instance_id: i32,
+    pub npc_instance_id: SymbolId,
 }
 
 /// Visual model data of an npc, requires [`GameNpc`] on the same entity.

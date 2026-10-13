@@ -22,11 +22,6 @@ impl SymbolId {
     pub fn value(self) -> i32 {
         self.0
     }
-
-    /// Raw id value as `u32`, always positive by the validity invariant
-    pub fn as_u32(self) -> u32 {
-        self.0 as u32
-    }
 }
 
 impl std::fmt::Display for SymbolId {

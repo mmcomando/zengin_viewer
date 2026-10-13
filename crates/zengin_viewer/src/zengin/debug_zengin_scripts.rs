@@ -69,11 +69,11 @@ fn debug_npc_routine(executor: &mut ScriptManager, npc_id: SymbolId) {
     let hour = 8;
     let debug_info = {
         let data = executor.store.data();
-        let Some(instance) = data.loaded_state.instance_data.get(&npc_id.as_u32()) else {
+        let Some(instance) = data.loaded_state.instance_data.get(&npc_id) else {
             println!("npc {npc_id} has NO loaded_state.instance_data entry");
             println!(
                 "raw_instances contains {npc_id}: {}",
-                data.raw_instances.contains_key(&npc_id.as_u32())
+                data.raw_instances.contains_key(&npc_id)
             );
             return;
         };
@@ -90,16 +90,12 @@ fn debug_npc_routine(executor: &mut ScriptManager, npc_id: SymbolId) {
         return;
     };
     println!("active entry at {hour}:00: {entry_debug}");
-    if state_fn == 0 {
-        println!("entry has state_fn == 0");
-        return;
-    }
-    let Some(state_fn) = SymbolId::new(state_fn as i32) else {
-        println!("entry has invalid state_fn {state_fn}");
+    let Some(state_fn) = state_fn else {
+        println!("entry has no state function");
         return;
     };
 
     println!("state_fn name: {:?}", executor.call_get_name(state_fn));
-    let anis = executor.call_routine_state_function(npc_id.value(), state_fn);
+    let anis = executor.call_routine_state_function(npc_id, state_fn);
     println!("played anis: {anis:?}");
 }

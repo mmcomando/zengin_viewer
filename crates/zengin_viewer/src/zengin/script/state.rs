@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use super::symbol_id::SymbolId;
+
 #[derive(Debug, Default)]
 pub struct RoutineEntry {
     pub start_h: u32,
@@ -7,8 +9,9 @@ pub struct RoutineEntry {
     pub stop_h: u32,
     pub stop_m: u32,
     pub way_point: String,
-    /// Symbol index of the routine state function (`ZS_*`), `0` when not available.
-    pub state_fn: u32,
+    /// Symbol of the routine state function (`ZS_*`), `None` when the state
+    /// has no function.
+    pub state_fn: Option<SymbolId>,
 }
 
 #[derive(Debug, Default)]
@@ -48,9 +51,9 @@ impl InstanceState {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SpawnNpc {
-    pub npc_index: u32,
+    pub npc_index: SymbolId,
     pub way_point: String,
 }
 
@@ -66,13 +69,15 @@ pub struct ItemInstance {
     pub visual_change: Option<String>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct DialogRoot {
-    /// Symbol index of the `C_INFO` instance this root was loaded from,
-    /// `0` for sub dialog choices registered via `Info_AddChoice`
-    pub info_instance_id: u32, // TODO make optional or make Info_AddChoice a separate type
-    pub sequence_function_id: i32,
-    pub condition_function_id: i32,
+    /// Symbol of the `C_INFO` instance this root was loaded from, `None` for
+    /// sub dialog choices registered via `Info_AddChoice`
+    // TODO make Info_AddChoice a separate type
+    pub info_instance_id: Option<SymbolId>,
+    pub sequence_function_id: SymbolId,
+    /// `None` when the root has no condition function
+    pub condition_function_id: Option<SymbolId>,
     pub order: i32,
     pub description: String,
     pub important: bool,
@@ -83,18 +88,18 @@ pub struct DialogRoot {
 pub struct LoadedState {
     pub spawn_npcs: Vec<SpawnNpc>,
     pub spawn_items: Vec<SpawnItem>,
-    pub instance_data: HashMap<u32, InstanceState>,
+    pub instance_data: HashMap<SymbolId, InstanceState>,
     pub item_instances: HashMap<String, ItemInstance>,
-    pub dialog_roots: HashMap<u32, Vec<DialogRoot>>,
+    pub dialog_roots: HashMap<SymbolId, Vec<DialogRoot>>,
     /// Animations requested via `AI_PlayAni(BS)` by the last executed routine
     /// state function, keyed by npc instance index, in request order.
-    pub routine_played_anis: HashMap<u32, Vec<String>>,
+    pub routine_played_anis: HashMap<SymbolId, Vec<String>>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct DialogLine {
-    pub npc_a: i32,
-    pub npc_b: i32,
+    pub npc_a: SymbolId,
+    pub npc_b: SymbolId,
     pub line_id: i32,
     pub line_str: String,
 }

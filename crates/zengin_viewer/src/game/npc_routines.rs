@@ -29,8 +29,8 @@ struct NpcRoutineState {
 #[derive(Component, Default)]
 struct NpcRoutineAnimation {
     /// State function of the routine entry whose animation was applied last,
-    /// `0` when none was applied yet.
-    applied_state_fn: u32,
+    /// `None` when none was applied yet.
+    applied_state_fn: Option<SymbolId>,
 }
 
 #[derive(Resource, Default)]
@@ -82,10 +82,7 @@ fn update_npc_routines(
     let loaded_state = gothic_script.get_loaded_state();
 
     for (entity, npc, mut tr, routine_state) in &mut npcs {
-        let Some(instance) = loaded_state
-            .instance_data
-            .get(&(npc.npc_instance_id as u32))
-        else {
+        let Some(instance) = loaded_state.instance_data.get(&npc.npc_instance_id) else {
             continue;
         };
         let Some(entry) = instance.get_routine_entry(minutes) else {
@@ -176,21 +173,21 @@ fn update_npc_routine_animations(
             let loaded_state = gothic_script.get_loaded_state();
             let Some(entry) = loaded_state
                 .instance_data
-                .get(&(npc.npc_instance_id as u32))
+                .get(&npc.npc_instance_id)
                 .and_then(|instance| instance.get_routine_entry(minutes))
             else {
                 continue;
             };
-            if entry.state_fn == 0 || routine_animation.applied_state_fn == entry.state_fn {
+            let Some(state_fn) = entry.state_fn else {
+                continue;
+            };
+            if routine_animation.applied_state_fn == Some(state_fn) {
                 continue;
             }
-            entry.state_fn
+            state_fn
         };
 
-        routine_animation.applied_state_fn = state_fn;
-        let Some(state_fn) = SymbolId::new(state_fn as i32) else {
-            continue;
-        };
+        routine_animation.applied_state_fn = Some(state_fn);
         let played_anis = gothic_script.call_routine_state_function(npc.npc_instance_id, state_fn);
         let Some(ani) = choose_routine_animation(&played_anis) else {
             continue;

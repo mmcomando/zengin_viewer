@@ -45,9 +45,9 @@ pub(super) struct DialogUiState {
     /// functions
     script: ScriptResource,
     pub(super) npc_entity: Option<Entity>,
-    pub(super) npc_player: i32,
-    /// Script instance id of the npc the dialog is open with
-    pub(super) npc_talk_to: i32,
+    pub(super) npc_player: Option<SymbolId>,
+    /// Script instance of the npc the dialog is open with
+    pub(super) npc_talk_to: Option<SymbolId>,
     pub(super) dialog_roots: Vec<DialogRoot>,
     /// Sub dialog choices populated by the last executed option, shown instead
     /// of `dialog_roots` when not empty
@@ -67,8 +67,8 @@ impl FromWorld for DialogUiState {
         Self {
             script: world.resource::<ScriptResource>().clone(),
             npc_entity: None,
-            npc_player: 0,
-            npc_talk_to: 0,
+            npc_player: None,
+            npc_talk_to: None,
             dialog_roots: Vec::new(),
             sub_choices: Vec::new(),
             selected_index: 0,
@@ -89,14 +89,14 @@ impl DialogUiState {
     pub(super) fn open(
         &mut self,
         npc_entity: Entity,
-        npc_self: i32,
-        npc_talk_to: i32,
+        npc_self: SymbolId,
+        npc_talk_to: SymbolId,
         dialog_roots: Vec<DialogRoot>,
         npc_name: String,
     ) {
         self.npc_entity = Some(npc_entity);
-        self.npc_player = npc_self;
-        self.npc_talk_to = npc_talk_to;
+        self.npc_player = Some(npc_self);
+        self.npc_talk_to = Some(npc_talk_to);
         self.dialog_roots = dialog_roots;
         self.sub_choices.clear();
         self.reset_to_options();
@@ -158,25 +158,27 @@ impl DialogUiState {
             self.close();
             return;
         };
+        let Some(npc_player) = self.npc_player else {
+            return;
+        };
+        let Some(npc_talk_to) = self.npc_talk_to else {
+            return;
+        };
         let sequence_function_id = root.sequence_function_id;
         let info_instance_id = root.info_instance_id;
 
         let dialog_line_views = {
             let mut gothic_script = self.script.lock();
-            gothic_script.mark_info_known(self.npc_player, info_instance_id);
+            gothic_script.mark_info_known(npc_player, info_instance_id);
             // Sub choices are cleared before running a root level option
             gothic_script.clear_sub_dialog_choices();
             gothic_script.clear_dialog_lines();
             // Dialog functions are executed with `self` bound to the npc the dialog
             // is open with, like the original engine does for every dialog call
-            gothic_script.set_self(self.npc_talk_to);
-            gothic_script.set_other(self.npc_player);
-            gothic_script.set_instance(self.npc_talk_to);
+            gothic_script.set_self(npc_talk_to);
+            gothic_script.set_other(npc_player);
+            gothic_script.set_instance(npc_talk_to);
             // TODO call set_self and set_instance in call_dialog_sequence_function
-            let Some(sequence_function_id) = SymbolId::new(sequence_function_id) else {
-                println!("Invalid sequence function id {sequence_function_id}");
-                return;
-            };
             gothic_script.call_dialog_sequence_function(sequence_function_id);
 
             // The executed option may have registered sub dialog choices, take a
@@ -202,12 +204,15 @@ impl DialogUiState {
         if !self.sub_choices.is_empty() {
             return;
         }
+        let (Some(npc_player), Some(npc_talk_to)) = (self.npc_player, self.npc_talk_to) else {
+            return;
+        };
         let mut gothic_script = self.script.lock();
         let close_dialog = gothic_script.close_dialog();
         let roots = if close_dialog {
             None
         } else {
-            super::npc_dialog_roots(&mut gothic_script, self.npc_player, self.npc_talk_to)
+            super::npc_dialog_roots(&mut gothic_script, npc_player, npc_talk_to)
         };
         // The guard borrows `self`, drop it before mutating the state
         drop(gothic_script);

@@ -35,13 +35,13 @@ impl Plugin for GameDialogPlugin {
 /// by their condition functions and drops the important ones
 fn npc_dialog_roots(
     gothic_script: &mut ScriptManager,
-    npc_player: i32,
-    npc_talk_to: i32,
+    npc_player: SymbolId,
+    npc_talk_to: SymbolId,
 ) -> Option<Vec<DialogRoot>> {
     let mut roots = gothic_script
         .get_loaded_state()
         .dialog_roots
-        .get(&(npc_talk_to as u32))?
+        .get(&npc_talk_to)?
         .clone();
     gothic_script.filter_dialog_roots(npc_player, npc_talk_to, &mut roots);
     roots.retain(|root| !root.important);
@@ -101,11 +101,7 @@ fn show_closest_npc_dialog(
     println!("Closest npc: {}", closest_npc.npc_instance_id);
 
     let mut gothic_script = gothic_script.lock();
-    let Some(npc_instance_id) = SymbolId::new(closest_npc.npc_instance_id) else {
-        println!("Invalid npc instance id {}", closest_npc.npc_instance_id);
-        return;
-    };
-    let npc_name = gothic_script.call_get_name(npc_instance_id);
+    let npc_name = gothic_script.call_get_name(closest_npc.npc_instance_id);
 
     let Some(dialog_roots) = npc_dialog_roots(
         &mut gothic_script,
