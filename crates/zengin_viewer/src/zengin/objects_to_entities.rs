@@ -1,11 +1,16 @@
-use crate::game::animation::{AnimationController, LocomotionSequencer, create_skinned_mesh_data};
+use std::sync::Arc;
+use std::sync::atomic::AtomicU32;
+
+use crate::game::animation::{
+    AnimatedJoint, AnimationController, AnimationData, AnimationState, BoneAnimationData,
+    FrameState, LocomotionSequencer,
+};
 use crate::game::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::game::objects::{NpcAnimations, NpcModel};
 use crate::gui::toggle_visibility::NpcVisibility;
 use crate::warn_once;
 use crate::zengin::GameNpc;
 use crate::zengin::common::ZenGinModel;
-use crate::zengin::loaders::animation::AnimationData;
 use crate::zengin::zengin_resources::{
     MaterialHandles, ZenGinModelComponent, despawn_visual_when_far_resource,
 };
@@ -59,6 +64,87 @@ struct MovementHandles {
     move_start: Option<Handle<AnimationData>>,
     move_loop: Handle<AnimationData>,
     move_stop: Option<Handle<AnimationData>>,
+}
+
+fn create_skinned_mesh_data(
+    commands: &mut Commands,
+    skinned_mesh_inverse_bindposes_assets: &mut ResMut<Assets<SkinnedMeshInverseBindposes>>,
+    skeleton_parent: Entity,
+    model: &ZenGinModel,
+    animation_data: Option<&AnimationData>,
+) -> Option<SkinnedMesh> {
+    let is_skinned = model.sub_meshes.iter().any(|el| el.is_skinned);
+    if !is_skinned {
+        return None;
+    }
+
+    // Find node with name BIP01
+    let base_pos_index = model
+        .node_names
+        .iter()
+        .position(|el| el == "BIP01")
+        .unwrap_or(0);
+
+    let animation_data = Arc::new(animation_data.cloned().unwrap_or(AnimationData::default()));
+
+    let frame_state = Arc::new(FrameState {
+        start_frame: AtomicU32::new(0),
+        end_frame: AtomicU32::new(1),
+        mul_1000: AtomicU32::new(0),
+    });
+
+    commands.entity(skeleton_parent).insert(AnimationState {
+        frame_state: frame_state.clone(),
+        fps: animation_data.fps,
+        frames_num: animation_data.frames_num as usize,
+        time_us: AtomicU32::new(0),
+        movement: animation_data.root_movement(base_pos_index),
+        base_pos_node_index: base_pos_index,
+    });
+
+    let joint_entities: Vec<_> = model
+        .nodes
+        .iter()
+        .enumerate()
+        .map(|(index, el)| {
+            commands
+                .spawn((
+                    AnimatedJoint,
+                    BoneAnimationData {
+                        skeleton: skeleton_parent,
+                        node_index: index,
+                        is_base_pos_bone: index == base_pos_index,
+                        bone_index: animation_data.get_index_for_bone(index),
+                        animation_data: animation_data.clone(),
+                        frame_state: frame_state.clone(),
+                    },
+                    *el,
+                    Visibility::Inherited,
+                ))
+                .id()
+        })
+        .collect();
+
+    for (index, ent) in joint_entities.iter().enumerate() {
+        let parent = model.parents[index];
+        if parent < 0 {
+            commands.entity(skeleton_parent).add_child(*ent);
+            continue;
+        }
+        commands
+            .entity(joint_entities[parent as usize])
+            .add_child(*ent);
+    }
+
+    let inverse_bindposes =
+        skinned_mesh_inverse_bindposes_assets.add(model.inverse_bindposes.clone());
+    assert!(!model.inverse_bindposes.is_empty());
+    assert!(!joint_entities.is_empty());
+    assert!(joint_entities.len() == model.inverse_bindposes.len());
+    return Some(SkinnedMesh {
+        inverse_bindposes,
+        joints: joint_entities,
+    });
 }
 
 #[allow(clippy::type_complexity)]

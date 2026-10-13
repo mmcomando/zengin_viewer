@@ -9,6 +9,7 @@ use crate::gui::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
 };
+use crate::zengin::statistics::StatisticsZengin;
 
 pub struct GameDebugUI;
 impl Plugin for GameDebugUI {
@@ -68,6 +69,7 @@ fn ui_example_system(
     mut contexts: EguiContexts,
     mut toggle_info: ResMut<ShowOptions>,
     statistics: Res<Statistics>,
+    statistics_zengin: Res<StatisticsZengin>,
     mut game_time: ResMut<GameTime>,
 ) -> Result {
     egui::Window::new("Info").show(contexts.ctx_mut()?, |ui| {
@@ -89,8 +91,8 @@ fn ui_example_system(
             add_visible_elements(
                 ui,
                 "Zengin Models",
-                statistics.zengin_models,
-                statistics.zengin_models_visible,
+                statistics_zengin.zengin_models,
+                statistics_zengin.zengin_models_visible,
             );
             add_visible_elements(
                 ui,
@@ -98,7 +100,12 @@ fn ui_example_system(
                 statistics.meshes,
                 statistics.meshes_visible,
             );
-            add_visible_elements(ui, "NPCs", statistics.npcs, statistics.npcs_visible);
+            add_visible_elements(
+                ui,
+                "NPCs",
+                statistics_zengin.npcs,
+                statistics_zengin.npcs_visible,
+            );
 
             add_checkbox(
                 ui,

@@ -4,10 +4,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use crate::character::move_and_slide;
 use crate::game::distance::DistanceNear;
 use crate::gui::toggle_visibility::show_gizmos;
-use crate::zengin::common::ZenGinModel;
-use crate::zengin::loaders::animation::AnimationData;
 use avian3d::prelude::LinearVelocity;
-use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
 #[derive(Default)]
@@ -28,6 +25,136 @@ impl Plugin for SkeletalAnimations {
             )
                 .chain(),
         );
+    }
+}
+
+/// Position and rotation of a bone in a single animation frame.
+#[derive(Debug, Clone, Copy)]
+pub struct AnimationSample {
+    pub position: Vec3,
+    pub rotation: Quat,
+}
+
+impl Default for AnimationSample {
+    fn default() -> Self {
+        Self {
+            position: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
+        }
+    }
+}
+
+/// Skeletal animation asset loaded from a zengin `.MAN` file.
+#[derive(TypePath, Asset, Debug, Clone, Default)]
+pub struct AnimationData {
+    samples: Vec<AnimationSample>,
+    bone_indices: Vec<u32>,
+    pub frames_num: u32,
+    pub fps: f32,
+}
+
+impl AnimationData {
+    /// Creates animation data from bone samples ordered frame by frame.
+    pub fn new(
+        samples: Vec<AnimationSample>,
+        bone_indices: Vec<u32>,
+        frames_num: u32,
+        fps: f32,
+    ) -> Self {
+        Self {
+            samples,
+            bone_indices,
+            frames_num,
+            fps,
+        }
+    }
+
+    pub fn get_bone_sample(&self, frame_index: usize, bone_index: usize) -> AnimationSample {
+        assert!(self.frames_num > 1);
+        let bones_num = self.bone_indices.len();
+        if let Some(sample) = self.samples.get(bones_num * frame_index + bone_index) {
+            return *sample;
+        }
+        if !self.samples.is_empty() {
+            return self.samples[0];
+        }
+        println!(
+            "Not found sample for frame_index({frame_index}), bone_index({bone_index}), all samples({}), bones_num({}), ii({})",
+            self.samples.len(),
+            bones_num,
+            bones_num * frame_index + bone_index
+        );
+        return AnimationSample::default();
+    }
+
+    pub fn get_index_for_bone(&self, bone_index: usize) -> Option<usize> {
+        self.bone_indices
+            .iter()
+            .position(|el| *el == bone_index as u32)
+    }
+
+    pub fn get_movement(&self, bone_index: usize) -> Vec<f32> {
+        let local_bone_index = self.get_index_for_bone(bone_index).unwrap();
+
+        let mut movement = vec![];
+
+        let start = self.get_bone_sample(0, local_bone_index).position.z;
+
+        for frame_index in 0..self.frames_num as usize {
+            let position = self.get_bone_sample(frame_index, local_bone_index).position;
+            movement.push(position.z - start);
+        }
+        return movement;
+    }
+
+    #[allow(clippy::cast_precision_loss)]
+    pub fn compute_average_min_max_position_for_bone(
+        &self,
+        bone_index: usize,
+    ) -> Option<(Vec3, Vec3, Vec3)> {
+        let local_bone_index = self.get_index_for_bone(bone_index)?;
+        let bones_num = self.bone_indices.len();
+        if bones_num == 0 || self.frames_num == 0 {
+            return None;
+        }
+
+        let first_sample = self.get_bone_sample(0, local_bone_index);
+        let mut position_sum = Vec3::ZERO;
+        let mut min_position = first_sample.position;
+        let mut max_position = first_sample.position;
+
+        for frame_index in 0..self.frames_num as usize {
+            let position = self.get_bone_sample(frame_index, local_bone_index).position;
+            position_sum += position;
+            min_position = min_position.min(position);
+            max_position = max_position.max(position);
+        }
+
+        let average_position = position_sum / self.frames_num as f32;
+        Some((average_position, min_position, max_position))
+    }
+
+    pub fn bone_has_movement(&self, bone_index: usize) -> bool {
+        let Some((_average_position, min_position, max_position)) =
+            self.compute_average_min_max_position_for_bone(bone_index)
+        else {
+            return false;
+        };
+
+        if max_position.z - min_position.z < 0.4 {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// Root movement of the base pos bone, if the animation moves it
+    pub fn root_movement(&self, base_pos_node_index: usize) -> Option<Vec<f32>> {
+        if self.bone_has_movement(base_pos_node_index) {
+            Some(self.get_movement(base_pos_node_index))
+        } else {
+            None
+        }
     }
 }
 
@@ -107,87 +234,6 @@ pub struct LocomotionSequencer {
     pub move_loop: Handle<AnimationData>,
     /// Played once when the entity stops moving
     pub move_stop: Option<Handle<AnimationData>>,
-}
-
-pub fn create_skinned_mesh_data(
-    commands: &mut Commands,
-    skinned_mesh_inverse_bindposes_assets: &mut ResMut<Assets<SkinnedMeshInverseBindposes>>,
-    skeleton_parent: Entity,
-    model: &ZenGinModel,
-    animation_data: Option<&AnimationData>,
-) -> Option<SkinnedMesh> {
-    let is_skinned = model.sub_meshes.iter().any(|el| el.is_skinned);
-    if !is_skinned {
-        return None;
-    }
-
-    // Find node with name BIP01
-    let base_pos_index = model
-        .node_names
-        .iter()
-        .position(|el| el == "BIP01")
-        .unwrap_or(0);
-
-    let animation_data = Arc::new(animation_data.cloned().unwrap_or(AnimationData::default()));
-
-    let frame_state = Arc::new(FrameState {
-        start_frame: AtomicU32::new(0),
-        end_frame: AtomicU32::new(1),
-        mul_1000: AtomicU32::new(0),
-    });
-
-    commands.entity(skeleton_parent).insert(AnimationState {
-        frame_state: frame_state.clone(),
-        fps: animation_data.fps,
-        frames_num: animation_data.frames_num as usize,
-        time_us: AtomicU32::new(0),
-        movement: root_movement(&animation_data, base_pos_index),
-        base_pos_node_index: base_pos_index,
-    });
-
-    let joint_entities: Vec<_> = model
-        .nodes
-        .iter()
-        .enumerate()
-        .map(|(index, el)| {
-            commands
-                .spawn((
-                    AnimatedJoint,
-                    BoneAnimationData {
-                        skeleton: skeleton_parent,
-                        node_index: index,
-                        is_base_pos_bone: index == base_pos_index,
-                        bone_index: animation_data.get_index_for_bone(index),
-                        animation_data: animation_data.clone(),
-                        frame_state: frame_state.clone(),
-                    },
-                    *el,
-                    Visibility::Inherited,
-                ))
-                .id()
-        })
-        .collect();
-
-    for (index, ent) in joint_entities.iter().enumerate() {
-        let parent = model.parents[index];
-        if parent < 0 {
-            commands.entity(skeleton_parent).add_child(*ent);
-            continue;
-        }
-        commands
-            .entity(joint_entities[parent as usize])
-            .add_child(*ent);
-    }
-
-    let inverse_bindposes =
-        skinned_mesh_inverse_bindposes_assets.add(model.inverse_bindposes.clone());
-    assert!(!model.inverse_bindposes.is_empty());
-    assert!(!joint_entities.is_empty());
-    assert!(joint_entities.len() == model.inverse_bindposes.len());
-    return Some(SkinnedMesh {
-        inverse_bindposes,
-        joints: joint_entities,
-    });
 }
 
 fn draw_bones(
@@ -293,15 +339,6 @@ fn root_displacement(movement: &[f32], total: f32, progress: f32) -> f32 {
     let start = movement[segment];
     let end = movement.get(segment + 1).copied().unwrap_or(total);
     start + (end - start) * factor
-}
-
-/// Root movement of the base pos bone, if the animation moves it
-fn root_movement(data: &AnimationData, base_pos_node_index: usize) -> Option<Vec<f32>> {
-    if data.bone_has_movement(base_pos_node_index) {
-        Some(data.get_movement(base_pos_node_index))
-    } else {
-        None
-    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -487,7 +524,7 @@ fn update_animations(
             let next_data = Arc::new(next_data.clone());
             data.fps = next_data.fps;
             data.frames_num = next_data.frames_num as usize;
-            data.movement = root_movement(&next_data, data.base_pos_node_index);
+            data.movement = next_data.root_movement(data.base_pos_node_index);
             // New animation starts from its first frame
             data.time_us.store(0, Ordering::Release);
             data.frame_state.start_frame.store(0, Ordering::Release);

@@ -35,12 +35,13 @@ use crate::gui::toggle_visibility::ToggleVisibility;
 use crate::gui::xr::{XrPlugin, is_xr_enabled};
 use crate::input::InputPlugin;
 use crate::skybox::SkyBoxPlugin;
-use crate::zengin::ZenGinWorldPlugin;
 use crate::zengin::dialog::GameDialogPlugin;
 use crate::zengin::loaders::vdf_reader::{create_zengin_asset_loader, create_zengin_vfs};
 use crate::zengin::npc_routines::NpcRoutinesPlugin;
 use crate::zengin::script::component::GothicScriptsPlugin;
 use crate::zengin::sounds::SpeechSounds;
+use crate::zengin::statistics::StatisticsZenginPlugin;
+use crate::zengin::world_plugin::ZenGinWorldPlugin;
 use avian3d::prelude::*;
 
 use bevy::prelude::*;
@@ -86,6 +87,7 @@ fn main() {
         .add_plugins(NpcRoutinesPlugin)
         .add_plugins(GameDebugUI)
         .add_plugins(StatisticsPlugin)
+        .add_plugins(StatisticsZenginPlugin)
         .add_plugins(GothicScriptsPlugin)
         .add_plugins(GameDialogPlugin)
         .add_plugins(GameAudioPlugin)
