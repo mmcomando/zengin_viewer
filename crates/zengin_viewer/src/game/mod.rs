@@ -5,3 +5,4 @@ pub mod distance;
 pub mod game_time;
 pub mod lighting;
 pub mod objects;
+pub mod render_options;

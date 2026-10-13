@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use std::f32::consts::PI;
 
 use super::game_time::GameTime;
+use super::render_options::RenderOptions;
 
 /// Spawns the sun/moon light and adjusts day/night lighting from the game time.
 pub struct LightingPlugin;
@@ -49,9 +50,9 @@ const DAY_AMBIENT_BRIGHTNESS: f32 = 200.0;
 // - Draw only near lights (frustum for lights takes considerable amount of time)
 // - Animate only near objects
 // - Less demanding shadows
-const PREFER_PERF: bool = false;
+// Toggle via `RenderOptions.prefer_perf` in the debug UI.
 
-fn spawn_lights(mut commands: Commands) {
+fn spawn_lights(mut commands: Commands, render_options: Res<RenderOptions>) {
     let cascade_shadow_config = CascadeShadowConfigBuilder {
         // first_cascade_far_bound: 50.0, // default: 10.0
         // maximum_distance: 2000.0, // default: 150.0
@@ -65,7 +66,7 @@ fn spawn_lights(mut commands: Commands) {
     let light = DirectionalLight {
         color: Color::from(tailwind::SKY_50),
         illuminance: bevy::light::light_consts::lux::OVERCAST_DAY,
-        shadow_maps_enabled: !PREFER_PERF,
+        shadow_maps_enabled: render_options.sun_shadow_maps,
         // contact_shadows_enabled: true,
         ..default()
     };
@@ -95,6 +96,7 @@ fn spawn_lights(mut commands: Commands) {
 /// Day from 4:00 sunrise to 22:00 sunset. At night the light acts as the moon.
 pub(super) fn update_day_night_lighting(
     game_time: Res<GameTime>,
+    render_options: Res<RenderOptions>,
     mut sun_query: Query<(&mut DirectionalLight, &mut Transform), With<SunLight>>,
     mut ambient_light: ResMut<GlobalAmbientLight>,
     mut skyboxes: Query<&mut Skybox>,
@@ -114,6 +116,7 @@ pub(super) fn update_day_night_lighting(
 
         light.color = NIGHT_LIGHT_COLOR.mix(&Color::from(tailwind::SKY_50), day_factor);
         light.illuminance = NIGHT_ILLUMINANCE + (DAY_ILLUMINANCE - NIGHT_ILLUMINANCE) * day_factor;
+        light.shadow_maps_enabled = render_options.sun_shadow_maps;
     }
 
     ambient_light.brightness =

@@ -1,4 +1,4 @@
-use crate::ENABLE_DISCO_SHADOW_MAPS;
+use crate::game::render_options::RenderOptions;
 
 use avian3d::math::PI;
 
@@ -13,6 +13,7 @@ impl Plugin for DiscoLamp {
 
         app.add_systems(Update, entity_rotate);
         app.add_systems(Update, draw_lights);
+        app.add_systems(Update, sync_disco_shadows);
     }
 }
 
@@ -24,7 +25,11 @@ pub struct DrawGizmo {
     color: Color,
 }
 
-fn spawn_disco(mut commands: Commands) {
+/// Marks the disco lamp point lights controlled by [`sync_disco_shadows`].
+#[derive(Component, Default)]
+pub struct DiscoLight;
+
+fn spawn_disco(mut commands: Commands, render_options: Res<RenderOptions>) {
     let mut entity = commands.spawn((
         Visibility::default(),
         Transform::from_xyz(-99.0, 6.0, -8.0),
@@ -37,10 +42,11 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadow_maps_enabled: ENABLE_DISCO_SHADOW_MAPS,
+            shadow_maps_enabled: render_options.disco_shadow_maps,
             ..default()
         },
         Transform::from_xyz(0.0, 0.0, 3.0),
+        DiscoLight,
         DrawGizmo {
             color: Color::from(tailwind::RED_500),
         },
@@ -51,10 +57,11 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadow_maps_enabled: ENABLE_DISCO_SHADOW_MAPS,
+            shadow_maps_enabled: render_options.disco_shadow_maps,
             ..default()
         },
         Transform::from_xyz(0.0, 0.0, -3.0),
+        DiscoLight,
         DrawGizmo {
             color: Color::from(tailwind::GREEN_500),
         },
@@ -65,10 +72,11 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadow_maps_enabled: ENABLE_DISCO_SHADOW_MAPS,
+            shadow_maps_enabled: render_options.disco_shadow_maps,
             ..default()
         },
         Transform::from_xyz(3.0, 0.0, 0.0),
+        DiscoLight,
         DrawGizmo {
             color: Color::from(tailwind::BLUE_500),
         },
@@ -79,10 +87,11 @@ fn spawn_disco(mut commands: Commands) {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT / 3.0,
             range: 100.0,
             radius: 10.0,
-            shadow_maps_enabled: ENABLE_DISCO_SHADOW_MAPS,
+            shadow_maps_enabled: render_options.disco_shadow_maps,
             ..default()
         },
         Transform::from_xyz(-3.0, 0.0, 0.0),
+        DiscoLight,
         DrawGizmo {
             color: Color::from(tailwind::PINK_500),
         },
@@ -99,5 +108,14 @@ fn entity_rotate(time: Res<Time>, query: Query<&mut Transform, With<EntityRotate
 fn draw_lights(mut gizmos: Gizmos, query: Query<(&GlobalTransform, &DrawGizmo)>) {
     for (tr, draw_gizmo) in query {
         gizmos.sphere(tr.translation(), 0.1, draw_gizmo.color);
+    }
+}
+
+fn sync_disco_shadows(
+    render_options: Res<RenderOptions>,
+    mut lights: Query<&mut PointLight, With<DiscoLight>>,
+) {
+    for mut light in &mut lights {
+        light.shadow_maps_enabled = render_options.disco_shadow_maps;
     }
 }

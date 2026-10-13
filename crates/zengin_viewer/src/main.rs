@@ -28,6 +28,7 @@ use crate::game::disco_lamp::DiscoLamp;
 use crate::game::distance::DistancePlugin;
 use crate::game::game_time::GameTimePlugin;
 use crate::game::lighting::LightingPlugin;
+use crate::game::render_options::RenderOptionsPlugin;
 use crate::gui::camera::get_overlay_plugin;
 use crate::gui::egui::GameDebugUI;
 use crate::gui::statistics::StatisticsPlugin;
@@ -79,6 +80,7 @@ fn main() {
         .add_plugins(DiscoLamp)
         .add_plugins(DistancePlugin)
         .add_plugins(GameTimePlugin)
+        .add_plugins(RenderOptionsPlugin)
         .add_plugins(LightingPlugin)
         .add_plugins(GameDebugUI)
         .add_plugins(StatisticsPlugin)
@@ -88,7 +90,3 @@ fn main() {
     // Run
     app.run();
 }
-
-// Shadow maps are very heavy and disco demo uses 4 of them tanking performance
-// Enabling this make fps go from 300 to 80
-const ENABLE_DISCO_SHADOW_MAPS: bool = false;

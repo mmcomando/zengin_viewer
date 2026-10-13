@@ -38,10 +38,7 @@ cargo run
 Currently rendering shadow textures takes a LOT of time because it draws almos all objects on the map.
 All game objects are drawn and computed every frame so bad performance is expected.
 
-Due to shadows performance hit they are disabled by default. To enable them, change this constant to false:
-```rust
-const PREFER_PERF: bool = true;
-```
+Due to shadows performance hit they are disabled by default. They can be toggled at runtime in the debug UI with the "Prefer Performance" checkbox.
 
 # Plans
 I plan to support scripts by recompiling zengin binary scripts to wasm and support host functions using wasm component model.

@@ -5,6 +5,7 @@ use bevy_egui::{
 };
 
 use crate::game::game_time::GameTime;
+use crate::game::render_options::RenderOptions;
 use crate::gui::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
@@ -71,6 +72,7 @@ fn ui_example_system(
     statistics: Res<Statistics>,
     statistics_zengin: Res<StatisticsZengin>,
     mut game_time: ResMut<GameTime>,
+    mut render_options: ResMut<RenderOptions>,
 ) -> Result {
     egui::Window::new("Info").show(contexts.ctx_mut()?, |ui| {
         let mut visibility_settings_changed = false;
@@ -131,6 +133,19 @@ fn ui_example_system(
                 ui,
                 "Show Gizmos",
                 &mut toggle_info.show_gizmos,
+                &mut visibility_settings_changed,
+            );
+            // Render options apply immediately, no message needed.
+            add_checkbox(
+                ui,
+                "Sun Shadow Maps",
+                &mut render_options.sun_shadow_maps,
+                &mut visibility_settings_changed,
+            );
+            add_checkbox(
+                ui,
+                "Disco Shadow Maps",
+                &mut render_options.disco_shadow_maps,
                 &mut visibility_settings_changed,
             );
         });
