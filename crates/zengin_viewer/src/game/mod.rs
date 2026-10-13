@@ -1,11 +1,7 @@
 pub mod animation;
 pub mod audio;
-pub mod dialog;
 pub mod disco_lamp;
 pub mod distance;
 pub mod game_time;
 pub mod lighting;
-pub mod npc_routines;
 pub mod objects;
-pub mod objects_to_entities;
-pub mod time;

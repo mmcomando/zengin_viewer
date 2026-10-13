@@ -1,14 +1,6 @@
 use bevy::ecs::component::Component;
 
-use crate::zengin::script::symbol_id::InstanceId;
-
-/// Identifies the npc's script instance.
-#[derive(Debug, Component)]
-pub struct GameNpc {
-    pub npc_instance_id: InstanceId,
-}
-
-/// Visual model data of an npc, requires [`GameNpc`] on the same entity.
+/// Visual model data of an npc
 #[derive(Debug, Default, Component)]
 pub struct NpcModel {
     /// Bone hierarchy path
@@ -26,7 +18,7 @@ pub struct NpcModel {
     pub armor_model: Option<String>,
 }
 
-/// Animation config of an npc, requires [`GameNpc`] on the same entity.
+/// Animation config of an npc
 #[derive(Debug, Default, Component)]
 pub struct NpcAnimations {
     /// Animation played when [`Self::movement_animations`] is not set,

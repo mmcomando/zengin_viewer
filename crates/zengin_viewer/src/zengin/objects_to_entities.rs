@@ -1,8 +1,9 @@
 use crate::game::animation::{AnimationController, LocomotionSequencer, create_skinned_mesh_data};
 use crate::game::distance::{ClassifyDistance, DistanceFar, DistanceNear};
-use crate::game::objects::{GameNpc, NpcAnimations, NpcModel};
+use crate::game::objects::{NpcAnimations, NpcModel};
 use crate::gui::toggle_visibility::NpcVisibility;
 use crate::warn_once;
+use crate::zengin::GameNpc;
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::loaders::animation::AnimationData;
 use crate::zengin::zengin_resources::{

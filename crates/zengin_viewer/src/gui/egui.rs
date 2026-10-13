@@ -4,7 +4,7 @@ use bevy_egui::{
     egui::{self, Ui},
 };
 
-use crate::game::time::{GameTime, clock_string, parse_clock_string};
+use crate::game::game_time::GameTime;
 use crate::gui::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
@@ -34,6 +34,33 @@ fn add_visible_elements(ui: &mut Ui, label: &str, value_all: i64, value_visible:
     ui.add_enabled(false, egui::DragValue::new(&mut value_visible_mut));
     ui.add_enabled(false, egui::DragValue::new(&mut value_all_mut));
     ui.end_row();
+}
+
+fn hour_of(total_hours: f32) -> u32 {
+    (total_hours.floor() as u32) % 24
+}
+
+fn minute_of(total_hours: f32) -> u32 {
+    (total_hours.fract() * 60.0).floor() as u32
+}
+
+/// Formats hours in `[0, 24)` as a `HH:MM` clock string.
+fn clock_string(total_hours: f32) -> String {
+    format!("{:02}:{:02}", hour_of(total_hours), minute_of(total_hours))
+}
+
+/// Parses `HH:MM` (a missing part defaults to `0`) into hours in `[0, 24)`.
+fn parse_clock_string(text: &str) -> Option<f32> {
+    let (hour, minute) = match text.trim().split_once(':') {
+        Some((hour, minute)) => (hour, minute),
+        None => (text.trim(), "0"),
+    };
+    let hour: f32 = hour.trim().parse().ok()?;
+    let minute: f32 = minute.trim().parse().ok()?;
+    if !(0.0..=23.0).contains(&hour) || !(0.0..=59.0).contains(&minute) {
+        return None;
+    }
+    Some(hour + minute / 60.0)
 }
 
 fn ui_example_system(

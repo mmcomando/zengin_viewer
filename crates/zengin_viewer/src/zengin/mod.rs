@@ -1,9 +1,10 @@
 pub mod common;
 pub mod conversions;
-#[cfg(test)]
-mod debug_zengin_scripts;
+pub mod dialog;
 pub mod loaders;
 pub mod macros;
+pub mod npc_routines;
+pub mod objects_to_entities;
 pub mod script;
 pub mod sounds;
 pub mod visual;
@@ -12,15 +13,17 @@ pub mod zengin_resources;
 
 use crate::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
+    PlayerPhysicsBodyMarker,
 };
 use crate::game::distance::ClassifyDistance;
-use crate::game::npc_routines::WayPoints;
-use crate::game::objects::{GameNpc, MovementAnimations, NpcAnimations, NpcModel};
-use crate::game::objects_to_entities::GameObjectSpawnEntities;
-use crate::game::time::GameTime;
+use crate::game::game_time::GameTime;
+use crate::game::objects::{MovementAnimations, NpcAnimations, NpcModel};
 use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::ZenGinModel;
+use crate::zengin::npc_routines::WayPoints;
+use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::world::load_zengin_world_data;
 use avian3d::math::PI;
 use avian3d::prelude::*;
@@ -28,6 +31,10 @@ use bevy::{color::palettes::tailwind, prelude::*};
 use zengin_resources::{
     DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
 };
+
+// Used to debug data, it is more like a tool than a test
+#[cfg(test)]
+mod debug_zengin_scripts;
 
 #[derive(Default)]
 pub struct ZenGinWorldPlugin;
@@ -41,8 +48,11 @@ impl Plugin for ZenGinWorldPlugin {
     }
 }
 
-#[derive(Default, Component)]
-pub struct PlayerPhysicsBodyMarker;
+/// Identifies the npc's script instance.
+#[derive(Debug, Component)]
+pub struct GameNpc {
+    pub npc_instance_id: InstanceId,
+}
 
 #[derive(Default, Component)]
 pub struct PlayerNpc;

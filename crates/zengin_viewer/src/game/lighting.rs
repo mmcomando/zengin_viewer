@@ -1,12 +1,19 @@
 use bevy::color::palettes::tailwind;
 use bevy::core_pipeline::Skybox;
+use bevy::light::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
 use std::f32::consts::PI;
 
-use super::time::GameTime;
+use super::game_time::GameTime;
 
-pub(super) fn add_systems(app: &mut App) {
-    app.add_systems(Update, update_day_night_lighting);
+/// Spawns the sun/moon light and adjusts day/night lighting from the game time.
+pub struct LightingPlugin;
+
+impl Plugin for LightingPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, spawn_lights);
+        app.add_systems(Update, update_day_night_lighting);
+    }
 }
 
 /// Marks the directional light representing the sun/moon,
@@ -34,6 +41,56 @@ const NIGHT_SKYBOX_BRIGHTNESS: f32 = 100.0;
 const DAY_ILLUMINANCE: f32 = bevy::light::light_consts::lux::OVERCAST_DAY;
 const DAY_SKYBOX_BRIGHTNESS: f32 = 1000.0;
 const DAY_AMBIENT_BRIGHTNESS: f32 = 200.0;
+
+// Lightning takes a LOT of resources as it is basicly rendering whole world with all entities
+// TODO performance:
+// - Draw only near objects
+// - Limit objects casting shadows
+// - Draw only near lights (frustum for lights takes considerable amount of time)
+// - Animate only near objects
+// - Less demanding shadows
+const PREFER_PERF: bool = false;
+
+fn spawn_lights(mut commands: Commands) {
+    let cascade_shadow_config = CascadeShadowConfigBuilder {
+        // first_cascade_far_bound: 50.0, // default: 10.0
+        // maximum_distance: 2000.0, // default: 150.0
+        maximum_distance: 500.0, // default: 150.0
+        ..default()
+    }
+    .build();
+
+    // Initial values match noon of the day/night cycle from `game_time`.
+    // The `update_day_night_lighting` system adjusts them every frame afterwards.
+    let light = DirectionalLight {
+        color: Color::from(tailwind::SKY_50),
+        illuminance: bevy::light::light_consts::lux::OVERCAST_DAY,
+        shadow_maps_enabled: !PREFER_PERF,
+        // contact_shadows_enabled: true,
+        ..default()
+    };
+    let ambient_light = GlobalAmbientLight {
+        color: Color::linear_rgb(1.0, 1.0, 1.0),
+        brightness: 200.0,
+        ..default()
+    };
+
+    commands.insert_resource(ambient_light);
+
+    commands.spawn((
+        light,
+        SunLight,
+        Transform::from_xyz(1000.0, 1000.0, -10.0).looking_at(
+            Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            Vec3::Y,
+        ),
+        cascade_shadow_config,
+    ));
+}
 
 /// Day from 4:00 sunrise to 22:00 sunset. At night the light acts as the moon.
 pub(super) fn update_day_night_lighting(

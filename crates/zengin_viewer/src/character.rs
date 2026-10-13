@@ -5,7 +5,6 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::camera::{CameraResource, CurrentCamera};
 use crate::input::{GlobalInput, PlayerAction};
-use crate::zengin::PlayerPhysicsBodyMarker;
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
 /// with support for ground detection and configurable movement settings.
@@ -55,6 +54,10 @@ fn use_character_camera(info: Res<CameraResource>) -> bool {
     SpeculativeMargin(0.0)
 )]
 pub struct CharacterController;
+
+/// Marks the player physics body entity driven by [`CharacterController`].
+#[derive(Default, Component)]
+pub struct PlayerPhysicsBodyMarker;
 
 /// Component for configuring movement settings for a character controller.
 #[derive(Component)]

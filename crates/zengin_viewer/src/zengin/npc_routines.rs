@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
-use super::time::GameTime;
 use crate::game::animation::AnimationController;
-use crate::game::objects::GameNpc;
+use crate::game::game_time::{GameTime, advance_game_time};
+use crate::zengin::GameNpc;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::main::FunctionId;
 use crate::zengin::zengin_resources::MaterialHandles;
@@ -34,20 +34,25 @@ struct NpcRoutineAnimation {
 }
 
 #[derive(Resource, Default)]
-pub(super) struct NpcRoutineCheckState {
+struct NpcRoutineCheckState {
     last_checked_minute: Option<u32>,
 }
 
-pub(super) fn add_systems(app: &mut App) {
-    app.init_resource::<NpcRoutineCheckState>();
-    app.add_systems(
-        Update,
-        (
-            update_npc_routines,
-            update_npc_routine_animations.after(update_npc_routines),
-        )
-            .after(super::time::advance_game_time),
-    );
+/// Periodically teleports npcs to the waypoints of their active routine entries.
+pub struct NpcRoutinesPlugin;
+
+impl Plugin for NpcRoutinesPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<NpcRoutineCheckState>();
+        app.add_systems(
+            Update,
+            (
+                update_npc_routines,
+                update_npc_routine_animations.after(update_npc_routines),
+            )
+                .after(advance_game_time),
+        );
+    }
 }
 
 /// Periodically (on every in-game minute change) checks the active routine

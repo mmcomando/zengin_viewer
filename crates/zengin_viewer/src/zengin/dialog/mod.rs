@@ -2,12 +2,12 @@ mod state;
 mod ui;
 
 use crate::camera::{CameraResource, CurrentCamera};
-use crate::game::objects::GameNpc;
+use crate::character::PlayerPhysicsBodyMarker;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::main::InstanceId;
 use crate::zengin::script::main::ScriptManager;
 use crate::zengin::script::state::DialogRoot;
-use crate::zengin::{PlayerNpc, PlayerPhysicsBodyMarker};
+use crate::zengin::{GameNpc, PlayerNpc};
 use bevy::prelude::*;
 use state::DialogUiState;
 
