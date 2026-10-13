@@ -16,7 +16,7 @@ pub struct GameDebugUI;
 impl Plugin for GameDebugUI {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin::default());
-        app.add_systems(EguiPrimaryContextPass, ui_example_system);
+        app.add_systems(EguiPrimaryContextPass, ui_info_system);
     }
 }
 
@@ -65,7 +65,29 @@ fn parse_clock_string(text: &str) -> Option<f32> {
     Some(hour + minute / 60.0)
 }
 
-fn ui_example_system(
+/// Shows text in the top right corner with camera position and rotation.
+fn camera_info_overlay(context: &egui::Context, camera: &GlobalTransform) {
+    let position = camera.translation();
+    let (yaw, pitch, roll) = camera.rotation().to_euler(EulerRot::YXZ);
+    let degrees = |rad: f32| rad.to_degrees();
+    let text = format!(
+        "pos: {:6.1}, {:6.1}, {:6.1}\nrot: {:5.1} {:5.1} {:5.1}",
+        position.x,
+        position.y,
+        position.z,
+        degrees(yaw),
+        degrees(pitch),
+        degrees(roll)
+    );
+    egui::Area::new(egui::Id::new("camera_info"))
+        .anchor(egui::Align2::RIGHT_TOP, [-8.0, 8.0])
+        .show(context, |ui| {
+            let text = egui::RichText::new(text).monospace();
+            ui.add(egui::Label::new(text).wrap_mode(egui::TextWrapMode::Extend));
+        });
+}
+
+fn ui_info_system(
     mut statistics_changed: MessageWriter<OptionsChanged>,
     mut contexts: EguiContexts,
     mut toggle_info: ResMut<ShowOptions>,
@@ -73,7 +95,13 @@ fn ui_example_system(
     statistics_zengin: Res<StatisticsZengin>,
     mut game_time: ResMut<GameTime>,
     mut render_options: ResMut<RenderOptions>,
+    camera_query: Query<&GlobalTransform, With<Camera3d>>,
 ) -> Result {
+    let ctx = contexts.ctx_mut()?;
+    if let Ok(camera) = camera_query.single() {
+        camera_info_overlay(ctx, camera);
+    }
+
     egui::Window::new("Info")
         .default_open(false)
         .show(contexts.ctx_mut()?, |ui| {
