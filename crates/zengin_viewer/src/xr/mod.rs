@@ -1,3 +1,4 @@
+use bevy::log::info;
 use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
 use bevy::{prelude::*, window::PresentMode};
 use bevy_egui::egui::mutex::Mutex;
@@ -27,7 +28,7 @@ pub fn is_xr_enabled() -> bool {
     if let Ok(var) = std::env::var("ENABLE_XR")
         && ["1", "y", "yes"].contains(&var.to_ascii_lowercase().as_str())
     {
-        println!("-- Bevy XR plugin enabled --");
+        info!("-- Bevy XR plugin enabled --");
         let _ = XR_ENABLED_STATIC.set(true);
         return true;
     }

@@ -1,5 +1,6 @@
 use crate::zengin::{common::gothic2_dir, script::main::ScriptManager};
 use bevy::ecs::resource::Resource;
+use bevy::log::{info, warn};
 use bevy::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -41,24 +42,24 @@ fn load_gothic_script_manager() -> ScriptManager {
 
     // Load the symbol table before any script runs, host calls made during
     // initialization already verify typed symbol ids
-    println!("Load script symbol table");
+    info!("Load script symbol table");
     script.load_symbol_table();
 
-    println!("Call script initialize instances");
+    info!("Call script initialize instances");
     script.initialize_instances();
     let init_function_id = script.get_function_id("init_newworld");
-    println!("Call script init_newworld function");
+    info!("Call script init_newworld function");
     script.call_function(init_function_id);
     let startup_function_id = script.get_function_id("startup_newworld");
-    println!("Call script startup_newworld function");
+    info!("Call script startup_newworld function");
     script.call_function(startup_function_id);
-    println!("Call script npc routines");
+    info!("Call script npc routines");
     script.call_npc_routines();
-    println!("Call script load item instances");
+    info!("Call script load item instances");
     script.load_item_instances();
-    println!("Call script load npc instances");
+    info!("Call script load npc instances");
     script.load_npc_instances();
-    println!("Call script load dialog options");
+    info!("Call script load dialog options");
     script.load_dialogs_information();
 
     script
@@ -80,7 +81,7 @@ impl DialogTexts {
 fn load_dialog_texts() -> DialogTexts {
     let path = gothic2_dir() + "/_work/Data/Scripts/CONTENT/CUTSCENE/Ou.bin";
     let Some(bytes) = std::fs::read(&path).ok() else {
-        println!("Failed to read cutscene library from {path}, dialog lines will miss real texts");
+        error!("Failed to read cutscene library from {path}, dialog lines will miss real texts");
         return DialogTexts::default();
     };
     let read = Read::from_slice(&bytes).expect("failed to create reader for Ou.bin");

@@ -9,6 +9,7 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::main::InstanceId;
 use crate::zengin::script::main::ScriptManager;
 use crate::zengin::script::state::DialogRoot;
+use bevy::log::{info, warn};
 use bevy::prelude::*;
 use state::DialogUiState;
 
@@ -95,11 +96,11 @@ fn show_closest_npc_dialog(
             a_d.total_cmp(&b_d)
         })
     else {
-        println!("No npc closer than 5 meters");
+        info!("No npc closer than 5 meters");
         return;
     };
 
-    println!("Closest npc: {}", closest_npc.npc_instance_id);
+    info!("Closest npc: {}", closest_npc.npc_instance_id);
 
     let mut gothic_script = gothic_script.lock();
     let npc_name = gothic_script.call_get_name(closest_npc.npc_instance_id.symbol());
@@ -109,7 +110,7 @@ fn show_closest_npc_dialog(
         player_npc.npc_instance_id,
         closest_npc.npc_instance_id,
     ) else {
-        println!(
+        warn!(
             "No dialog_roots for npc({}), player({})",
             closest_npc.npc_instance_id, player_npc.npc_instance_id
         );

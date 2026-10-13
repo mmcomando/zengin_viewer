@@ -4,6 +4,7 @@ use crate::zengin::script::component::{DialogTexts, ScriptResource};
 use crate::zengin::script::main::InstanceId;
 use crate::zengin::script::state::{DialogLine, DialogRoot};
 use crate::zengin::sounds::SpeechSounds;
+use bevy::log::warn;
 use bevy::prelude::*;
 use std::time::Duration;
 
@@ -362,7 +363,7 @@ fn build_line_views(
         .map(|line| {
             let text = dialog_texts.get(&line.line_str).cloned();
             if text.is_none() {
-                println!(
+                warn!(
                     "Missing dialog text: npc_a({}) npc_b({}) line_id({}) block({})",
                     line.npc_a, line.npc_b, line.line_id, line.line_str
                 );

@@ -1,3 +1,4 @@
+use bevy::log::warn;
 use bevy::prelude::*;
 
 /// Position and rotation of a bone in a single animation frame.
@@ -50,7 +51,7 @@ impl AnimationData {
         if !self.samples.is_empty() {
             return self.samples[0];
         }
-        println!(
+        warn!(
             "Not found sample for frame_index({frame_index}), bone_index({bone_index}), all samples({}), bones_num({}), ii({})",
             self.samples.len(),
             bones_num,
