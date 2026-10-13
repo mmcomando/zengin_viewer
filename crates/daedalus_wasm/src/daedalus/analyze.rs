@@ -317,7 +317,6 @@ impl InstructionBlock {
                     if function_returns {
                         if stack_values.is_empty() {
                             // Some daedalus functions don't push any instructions where function seems to want to return false
-                            // TODO: Daedalus implicitly returns false?
                             instr.implicit_return = true;
                         } else {
                             mark_used.push(stack_values.pop().unwrap());
@@ -620,7 +619,6 @@ impl Block {
             _ => {} // Fall through if effects differ and neither branch returns
         }
         panic!(
-            // TODO if stack delta if different maybe value is just unused and has to be dropped
             "If-else branches leave different stack deltas: {} vs {}, it is illegal for wasm",
             then_delta.effect, else_delta.effect
         )

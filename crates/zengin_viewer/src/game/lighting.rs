@@ -43,14 +43,11 @@ const DAY_ILLUMINANCE: f32 = bevy::light::light_consts::lux::OVERCAST_DAY;
 const DAY_SKYBOX_BRIGHTNESS: f32 = 1000.0;
 const DAY_AMBIENT_BRIGHTNESS: f32 = 200.0;
 
-// Lightning takes a LOT of resources as it is basicly rendering whole world with all entities
+// Lightning takes a LOT of resources
 // TODO performance:
-// - Draw only near objects
 // - Limit objects casting shadows
 // - Draw only near lights (frustum for lights takes considerable amount of time)
-// - Animate only near objects
 // - Less demanding shadows
-// Toggle via `RenderOptions.prefer_perf` in the debug UI.
 
 fn spawn_lights(mut commands: Commands, render_options: Res<RenderOptions>) {
     let cascade_shadow_config = CascadeShadowConfigBuilder {

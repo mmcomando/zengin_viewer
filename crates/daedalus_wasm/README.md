@@ -24,5 +24,4 @@ This requires additional analysis pass gather information if daedalus instructio
 
 
 # TODO
-- support calling more instance functions
 - support setting and assigning strings

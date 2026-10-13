@@ -16,18 +16,18 @@
 #![allow(clippy::needless_pass_by_value, reason = "to decide")]
 #![allow(clippy::std_instead_of_alloc, reason = "to decide")]
 // Panics
-#![allow(clippy::expect_used, reason = "TODO")]
-#![allow(clippy::indexing_slicing, reason = "TODO")]
-#![allow(clippy::panic, reason = "TODO")]
-#![allow(clippy::unwrap_used, reason = "TODO")]
-#![allow(clippy::get_unwrap, reason = "TODO")]
+#![allow(clippy::expect_used, reason = "to decide")]
+#![allow(clippy::indexing_slicing, reason = "to decide")]
+#![allow(clippy::panic, reason = "to decide")]
+#![allow(clippy::unwrap_used, reason = "to decide")]
+#![allow(clippy::get_unwrap, reason = "to decide")]
 // Debug leftovers
-#![allow(clippy::print_stdout, reason = "TODO")]
-#![allow(clippy::uninlined_format_args, reason = "TODO")]
-#![allow(clippy::use_debug, reason = "TODO")]
+#![allow(clippy::print_stdout, reason = "to decide")]
+#![allow(clippy::uninlined_format_args, reason = "to decide")]
+#![allow(clippy::use_debug, reason = "to decide")]
 // Improve documentation
-#![allow(clippy::missing_errors_doc, reason = "TODO")]
-#![allow(clippy::missing_panics_doc, reason = "TODO")]
+#![allow(clippy::missing_errors_doc, reason = "to decide")]
+#![allow(clippy::missing_panics_doc, reason = "to decide")]
 // Allowed lints
 #![allow(
     clippy::missing_docs_in_private_items,
