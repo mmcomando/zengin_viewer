@@ -1,6 +1,6 @@
 use crate::zengin::{common::gothic2_dir, script::main::ScriptManager};
 use bevy::ecs::resource::Resource;
-use bevy::log::{info, warn};
+use bevy::log::info;
 use bevy::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;

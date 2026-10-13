@@ -74,85 +74,87 @@ fn ui_example_system(
     mut game_time: ResMut<GameTime>,
     mut render_options: ResMut<RenderOptions>,
 ) -> Result {
-    egui::Window::new("Info").show(contexts.ctx_mut()?, |ui| {
-        let mut visibility_settings_changed = false;
+    egui::Window::new("Info")
+        .default_open(false)
+        .show(contexts.ctx_mut()?, |ui| {
+            let mut visibility_settings_changed = false;
 
-        egui::Grid::new("Grid Info").num_columns(2).show(ui, |ui| {
-            ui.label("Game Time");
-            ui.add(
-                egui::Slider::new(&mut game_time.total_hours, 0.0..=24.0)
-                    .custom_formatter(|hours, _| clock_string(hours as f32))
-                    .custom_parser(|text| parse_clock_string(text).map(|hours| hours as f64)),
-            );
-            ui.end_row();
+            egui::Grid::new("Grid Info").num_columns(2).show(ui, |ui| {
+                ui.label("Game Time");
+                ui.add(
+                    egui::Slider::new(&mut game_time.total_hours, 0.0..=24.0)
+                        .custom_formatter(|hours, _| clock_string(hours as f32))
+                        .custom_parser(|text| parse_clock_string(text).map(|hours| hours as f64)),
+                );
+                ui.end_row();
 
-            ui.label("Time Speed");
-            ui.add(egui::Slider::new(&mut game_time.speed, 0.0..=10.0).suffix("x"));
-            ui.end_row();
+                ui.label("Time Speed");
+                ui.add(egui::Slider::new(&mut game_time.speed, 0.0..=10.0).suffix("x"));
+                ui.end_row();
 
-            add_visible_elements(
-                ui,
-                "Zengin Models",
-                statistics_zengin.zengin_models,
-                statistics_zengin.zengin_models_visible,
-            );
-            add_visible_elements(
-                ui,
-                "Bevy Meshes",
-                statistics.meshes,
-                statistics.meshes_visible,
-            );
-            add_visible_elements(
-                ui,
-                "NPCs",
-                statistics_zengin.npcs,
-                statistics_zengin.npcs_visible,
-            );
+                add_visible_elements(
+                    ui,
+                    "Zengin Models",
+                    statistics_zengin.zengin_models,
+                    statistics_zengin.zengin_models_visible,
+                );
+                add_visible_elements(
+                    ui,
+                    "Bevy Meshes",
+                    statistics.meshes,
+                    statistics.meshes_visible,
+                );
+                add_visible_elements(
+                    ui,
+                    "NPCs",
+                    statistics_zengin.npcs,
+                    statistics_zengin.npcs_visible,
+                );
 
-            add_checkbox(
-                ui,
-                "Show World Mesh",
-                &mut toggle_info.show_world_mesh,
-                &mut visibility_settings_changed,
-            );
+                add_checkbox(
+                    ui,
+                    "Show World Mesh",
+                    &mut toggle_info.show_world_mesh,
+                    &mut visibility_settings_changed,
+                );
 
-            add_checkbox(
-                ui,
-                "Show Static Meshes",
-                &mut toggle_info.show_static_meshes,
-                &mut visibility_settings_changed,
-            );
+                add_checkbox(
+                    ui,
+                    "Show Static Meshes",
+                    &mut toggle_info.show_static_meshes,
+                    &mut visibility_settings_changed,
+                );
 
-            add_checkbox(
-                ui,
-                "Show NPCs",
-                &mut toggle_info.show_npcs,
-                &mut visibility_settings_changed,
-            );
-            add_checkbox(
-                ui,
-                "Show Gizmos",
-                &mut toggle_info.show_gizmos,
-                &mut visibility_settings_changed,
-            );
-            // Render options apply immediately, no message needed.
-            add_checkbox(
-                ui,
-                "Sun Shadow Maps",
-                &mut render_options.sun_shadow_maps,
-                &mut visibility_settings_changed,
-            );
-            add_checkbox(
-                ui,
-                "Disco Shadow Maps",
-                &mut render_options.disco_shadow_maps,
-                &mut visibility_settings_changed,
-            );
+                add_checkbox(
+                    ui,
+                    "Show NPCs",
+                    &mut toggle_info.show_npcs,
+                    &mut visibility_settings_changed,
+                );
+                add_checkbox(
+                    ui,
+                    "Show Gizmos",
+                    &mut toggle_info.show_gizmos,
+                    &mut visibility_settings_changed,
+                );
+                // Render options apply immediately, no message needed.
+                add_checkbox(
+                    ui,
+                    "Sun Shadow Maps",
+                    &mut render_options.sun_shadow_maps,
+                    &mut visibility_settings_changed,
+                );
+                add_checkbox(
+                    ui,
+                    "Disco Shadow Maps",
+                    &mut render_options.disco_shadow_maps,
+                    &mut visibility_settings_changed,
+                );
+            });
+
+            if visibility_settings_changed {
+                statistics_changed.write(OptionsChanged);
+            }
         });
-
-        if visibility_settings_changed {
-            statistics_changed.write(OptionsChanged);
-        }
-    });
     Ok(())
 }

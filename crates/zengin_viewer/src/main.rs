@@ -34,6 +34,7 @@ use crate::gui_debug::egui::GameDebugUI;
 use crate::gui_debug::statistics::StatisticsPlugin;
 use crate::gui_debug::toggle_visibility::ToggleVisibility;
 use crate::input::actions::ActionsPlugin;
+use crate::input::options::Options;
 use crate::xr::{XrPlugin, is_xr_enabled};
 use crate::zengin::SpeechSounds;
 use crate::zengin::ZenginPlugin;
@@ -45,18 +46,23 @@ use bevy::window::PresentMode;
 
 fn main() {
     let mut app = App::new();
+    // Command line options, scenario handling has to be registered first.
+    app.add_plugins(crate::input::options::OptionsPlugin);
     // This app custom assert source, has to be registered before default plugins.
     let vfs = create_zengin_vfs();
     app.insert_resource(SpeechSounds::new(vfs.clone()));
     app.register_asset_source("zengin", create_zengin_asset_loader(vfs));
     // Default plugin
+    let mut primary_window = Window {
+        title: "ZenGin Walker".into(),
+        present_mode: PresentMode::AutoNoVsync,
+        // present_mode: PresentMode::AutoVsync,
+        ..default()
+    };
+    let scenario = app.world().resource::<Options>().scenario();
+    crate::input::scenario::apply_scenario_window_settings(&mut primary_window, scenario);
     let window_plugin_options = WindowPlugin {
-        primary_window: Some(Window {
-            title: "ZenGin Walker".into(),
-            present_mode: PresentMode::AutoNoVsync,
-            // present_mode: PresentMode::AutoVsync,
-            ..default()
-        }),
+        primary_window: Some(primary_window),
         ..default()
     };
     // XR or standard rendering
@@ -86,6 +92,7 @@ fn main() {
         .add_plugins(GameAudioPlugin)
         .add_plugins(CameraPlugin)
         .add_plugins(SkeletalAnimations);
+
     // Run
     app.run();
 }
