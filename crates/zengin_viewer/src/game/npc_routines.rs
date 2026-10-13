@@ -6,7 +6,7 @@ use super::time::GameTime;
 use crate::game::animation::AnimationController;
 use crate::game::objects::GameNpc;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::main::SymbolId;
+use crate::zengin::script::main::FunctionId;
 use crate::zengin_resources::MaterialHandles;
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
@@ -30,7 +30,7 @@ struct NpcRoutineState {
 struct NpcRoutineAnimation {
     /// State function of the routine entry whose animation was applied last,
     /// `None` when none was applied yet.
-    applied_state_fn: Option<SymbolId>,
+    applied_state_fn: Option<FunctionId>,
 }
 
 #[derive(Resource, Default)]

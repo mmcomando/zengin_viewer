@@ -4,8 +4,8 @@ mod ui;
 use crate::camera::{CameraResource, CurrentCamera};
 use crate::game::objects::GameNpc;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::main::InstanceId;
 use crate::zengin::script::main::ScriptManager;
-use crate::zengin::script::main::SymbolId;
 use crate::zengin::script::state::DialogRoot;
 use crate::zengin::{PlayerNpc, PlayerPhysicsBodyMarker};
 use bevy::prelude::*;
@@ -35,8 +35,8 @@ impl Plugin for GameDialogPlugin {
 /// by their condition functions and drops the important ones
 fn npc_dialog_roots(
     gothic_script: &mut ScriptManager,
-    npc_player: SymbolId,
-    npc_talk_to: SymbolId,
+    npc_player: InstanceId,
+    npc_talk_to: InstanceId,
 ) -> Option<Vec<DialogRoot>> {
     let mut roots = gothic_script
         .get_loaded_state()
@@ -101,7 +101,7 @@ fn show_closest_npc_dialog(
     println!("Closest npc: {}", closest_npc.npc_instance_id);
 
     let mut gothic_script = gothic_script.lock();
-    let npc_name = gothic_script.call_get_name(closest_npc.npc_instance_id);
+    let npc_name = gothic_script.call_get_name(closest_npc.npc_instance_id.symbol());
 
     let Some(dialog_roots) = npc_dialog_roots(
         &mut gothic_script,

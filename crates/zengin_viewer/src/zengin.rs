@@ -20,7 +20,6 @@ use crate::game::time::GameTime;
 use crate::gui::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::symbol_id::SymbolId;
 use crate::zengin::world::load_zengin_world_data;
 use crate::zengin_resources::{
     DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
@@ -215,7 +214,9 @@ fn spawn_world(
         PlayerNpc,
         GameNpc {
             // TODO hardcoded player instance id
-            npc_instance_id: SymbolId::new(1620).expect("valid player instance id"),
+            npc_instance_id: gothic_script
+                .instance_id(1620)
+                .expect("player instance id should be a valid instance symbol"),
         },
         NpcModel {
             hierarchy: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS.MDH".to_string()),

@@ -3,7 +3,7 @@ use std::{collections::HashMap, env::home_dir, path::PathBuf};
 use bevy::prelude::*;
 use zen_kit_rs::vfs::VfsNode;
 
-use crate::zengin::script::symbol_id::SymbolId;
+use crate::zengin::script::symbol_id::InstanceId;
 
 // zenkit cords have mirrored X compared to bevy
 pub const MIRROR_X: bool = true;
@@ -138,7 +138,7 @@ pub struct ZenGinItem {
 }
 #[derive(Debug)]
 pub struct ZenGinNpc {
-    pub npc_intance_id: SymbolId,
+    pub npc_intance_id: InstanceId,
     pub head_model: Option<String>,
     pub head_texture: Option<String>,
     pub body_tr: Transform,

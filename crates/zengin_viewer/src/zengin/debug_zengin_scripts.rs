@@ -1,4 +1,6 @@
 use crate::zengin::common::gothic2_dir;
+use crate::zengin::script::main::FunctionId;
+use crate::zengin::script::main::InstanceId;
 use crate::zengin::script::main::ScriptManager;
 use crate::zengin::script::main::SymbolId;
 use crate::zengin::script::main::exports::mmcomando::zengine_scripts::manage::SymbolKind;
@@ -17,12 +19,13 @@ fn debug_zengin_scripts() {
     let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
     let wasm_bytes = convert_daedalus_script(&script_path);
     let mut executor = ScriptManager::new(&wasm_bytes);
+    executor.load_symbol_table();
 
     executor.initialize_instances();
-    let symbol_id = executor.get_symbol_id("init_newworld");
-    executor.call_function(symbol_id);
-    let symbol_id = executor.get_symbol_id("startup_newworld");
-    executor.call_function(symbol_id);
+    let init_function_id = executor.get_function_id("init_newworld");
+    executor.call_function(init_function_id);
+    let startup_function_id = executor.get_function_id("startup_newworld");
+    executor.call_function(startup_function_id);
     executor.call_npc_routines();
     executor.load_item_instances();
     executor.load_npc_instances();
@@ -47,25 +50,34 @@ fn debug_zengin_scripts() {
         }
     }
 
-    let debug_id = SymbolId::new(DEBUG_ID as i32).expect("DEBUG_ID out of range");
+    let debug_id = executor
+        .symbol_table()
+        .instance(DEBUG_ID as i32)
+        .expect("DEBUG_ID should be a valid instance symbol");
 
     println!("\n=== detailed info for {DEBUG_ID} ===");
-    let info = executor.get_symbol_info(debug_id);
+    let info = executor.get_symbol_info(debug_id.symbol());
     println!("info: {info:?}");
-    println!("name: {:?}", executor.call_get_name(debug_id));
+    println!("name: {:?}", executor.call_get_name(debug_id.symbol()));
 
     match info.kind {
         SymbolKind::Instance => debug_npc_routine(&mut executor, debug_id),
         _ => {
             println!("calling symbol as function");
-            executor.call_function(debug_id);
+            // DEBUG_ID is verified as an instance above, instances are callable
+            executor.call_function(unsafe_wrap_instance_callable(debug_id));
         }
     }
 }
 
+/// Instances are callable in daedalus; the debug tool verified the kind above
+fn unsafe_wrap_instance_callable(instance_id: InstanceId) -> FunctionId {
+    FunctionId::from_symbol(instance_id.symbol())
+}
+
 /// Prints the routine entries of the npc instance and executes its active
 /// routine state function, so its import calls show up in the recording
-fn debug_npc_routine(executor: &mut ScriptManager, npc_id: SymbolId) {
+fn debug_npc_routine(executor: &mut ScriptManager, npc_id: InstanceId) {
     let hour = 8;
     let debug_info = {
         let data = executor.store.data();
@@ -95,7 +107,10 @@ fn debug_npc_routine(executor: &mut ScriptManager, npc_id: SymbolId) {
         return;
     };
 
-    println!("state_fn name: {:?}", executor.call_get_name(state_fn));
+    println!(
+        "state_fn name: {:?}",
+        executor.call_get_name(state_fn.symbol())
+    );
     let anis = executor.call_routine_state_function(npc_id, state_fn);
     println!("played anis: {anis:?}");
 }

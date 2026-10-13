@@ -39,14 +39,19 @@ fn load_gothic_script_manager() -> ScriptManager {
     let cached_wasm_path = PathBuf::from("./gothic.script.wasm");
     let mut script = ScriptManager::from_file_cached(&script_path, &cached_wasm_path);
 
+    // Load the symbol table before any script runs, host calls made during
+    // initialization already verify typed symbol ids
+    println!("Load script symbol table");
+    script.load_symbol_table();
+
     println!("Call script initialize instances");
     script.initialize_instances();
-    let symbol_id = script.get_symbol_id("init_newworld");
+    let init_function_id = script.get_function_id("init_newworld");
     println!("Call script init_newworld function");
-    script.call_function(symbol_id);
-    let symbol_id = script.get_symbol_id("startup_newworld");
+    script.call_function(init_function_id);
+    let startup_function_id = script.get_function_id("startup_newworld");
     println!("Call script startup_newworld function");
-    script.call_function(symbol_id);
+    script.call_function(startup_function_id);
     println!("Call script npc routines");
     script.call_npc_routines();
     println!("Call script load item instances");

@@ -1,7 +1,7 @@
 use crate::game::audio::{PlaySound, SoundManager};
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::script::component::{DialogTexts, ScriptResource};
-use crate::zengin::script::main::SymbolId;
+use crate::zengin::script::main::InstanceId;
 use crate::zengin::script::state::{DialogLine, DialogRoot};
 use crate::zengin::sounds::SpeechSounds;
 use bevy::prelude::*;
@@ -45,9 +45,9 @@ pub(super) struct DialogUiState {
     /// functions
     script: ScriptResource,
     pub(super) npc_entity: Option<Entity>,
-    pub(super) npc_player: Option<SymbolId>,
+    pub(super) npc_player: Option<InstanceId>,
     /// Script instance of the npc the dialog is open with
-    pub(super) npc_talk_to: Option<SymbolId>,
+    pub(super) npc_talk_to: Option<InstanceId>,
     pub(super) dialog_roots: Vec<DialogRoot>,
     /// Sub dialog choices populated by the last executed option, shown instead
     /// of `dialog_roots` when not empty
@@ -89,8 +89,8 @@ impl DialogUiState {
     pub(super) fn open(
         &mut self,
         npc_entity: Entity,
-        npc_self: SymbolId,
-        npc_talk_to: SymbolId,
+        npc_self: InstanceId,
+        npc_talk_to: InstanceId,
         dialog_roots: Vec<DialogRoot>,
         npc_name: String,
     ) {

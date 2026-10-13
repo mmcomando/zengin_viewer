@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::symbol_id::SymbolId;
+use super::symbol_id::{FunctionId, InstanceId, StringId};
 
 #[derive(Debug, Default)]
 pub struct RoutineEntry {
@@ -11,7 +11,7 @@ pub struct RoutineEntry {
     pub way_point: String,
     /// Symbol of the routine state function (`ZS_*`), `None` when the state
     /// has no function.
-    pub state_fn: Option<SymbolId>,
+    pub state_fn: Option<FunctionId>,
 }
 
 #[derive(Debug, Default)]
@@ -53,7 +53,7 @@ impl InstanceState {
 
 #[derive(Debug)]
 pub struct SpawnNpc {
-    pub npc_index: SymbolId,
+    pub npc_index: InstanceId,
     pub way_point: String,
 }
 
@@ -74,10 +74,10 @@ pub struct DialogRoot {
     /// Symbol of the `C_INFO` instance this root was loaded from, `None` for
     /// sub dialog choices registered via `Info_AddChoice`
     // TODO make Info_AddChoice a separate type
-    pub info_instance_id: Option<SymbolId>,
-    pub sequence_function_id: SymbolId,
+    pub info_instance_id: Option<InstanceId>,
+    pub sequence_function_id: FunctionId,
     /// `None` when the root has no condition function
-    pub condition_function_id: Option<SymbolId>,
+    pub condition_function_id: Option<FunctionId>,
     pub order: i32,
     pub description: String,
     pub important: bool,
@@ -88,19 +88,19 @@ pub struct DialogRoot {
 pub struct LoadedState {
     pub spawn_npcs: Vec<SpawnNpc>,
     pub spawn_items: Vec<SpawnItem>,
-    pub instance_data: HashMap<SymbolId, InstanceState>,
+    pub instance_data: HashMap<InstanceId, InstanceState>,
     pub item_instances: HashMap<String, ItemInstance>,
-    pub dialog_roots: HashMap<SymbolId, Vec<DialogRoot>>,
+    pub dialog_roots: HashMap<InstanceId, Vec<DialogRoot>>,
     /// Animations requested via `AI_PlayAni(BS)` by the last executed routine
     /// state function, keyed by npc instance index, in request order.
-    pub routine_played_anis: HashMap<SymbolId, Vec<String>>,
+    pub routine_played_anis: HashMap<InstanceId, Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct DialogLine {
-    pub npc_a: SymbolId,
-    pub npc_b: SymbolId,
-    pub line_id: i32,
+    pub npc_a: InstanceId,
+    pub npc_b: InstanceId,
+    pub line_id: StringId,
     pub line_str: String,
 }
 
