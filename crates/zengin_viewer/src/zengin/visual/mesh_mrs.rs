@@ -36,6 +36,7 @@ pub fn meshes_from_zengin_mrs_mesh(
     mesh: &zen_kit_rs::mrs_mesh::MrsMesh,
     soft_skin_mesh: Option<&zen_kit_rs::model::SoftSkinMesh>,
     final_tr: &[Transform],
+    attach_bind: Option<(usize, Transform)>,
 ) -> ZenGinModel {
     let mut meshes: HashMap<String, MeshData> = HashMap::new();
     let sub_meshes = mesh.sub_meshes();
@@ -71,10 +72,9 @@ pub fn meshes_from_zengin_mrs_mesh(
                 let wedge = &wedges[index as usize];
                 let vertex_index = u64::from(wedge.index);
 
+                let mut weights: [f32; 4] = [1.00, 0.00, 0.0, 0.0];
+                let mut indices: [u16; 4] = [0, 0, 0, 0];
                 if let Some(skin) = soft_skin_mesh {
-                    let mut weights: [f32; 4] = [1.00, 0.00, 0.0, 0.0];
-                    let mut indices: [u16; 4] = [0, 0, 0, 0];
-
                     // Orginal game uses final bone matrix and
                     //   position relative to bone to compute final vertex position
                     // We want to use bevy animation system which uses inverse bone matrix
@@ -100,6 +100,18 @@ pub fn meshes_from_zengin_mrs_mesh(
 
                     let pos = dt_avg;
                     mesh_data.vertices.push(pos);
+                    mesh_data.weights.push(weights);
+                    mesh_data.bone_indices.push(indices);
+                } else if let Some((node_index, bind_tr)) = attach_bind {
+                    // Attachment vertices are stored in the space of the node
+                    // they are bound to; bake the node bind transform into the
+                    // vertex position and skin them to the node so they also
+                    // follow animation.
+                    let pos = bind_tr
+                        .transform_point(get_world_pos(positions[vertex_index as usize].to_glam()));
+                    mesh_data.vertices.push(pos);
+                    weights[0] = 1.00;
+                    indices[0] = node_index as u16;
                     mesh_data.weights.push(weights);
                     mesh_data.bone_indices.push(indices);
                 } else {

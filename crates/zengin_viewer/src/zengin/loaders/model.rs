@@ -40,20 +40,31 @@ impl AssetLoader for ZenGinModelLoader {
         reader.read_to_end(&mut bytes).await?;
 
         // println!("Load model({:?})", path_str);
-        let model_hierarchy = if let Some(hierarchy_path) = &settings.hierarchy_path
+        // Attachment meshes in .MDM are positioned by node transforms from the
+        // model hierarchy. When caller didn't provide one, try loading the
+        // sibling .MDH file.
+        let hierarchy_path = settings.hierarchy_path.clone().or_else(|| {
+            path_str
+                .ends_with(".MDM")
+                .then(|| path_str.replacen(".MDM", ".MDH", 1))
+        });
+        let model_hierarchy = if let Some(hierarchy_path) = &hierarchy_path
             && let Ok(hierarchy_bytes) = load_context.read_asset_bytes(hierarchy_path).await
         {
             // println!("Load hierarchy({:?})", hierarchy_path);
             let hierarchy_read = Read::from_slice(&hierarchy_bytes).unwrap();
             zen_kit_rs::model::Model::load(&hierarchy_read)
         } else {
+            if settings.hierarchy_path.is_some() {
+                warn!("No hierarchy({:?}) for model({path_str})", hierarchy_path);
+            }
             // println!("No hierarchy({:?})", path_str);
             None
         };
         let model = if path_str.ends_with(".MRM") {
             let read = Read::from_slice(&bytes).unwrap();
             let mesh = zen_kit_rs::mrs_mesh::MrsMesh::load(&read).unwrap();
-            meshes_from_zengin_mrs_mesh(&mesh, None, &[])
+            meshes_from_zengin_mrs_mesh(&mesh, None, &[], None)
         } else if path_str.ends_with(".MDL") {
             let read = Read::from_slice(&bytes).unwrap();
             let mesh = zen_kit_rs::model::Model::load(&read).unwrap();

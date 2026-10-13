@@ -1,12 +1,12 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 
+use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
+use crate::gameplay::objects::NpcModel;
 use crate::graphics::animation::{
     AnimatedJoint, AnimationController, AnimationData, AnimationState, BoneAnimationData,
     FrameState, LocomotionSequencer, NpcAnimations,
 };
-use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
-use crate::gameplay::objects::NpcModel;
 use crate::gui_debug::toggle_visibility::NpcVisibility;
 use crate::warn_once;
 use crate::zengin::GameNpc;
@@ -66,7 +66,7 @@ struct MovementHandles {
     move_stop: Option<Handle<AnimationData>>,
 }
 
-fn create_skinned_mesh_data(
+pub(crate) fn create_skinned_mesh_data(
     commands: &mut Commands,
     skinned_mesh_inverse_bindposes_assets: &mut ResMut<Assets<SkinnedMeshInverseBindposes>>,
     skeleton_parent: Entity,

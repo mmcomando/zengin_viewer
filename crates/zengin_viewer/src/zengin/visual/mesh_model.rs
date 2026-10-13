@@ -65,7 +65,7 @@ pub fn meshes_from_zengin_model_mesh(
         // } else {
         //     println!(" Nodes:");
         //     for (index, node) in nodes.iter().enumerate() {
-        //         let tr = get_world_transform(node.transform);
+        //         let tr = get_world_transform(node.transform.to_glam());
         //         println!(
         //             "  node({index}) name({:20}) parent_index({:3}) pos({:4.2}) rot({:.2})",
         //             node.name, node.parent_index, tr.translation, tr.rotation
@@ -86,6 +86,11 @@ pub fn meshes_from_zengin_model_mesh(
             weight_to_animation_index
                 .insert(i, *animation_bone_map.get(&nodes[i].name).unwrap_or(&i));
             if nodes[i].parent_index < 0 {
+                // Engine bind pose applies the hierarchy root translation in
+                // model space (translation not rotated by the root node).
+                // Verified: BSFIRE_OC soft mesh weight locals reproduce the
+                // raw vertex positions exactly under this order, see
+                // mesh_model_bind_test.
                 final_tr[i] = root_tr * final_tr[i];
                 compute_final_tr(i, &nodes, &mut final_tr);
             }
@@ -101,7 +106,17 @@ pub fn meshes_from_zengin_model_mesh(
     }
 
     for (name, mrs_mesh) in &attachements {
-        let mut attachement_model = meshes_from_zengin_mrs_mesh(mrs_mesh, None, &[]);
+        // Attachment vertices are stored in the space of the node they are
+        // bound to, so they are placed at the node bind transform. They are
+        // still emitted as skinned geometry weighted to that node so they
+        // follow animation on NPCs.
+        let node_index = model.node_names.iter().position(|el| *el == *name);
+        let attach_bind = node_index.map(|index| (index, model.final_tr[index]));
+        if node_index.is_none() && weights_hierarchy_model.is_some() {
+            warn_once!("Attachment({name}) has no matching node, rendering at model origin");
+        }
+        let mut attachement_model =
+            meshes_from_zengin_mrs_mesh(mrs_mesh, None, &model.final_tr, attach_bind);
         for sub_mesh in &mut attachement_model.sub_meshes {
             sub_mesh.name.clone_from(name);
         }
@@ -118,7 +133,7 @@ pub fn meshes_from_zengin_model_mesh(
             warn_once!("There are models with skin, but hierarchy is not present for them.");
             None
         };
-        let new_model = meshes_from_zengin_mrs_mesh(&mesh, soft_skin_mesh, &model.final_tr);
+        let new_model = meshes_from_zengin_mrs_mesh(&mesh, soft_skin_mesh, &model.final_tr, None);
         model.sub_meshes.extend(new_model.sub_meshes);
     }
 
@@ -127,21 +142,6 @@ pub fn meshes_from_zengin_model_mesh(
         assert!(weights_hierarchy_model.is_some());
     }
 
-    for new_mesh in &mut model.sub_meshes {
-        if let Some(node_index) = model.node_names.iter().position(|el| *el == new_mesh.name) {
-            new_mesh.transform = model.final_tr[node_index];
-            // println!(
-            //     "  set tr name({})  pos({}) rot({})",
-            //     new_mesh.name, new_mesh.transform.translation, new_mesh.transform.rotation
-            // );
-        }
-    }
-
-    // println!(
-    //     "loaded model, submeshes({}), nodes({})",
-    //     model.sub_meshes.len(),
-    //     model.nodes.len()
-    // );
     model
 }
 

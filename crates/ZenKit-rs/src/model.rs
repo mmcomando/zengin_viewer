@@ -1,5 +1,5 @@
 use crate::conversions::*;
-use crate::misc::SoftSkinWeightEntry;
+use crate::misc::{AxisAlignedBoundingBox, SoftSkinWeightEntry};
 use crate::misc::{Mat4, Vec3};
 use crate::mrs_mesh::MrsMesh;
 use crate::stream::Read;
@@ -308,6 +308,9 @@ impl ModelHierarchy<'_> {
 
     pub fn root_translation(&self) -> Vec3 {
         unsafe { ZkModelHierarchy_getRootTranslation(self.ptr.as_ptr()).to_own() }
+    }
+    pub fn bbox(&self) -> AxisAlignedBoundingBox {
+        unsafe { ZkModelHierarchy_getBbox(self.ptr.as_ptr()).to_own() }
     }
     pub fn source_path(&self) -> String {
         unsafe { ZkModelHierarchy_getSourcePath(self.ptr.as_ptr()).to_string() }

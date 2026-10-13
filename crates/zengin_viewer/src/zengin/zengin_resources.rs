@@ -11,7 +11,10 @@ use avian3d::prelude::*;
 use bevy::camera::primitives::{Aabb, MeshAabb};
 use bevy::camera::visibility::DynamicSkinnedMeshBounds;
 use bevy::mesh::skinning::SkinnedMesh;
+use bevy::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy::prelude::*;
+
+use crate::zengin::objects_to_entities::create_skinned_mesh_data;
 
 #[derive(Default)]
 pub struct ZenGinInsertResources;
@@ -177,6 +180,7 @@ fn convert_zengin_model_to_entities(
     mut meshes: ResMut<Assets<Mesh>>,
     mut material_handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
+    mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
     query: Query<
         (Entity, &ZenGinModelComponent),
         (With<DistanceNear>, Without<ZenGinModelComponentLoaded>),
@@ -193,6 +197,21 @@ fn convert_zengin_model_to_entities(
             main_entity.insert(ZenGinModelComponentLoaded::default());
         }
 
+        // Models like BSFIRE_OC.MDM have their visual partially as soft skin
+        // mesh. Bevy can't render skinned meshes without SkinnedMesh component,
+        // so for static objects spawn a skeleton frozen in bind pose.
+        let has_skinned = model.sub_meshes.iter().any(|el| el.is_skinned);
+        let mut bones_data = model_component.bones_data.clone();
+        if has_skinned && bones_data.is_none() && !model.nodes.is_empty() {
+            bones_data = create_skinned_mesh_data(
+                &mut commands,
+                &mut skinned_mesh_inverse_bindposes_assets,
+                entity_id,
+                model,
+                None,
+            );
+        }
+
         let mut aabb = Aabb::from_min_max(Vec3::ONE * -1.0, Vec3::ONE);
         for (sub_mesh_index, sub_mesh) in model.sub_meshes.iter().enumerate() {
             if let Some(sub_aabb) = sub_mesh.mesh.compute_aabb() {
@@ -201,10 +220,11 @@ fn convert_zengin_model_to_entities(
                     sub_aabb.max().max(aabb.max()).into(),
                 );
             }
-            if sub_mesh.is_skinned && model_component.bones_data.is_none() {
-                // Bevy can't show skinned meshes without SkinnedMesh component
-                // https://github.com/bevyengine/bevy/issues/22469
-                warn_once!("Skinned static objects are not rendered");
+            if sub_mesh.is_skinned && bones_data.is_none() {
+                warn_once!(
+                    "Skinned object without hierarchy nodes is not rendered, model({})",
+                    model.node_names.first().map_or(String::new(), Clone::clone)
+                );
                 continue;
             }
 
@@ -245,7 +265,7 @@ fn convert_zengin_model_to_entities(
             }
 
             if sub_mesh.is_skinned
-                && let Some(skinned_mesh) = model_component.bones_data.clone()
+                && let Some(skinned_mesh) = bones_data.clone()
             {
                 sub_entity.insert(skinned_mesh);
                 sub_entity.insert(Transform::IDENTITY);
