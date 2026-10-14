@@ -151,6 +151,22 @@ impl ScriptManager {
         *inventory.entry(item).or_insert(0) += count;
     }
 
+    /// Contents of an npc's inventory as `(item, count)` pairs, empty when the
+    /// npc has no inventory.
+    pub fn inventory(&self, npc: InstanceId) -> Vec<(InstanceId, i32)> {
+        self.store
+            .data()
+            .inventories
+            .get(&npc)
+            .map(|inventory| {
+                inventory
+                    .iter()
+                    .map(|(item, count)| (*item, *count))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     /// Fills the waypoint position table used by `Npc_GetDistToWP`, keys must be
     /// lowercased.
     pub fn set_way_points(&mut self, way_points: HashMap<String, Vec3>) {

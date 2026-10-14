@@ -15,7 +15,10 @@ pub struct PlayerInteractionPlugin;
 
 impl Plugin for PlayerInteractionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (kill_selected_npc, pickup_selected_item));
+        app.add_systems(
+            Update,
+            (kill_selected_npc, pickup_selected_item, print_player_items),
+        );
     }
 }
 
@@ -165,4 +168,41 @@ fn pickup_selected_item(
     selection.target = None;
     selection.kind = None;
     selection.name.clear();
+}
+
+/// Prints the whole player inventory into the item log on `P`.
+fn print_player_items(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut pickup_log: ResMut<PickupLog>,
+    gothic_script: Res<ScriptResource>,
+    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+) {
+    if !keys.just_pressed(KeyCode::KeyP) {
+        return;
+    }
+    let Ok(player_npc) = player_npc.single() else {
+        return;
+    };
+
+    let mut script = gothic_script.lock();
+    let mut items = script.inventory(player_npc.npc_instance_id);
+    if items.is_empty() {
+        pickup_log.add(format!(
+            "player({}) inventory is empty",
+            player_npc.npc_instance_id
+        ));
+        return;
+    }
+
+    items.sort_by_key(|(item, _count)| *item);
+    let lines: Vec<String> = items
+        .iter()
+        .map(|(item, count)| {
+            let name = script
+                .get_name_by_id(item.value())
+                .unwrap_or_else(|| item.value().to_string());
+            format!("{name} x{count}")
+        })
+        .collect();
+    pickup_log.add(lines.join("\n"));
 }
