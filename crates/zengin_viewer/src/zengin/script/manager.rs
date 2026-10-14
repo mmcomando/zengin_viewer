@@ -246,6 +246,17 @@ impl ScriptManager {
             .loaded_state
             .routine_played_anis
             .remove(&npc_instance_id);
+        // Track the active state so `Npc_IsInState`/`Npc_WasInState` answer
+        // while the state function runs
+        {
+            let data = self.store.data_mut();
+            if let Some(previous) = data.current_routine_state.insert(npc_instance_id, state_fn)
+                && previous != state_fn
+            {
+                data.previous_routine_state
+                    .insert(npc_instance_id, previous);
+            }
+        }
         self.set_self(npc_instance_id);
         self.set_instance(npc_instance_id);
         if let Err(err) = self.try_call_function(state_fn) {

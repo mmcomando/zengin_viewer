@@ -202,6 +202,10 @@ pub struct ImportCallState {
     pub talents: HashMap<InstanceId, NpcTalents>,
     /// Inventory of each npc instance, item instance id to count.
     pub inventories: HashMap<InstanceId, HashMap<InstanceId, i32>>,
+    /// Routine state function currently active per npc (`Npc_IsInState`).
+    pub current_routine_state: HashMap<InstanceId, FunctionId>,
+    /// Previously active routine state function per npc (`Npc_WasInState`).
+    pub previous_routine_state: HashMap<InstanceId, FunctionId>,
 }
 
 /// Talent slots per npc, `TALENT_MAX_G2`.
@@ -247,6 +251,25 @@ impl NpcTalents {
         if let Some(slot) = Self::slot_mut(talent, &mut self.values) {
             *slot = level;
         }
+    }
+}
+
+impl ImportCallState {
+    /// Whether the npc's recorded (current/previous) routine state function
+    /// equals `state`; `false` when either id is not valid.
+    pub fn is_in_state(
+        &self,
+        states: &HashMap<InstanceId, FunctionId>,
+        npc: i32,
+        state: i32,
+    ) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(state) = self.symbol_table.function(state) else {
+            return 0;
+        };
+        (states.get(&npc) == Some(&state)) as i32
     }
 }
 

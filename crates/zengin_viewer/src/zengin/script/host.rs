@@ -150,8 +150,12 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(npc_removeinvitem(_0, _1) -> i32);
     fake_impl!(npc_removeinvitems(_0, _1, _2) -> i32);
     fake_impl!(npc_clearinventory(_0));
-    fake_impl!(npc_isinstate(_0, _1) -> i32);
-    fake_impl!(npc_wasinstate(_0, _1) -> i32);
+    fn npc_isinstate(&mut self, npc: i32, state: i32) -> i32 {
+        self.is_in_state(&self.current_routine_state, npc, state)
+    }
+    fn npc_wasinstate(&mut self, npc: i32, state: i32) -> i32 {
+        self.is_in_state(&self.previous_routine_state, npc, state)
+    }
     fake_impl!(npc_isinroutine(_0, _1) -> i32);
     fake_impl!(ai_setnpcstostate(_0, _1, _2));
     fake_impl!(npc_hasdetectednpc(_0, _1) -> i32);
