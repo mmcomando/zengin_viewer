@@ -304,9 +304,12 @@ pub(crate) fn update_animations(
 
 #[allow(clippy::cast_precision_loss)]
 pub(crate) fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimationData)>) {
-    for (mut transform, data) in &mut query {
+    // Bones of far objects are despawned together with the model root, so this
+    // only ever sees joints of nearby skeletons. It is the per-bone inner loop
+    // of skeletal animation, hence parallelized.
+    query.par_iter_mut().for_each(|(mut transform, data)| {
         let Some(bone_index) = data.bone_index else {
-            continue;
+            return;
         };
 
         let shared = &data.frame_state;
@@ -331,5 +334,5 @@ pub(crate) fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimatio
             transform.translation.x = 0.0;
             transform.translation.z = 0.0;
         }
-    }
+    });
 }
