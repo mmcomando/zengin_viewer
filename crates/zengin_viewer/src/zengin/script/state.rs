@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use bevy::math::Vec3;
 
@@ -220,13 +220,15 @@ pub struct ImportCallState {
     pub npc_live_state: Option<Arc<Mutex<NpcLiveState>>>,
 }
 
-/// Runtime facts about npcs the script host reads back. Updated by an ECS system
-/// because npcs can move and be spawned/removed outside the script vm. An npc
-/// missing from `positions` has no entity and is treated as dead.
+/// Runtime facts about npcs shared between the script host and the ECS side.
+/// Positions flow ECS to host, look-at targets flow host to ECS. An npc missing
+/// from `positions` has no entity and is treated as dead.
 #[derive(Debug, Default)]
 pub struct NpcLiveState {
     /// World position of every live npc instance.
     pub positions: HashMap<InstanceId, Vec3>,
+    /// Npc each npc currently looks at (`AI_LookAtNPC`/`AI_StopLookAt`).
+    pub look_at: HashMap<InstanceId, InstanceId>,
 }
 
 /// Talent slots per npc, `TALENT_MAX_G2`.
@@ -276,6 +278,11 @@ impl NpcTalents {
 }
 
 impl ImportCallState {
+    /// Locks the shared live npc facts, `None` when the state is not initialized.
+    pub fn npc_live_state(&self) -> Option<MutexGuard<'_, NpcLiveState>> {
+        self.npc_live_state.as_ref()?.lock().ok()
+    }
+
     /// Whether the npc's recorded (current/previous) routine state function
     /// equals `state`; `false` when either id is not valid.
     pub fn is_in_state(

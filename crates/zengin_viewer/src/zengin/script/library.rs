@@ -326,13 +326,10 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let Some(target) = data.way_points.get(&wp_name).copied() else {
             return i32::MAX;
         };
-        let Some(live) = &data.npc_live_state else {
+        let Some(state) = data.npc_live_state() else {
             return i32::MAX;
         };
-        let Ok(live) = live.lock() else {
-            return i32::MAX;
-        };
-        let Some(position) = live.positions.get(&npc).copied() else {
+        let Some(position) = state.positions.get(&npc).copied() else {
             return i32::MAX;
         };
 

@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::{GameTime, advance_game_time};
-use crate::gameplay::objects::NpcModel;
+use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::animation::AnimationController;
 use crate::zengin::GameNpc;
-use crate::zengin::common::get_animation_path;
-use crate::zengin::script::component::ScriptResource;
+use crate::zengin::common::{face_direction_quat, get_animation_path};
+use crate::zengin::script::component::{ScriptNpcState, ScriptResource};
 use crate::zengin::script::symbol_id::FunctionId;
 use crate::zengin::zengin_resources::MaterialHandles;
 
@@ -51,6 +51,7 @@ impl Plugin for NpcRoutinesPlugin {
             (
                 update_npc_routines,
                 update_npc_routine_animations.after(update_npc_routines),
+                apply_look_at.after(update_npc_routines),
             )
                 .after(advance_game_time),
         );
@@ -236,5 +237,37 @@ fn choose_routine_animation(played_anis: &[String], stand_animation: &str) -> St
         Some((_, "STAND")) => stand_animation.to_string(),
         Some((_, pose)) => format!("S_{pose}"),
         None => ani.clone(),
+    }
+}
+
+/// Rotates npcs to face their `AI_LookAtNPC` target. The player visual (a child)
+/// is skipped on purpose: rotating it would fight the player controller. Locks
+/// only the shared npc state, never the script vm.
+fn apply_look_at(
+    state: Res<ScriptNpcState>,
+    mut npcs: Query<(&GameNpc, &mut Transform), Without<PlayerCharacter>>,
+) {
+    let Ok(live) = state.0.lock() else {
+        return;
+    };
+    if live.look_at.is_empty() {
+        return;
+    }
+
+    for (npc, mut tr) in &mut npcs {
+        let Some(target) = live.look_at.get(&npc.npc_instance_id) else {
+            continue;
+        };
+        let (Some(from), Some(to)) = (
+            live.positions.get(&npc.npc_instance_id),
+            live.positions.get(target),
+        ) else {
+            continue;
+        };
+        let direction = *to - *from;
+        if direction.length_squared() < 1e-4 {
+            continue;
+        }
+        tr.rotation = face_direction_quat(direction);
     }
 }

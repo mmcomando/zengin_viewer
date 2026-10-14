@@ -188,10 +188,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(npc_b) = self.symbol_table.instance(npc_b) else {
             return i32::MAX;
         };
-        let Some(state) = &self.npc_live_state else {
-            return i32::MAX;
-        };
-        let Ok(state) = state.lock() else {
+        let Some(state) = self.npc_live_state() else {
             return i32::MAX;
         };
         let (Some(a), Some(b)) = (state.positions.get(&npc_a), state.positions.get(&npc_b)) else {
@@ -222,10 +219,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return 1;
         };
-        let Some(state) = &self.npc_live_state else {
-            return 1;
-        };
-        let Ok(state) = state.lock() else {
+        let Some(state) = self.npc_live_state() else {
             return 1;
         };
         (!state.positions.contains_key(&npc)) as i32
@@ -279,7 +273,16 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(npc_arewestronger(_0, _1) -> i32);
     fake_impl!(npc_gettarget(_0) -> i32);
     fake_impl!(npc_getnexttarget(_0) -> i32);
-    fake_impl!(npc_getlookattarget(_0) -> i32);
+    /// Npc currently looked at, `0` when none.
+    fn npc_getlookattarget(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(state) = self.npc_live_state() else {
+            return 0;
+        };
+        state.look_at.get(&npc).map_or(0, |target| target.value())
+    }
     fake_impl!(npc_isnexttargetavailable(_0) -> i32);
     fake_impl!(npc_settarget(_0, _1));
     fake_impl!(npc_getbodystate(_0) -> i32);
@@ -363,8 +366,27 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(ai_turntosound(_0));
     fake_impl!(ai_quicklook(_0, _1));
     fake_impl!(ai_lookat(_0, _1));
-    fake_impl!(ai_lookatnpc(_0, _1));
-    fake_impl!(ai_stoplookat(_0));
+    fn ai_lookatnpc(&mut self, npc: i32, target: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(target) = self.symbol_table.instance(target) else {
+            return;
+        };
+        let Some(mut state) = self.npc_live_state() else {
+            return;
+        };
+        state.look_at.insert(npc, target);
+    }
+    fn ai_stoplookat(&mut self, npc: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(mut state) = self.npc_live_state() else {
+            return;
+        };
+        state.look_at.remove(&npc);
+    }
     fake_impl!(ai_pointat(_0, _1));
     fake_impl!(ai_pointatnpc(_0, _1));
     fake_impl!(ai_stoppointat(_0));

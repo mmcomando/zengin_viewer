@@ -85,6 +85,14 @@ pub fn get_world_dir_quat(dir_2d: Vec2) -> Quat {
     get_world_quat(Quat::from_rotation_y(-yaw))
 }
 
+/// Rotation making an npc model face the given Bevy-space horizontal direction
+/// (from the npc toward its target). Uses the same convention as waypoint
+/// placement, so it only produces a yaw.
+pub fn face_direction_quat(direction: Vec3) -> Quat {
+    let x = if MIRROR_X { -direction.x } else { direction.x };
+    get_world_dir_quat(Vec2::new(x, direction.z))
+}
+
 pub fn get_full_texture_path(short_tex: &str) -> String {
     let texture = short_tex.to_uppercase().replace(".TGA", "-C.TEX");
     format!("zengin://_WORK/DATA/TEXTURES/_COMPILED/{texture}")
