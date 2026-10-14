@@ -1,4 +1,4 @@
-use crate::zengin::{common::gothic2_dir, script::main::ScriptManager};
+use crate::zengin::{common::gothic2_dir, script::manager::ScriptManager};
 use bevy::ecs::resource::Resource;
 use bevy::log::info;
 use bevy::prelude::*;

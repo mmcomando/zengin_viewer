@@ -38,7 +38,7 @@ macro_rules! typed_symbol_id {
 
         impl $name {
             /// Wraps a symbol id whose kind was already verified to match
-            /// this type, see [`SymbolTable`](super::main::SymbolTable).
+            /// this type, see [`SymbolTable`](super::state::SymbolTable).
             pub(crate) fn from_symbol(symbol: SymbolId) -> Self {
                 Self(symbol)
             }

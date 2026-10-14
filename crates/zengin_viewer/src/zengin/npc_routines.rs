@@ -8,7 +8,7 @@ use crate::graphics::animation::AnimationController;
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_animation_path;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::main::FunctionId;
+use crate::zengin::script::symbol_id::FunctionId;
 use crate::zengin::zengin_resources::MaterialHandles;
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,

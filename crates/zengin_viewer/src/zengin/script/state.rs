@@ -1,6 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
-use super::symbol_id::{FunctionId, InstanceId, StringId};
+use super::bindings::MmWorld;
+use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
+use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 
 #[derive(Debug, Default)]
 pub struct RoutineEntry {
@@ -109,4 +112,83 @@ pub struct DialogState {
     pub dialog_lines: Vec<DialogLine>,
     pub close_dialog: bool,
     pub sub_dialog_choices: Vec<DialogRoot>,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct InstanceStateRaw {
+    pub body_model: Option<StringId>,
+    /// Texture variant index (not a symbol id), `0` means default
+    pub body_texture: i32,
+    pub head_model: Option<StringId>,
+    /// Texture variant index (not a symbol id), `0` means default
+    pub face_texture: i32,
+    /// Armor is an item instance
+    pub armor_model: Option<SymbolId>,
+    pub hierarchy: Option<StringId>,
+}
+
+/// Kind of every loaded symbol, keyed by symbol id. Used to verify typed
+/// symbol ids ([`InstanceId`], [`FunctionId`], [`StringId`]) at conversion
+/// points instead of trusting raw ids.
+#[derive(Debug, Default)]
+pub struct SymbolTable {
+    kinds: HashMap<i32, SymbolKind>,
+    /// Number of symbols, static string ids start after the last symbol id
+    symbols_count: i32,
+}
+
+impl SymbolTable {
+    pub fn new(kinds: HashMap<i32, SymbolKind>, symbols_count: i32) -> Self {
+        Self {
+            kinds,
+            symbols_count,
+        }
+    }
+
+    fn verified(&self, raw: i32, expected: SymbolKind) -> Option<SymbolId> {
+        match self.kinds.get(&raw) {
+            Some(kind) if *kind == expected => SymbolId::new(raw),
+            _ => None,
+        }
+    }
+
+    pub fn instance(&self, raw: i32) -> Option<InstanceId> {
+        self.verified(raw, SymbolKind::Instance)
+            .map(InstanceId::from_symbol)
+    }
+
+    /// Daedalus callables are not only `function` symbols: instance and
+    /// prototype symbols carry executable code too (e.g. `init_newworld`
+    /// or dialog info functions are instances)
+    pub fn function(&self, raw: i32) -> Option<FunctionId> {
+        match self.kinds.get(&raw) {
+            Some(SymbolKind::Function | SymbolKind::Instance | SymbolKind::Prototype) => {
+                SymbolId::new(raw).map(FunctionId::from_symbol)
+            }
+            _ => None,
+        }
+    }
+
+    /// String literals are not symbols, their ids are indices into the static
+    /// strings table placed after all symbol ids
+    pub fn string(&self, raw: i32) -> Option<StringId> {
+        if raw < self.symbols_count {
+            return None;
+        }
+        SymbolId::new(raw).map(StringId::from_symbol)
+    }
+}
+
+#[derive(Default)]
+pub struct ImportCallState {
+    pub world: Option<Arc<MmWorld>>,
+    pub loaded_state: LoadedState,
+    pub dialog_state: DialogState,
+    /// Kind of every symbol, used to verify typed symbol ids
+    pub symbol_table: SymbolTable,
+    pub raw_instances: HashMap<InstanceId, InstanceStateRaw>,
+    /// State time (seconds) set via `NPC_SetStateTime`, per npc instance.
+    pub state_times: HashMap<InstanceId, i32>,
+    /// Info (`C_INFO`) instances known by each npc instance.
+    pub known_infos: HashMap<InstanceId, HashSet<InstanceId>>,
 }

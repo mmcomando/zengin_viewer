@@ -1,8 +1,8 @@
 use crate::audio::sound_manager::{PlaySound, SoundManager};
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::script::component::{DialogTexts, ScriptResource};
-use crate::zengin::script::main::InstanceId;
 use crate::zengin::script::state::{DialogLine, DialogRoot};
+use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::sounds::SpeechSounds;
 use bevy::log::warn;
 use bevy::prelude::*;

@@ -1,9 +1,9 @@
 use crate::zengin::common::gothic2_dir;
-use crate::zengin::script::main::FunctionId;
-use crate::zengin::script::main::InstanceId;
-use crate::zengin::script::main::ScriptManager;
-use crate::zengin::script::main::SymbolId;
-use crate::zengin::script::main::exports::mmcomando::zengine_scripts::manage::SymbolKind;
+use crate::zengin::script::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
+use crate::zengin::script::manager::ScriptManager;
+use crate::zengin::script::symbol_id::FunctionId;
+use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::script::symbol_id::SymbolId;
 use daedalus_wasm::wasm::convert_daedalus_script;
 use std::path::PathBuf;
 
