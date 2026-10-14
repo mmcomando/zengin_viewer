@@ -6,6 +6,7 @@ mod macros;
 mod npc_routines;
 mod objects_to_entities;
 mod script;
+mod selection;
 mod sounds;
 mod statistics;
 mod visual;
@@ -35,6 +36,7 @@ impl Plugin for ZenginPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(crate::zengin::world_plugin::ZenGinWorldPlugin);
         app.add_plugins(crate::zengin::npc_routines::NpcRoutinesPlugin);
+        app.add_plugins(crate::zengin::selection::SelectionPlugin);
         app.add_plugins(crate::zengin::statistics::StatisticsZenginPlugin);
         app.add_plugins(crate::zengin::script::component::GothicScriptsPlugin);
         app.add_plugins(crate::zengin::dialog::GameDialogPlugin);

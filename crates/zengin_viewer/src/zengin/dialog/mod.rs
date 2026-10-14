@@ -9,6 +9,7 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::DialogRoot;
 use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::selection::{Selection, SelectionKind};
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 use state::DialogUiState;
@@ -50,19 +51,17 @@ fn npc_dialog_roots(
     Some(roots)
 }
 
-/// Opens the dialog of the closest npc on demand
+/// Opens the dialog of the currently selected npc on demand
 #[allow(clippy::type_complexity)]
 fn show_closest_npc_dialog(
     keys: Res<ButtonInput<KeyCode>>,
+    selection: Res<Selection>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut camera_info: ResMut<CameraResource>,
     gothic_script: Res<ScriptResource>,
-    mut npcs: Query<
-        (Entity, &GameNpc, &mut Transform),
-        (With<GameNpc>, Without<PlayerPhysicsBodyMarker>),
-    >,
+    mut npcs: Query<(&GameNpc, &mut Transform), Without<PlayerPhysicsBodyMarker>>,
     mut player: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
-    mut player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
     if !dialog_ui.is_open() && camera_info.current_camera == CurrentCamera::Dialog {
         camera_info.current_camera = CurrentCamera::ThirdPerson;
@@ -79,33 +78,30 @@ fn show_closest_npc_dialog(
         return;
     }
 
+    // Only npcs are talkable
+    if selection.kind != Some(SelectionKind::Npc) {
+        return;
+    }
+    let Some(closest_entity) = selection.target else {
+        return;
+    };
+
     let Ok(mut player_tr) = player.single_mut() else {
         return;
     };
-    let Ok(player_npc) = player_npc.single_mut() else {
+    let Ok(player_npc) = player_npc.single() else {
         return;
     };
-    let player_pos = player_tr.translation;
-
-    // TODO use spatial query to get closest entity, spatial query own or from physics
-    let Some((closest_entity, closest_npc, mut tr)) = npcs
-        .iter_mut()
-        .filter(|(_, _npc, tr)| tr.translation.distance(player_pos) < 5.0)
-        .min_by(|a, b| {
-            let a_d = a.2.translation.distance_squared(player_pos);
-            let b_d = b.2.translation.distance_squared(player_pos);
-            a_d.total_cmp(&b_d)
-        })
-    else {
-        info!("No npc closer than 5 meters");
+    let Ok((closest_npc, mut tr)) = npcs.get_mut(closest_entity) else {
         return;
     };
 
-    info!("Closest npc: {}", closest_npc.npc_instance_id);
+    info!("Selected npc: {}", closest_npc.npc_instance_id);
+
+    // The selection system already resolved the npc name
+    let npc_name = selection.name.clone();
 
     let mut gothic_script = gothic_script.lock();
-    let npc_name = gothic_script.call_get_name(closest_npc.npc_instance_id.symbol());
-
     let Some(dialog_roots) = npc_dialog_roots(
         &mut gothic_script,
         player_npc.npc_instance_id,
