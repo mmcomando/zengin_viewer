@@ -191,4 +191,30 @@ pub struct ImportCallState {
     pub state_times: HashMap<InstanceId, i32>,
     /// Info (`C_INFO`) instances known by each npc instance.
     pub known_infos: HashMap<InstanceId, HashSet<InstanceId>>,
+    /// Generator backing `Hlp_Random`.
+    pub rng: ScriptRandom,
+}
+
+/// Deterministic pseudo random generator backing `Hlp_Random`.
+#[derive(Debug)]
+pub struct ScriptRandom {
+    state: u32,
+}
+
+impl Default for ScriptRandom {
+    fn default() -> Self {
+        Self { state: 0x9E37_79B9 }
+    }
+}
+
+impl ScriptRandom {
+    /// Advances the generator and returns the next raw value.
+    pub fn next(&mut self) -> u32 {
+        let mut x = self.state;
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        self.state = x;
+        x
+    }
 }
