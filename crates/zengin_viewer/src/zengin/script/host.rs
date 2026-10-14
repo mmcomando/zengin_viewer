@@ -295,7 +295,15 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(hlp_getinstanceid(_0) -> i32);
     fake_impl!(hlp_random(_0) -> i32);
     fake_impl!(hlp_strcmp(_0, _1) -> i32);
-    fake_impl!(hlp_getnpc(_0) -> i32);
+    /// Resolves an instance symbol to its npc id, scripts use this to reference
+    /// other npcs. `0` when the argument is not an instance symbol (the value
+    /// downstream `npc_*` host calls treat as "no npc").
+    fn hlp_getnpc(&mut self, instance_symbol: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(instance_symbol) else {
+            return 0;
+        };
+        npc.value()
+    }
     /// The viewer has no separate npc handle table, an npc argument is valid when
     /// it resolves to an instance symbol (the resolution every other `npc_*` host
     /// call performs).
