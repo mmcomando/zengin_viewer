@@ -87,6 +87,10 @@ fn spawn_world(
     ));
 
     for npc in &world_data.npcs {
+        // if npc.npc_intance_id.value() != 12562 {
+        //     continue;
+        // }
+        // println!("spawn_npc({})", npc.npc_intance_id);
         commands.spawn((
             Visibility::default(),
             GameNpc {
@@ -99,6 +103,8 @@ fn spawn_world(
                 head_model: npc.head_model.clone(),
                 head_texture: npc.head_texture.clone(),
                 armor_model: npc.armor_model.clone(),
+                animation_scheme: npc.animation_scheme.clone(),
+                stand_animation: npc.stand_animation.clone(),
             },
             NpcAnimations {
                 // animation: Some(
@@ -217,6 +223,8 @@ fn spawn_world(
             // armor_model: None,
             // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_SLD_H.MDL".to_string()),
             // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PAL_H.MDM".to_string()),
+            stand_animation: None,
+            animation_scheme: None,
             armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_LESTER.MDM".to_string()),
         },
         NpcAnimations {

@@ -76,6 +76,16 @@ pub fn get_full_texture_path(short_tex: &str) -> String {
     format!("zengin://_WORK/DATA/TEXTURES/_COMPILED/{texture}")
 }
 
+/// Skeletal animations are stored per visual scheme, the file prefix is the
+/// scheme (visual `.mds`) name: `HUMANS-S_RUN.MAN`, `WOLF-S_FISTRUN.MAN`.
+pub fn get_animation_path(scheme: &str, animation: &str) -> String {
+    format!(
+        "zengin://_WORK/DATA/ANIMS/_COMPILED/{}-{}.MAN",
+        scheme.to_uppercase(),
+        animation.to_uppercase()
+    )
+}
+
 /// Speech wav files are named after the Ou.bin block of the dialog line
 pub fn get_dialog_sound_path(block_name: &str) -> String {
     let file = block_name.to_uppercase();
@@ -155,6 +165,10 @@ pub struct ZenGinNpc {
     pub body_texture: Option<String>,
     pub armor_model: Option<String>,
     pub hierarchy: Option<String>,
+    /// Animation scheme (visual `.mds` stem) used as animation file prefix
+    pub animation_scheme: Option<String>,
+    /// Standing body state animation of the scheme
+    pub stand_animation: Option<String>,
 }
 
 #[derive(Debug, Default)]

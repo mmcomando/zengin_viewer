@@ -10,6 +10,7 @@
     clippy::blanket_clippy_restriction_lints,
     reason = "We blacklist contradicting rules"
 )]
+#![allow(clippy::missing_docs_in_private_items, reason = "to decide")]
 #![allow(clippy::as_conversions, reason = "to decide")]
 #![allow(clippy::cast_possible_truncation, reason = "to decide")]
 #![allow(clippy::if_then_some_else_none, reason = "to decide")]
@@ -29,10 +30,7 @@
 #![allow(clippy::missing_errors_doc, reason = "to decide")]
 #![allow(clippy::missing_panics_doc, reason = "to decide")]
 // Allowed lints
-#![allow(
-    clippy::missing_docs_in_private_items,
-    reason = "Documentation for private functions is not mandatory"
-)]
+#![allow(clippy::mod_module_files, reason = "Prefer mod files")]
 #![allow(
     clippy::semicolon_outside_block,
     reason = "Try to reduce semicolon after braces"

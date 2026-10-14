@@ -51,6 +51,7 @@ fn npc_dialog_roots(
 }
 
 /// Opens the dialog of the closest npc on demand
+#[allow(clippy::type_complexity)]
 fn show_closest_npc_dialog(
     keys: Res<ButtonInput<KeyCode>>,
     mut dialog_ui: ResMut<DialogUiState>,

@@ -10,7 +10,7 @@ use crate::graphics::animation::{
 use crate::gui_debug::toggle_visibility::NpcVisibility;
 use crate::warn_once;
 use crate::zengin::GameNpc;
-use crate::zengin::common::ZenGinModel;
+use crate::zengin::common::{ZenGinModel, get_animation_path};
 use crate::zengin::zengin_resources::{
     MaterialHandles, ZenGinModelComponent, despawn_visual_when_far_resource,
 };
@@ -184,23 +184,27 @@ fn spawn_npcs(
                             .as_ref()
                             .map(|path| handles_map.get_animation_handle(&asset_server, path)),
                     });
-            // Entities with movement animations start in their idle animation,
-            // the rest plays the configured animation
+            // Entities with movement animations start in their idle animation, the
+            // rest plays the configured animation, otherwise the standing animation
+            // of the model scheme (e.g. a wolf stands in `WOLF-S_FISTRUN`)
             let animation_path = npc_animations
                 .movement_animations
                 .as_ref()
-                .map(|el| el.idle.as_str())
-                .or(npc_animations.animation.as_deref());
-            let animation_path = if let Some(animation_path) = animation_path {
-                animation_path
-            } else {
-                warn_once!(
-                    "NPC({}), body({}) doesn't have idle animation",
-                    game_npc.npc_instance_id,
-                    &npc_model.body_model
-                );
-                EXAMPLE_ANIMATION
-            };
+                .map(|el| el.idle.clone())
+                .or_else(|| npc_animations.animation.clone())
+                .or_else(|| {
+                    let scheme = npc_model.animation_scheme.as_deref()?;
+                    let stand = npc_model.stand_animation.as_deref()?;
+                    Some(get_animation_path(scheme, stand))
+                })
+                .unwrap_or_else(|| {
+                    warn_once!(
+                        "NPC({}), body({}) doesn't have idle animation",
+                        game_npc.npc_instance_id,
+                        &npc_model.body_model
+                    );
+                    EXAMPLE_ANIMATION.to_string()
+                });
             let spawn_state = NpcSpawnState {
                 body_handle: handles_map.get_model_handle(
                     &asset_server,
@@ -211,7 +215,7 @@ fn spawn_npcs(
                     handles_map.get_model_handle(&asset_server, el, npc_model.hierarchy.as_deref())
                 }),
                 animation_handle: Some(
-                    handles_map.get_animation_handle(&asset_server, animation_path),
+                    handles_map.get_animation_handle(&asset_server, &animation_path),
                 ),
                 movement_handles,
                 body_spawned: npc_model.armor_model.is_some(),

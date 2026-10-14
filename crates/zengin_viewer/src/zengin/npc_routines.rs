@@ -3,8 +3,10 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::{GameTime, advance_game_time};
+use crate::gameplay::objects::NpcModel;
 use crate::graphics::animation::AnimationController;
 use crate::zengin::GameNpc;
+use crate::zengin::common::get_animation_path;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::main::FunctionId;
 use crate::zengin::zengin_resources::MaterialHandles;
@@ -151,6 +153,7 @@ fn update_npc_routine_animations(
         (
             Entity,
             &GameNpc,
+            &NpcModel,
             Option<&mut NpcRoutineAnimation>,
             Option<&mut AnimationController>,
         ),
@@ -162,7 +165,7 @@ fn update_npc_routine_animations(
     let minutes = game_time.minutes_of_day();
     let mut gothic_script = gothic_script.lock();
 
-    for (entity, npc, routine_animation, controller) in &mut npcs {
+    for (entity, npc, npc_model, routine_animation, controller) in &mut npcs {
         let Some(mut routine_animation) = routine_animation else {
             commands
                 .entity(entity)
@@ -173,6 +176,13 @@ fn update_npc_routine_animations(
             // Npc visual is not spawned yet, retry when it is
             continue;
         };
+        let Some(scheme) = npc_model.animation_scheme.as_deref() else {
+            continue;
+        };
+        let stand_animation = npc_model
+            .stand_animation
+            .as_deref()
+            .unwrap_or(STANDING_ANIMATION);
 
         let state_fn = {
             let loaded_state = gothic_script.get_loaded_state();
@@ -194,12 +204,9 @@ fn update_npc_routine_animations(
 
         routine_animation.applied_state_fn = Some(state_fn);
         let played_anis = gothic_script.call_routine_state_function(npc.npc_instance_id, state_fn);
-        let ani = choose_routine_animation(&played_anis);
+        let ani = choose_routine_animation(&played_anis, stand_animation);
 
-        let path = format!(
-            "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-{}.MAN",
-            ani.to_ascii_uppercase()
-        );
+        let path = get_animation_path(scheme, &ani);
         // info!("npc({}) routine animation({})", npc.npc_instance_id, ani);
         // Applied via `next` so the animation system syncs its playback state on
         // the switch. When the animation asset does not exist the switch is
@@ -209,22 +216,21 @@ fn update_npc_routine_animations(
     }
 }
 
-/// Standing body state animation. A routine state that requests no animation
-/// leaves the npc standing, which is exactly what e.g. the waypoint guards do.
+/// Standing body state animation fallback, `S_RUN` is the human idle.
 const STANDING_ANIMATION: &str = "S_RUN";
 
 /// Picks the animation to loop from the names the routine state script
 /// requested. The engine keeps the body state animation looping after a
 /// transition, so a requested transition into a pose (`T_X_2_Y`) is replaced
-/// by the pose idle itself (`S_Y`), where standing is `S_RUN`. States that
-/// request no animation (`played_anis` empty) leave the npc in the default
-/// standing body state, so they fall back to that standing idle too.
-fn choose_routine_animation(played_anis: &[String]) -> String {
+/// by the pose idle itself (`S_Y`). States that request no animation
+/// (`played_anis` empty) leave the npc in the default standing body state, so
+/// they fall back to the scheme standing idle (`stand_animation`) too.
+fn choose_routine_animation(played_anis: &[String], stand_animation: &str) -> String {
     let Some(ani) = played_anis.first() else {
-        return STANDING_ANIMATION.to_string();
+        return stand_animation.to_string();
     };
     match ani.rsplit_once("_2_") {
-        Some((_, "STAND")) => STANDING_ANIMATION.to_string(),
+        Some((_, "STAND")) => stand_animation.to_string(),
         Some((_, pose)) => format!("S_{pose}"),
         None => ani.clone(),
     }

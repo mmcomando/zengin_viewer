@@ -87,6 +87,7 @@ fn camera_info_overlay(context: &egui::Context, camera: &GlobalTransform) {
         });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn ui_info_system(
     mut statistics_changed: MessageWriter<OptionsChanged>,
     mut contexts: EguiContexts,

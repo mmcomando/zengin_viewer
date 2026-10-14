@@ -173,6 +173,7 @@ fn run_convert_zengin_model_to_entities(
 }
 
 #[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 fn convert_zengin_model_to_entities(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,

@@ -20,4 +20,11 @@ pub struct NpcModel {
     pub head_texture: Option<String>,
     /// Humanoids can wear armor
     pub armor_model: Option<String>,
+
+    /// Animation scheme (visual `.mds` stem) used as animation file prefix,
+    /// e.g. `HUMANS` or `WOLF`. `None` when it could not be derived.
+    pub animation_scheme: Option<String>,
+    /// Standing body state animation of [`Self::animation_scheme`], e.g. `S_RUN`
+    /// for humans and `S_FISTRUN` for most creatures. `None` when unresolved.
+    pub stand_animation: Option<String>,
 }

@@ -94,7 +94,7 @@ const MAIN_TEST_SCREENSHOT_FRAME: u32 = 200;
 
 fn exit_after_frame_limit(mut counter: ResMut<FrameCounter>, mut exit: MessageWriter<AppExit>) {
     counter.0 += 1;
-    if counter.0 % 100 == 0 {
+    if counter.0.is_multiple_of(100) {
         info!("run-scenario main-test: frame {}", counter.0);
     }
     if counter.0 >= MAIN_TEST_FRAME_LIMIT {

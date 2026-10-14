@@ -19,13 +19,16 @@ use crate::{
 
 const PLARCEHOLDER_MESH: &str = "/_WORK/DATA/MESHES/_COMPILED/SPHERE.MRM";
 
-fn find_mesh_path(vfs: &Vfs, name: &str) -> Option<String> {
-    let name = name
-        .to_uppercase()
+fn normalize_mesh_name(name: &str) -> String {
+    name.to_uppercase()
         .replace(".3DS", "")
         .replace(".MMS", "")
         .replace(".MDS", "")
-        .replace(".ASC", "");
+        .replace(".ASC", "")
+}
+
+fn find_mesh_path(vfs: &Vfs, name: &str) -> Option<String> {
+    let name = normalize_mesh_name(name);
 
     let asset_paths: Vec<String> = vec![
         format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MMB", name),
@@ -44,6 +47,19 @@ fn find_mesh_path(vfs: &Vfs, name: &str) -> Option<String> {
 
     let asset_path = to_asset_path(&asset_path);
     return Some(asset_path);
+}
+
+/// Standing body state animation of an animation scheme. `S_RUN` is the human
+/// idle, most creatures only provide `S_FISTRUN`; probe the anims archive for
+/// the one the scheme has.
+fn resolve_stand_animation(vfs: &Vfs, scheme: &str) -> Option<String> {
+    ["S_RUN", "S_FISTRUN"]
+        .into_iter()
+        .find(|ani| {
+            vfs.resolve_path(&format!("/_WORK/DATA/ANIMS/_COMPILED/{scheme}-{ani}.MAN"))
+                .is_some()
+        })
+        .map(str::to_string)
 }
 
 fn get_tr_from_point_name(data: &ZenGinWorldData, name: &str) -> Option<Transform> {
@@ -157,9 +173,19 @@ pub fn load_npc(
         None
     };
 
+    // Animations of an npc live in the scheme of its visual (`.mds`), the body
+    // mesh name is unrelated, e.g. the wolf visual `Wolf.mds` uses `WOLF-*.MAN`
+    // while its body mesh is `Wol_Body`.
+    let animation_scheme = instance.hierarchy.as_deref().map(normalize_mesh_name);
+    let stand_animation = animation_scheme
+        .as_deref()
+        .and_then(|scheme| resolve_stand_animation(vfs, scheme));
+
     let npc = ZenGinNpc {
         npc_intance_id: spawn_npc.npc_index,
         hierarchy,
+        animation_scheme,
+        stand_animation,
         head_model,
         head_texture: instance
             .face_texture
