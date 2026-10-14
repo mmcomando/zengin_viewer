@@ -229,6 +229,8 @@ pub struct NpcLiveState {
     pub positions: HashMap<InstanceId, Vec3>,
     /// Npc each npc currently looks at (`AI_LookAtNPC`/`AI_StopLookAt`).
     pub look_at: HashMap<InstanceId, InstanceId>,
+    /// Npcs with a pending `AI_AlignToWP` request, applied by the ECS side.
+    pub align_to_wp: HashSet<InstanceId>,
 }
 
 /// Talent slots per npc, `TALENT_MAX_G2`.

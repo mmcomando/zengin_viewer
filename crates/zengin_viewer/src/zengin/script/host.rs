@@ -245,7 +245,16 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(ai_wait(_0, _1));
     fake_impl!(ai_waitms(_0, _1));
     fake_impl!(ai_waittillend(_0, _1));
-    fake_impl!(ai_aligntowp(_0));
+    /// Requests that the npc faces its routine waypoint, applied by the ECS side.
+    fn ai_aligntowp(&mut self, npc: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(mut state) = self.npc_live_state() else {
+            return;
+        };
+        state.align_to_wp.insert(npc);
+    }
     fake_impl!(ai_setwalkmode(_0, _1));
     fake_impl!(ai_gotowp(_0, _1));
     fake_impl!(ai_teleport(_0, _1));

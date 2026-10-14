@@ -52,6 +52,7 @@ impl Plugin for NpcRoutinesPlugin {
                 update_npc_routines,
                 update_npc_routine_animations.after(update_npc_routines),
                 apply_look_at.after(update_npc_routines),
+                apply_align_to_wp.after(apply_look_at),
             )
                 .after(advance_game_time),
         );
@@ -269,5 +270,34 @@ fn apply_look_at(
             continue;
         }
         tr.rotation = face_direction_quat(direction);
+    }
+}
+
+/// Faces npcs at their assigned routine waypoint when the script requested it
+/// via `AI_AlignToWP`; the waypoint rotation is the facing direction. Consumes
+/// one request per npc. Locks only the shared npc state.
+fn apply_align_to_wp(
+    state: Res<ScriptNpcState>,
+    way_points: Res<WayPoints>,
+    mut npcs: Query<(&GameNpc, Option<&NpcRoutineState>, &mut Transform)>,
+) {
+    let Ok(mut live) = state.0.lock() else {
+        return;
+    };
+    if live.align_to_wp.is_empty() {
+        return;
+    }
+
+    for (npc, routine, mut tr) in &mut npcs {
+        if !live.align_to_wp.remove(&npc.npc_instance_id) {
+            continue;
+        }
+        let Some(name) = routine.and_then(|routine| routine.assigned_waypoint.as_deref()) else {
+            continue;
+        };
+        let Some(way_point) = way_points.points.get(name) else {
+            continue;
+        };
+        tr.rotation = way_point.rotation;
     }
 }
