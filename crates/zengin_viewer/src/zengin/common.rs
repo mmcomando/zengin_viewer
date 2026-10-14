@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use zen_kit_rs::vfs::VfsNode;
 
 use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::waypoint_graph::WaypointGraph;
 
 // zenkit cords have mirrored X compared to bevy
 pub const MIRROR_X: bool = true;
@@ -240,4 +241,6 @@ pub struct ZenGinWorldData {
     pub item_mesh_paths: HashMap<i32, String>,
     /// Names of all files in the compiled anim archive (uppercased)
     pub anim_files: HashSet<String>,
+    /// Waypoint navigation graph built from the world way net
+    pub waypoint_graph: WaypointGraph,
 }

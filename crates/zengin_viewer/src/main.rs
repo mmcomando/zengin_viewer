@@ -38,7 +38,7 @@ use crate::input::options::{Options, RegisterShaderAsset};
 use crate::xr::{XrPlugin, is_xr_enabled};
 use crate::zengin::SpeechSounds;
 use crate::zengin::ZenginPlugin;
-use crate::zengin::{create_zengin_asset_loader, create_zengin_vfs};
+use crate::zengin::{WaypointDebugPlugin, create_zengin_asset_loader, create_zengin_vfs};
 use avian3d::prelude::*;
 
 use bevy::prelude::*;
@@ -105,6 +105,7 @@ fn main() {
     // FPS overlay requires rendering, skip it in renderless mode.
     if !app.world().resource::<Options>().renderless() {
         app.add_plugins(get_overlay_plugin());
+        app.add_plugins(WaypointDebugPlugin);
     }
 
     // This app custom plugins

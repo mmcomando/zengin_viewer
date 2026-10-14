@@ -91,6 +91,7 @@ fn spawn_world(
         &mut world_data.item_mesh_paths,
     )));
     commands.insert_resource(AnimationFiles(std::mem::take(&mut world_data.anim_files)));
+    commands.insert_resource(std::mem::take(&mut world_data.waypoint_graph));
 
     println!("\n----CREATE ENGINE ENTITIES------\n");
 

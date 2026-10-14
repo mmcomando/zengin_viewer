@@ -36,10 +36,54 @@ impl WayNet<'_> {
         let count = self.point_count();
         (0..count).map(|i| self.point(i)).collect()
     }
+
+    pub fn edge_count(&self) -> u64 {
+        unsafe { ZkWayNet_getEdgeCount(self.ptr.as_ptr()) }
+    }
+
+    pub fn edge(&self, index: u64) -> WayEdge<'_> {
+        unsafe {
+            let ptr = ZkWayNet_getEdge(self.ptr.as_ptr(), index);
+            return WayEdge::from_raw_ptr(ptr.cast_mut(), false).unwrap();
+        }
+    }
+
+    pub fn edges(&self) -> Vec<WayEdge<'_>> {
+        let count = self.edge_count();
+        (0..count).map(|i| self.edge(i)).collect()
+    }
 }
 
-// pub fn ZkWayNet_getEdgeCount(slf: *const ZkWayNet) -> ZkSize;
-// pub fn ZkWayNet_getEdge(slf: *const ZkWayNet, i: ZkSize) -> *const ZkWayEdge;
+#[derive(Debug)]
+pub struct WayEdge<'a> {
+    ptr: NonNull<ZkWayEdge>,
+    _marker: PhantomData<&'a ZkWayEdge>,
+    _owned: bool,
+}
+
+impl WayEdge<'_> {
+    pub unsafe fn from_raw_ptr(ptr: *mut ZkWayEdge, owned: bool) -> Option<Self> {
+        NonNull::new(ptr).map(|ptr| Self {
+            ptr,
+            _marker: PhantomData,
+            _owned: owned,
+        })
+    }
+
+    pub fn start_point(&self) -> WayNetPoint<'_> {
+        unsafe {
+            let ptr = ZkWayEdge_getStartPoint(self.ptr.as_ptr().cast_const());
+            return WayNetPoint::from_raw_ptr(ptr.cast_mut(), false).unwrap();
+        }
+    }
+
+    pub fn end_point(&self) -> WayNetPoint<'_> {
+        unsafe {
+            let ptr = ZkWayEdge_getEndPoint(self.ptr.as_ptr().cast_const());
+            return WayNetPoint::from_raw_ptr(ptr.cast_mut(), false).unwrap();
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct WayNetPoint<'a> {

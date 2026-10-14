@@ -242,6 +242,8 @@ pub struct NpcLiveState {
     pub equipped_weapon: HashMap<InstanceId, InstanceId>,
     /// Pending overlay requests per npc (`Mdl_ApplyOverlayMds`/`Remove`).
     pub overlay_request: HashMap<InstanceId, OverlayRequest>,
+    /// `AI_GoToWP` requests per npc, waypoint name string symbol id.
+    pub goto_request: HashMap<InstanceId, i32>,
 }
 
 /// Overlay change requested for an npc.
@@ -334,6 +336,17 @@ impl ImportCallState {
             return;
         };
         state.overlay_request.insert(npc, request);
+    }
+
+    /// Queues a `AI_GoToWP` request (waypoint name string symbol id) for an npc.
+    pub fn set_goto_request(&self, npc: i32, waypoint: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(mut state) = self.npc_live_state() else {
+            return;
+        };
+        state.goto_request.insert(npc, waypoint);
     }
 
     /// Whether the npc's recorded (current/previous) routine state function

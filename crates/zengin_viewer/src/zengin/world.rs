@@ -14,6 +14,7 @@ use crate::{
         conversions::*,
         script::state::{InstanceState, SpawnItem, SpawnNpc},
         visual::mesh::meshes_from_zengin_mesh,
+        waypoint_graph::{WaypointGraph, WaypointNode},
     },
 };
 
@@ -323,7 +324,8 @@ pub fn load_zengin_world_data(
 
 fn load_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
     let points = way_net.points();
-    for point in points {
+    let mut graph = WaypointGraph::default();
+    for point in &points {
         let name = point.name().to_lowercase();
         let pos = get_world_pos(point.position().to_glam());
         let direction = point.direction();
@@ -333,8 +335,51 @@ fn load_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
         };
         let rot = get_world_dir_quat(dir_2d);
         let tr = Transform::from_translation(pos).with_rotation(rot);
-        data.way_points.insert(name, tr);
+        data.way_points.insert(name.clone(), tr);
+
+        let index = graph.nodes.len();
+        graph.name_to_index.insert(name.clone(), index);
+        graph.nodes.push(WaypointNode {
+            name,
+            position: pos,
+            direction: Vec3::new(direction.x, direction.y, direction.z),
+            free: point.free_point(),
+        });
     }
+
+    // Edge endpoints are copies of the point values, not the same objects, so
+    // match by the (unique) lowercased waypoint name
+    graph.adjacency = vec![Vec::new(); graph.nodes.len()];
+    for edge in way_net.edges() {
+        let start = graph
+            .name_to_index
+            .get(&edge.start_point().name().to_lowercase())
+            .copied();
+        let end = graph
+            .name_to_index
+            .get(&edge.end_point().name().to_lowercase())
+            .copied();
+        let (Some(start), Some(end)) = (start, end) else {
+            continue;
+        };
+        let length = (graph.nodes[start].position - graph.nodes[end].position).length();
+        graph.adjacency[start].push((end, length));
+        graph.adjacency[end].push((start, length));
+    }
+
+    data.waypoint_graph = graph;
+    let edges = data
+        .waypoint_graph
+        .adjacency
+        .iter()
+        .map(Vec::len)
+        .sum::<usize>()
+        / 2;
+    info!(
+        "Waypoint graph: {} nodes, {} edges",
+        data.waypoint_graph.nodes.len(),
+        edges
+    );
 }
 
 fn try_load_mesh(vfs: &Vfs, asset_paths: &[String]) -> Option<String> {

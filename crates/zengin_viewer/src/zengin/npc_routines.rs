@@ -7,10 +7,13 @@ use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::animation::AnimationController;
 use crate::zengin::GameNpc;
-use crate::zengin::common::{choose_animation_scheme, face_direction_quat, get_animation_path};
+use crate::zengin::common::{
+    animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
+};
 use crate::zengin::script::component::{ScriptNpcState, ScriptResource};
 use crate::zengin::script::state::{OverlayRequest, WeaponMode};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
+use crate::zengin::waypoint_graph::WaypointGraph;
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
@@ -53,11 +56,13 @@ impl Plugin for NpcRoutinesPlugin {
             (
                 update_npc_routines,
                 resolve_npc_overlays,
+                resolve_goto_paths,
                 update_npc_routine_animations.after(update_npc_routines),
                 apply_look_at.after(update_npc_routines),
                 apply_align_to_wp.after(apply_look_at),
                 apply_weapon_mode.after(update_npc_routine_animations),
                 update_npc_weapon,
+                move_along_path.after(update_npc_routines),
             )
                 .after(advance_game_time),
         );
@@ -65,13 +70,14 @@ impl Plugin for NpcRoutinesPlugin {
 }
 
 /// Periodically (on every in-game minute change) checks the active routine
-/// entry of each npc. When the routine waypoint changed, the npc is teleported
-/// to the new waypoint location.
+/// entry of each npc. When the routine waypoint changed, the npc walks to the
+/// new waypoint (falling back to a teleport when no path is available).
 fn update_npc_routines(
     mut check_state: ResMut<NpcRoutineCheckState>,
     game_time: Res<GameTime>,
     gothic_script: Res<ScriptResource>,
     way_points: Res<WayPoints>,
+    graph: Res<WaypointGraph>,
     mut commands: Commands,
     mut npcs: Query<
         (
@@ -123,6 +129,24 @@ fn update_npc_routines(
                     );
                     continue;
                 };
+
+                // Walk to the waypoint over the graph; teleport when no path exists
+                if let (Some(target), Some(start)) = (
+                    graph.node_by_name(&entry.way_point),
+                    graph.nearest_node(tr.translation),
+                ) && let Some(path) = graph.shortest_path(start, target)
+                {
+                    debug!(
+                        "walk npc({}) to waypoint({})",
+                        npc.npc_instance_id, entry.way_point
+                    );
+                    commands.entity(entity).insert(NpcPath {
+                        nodes: path,
+                        speed: NPC_WALK_SPEED,
+                    });
+                    continue;
+                }
+
                 debug!(
                     "teleport npc({}) to waypoint({})",
                     npc.npc_instance_id, entry.way_point
@@ -539,6 +563,172 @@ fn resolve_npc_overlays(
     for (entity, npc) in &npcs {
         if let Some(scheme) = schemes.get(&npc.npc_instance_id) {
             commands.entity(entity).insert(NpcOverlay(scheme.clone()));
+        }
+    }
+}
+
+/// Walking speed of npcs following an `AI_GoToWP` path, in Bevy meters/second.
+const NPC_WALK_SPEED: f32 = 3.0;
+
+/// Remaining waypoint node indices an npc walks through (`AI_GoToWP`).
+#[derive(Component, Default)]
+struct NpcPath {
+    nodes: Vec<usize>,
+    speed: f32,
+}
+
+/// Resolves `AI_GoToWP` requests into a path over the waypoint graph. Reads the
+/// waypoint name through the script vm, which is only safe outside a running
+/// script, hence this runs in `Update`. Locks the shared state and the script,
+/// but never both at once.
+fn resolve_goto_paths(
+    gothic_script: Res<ScriptResource>,
+    state: Res<ScriptNpcState>,
+    graph: Res<WaypointGraph>,
+    mut commands: Commands,
+    npcs: Query<(Entity, &GameNpc, &Transform)>,
+) {
+    let requests: Vec<(InstanceId, i32)> = {
+        let Ok(mut live) = state.0.lock() else {
+            return;
+        };
+        live.goto_request.drain().collect()
+    };
+    if requests.is_empty() {
+        return;
+    }
+
+    let names: HashMap<InstanceId, Option<String>> = {
+        let mut gothic_script = gothic_script.lock();
+        requests
+            .into_iter()
+            .map(|(npc, id)| (npc, gothic_script.get_name_by_id(id)))
+            .collect()
+    };
+
+    for (entity, npc, transform) in &npcs {
+        let Some(Some(name)) = names.get(&npc.npc_instance_id) else {
+            continue;
+        };
+        let Some(target) = graph.node_by_name(name) else {
+            continue;
+        };
+        let Some(start) = graph.nearest_node(transform.translation) else {
+            continue;
+        };
+        let Some(path) = graph.shortest_path(start, target) else {
+            continue;
+        };
+        commands.entity(entity).insert(NpcPath {
+            nodes: path,
+            speed: NPC_WALK_SPEED,
+        });
+    }
+}
+
+/// Walk-loop animations tried while path-following, in preference order; the
+/// first one the scheme (or its overlay) has is played.
+const WALK_ANIMATIONS: [&str; 4] = ["S_RUNL", "S_FISTRUNL", "S_WALKL", "S_FISTWALKL"];
+
+/// Tracks whether the walk animation is currently applied to an npc.
+#[derive(Component, Default)]
+struct NpcWalk {
+    walking: bool,
+}
+
+/// First candidate animation the scheme or its overlay actually has.
+fn existing_animation<'a>(
+    scheme: &'a str,
+    overlay: Option<&'a str>,
+    candidates: &[&'a str],
+    files: &HashSet<String>,
+) -> Option<(&'a str, &'a str)> {
+    for animation in candidates {
+        if let Some(overlay) = overlay
+            && files.contains(&animation_file_name(overlay, animation))
+        {
+            return Some((overlay, animation));
+        }
+        if files.contains(&animation_file_name(scheme, animation)) {
+            return Some((scheme, animation));
+        }
+    }
+    None
+}
+
+/// Moves npcs along their [`NpcPath`] at a constant speed, facing the move
+/// direction, and plays a walk-loop animation while moving (restoring the
+/// standing idle on arrival). The body offset matches npc placement, otherwise
+/// they would float above the ground while moving.
+#[allow(clippy::type_complexity)]
+fn move_along_path(
+    time: Res<Time>,
+    graph: Res<WaypointGraph>,
+    files: Res<AnimationFiles>,
+    mut handles: ResMut<MaterialHandles>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+    mut npcs: Query<(
+        Entity,
+        &mut Transform,
+        &mut NpcPath,
+        &NpcModel,
+        Option<&NpcOverlay>,
+        Option<&mut AnimationController>,
+        Option<&mut NpcWalk>,
+    )>,
+) {
+    let delta = time.delta_secs();
+    for (entity, mut transform, mut path, model, overlay, controller, walk) in &mut npcs {
+        let step = path.speed * delta;
+        while let Some(node) = path.nodes.first().copied() {
+            let target = graph.nodes[node].position + Vec3::Y * NPC_BODY_Y_OFFSET;
+            let to_target = target - transform.translation;
+            let distance = to_target.length();
+            if distance <= step {
+                transform.translation = target;
+                path.nodes.remove(0);
+                continue;
+            }
+            let direction = to_target / distance;
+            transform.translation += direction * step;
+            transform.rotation = face_direction_quat(direction);
+            break;
+        }
+        let arrived = path.nodes.is_empty();
+        if arrived {
+            commands.entity(entity).remove::<NpcPath>();
+        }
+
+        // Walk animation while moving, standing idle once arrived
+        let (Some(mut controller), Some(mut walk)) = (controller, walk) else {
+            commands.entity(entity).insert(NpcWalk::default());
+            continue;
+        };
+        let Some(scheme) = model.animation_scheme.as_deref() else {
+            continue;
+        };
+        let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
+
+        if !arrived && !walk.walking {
+            walk.walking = true;
+            if let Some((scheme, animation)) =
+                existing_animation(scheme, overlay, &WALK_ANIMATIONS, &files.0)
+            {
+                let path = get_animation_path(scheme, animation);
+                controller.next = Some(handles.get_animation_handle(&asset_server, &path));
+                controller.interrupt_current = true;
+            }
+        } else if arrived && walk.walking {
+            walk.walking = false;
+            let animation = model
+                .stand_animation
+                .as_deref()
+                .unwrap_or(STANDING_ANIMATION);
+            let scheme = choose_animation_scheme(scheme, overlay, animation, &files.0);
+            let path = get_animation_path(scheme, animation);
+            controller.next = Some(handles.get_animation_handle(&asset_server, &path));
+            controller.interrupt_current = true;
         }
     }
 }

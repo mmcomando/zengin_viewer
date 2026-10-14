@@ -9,6 +9,7 @@ mod script;
 mod sounds;
 mod statistics;
 mod visual;
+mod waypoint_graph;
 mod world;
 mod world_plugin;
 mod zengin_resources;
@@ -25,6 +26,7 @@ use crate::zengin::script::symbol_id::InstanceId;
 pub use crate::zengin::loaders::vdf_reader::{create_zengin_asset_loader, create_zengin_vfs};
 pub use crate::zengin::sounds::SpeechSounds;
 pub use crate::zengin::statistics::StatisticsZengin;
+pub use crate::zengin::waypoint_graph::WaypointDebugPlugin;
 
 /// Plugin which provides Zengin related functionality
 pub struct ZenginPlugin;

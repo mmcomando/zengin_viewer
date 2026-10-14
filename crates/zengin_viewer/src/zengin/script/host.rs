@@ -273,7 +273,11 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         state.align_to_wp.insert(npc);
     }
     fake_impl!(ai_setwalkmode(_0, _1));
-    fake_impl!(ai_gotowp(_0, _1));
+    /// Records a `AI_GoToWP` request; the waypoint name is stored as a raw string
+    /// id and resolved by the ECS side (see `ai_applyoverlay` for why).
+    fn ai_gotowp(&mut self, npc: i32, waypoint: i32) {
+        self.set_goto_request(npc, waypoint);
+    }
     fake_impl!(ai_teleport(_0, _1));
     fake_impl!(ai_gotoitem(_0, _1));
     fake_impl!(ai_gotonpc(_0, _1));
