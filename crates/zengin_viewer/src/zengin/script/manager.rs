@@ -445,15 +445,23 @@ impl ScriptManager {
             };
 
             let visual_change = self.get_item_visual_change(index.symbol());
-            let entry = self
-                .store
+            let chosen = visual_change.clone().unwrap_or_else(|| visual.clone());
+            {
+                let entry = self
+                    .store
+                    .data_mut()
+                    .loaded_state
+                    .item_instances
+                    .entry(symbol_name)
+                    .or_default();
+                entry.visual = visual;
+                entry.visual_change = visual_change;
+            }
+            self.store
                 .data_mut()
                 .loaded_state
-                .item_instances
-                .entry(symbol_name)
-                .or_default();
-            entry.visual = visual;
-            entry.visual_change = visual_change;
+                .item_visuals
+                .insert(index, chosen);
         }
     }
 

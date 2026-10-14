@@ -11,6 +11,7 @@ use crate::gui_debug::toggle_visibility::NpcVisibility;
 use crate::warn_once;
 use crate::zengin::GameNpc;
 use crate::zengin::common::{ZenGinModel, get_animation_path};
+use crate::zengin::npc_routines::NpcWeaponSlots;
 use crate::zengin::zengin_resources::{
     MaterialHandles, ZenGinModelComponent, despawn_visual_when_far_resource,
 };
@@ -272,6 +273,26 @@ fn spawn_npcs(
 
         if let Some(fatness) = npc_model.model_fatness {
             apply_torso_fatness(&mut commands, model_data, bones_data.as_ref(), fatness);
+        }
+
+        // Record the engine weapon slot nodes (hip for sheathed, hand for drawn)
+        // so the weapon system can attach/move the equipped weapon later.
+        if let Some(bones) = bones_data.as_ref() {
+            let find = |name: &str| {
+                model_data
+                    .node_names
+                    .iter()
+                    .position(|node| node == name)
+                    .and_then(|index| bones.joints.get(index))
+                    .copied()
+            };
+            let hand = find("ZS_RIGHTHAND");
+            let hip = find("ZS_SWORD").or_else(|| find("ZS_LONGSWORD"));
+            if hand.is_some() || hip.is_some() {
+                commands
+                    .entity(entity_id)
+                    .insert(NpcWeaponSlots { hip, hand });
+            }
         }
 
         if let Some(animation_handle) = spawn_state.animation_handle.clone() {

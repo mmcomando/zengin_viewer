@@ -148,6 +148,20 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let inventory = self.inventories.entry(npc).or_default();
         *inventory.entry(item).or_insert(0) += count;
     }
+    /// Records the item equipped on the npc; the mesh is attached by an ECS
+    /// system. Works both at instance init and at runtime.
+    fn equipitem(&mut self, npc: i32, item: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(item) = self.symbol_table.instance(item) else {
+            return;
+        };
+        let Some(mut state) = self.npc_live_state() else {
+            return;
+        };
+        state.equipped_weapon.insert(npc, item);
+    }
     fake_impl!(npc_getinvitem(_0, _1) -> i32);
     fake_impl!(npc_getinvitembyslot(_0, _1, _2) -> i32);
     fake_impl!(npc_removeinvitem(_0, _1) -> i32);
@@ -211,7 +225,6 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(npc_isaiming(_0, _1) -> i32);
     fake_impl!(npc_startitemreactmodules(_0, _1, _2) -> i32);
     fake_impl!(npc_hasoffered(_0, _1, _2) -> i32);
-    fake_impl!(equipitem(_0, _1));
     fn npc_settofistmode(&mut self, npc: i32) {
         self.set_weapon_mode(npc, WeaponMode::Fists);
     }

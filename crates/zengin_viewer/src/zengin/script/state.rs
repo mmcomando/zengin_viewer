@@ -101,6 +101,8 @@ pub struct LoadedState {
     pub spawn_items: Vec<SpawnItem>,
     pub instance_data: HashMap<InstanceId, InstanceState>,
     pub item_instances: HashMap<String, ItemInstance>,
+    /// Item instance visuals, symbol id to visual name (`EquipItem` weapons)
+    pub item_visuals: HashMap<InstanceId, String>,
     pub dialog_roots: HashMap<InstanceId, Vec<DialogRoot>>,
     /// Animations requested via `AI_PlayAni(BS)` by the last executed routine
     /// state function, keyed by npc instance index, in request order.
@@ -236,6 +238,8 @@ pub struct NpcLiveState {
     pub align_to_wp: HashSet<InstanceId>,
     /// Weapon mode per npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI).
     pub weapon_mode: HashMap<InstanceId, WeaponMode>,
+    /// Item symbol equipped per npc (`EquipItem`).
+    pub equipped_weapon: HashMap<InstanceId, InstanceId>,
 }
 
 /// Weapon mode of an npc, drives the idle animation.

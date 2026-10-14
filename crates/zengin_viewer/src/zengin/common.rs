@@ -211,4 +211,6 @@ pub struct ZenGinWorldData {
     pub items: Vec<ZenGinItem>,
     pub spots: HashMap<String, Transform>,
     pub way_points: HashMap<String, Transform>,
+    /// Item symbol id to weapon mesh asset path (`EquipItem`)
+    pub item_mesh_paths: HashMap<i32, String>,
 }

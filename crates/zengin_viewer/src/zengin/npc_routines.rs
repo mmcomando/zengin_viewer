@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use bevy::ecs::entity::Entities;
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::{GameTime, advance_game_time};
@@ -9,8 +10,8 @@ use crate::zengin::GameNpc;
 use crate::zengin::common::{face_direction_quat, get_animation_path};
 use crate::zengin::script::component::{ScriptNpcState, ScriptResource};
 use crate::zengin::script::state::WeaponMode;
-use crate::zengin::script::symbol_id::FunctionId;
-use crate::zengin::zengin_resources::MaterialHandles;
+use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
+use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.
@@ -55,6 +56,7 @@ impl Plugin for NpcRoutinesPlugin {
                 apply_look_at.after(update_npc_routines),
                 apply_align_to_wp.after(apply_look_at),
                 apply_weapon_mode.after(update_npc_routine_animations),
+                update_npc_weapon,
             )
                 .after(advance_game_time),
         );
@@ -366,5 +368,111 @@ fn apply_align_to_wp(
             continue;
         };
         tr.rotation = way_point.rotation;
+    }
+}
+
+/// Engine weapon slot nodes of an npc model, `hip` is the sheathed position
+/// (`ZS_SWORD`), `hand` the drawn one (`ZS_RIGHTHAND`).
+#[derive(Component, Default)]
+pub struct NpcWeaponSlots {
+    pub hip: Option<Entity>,
+    pub hand: Option<Entity>,
+}
+
+/// Weapon mesh currently attached to an npc, managed by [`update_npc_weapon`].
+#[derive(Component, Default)]
+struct NpcWeapon {
+    entity: Option<Entity>,
+    item: Option<InstanceId>,
+    slot: Option<Entity>,
+}
+
+/// Item symbol id to weapon mesh asset path, built at world load.
+#[derive(Resource, Default)]
+pub struct WeaponMeshPaths(pub HashMap<i32, String>);
+
+/// Keeps a weapon mesh on each npc that has one equipped. The default position
+/// is the hip, switching to melee mode moves it to the hand. Reacts to a runtime
+/// `EquipItem`. Locks only the shared npc state.
+#[allow(clippy::type_complexity)]
+fn update_npc_weapon(
+    state: Res<ScriptNpcState>,
+    mesh_paths: Res<WeaponMeshPaths>,
+    mut handles: ResMut<MaterialHandles>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+    entities: &Entities,
+    mut npcs: Query<(Entity, &GameNpc, &NpcWeaponSlots, Option<&mut NpcWeapon>)>,
+) {
+    let Ok(live) = state.0.lock() else {
+        return;
+    };
+
+    for (entity, npc, slots, weapon) in &mut npcs {
+        let item = live.equipped_weapon.get(&npc.npc_instance_id).copied();
+        let drawn = matches!(
+            live.weapon_mode.get(&npc.npc_instance_id),
+            Some(WeaponMode::Melee)
+        );
+        // The joints are despawned with the visual when the npc is far
+        let target_slot =
+            if drawn { slots.hand } else { slots.hip }.filter(|slot| entities.contains(*slot));
+
+        let Some(mut weapon) = weapon else {
+            commands.entity(entity).insert(NpcWeapon::default());
+            continue;
+        };
+
+        let Some(path) = item
+            .and_then(|item| mesh_paths.0.get(&item.value()))
+            .cloned()
+        else {
+            // Nothing equipped, or its mesh is unknown
+            if let Some(child) = weapon.entity.take()
+                && entities.contains(child)
+            {
+                commands.entity(child).despawn();
+            }
+            weapon.item = None;
+            weapon.slot = None;
+            continue;
+        };
+
+        let child_alive = weapon.entity.is_some_and(|child| entities.contains(child));
+        if !child_alive {
+            // Weapon child was despawned (npc went far) or never spawned
+            weapon.entity = None;
+            weapon.slot = None;
+            let Some(target_slot) = target_slot else {
+                continue;
+            };
+            let handle = handles.get_model_handle(&asset_server, &path, None);
+            let child = commands
+                .spawn((
+                    Visibility::default(),
+                    ZenGinModelComponent {
+                        model_handle: handle,
+                        ..default()
+                    },
+                    Transform::IDENTITY,
+                    ChildOf(target_slot),
+                ))
+                .id();
+            weapon.entity = Some(child);
+            weapon.item = item;
+            weapon.slot = Some(target_slot);
+            continue;
+        }
+
+        weapon.item = item;
+
+        // Move between sheathed and drawn
+        if weapon.slot != target_slot
+            && let Some(child) = weapon.entity
+            && let Some(target_slot) = target_slot
+        {
+            commands.entity(child).insert(ChildOf(target_slot));
+            weapon.slot = Some(target_slot);
+        }
     }
 }

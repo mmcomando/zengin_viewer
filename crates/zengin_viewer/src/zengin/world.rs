@@ -304,6 +304,13 @@ pub fn load_zengin_world_data(
         warn_unimplemented!("Handling spawn locations");
     }
 
+    // Prebuild item symbol id -> mesh path for runtime equip
+    for (id, visual) in &vm_state.item_visuals {
+        if let Some(path) = resolve_mesh_path_quiet(&vfs, visual) {
+            data.item_mesh_paths.insert(id.value(), path);
+        }
+    }
+
     data
 }
 
@@ -331,6 +338,22 @@ fn try_load_mesh(vfs: &Vfs, asset_paths: &[String]) -> Option<String> {
     }
 
     return None;
+}
+
+/// Like `find_mesh_path` but returns `None` silently, for the bulk item mesh
+/// table where missing meshes are expected.
+fn resolve_mesh_path_quiet(vfs: &Vfs, name: &str) -> Option<String> {
+    let name = normalize_mesh_name(name);
+    let asset_paths: Vec<String> = vec![
+        format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MMB", name),
+        format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MDL", name),
+        format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MDM", name),
+        format!("/_WORK/DATA/ANIMS/_COMPILED/{}.MDH", name),
+        format!("/_WORK/DATA/MESHES/_COMPILED/{}.MDB", name),
+        format!("/_WORK/DATA/MESHES/_COMPILED/{}.MRM", name),
+        format!("/_WORK/DATA/MESHES/_COMPILED/{}.MSH", name),
+    ];
+    try_load_mesh(vfs, &asset_paths).map(|path| to_asset_path(&path))
 }
 
 fn load_objects(
