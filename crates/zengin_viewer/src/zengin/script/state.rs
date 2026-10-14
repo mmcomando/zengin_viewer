@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use bevy::math::Vec3;
 
@@ -213,6 +213,20 @@ pub struct ImportCallState {
     // TODO GuildId instead of i32?
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,
+    /// World position of every waypoint/freepoint by lowercased name, filled at
+    /// world load (`Npc_GetDistToWP`).
+    pub way_points: HashMap<String, Vec3>,
+    /// Live npc facts maintained by the ECS side, shared with the host.
+    pub npc_live_state: Option<Arc<Mutex<NpcLiveState>>>,
+}
+
+/// Runtime facts about npcs the script host reads back. Updated by an ECS system
+/// because npcs can move and be spawned/removed outside the script vm. An npc
+/// missing from `positions` has no entity and is treated as dead.
+#[derive(Debug, Default)]
+pub struct NpcLiveState {
+    /// World position of every live npc instance.
+    pub positions: HashMap<InstanceId, Vec3>,
 }
 
 /// Talent slots per npc, `TALENT_MAX_G2`.

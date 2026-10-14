@@ -4,6 +4,7 @@ use super::bindings::mmcomando;
 use super::manager::ScriptImports;
 use super::state::{DialogLine, DialogRoot, ImportCallState, RoutineEntry, SpawnItem, SpawnNpc};
 use super::symbol_id::{InstanceId, SymbolId};
+use crate::zengin::common::to_zengin_units;
 
 impl ScriptImports {
     fn get_string_non_0(
@@ -301,5 +302,42 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let a = Self::get_string_non_0(&mut access, a.symbol());
         let b = Self::get_string_non_0(&mut access, b.symbol());
         (a == b) as i32
+    }
+
+    /// Distance from the npc to a named waypoint in engine units. The engine
+    /// returns `i32::MAX` when the npc or the waypoint is unknown.
+    fn npc_getdisttowp(
+        mut access: wasmtime::component::Access<'_, ImportCallState, ScriptImports>,
+        npc: i32,
+        wp_name: i32,
+    ) -> i32 {
+        let Some(npc) = access.data_mut().symbol_table.instance(npc) else {
+            return i32::MAX;
+        };
+        let Some(wp_name) = access.data_mut().symbol_table.string(wp_name) else {
+            return i32::MAX;
+        };
+        let Some(wp_name) = Self::get_string_non_0(&mut access, wp_name.symbol()) else {
+            return i32::MAX;
+        };
+        let wp_name = wp_name.to_lowercase();
+
+        let data = access.get();
+        let Some(target) = data.way_points.get(&wp_name).copied() else {
+            return i32::MAX;
+        };
+        let Some(live) = &data.npc_live_state else {
+            return i32::MAX;
+        };
+        let Ok(live) = live.lock() else {
+            return i32::MAX;
+        };
+        let Some(position) = live.positions.get(&npc).copied() else {
+            return i32::MAX;
+        };
+
+        // Positions are stored in Bevy meters, the engine works in game units
+        let distance = to_zengin_units((position - target).length());
+        distance.min(i32::MAX as f32) as i32
     }
 }

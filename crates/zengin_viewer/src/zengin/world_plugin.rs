@@ -43,7 +43,7 @@ fn spawn_world(
 ) {
     let _span = info_span!("spawn_world").entered();
     println!("\n-----SCRIPTS VM-----\n");
-    let gothic_script = gothic_script.lock();
+    let mut gothic_script = gothic_script.lock();
     let loaded_state = gothic_script.get_loaded_state();
     println!("\n-----LOAD WORLD ZEN DATA-----\n");
     let mut world_data = load_zengin_world_data(
@@ -67,6 +67,24 @@ fn spawn_world(
     let mut way_points = world_data.way_points.clone();
     for (name, tr) in &world_data.spots {
         way_points.insert(name.clone(), *tr);
+    }
+    // Same table for the script host (`Npc_GetDistToWP`), keys are lowercased
+    gothic_script.set_way_points(
+        way_points
+            .iter()
+            .map(|(name, tr)| (name.clone(), tr.translation))
+            .collect(),
+    );
+    // Seed npc positions so distance queries work before the first ECS update
+    {
+        let positions = world_data
+            .npcs
+            .iter()
+            .map(|npc| (npc.npc_intance_id, npc.body_tr.translation))
+            .collect();
+        if let Ok(mut live) = gothic_script.npc_live_state().lock() {
+            live.positions = positions;
+        }
     }
     commands.insert_resource(WayPoints { points: way_points });
 

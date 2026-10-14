@@ -1,3 +1,5 @@
+use crate::zengin::GameNpc;
+use crate::zengin::script::state::NpcLiveState;
 use crate::zengin::{common::gothic2_dir, script::manager::ScriptManager};
 use bevy::ecs::resource::Resource;
 use bevy::log::info;
@@ -13,10 +15,33 @@ pub struct GothicScriptsPlugin;
 
 impl Plugin for GothicScriptsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ScriptResource::new());
+        let script = ScriptResource::new();
+        app.insert_resource(ScriptNpcState(script.lock().npc_live_state()));
+        app.insert_resource(script);
         app.insert_resource(load_dialog_texts());
         app.add_systems(Startup, spawn_entities);
+        app.add_systems(Update, update_script_npc_state);
     }
+}
+
+/// Shares the live npc facts with the script host.
+#[derive(Resource)]
+pub struct ScriptNpcState(pub Arc<Mutex<NpcLiveState>>);
+
+/// Keeps the shared npc positions in sync with the world. Uses `GlobalTransform`
+/// so npcs that are parented to something are still tracked at their world
+/// position; the player visual is a `GameNpc` child and is included. The map is
+/// rebuilt every frame, so a removed npc drops out and counts as dead.
+fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, state: Res<ScriptNpcState>) {
+    let mut positions = HashMap::new();
+    for (npc, transform) in &npcs {
+        positions.insert(npc.npc_instance_id, transform.translation());
+    }
+
+    let Ok(mut live) = state.0.lock() else {
+        return;
+    };
+    live.positions = positions;
 }
 
 /// Bevy resource holding the world script vm behind `Arc<Mutex>` so it can be

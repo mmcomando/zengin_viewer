@@ -183,7 +183,6 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(npc_getheighttoitem(_0, _1) -> i32);
     fake_impl!(npc_getdisttoplayer(_0) -> i32);
     fake_impl!(npc_getdisttoitem(_0, _1) -> i32);
-    fake_impl!(npc_getdisttowp(_0, _1) -> i32);
     fake_impl!(npc_canseenpc(_0, _1) -> i32);
     fake_impl!(npc_canseenpcfreelos(_0, _1) -> i32);
     fake_impl!(npc_canseeitem(_0, _1) -> i32);

@@ -1,16 +1,20 @@
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use daedalus_wasm::wasm::convert_daedalus_script;
 use wasmtime::component::{Component, HasData, Linker};
 use wasmtime::{Engine, Store};
 
+use bevy::math::Vec3;
+
 use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::{
     DialogInfo, SymbolInfo, SymbolKind,
 };
-use super::state::{DialogLine, DialogRoot, ImportCallState, LoadedState, SymbolTable};
+use super::state::{
+    DialogLine, DialogRoot, ImportCallState, LoadedState, NpcLiveState, SymbolTable,
+};
 use super::symbol_id::{FunctionId, InstanceId, SymbolId};
 
 #[allow(dead_code)]
@@ -20,6 +24,8 @@ pub struct ScriptManager {
     /// Cache of resolved `_loop` function symbol ids of routine state
     /// functions, `None` when the state has no loop function.
     routine_loop_functions: HashMap<FunctionId, Option<FunctionId>>,
+    /// Live npc facts shared with the ECS side, see [`NpcLiveState`].
+    npc_live_state: Arc<Mutex<NpcLiveState>>,
 }
 
 pub(crate) struct ScriptImports;
@@ -103,11 +109,26 @@ impl ScriptManager {
         let instance_arc = Arc::new(instance);
         store.data_mut().world = Some(Arc::new(instance2));
 
+        let npc_live_state = Arc::new(Mutex::new(NpcLiveState::default()));
+        store.data_mut().npc_live_state = Some(npc_live_state.clone());
+
         Self {
             store,
             instance: instance_arc,
             routine_loop_functions: HashMap::new(),
+            npc_live_state,
         }
+    }
+
+    /// Live npc facts shared with the ECS side.
+    pub fn npc_live_state(&self) -> Arc<Mutex<NpcLiveState>> {
+        self.npc_live_state.clone()
+    }
+
+    /// Fills the waypoint position table used by `Npc_GetDistToWP`, keys must be
+    /// lowercased.
+    pub fn set_way_points(&mut self, way_points: HashMap<String, Vec3>) {
+        self.store.data_mut().way_points = way_points;
     }
 
     pub fn set_instance(&mut self, instance_index: InstanceId) {

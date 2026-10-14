@@ -8,6 +8,20 @@ use crate::zengin::script::symbol_id::InstanceId;
 // zenkit cords have mirrored X compared to bevy
 pub const MIRROR_X: bool = true;
 
+/// Zentg (Gothic) game units per Bevy world unit (meter). World positions are
+/// scaled down by this when loaded.
+pub const ZENGIN_UNITS_PER_WORLD_UNIT: f32 = 100.0;
+
+/// Converts a Bevy length (world units/meters) to engine (zengin) game units.
+pub fn to_zengin_units(world_units: f32) -> f32 {
+    world_units * ZENGIN_UNITS_PER_WORLD_UNIT
+}
+
+/// Converts an engine (zengin) length to Bevy world units (meters).
+pub fn to_world_units(zengin_units: f32) -> f32 {
+    zengin_units / ZENGIN_UNITS_PER_WORLD_UNIT
+}
+
 pub fn gothic2_dir() -> String {
     if let Ok(dir) = std::env::var("GOTHIC2_DIR") {
         let path = PathBuf::from(dir);
@@ -45,7 +59,7 @@ pub fn get_world_pos(mut zengin_pos: Vec3) -> Vec3 {
         zengin_pos.x = -zengin_pos.x;
     }
     // World units are different
-    zengin_pos / 100.0
+    zengin_pos.map(to_world_units)
 }
 
 pub fn get_world_quat(mut quat: Quat) -> Quat {
