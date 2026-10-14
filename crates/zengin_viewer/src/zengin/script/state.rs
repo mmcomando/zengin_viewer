@@ -200,6 +200,8 @@ pub struct ImportCallState {
     pub rng: ScriptRandom,
     /// Talent skills/values per npc instance (`Npc_SetTalentSkill`).
     pub talents: HashMap<InstanceId, NpcTalents>,
+    /// Inventory of each npc instance, item instance id to count.
+    pub inventories: HashMap<InstanceId, HashMap<InstanceId, i32>>,
 }
 
 /// Talent slots per npc, `TALENT_MAX_G2`.
