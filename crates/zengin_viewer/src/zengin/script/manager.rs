@@ -125,6 +125,32 @@ impl ScriptManager {
         self.npc_live_state.clone()
     }
 
+    /// Moves all items of `from`'s inventory into `to`'s inventory, returning the
+    /// moved `(item, count)` pairs.
+    pub fn transfer_inventory(
+        &mut self,
+        from: InstanceId,
+        to: InstanceId,
+    ) -> Vec<(InstanceId, i32)> {
+        let Some(items) = self.store.data_mut().inventories.remove(&from) else {
+            return Vec::new();
+        };
+        let target = self.store.data_mut().inventories.entry(to).or_default();
+        for (item, count) in &items {
+            *target.entry(*item).or_insert(0) += count;
+        }
+        items.into_iter().collect()
+    }
+
+    /// Adds `count` of `item` to an npc's inventory.
+    pub fn add_inventory(&mut self, npc: InstanceId, item: InstanceId, count: i32) {
+        if count <= 0 {
+            return;
+        }
+        let inventory = self.store.data_mut().inventories.entry(npc).or_default();
+        *inventory.entry(item).or_insert(0) += count;
+    }
+
     /// Fills the waypoint position table used by `Npc_GetDistToWP`, keys must be
     /// lowercased.
     pub fn set_way_points(&mut self, way_points: HashMap<String, Vec3>) {
