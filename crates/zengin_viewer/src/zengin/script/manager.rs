@@ -186,6 +186,12 @@ impl ScriptManager {
         return Some(string);
     }
 
+    /// Resolves the name of a raw symbol id, `None` when it is not a valid id.
+    pub fn get_name_by_id(&mut self, raw: i32) -> Option<String> {
+        let symbol = SymbolId::new(raw)?;
+        Some(self.call_get_name(symbol))
+    }
+
     pub fn get_symbol_id(&mut self, symbol_name: &str) -> SymbolId {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         let symbol_id = guest

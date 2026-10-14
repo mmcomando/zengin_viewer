@@ -9,7 +9,7 @@ use crate::graphics::animation::{MovementAnimations, NpcAnimations};
 use crate::gui_debug::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::GameNpc;
 use crate::zengin::common::ZenGinModel;
-use crate::zengin::npc_routines::{WayPoints, WeaponMeshPaths};
+use crate::zengin::npc_routines::{AnimationFiles, WayPoints, WeaponMeshPaths};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::world::load_zengin_world_data;
@@ -90,6 +90,7 @@ fn spawn_world(
     commands.insert_resource(WeaponMeshPaths(std::mem::take(
         &mut world_data.item_mesh_paths,
     )));
+    commands.insert_resource(AnimationFiles(std::mem::take(&mut world_data.anim_files)));
 
     println!("\n----CREATE ENGINE ENTITIES------\n");
 

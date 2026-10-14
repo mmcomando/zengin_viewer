@@ -240,6 +240,17 @@ pub struct NpcLiveState {
     pub weapon_mode: HashMap<InstanceId, WeaponMode>,
     /// Item symbol equipped per npc (`EquipItem`).
     pub equipped_weapon: HashMap<InstanceId, InstanceId>,
+    /// Pending overlay requests per npc (`Mdl_ApplyOverlayMds`/`Remove`).
+    pub overlay_request: HashMap<InstanceId, OverlayRequest>,
+}
+
+/// Overlay change requested for an npc.
+#[derive(Debug, Clone, Copy)]
+pub enum OverlayRequest {
+    /// Apply the overlay whose name is the given string symbol id.
+    Apply(i32),
+    /// Remove the current overlay.
+    Remove,
 }
 
 /// Weapon mode of an npc, drives the idle animation.
@@ -312,6 +323,17 @@ impl ImportCallState {
             return;
         };
         state.weapon_mode.insert(npc, mode);
+    }
+
+    /// Queues an overlay apply or remove for an npc.
+    pub fn set_overlay_request(&self, npc: i32, request: OverlayRequest) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(mut state) = self.npc_live_state() else {
+            return;
+        };
+        state.overlay_request.insert(npc, request);
     }
 
     /// Whether the npc's recorded (current/previous) routine state function

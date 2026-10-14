@@ -311,6 +311,13 @@ pub fn load_zengin_world_data(
         }
     }
 
+    // Names of all anim files, used to resolve overlay animations
+    if let Some(dir) = vfs.resolve_path("/_WORK/DATA/ANIMS/_COMPILED") {
+        for child in dir.enumerate_children() {
+            data.anim_files.insert(child.name().to_uppercase());
+        }
+    }
+
     data
 }
 

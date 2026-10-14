@@ -1,5 +1,5 @@
 use super::bindings::mmcomando;
-use super::state::{ImportCallState, WeaponMode};
+use super::state::{ImportCallState, OverlayRequest, WeaponMode};
 use super::symbol_id::SymbolId;
 use crate::warn_unimplemented;
 use crate::zengin::common::to_zengin_units;
@@ -388,6 +388,18 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fn ai_readymeleeweapon(&mut self, npc: i32) {
         self.set_weapon_mode(npc, WeaponMode::Melee);
     }
+    /// The overlay mds name is stored as a raw string id and resolved later,
+    /// because this may run inside the script component (instance init) where
+    /// reading the symbol name would trap.
+    fn mdl_applyoverlaymds(&mut self, npc: i32, overlay: i32) {
+        self.set_overlay_request(npc, OverlayRequest::Apply(overlay));
+    }
+    fn mdl_applyoverlaymdstimed(&mut self, npc: i32, overlay: i32, _ticks: i32) {
+        self.set_overlay_request(npc, OverlayRequest::Apply(overlay));
+    }
+    fn mdl_removeoverlaymds(&mut self, npc: i32, _overlay: i32) {
+        self.set_overlay_request(npc, OverlayRequest::Remove);
+    }
     fake_impl!(ai_readyrangedweapon(_0));
     fake_impl!(ai_turnaway(_0, _1));
     fake_impl!(ai_turntonpc(_0, _1));
@@ -485,9 +497,6 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(npc_isdrawingweapon(_0) -> i32);
     fake_impl!(npc_isdrawingspell(_0) -> i32);
     fake_impl!(npc_checkoffermission(_0, _1) -> i32);
-    fake_impl!(mdl_applyoverlaymds(_0, _1));
-    fake_impl!(mdl_applyoverlaymdstimed(_0, _1, _2));
-    fake_impl!(mdl_removeoverlaymds(_0, _1));
     fake_impl!(mdl_applyrandomani(_0, _1, _2));
     fake_impl!(mdl_applyrandomanifreq(_0, _1, _2));
     /// Floats are passed as their bit patterns.

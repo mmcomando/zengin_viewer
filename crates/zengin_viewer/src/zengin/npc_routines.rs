@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bevy::ecs::entity::Entities;
 use bevy::prelude::*;
@@ -7,9 +7,9 @@ use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::animation::AnimationController;
 use crate::zengin::GameNpc;
-use crate::zengin::common::{face_direction_quat, get_animation_path};
+use crate::zengin::common::{choose_animation_scheme, face_direction_quat, get_animation_path};
 use crate::zengin::script::component::{ScriptNpcState, ScriptResource};
-use crate::zengin::script::state::WeaponMode;
+use crate::zengin::script::state::{OverlayRequest, WeaponMode};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 
@@ -52,6 +52,7 @@ impl Plugin for NpcRoutinesPlugin {
             Update,
             (
                 update_npc_routines,
+                resolve_npc_overlays,
                 update_npc_routine_animations.after(update_npc_routines),
                 apply_look_at.after(update_npc_routines),
                 apply_align_to_wp.after(apply_look_at),
@@ -155,6 +156,7 @@ fn update_npc_routines(
 fn update_npc_routine_animations(
     game_time: Res<GameTime>,
     gothic_script: Res<ScriptResource>,
+    files: Res<AnimationFiles>,
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
@@ -163,6 +165,7 @@ fn update_npc_routine_animations(
             Entity,
             &GameNpc,
             &NpcModel,
+            Option<&NpcOverlay>,
             Option<&mut NpcRoutineAnimation>,
             Option<&mut AnimationController>,
         ),
@@ -174,7 +177,7 @@ fn update_npc_routine_animations(
     let minutes = game_time.minutes_of_day();
     let mut gothic_script = gothic_script.lock();
 
-    for (entity, npc, npc_model, routine_animation, controller) in &mut npcs {
+    for (entity, npc, npc_model, overlay, routine_animation, controller) in &mut npcs {
         let Some(mut routine_animation) = routine_animation else {
             commands
                 .entity(entity)
@@ -215,6 +218,8 @@ fn update_npc_routine_animations(
         let played_anis = gothic_script.call_routine_state_function(npc.npc_instance_id, state_fn);
         let ani = choose_routine_animation(&played_anis, stand_animation);
 
+        let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
+        let scheme = choose_animation_scheme(scheme, overlay, &ani, &files.0);
         let path = get_animation_path(scheme, &ani);
         // info!("npc({}) routine animation({})", npc.npc_instance_id, ani);
         // Applied via `next` so the animation system syncs its playback state on
@@ -289,6 +294,7 @@ struct NpcWeaponMode {
 #[allow(clippy::type_complexity)]
 fn apply_weapon_mode(
     state: Res<ScriptNpcState>,
+    files: Res<AnimationFiles>,
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
@@ -296,6 +302,7 @@ fn apply_weapon_mode(
         Entity,
         &GameNpc,
         &NpcModel,
+        Option<&NpcOverlay>,
         Option<&mut NpcWeaponMode>,
         Option<&mut AnimationController>,
     )>,
@@ -307,7 +314,7 @@ fn apply_weapon_mode(
         return;
     }
 
-    for (entity, npc, model, mode_comp, controller) in &mut npcs {
+    for (entity, npc, model, overlay, mode_comp, controller) in &mut npcs {
         let Some(weapon_mode) = live.weapon_mode.get(&npc.npc_instance_id).copied() else {
             continue;
         };
@@ -336,6 +343,8 @@ fn apply_weapon_mode(
                 stand
             }
         };
+        let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
+        let scheme = choose_animation_scheme(scheme, overlay, &animation, &files.0);
         let path = get_animation_path(scheme, &animation);
         controller.next = Some(handles.get_animation_handle(&asset_server, &path));
         controller.interrupt_current = true;
@@ -473,6 +482,63 @@ fn update_npc_weapon(
         {
             commands.entity(child).insert(ChildOf(target_slot));
             weapon.slot = Some(target_slot);
+        }
+    }
+}
+
+/// Overlay animation scheme currently applied to an npc (`Mdl_ApplyOverlayMds`).
+#[derive(Component, Default)]
+pub struct NpcOverlay(pub Option<String>);
+
+/// File names in the compiled anim archive, used to resolve overlay animations.
+#[derive(Resource, Default)]
+pub struct AnimationFiles(pub HashSet<String>);
+
+/// Strips a model file extension and uppercases: `Humans_Relaxed.mds` ->
+/// `HUMANS_RELAXED`.
+fn overlay_scheme(name: &str) -> String {
+    let stem = name.rsplit_once('.').map_or(name, |(stem, _)| stem);
+    stem.to_uppercase()
+}
+
+/// Resolves pending `Mdl_ApplyOverlayMds` requests to a scheme string. The symbol
+/// name is read through the script vm, which is only safe outside a running
+/// script, hence this runs in `Update`. Locks the shared state and the script,
+/// but never both at once.
+fn resolve_npc_overlays(
+    gothic_script: Res<ScriptResource>,
+    state: Res<ScriptNpcState>,
+    mut commands: Commands,
+    npcs: Query<(Entity, &GameNpc)>,
+) {
+    let requests: Vec<(InstanceId, OverlayRequest)> = {
+        let Ok(mut live) = state.0.lock() else {
+            return;
+        };
+        live.overlay_request.drain().collect()
+    };
+    if requests.is_empty() {
+        return;
+    }
+
+    let mut resolved: Vec<(InstanceId, Option<String>)> = Vec::with_capacity(requests.len());
+    {
+        let mut gothic_script = gothic_script.lock();
+        for (npc, request) in requests {
+            let scheme = match request {
+                OverlayRequest::Apply(id) => gothic_script
+                    .get_name_by_id(id)
+                    .map(|name| overlay_scheme(&name)),
+                OverlayRequest::Remove => None,
+            };
+            resolved.push((npc, scheme));
+        }
+    }
+
+    let schemes: HashMap<InstanceId, Option<String>> = resolved.into_iter().collect();
+    for (entity, npc) in &npcs {
+        if let Some(scheme) = schemes.get(&npc.npc_instance_id) {
+            commands.entity(entity).insert(NpcOverlay(scheme.clone()));
         }
     }
 }

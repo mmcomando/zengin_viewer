@@ -1,4 +1,8 @@
-use std::{collections::HashMap, env::home_dir, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    env::home_dir,
+    path::PathBuf,
+};
 
 use bevy::prelude::*;
 use zen_kit_rs::vfs::VfsNode;
@@ -108,6 +112,27 @@ pub fn get_animation_path(scheme: &str, animation: &str) -> String {
     )
 }
 
+/// Animation file name used to probe the anim archive, `<SCHEME>-<ANIM>.MAN`.
+pub fn animation_file_name(scheme: &str, animation: &str) -> String {
+    format!("{}-{}.MAN", scheme.to_uppercase(), animation.to_uppercase())
+}
+
+/// Picks the animation scheme to use: the overlay when the archive has that
+/// animation for the overlay scheme, the base scheme otherwise.
+pub fn choose_animation_scheme<'a>(
+    base: &'a str,
+    overlay: Option<&'a str>,
+    animation: &str,
+    files: &HashSet<String>,
+) -> &'a str {
+    if let Some(overlay) = overlay
+        && files.contains(&animation_file_name(overlay, animation))
+    {
+        return overlay;
+    }
+    base
+}
+
 /// Speech wav files are named after the Ou.bin block of the dialog line
 pub fn get_dialog_sound_path(block_name: &str) -> String {
     let file = block_name.to_uppercase();
@@ -213,4 +238,6 @@ pub struct ZenGinWorldData {
     pub way_points: HashMap<String, Transform>,
     /// Item symbol id to weapon mesh asset path (`EquipItem`)
     pub item_mesh_paths: HashMap<i32, String>,
+    /// Names of all files in the compiled anim archive (uppercased)
+    pub anim_files: HashSet<String>,
 }
