@@ -102,7 +102,9 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(wld_detectnpc(_0, _1, _2, _3) -> i32);
     fake_impl!(wld_detectnpcex(_0, _1, _2, _3, _4) -> i32);
     fake_impl!(wld_detectnpcexatt(_0, _1, _2, _3, _4, _5) -> i32);
-    fake_impl!(wld_setguildattitude(_0, _1, _2));
+    fn wld_setguildattitude(&mut self, guild_a: i32, guild_b: i32, attitude: i32) {
+        self.guild_attitudes.insert((guild_a, guild_b), attitude);
+    }
     fake_impl!(wld_getguildattitude(_0, _1) -> i32);
     /// Minimal mob availability: all mobs count as available so routine states
     /// reach their use-mob branch (real mob objects are not simulated)
@@ -159,8 +161,18 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(npc_isinroutine(_0, _1) -> i32);
     fake_impl!(ai_setnpcstostate(_0, _1, _2));
     fake_impl!(npc_hasdetectednpc(_0, _1) -> i32);
-    fake_impl!(npc_setattitude(_0, _1));
-    fake_impl!(npc_settempattitude(_0, _1));
+    fn npc_setattitude(&mut self, npc: i32, attitude: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        self.attitudes.insert(npc, attitude);
+    }
+    fn npc_settempattitude(&mut self, npc: i32, attitude: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        self.temp_attitudes.insert(npc, attitude);
+    }
     fake_impl!(npc_getattitude(_0, _1) -> i32);
     fake_impl!(npc_getpermattitude(_0, _1) -> i32);
     fake_impl!(npc_changeattribute(_0, _1, _2));

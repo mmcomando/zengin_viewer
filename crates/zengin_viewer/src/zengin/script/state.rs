@@ -206,6 +206,13 @@ pub struct ImportCallState {
     pub current_routine_state: HashMap<InstanceId, FunctionId>,
     /// Previously active routine state function per npc (`Npc_WasInState`).
     pub previous_routine_state: HashMap<InstanceId, FunctionId>,
+    /// Permanent attitude per npc (`Npc_SetAttitude`).
+    pub attitudes: HashMap<InstanceId, i32>,
+    /// Temporary attitude per npc (`Npc_SetTempAttitude`).
+    pub temp_attitudes: HashMap<InstanceId, i32>,
+    // TODO GuildId instead of i32?
+    /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
+    pub guild_attitudes: HashMap<(i32, i32), i32>,
 }
 
 /// Talent slots per npc, `TALENT_MAX_G2`.
