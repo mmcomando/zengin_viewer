@@ -4,6 +4,9 @@ build:
 run:
     cargo run
 
+run-renderless:
+    cargo run -- --renderless --frames 100
+
 export_symbol_names:
     cargo test -p ZenGinViewer -- --ignored --nocapture debug_zengin_scripts > misc/script_game_symbols.log
 

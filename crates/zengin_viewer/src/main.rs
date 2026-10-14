@@ -34,7 +34,7 @@ use crate::gui_debug::egui::GameDebugUI;
 use crate::gui_debug::statistics::StatisticsPlugin;
 use crate::gui_debug::toggle_visibility::ToggleVisibility;
 use crate::input::actions::ActionsPlugin;
-use crate::input::options::Options;
+use crate::input::options::{Options, RegisterShaderAsset};
 use crate::xr::{XrPlugin, is_xr_enabled};
 use crate::zengin::SpeechSounds;
 use crate::zengin::ZenginPlugin;
@@ -68,13 +68,44 @@ fn main() {
     // XR or standard rendering
     if is_xr_enabled() {
         app.add_plugins(XrPlugin::new(window_plugin_options));
+    } else if app.world().resource::<Options>().renderless() {
+        // Renderless run: no window, no renderer, only application logic and logs.
+        // RenderPlugin normally registers the Shader asset, plugins later in the group
+        // create Shader handles during build, so it has to be registered after AssetPlugin
+        // (needs AssetServer) but before them.
+        app.add_plugins(
+            DefaultPlugins
+                .set(window_plugin_options)
+                .disable::<bevy::winit::WinitPlugin>()
+                .disable::<bevy::picking::input::PointerInputPlugin>()
+                .disable::<bevy::window::WindowPlugin>()
+                .disable::<bevy::render::RenderPlugin>()
+                .disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>()
+                .add_after::<bevy::asset::AssetPlugin>(RegisterShaderAsset),
+        );
+        // WindowPlugin registers the window-related messages, without it message readers fail.
+        app.add_message::<bevy::window::WindowEvent>();
+        app.add_message::<bevy::window::FileDragAndDrop>();
+        app.add_message::<bevy::window::CursorMoved>();
+        app.add_message::<bevy::window::Ime>();
+        // WinitPlugin registers the RequestRedraw message.
+        app.add_message::<bevy::window::RequestRedraw>();
+        app.add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
+            core::time::Duration::from_secs_f64(1.0 / 60.0),
+        ));
     } else {
         app.add_plugins(DefaultPlugins.set(window_plugin_options));
     }
+    if let Some(frames) = app.world().resource::<Options>().frames() {
+        app.add_plugins(crate::input::options::FrameLimitPlugin(frames));
+    }
 
     // Plugins from crates
-    app.add_plugins(PhysicsPlugins::default())
-        .add_plugins(get_overlay_plugin());
+    app.add_plugins(PhysicsPlugins::default());
+    // FPS overlay requires rendering, skip it in renderless mode.
+    if !app.world().resource::<Options>().renderless() {
+        app.add_plugins(get_overlay_plugin());
+    }
 
     // This app custom plugins
     app.add_plugins(ActionsPlugin)
