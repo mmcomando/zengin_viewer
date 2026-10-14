@@ -13,6 +13,7 @@ bindgen!({
         "mmcomando:zengine-scripts/scripts.wld-insertitem": store,
         "mmcomando:zengine-scripts/scripts.ai-output": store,
         "mmcomando:zengine-scripts/scripts.info-addchoice": store,
+        "mmcomando:zengine-scripts/scripts.hlp-strcmp": store,
     },
 
 });

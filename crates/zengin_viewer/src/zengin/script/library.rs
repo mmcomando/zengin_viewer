@@ -284,4 +284,22 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
             },
         );
     }
+
+    /// Returns whether the two string symbols hold equal text (Daedalus
+    /// `Hlp_StrCmp` is an equality test, not an ordering comparison).
+    fn hlp_strcmp(
+        mut access: wasmtime::component::Access<'_, ImportCallState, ScriptImports>,
+        a: i32,
+        b: i32,
+    ) -> i32 {
+        let Some(a) = access.data_mut().symbol_table.string(a) else {
+            return 0;
+        };
+        let Some(b) = access.data_mut().symbol_table.string(b) else {
+            return 0;
+        };
+        let a = Self::get_string_non_0(&mut access, a.symbol());
+        let b = Self::get_string_non_0(&mut access, b.symbol());
+        (a == b) as i32
+    }
 }

@@ -294,7 +294,6 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(hlp_isitem(_0, _1) -> i32);
     fake_impl!(hlp_getinstanceid(_0) -> i32);
     fake_impl!(hlp_random(_0) -> i32);
-    fake_impl!(hlp_strcmp(_0, _1) -> i32);
     /// Resolves an instance symbol to its npc id, scripts use this to reference
     /// other npcs. `0` when the argument is not an instance symbol (the value
     /// downstream `npc_*` host calls treat as "no npc").
