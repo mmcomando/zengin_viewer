@@ -296,7 +296,12 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(hlp_random(_0) -> i32);
     fake_impl!(hlp_strcmp(_0, _1) -> i32);
     fake_impl!(hlp_getnpc(_0) -> i32);
-    fake_impl!(hlp_isvalidnpc(_0) -> i32);
+    /// The viewer has no separate npc handle table, an npc argument is valid when
+    /// it resolves to an instance symbol (the resolution every other `npc_*` host
+    /// call performs).
+    fn hlp_isvalidnpc(&mut self, npc: i32) -> i32 {
+        self.symbol_table.instance(npc).is_some() as i32
+    }
     fake_impl!(hlp_isvaliditem(_0) -> i32);
     fake_impl!(ai_snd_play(_0, _1));
     fake_impl!(ai_snd_play3d(_0, _1, _2));
