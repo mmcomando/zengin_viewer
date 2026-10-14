@@ -50,7 +50,7 @@ pub fn get_world_pos(mut zengin_pos: Vec3) -> Vec3 {
 
 pub fn get_world_quat(mut quat: Quat) -> Quat {
     if MIRROR_X {
-        // Do to X cords beeing mirrored we also have to modify rotation
+        // Do to X cords being mirrored we also have to modify rotation
         quat.y = -quat.y;
         quat.z = -quat.z;
     }
@@ -60,6 +60,15 @@ pub fn get_world_quat(mut quat: Quat) -> Quat {
 pub fn get_world_rot(rot_mat: Mat3) -> Quat {
     let quat = Quat::from_mat3(&rot_mat);
     get_world_quat(quat)
+}
+
+/// Rotation facing the given 2D direction (gothic X, Z), following the Gothic
+/// NPC angle convention facing angle is "90deg + atan2(z, x)" ("-90deg" for a zero direction) and the model is
+/// rotated by "180deg - angle" around Y.
+pub fn get_world_dir_quat(dir_2d: Vec2) -> Quat {
+    let yaw = dir_2d.to_angle() - std::f32::consts::FRAC_PI_2;
+    // `get_world_quat` negates the Y rotation, hence the negated yaw passed in.
+    get_world_quat(Quat::from_rotation_y(-yaw))
 }
 
 pub fn get_full_texture_path(short_tex: &str) -> String {

@@ -1,4 +1,3 @@
-use avian3d::math::Quaternion;
 use bevy::prelude::*;
 
 use zen_kit_rs::{
@@ -250,7 +249,7 @@ pub fn load_zengin_world_data(
     let way_net = world.way_net();
     load_way_net_points(&way_net, &mut data);
     for npc_spawn in &vm_state.spawn_npcs {
-        // if npc_spawn.npc_index != 10347 {
+        // if npc_spawn.npc_index.value() != 10347 {
         //     continue;
         // }
         if let Some(instance) = vm_state.instance_data.get(&npc_spawn.npc_index) {
@@ -286,8 +285,7 @@ fn load_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
             x: direction.x,
             y: direction.z,
         };
-        let rot = Quaternion::from_rotation_y(dir_2d.to_angle());
-        let rot = get_world_quat(rot);
+        let rot = get_world_dir_quat(dir_2d);
         let tr = Transform::from_translation(pos).with_rotation(rot);
         data.way_points.insert(name, tr);
     }
