@@ -2,6 +2,7 @@ use super::bindings::mmcomando;
 use super::state::ImportCallState;
 use super::symbol_id::SymbolId;
 use crate::warn_unimplemented;
+use crate::zengin::common::to_zengin_units;
 use bevy::math::Vec3;
 
 macro_rules! fake_impl {
@@ -178,7 +179,27 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(npc_changeattribute(_0, _1, _2));
     fake_impl!(npc_getcomrades(_0) -> i32);
     fake_impl!(npc_isnear(_0, _1) -> i32);
-    fake_impl!(npc_getdisttonpc(_0, _1) -> i32);
+    /// Distance between two npcs in engine units, `i32::MAX` when either has no
+    /// entity (unknown or dead).
+    fn npc_getdisttonpc(&mut self, npc_a: i32, npc_b: i32) -> i32 {
+        let Some(npc_a) = self.symbol_table.instance(npc_a) else {
+            return i32::MAX;
+        };
+        let Some(npc_b) = self.symbol_table.instance(npc_b) else {
+            return i32::MAX;
+        };
+        let Some(state) = &self.npc_live_state else {
+            return i32::MAX;
+        };
+        let Ok(state) = state.lock() else {
+            return i32::MAX;
+        };
+        let (Some(a), Some(b)) = (state.positions.get(&npc_a), state.positions.get(&npc_b)) else {
+            return i32::MAX;
+        };
+        let distance = to_zengin_units((*a - *b).length());
+        distance.min(i32::MAX as f32) as i32
+    }
     fake_impl!(npc_getheighttonpc(_0, _1) -> i32);
     fake_impl!(npc_getheighttoitem(_0, _1) -> i32);
     fake_impl!(npc_getdisttoplayer(_0) -> i32);
