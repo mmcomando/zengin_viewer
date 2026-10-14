@@ -217,7 +217,19 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(equipitem(_0, _1));
     fake_impl!(npc_settofistmode(_0));
     fake_impl!(npc_settofightmode(_0, _1));
-    fake_impl!(npc_isdead(_0) -> i32);
+    /// An npc has no entity (or the id is not an npc) means dead.
+    fn npc_isdead(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 1;
+        };
+        let Some(state) = &self.npc_live_state else {
+            return 1;
+        };
+        let Ok(state) = state.lock() else {
+            return 1;
+        };
+        (!state.positions.contains_key(&npc)) as i32
+    }
     fake_impl!(ai_startstate(_0, _1, _2, _3));
     fake_impl!(ai_continueroutine(_0));
     fn npc_getstatetime(&mut self, npc: i32) -> i32 {
