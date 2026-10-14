@@ -257,6 +257,11 @@ pub(crate) fn update_animations(
             continue;
         };
 
+        // // Uncomment to debug animations
+        // if update.finished && controller.next.is_none() {
+        //     info!("Loop animation({:?})", controller.current.path());
+        // }
+
         // Switch when the current animation ended. Interruptible animations are
         // switched immediately, otherwise e.g. the 2s idle loop would delay
         // movement start.
