@@ -1,5 +1,5 @@
 use super::bindings::mmcomando;
-use super::state::ImportCallState;
+use super::state::{ImportCallState, WeaponMode};
 use super::symbol_id::SymbolId;
 use crate::warn_unimplemented;
 use crate::zengin::common::to_zengin_units;
@@ -212,8 +212,12 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(npc_startitemreactmodules(_0, _1, _2) -> i32);
     fake_impl!(npc_hasoffered(_0, _1, _2) -> i32);
     fake_impl!(equipitem(_0, _1));
-    fake_impl!(npc_settofistmode(_0));
-    fake_impl!(npc_settofightmode(_0, _1));
+    fn npc_settofistmode(&mut self, npc: i32) {
+        self.set_weapon_mode(npc, WeaponMode::Fists);
+    }
+    fn npc_settofightmode(&mut self, npc: i32, _weapon: i32) {
+        self.set_weapon_mode(npc, WeaponMode::Melee);
+    }
     /// An npc has no entity (or the id is not an npc) means dead.
     fn npc_isdead(&mut self, npc: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {
@@ -268,7 +272,9 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(ai_takeitem(_0, _1));
     fake_impl!(ai_dropitem(_0, _1));
     fake_impl!(ai_drawweapon(_0));
-    fake_impl!(ai_removeweapon(_0));
+    fn ai_removeweapon(&mut self, npc: i32) {
+        self.set_weapon_mode(npc, WeaponMode::Fists);
+    }
     fake_impl!(npc_hasrangedweaponwithammo(_0) -> i32);
     fake_impl!(npc_hasequippedweapon(_0) -> i32);
     fake_impl!(npc_hasequippedmeleeweapon(_0) -> i32);
@@ -366,7 +372,9 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(ai_unequipweapons(_0));
     fake_impl!(ai_unequiparmor(_0));
     fake_impl!(ai_equiparmor(_0, _1));
-    fake_impl!(ai_readymeleeweapon(_0));
+    fn ai_readymeleeweapon(&mut self, npc: i32) {
+        self.set_weapon_mode(npc, WeaponMode::Melee);
+    }
     fake_impl!(ai_readyrangedweapon(_0));
     fake_impl!(ai_turnaway(_0, _1));
     fake_impl!(ai_turntonpc(_0, _1));

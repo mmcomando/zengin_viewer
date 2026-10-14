@@ -234,6 +234,17 @@ pub struct NpcLiveState {
     pub look_at: HashMap<InstanceId, InstanceId>,
     /// Npcs with a pending `AI_AlignToWP` request, applied by the ECS side.
     pub align_to_wp: HashSet<InstanceId>,
+    /// Weapon mode per npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI).
+    pub weapon_mode: HashMap<InstanceId, WeaponMode>,
+}
+
+/// Weapon mode of an npc, drives the idle animation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WeaponMode {
+    /// No weapon drawn (fists or sheathed)
+    Fists,
+    /// Melee weapon drawn
+    Melee,
 }
 
 /// Talent slots per npc, `TALENT_MAX_G2`.
@@ -286,6 +297,17 @@ impl ImportCallState {
     /// Locks the shared live npc facts, `None` when the state is not initialized.
     pub fn npc_live_state(&self) -> Option<MutexGuard<'_, NpcLiveState>> {
         self.npc_live_state.as_ref()?.lock().ok()
+    }
+
+    /// Sets the weapon mode of an npc, ignored when the id is not an npc.
+    pub fn set_weapon_mode(&self, npc: i32, mode: WeaponMode) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(mut state) = self.npc_live_state() else {
+            return;
+        };
+        state.weapon_mode.insert(npc, mode);
     }
 
     /// Whether the npc's recorded (current/previous) routine state function

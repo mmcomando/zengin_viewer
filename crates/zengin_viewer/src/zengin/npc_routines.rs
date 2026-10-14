@@ -8,6 +8,7 @@ use crate::graphics::animation::AnimationController;
 use crate::zengin::GameNpc;
 use crate::zengin::common::{face_direction_quat, get_animation_path};
 use crate::zengin::script::component::{ScriptNpcState, ScriptResource};
+use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::FunctionId;
 use crate::zengin::zengin_resources::MaterialHandles;
 
@@ -53,6 +54,7 @@ impl Plugin for NpcRoutinesPlugin {
                 update_npc_routine_animations.after(update_npc_routines),
                 apply_look_at.after(update_npc_routines),
                 apply_align_to_wp.after(apply_look_at),
+                apply_weapon_mode.after(update_npc_routine_animations),
             )
                 .after(advance_game_time),
         );
@@ -270,6 +272,71 @@ fn apply_look_at(
             continue;
         }
         tr.rotation = face_direction_quat(direction);
+    }
+}
+
+#[derive(Component, Default)]
+struct NpcWeaponMode {
+    /// Weapon mode whose idle animation was applied last
+    applied: Option<WeaponMode>,
+}
+
+/// Switches the idle animation of npcs whose weapon mode changed (drawn melee
+/// uses the armed idle `S_1H`, otherwise the scheme standing idle). Only plays an
+/// animation when the mode actually changed. Locks only the shared npc state.
+#[allow(clippy::type_complexity)]
+fn apply_weapon_mode(
+    state: Res<ScriptNpcState>,
+    mut handles: ResMut<MaterialHandles>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+    mut npcs: Query<(
+        Entity,
+        &GameNpc,
+        &NpcModel,
+        Option<&mut NpcWeaponMode>,
+        Option<&mut AnimationController>,
+    )>,
+) {
+    let Ok(live) = state.0.lock() else {
+        return;
+    };
+    if live.weapon_mode.is_empty() {
+        return;
+    }
+
+    for (entity, npc, model, mode_comp, controller) in &mut npcs {
+        let Some(weapon_mode) = live.weapon_mode.get(&npc.npc_instance_id).copied() else {
+            continue;
+        };
+        let Some(mut applied) = mode_comp else {
+            commands.entity(entity).insert(NpcWeaponMode::default());
+            continue;
+        };
+        let Some(mut controller) = controller else {
+            continue;
+        };
+        if applied.applied == Some(weapon_mode) {
+            continue;
+        }
+        applied.applied = Some(weapon_mode);
+
+        let Some(scheme) = model.animation_scheme.as_deref() else {
+            continue;
+        };
+        let animation = match weapon_mode {
+            WeaponMode::Melee => "S_1H".to_string(),
+            WeaponMode::Fists => {
+                // No resolved standing idle, keep the current animation
+                let Some(stand) = model.stand_animation.clone() else {
+                    continue;
+                };
+                stand
+            }
+        };
+        let path = get_animation_path(scheme, &animation);
+        controller.next = Some(handles.get_animation_handle(&asset_server, &path));
+        controller.interrupt_current = true;
     }
 }
 

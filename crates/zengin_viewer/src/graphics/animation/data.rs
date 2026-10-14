@@ -43,7 +43,6 @@ impl AnimationData {
     }
 
     pub fn get_bone_sample(&self, frame_index: usize, bone_index: usize) -> AnimationSample {
-        assert!(self.frames_num > 1);
         let bones_num = self.bone_indices.len();
         if let Some(sample) = self.samples.get(bones_num * frame_index + bone_index) {
             return *sample;
