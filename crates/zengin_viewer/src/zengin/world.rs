@@ -191,6 +191,7 @@ pub fn load_npc(
         hierarchy,
         animation_scheme,
         stand_animation,
+        model_fatness: instance.model_fatness,
         head_model,
         head_texture: instance
             .face_texture

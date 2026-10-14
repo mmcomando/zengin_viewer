@@ -191,6 +191,8 @@ pub struct ZenGinNpc {
     pub animation_scheme: Option<String>,
     /// Standing body state animation of the scheme
     pub stand_animation: Option<String>,
+    /// Body fatness (`Mdl_SetModelFatness`)
+    pub model_fatness: Option<f32>,
 }
 
 #[derive(Debug, Default)]

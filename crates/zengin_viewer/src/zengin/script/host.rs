@@ -485,7 +485,17 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .or_default()
             .model_scale = Some(scale);
     }
-    fake_impl!(mdl_setmodelfatness(_0, _1));
+    /// Floats are passed as their bit patterns.
+    fn mdl_setmodelfatness(&mut self, npc_index: i32, fatness: i32) {
+        let Some(npc_index) = self.symbol_table.instance(npc_index) else {
+            return;
+        };
+        self.loaded_state
+            .instance_data
+            .entry(npc_index)
+            .or_default()
+            .model_fatness = Some(f32::from_bits(fatness as u32));
+    }
     fake_impl!(mdl_startfaceani(_0, _1, _2, _3));
     fake_impl!(mdl_applyrandomfaceani(_0, _1, _2, _3, _4, _5, _6));
     fake_impl!(wld_istime(_0, _1, _2, _3) -> i32);

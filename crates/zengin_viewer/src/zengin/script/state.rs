@@ -31,6 +31,9 @@ pub struct InstanceState {
     /// Model scale set via `Mdl_SetModelScale`
     pub model_scale: Option<Vec3>,
 
+    /// Body fatness set via `Mdl_SetModelFatness`
+    pub model_fatness: Option<f32>,
+
     pub routine_enties: Vec<RoutineEntry>,
 }
 

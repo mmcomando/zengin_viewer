@@ -27,4 +27,7 @@ pub struct NpcModel {
     /// Standing body state animation of [`Self::animation_scheme`], e.g. `S_RUN`
     /// for humans and `S_FISTRUN` for most creatures. `None` when unresolved.
     pub stand_animation: Option<String>,
+
+    /// Body fatness (`Mdl_SetModelFatness`), applied to the torso bone
+    pub model_fatness: Option<f32>,
 }

@@ -123,6 +123,7 @@ fn spawn_world(
                 armor_model: npc.armor_model.clone(),
                 animation_scheme: npc.animation_scheme.clone(),
                 stand_animation: npc.stand_animation.clone(),
+                model_fatness: npc.model_fatness,
             },
             NpcAnimations {
                 // animation: Some(
@@ -243,6 +244,7 @@ fn spawn_world(
             // armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_PAL_H.MDM".to_string()),
             stand_animation: None,
             animation_scheme: None,
+            model_fatness: None,
             armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_LESTER.MDM".to_string()),
         },
         NpcAnimations {

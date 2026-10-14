@@ -270,6 +270,10 @@ fn spawn_npcs(
             animation_data,
         );
 
+        if let Some(fatness) = npc_model.model_fatness {
+            apply_torso_fatness(&mut commands, model_data, bones_data.as_ref(), fatness);
+        }
+
         if let Some(animation_handle) = spawn_state.animation_handle.clone() {
             commands.entity(entity_id).insert(AnimationController {
                 current: animation_handle,
@@ -375,6 +379,35 @@ fn add_classify_distance(mut commands: Commands, query: Query<Entity, Added<Game
             .entity(entity_id)
             .insert(ClassifyDistance::default());
     }
+}
+
+/// Fattens the torso by scaling the spine joint. Skinned meshes are deformed by
+/// their joints, so a joint has to be scaled (scaling the mesh entity cancels
+/// out against the joint matrices). Bone-local axes are not world axes, so the
+/// scale is uniform.
+fn apply_torso_fatness(
+    commands: &mut Commands,
+    model: &ZenGinModel,
+    bones: Option<&SkinnedMesh>,
+    fatness: f32,
+) {
+    let Some(bones) = bones else {
+        return;
+    };
+    let Some(index) = model
+        .node_names
+        .iter()
+        .position(|name| name == "BIP01 SPINE")
+    else {
+        return;
+    };
+    let Some(joint) = bones.joints.get(index) else {
+        return;
+    };
+    let scale = (1.0 + fatness * 0.1).max(0.1);
+    let mut tr = model.nodes[index];
+    tr.scale = Vec3::splat(scale);
+    commands.entity(*joint).insert(tr);
 }
 
 fn despawn_visual_when_far(
