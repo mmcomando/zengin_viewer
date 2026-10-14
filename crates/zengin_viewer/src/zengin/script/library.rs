@@ -102,6 +102,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
 
         let state = access.data_mut();
         state.loaded_state.spawn_items.push(SpawnItem {
+            item_index,
             instance_name: item_name,
             way_point: waypoint_name,
         });

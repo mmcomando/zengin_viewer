@@ -7,7 +7,6 @@ use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::animation::{MovementAnimations, NpcAnimations};
 use crate::gui_debug::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
-use crate::zengin::GameNpc;
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints, WeaponMeshPaths};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
@@ -16,6 +15,7 @@ use crate::zengin::world::load_zengin_world_data;
 use crate::zengin::zengin_resources::{
     DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
 };
+use crate::zengin::{GameItem, GameNpc};
 use avian3d::math::PI;
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
@@ -152,6 +152,10 @@ fn spawn_world(
             },
             Visibility::default(),
             instance.tr,
+            GameItem {
+                item_instance_id: instance.instance_id,
+                name: instance.name.clone(),
+            },
         ));
     }
     for instance in &world_data.static_models {

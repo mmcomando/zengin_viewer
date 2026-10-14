@@ -46,3 +46,10 @@ impl Plugin for ZenginPlugin {
 pub struct GameNpc {
     npc_instance_id: InstanceId,
 }
+
+/// Identifies Entity with a Zengin script item instance id and its instance name
+#[derive(Debug, Component)]
+pub struct GameItem {
+    item_instance_id: InstanceId,
+    name: String,
+}

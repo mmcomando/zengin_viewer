@@ -198,10 +198,12 @@ pub struct ZenGinModel {
     pub animation_bone_index: Vec<usize>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ZenGinItem {
     pub tr: Transform,
     pub model: String,
+    pub instance_id: InstanceId,
+    pub name: String,
 }
 #[derive(Debug)]
 pub struct ZenGinNpc {

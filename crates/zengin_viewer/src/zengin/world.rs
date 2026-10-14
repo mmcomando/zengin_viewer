@@ -107,6 +107,8 @@ pub fn load_weapon(
     let item = ZenGinItem {
         tr,
         model: asset_path,
+        instance_id: item.item_index,
+        name: item.instance_name.clone(),
     };
     data.items.push(item);
 }
@@ -497,9 +499,15 @@ fn handle_other_vob(
                 warn!("Not found mesh for item({}) vob", name);
                 return;
             };
+            let Some(instance_id) = vm_state.item_instance_ids.get(&name).copied() else {
+                warn!("Not found instance id for item({}) vob", name);
+                return;
+            };
             let npc = ZenGinItem {
                 tr,
                 model: asset_path,
+                instance_id,
+                name,
             };
             data.items.push(npc);
 

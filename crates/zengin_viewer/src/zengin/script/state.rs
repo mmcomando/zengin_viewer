@@ -68,8 +68,9 @@ pub struct SpawnNpc {
     pub way_point: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SpawnItem {
+    pub item_index: InstanceId,
     pub instance_name: String,
     pub way_point: String,
 }
@@ -101,6 +102,8 @@ pub struct LoadedState {
     pub spawn_items: Vec<SpawnItem>,
     pub instance_data: HashMap<InstanceId, InstanceState>,
     pub item_instances: HashMap<String, ItemInstance>,
+    /// Item instance symbol by name, used to resolve item names to instance ids
+    pub item_instance_ids: HashMap<String, InstanceId>,
     /// Item instance visuals, symbol id to visual name (`EquipItem` weapons)
     pub item_visuals: HashMap<InstanceId, String>,
     pub dialog_roots: HashMap<InstanceId, Vec<DialogRoot>>,

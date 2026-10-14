@@ -458,11 +458,16 @@ impl ScriptManager {
                     .data_mut()
                     .loaded_state
                     .item_instances
-                    .entry(symbol_name)
+                    .entry(symbol_name.clone())
                     .or_default();
                 entry.visual = visual;
                 entry.visual_change = visual_change;
             }
+            self.store
+                .data_mut()
+                .loaded_state
+                .item_instance_ids
+                .insert(symbol_name, index);
             self.store
                 .data_mut()
                 .loaded_state
