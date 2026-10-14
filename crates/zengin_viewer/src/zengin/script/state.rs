@@ -198,6 +198,54 @@ pub struct ImportCallState {
     pub known_infos: HashMap<InstanceId, HashSet<InstanceId>>,
     /// Generator backing `Hlp_Random`.
     pub rng: ScriptRandom,
+    /// Talent skills/values per npc instance (`Npc_SetTalentSkill`).
+    pub talents: HashMap<InstanceId, NpcTalents>,
+}
+
+/// Talent slots per npc, `TALENT_MAX_G2`.
+pub const TALENTS_MAX: usize = 22;
+
+/// Talent skill and value slots of one npc.
+#[derive(Debug, Default)]
+pub struct NpcTalents {
+    skills: [i32; TALENTS_MAX],
+    values: [i32; TALENTS_MAX],
+}
+
+impl NpcTalents {
+    fn slot(talent: i32, slots: &[i32; TALENTS_MAX]) -> Option<i32> {
+        usize::try_from(talent)
+            .ok()
+            .filter(|t| *t < TALENTS_MAX)
+            .map(|t| slots[t])
+    }
+
+    fn slot_mut(talent: i32, slots: &mut [i32; TALENTS_MAX]) -> Option<&mut i32> {
+        usize::try_from(talent)
+            .ok()
+            .filter(|t| *t < TALENTS_MAX)
+            .map(|t| &mut slots[t])
+    }
+
+    pub fn skill(&self, talent: i32) -> i32 {
+        Self::slot(talent, &self.skills).unwrap_or(0)
+    }
+
+    pub fn value(&self, talent: i32) -> i32 {
+        Self::slot(talent, &self.values).unwrap_or(0)
+    }
+
+    pub fn set_skill(&mut self, talent: i32, level: i32) {
+        if let Some(slot) = Self::slot_mut(talent, &mut self.skills) {
+            *slot = level;
+        }
+    }
+
+    pub fn set_value(&mut self, talent: i32, level: i32) {
+        if let Some(slot) = Self::slot_mut(talent, &mut self.values) {
+            *slot = level;
+        }
+    }
 }
 
 /// Deterministic pseudo random generator backing `Hlp_Random`.

@@ -239,10 +239,36 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     }
     fake_impl!(npc_checkinfo(_0, _1) -> i32);
     fake_impl!(npc_giveinfo(_0, _1) -> i32);
-    fake_impl!(npc_gettalentskill(_0, _1) -> i32);
-    fake_impl!(npc_gettalentvalue(_0, _1) -> i32);
-    fake_impl!(npc_settalentskill(_0, _1, _2));
-    fake_impl!(npc_settalentvalue(_0, _1, _2));
+    fn npc_gettalentskill(&mut self, npc: i32, talent: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        self.talents.get(&npc).map_or(0, |t| t.skill(talent))
+    }
+    fn npc_gettalentvalue(&mut self, npc: i32, talent: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        self.talents.get(&npc).map_or(0, |t| t.value(talent))
+    }
+    fn npc_settalentskill(&mut self, npc: i32, talent: i32, level: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        self.talents
+            .entry(npc)
+            .or_default()
+            .set_skill(talent, level);
+    }
+    fn npc_settalentvalue(&mut self, npc: i32, talent: i32, level: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        self.talents
+            .entry(npc)
+            .or_default()
+            .set_value(talent, level);
+    }
     fake_impl!(tal_configure(_0, _1));
     fake_impl!(npc_getnearestwp(_0) -> i32);
     fake_impl!(npc_getnextwp(_0) -> i32);
