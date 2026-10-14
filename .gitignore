@@ -1,4 +1,5 @@
 /target
 /out.txt
 /.zed
+/.cargo
 /misc/scenario_output
