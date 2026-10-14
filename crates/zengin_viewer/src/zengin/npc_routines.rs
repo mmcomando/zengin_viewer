@@ -120,10 +120,13 @@ fn update_npc_routines(
                     "teleport npc({}) to waypoint({})",
                     npc.npc_instance_id, entry.way_point
                 );
+                // Keep any model scale Mdl_SetModelScale applied
+                let scale = tr.scale;
                 *tr = Transform::from_translation(
                     waypoint_tr.translation + Vec3::Y * NPC_BODY_Y_OFFSET,
                 )
-                .with_rotation(waypoint_tr.rotation);
+                .with_rotation(waypoint_tr.rotation)
+                .with_scale(scale);
             }
             None => {
                 // Late inserted npcs are already placed at the current routine waypoint

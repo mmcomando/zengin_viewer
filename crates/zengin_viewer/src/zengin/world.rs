@@ -181,6 +181,11 @@ pub fn load_npc(
         .as_deref()
         .and_then(|scheme| resolve_stand_animation(vfs, scheme));
 
+    let mut body_tr = Transform::from_matrix(tr_body);
+    if let Some(scale) = instance.model_scale {
+        body_tr.scale = scale;
+    }
+
     let npc = ZenGinNpc {
         npc_intance_id: spawn_npc.npc_index,
         hierarchy,
@@ -191,7 +196,7 @@ pub fn load_npc(
             .face_texture
             .as_ref()
             .map(|el| get_full_texture_path(el)),
-        body_tr: Transform::from_matrix(tr_body),
+        body_tr,
         body_model,
         body_texture: instance
             .body_texture

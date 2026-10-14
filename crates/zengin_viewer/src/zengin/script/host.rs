@@ -2,6 +2,7 @@ use super::bindings::mmcomando;
 use super::state::ImportCallState;
 use super::symbol_id::SymbolId;
 use crate::warn_unimplemented;
+use bevy::math::Vec3;
 
 macro_rules! fake_impl {
     ($name:ident($($arg:ident),*)) => {
@@ -340,7 +341,22 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(mdl_removeoverlaymds(_0, _1));
     fake_impl!(mdl_applyrandomani(_0, _1, _2));
     fake_impl!(mdl_applyrandomanifreq(_0, _1, _2));
-    fake_impl!(mdl_setmodelscale(_0, _1, _2, _3));
+    /// Floats are passed as their bit patterns.
+    fn mdl_setmodelscale(&mut self, npc_index: i32, x: i32, y: i32, z: i32) {
+        let Some(npc_index) = self.symbol_table.instance(npc_index) else {
+            return;
+        };
+        let scale = Vec3::new(
+            f32::from_bits(x as u32),
+            f32::from_bits(y as u32),
+            f32::from_bits(z as u32),
+        );
+        self.loaded_state
+            .instance_data
+            .entry(npc_index)
+            .or_default()
+            .model_scale = Some(scale);
+    }
     fake_impl!(mdl_setmodelfatness(_0, _1));
     fake_impl!(mdl_startfaceani(_0, _1, _2, _3));
     fake_impl!(mdl_applyrandomfaceani(_0, _1, _2, _3, _4, _5, _6));

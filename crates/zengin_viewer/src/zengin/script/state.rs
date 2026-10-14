@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use bevy::math::Vec3;
+
 use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
@@ -25,6 +27,9 @@ pub struct InstanceState {
     pub face_texture: Option<String>,
     pub armor_model: Option<String>,
     pub hierarchy: Option<String>,
+
+    /// Model scale set via `Mdl_SetModelScale`
+    pub model_scale: Option<Vec3>,
 
     pub routine_enties: Vec<RoutineEntry>,
 }
