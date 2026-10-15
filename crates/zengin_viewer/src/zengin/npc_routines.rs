@@ -28,11 +28,10 @@ pub struct WayPoints {
 /// Matches the body offset applied when npcs are placed at world load.
 const NPC_BODY_Y_OFFSET: f32 = -0.5;
 
-#[derive(Component, Default)]
+#[derive(Component)]
 struct NpcRoutineState {
-    /// Waypoint the npc was last assigned to by a routine check,
-    /// `None` until the first check.
-    assigned_waypoint: Option<String>,
+    /// Waypoint the npc was last assigned to by a routine check
+    assigned_waypoint: String,
 }
 
 #[derive(Component, Default)]
@@ -130,14 +129,14 @@ fn update_npc_routines(
             // First assignment: npcs were already placed at the start hour by the
             // world load, only record the current assignment.
             commands.entity(entity).insert(NpcRoutineState {
-                assigned_waypoint: Some(entry.way_point.clone()),
+                assigned_waypoint: entry.way_point.clone(),
             });
             continue;
         };
-        if state.assigned_waypoint.as_deref() == Some(entry.way_point.as_str()) {
+        if state.assigned_waypoint == entry.way_point {
             continue;
         }
-        state.assigned_waypoint = Some(entry.way_point.clone());
+        state.assigned_waypoint = entry.way_point.clone();
         let Some(waypoint_tr) = way_points.points.get(&entry.way_point) else {
             crate::warn_once!(
                 "routine waypoint not found, npc({}), waypoint({})",
@@ -358,8 +357,7 @@ fn apply_align_to_wp(
             let Ok((routine, mut tr)) = npcs.get_mut(entity) else {
                 continue;
             };
-            let Some(name) = routine.and_then(|routine| routine.assigned_waypoint.as_deref())
-            else {
+            let Some(name) = routine.map(|routine| routine.assigned_waypoint.as_str()) else {
                 continue;
             };
             let Some(way_point) = way_points.points.get(name) else {
