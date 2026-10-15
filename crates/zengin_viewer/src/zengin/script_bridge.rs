@@ -6,11 +6,13 @@
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::{GameTime, advance_game_time};
+use crate::gui::game_log::GameLogEntry;
 use crate::zengin::GameNpc;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{
     NpcEquippedWeapon, NpcLookAt, NpcOverlay, NpcWeaponMode, overlay_scheme,
 };
+use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
     AlignToWpChange, EquipItemChange, GotoChange, NpcLookAtChange, OverlayChange, OverlayRequest,
@@ -34,6 +36,7 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<AlignToWpChange>();
         app.add_message::<OverlayChange>();
         app.add_message::<GotoChange>();
+        app.add_message::<TransferItems>();
         app.add_systems(
             Update,
             (
@@ -49,6 +52,37 @@ impl Plugin for ScriptBridgePlugin {
                 .after(advance_game_time)
                 .after(InstanceIndexUpdated),
         );
+        app.add_systems(Update, handle_transfer_items);
+    }
+}
+
+/// Moves all items between the requested instance inventories and logs each
+/// moved stack bottom-left.
+fn handle_transfer_items(
+    mut requests: MessageReader<TransferItems>,
+    mut game_log: MessageWriter<GameLogEntry>,
+    gothic_script: Res<ScriptResource>,
+) {
+    for request in requests.read() {
+        let mut script = gothic_script.lock();
+        let moved = script.transfer_inventory(request.instance_from_id, request.instance_to_id);
+        if moved.is_empty() {
+            continue;
+        }
+        info!(
+            "Moved {} item stack(s) from instance({}) to instance({})",
+            moved.len(),
+            request.instance_from_id,
+            request.instance_to_id
+        );
+        for (item, count) in moved {
+            let name = script
+                .get_name_by_id(item.value())
+                .unwrap_or_else(|| item.value().to_string());
+            game_log.write(GameLogEntry {
+                text: format!("{name} x{count}"),
+            });
+        }
     }
 }
 

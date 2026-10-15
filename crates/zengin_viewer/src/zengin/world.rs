@@ -107,7 +107,6 @@ pub fn load_weapon(
         tr,
         model: asset_path,
         instance_id: item.item_index,
-        name: item.instance_name.clone(),
     };
     data.items.push(item);
 }
@@ -517,7 +516,6 @@ fn handle_other_vob(
                 tr,
                 model: asset_path,
                 instance_id,
-                name,
             };
             data.items.push(npc);
 

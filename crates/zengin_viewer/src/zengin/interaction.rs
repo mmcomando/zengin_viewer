@@ -4,8 +4,9 @@ use bevy::prelude::*;
 
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::gui::game_log::{GameLog, GameLogEntry};
+use crate::gui::game_log::GameLog;
 use crate::zengin::npc_routines::{NpcEquippedWeapon, WeaponMeshPaths};
+use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::selection::{Selection, SelectionKind};
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
@@ -29,8 +30,7 @@ impl Plugin for PlayerInteractionPlugin {
 fn kill_selected_npc(
     keys: Res<ButtonInput<KeyCode>>,
     mut selection: ResMut<Selection>,
-    mut game_log: MessageWriter<GameLogEntry>,
-    gothic_script: Res<ScriptResource>,
+    mut transfer_items: MessageWriter<TransferItems>,
     weapon_mesh_paths: Res<WeaponMeshPaths>,
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
@@ -59,27 +59,14 @@ fn kill_selected_npc(
     };
     let player_id = player_npc.npc_instance_id;
 
-    // Move the inventory to the player and resolve the picked up names.
-    let (pickups, weapon) = {
-        let mut script = gothic_script.lock();
-        let moved = script.transfer_inventory(npc_id, player_id);
-        let pickups: Vec<String> = moved
-            .iter()
-            .map(|(item, count)| {
-                let name = script
-                    .get_name_by_id(item.value())
-                    .unwrap_or_else(|| item.value().to_string());
-                format!("{name} x{count}")
-            })
-            .collect();
-        (pickups, equipped)
-    };
-    for line in pickups {
-        game_log.write(GameLogEntry { text: line });
-    }
+    // Move the inventory to the player, it is logged by `handle_transfer_items`.
+    transfer_items.write(TransferItems {
+        instance_from_id: npc_id,
+        instance_to_id: player_id,
+    });
 
     // Drop the equipped weapon on the ground as a pickable item.
-    if let Some(item) = weapon {
+    if let Some(item) = equipped {
         match weapon_mesh_paths.0.get(&item.value()) {
             Some(path) => {
                 let model_handle = handles.get_model_handle(&asset_server, path, None);

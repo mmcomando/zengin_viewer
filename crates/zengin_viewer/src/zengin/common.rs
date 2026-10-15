@@ -203,7 +203,6 @@ pub struct ZenGinItem {
     pub tr: Transform,
     pub model: String,
     pub instance_id: InstanceId,
-    pub name: String,
 }
 #[derive(Debug)]
 pub struct ZenGinNpc {
