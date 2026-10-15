@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::game_log::{GameLog, GameLogEntry};
-use crate::zengin::npc_routines::WeaponMeshPaths;
+use crate::zengin::npc_routines::{NpcEquippedWeapon, WeaponMeshPaths};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::selection::{Selection, SelectionKind};
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
@@ -35,7 +35,7 @@ fn kill_selected_npc(
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    npcs: Query<(&GameNpc, &GlobalTransform), Without<PlayerCharacter>>,
+    npcs: Query<(&GameNpc, &GlobalTransform, Option<&NpcEquippedWeapon>), Without<PlayerCharacter>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
     if !keys.just_pressed(KeyCode::KeyK) {
@@ -47,25 +47,21 @@ fn kill_selected_npc(
     let Some(target) = selection.target else {
         return;
     };
-    let Ok((npc, global_tr)) = npcs.get(target) else {
+    let Ok((npc, global_tr, equipped)) = npcs.get(target) else {
         return;
     };
     let npc_id = npc.npc_instance_id;
     let position = global_tr.translation();
+    let equipped = equipped.map(|equipped| equipped.0);
 
     let Ok(player_npc) = player_npc.single() else {
         return;
     };
     let player_id = player_npc.npc_instance_id;
 
-    // Read the equipped weapon, move the inventory to the player and resolve the
-    // dropped weapon's name.
+    // Move the inventory to the player and resolve the dropped weapon's name.
     let (pickups, weapon) = {
         let mut script = gothic_script.lock();
-        let equipped = script
-            .npc_instances()
-            .get(&npc_id)
-            .and_then(|npc| npc.equipped_weapon);
         let moved = script.transfer_inventory(npc_id, player_id);
         let pickups: Vec<String> = moved
             .iter()
