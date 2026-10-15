@@ -1,5 +1,5 @@
 use super::bindings::mmcomando;
-use super::state::{ImportCallState, NpcLookAtChange, OverlayRequest, WeaponMode};
+use super::state::{EquipItemChange, ImportCallState, NpcLookAtChange, OverlayRequest, WeaponMode};
 use super::symbol_id::SymbolId;
 use crate::warn_unimplemented;
 use crate::zengin::common::to_zengin_units;
@@ -178,6 +178,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .entry(npc)
             .or_default()
             .equipped_weapon = Some(item);
+        self.pending_equip_item_changes
+            .push(EquipItemChange { instance_id: npc });
     }
     fake_impl!(npc_getinvitem(_0, _1) -> i32);
     fake_impl!(npc_getinvitembyslot(_0, _1, _2) -> i32);

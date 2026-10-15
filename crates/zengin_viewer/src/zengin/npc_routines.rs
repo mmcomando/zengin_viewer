@@ -393,59 +393,68 @@ struct NpcWeapon {
 #[derive(Resource, Default)]
 pub struct WeaponMeshPaths(pub HashMap<i32, String>);
 
+/// Item equipped by the npc (`EquipItem`), maintained by the script bridge.
+/// Absent when the npc has no weapon equipped.
+#[derive(Component)]
+pub struct NpcEquippedWeapon(pub InstanceId);
+
 /// Keeps a weapon mesh on each npc that has one equipped. The default position
-/// is the hip, switching to melee mode moves it to the hand. Reacts to a runtime
-/// `EquipItem`.
+/// is the hip, switching to melee mode moves it to the hand. Reacts to the
+/// equipped item changing, the weapon mode changing, and the visual (weapon
+/// slots) appearing.
 #[allow(clippy::type_complexity)]
 fn update_npc_weapon(
-    gothic_script: Res<ScriptResource>,
     mesh_paths: Res<WeaponMeshPaths>,
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
     entities: &Entities,
-    mut npcs: Query<(Entity, &GameNpc, &NpcWeaponSlots, Option<&mut NpcWeapon>)>,
+    mut npcs: Query<
+        (
+            Entity,
+            &NpcWeaponSlots,
+            Option<&NpcEquippedWeapon>,
+            Option<&NpcWeaponMode>,
+            Option<&mut NpcWeapon>,
+        ),
+        Or<(
+            Changed<NpcEquippedWeapon>,
+            Changed<NpcWeaponMode>,
+            Changed<NpcWeaponSlots>,
+        )>,
+    >,
 ) {
-    let script = gothic_script.lock();
-    let instances = script.npc_instances();
-
-    for (entity, npc, slots, weapon) in &mut npcs {
-        let instance = instances.get(&npc.npc_instance_id);
-        let item = instance.and_then(|npc| npc.equipped_weapon);
-        let drawn = matches!(
-            instance.and_then(|npc| npc.weapon_mode),
-            Some(WeaponMode::Melee)
-        );
+    for (entity, slots, equipped, weapon_mode, mut weapon) in &mut npcs {
+        let item = equipped.map(|equipped| equipped.0);
+        let drawn = weapon_mode.is_some_and(|mode| mode.0 == WeaponMode::Melee);
         // The joints are despawned with the visual when the npc is far
         let target_slot =
             if drawn { slots.hand } else { slots.hip }.filter(|slot| entities.contains(*slot));
 
-        let Some(mut weapon) = weapon else {
-            commands.entity(entity).insert(NpcWeapon::default());
-            continue;
-        };
-
-        let Some(path) = item
+        let path = item
             .and_then(|item| mesh_paths.0.get(&item.value()))
-            .cloned()
-        else {
+            .cloned();
+
+        // The weapon mesh child is despawned with the visual when the npc is far
+        let child_alive = weapon
+            .as_ref()
+            .and_then(|weapon| weapon.entity)
+            .is_some_and(|child| entities.contains(child));
+
+        let Some(path) = path else {
             // Nothing equipped, or its mesh is unknown
-            if let Some(child) = weapon.entity.take()
-                && entities.contains(child)
-            {
-                commands.entity(child).despawn();
-            }
-            weapon.item = None;
-            weapon.slot = None;
+            detach_weapon(&mut commands, entities, weapon.as_deref_mut());
             continue;
         };
 
-        let child_alive = weapon.entity.is_some_and(|child| entities.contains(child));
         if !child_alive {
             // Weapon child was despawned (npc went far) or never spawned
-            weapon.entity = None;
-            weapon.slot = None;
             let Some(target_slot) = target_slot else {
+                // No slot available, only drop the stale child reference
+                if let Some(mut weapon) = weapon {
+                    weapon.entity = None;
+                    weapon.slot = None;
+                }
                 continue;
             };
             let handle = handles.get_model_handle(&asset_server, &path, None);
@@ -460,12 +469,20 @@ fn update_npc_weapon(
                     ChildOf(target_slot),
                 ))
                 .id();
-            weapon.entity = Some(child);
-            weapon.item = item;
-            weapon.slot = Some(target_slot);
+            attach_weapon(
+                &mut commands,
+                entity,
+                weapon.as_deref_mut(),
+                child,
+                item,
+                target_slot,
+            );
             continue;
         }
 
+        let Some(mut weapon) = weapon else {
+            continue;
+        };
         weapon.item = item;
 
         // Move between sheathed and drawn
@@ -475,6 +492,47 @@ fn update_npc_weapon(
         {
             commands.entity(child).insert(ChildOf(target_slot));
             weapon.slot = Some(target_slot);
+        }
+    }
+}
+
+/// Despawns the weapon mesh child when it is still alive and clears the tracked
+/// state.
+fn detach_weapon(commands: &mut Commands, entities: &Entities, weapon: Option<&mut NpcWeapon>) {
+    let Some(weapon) = weapon else {
+        return;
+    };
+    if let Some(child) = weapon.entity.take()
+        && entities.contains(child)
+    {
+        commands.entity(child).despawn();
+    }
+    weapon.item = None;
+    weapon.slot = None;
+}
+
+/// Records the spawned weapon mesh child, creating the component when it was
+/// absent.
+fn attach_weapon(
+    commands: &mut Commands,
+    entity: Entity,
+    weapon: Option<&mut NpcWeapon>,
+    child: Entity,
+    item: Option<InstanceId>,
+    slot: Entity,
+) {
+    match weapon {
+        Some(weapon) => {
+            weapon.entity = Some(child);
+            weapon.item = item;
+            weapon.slot = Some(slot);
+        }
+        None => {
+            commands.entity(entity).insert(NpcWeapon {
+                entity: Some(child),
+                item,
+                slot: Some(slot),
+            });
         }
     }
 }

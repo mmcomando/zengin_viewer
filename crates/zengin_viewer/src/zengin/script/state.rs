@@ -44,6 +44,13 @@ pub struct WeaponModeChange {
     pub instance_id: InstanceId,
 }
 
+/// Signal that an instance equipped an item (`EquipItem`). Produced by the
+/// script, drained to the ECS by the script bridge.
+#[derive(Message)]
+pub struct EquipItemChange {
+    pub instance_id: InstanceId,
+}
+
 /// Runtime state of an npc instance.
 #[derive(Debug, Default)]
 pub struct NpcInstanceState {
@@ -299,6 +306,9 @@ pub struct ImportCallState {
     /// Weapon mode changes produced by the script, drained to the ECS by the
     /// script bridge.
     pub pending_weapon_mode_changes: Vec<WeaponModeChange>,
+    /// Equipped item changes produced by the script, drained to the ECS by the
+    /// script bridge.
+    pub pending_equip_item_changes: Vec<EquipItemChange>,
     // TODO GuildId instead of i32?
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,

@@ -8,11 +8,13 @@ use bevy::prelude::*;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::zengin::GameNpc;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
-use crate::zengin::npc_routines::{NpcLookAt, NpcWeaponMode};
+use crate::zengin::npc_routines::{NpcEquippedWeapon, NpcLookAt, NpcWeaponMode};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
-    NpcLookAtChange, RoutineEntry, RoutineEntryChange, WeaponMode, WeaponModeChange,
+    EquipItemChange, NpcLookAtChange, RoutineEntry, RoutineEntryChange, WeaponMode,
+    WeaponModeChange,
 };
+use crate::zengin::script::symbol_id::InstanceId;
 
 /// Marks systems that have applied script produced changes to the ECS. Systems
 /// reacting to those changes run after this set.
@@ -26,12 +28,14 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<RoutineEntryChange>();
         app.add_message::<NpcLookAtChange>();
         app.add_message::<WeaponModeChange>();
+        app.add_message::<EquipItemChange>();
         app.add_systems(
             Update,
             (
                 (send_routine_changes, apply_routine_changes).chain(),
                 (send_look_at_changes, apply_look_at_changes).chain(),
                 (send_weapon_mode_changes, apply_weapon_mode_changes).chain(),
+                (send_equip_item_changes, apply_equip_item_changes).chain(),
             )
                 .in_set(ScriptChangesApplied)
                 .after(advance_game_time)
@@ -215,6 +219,65 @@ fn set_weapon_mode(commands: &mut Commands, entity: Entity, mode: Option<WeaponM
         }
         None => {
             commands.entity(entity).remove::<NpcWeaponMode>();
+        }
+    }
+}
+
+/// Drains the equipped item changes the script recorded and forwards them as
+/// messages.
+fn send_equip_item_changes(
+    mut changes: MessageWriter<EquipItemChange>,
+    gothic_script: Res<ScriptResource>,
+) {
+    let drained = gothic_script.lock().drain_equip_item_changes();
+    for change in drained {
+        changes.write(change);
+    }
+}
+
+/// Applies equipped item changes to the entities carrying the affected instance
+/// ids and seeds the component on newly spawned npc entities. An entity gets the
+/// item its instance currently has equipped, or loses the component when it has
+/// none.
+fn apply_equip_item_changes(
+    mut commands: Commands,
+    mut changes: MessageReader<EquipItemChange>,
+    index: Res<InstanceIndex>,
+    gothic_script: Res<ScriptResource>,
+    added_npcs: Query<(Entity, &GameNpc), Added<GameNpc>>,
+) {
+    if changes.is_empty() && added_npcs.is_empty() {
+        return;
+    }
+
+    let gothic_script = gothic_script.lock();
+    let instances = gothic_script.npc_instances();
+
+    for change in changes.read() {
+        let item = instances
+            .get(&change.instance_id)
+            .and_then(|npc| npc.equipped_weapon);
+        for entity in index.npcs(change.instance_id) {
+            set_equipped_weapon(&mut commands, *entity, item);
+        }
+    }
+    for (entity, npc) in &added_npcs {
+        let item = instances
+            .get(&npc.npc_instance_id)
+            .and_then(|npc| npc.equipped_weapon);
+        set_equipped_weapon(&mut commands, entity, item);
+    }
+}
+
+/// Inserts the equipped item on the entity, or removes the component when the
+/// npc has no item equipped.
+fn set_equipped_weapon(commands: &mut Commands, entity: Entity, item: Option<InstanceId>) {
+    match item {
+        Some(item) => {
+            commands.entity(entity).insert(NpcEquippedWeapon(item));
+        }
+        None => {
+            commands.entity(entity).remove::<NpcEquippedWeapon>();
         }
     }
 }
