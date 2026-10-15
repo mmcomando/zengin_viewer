@@ -1,13 +1,13 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use bevy::math::Vec3;
+use bevy::{math::Vec3, prelude::Component};
 
 use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Component)]
 pub struct RoutineEntry {
     pub start_h: u32,
     pub start_m: u32,

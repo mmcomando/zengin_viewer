@@ -11,7 +11,7 @@ use crate::zengin::common::{
     animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
 };
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{OverlayRequest, WeaponMode};
+use crate::zengin::script::state::{OverlayRequest, RoutineEntry, WeaponMode};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use crate::zengin::waypoint_graph::WaypointGraph;
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
@@ -54,7 +54,7 @@ impl Plugin for NpcRoutinesPlugin {
         app.add_systems(
             Update,
             (
-                update_npc_routines,
+                (update_npc_routine_entries, update_npc_routines).chain(),
                 resolve_npc_overlays,
                 resolve_goto_paths,
                 update_npc_routine_animations.after(update_npc_routines),
@@ -69,104 +69,115 @@ impl Plugin for NpcRoutinesPlugin {
     }
 }
 
-/// Periodically (on every in-game minute change) checks the active routine
-/// entry of each npc. When the routine waypoint changed, the npc walks to the
-/// new waypoint (falling back to a teleport when no path is available).
-fn update_npc_routines(
+/// Recomputes, on every in-game minute change, the routine entry active for each
+/// npc and inserts, updates or removes its [`RoutineEntry`] component so
+/// [`update_npc_routines`] can react to the change.
+fn update_npc_routine_entries(
     mut check_state: ResMut<NpcRoutineCheckState>,
     game_time: Res<GameTime>,
     gothic_script: Res<ScriptResource>,
-    way_points: Res<WayPoints>,
-    graph: Res<WaypointGraph>,
     mut commands: Commands,
-    mut npcs: Query<
-        (
-            Entity,
-            &GameNpc,
-            &mut Transform,
-            Option<&mut NpcRoutineState>,
-        ),
-        // Routine npcs are world root entities, this also excludes the player visual
-        // entity which is a child of the player controller and also carries `GameNpc`.
-        Without<ChildOf>,
-    >,
+    // Routine npcs are world root entities, this also excludes the player visual
+    // entity which is a child of the player controller and also carries `GameNpc`.
+    npcs: Query<(Entity, &GameNpc, Option<&RoutineEntry>), Without<ChildOf>>,
 ) {
     let minutes = game_time.minutes_of_day();
     if check_state.last_checked_minute == Some(minutes) {
         return;
     }
-    let first_check = check_state.last_checked_minute.is_none();
     check_state.last_checked_minute = Some(minutes);
 
     let gothic_script = gothic_script.lock();
-    let loaded_state = gothic_script.get_loaded_state();
-
-    for (entity, npc, mut tr, routine_state) in &mut npcs {
-        let Some(instance) = loaded_state.npc_instances.get(&npc.npc_instance_id) else {
-            continue;
-        };
-        let Some(entry) = instance.get_routine_entry(minutes) else {
-            continue;
-        };
-
-        match routine_state {
-            Some(mut state) => {
-                if state.assigned_waypoint.as_deref() == Some(entry.way_point.as_str()) {
-                    continue;
-                }
-                if first_check {
-                    // Npcs were already placed at the start hour by world load,
-                    // only record the current assignment.
-                    state.assigned_waypoint = Some(entry.way_point.clone());
-                    continue;
-                }
-                state.assigned_waypoint = Some(entry.way_point.clone());
-                let Some(waypoint_tr) = way_points.points.get(&entry.way_point) else {
-                    crate::warn_once!(
-                        "routine waypoint not found, npc({}), waypoint({})",
-                        npc.npc_instance_id,
-                        entry.way_point
-                    );
-                    continue;
-                };
-
-                // Walk to the waypoint over the graph; teleport when no path exists
-                if let (Some(target), Some(start)) = (
-                    graph.node_by_name(&entry.way_point),
-                    graph.nearest_node(tr.translation),
-                ) && let Some(path) = graph.shortest_path(start, target)
-                {
-                    debug!(
-                        "walk npc({}) to waypoint({})",
-                        npc.npc_instance_id, entry.way_point
-                    );
-                    commands.entity(entity).insert(NpcPath {
-                        nodes: path,
-                        speed: NPC_WALK_SPEED,
-                    });
-                    continue;
-                }
-
-                debug!(
-                    "teleport npc({}) to waypoint({})",
-                    npc.npc_instance_id, entry.way_point
-                );
-                // Keep any model scale Mdl_SetModelScale applied
-                let scale = tr.scale;
-                *tr = Transform::from_translation(
-                    waypoint_tr.translation + Vec3::Y * NPC_BODY_Y_OFFSET,
-                )
-                .with_rotation(waypoint_tr.rotation)
-                .with_scale(scale);
+    let instances = gothic_script.npc_instances();
+    for (entity, npc, current) in &npcs {
+        let active = instances
+            .get(&npc.npc_instance_id)
+            .and_then(|instance| instance.get_routine_entry(minutes));
+        match (active, current) {
+            (Some(active), Some(current)) if active == current => {}
+            (Some(active), _) => {
+                commands.entity(entity).insert(active.clone());
             }
-            None => {
-                // Late inserted npcs are already placed at the current routine waypoint
-                // by the world load, only record the assignment.
-                commands.entity(entity).insert(NpcRoutineState {
-                    assigned_waypoint: Some(entry.way_point.clone()),
-                });
+            (None, Some(_)) => {
+                commands.entity(entity).remove::<RoutineEntry>();
             }
+            (None, None) => {}
         }
+    }
+}
+
+/// Reacts to the [`RoutineEntry`] component of an npc being added, changed or
+/// removed. When the active routine entry changed, the npc walks to the new
+/// waypoint (falling back to a teleport when no path is available).
+fn update_npc_routines(
+    mut commands: Commands,
+    way_points: Res<WayPoints>,
+    graph: Res<WaypointGraph>,
+    mut npcs: Query<
+        (
+            Entity,
+            &GameNpc,
+            &RoutineEntry,
+            &mut Transform,
+            Option<&mut NpcRoutineState>,
+        ),
+        (Changed<RoutineEntry>, Without<ChildOf>),
+    >,
+    mut removed: RemovedComponents<RoutineEntry>,
+) {
+    for entity in removed.read() {
+        commands.entity(entity).remove::<NpcRoutineState>();
+    }
+
+    for (entity, npc, entry, mut tr, routine_state) in &mut npcs {
+        println!("change routine({})", npc.npc_instance_id);
+        let Some(mut state) = routine_state else {
+            // First assignment: npcs were already placed at the start hour by the
+            // world load, only record the current assignment.
+            commands.entity(entity).insert(NpcRoutineState {
+                assigned_waypoint: Some(entry.way_point.clone()),
+            });
+            continue;
+        };
+        if state.assigned_waypoint.as_deref() == Some(entry.way_point.as_str()) {
+            continue;
+        }
+        state.assigned_waypoint = Some(entry.way_point.clone());
+        let Some(waypoint_tr) = way_points.points.get(&entry.way_point) else {
+            crate::warn_once!(
+                "routine waypoint not found, npc({}), waypoint({})",
+                npc.npc_instance_id,
+                entry.way_point
+            );
+            continue;
+        };
+
+        // Walk to the waypoint over the graph; teleport when no path exists
+        if let (Some(target), Some(start)) = (
+            graph.node_by_name(&entry.way_point),
+            graph.nearest_node(tr.translation),
+        ) && let Some(path) = graph.shortest_path(start, target)
+        {
+            debug!(
+                "walk npc({}) to waypoint({})",
+                npc.npc_instance_id, entry.way_point
+            );
+            commands.entity(entity).insert(NpcPath {
+                nodes: path,
+                speed: NPC_WALK_SPEED,
+            });
+            continue;
+        }
+
+        debug!(
+            "teleport npc({}) to waypoint({})",
+            npc.npc_instance_id, entry.way_point
+        );
+        // Keep any model scale Mdl_SetModelScale applied
+        let scale = tr.scale;
+        *tr = Transform::from_translation(waypoint_tr.translation + Vec3::Y * NPC_BODY_Y_OFFSET)
+            .with_rotation(waypoint_tr.rotation)
+            .with_scale(scale);
     }
 }
 
