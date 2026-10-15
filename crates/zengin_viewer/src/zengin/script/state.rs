@@ -51,6 +51,13 @@ pub struct EquipItemChange {
     pub instance_id: InstanceId,
 }
 
+/// Signal that an instance requested `AI_AlignToWP` (face its routine waypoint).
+/// Produced by the script, drained to the ECS by the script bridge.
+#[derive(Message)]
+pub struct AlignToWpChange {
+    pub instance_id: InstanceId,
+}
+
 /// Runtime state of an npc instance.
 #[derive(Debug, Default)]
 pub struct NpcInstanceState {
@@ -124,9 +131,6 @@ pub struct NpcInstanceState {
 
     /// Npc currently looked at (`AI_LookAtNPC`/`AI_StopLookAt`).
     pub look_at: Option<InstanceId>,
-
-    /// Pending `AI_AlignToWP` request, applied by the ECS side.
-    pub align_to_wp: bool,
 
     /// Weapon mode (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI).
     pub weapon_mode: Option<WeaponMode>,
@@ -309,6 +313,9 @@ pub struct ImportCallState {
     /// Equipped item changes produced by the script, drained to the ECS by the
     /// script bridge.
     pub pending_equip_item_changes: Vec<EquipItemChange>,
+    /// `AI_AlignToWP` requests produced by the script, drained to the ECS by the
+    /// script bridge.
+    pub pending_align_to_wp_changes: Vec<AlignToWpChange>,
     // TODO GuildId instead of i32?
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,

@@ -10,8 +10,9 @@ use crate::zengin::GameNpc;
 use crate::zengin::common::{
     animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
 };
+use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{OverlayRequest, RoutineEntry, WeaponMode};
+use crate::zengin::script::state::{AlignToWpChange, OverlayRequest, RoutineEntry, WeaponMode};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use crate::zengin::script_bridge::ScriptChangesApplied;
 use crate::zengin::waypoint_graph::WaypointGraph;
@@ -345,31 +346,27 @@ fn apply_weapon_mode(
 }
 
 /// Faces npcs at their assigned routine waypoint when the script requested it
-/// via `AI_AlignToWP`; the waypoint rotation is the facing direction. Consumes
-/// one request per npc.
+/// via `AI_AlignToWP`; the waypoint rotation is the facing direction.
 fn apply_align_to_wp(
-    gothic_script: Res<ScriptResource>,
+    mut changes: MessageReader<AlignToWpChange>,
+    index: Res<InstanceIndex>,
     way_points: Res<WayPoints>,
-    mut npcs: Query<(&GameNpc, Option<&NpcRoutineState>, &mut Transform)>,
+    mut npcs: Query<(Option<&NpcRoutineState>, &mut Transform)>,
 ) {
-    let mut script = gothic_script.lock();
-    let instances = script.npc_instances_mut();
-
-    for (npc, routine, mut tr) in &mut npcs {
-        let Some(instance) = instances.get_mut(&npc.npc_instance_id) else {
-            continue;
-        };
-        if !instance.align_to_wp {
-            continue;
+    for change in changes.read() {
+        for &entity in index.npcs(change.instance_id) {
+            let Ok((routine, mut tr)) = npcs.get_mut(entity) else {
+                continue;
+            };
+            let Some(name) = routine.and_then(|routine| routine.assigned_waypoint.as_deref())
+            else {
+                continue;
+            };
+            let Some(way_point) = way_points.points.get(name) else {
+                continue;
+            };
+            tr.rotation = way_point.rotation;
         }
-        instance.align_to_wp = false;
-        let Some(name) = routine.and_then(|routine| routine.assigned_waypoint.as_deref()) else {
-            continue;
-        };
-        let Some(way_point) = way_points.points.get(name) else {
-            continue;
-        };
-        tr.rotation = way_point.rotation;
     }
 }
 

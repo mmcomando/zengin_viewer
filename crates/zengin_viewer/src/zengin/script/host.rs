@@ -1,5 +1,7 @@
 use super::bindings::mmcomando;
-use super::state::{EquipItemChange, ImportCallState, NpcLookAtChange, OverlayRequest, WeaponMode};
+use super::state::{
+    AlignToWpChange, EquipItemChange, ImportCallState, NpcLookAtChange, OverlayRequest, WeaponMode,
+};
 use super::symbol_id::SymbolId;
 use crate::warn_unimplemented;
 use crate::zengin::common::to_zengin_units;
@@ -304,11 +306,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.loaded_state
-            .npc_instances
-            .entry(npc)
-            .or_default()
-            .align_to_wp = true;
+        self.pending_align_to_wp_changes
+            .push(AlignToWpChange { instance_id: npc });
     }
     fake_impl!(ai_setwalkmode(_0, _1));
     /// Records a `AI_GoToWP` request; the waypoint name is stored as a raw string

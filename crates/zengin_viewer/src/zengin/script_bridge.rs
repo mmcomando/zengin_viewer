@@ -11,8 +11,8 @@ use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{NpcEquippedWeapon, NpcLookAt, NpcWeaponMode};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
-    EquipItemChange, NpcLookAtChange, RoutineEntry, RoutineEntryChange, WeaponMode,
-    WeaponModeChange,
+    AlignToWpChange, EquipItemChange, NpcLookAtChange, RoutineEntry, RoutineEntryChange,
+    WeaponMode, WeaponModeChange,
 };
 use crate::zengin::script::symbol_id::InstanceId;
 
@@ -29,6 +29,7 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<NpcLookAtChange>();
         app.add_message::<WeaponModeChange>();
         app.add_message::<EquipItemChange>();
+        app.add_message::<AlignToWpChange>();
         app.add_systems(
             Update,
             (
@@ -36,6 +37,7 @@ impl Plugin for ScriptBridgePlugin {
                 (send_look_at_changes, apply_look_at_changes).chain(),
                 (send_weapon_mode_changes, apply_weapon_mode_changes).chain(),
                 (send_equip_item_changes, apply_equip_item_changes).chain(),
+                send_align_to_wp_changes,
             )
                 .in_set(ScriptChangesApplied)
                 .after(advance_game_time)
@@ -279,5 +281,17 @@ fn set_equipped_weapon(commands: &mut Commands, entity: Entity, item: Option<Ins
         None => {
             commands.entity(entity).remove::<NpcEquippedWeapon>();
         }
+    }
+}
+
+/// Drains the `AI_AlignToWP` requests the script recorded and forwards them as
+/// messages; `apply_align_to_wp` applies them.
+fn send_align_to_wp_changes(
+    mut changes: MessageWriter<AlignToWpChange>,
+    gothic_script: Res<ScriptResource>,
+) {
+    let drained = gothic_script.lock().drain_align_to_wp_changes();
+    for change in drained {
+        changes.write(change);
     }
 }
