@@ -44,14 +44,15 @@ impl Plugin for ScriptBridgePlugin {
         app.add_systems(
             Update,
             (
-                (send_routine_changes, apply_routine_changes).chain(),
-                (send_look_at_changes, apply_look_at_changes).chain(),
-                (send_weapon_mode_changes, apply_weapon_mode_changes).chain(),
-                (send_equip_item_changes, apply_equip_item_changes).chain(),
-                send_align_to_wp_changes,
-                (send_overlay_changes, apply_overlay_changes).chain(),
-                send_goto_changes,
+                send_script_changes,
+                apply_routine_changes,
+                apply_look_at_changes,
+                apply_weapon_mode_changes,
+                apply_equip_item_changes,
+                apply_overlay_changes,
+                seed_npc_components_on_add,
             )
+                .chain()
                 .in_set(ScriptChangesApplied)
                 .after(advance_game_time)
                 .after(InstanceIndexUpdated),
@@ -226,30 +227,52 @@ fn build_line_views(
         .collect()
 }
 
-/// Drains the routine entry changes the script recorded and forwards them as messages.
-fn send_routine_changes(
-    mut changes: MessageWriter<RoutineEntryChange>,
+/// Drains all the changes the script recorded and forwards them as messages.
+fn send_script_changes(
+    mut routine: MessageWriter<RoutineEntryChange>,
+    mut look_at: MessageWriter<NpcLookAtChange>,
+    mut weapon_mode: MessageWriter<WeaponModeChange>,
+    mut equip_item: MessageWriter<EquipItemChange>,
+    mut align_to_wp: MessageWriter<AlignToWpChange>,
+    mut overlay: MessageWriter<OverlayChange>,
+    mut goto: MessageWriter<GotoChange>,
     gothic_script: Res<ScriptResource>,
 ) {
-    let drained = gothic_script.lock().drain_routine_changes();
-    for change in drained {
-        changes.write(change);
+    let mut script = gothic_script.lock();
+    for change in script.drain_routine_changes() {
+        routine.write(change);
+    }
+    for change in script.drain_look_at_changes() {
+        look_at.write(change);
+    }
+    for change in script.drain_weapon_mode_changes() {
+        weapon_mode.write(change);
+    }
+    for change in script.drain_equip_item_changes() {
+        equip_item.write(change);
+    }
+    for change in script.drain_align_to_wp_changes() {
+        align_to_wp.write(change);
+    }
+    for change in script.drain_overlay_changes() {
+        overlay.write(change);
+    }
+    for change in script.drain_goto_changes() {
+        goto.write(change);
     }
 }
 
 /// Applies routine entry changes to the entities carrying the affected instance
-/// ids and seeds the component on newly spawned npc entities. An entity gets the
-/// routine entry active at the current minute, or loses the component when its
-/// instance has no routine entries.
+/// ids. An entity gets the routine entry active at the current minute, or loses
+/// the component when its instance has no routine entries.
 fn apply_routine_changes(
     mut commands: Commands,
     mut changes: MessageReader<RoutineEntryChange>,
     index: Res<InstanceIndex>,
     game_time: Res<GameTime>,
     gothic_script: Res<ScriptResource>,
-    added_npcs: Query<(Entity, &GameNpc), Added<GameNpc>>,
 ) {
-    if changes.is_empty() && added_npcs.is_empty() {
+    if changes.is_empty() {
         return;
     }
 
@@ -264,12 +287,6 @@ fn apply_routine_changes(
         for entity in index.npcs(change.instance_id) {
             set_routine_entry(&mut commands, *entity, active);
         }
-    }
-    for (entity, npc) in &added_npcs {
-        let active = instances
-            .get(&npc.npc_instance_id)
-            .and_then(|npc| npc.get_routine_entry(minutes));
-        set_routine_entry(&mut commands, entity, active);
     }
 }
 
@@ -286,30 +303,16 @@ fn set_routine_entry(commands: &mut Commands, entity: Entity, active: Option<&Ro
     }
 }
 
-/// Drains the look-at target changes the script recorded and forwards them as
-/// messages.
-fn send_look_at_changes(
-    mut changes: MessageWriter<NpcLookAtChange>,
-    gothic_script: Res<ScriptResource>,
-) {
-    let drained = gothic_script.lock().drain_look_at_changes();
-    for change in drained {
-        changes.write(change);
-    }
-}
-
 /// Applies look-at target changes to the entities carrying the affected instance
-/// ids and seeds the component on newly spawned npc entities. An entity gets the
-/// target its instance currently looks at, or loses the component when it looks
-/// at nothing.
+/// ids. An entity gets the target its instance currently looks at, or loses the
+/// component when it looks at nothing.
 fn apply_look_at_changes(
     mut commands: Commands,
     mut changes: MessageReader<NpcLookAtChange>,
     index: Res<InstanceIndex>,
     gothic_script: Res<ScriptResource>,
-    added_npcs: Query<(Entity, &GameNpc), Added<GameNpc>>,
 ) {
-    if changes.is_empty() && added_npcs.is_empty() {
+    if changes.is_empty() {
         return;
     }
 
@@ -324,13 +327,6 @@ fn apply_look_at_changes(
         for entity in index.npcs(change.instance_id) {
             set_look_at(&mut commands, *entity, target);
         }
-    }
-    for (entity, npc) in &added_npcs {
-        let target = instances
-            .get(&npc.npc_instance_id)
-            .and_then(|npc| npc.look_at)
-            .and_then(|id| index.npcs(id).first().copied());
-        set_look_at(&mut commands, entity, target);
     }
 }
 
@@ -347,29 +343,16 @@ fn set_look_at(commands: &mut Commands, entity: Entity, target: Option<Entity>) 
     }
 }
 
-/// Drains the weapon mode changes the script recorded and forwards them as
-/// messages.
-fn send_weapon_mode_changes(
-    mut changes: MessageWriter<WeaponModeChange>,
-    gothic_script: Res<ScriptResource>,
-) {
-    let drained = gothic_script.lock().drain_weapon_mode_changes();
-    for change in drained {
-        changes.write(change);
-    }
-}
-
 /// Applies weapon mode changes to the entities carrying the affected instance
-/// ids and seeds the component on newly spawned npc entities. An entity gets the
-/// mode its instance currently has, or loses the component when it has none.
+/// ids. An entity gets the mode its instance currently has, or loses the
+/// component when it has none.
 fn apply_weapon_mode_changes(
     mut commands: Commands,
     mut changes: MessageReader<WeaponModeChange>,
     index: Res<InstanceIndex>,
     gothic_script: Res<ScriptResource>,
-    added_npcs: Query<(Entity, &GameNpc), Added<GameNpc>>,
 ) {
-    if changes.is_empty() && added_npcs.is_empty() {
+    if changes.is_empty() {
         return;
     }
 
@@ -383,12 +366,6 @@ fn apply_weapon_mode_changes(
         for entity in index.npcs(change.instance_id) {
             set_weapon_mode(&mut commands, *entity, mode);
         }
-    }
-    for (entity, npc) in &added_npcs {
-        let mode = instances
-            .get(&npc.npc_instance_id)
-            .and_then(|npc| npc.weapon_mode);
-        set_weapon_mode(&mut commands, entity, mode);
     }
 }
 
@@ -405,30 +382,16 @@ fn set_weapon_mode(commands: &mut Commands, entity: Entity, mode: Option<WeaponM
     }
 }
 
-/// Drains the equipped item changes the script recorded and forwards them as
-/// messages.
-fn send_equip_item_changes(
-    mut changes: MessageWriter<EquipItemChange>,
-    gothic_script: Res<ScriptResource>,
-) {
-    let drained = gothic_script.lock().drain_equip_item_changes();
-    for change in drained {
-        changes.write(change);
-    }
-}
-
 /// Applies equipped item changes to the entities carrying the affected instance
-/// ids and seeds the component on newly spawned npc entities. An entity gets the
-/// item its instance currently has equipped, or loses the component when it has
-/// none.
+/// ids. An entity gets the item its instance currently has equipped, or loses
+/// the component when it has none.
 fn apply_equip_item_changes(
     mut commands: Commands,
     mut changes: MessageReader<EquipItemChange>,
     index: Res<InstanceIndex>,
     gothic_script: Res<ScriptResource>,
-    added_npcs: Query<(Entity, &GameNpc), Added<GameNpc>>,
 ) {
-    if changes.is_empty() && added_npcs.is_empty() {
+    if changes.is_empty() {
         return;
     }
 
@@ -443,12 +406,6 @@ fn apply_equip_item_changes(
             set_equipped_weapon(&mut commands, *entity, item);
         }
     }
-    for (entity, npc) in &added_npcs {
-        let item = instances
-            .get(&npc.npc_instance_id)
-            .and_then(|npc| npc.equipped_weapon);
-        set_equipped_weapon(&mut commands, entity, item);
-    }
 }
 
 /// Inserts the equipped item on the entity, or removes the component when the
@@ -461,39 +418,6 @@ fn set_equipped_weapon(commands: &mut Commands, entity: Entity, item: Option<Ins
         None => {
             commands.entity(entity).remove::<NpcEquippedWeapon>();
         }
-    }
-}
-
-/// Drains the `AI_AlignToWP` requests the script recorded and forwards them as
-/// messages; `apply_align_to_wp` applies them.
-fn send_align_to_wp_changes(
-    mut changes: MessageWriter<AlignToWpChange>,
-    gothic_script: Res<ScriptResource>,
-) {
-    let drained = gothic_script.lock().drain_align_to_wp_changes();
-    for change in drained {
-        changes.write(change);
-    }
-}
-
-/// Drains the `AI_GoToWP` requests the script recorded and forwards them as
-/// messages; `resolve_goto_paths` applies them.
-fn send_goto_changes(mut changes: MessageWriter<GotoChange>, gothic_script: Res<ScriptResource>) {
-    let drained = gothic_script.lock().drain_goto_changes();
-    for change in drained {
-        changes.write(change);
-    }
-}
-
-/// Drains the overlay change requests the script recorded and forwards them as
-/// messages.
-fn send_overlay_changes(
-    mut changes: MessageWriter<OverlayChange>,
-    gothic_script: Res<ScriptResource>,
-) {
-    let drained = gothic_script.lock().drain_overlay_changes();
-    for change in drained {
-        changes.write(change);
     }
 }
 
@@ -522,5 +446,37 @@ fn apply_overlay_changes(
         for entity in index.npcs(change.instance_id) {
             commands.entity(*entity).insert(NpcOverlay(scheme.clone()));
         }
+    }
+}
+
+/// Seeds all script driven npc components on newly spawned npcs. Change messages
+/// are one-shot, a runtime spawned npc never sees the messages that were
+/// produced before it existed, so it catches up from the current script state.
+fn seed_npc_components_on_add(
+    mut commands: Commands,
+    added_npcs: Query<(Entity, &GameNpc), Added<GameNpc>>,
+    index: Res<InstanceIndex>,
+    game_time: Res<GameTime>,
+    gothic_script: Res<ScriptResource>,
+) {
+    if added_npcs.is_empty() {
+        return;
+    }
+
+    let minutes = game_time.minutes_of_day();
+    let gothic_script = gothic_script.lock();
+    let instances = gothic_script.npc_instances();
+
+    for (entity, npc) in &added_npcs {
+        let Some(instance) = instances.get(&npc.npc_instance_id) else {
+            continue;
+        };
+        set_routine_entry(&mut commands, entity, instance.get_routine_entry(minutes));
+        let target = instance
+            .look_at
+            .and_then(|id| index.npcs(id).first().copied());
+        set_look_at(&mut commands, entity, target);
+        set_weapon_mode(&mut commands, entity, instance.weapon_mode);
+        set_equipped_weapon(&mut commands, entity, instance.equipped_weapon);
     }
 }
