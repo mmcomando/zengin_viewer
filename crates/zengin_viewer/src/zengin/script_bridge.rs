@@ -13,8 +13,8 @@ use crate::zengin::npc_routines::{
 };
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
-    AlignToWpChange, EquipItemChange, NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry,
-    RoutineEntryChange, WeaponMode, WeaponModeChange,
+    AlignToWpChange, EquipItemChange, GotoChange, NpcLookAtChange, OverlayChange, OverlayRequest,
+    RoutineEntry, RoutineEntryChange, WeaponMode, WeaponModeChange,
 };
 use crate::zengin::script::symbol_id::InstanceId;
 
@@ -33,6 +33,7 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<EquipItemChange>();
         app.add_message::<AlignToWpChange>();
         app.add_message::<OverlayChange>();
+        app.add_message::<GotoChange>();
         app.add_systems(
             Update,
             (
@@ -42,6 +43,7 @@ impl Plugin for ScriptBridgePlugin {
                 (send_equip_item_changes, apply_equip_item_changes).chain(),
                 send_align_to_wp_changes,
                 (send_overlay_changes, apply_overlay_changes).chain(),
+                send_goto_changes,
             )
                 .in_set(ScriptChangesApplied)
                 .after(advance_game_time)
@@ -295,6 +297,15 @@ fn send_align_to_wp_changes(
     gothic_script: Res<ScriptResource>,
 ) {
     let drained = gothic_script.lock().drain_align_to_wp_changes();
+    for change in drained {
+        changes.write(change);
+    }
+}
+
+/// Drains the `AI_GoToWP` requests the script recorded and forwards them as
+/// messages; `resolve_goto_paths` applies them.
+fn send_goto_changes(mut changes: MessageWriter<GotoChange>, gothic_script: Res<ScriptResource>) {
+    let drained = gothic_script.lock().drain_goto_changes();
     for change in drained {
         changes.write(change);
     }

@@ -12,7 +12,7 @@ use crate::zengin::common::{
 };
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{AlignToWpChange, RoutineEntry, WeaponMode};
+use crate::zengin::script::state::{AlignToWpChange, GotoChange, RoutineEntry, WeaponMode};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use crate::zengin::script_bridge::ScriptChangesApplied;
 use crate::zengin::waypoint_graph::WaypointGraph;
@@ -562,48 +562,40 @@ struct NpcPath {
 /// waypoint name through the script vm, which is only safe outside a running
 /// script, hence this runs in `Update`.
 fn resolve_goto_paths(
+    mut changes: MessageReader<GotoChange>,
+    index: Res<InstanceIndex>,
     gothic_script: Res<ScriptResource>,
     graph: Res<WaypointGraph>,
     mut commands: Commands,
-    npcs: Query<(Entity, &GameNpc, &Transform)>,
+    npcs: Query<&Transform>,
 ) {
-    let mut script = gothic_script.lock();
-    let requests: Vec<(InstanceId, i32)> = {
-        let instances = script.npc_instances_mut();
-        let mut requests = Vec::new();
-        for (npc, instance) in instances.iter_mut() {
-            if let Some(request) = instance.goto_request.take() {
-                requests.push((*npc, request));
-            }
-        }
-        requests
-    };
-    if requests.is_empty() {
+    if changes.is_empty() {
         return;
     }
 
-    let names: HashMap<InstanceId, Option<String>> = requests
-        .into_iter()
-        .map(|(npc, id)| (npc, script.get_name_by_id(id)))
-        .collect();
-
-    for (entity, npc, transform) in &npcs {
-        let Some(Some(name)) = names.get(&npc.npc_instance_id) else {
+    let mut script = gothic_script.lock();
+    for change in changes.read() {
+        let Some(name) = script.get_name_by_id(change.waypoint) else {
             continue;
         };
-        let Some(target) = graph.node_by_name(name) else {
+        let Some(target) = graph.node_by_name(&name) else {
             continue;
         };
-        let Some(start) = graph.nearest_node(transform.translation) else {
-            continue;
-        };
-        let Some(path) = graph.shortest_path(start, target) else {
-            continue;
-        };
-        commands.entity(entity).insert(NpcPath {
-            nodes: path,
-            speed: NPC_WALK_SPEED,
-        });
+        for &entity in index.npcs(change.instance_id) {
+            let Ok(transform) = npcs.get(entity) else {
+                continue;
+            };
+            let Some(start) = graph.nearest_node(transform.translation) else {
+                continue;
+            };
+            let Some(path) = graph.shortest_path(start, target) else {
+                continue;
+            };
+            commands.entity(entity).insert(NpcPath {
+                nodes: path,
+                speed: NPC_WALK_SPEED,
+            });
+        }
     }
 }
 

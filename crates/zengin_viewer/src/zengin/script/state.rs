@@ -44,6 +44,15 @@ pub struct WeaponModeChange {
     pub instance_id: InstanceId,
 }
 
+/// Signal that an instance requested `AI_GoToWP` (walk to a waypoint). Produced
+/// by the script, drained to the ECS by the script bridge.
+#[derive(Message)]
+pub struct GotoChange {
+    pub instance_id: InstanceId,
+    /// Waypoint name string symbol id.
+    pub waypoint: i32,
+}
+
 /// Signal that an instance requested an overlay change
 /// (`Mdl_ApplyOverlayMds`/`Mdl_ApplyOverlayMdsTimed`/`Mdl_RemoveOverlayMds`).
 /// Produced by the script, drained to the ECS by the script bridge.
@@ -146,9 +155,6 @@ pub struct NpcInstanceState {
 
     /// Item symbol equipped (`EquipItem`).
     pub equipped_weapon: Option<InstanceId>,
-
-    /// `AI_GoToWP` request, waypoint name string symbol id.
-    pub goto_request: Option<i32>,
 }
 
 impl NpcInstanceState {
@@ -325,6 +331,9 @@ pub struct ImportCallState {
     /// Overlay change requests produced by the script, drained to the ECS by the
     /// script bridge.
     pub pending_overlay_changes: Vec<OverlayChange>,
+    /// `AI_GoToWP` requests produced by the script, drained to the ECS by the
+    /// script bridge.
+    pub pending_goto_changes: Vec<GotoChange>,
     // TODO GuildId instead of i32?
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,
@@ -366,11 +375,10 @@ impl ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.loaded_state
-            .npc_instances
-            .entry(npc)
-            .or_default()
-            .goto_request = Some(waypoint);
+        self.pending_goto_changes.push(GotoChange {
+            instance_id: npc,
+            waypoint,
+        });
     }
 
     /// Whether the npc's recorded (current/previous) routine state function
