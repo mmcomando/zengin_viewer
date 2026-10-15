@@ -14,7 +14,7 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::{
 };
 use super::state::{
     DialogLine, DialogRoot, ImportCallState, ItemInstanceState, LoadedState, NpcInstanceState,
-    RoutineEntryChange, SymbolTable,
+    NpcLookAtChange, RoutineEntryChange, SymbolTable,
 };
 use super::symbol_id::{FunctionId, InstanceId, SymbolId};
 
@@ -65,6 +65,11 @@ impl ScriptManager {
     /// Drains the routine entry changes the script produced, for the ECS bridge.
     pub fn drain_routine_changes(&mut self) -> Vec<RoutineEntryChange> {
         std::mem::take(&mut self.store.data_mut().pending_routine_changes)
+    }
+
+    /// Drains the look-at target changes the script produced, for the ECS bridge.
+    pub fn drain_look_at_changes(&mut self) -> Vec<NpcLookAtChange> {
+        std::mem::take(&mut self.store.data_mut().pending_look_at_changes)
     }
 
     pub fn clear_dialog_lines(&mut self) {

@@ -81,12 +81,20 @@ impl InstanceIndex {
     //     }
 }
 
+/// Marks systems that keep [`InstanceIndex`] up to date. Systems that resolve
+/// entities through the index should run after this set.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct InstanceIndexUpdated;
+
 pub struct InstanceIndexPlugin;
 
 impl Plugin for InstanceIndexPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InstanceIndex>();
-        app.add_systems(Update, (track_npcs, track_items));
+        app.add_systems(
+            Update,
+            (track_npcs, track_items).in_set(InstanceIndexUpdated),
+        );
     }
 }
 

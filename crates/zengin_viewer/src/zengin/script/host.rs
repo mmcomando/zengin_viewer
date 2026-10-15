@@ -1,5 +1,5 @@
 use super::bindings::mmcomando;
-use super::state::{ImportCallState, OverlayRequest, WeaponMode};
+use super::state::{ImportCallState, NpcLookAtChange, OverlayRequest, WeaponMode};
 use super::symbol_id::SymbolId;
 use crate::warn_unimplemented;
 use crate::zengin::common::to_zengin_units;
@@ -472,14 +472,19 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .entry(npc)
             .or_default()
             .look_at = Some(target);
+        self.pending_look_at_changes
+            .push(NpcLookAtChange { instance_id: npc });
     }
     fn ai_stoplookat(&mut self, npc: i32) {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        if let Some(entry) = self.loaded_state.npc_instances.get_mut(&npc) {
-            entry.look_at = None;
-        }
+        let Some(entry) = self.loaded_state.npc_instances.get_mut(&npc) else {
+            return;
+        };
+        entry.look_at = None;
+        self.pending_look_at_changes
+            .push(NpcLookAtChange { instance_id: npc });
     }
     fake_impl!(ai_pointat(_0, _1));
     fake_impl!(ai_pointatnpc(_0, _1));

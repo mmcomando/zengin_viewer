@@ -268,29 +268,30 @@ fn choose_routine_animation(played_anis: &[String], stand_animation: &str) -> St
     }
 }
 
-/// Rotates npcs to face their `AI_LookAtNPC` target. The player visual (a child)
-/// is skipped on purpose: rotating it would fight the player controller.
-fn apply_look_at(
-    gothic_script: Res<ScriptResource>,
-    mut npcs: Query<(&GameNpc, &mut Transform), Without<PlayerCharacter>>,
-) {
-    let script = gothic_script.lock();
-    let instances = script.npc_instances();
+/// Entity the npc currently looks at (`AI_LookAtNPC`), maintained by the script
+/// bridge. Absent when the npc looks at nothing.
+#[derive(Component)]
+pub struct NpcLookAt(pub Entity);
 
-    for (npc, mut tr) in &mut npcs {
-        let Some(instance) = instances.get(&npc.npc_instance_id) else {
+/// Rotates npcs to face their [`NpcLookAt`] target. The player visual (a child) is
+/// skipped on purpose: rotating it would fight the player controller. When the
+/// target entity is gone the npc stops looking. The target is maintained by the
+/// script bridge.
+fn apply_look_at(
+    mut commands: Commands,
+    mut npcs: Query<
+        (Entity, &NpcLookAt, &GlobalTransform, &mut Transform),
+        Without<PlayerCharacter>,
+    >,
+    transforms: Query<&GlobalTransform>,
+) {
+    for (entity, look_at, npc_tr, mut tr) in &mut npcs {
+        let Ok(target_tr) = transforms.get(look_at.0) else {
+            // Target entity was destroyed, stop looking at it
+            commands.entity(entity).remove::<NpcLookAt>();
             continue;
         };
-        let Some(target) = instance.look_at else {
-            continue;
-        };
-        let (Some(from), Some(to)) = (
-            instance.position,
-            instances.get(&target).and_then(|target| target.position),
-        ) else {
-            continue;
-        };
-        let direction = to - from;
+        let direction = target_tr.translation() - npc_tr.translation();
         if direction.length_squared() < 1e-4 {
             continue;
         }

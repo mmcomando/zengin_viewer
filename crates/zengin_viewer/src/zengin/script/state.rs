@@ -29,6 +29,13 @@ pub struct RoutineEntryChange {
     pub instance_id: InstanceId,
 }
 
+/// Signal that an instance's `AI_LookAtNPC`/`AI_StopLookAt` target changed.
+/// Produced by the script, drained to the ECS by the script bridge.
+#[derive(Message)]
+pub struct NpcLookAtChange {
+    pub instance_id: InstanceId,
+}
+
 /// Runtime state of an npc instance.
 #[derive(Debug, Default)]
 pub struct NpcInstanceState {
@@ -278,6 +285,9 @@ pub struct ImportCallState {
     /// Routine entry changes produced by the script, drained to the ECS by the
     /// script bridge.
     pub pending_routine_changes: Vec<RoutineEntryChange>,
+    /// Look-at target changes produced by the script, drained to the ECS by the
+    /// script bridge.
+    pub pending_look_at_changes: Vec<NpcLookAtChange>,
     // TODO GuildId instead of i32?
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,
