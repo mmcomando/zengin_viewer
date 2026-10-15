@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::gui::game_log::GameLog;
+use crate::gui::game_log::{GameLog, GameLogEntry};
 use crate::zengin::npc_routines::{NpcEquippedWeapon, WeaponMeshPaths};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
@@ -16,10 +16,46 @@ pub struct PlayerInteractionPlugin;
 
 impl Plugin for PlayerInteractionPlugin {
     fn build(&self, app: &mut App) {
+        app.add_message::<TransferItems>();
         app.add_systems(
             Update,
-            (kill_selected_npc, pickup_selected_item, print_player_items),
+            (
+                kill_selected_npc,
+                handle_transfer_items,
+                pickup_selected_item,
+                print_player_items,
+            ),
         );
+    }
+}
+
+/// Moves all items between the requested instance inventories and logs each
+/// moved stack bottom-left.
+fn handle_transfer_items(
+    mut requests: MessageReader<TransferItems>,
+    mut game_log: MessageWriter<GameLogEntry>,
+    gothic_script: Res<ScriptResource>,
+) {
+    for request in requests.read() {
+        let mut script = gothic_script.lock();
+        let moved = script.transfer_inventory(request.instance_from_id, request.instance_to_id);
+        if moved.is_empty() {
+            continue;
+        }
+        info!(
+            "Moved {} item stack(s) from instance({}) to instance({})",
+            moved.len(),
+            request.instance_from_id,
+            request.instance_to_id
+        );
+        for (item, count) in moved {
+            let name = script
+                .get_name_by_id(item.value())
+                .unwrap_or_else(|| item.value().to_string());
+            game_log.write(GameLogEntry {
+                text: format!("{name} x{count}"),
+            });
+        }
     }
 }
 
