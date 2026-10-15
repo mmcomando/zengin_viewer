@@ -15,6 +15,7 @@
 mod audio;
 mod gameplay;
 mod graphics;
+mod gui;
 mod gui_debug;
 mod input;
 mod xr;
@@ -30,6 +31,7 @@ use crate::graphics::disco_lamp::DiscoLamp;
 use crate::graphics::lighting::LightingPlugin;
 use crate::graphics::render_options::RenderOptionsPlugin;
 use crate::graphics::skybox::SkyBoxPlugin;
+use crate::gui::game_log::GameLogPlugin;
 use crate::gui_debug::egui::GameDebugUI;
 use crate::gui_debug::statistics::StatisticsPlugin;
 use crate::gui_debug::toggle_visibility::ToggleVisibility;
@@ -122,6 +124,7 @@ fn main() {
         .add_plugins(GameDebugUI)
         .add_plugins(StatisticsPlugin)
         .add_plugins(GameAudioPlugin)
+        .add_plugins(GameLogPlugin)
         .add_plugins(CameraPlugin)
         .add_plugins(SkeletalAnimations);
 

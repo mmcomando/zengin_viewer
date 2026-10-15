@@ -1,5 +1,4 @@
-//! Bottom-left log of recently picked up items, each entry shown for a few
-//! seconds.
+//! Bottom-left log of recent game messages, each entry shown for a few seconds.
 
 use bevy::prelude::*;
 
@@ -10,21 +9,21 @@ const MAX_ENTRIES: usize = 8;
 /// Font size of a log line in logical pixels.
 const LOG_FONT_SIZE: f32 = 16.0;
 
-/// Recently picked up items, each with its remaining display time.
+/// Recently logged messages, each with its remaining display time.
 #[derive(Resource, Default)]
-pub struct PickupLog {
-    entries: Vec<PickupEntry>,
+pub struct GameLog {
+    entries: Vec<LogEntry>,
 }
 
-struct PickupEntry {
+struct LogEntry {
     text: String,
     time_left: f32,
 }
 
-impl PickupLog {
+impl GameLog {
     /// Adds an entry, shown for [`ENTRY_LIFETIME`] seconds.
     pub fn add(&mut self, text: impl Into<String>) {
-        self.entries.push(PickupEntry {
+        self.entries.push(LogEntry {
             text: text.into(),
             time_left: ENTRY_LIFETIME,
         });
@@ -34,23 +33,38 @@ impl PickupLog {
     }
 }
 
-pub struct PickupLogPlugin;
+/// Requests a new [`GameLog`] entry, written by systems that cannot (or should
+/// not) access the log resource directly.
+#[derive(Message)]
+pub struct GameLogEntry {
+    pub text: String,
+}
 
-impl Plugin for PickupLogPlugin {
+pub struct GameLogPlugin;
+
+impl Plugin for GameLogPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PickupLog>();
-        app.add_systems(Startup, spawn_pickup_log);
-        app.add_systems(Update, update_pickup_log);
+        app.init_resource::<GameLog>();
+        app.add_message::<GameLogEntry>();
+        app.add_systems(Startup, spawn_game_log);
+        app.add_systems(Update, (handle_game_log_messages, update_game_log).chain());
+    }
+}
+
+/// Appends every requested [`GameLogEntry`] to the [`GameLog`].
+fn handle_game_log_messages(mut messages: MessageReader<GameLogEntry>, mut log: ResMut<GameLog>) {
+    for message in messages.read() {
+        log.add(message.text.as_str());
     }
 }
 
 /// Marker for the text node showing the log.
 #[derive(Component)]
-struct PickupLogText;
+struct GameLogText;
 
-fn spawn_pickup_log(mut commands: Commands) {
+fn spawn_game_log(mut commands: Commands) {
     commands.spawn((
-        PickupLogText,
+        GameLogText,
         Node {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
@@ -70,10 +84,10 @@ fn spawn_pickup_log(mut commands: Commands) {
     ));
 }
 
-fn update_pickup_log(
+fn update_game_log(
     time: Res<Time>,
-    mut log: ResMut<PickupLog>,
-    mut text: Query<&mut Text, With<PickupLogText>>,
+    mut log: ResMut<GameLog>,
+    mut text: Query<&mut Text, With<GameLogText>>,
 ) {
     let delta = time.delta_secs();
     for entry in &mut log.entries {

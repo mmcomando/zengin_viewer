@@ -4,8 +4,8 @@ use bevy::prelude::*;
 
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::objects::PlayerCharacter;
+use crate::gui::game_log::{GameLog, GameLogEntry};
 use crate::zengin::npc_routines::WeaponMeshPaths;
-use crate::zengin::pickup_log::PickupLog;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::selection::{Selection, SelectionKind};
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
@@ -29,7 +29,7 @@ impl Plugin for PlayerInteractionPlugin {
 fn kill_selected_npc(
     keys: Res<ButtonInput<KeyCode>>,
     mut selection: ResMut<Selection>,
-    mut pickup_log: ResMut<PickupLog>,
+    mut game_log: MessageWriter<GameLogEntry>,
     gothic_script: Res<ScriptResource>,
     weapon_mesh_paths: Res<WeaponMeshPaths>,
     mut handles: ResMut<MaterialHandles>,
@@ -85,7 +85,7 @@ fn kill_selected_npc(
         (pickups, weapon)
     };
     for line in pickups {
-        pickup_log.add(line);
+        game_log.write(GameLogEntry { text: line });
     }
 
     // Drop the equipped weapon on the ground as a pickable item.
@@ -123,7 +123,7 @@ fn kill_selected_npc(
 fn pickup_selected_item(
     keys: Res<ButtonInput<KeyCode>>,
     mut selection: ResMut<Selection>,
-    mut pickup_log: ResMut<PickupLog>,
+    mut game_log: ResMut<GameLog>,
     gothic_script: Res<ScriptResource>,
     mut commands: Commands,
     items: Query<&GameItem>,
@@ -150,7 +150,7 @@ fn pickup_selected_item(
     gothic_script
         .lock()
         .add_inventory(player_npc.npc_instance_id, item_id, 1);
-    pickup_log.add(format!("{name} x1"));
+    game_log.add(format!("{name} x1"));
 
     info!(
         "Picked up item({item_id}) by player({})",
@@ -165,7 +165,7 @@ fn pickup_selected_item(
 /// Prints the whole player inventory into the item log on `P`.
 fn print_player_items(
     keys: Res<ButtonInput<KeyCode>>,
-    mut pickup_log: ResMut<PickupLog>,
+    mut game_log: ResMut<GameLog>,
     gothic_script: Res<ScriptResource>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
@@ -179,7 +179,7 @@ fn print_player_items(
     let mut script = gothic_script.lock();
     let mut items = script.inventory(player_npc.npc_instance_id);
     if items.is_empty() {
-        pickup_log.add(format!(
+        game_log.add(format!(
             "player({}) inventory is empty",
             player_npc.npc_instance_id
         ));
@@ -196,5 +196,5 @@ fn print_player_items(
             format!("{name} x{count}")
         })
         .collect();
-    pickup_log.add(lines.join("\n"));
+    game_log.add(lines.join("\n"));
 }

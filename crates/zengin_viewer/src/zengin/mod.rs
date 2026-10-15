@@ -6,7 +6,6 @@ mod loaders;
 mod macros;
 mod npc_routines;
 mod objects_to_entities;
-mod pickup_log;
 mod script;
 mod selection;
 mod sounds;
@@ -39,7 +38,6 @@ impl Plugin for ZenginPlugin {
         app.add_plugins(crate::zengin::world_plugin::ZenGinWorldPlugin);
         app.add_plugins(crate::zengin::npc_routines::NpcRoutinesPlugin);
         app.add_plugins(crate::zengin::selection::SelectionPlugin);
-        app.add_plugins(crate::zengin::pickup_log::PickupLogPlugin);
         app.add_plugins(crate::zengin::interaction::PlayerInteractionPlugin);
         app.add_plugins(crate::zengin::statistics::StatisticsZenginPlugin);
         app.add_plugins(crate::zengin::script::component::GothicScriptsPlugin);
