@@ -1,6 +1,7 @@
 mod common;
 mod conversions;
 mod dialog;
+mod instance_index;
 mod interaction;
 mod loaders;
 mod macros;
@@ -38,6 +39,7 @@ impl Plugin for ZenginPlugin {
         app.add_plugins(crate::zengin::world_plugin::ZenGinWorldPlugin);
         app.add_plugins(crate::zengin::npc_routines::NpcRoutinesPlugin);
         app.add_plugins(crate::zengin::selection::SelectionPlugin);
+        app.add_plugins(crate::zengin::instance_index::InstanceIndexPlugin);
         app.add_plugins(crate::zengin::interaction::PlayerInteractionPlugin);
         app.add_plugins(crate::zengin::statistics::StatisticsZenginPlugin);
         app.add_plugins(crate::zengin::script::component::GothicScriptsPlugin);
