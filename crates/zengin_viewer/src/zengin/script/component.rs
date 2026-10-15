@@ -1,5 +1,4 @@
 use crate::zengin::GameNpc;
-use crate::zengin::script::state::NpcLiveState;
 use crate::zengin::{common::gothic2_dir, script::manager::ScriptManager};
 use bevy::ecs::resource::Resource;
 use bevy::log::info;
@@ -16,7 +15,6 @@ pub struct GothicScriptsPlugin;
 impl Plugin for GothicScriptsPlugin {
     fn build(&self, app: &mut App) {
         let script = ScriptResource::new();
-        app.insert_resource(ScriptNpcState(script.lock().npc_live_state()));
         app.insert_resource(script);
         app.insert_resource(load_dialog_texts());
         app.add_systems(Startup, spawn_entities);
@@ -24,24 +22,19 @@ impl Plugin for GothicScriptsPlugin {
     }
 }
 
-/// Shares the live npc facts with the script host.
-#[derive(Resource)]
-pub struct ScriptNpcState(pub Arc<Mutex<NpcLiveState>>);
-
-/// Keeps the shared npc positions in sync with the world. Uses `GlobalTransform`
+/// Keeps the npc world positions in sync with the world. Uses `GlobalTransform`
 /// so npcs that are parented to something are still tracked at their world
-/// position; the player visual is a `GameNpc` child and is included. The map is
-/// rebuilt every frame, so a removed npc drops out and counts as dead.
-fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, state: Res<ScriptNpcState>) {
-    let mut positions = HashMap::new();
-    for (npc, transform) in &npcs {
-        positions.insert(npc.npc_instance_id, transform.translation());
+/// position; the player visual is a `GameNpc` child and is included. Every npc
+/// position is cleared first, so a removed npc drops out and counts as dead.
+fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, script: Res<ScriptResource>) {
+    let mut script = script.lock();
+    let instances = script.npc_instances_mut();
+    for instance in instances.values_mut() {
+        instance.position = None;
     }
-
-    let Ok(mut live) = state.0.lock() else {
-        return;
-    };
-    live.positions = positions;
+    for (npc, transform) in &npcs {
+        instances.entry(npc.npc_instance_id).or_default().position = Some(transform.translation());
+    }
 }
 
 /// Bevy resource holding the world script vm behind `Arc<Mutex>` so it can be

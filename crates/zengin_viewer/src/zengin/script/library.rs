@@ -144,10 +144,10 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let state = access.data_mut();
         let entry = state
             .loaded_state
-            .instance_data
+            .npc_instances
             .entry(npc_index)
             .or_default();
-        entry.routine_enties.push(routine_entry);
+        entry.routine_entries.push(routine_entry);
     }
 
     fn ai_playani(
@@ -167,9 +167,10 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let state = access.data_mut();
         state
             .loaded_state
-            .routine_played_anis
+            .npc_instances
             .entry(npc_index)
             .or_default()
+            .routine_played_anis
             .push(ani);
     }
 
@@ -191,9 +192,10 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let state = access.data_mut();
         state
             .loaded_state
-            .routine_played_anis
+            .npc_instances
             .entry(npc_index)
             .or_default()
+            .routine_played_anis
             .push(ani);
     }
 
@@ -249,9 +251,10 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let ani = format!("S_{}_S{state}", mob.to_uppercase());
         let data = access.data_mut();
         data.loaded_state
-            .routine_played_anis
+            .npc_instances
             .entry(npc_index)
             .or_default()
+            .routine_played_anis
             .push(ani);
         0
     }
@@ -327,10 +330,12 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let Some(target) = data.way_points.get(&wp_name).copied() else {
             return i32::MAX;
         };
-        let Some(state) = data.npc_live_state() else {
-            return i32::MAX;
-        };
-        let Some(position) = state.positions.get(&npc).copied() else {
+        let Some(position) = data
+            .loaded_state
+            .npc_instances
+            .get(&npc)
+            .and_then(|npc| npc.position)
+        else {
             return i32::MAX;
         };
 

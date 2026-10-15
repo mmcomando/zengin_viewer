@@ -77,13 +77,10 @@ fn spawn_world(
     );
     // Seed npc positions so distance queries work before the first ECS update
     {
-        let positions = world_data
-            .npcs
-            .iter()
-            .map(|npc| (npc.npc_intance_id, npc.body_tr.translation))
-            .collect();
-        if let Ok(mut live) = gothic_script.npc_live_state().lock() {
-            live.positions = positions;
+        let instances = gothic_script.npc_instances_mut();
+        for npc in &world_data.npcs {
+            instances.entry(npc.npc_intance_id).or_default().position =
+                Some(npc.body_tr.translation);
         }
     }
     commands.insert_resource(WayPoints { points: way_points });

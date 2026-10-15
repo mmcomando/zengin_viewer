@@ -10,7 +10,7 @@ use crate::zengin::GameNpc;
 use crate::zengin::common::{
     animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
 };
-use crate::zengin::script::component::{ScriptNpcState, ScriptResource};
+use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{OverlayRequest, WeaponMode};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use crate::zengin::waypoint_graph::WaypointGraph;
@@ -102,7 +102,7 @@ fn update_npc_routines(
     let loaded_state = gothic_script.get_loaded_state();
 
     for (entity, npc, mut tr, routine_state) in &mut npcs {
-        let Some(instance) = loaded_state.instance_data.get(&npc.npc_instance_id) else {
+        let Some(instance) = loaded_state.npc_instances.get(&npc.npc_instance_id) else {
             continue;
         };
         let Some(entry) = instance.get_routine_entry(minutes) else {
@@ -223,7 +223,7 @@ fn update_npc_routine_animations(
         let state_fn = {
             let loaded_state = gothic_script.get_loaded_state();
             let Some(entry) = loaded_state
-                .instance_data
+                .npc_instances
                 .get(&npc.npc_instance_id)
                 .and_then(|instance| instance.get_routine_entry(minutes))
             else {
@@ -275,30 +275,28 @@ fn choose_routine_animation(played_anis: &[String], stand_animation: &str) -> St
 }
 
 /// Rotates npcs to face their `AI_LookAtNPC` target. The player visual (a child)
-/// is skipped on purpose: rotating it would fight the player controller. Locks
-/// only the shared npc state, never the script vm.
+/// is skipped on purpose: rotating it would fight the player controller.
 fn apply_look_at(
-    state: Res<ScriptNpcState>,
+    gothic_script: Res<ScriptResource>,
     mut npcs: Query<(&GameNpc, &mut Transform), Without<PlayerCharacter>>,
 ) {
-    let Ok(live) = state.0.lock() else {
-        return;
-    };
-    if live.look_at.is_empty() {
-        return;
-    }
+    let script = gothic_script.lock();
+    let instances = script.npc_instances();
 
     for (npc, mut tr) in &mut npcs {
-        let Some(target) = live.look_at.get(&npc.npc_instance_id) else {
+        let Some(instance) = instances.get(&npc.npc_instance_id) else {
+            continue;
+        };
+        let Some(target) = instance.look_at else {
             continue;
         };
         let (Some(from), Some(to)) = (
-            live.positions.get(&npc.npc_instance_id),
-            live.positions.get(target),
+            instance.position,
+            instances.get(&target).and_then(|target| target.position),
         ) else {
             continue;
         };
-        let direction = *to - *from;
+        let direction = to - from;
         if direction.length_squared() < 1e-4 {
             continue;
         }
@@ -314,10 +312,10 @@ struct NpcWeaponMode {
 
 /// Switches the idle animation of npcs whose weapon mode changed (drawn melee
 /// uses the armed idle `S_1H`, otherwise the scheme standing idle). Only plays an
-/// animation when the mode actually changed. Locks only the shared npc state.
+/// animation when the mode actually changed.
 #[allow(clippy::type_complexity)]
 fn apply_weapon_mode(
-    state: Res<ScriptNpcState>,
+    gothic_script: Res<ScriptResource>,
     files: Res<AnimationFiles>,
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
@@ -331,15 +329,14 @@ fn apply_weapon_mode(
         Option<&mut AnimationController>,
     )>,
 ) {
-    let Ok(live) = state.0.lock() else {
-        return;
-    };
-    if live.weapon_mode.is_empty() {
-        return;
-    }
+    let script = gothic_script.lock();
+    let instances = script.npc_instances();
 
     for (entity, npc, model, overlay, mode_comp, controller) in &mut npcs {
-        let Some(weapon_mode) = live.weapon_mode.get(&npc.npc_instance_id).copied() else {
+        let Some(weapon_mode) = instances
+            .get(&npc.npc_instance_id)
+            .and_then(|npc| npc.weapon_mode)
+        else {
             continue;
         };
         let Some(mut applied) = mode_comp else {
@@ -377,23 +374,23 @@ fn apply_weapon_mode(
 
 /// Faces npcs at their assigned routine waypoint when the script requested it
 /// via `AI_AlignToWP`; the waypoint rotation is the facing direction. Consumes
-/// one request per npc. Locks only the shared npc state.
+/// one request per npc.
 fn apply_align_to_wp(
-    state: Res<ScriptNpcState>,
+    gothic_script: Res<ScriptResource>,
     way_points: Res<WayPoints>,
     mut npcs: Query<(&GameNpc, Option<&NpcRoutineState>, &mut Transform)>,
 ) {
-    let Ok(mut live) = state.0.lock() else {
-        return;
-    };
-    if live.align_to_wp.is_empty() {
-        return;
-    }
+    let mut script = gothic_script.lock();
+    let instances = script.npc_instances_mut();
 
     for (npc, routine, mut tr) in &mut npcs {
-        if !live.align_to_wp.remove(&npc.npc_instance_id) {
+        let Some(instance) = instances.get_mut(&npc.npc_instance_id) else {
+            continue;
+        };
+        if !instance.align_to_wp {
             continue;
         }
+        instance.align_to_wp = false;
         let Some(name) = routine.and_then(|routine| routine.assigned_waypoint.as_deref()) else {
             continue;
         };
@@ -426,10 +423,10 @@ pub struct WeaponMeshPaths(pub HashMap<i32, String>);
 
 /// Keeps a weapon mesh on each npc that has one equipped. The default position
 /// is the hip, switching to melee mode moves it to the hand. Reacts to a runtime
-/// `EquipItem`. Locks only the shared npc state.
+/// `EquipItem`.
 #[allow(clippy::type_complexity)]
 fn update_npc_weapon(
-    state: Res<ScriptNpcState>,
+    gothic_script: Res<ScriptResource>,
     mesh_paths: Res<WeaponMeshPaths>,
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
@@ -437,14 +434,14 @@ fn update_npc_weapon(
     entities: &Entities,
     mut npcs: Query<(Entity, &GameNpc, &NpcWeaponSlots, Option<&mut NpcWeapon>)>,
 ) {
-    let Ok(live) = state.0.lock() else {
-        return;
-    };
+    let script = gothic_script.lock();
+    let instances = script.npc_instances();
 
     for (entity, npc, slots, weapon) in &mut npcs {
-        let item = live.equipped_weapon.get(&npc.npc_instance_id).copied();
+        let instance = instances.get(&npc.npc_instance_id);
+        let item = instance.and_then(|npc| npc.equipped_weapon);
         let drawn = matches!(
-            live.weapon_mode.get(&npc.npc_instance_id),
+            instance.and_then(|npc| npc.weapon_mode),
             Some(WeaponMode::Melee)
         );
         // The joints are despawned with the visual when the npc is far
@@ -527,36 +524,36 @@ fn overlay_scheme(name: &str) -> String {
 
 /// Resolves pending `Mdl_ApplyOverlayMds` requests to a scheme string. The symbol
 /// name is read through the script vm, which is only safe outside a running
-/// script, hence this runs in `Update`. Locks the shared state and the script,
-/// but never both at once.
+/// script, hence this runs in `Update`.
 fn resolve_npc_overlays(
     gothic_script: Res<ScriptResource>,
-    state: Res<ScriptNpcState>,
     mut commands: Commands,
     npcs: Query<(Entity, &GameNpc)>,
 ) {
+    let mut script = gothic_script.lock();
     let requests: Vec<(InstanceId, OverlayRequest)> = {
-        let Ok(mut live) = state.0.lock() else {
-            return;
-        };
-        live.overlay_request.drain().collect()
+        let instances = script.npc_instances_mut();
+        let mut requests = Vec::new();
+        for (npc, instance) in instances.iter_mut() {
+            if let Some(request) = instance.overlay_request.take() {
+                requests.push((*npc, request));
+            }
+        }
+        requests
     };
     if requests.is_empty() {
         return;
     }
 
     let mut resolved: Vec<(InstanceId, Option<String>)> = Vec::with_capacity(requests.len());
-    {
-        let mut gothic_script = gothic_script.lock();
-        for (npc, request) in requests {
-            let scheme = match request {
-                OverlayRequest::Apply(id) => gothic_script
-                    .get_name_by_id(id)
-                    .map(|name| overlay_scheme(&name)),
-                OverlayRequest::Remove => None,
-            };
-            resolved.push((npc, scheme));
-        }
+    for (npc, request) in requests {
+        let scheme = match request {
+            OverlayRequest::Apply(id) => {
+                script.get_name_by_id(id).map(|name| overlay_scheme(&name))
+            }
+            OverlayRequest::Remove => None,
+        };
+        resolved.push((npc, scheme));
     }
 
     let schemes: HashMap<InstanceId, Option<String>> = resolved.into_iter().collect();
@@ -579,32 +576,32 @@ struct NpcPath {
 
 /// Resolves `AI_GoToWP` requests into a path over the waypoint graph. Reads the
 /// waypoint name through the script vm, which is only safe outside a running
-/// script, hence this runs in `Update`. Locks the shared state and the script,
-/// but never both at once.
+/// script, hence this runs in `Update`.
 fn resolve_goto_paths(
     gothic_script: Res<ScriptResource>,
-    state: Res<ScriptNpcState>,
     graph: Res<WaypointGraph>,
     mut commands: Commands,
     npcs: Query<(Entity, &GameNpc, &Transform)>,
 ) {
+    let mut script = gothic_script.lock();
     let requests: Vec<(InstanceId, i32)> = {
-        let Ok(mut live) = state.0.lock() else {
-            return;
-        };
-        live.goto_request.drain().collect()
+        let instances = script.npc_instances_mut();
+        let mut requests = Vec::new();
+        for (npc, instance) in instances.iter_mut() {
+            if let Some(request) = instance.goto_request.take() {
+                requests.push((*npc, request));
+            }
+        }
+        requests
     };
     if requests.is_empty() {
         return;
     }
 
-    let names: HashMap<InstanceId, Option<String>> = {
-        let mut gothic_script = gothic_script.lock();
-        requests
-            .into_iter()
-            .map(|(npc, id)| (npc, gothic_script.get_name_by_id(id)))
-            .collect()
-    };
+    let names: HashMap<InstanceId, Option<String>> = requests
+        .into_iter()
+        .map(|(npc, id)| (npc, script.get_name_by_id(id)))
+        .collect();
 
     for (entity, npc, transform) in &npcs {
         let Some(Some(name)) = names.get(&npc.npc_instance_id) else {

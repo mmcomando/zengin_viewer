@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
 
 use bevy::math::Vec3;
 
@@ -19,8 +19,25 @@ pub struct RoutineEntry {
     pub state_fn: Option<FunctionId>,
 }
 
+/// Runtime state of an npc instance.
 #[derive(Debug, Default)]
-pub struct InstanceState {
+pub struct NpcInstanceState {
+    /// Set when `Mdl_SetVisualBody`/`Mdl_SetVisual` ran during instance init.
+    /// Only these instances are treated as npcs.
+    pub visual_initialized: bool,
+    /// Body model symbol set via `Mdl_SetVisualBody`.
+    pub body_model_id: Option<StringId>,
+    pub head_model_id: Option<StringId>,
+    /// Armor is an item instance.
+    pub armor_model_id: Option<SymbolId>,
+    /// Hierarchy (visual `.mds` stem) set via `Mdl_SetVisual`.
+    pub hierarchy_id: Option<StringId>,
+    /// Texture variant index, `0` means default.
+    pub body_texture_index: i32,
+    /// Texture variant index, `0` means default.
+    pub face_texture_index: i32,
+
+    // -- visual body, resolved strings --
     pub body_model: String,
     pub body_texture: Option<String>,
     pub head_model: Option<String>,
@@ -28,23 +45,78 @@ pub struct InstanceState {
     pub armor_model: Option<String>,
     pub hierarchy: Option<String>,
 
-    /// Model scale set via `Mdl_SetModelScale`
+    /// Model scale set via `Mdl_SetModelScale`.
     pub model_scale: Option<Vec3>,
 
-    /// Body fatness set via `Mdl_SetModelFatness`
+    /// Body fatness set via `Mdl_SetModelFatness`.
     pub model_fatness: Option<f32>,
 
-    pub routine_enties: Vec<RoutineEntry>,
+    /// Routine entries set via `TA_Min`.
+    pub routine_entries: Vec<RoutineEntry>,
+
+    /// Root dialog options (`C_INFO`) of this npc, `None` until dialog
+    /// information is loaded for it.
+    pub dialog_roots: Option<Vec<DialogRoot>>,
+
+    /// Animations requested via `AI_PlayAni(BS)` by the last executed routine
+    /// state function, in request order.
+    pub routine_played_anis: Vec<String>,
+
+    /// State time (seconds) set via `NPC_SetStateTime`.
+    pub state_time: i32,
+
+    /// Info (`C_INFO`) instances known by this npc (`Npc_KnowsInfo`).
+    pub known_infos: HashSet<InstanceId>,
+
+    /// Talent skills/values (`Npc_SetTalentSkill`/`Npc_SetTalentValue`).
+    pub talents: NpcTalents,
+
+    /// Inventory, item instance id to count.
+    pub inventory: HashMap<InstanceId, i32>,
+
+    /// Routine state function currently active (`Npc_IsInState`).
+    pub current_routine_state: Option<FunctionId>,
+
+    /// Previously active routine state function (`Npc_WasInState`).
+    pub previous_routine_state: Option<FunctionId>,
+
+    /// Permanent attitude (`Npc_SetAttitude`).
+    pub attitude: Option<i32>,
+
+    /// Temporary attitude (`Npc_SetTempAttitude`).
+    pub temp_attitude: Option<i32>,
+
+    // -- live facts shared with the ECS side --
+    /// World position, `None` when the npc has no entity (unknown or dead).
+    pub position: Option<Vec3>,
+
+    /// Npc currently looked at (`AI_LookAtNPC`/`AI_StopLookAt`).
+    pub look_at: Option<InstanceId>,
+
+    /// Pending `AI_AlignToWP` request, applied by the ECS side.
+    pub align_to_wp: bool,
+
+    /// Weapon mode (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI).
+    pub weapon_mode: Option<WeaponMode>,
+
+    /// Item symbol equipped (`EquipItem`).
+    pub equipped_weapon: Option<InstanceId>,
+
+    /// Pending overlay request (`Mdl_ApplyOverlayMds`/`Remove`).
+    pub overlay_request: Option<OverlayRequest>,
+
+    /// `AI_GoToWP` request, waypoint name string symbol id.
+    pub goto_request: Option<i32>,
 }
 
-impl InstanceState {
+impl NpcInstanceState {
     /// Routine entry active at `minutes_of_day`, matching the engine semantics:
     /// entries start (inclusive) at their start time and stop (exclusive) at
     /// their stop time, entries wrapping over midnight stay active past it.
     pub fn get_routine_entry(&self, minutes_of_day: u32) -> Option<&RoutineEntry> {
-        let first = self.routine_enties.first()?;
+        let first = self.routine_entries.first()?;
         let minutes = minutes_of_day % (24 * 60);
-        for entry in &self.routine_enties {
+        for entry in &self.routine_entries {
             let start = entry.start_h * 60 + entry.start_m;
             let stop = entry.stop_h * 60 + entry.stop_m;
             let in_range = if stop <= start {
@@ -75,10 +147,23 @@ pub struct SpawnItem {
     pub way_point: String,
 }
 
+/// Runtime state of an item instance, keyed by instance id in
+/// [`LoadedState::items_instances`].
 #[derive(Debug, Default)]
-pub struct ItemInstance {
+pub struct ItemInstanceState {
+    /// Instance (symbol) name.
+    pub name: String,
+    /// Visual set on the item instance.
     pub visual: String,
+    /// Visual override (`visual_change`), takes precedence when set.
     pub visual_change: Option<String>,
+}
+
+impl ItemInstanceState {
+    /// Visual used for rendering, the override when set.
+    pub fn chosen_visual(&self) -> &str {
+        self.visual_change.as_deref().unwrap_or(&self.visual)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -100,16 +185,10 @@ pub struct DialogRoot {
 pub struct LoadedState {
     pub spawn_npcs: Vec<SpawnNpc>,
     pub spawn_items: Vec<SpawnItem>,
-    pub instance_data: HashMap<InstanceId, InstanceState>,
-    pub item_instances: HashMap<String, ItemInstance>,
-    /// Item instance symbol by name, used to resolve item names to instance ids
-    pub item_instance_ids: HashMap<String, InstanceId>,
-    /// Item instance visuals, symbol id to visual name (`EquipItem` weapons)
-    pub item_visuals: HashMap<InstanceId, String>,
-    pub dialog_roots: HashMap<InstanceId, Vec<DialogRoot>>,
-    /// Animations requested via `AI_PlayAni(BS)` by the last executed routine
-    /// state function, keyed by npc instance index, in request order.
-    pub routine_played_anis: HashMap<InstanceId, Vec<String>>,
+    /// State of every loaded item instance.
+    pub items_instances: HashMap<InstanceId, ItemInstanceState>,
+    /// State of every loaded npc instance.
+    pub npc_instances: HashMap<InstanceId, NpcInstanceState>,
 }
 
 #[derive(Debug, Clone)]
@@ -125,19 +204,6 @@ pub struct DialogState {
     pub dialog_lines: Vec<DialogLine>,
     pub close_dialog: bool,
     pub sub_dialog_choices: Vec<DialogRoot>,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct InstanceStateRaw {
-    pub body_model: Option<StringId>,
-    /// Texture variant index (not a symbol id), `0` means default
-    pub body_texture: i32,
-    pub head_model: Option<StringId>,
-    /// Texture variant index (not a symbol id), `0` means default
-    pub face_texture: i32,
-    /// Armor is an item instance
-    pub armor_model: Option<SymbolId>,
-    pub hierarchy: Option<StringId>,
 }
 
 /// Kind of every loaded symbol, keyed by symbol id. Used to verify typed
@@ -199,54 +265,75 @@ pub struct ImportCallState {
     pub dialog_state: DialogState,
     /// Kind of every symbol, used to verify typed symbol ids
     pub symbol_table: SymbolTable,
-    pub raw_instances: HashMap<InstanceId, InstanceStateRaw>,
-    /// State time (seconds) set via `NPC_SetStateTime`, per npc instance.
-    pub state_times: HashMap<InstanceId, i32>,
-    /// Info (`C_INFO`) instances known by each npc instance.
-    pub known_infos: HashMap<InstanceId, HashSet<InstanceId>>,
-    /// Generator backing `Hlp_Random`.
-    pub rng: ScriptRandom,
-    /// Talent skills/values per npc instance (`Npc_SetTalentSkill`).
-    pub talents: HashMap<InstanceId, NpcTalents>,
-    /// Inventory of each npc instance, item instance id to count.
-    pub inventories: HashMap<InstanceId, HashMap<InstanceId, i32>>,
-    /// Routine state function currently active per npc (`Npc_IsInState`).
-    pub current_routine_state: HashMap<InstanceId, FunctionId>,
-    /// Previously active routine state function per npc (`Npc_WasInState`).
-    pub previous_routine_state: HashMap<InstanceId, FunctionId>,
-    /// Permanent attitude per npc (`Npc_SetAttitude`).
-    pub attitudes: HashMap<InstanceId, i32>,
-    /// Temporary attitude per npc (`Npc_SetTempAttitude`).
-    pub temp_attitudes: HashMap<InstanceId, i32>,
     // TODO GuildId instead of i32?
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,
     /// World position of every waypoint/freepoint by lowercased name, filled at
     /// world load (`Npc_GetDistToWP`).
     pub way_points: HashMap<String, Vec3>,
-    /// Live npc facts maintained by the ECS side, shared with the host.
-    pub npc_live_state: Option<Arc<Mutex<NpcLiveState>>>,
+    /// Generator backing `Hlp_Random`.
+    pub rng: ScriptRandom,
 }
 
-/// Runtime facts about npcs shared between the script host and the ECS side.
-/// Positions flow ECS to host, look-at targets flow host to ECS. An npc missing
-/// from `positions` has no entity and is treated as dead.
-#[derive(Debug, Default)]
-pub struct NpcLiveState {
-    /// World position of every live npc instance.
-    pub positions: HashMap<InstanceId, Vec3>,
-    /// Npc each npc currently looks at (`AI_LookAtNPC`/`AI_StopLookAt`).
-    pub look_at: HashMap<InstanceId, InstanceId>,
-    /// Npcs with a pending `AI_AlignToWP` request, applied by the ECS side.
-    pub align_to_wp: HashSet<InstanceId>,
-    /// Weapon mode per npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI).
-    pub weapon_mode: HashMap<InstanceId, WeaponMode>,
-    /// Item symbol equipped per npc (`EquipItem`).
-    pub equipped_weapon: HashMap<InstanceId, InstanceId>,
-    /// Pending overlay requests per npc (`Mdl_ApplyOverlayMds`/`Remove`).
-    pub overlay_request: HashMap<InstanceId, OverlayRequest>,
-    /// `AI_GoToWP` requests per npc, waypoint name string symbol id.
-    pub goto_request: HashMap<InstanceId, i32>,
+impl ImportCallState {
+    /// Sets the weapon mode of an npc, ignored when the id is not an npc.
+    pub fn set_weapon_mode(&mut self, npc: i32, mode: WeaponMode) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        self.loaded_state
+            .npc_instances
+            .entry(npc)
+            .or_default()
+            .weapon_mode = Some(mode);
+    }
+
+    /// Queues an overlay apply or remove for an npc.
+    pub fn set_overlay_request(&mut self, npc: i32, request: OverlayRequest) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        self.loaded_state
+            .npc_instances
+            .entry(npc)
+            .or_default()
+            .overlay_request = Some(request);
+    }
+
+    /// Queues a `AI_GoToWP` request (waypoint name string symbol id) for an npc.
+    pub fn set_goto_request(&mut self, npc: i32, waypoint: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        self.loaded_state
+            .npc_instances
+            .entry(npc)
+            .or_default()
+            .goto_request = Some(waypoint);
+    }
+
+    /// Whether the npc's recorded (current/previous) routine state function
+    /// equals `state`; `false` when either id is not valid.
+    pub fn is_in_state(&self, npc: i32, state: i32, previous: bool) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(state) = self.symbol_table.function(state) else {
+            return 0;
+        };
+        let recorded = self
+            .loaded_state
+            .npc_instances
+            .get(&npc)
+            .and_then(|instance| {
+                if previous {
+                    instance.previous_routine_state
+                } else {
+                    instance.current_routine_state
+                }
+            });
+        (recorded == Some(state)) as i32
+    }
 }
 
 /// Overlay change requested for an npc.
@@ -313,63 +400,7 @@ impl NpcTalents {
     }
 }
 
-impl ImportCallState {
-    /// Locks the shared live npc facts, `None` when the state is not initialized.
-    pub fn npc_live_state(&self) -> Option<MutexGuard<'_, NpcLiveState>> {
-        self.npc_live_state.as_ref()?.lock().ok()
-    }
-
-    /// Sets the weapon mode of an npc, ignored when the id is not an npc.
-    pub fn set_weapon_mode(&self, npc: i32, mode: WeaponMode) {
-        let Some(npc) = self.symbol_table.instance(npc) else {
-            return;
-        };
-        let Some(mut state) = self.npc_live_state() else {
-            return;
-        };
-        state.weapon_mode.insert(npc, mode);
-    }
-
-    /// Queues an overlay apply or remove for an npc.
-    pub fn set_overlay_request(&self, npc: i32, request: OverlayRequest) {
-        let Some(npc) = self.symbol_table.instance(npc) else {
-            return;
-        };
-        let Some(mut state) = self.npc_live_state() else {
-            return;
-        };
-        state.overlay_request.insert(npc, request);
-    }
-
-    /// Queues a `AI_GoToWP` request (waypoint name string symbol id) for an npc.
-    pub fn set_goto_request(&self, npc: i32, waypoint: i32) {
-        let Some(npc) = self.symbol_table.instance(npc) else {
-            return;
-        };
-        let Some(mut state) = self.npc_live_state() else {
-            return;
-        };
-        state.goto_request.insert(npc, waypoint);
-    }
-
-    /// Whether the npc's recorded (current/previous) routine state function
-    /// equals `state`; `false` when either id is not valid.
-    pub fn is_in_state(
-        &self,
-        states: &HashMap<InstanceId, FunctionId>,
-        npc: i32,
-        state: i32,
-    ) -> i32 {
-        let Some(npc) = self.symbol_table.instance(npc) else {
-            return 0;
-        };
-        let Some(state) = self.symbol_table.function(state) else {
-            return 0;
-        };
-        (states.get(&npc) == Some(&state)) as i32
-    }
-}
-
+// TODO use existing RNG
 /// Deterministic pseudo random generator backing `Hlp_Random`.
 #[derive(Debug)]
 pub struct ScriptRandom {

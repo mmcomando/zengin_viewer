@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use std::collections::HashMap;
+
 use zen_kit_rs::{
     misc::{GameVersion, VfsOverwriteBehavior, VisualType, VobType},
     vfs::Vfs,
@@ -12,7 +14,8 @@ use crate::{
     zengin::{
         common::*,
         conversions::*,
-        script::state::{InstanceState, SpawnItem, SpawnNpc},
+        script::state::{NpcInstanceState, SpawnItem, SpawnNpc},
+        script::symbol_id::InstanceId,
         visual::mesh::meshes_from_zengin_mesh,
         waypoint_graph::{WaypointGraph, WaypointNode},
     },
@@ -78,17 +81,13 @@ fn get_tr_from_point_name(data: &ZenGinWorldData, name: &str) -> Option<Transfor
 pub fn get_item_mesh_path(
     vfs: &Vfs,
     vm_state: &crate::zengin::script::state::LoadedState,
-    name: &str,
+    item_id: InstanceId,
 ) -> Option<String> {
-    let Some(item_instance) = vm_state.item_instances.get(name) else {
-        println!("Failed to find item({}) instance", name);
+    let Some(item_instance) = vm_state.items_instances.get(&item_id) else {
+        println!("Failed to find item({item_id}) instance");
         return None;
     };
-    let visual = item_instance
-        .visual_change
-        .as_ref()
-        .unwrap_or(&item_instance.visual);
-    find_mesh_path(vfs, visual)
+    find_mesh_path(vfs, item_instance.chosen_visual())
 }
 pub fn load_weapon(
     data: &mut ZenGinWorldData,
@@ -100,7 +99,7 @@ pub fn load_weapon(
         return;
     };
 
-    let Some(asset_path) = get_item_mesh_path(vfs, vm_state, &item.instance_name) else {
+    let Some(asset_path) = get_item_mesh_path(vfs, vm_state, item.item_index) else {
         println!("not found mesh for item({})", &item.instance_name);
         return;
     };
@@ -117,7 +116,8 @@ pub fn load_npc(
     data: &mut ZenGinWorldData,
     vfs: &Vfs,
     vm_state: &crate::zengin::script::state::LoadedState,
-    instance: &InstanceState,
+    item_ids: &HashMap<&str, InstanceId>,
+    instance: &NpcInstanceState,
     spawn_npc: &SpawnNpc,
     start_hour: u32,
 ) {
@@ -155,16 +155,15 @@ pub fn load_npc(
         None
     };
 
-    let armor_model = if let Some(armor_model) = &instance.armor_model {
-        if let Some(armor_model) = get_item_mesh_path(vfs, vm_state, armor_model) {
-            Some(armor_model)
-        } else {
-            println!("not found mesh for armor_model({})", armor_model);
-            None
+    let armor_model = instance.armor_model.as_ref().and_then(|name| {
+        let mesh = item_ids
+            .get(name.as_str())
+            .and_then(|item_id| get_item_mesh_path(vfs, vm_state, *item_id));
+        if mesh.is_none() {
+            println!("not found mesh for armor_model({})", name);
         }
-    } else {
-        None
-    };
+        mesh
+    });
     let hierarchy = if let Some(hierarchy) = &instance.hierarchy {
         if let Some(hierarchy) = find_mesh_path(vfs, hierarchy) {
             Some(hierarchy)
@@ -278,8 +277,15 @@ pub fn load_zengin_world_data(
         ..Default::default()
     };
 
+    // Item instance name -> instance id, resolves world vob and armor item names
+    let item_ids: HashMap<&str, InstanceId> = vm_state
+        .items_instances
+        .iter()
+        .map(|(id, item)| (item.name.as_str(), *id))
+        .collect();
+
     for obj in world.root_objects() {
-        load_objects(&vfs, &mut data, vm_state, &obj);
+        load_objects(&vfs, &mut data, vm_state, &item_ids, &obj);
     }
     let way_net = world.way_net();
     load_way_net_points(&way_net, &mut data);
@@ -287,8 +293,10 @@ pub fn load_zengin_world_data(
         // if npc_spawn.npc_index.value() != 10347 {
         //     continue;
         // }
-        if let Some(instance) = vm_state.instance_data.get(&npc_spawn.npc_index) {
-            load_npc(&mut data, &vfs, vm_state, instance, npc_spawn, start_hour);
+        if let Some(instance) = vm_state.npc_instances.get(&npc_spawn.npc_index) {
+            load_npc(
+                &mut data, &vfs, vm_state, &item_ids, instance, npc_spawn, start_hour,
+            );
         } else {
             println!("unknown data for npc({:?})", npc_spawn);
             // panic!();
@@ -308,8 +316,8 @@ pub fn load_zengin_world_data(
     }
 
     // Prebuild item symbol id -> mesh path for runtime equip
-    for (id, visual) in &vm_state.item_visuals {
-        if let Some(path) = resolve_mesh_path_quiet(&vfs, visual) {
+    for (id, item) in &vm_state.items_instances {
+        if let Some(path) = resolve_mesh_path_quiet(&vfs, item.chosen_visual()) {
             data.item_mesh_paths.insert(id.value(), path);
         }
     }
@@ -414,6 +422,7 @@ fn load_objects(
     vfs: &Vfs,
     data: &mut ZenGinWorldData,
     vm_state: &crate::zengin::script::state::LoadedState,
+    item_ids: &HashMap<&str, InstanceId>,
     obj: &VirtualObject,
 ) {
     let visual = obj.visual();
@@ -460,10 +469,10 @@ fn load_objects(
             });
         }
     } else {
-        handle_other_vob(data, vfs, vm_state, obj);
+        handle_other_vob(data, vfs, vm_state, item_ids, obj);
     }
     for child in obj.children() {
-        load_objects(vfs, data, vm_state, &child);
+        load_objects(vfs, data, vm_state, item_ids, &child);
     }
 }
 
@@ -486,6 +495,7 @@ fn handle_other_vob(
     data: &mut ZenGinWorldData,
     vfs: &Vfs,
     vm_state: &crate::zengin::script::state::LoadedState,
+    item_ids: &HashMap<&str, InstanceId>,
     obj: &VirtualObject,
 ) {
     let name = obj.name();
@@ -495,12 +505,12 @@ fn handle_other_vob(
             let tr = get_obj_tr(obj);
             let name = name.to_lowercase();
 
-            let Some(asset_path) = get_item_mesh_path(vfs, vm_state, &name) else {
-                warn!("Not found mesh for item({}) vob", name);
+            let Some(instance_id) = item_ids.get(name.as_str()).copied() else {
+                warn!("Not found instance id for item({}) vob", name);
                 return;
             };
-            let Some(instance_id) = vm_state.item_instance_ids.get(&name).copied() else {
-                warn!("Not found instance id for item({}) vob", name);
+            let Some(asset_path) = get_item_mesh_path(vfs, vm_state, instance_id) else {
+                warn!("Not found mesh for item({}) vob", name);
                 return;
             };
             let npc = ZenGinItem {

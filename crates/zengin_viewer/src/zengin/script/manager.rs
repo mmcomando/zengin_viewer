@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use daedalus_wasm::wasm::convert_daedalus_script;
 use wasmtime::component::{Component, HasData, Linker};
@@ -13,7 +13,8 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::{
     DialogInfo, SymbolInfo, SymbolKind,
 };
 use super::state::{
-    DialogLine, DialogRoot, ImportCallState, LoadedState, NpcLiveState, SymbolTable,
+    DialogLine, DialogRoot, ImportCallState, ItemInstanceState, LoadedState, NpcInstanceState,
+    SymbolTable,
 };
 use super::symbol_id::{FunctionId, InstanceId, SymbolId};
 
@@ -24,8 +25,6 @@ pub struct ScriptManager {
     /// Cache of resolved `_loop` function symbol ids of routine state
     /// functions, `None` when the state has no loop function.
     routine_loop_functions: HashMap<FunctionId, Option<FunctionId>>,
-    /// Live npc facts shared with the ECS side, see [`NpcLiveState`].
-    npc_live_state: Arc<Mutex<NpcLiveState>>,
 }
 
 pub(crate) struct ScriptImports;
@@ -38,6 +37,31 @@ impl HasData for ScriptImports {
 impl ScriptManager {
     pub fn get_loaded_state(&self) -> &LoadedState {
         &self.store.data().loaded_state
+    }
+
+    /// State of every loaded npc instance, keyed by instance id.
+    pub fn npc_instances(&self) -> &HashMap<InstanceId, NpcInstanceState> {
+        &self.store.data().loaded_state.npc_instances
+    }
+
+    /// Mutable state of every loaded npc instance, keyed by instance id.
+    pub fn npc_instances_mut(&mut self) -> &mut HashMap<InstanceId, NpcInstanceState> {
+        &mut self.store.data_mut().loaded_state.npc_instances
+    }
+
+    /// Mutable state of an npc instance, created with default values when missing.
+    pub fn npc_instances_mut_or_default(&mut self, index: InstanceId) -> &mut NpcInstanceState {
+        self.npc_instances_mut().entry(index).or_default()
+    }
+
+    /// State of every loaded item instance, keyed by instance id.
+    pub fn items_instances(&self) -> &HashMap<InstanceId, ItemInstanceState> {
+        &self.store.data().loaded_state.items_instances
+    }
+
+    /// Mutable state of every loaded item instance, keyed by instance id.
+    pub fn items_instances_mut(&mut self) -> &mut HashMap<InstanceId, ItemInstanceState> {
+        &mut self.store.data_mut().loaded_state.items_instances
     }
 
     pub fn clear_dialog_lines(&mut self) {
@@ -74,11 +98,8 @@ impl ScriptManager {
         let Some(info_instance_id) = info_instance_id else {
             return;
         };
-        self.store
-            .data_mut()
+        self.npc_instances_mut_or_default(npc_instance_id)
             .known_infos
-            .entry(npc_instance_id)
-            .or_default()
             .insert(info_instance_id);
     }
 
@@ -109,20 +130,11 @@ impl ScriptManager {
         let instance_arc = Arc::new(instance);
         store.data_mut().world = Some(Arc::new(instance2));
 
-        let npc_live_state = Arc::new(Mutex::new(NpcLiveState::default()));
-        store.data_mut().npc_live_state = Some(npc_live_state.clone());
-
         Self {
             store,
             instance: instance_arc,
             routine_loop_functions: HashMap::new(),
-            npc_live_state,
         }
-    }
-
-    /// Live npc facts shared with the ECS side.
-    pub fn npc_live_state(&self) -> Arc<Mutex<NpcLiveState>> {
-        self.npc_live_state.clone()
     }
 
     /// Moves all items of `from`'s inventory into `to`'s inventory, returning the
@@ -132,10 +144,14 @@ impl ScriptManager {
         from: InstanceId,
         to: InstanceId,
     ) -> Vec<(InstanceId, i32)> {
-        let Some(items) = self.store.data_mut().inventories.remove(&from) else {
+        let Some(items) = self
+            .npc_instances_mut()
+            .get_mut(&from)
+            .map(|npc| std::mem::take(&mut npc.inventory))
+        else {
             return Vec::new();
         };
-        let target = self.store.data_mut().inventories.entry(to).or_default();
+        let target = &mut self.npc_instances_mut_or_default(to).inventory;
         for (item, count) in &items {
             *target.entry(*item).or_insert(0) += count;
         }
@@ -147,19 +163,17 @@ impl ScriptManager {
         if count <= 0 {
             return;
         }
-        let inventory = self.store.data_mut().inventories.entry(npc).or_default();
+        let inventory = &mut self.npc_instances_mut_or_default(npc).inventory;
         *inventory.entry(item).or_insert(0) += count;
     }
 
     /// Contents of an npc's inventory as `(item, count)` pairs, empty when the
     /// npc has no inventory.
     pub fn inventory(&self, npc: InstanceId) -> Vec<(InstanceId, i32)> {
-        self.store
-            .data()
-            .inventories
+        self.npc_instances()
             .get(&npc)
-            .map(|inventory| {
-                inventory
+            .map(|npc| {
+                npc.inventory
                     .iter()
                     .map(|(item, count)| (*item, *count))
                     .collect()
@@ -310,20 +324,17 @@ impl ScriptManager {
         npc_instance_id: InstanceId,
         state_fn: FunctionId,
     ) -> Vec<String> {
-        self.store
-            .data_mut()
-            .loaded_state
+        self.npc_instances_mut_or_default(npc_instance_id)
             .routine_played_anis
-            .remove(&npc_instance_id);
+            .clear();
         // Track the active state so `Npc_IsInState`/`Npc_WasInState` answer
         // while the state function runs
         {
-            let data = self.store.data_mut();
-            if let Some(previous) = data.current_routine_state.insert(npc_instance_id, state_fn)
+            let npc = self.npc_instances_mut_or_default(npc_instance_id);
+            if let Some(previous) = npc.current_routine_state.replace(state_fn)
                 && previous != state_fn
             {
-                data.previous_routine_state
-                    .insert(npc_instance_id, previous);
+                npc.previous_routine_state = Some(previous);
             }
         }
         self.set_self(npc_instance_id);
@@ -353,11 +364,9 @@ impl ScriptManager {
             );
         }
 
-        self.store
-            .data_mut()
-            .loaded_state
-            .routine_played_anis
-            .remove(&npc_instance_id)
+        self.npc_instances_mut()
+            .get_mut(&npc_instance_id)
+            .map(|npc| std::mem::take(&mut npc.routine_played_anis))
             .unwrap_or_default()
     }
 
@@ -389,7 +398,10 @@ impl ScriptManager {
             };
             if !root.permanent
                 && let Some(info_instance_id) = root.info_instance_id
-                && let Some(infos) = self.store.data().known_infos.get(&npc_player)
+                && let Some(infos) = self
+                    .npc_instances()
+                    .get(&npc_player)
+                    .map(|npc| &npc.known_infos)
                 && infos.contains(&info_instance_id)
             {
                 return false;
@@ -437,7 +449,12 @@ impl ScriptManager {
     }
 
     pub fn call_npc_routines(&mut self) {
-        let npc_indices: Vec<_> = self.store.data().raw_instances.keys().cloned().collect();
+        let npc_indices: Vec<_> = self
+            .npc_instances()
+            .iter()
+            .filter(|(_, npc)| npc.visual_initialized)
+            .map(|(index, _)| *index)
+            .collect();
         for index in npc_indices {
             self.set_self(index);
             self.set_instance(index);
@@ -493,28 +510,10 @@ impl ScriptManager {
             };
 
             let visual_change = self.get_item_visual_change(index.symbol());
-            let chosen = visual_change.clone().unwrap_or_else(|| visual.clone());
-            {
-                let entry = self
-                    .store
-                    .data_mut()
-                    .loaded_state
-                    .item_instances
-                    .entry(symbol_name.clone())
-                    .or_default();
-                entry.visual = visual;
-                entry.visual_change = visual_change;
-            }
-            self.store
-                .data_mut()
-                .loaded_state
-                .item_instance_ids
-                .insert(symbol_name, index);
-            self.store
-                .data_mut()
-                .loaded_state
-                .item_visuals
-                .insert(index, chosen);
+            let entry = self.items_instances_mut().entry(index).or_default();
+            entry.name = symbol_name;
+            entry.visual = visual;
+            entry.visual_change = visual_change;
         }
     }
 
@@ -537,10 +536,6 @@ impl ScriptManager {
                 continue;
             }
 
-            let symbol_name = self.call_get_name(index.symbol());
-            if symbol_name.starts_with("dia_lares") {
-                continue;
-            }
             let dialog_info = self.get_dialog_info(index.symbol());
             let Some(sequence_function_id) = self.symbol_table().function(dialog_info.information)
             else {
@@ -556,14 +551,9 @@ impl ScriptManager {
                 continue;
             };
             let condition_function_id = self.symbol_table().function(dialog_info.condition);
-            let entry = self
-                .store
-                .data_mut()
-                .loaded_state
-                .dialog_roots
-                .entry(npc_id)
-                .or_default();
-            entry.push(DialogRoot {
+            let npc = self.npc_instances_mut_or_default(npc_id);
+            let roots = npc.dialog_roots.get_or_insert_with(Vec::new);
+            roots.push(DialogRoot {
                 info_instance_id: Some(index),
                 sequence_function_id,
                 condition_function_id,
@@ -573,7 +563,7 @@ impl ScriptManager {
                 order: dialog_info.order,
             });
 
-            entry.sort_by_key(|el| el.order);
+            roots.sort_by_key(|el| el.order);
         }
     }
 
@@ -592,31 +582,52 @@ impl ScriptManager {
     }
 
     pub fn load_npc_instances(&mut self) {
-        let instances = self.store.data().raw_instances.clone();
-        for (index, spawn_npc) in &instances {
-            let Some(body_model) = spawn_npc
-                .body_model
+        let indices: Vec<InstanceId> = self
+            .npc_instances()
+            .iter()
+            .filter(|(_, npc)| npc.visual_initialized)
+            .map(|(index, _)| *index)
+            .collect();
+
+        for index in indices {
+            // Copy the raw visual body ids out before resolving them through
+            // the guest (which needs `&mut self`).
+            let Some(raw) = self.npc_instances().get(&index).map(|npc| {
+                (
+                    npc.body_model_id,
+                    npc.head_model_id,
+                    npc.armor_model_id,
+                    npc.hierarchy_id,
+                    npc.face_texture_index,
+                    npc.body_texture_index,
+                )
+            }) else {
+                continue;
+            };
+            let (
+                body_model_id,
+                head_model_id,
+                armor_model_id,
+                hierarchy_id,
+                face_texture_index,
+                body_texture_index,
+            ) = raw;
+
+            let Some(body_model) = body_model_id
                 .map(|id| id.symbol())
                 .and_then(|id| self.get_string_non_0(id))
             else {
                 println!(
                     "Not found body model string for npc({index}), body_model({})",
-                    spawn_npc
-                        .body_model
-                        .map(|id| id.value())
-                        .unwrap_or_default()
+                    body_model_id.map(|id| id.value()).unwrap_or_default()
                 );
                 continue;
             };
-            let armor_model = spawn_npc
-                .armor_model
-                .and_then(|id| self.get_string_non_0(id));
-            let hierarchy = spawn_npc
-                .hierarchy
+            let armor_model = armor_model_id.and_then(|id| self.get_string_non_0(id));
+            let hierarchy = hierarchy_id
                 .map(|id| id.symbol())
                 .and_then(|id| self.get_string_non_0(id));
-            let head_model = spawn_npc
-                .head_model
+            let head_model = head_model_id
                 .map(|id| id.symbol())
                 .and_then(|id| self.get_string_non_0(id));
 
@@ -628,25 +639,19 @@ impl ScriptManager {
                 el.replace('.', "")
             });
 
-            let face_texture = if spawn_npc.face_texture != 0 {
-                Some(format!("HUM_HEAD_V{}_C0.TGA", spawn_npc.face_texture))
+            let face_texture = if face_texture_index != 0 {
+                Some(format!("HUM_HEAD_V{}_C0.TGA", face_texture_index))
             } else {
                 None
             };
 
-            let body_texture = if spawn_npc.body_texture != 0 {
-                Some(format!("HUM_BODY_NAKED_V{}_C0.TGA", spawn_npc.body_texture))
+            let body_texture = if body_texture_index != 0 {
+                Some(format!("HUM_BODY_NAKED_V{}_C0.TGA", body_texture_index))
             } else {
                 None
             };
 
-            let entry = self
-                .store
-                .data_mut()
-                .loaded_state
-                .instance_data
-                .entry(*index)
-                .or_default();
+            let entry = self.npc_instances_mut_or_default(index);
             entry.body_model = body_model;
             entry.body_texture = body_texture;
             entry.head_model = head_model;

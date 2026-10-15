@@ -43,9 +43,10 @@ fn npc_dialog_roots(
 ) -> Option<Vec<DialogRoot>> {
     let mut roots = gothic_script
         .get_loaded_state()
-        .dialog_roots
+        .npc_instances
         .get(&npc_talk_to)?
-        .clone();
+        .dialog_roots
+        .clone()?;
     gothic_script.filter_dialog_roots(npc_player, npc_talk_to, &mut roots);
     roots.retain(|root| !root.important);
     Some(roots)

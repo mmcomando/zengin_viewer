@@ -6,7 +6,7 @@ use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::npc_routines::WeaponMeshPaths;
 use crate::zengin::pickup_log::PickupLog;
-use crate::zengin::script::component::{ScriptNpcState, ScriptResource};
+use crate::zengin::script::component::ScriptResource;
 use crate::zengin::selection::{Selection, SelectionKind};
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 use crate::zengin::{GameItem, GameNpc};
@@ -25,15 +25,11 @@ impl Plugin for PlayerInteractionPlugin {
 /// Kills the selected npc on `K`: its inventory moves into the player's
 /// inventory (logged bottom-left), the equipped weapon is dropped on the ground
 /// as a pickable item, and the npc entity is despawned.
-///
-/// The shared npc state and the script are locked separately, never nested, see
-/// `script_host_ecs_bridge.md`.
 #[allow(clippy::too_many_arguments)]
 fn kill_selected_npc(
     keys: Res<ButtonInput<KeyCode>>,
     mut selection: ResMut<Selection>,
     mut pickup_log: ResMut<PickupLog>,
-    npc_state: Res<ScriptNpcState>,
     gothic_script: Res<ScriptResource>,
     weapon_mesh_paths: Res<WeaponMeshPaths>,
     mut handles: ResMut<MaterialHandles>,
@@ -57,23 +53,19 @@ fn kill_selected_npc(
     let npc_id = npc.npc_instance_id;
     let position = global_tr.translation();
 
-    // Read the equipped weapon from the shared state (its own lock).
-    let equipped = {
-        let Ok(live) = npc_state.0.lock() else {
-            warn!("Shared npc state lock is poisoned, cannot kill npc({npc_id})");
-            return;
-        };
-        live.equipped_weapon.get(&npc_id).copied()
-    };
-
     let Ok(player_npc) = player_npc.single() else {
         return;
     };
     let player_id = player_npc.npc_instance_id;
 
-    // Move the inventory to the player and resolve the dropped weapon's name.
+    // Read the equipped weapon, move the inventory to the player and resolve the
+    // dropped weapon's name.
     let (pickups, weapon) = {
         let mut script = gothic_script.lock();
+        let equipped = script
+            .npc_instances()
+            .get(&npc_id)
+            .and_then(|npc| npc.equipped_weapon);
         let moved = script.transfer_inventory(npc_id, player_id);
         let pickups: Vec<String> = moved
             .iter()

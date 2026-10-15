@@ -80,16 +80,11 @@ fn unsafe_wrap_instance_callable(instance_id: InstanceId) -> FunctionId {
 fn debug_npc_routine(executor: &mut ScriptManager, npc_id: InstanceId) {
     let hour = 8;
     let debug_info = {
-        let data = executor.store.data();
-        let Some(instance) = data.loaded_state.instance_data.get(&npc_id) else {
-            println!("npc {npc_id} has NO loaded_state.instance_data entry");
-            println!(
-                "raw_instances contains {npc_id}: {}",
-                data.raw_instances.contains_key(&npc_id)
-            );
+        let Some(instance) = executor.npc_instances().get(&npc_id) else {
+            println!("npc {npc_id} has NO loaded_state.npc_instances entry");
             return;
         };
-        let routine_entries = format!("{:?}", instance.routine_enties);
+        let routine_entries = format!("{:?}", instance.routine_entries);
         let active_entry = instance
             .get_routine_entry(hour * 60)
             .map(|entry| (entry.state_fn, format!("{entry:?}")));
