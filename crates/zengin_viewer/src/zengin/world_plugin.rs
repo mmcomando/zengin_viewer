@@ -151,7 +151,6 @@ fn spawn_world(
             instance.tr,
             GameItem {
                 item_instance_id: instance.instance_id,
-                name: instance.name.clone(),
             },
         ));
     }

@@ -59,7 +59,7 @@ fn kill_selected_npc(
     };
     let player_id = player_npc.npc_instance_id;
 
-    // Move the inventory to the player and resolve the dropped weapon's name.
+    // Move the inventory to the player and resolve the picked up names.
     let (pickups, weapon) = {
         let mut script = gothic_script.lock();
         let moved = script.transfer_inventory(npc_id, player_id);
@@ -72,20 +72,14 @@ fn kill_selected_npc(
                 format!("{name} x{count}")
             })
             .collect();
-        let weapon = equipped.map(|item| {
-            let name = script
-                .get_name_by_id(item.value())
-                .unwrap_or_else(|| item.value().to_string());
-            (item, name)
-        });
-        (pickups, weapon)
+        (pickups, equipped)
     };
     for line in pickups {
         game_log.write(GameLogEntry { text: line });
     }
 
     // Drop the equipped weapon on the ground as a pickable item.
-    if let Some((item, name)) = weapon {
+    if let Some(item) = weapon {
         match weapon_mesh_paths.0.get(&item.value()) {
             Some(path) => {
                 let model_handle = handles.get_model_handle(&asset_server, path, None);
@@ -99,7 +93,6 @@ fn kill_selected_npc(
                     Transform::from_translation(position),
                     GameItem {
                         item_instance_id: item,
-                        name,
                     },
                 ));
             }
@@ -142,10 +135,12 @@ fn pickup_selected_item(
     };
 
     let item_id = item.item_instance_id;
-    let name = item.name.clone();
-    gothic_script
-        .lock()
-        .add_inventory(player_npc.npc_instance_id, item_id, 1);
+    let mut script = gothic_script.lock();
+    let name = script
+        .get_name_by_id(item_id.value())
+        .unwrap_or_else(|| item_id.value().to_string());
+    script.add_inventory(player_npc.npc_instance_id, item_id, 1);
+    drop(script);
     game_log.add(format!("{name} x1"));
 
     info!(

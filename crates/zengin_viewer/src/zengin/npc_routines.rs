@@ -204,8 +204,6 @@ fn update_npc_routine_animations(
         Without<ChildOf>,
     >,
 ) {
-    let mut gothic_script = gothic_script.lock();
-
     for (entity, npc, entry, npc_model, overlay, routine_animation, controller) in &mut npcs {
         let Some(mut routine_animation) = routine_animation else {
             commands
@@ -233,7 +231,10 @@ fn update_npc_routine_animations(
         }
 
         routine_animation.applied_state_fn = Some(state_fn);
-        let played_anis = gothic_script.call_routine_state_function(npc.npc_instance_id, state_fn);
+        // Only lock the script when a state actually has to run
+        let played_anis = gothic_script
+            .lock()
+            .call_routine_state_function(npc.npc_instance_id, state_fn);
         let ani = choose_routine_animation(&played_anis, stand_animation);
 
         let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
