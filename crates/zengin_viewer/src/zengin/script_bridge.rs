@@ -8,11 +8,13 @@ use bevy::prelude::*;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::zengin::GameNpc;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
-use crate::zengin::npc_routines::{NpcEquippedWeapon, NpcLookAt, NpcWeaponMode};
+use crate::zengin::npc_routines::{
+    NpcEquippedWeapon, NpcLookAt, NpcOverlay, NpcWeaponMode, overlay_scheme,
+};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
-    AlignToWpChange, EquipItemChange, NpcLookAtChange, RoutineEntry, RoutineEntryChange,
-    WeaponMode, WeaponModeChange,
+    AlignToWpChange, EquipItemChange, NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry,
+    RoutineEntryChange, WeaponMode, WeaponModeChange,
 };
 use crate::zengin::script::symbol_id::InstanceId;
 
@@ -30,6 +32,7 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<WeaponModeChange>();
         app.add_message::<EquipItemChange>();
         app.add_message::<AlignToWpChange>();
+        app.add_message::<OverlayChange>();
         app.add_systems(
             Update,
             (
@@ -38,6 +41,7 @@ impl Plugin for ScriptBridgePlugin {
                 (send_weapon_mode_changes, apply_weapon_mode_changes).chain(),
                 (send_equip_item_changes, apply_equip_item_changes).chain(),
                 send_align_to_wp_changes,
+                (send_overlay_changes, apply_overlay_changes).chain(),
             )
                 .in_set(ScriptChangesApplied)
                 .after(advance_game_time)
@@ -293,5 +297,45 @@ fn send_align_to_wp_changes(
     let drained = gothic_script.lock().drain_align_to_wp_changes();
     for change in drained {
         changes.write(change);
+    }
+}
+
+/// Drains the overlay change requests the script recorded and forwards them as
+/// messages.
+fn send_overlay_changes(
+    mut changes: MessageWriter<OverlayChange>,
+    gothic_script: Res<ScriptResource>,
+) {
+    let drained = gothic_script.lock().drain_overlay_changes();
+    for change in drained {
+        changes.write(change);
+    }
+}
+
+/// Applies overlay change requests to the entities carrying the affected
+/// instance ids, writing the [`NpcOverlay`] component. The overlay symbol name
+/// is resolved through the script vm, which is only safe outside a running
+/// script, hence this runs in `Update`.
+fn apply_overlay_changes(
+    mut commands: Commands,
+    mut changes: MessageReader<OverlayChange>,
+    index: Res<InstanceIndex>,
+    gothic_script: Res<ScriptResource>,
+) {
+    if changes.is_empty() {
+        return;
+    }
+
+    let mut gothic_script = gothic_script.lock();
+    for change in changes.read() {
+        let scheme = match change.request {
+            OverlayRequest::Apply(id) => gothic_script
+                .get_name_by_id(id)
+                .map(|name| overlay_scheme(&name)),
+            OverlayRequest::Remove => None,
+        };
+        for entity in index.npcs(change.instance_id) {
+            commands.entity(*entity).insert(NpcOverlay(scheme.clone()));
+        }
     }
 }

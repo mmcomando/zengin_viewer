@@ -14,7 +14,7 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::{
 };
 use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, ImportCallState, ItemInstanceState,
-    LoadedState, NpcInstanceState, NpcLookAtChange, RoutineEntryChange, SymbolTable,
+    LoadedState, NpcInstanceState, NpcLookAtChange, OverlayChange, RoutineEntryChange, SymbolTable,
     WeaponModeChange,
 };
 use super::symbol_id::{FunctionId, InstanceId, SymbolId};
@@ -86,6 +86,11 @@ impl ScriptManager {
     /// Drains the `AI_AlignToWP` requests the script produced, for the ECS bridge.
     pub fn drain_align_to_wp_changes(&mut self) -> Vec<AlignToWpChange> {
         std::mem::take(&mut self.store.data_mut().pending_align_to_wp_changes)
+    }
+
+    /// Drains the overlay change requests the script produced, for the ECS bridge.
+    pub fn drain_overlay_changes(&mut self) -> Vec<OverlayChange> {
+        std::mem::take(&mut self.store.data_mut().pending_overlay_changes)
     }
 
     pub fn clear_dialog_lines(&mut self) {

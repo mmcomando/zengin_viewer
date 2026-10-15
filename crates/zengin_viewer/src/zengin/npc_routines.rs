@@ -12,7 +12,7 @@ use crate::zengin::common::{
 };
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{AlignToWpChange, OverlayRequest, RoutineEntry, WeaponMode};
+use crate::zengin::script::state::{AlignToWpChange, RoutineEntry, WeaponMode};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use crate::zengin::script_bridge::ScriptChangesApplied;
 use crate::zengin::waypoint_graph::WaypointGraph;
@@ -57,7 +57,6 @@ impl Plugin for NpcRoutinesPlugin {
             Update,
             (
                 (update_npc_routine_entries, update_npc_routines).chain(),
-                resolve_npc_overlays,
                 resolve_goto_paths,
                 update_npc_routine_animations.after(update_npc_routines),
                 apply_look_at.after(update_npc_routines),
@@ -544,51 +543,9 @@ pub struct AnimationFiles(pub HashSet<String>);
 
 /// Strips a model file extension and uppercases: `Humans_Relaxed.mds` ->
 /// `HUMANS_RELAXED`.
-fn overlay_scheme(name: &str) -> String {
+pub(crate) fn overlay_scheme(name: &str) -> String {
     let stem = name.rsplit_once('.').map_or(name, |(stem, _)| stem);
     stem.to_uppercase()
-}
-
-/// Resolves pending `Mdl_ApplyOverlayMds` requests to a scheme string. The symbol
-/// name is read through the script vm, which is only safe outside a running
-/// script, hence this runs in `Update`.
-fn resolve_npc_overlays(
-    gothic_script: Res<ScriptResource>,
-    mut commands: Commands,
-    npcs: Query<(Entity, &GameNpc)>,
-) {
-    let mut script = gothic_script.lock();
-    let requests: Vec<(InstanceId, OverlayRequest)> = {
-        let instances = script.npc_instances_mut();
-        let mut requests = Vec::new();
-        for (npc, instance) in instances.iter_mut() {
-            if let Some(request) = instance.overlay_request.take() {
-                requests.push((*npc, request));
-            }
-        }
-        requests
-    };
-    if requests.is_empty() {
-        return;
-    }
-
-    let mut resolved: Vec<(InstanceId, Option<String>)> = Vec::with_capacity(requests.len());
-    for (npc, request) in requests {
-        let scheme = match request {
-            OverlayRequest::Apply(id) => {
-                script.get_name_by_id(id).map(|name| overlay_scheme(&name))
-            }
-            OverlayRequest::Remove => None,
-        };
-        resolved.push((npc, scheme));
-    }
-
-    let schemes: HashMap<InstanceId, Option<String>> = resolved.into_iter().collect();
-    for (entity, npc) in &npcs {
-        if let Some(scheme) = schemes.get(&npc.npc_instance_id) {
-            commands.entity(entity).insert(NpcOverlay(scheme.clone()));
-        }
-    }
 }
 
 /// Walking speed of npcs following an `AI_GoToWP` path, in Bevy meters/second.
