@@ -181,11 +181,9 @@ fn draw_waypoints(mut gizmos: Gizmos, graph: Option<Res<WaypointGraph>>) {
 mod tests {
     use super::*;
 
-    fn node(name: &str, position: Vec3) -> WaypointNode {
+    fn node(position: Vec3) -> WaypointNode {
         WaypointNode {
-            name: name.to_string(),
             position,
-            direction: Vec3::ZERO,
             free: false,
         }
     }
@@ -198,9 +196,9 @@ mod tests {
         name_to_index.insert("c".to_string(), 2);
         WaypointGraph {
             nodes: vec![
-                node("a", Vec3::new(0.0, 0.0, 0.0)),
-                node("b", Vec3::new(1.0, 0.0, 0.0)),
-                node("c", Vec3::new(2.0, 0.0, 0.0)),
+                node(Vec3::new(0.0, 0.0, 0.0)),
+                node(Vec3::new(1.0, 0.0, 0.0)),
+                node(Vec3::new(2.0, 0.0, 0.0)),
             ],
             name_to_index,
             adjacency: vec![
