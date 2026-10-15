@@ -130,7 +130,6 @@ fn update_npc_routines(
     }
 
     for (entity, npc, entry, mut tr, routine_state) in &mut npcs {
-        println!("change routine({})", npc.npc_instance_id);
         let Some(mut state) = routine_state else {
             // First assignment: npcs were already placed at the start hour by the
             // world load, only record the current assignment.
@@ -186,10 +185,9 @@ fn update_npc_routines(
 /// names it requests via `AI_PlayAni(BS)` are collected and the resulting
 /// animation is switched to on the npc visual. The state function is only
 /// re-executed when the active routine entry state changes, so the per frame
-/// cost for already applied npcs is just the active entry lookup.
+/// cost for already applied npcs is just the component lookup.
 #[allow(clippy::type_complexity)]
 fn update_npc_routine_animations(
-    game_time: Res<GameTime>,
     gothic_script: Res<ScriptResource>,
     files: Res<AnimationFiles>,
     mut handles: ResMut<MaterialHandles>,
@@ -199,6 +197,7 @@ fn update_npc_routine_animations(
         (
             Entity,
             &GameNpc,
+            &RoutineEntry,
             &NpcModel,
             Option<&NpcOverlay>,
             Option<&mut NpcRoutineAnimation>,
@@ -209,10 +208,9 @@ fn update_npc_routine_animations(
         Without<ChildOf>,
     >,
 ) {
-    let minutes = game_time.minutes_of_day();
     let mut gothic_script = gothic_script.lock();
 
-    for (entity, npc, npc_model, overlay, routine_animation, controller) in &mut npcs {
+    for (entity, npc, entry, npc_model, overlay, routine_animation, controller) in &mut npcs {
         let Some(mut routine_animation) = routine_animation else {
             commands
                 .entity(entity)
@@ -231,23 +229,12 @@ fn update_npc_routine_animations(
             .as_deref()
             .unwrap_or(STANDING_ANIMATION);
 
-        let state_fn = {
-            let loaded_state = gothic_script.get_loaded_state();
-            let Some(entry) = loaded_state
-                .npc_instances
-                .get(&npc.npc_instance_id)
-                .and_then(|instance| instance.get_routine_entry(minutes))
-            else {
-                continue;
-            };
-            let Some(state_fn) = entry.state_fn else {
-                continue;
-            };
-            if routine_animation.applied_state_fn == Some(state_fn) {
-                continue;
-            }
-            state_fn
+        let Some(state_fn) = entry.state_fn else {
+            continue;
         };
+        if routine_animation.applied_state_fn == Some(state_fn) {
+            continue;
+        }
 
         routine_animation.applied_state_fn = Some(state_fn);
         let played_anis = gothic_script.call_routine_state_function(npc.npc_instance_id, state_fn);
