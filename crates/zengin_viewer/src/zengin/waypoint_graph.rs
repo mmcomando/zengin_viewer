@@ -8,7 +8,6 @@ use bevy::prelude::*;
 use crate::gui_debug::toggle_visibility::show_gizmos;
 
 /// Waypoint navigation graph built from the world way net (points + edges).
-#[allow(dead_code)]
 #[derive(Resource, Debug, Default)]
 pub struct WaypointGraph {
     pub nodes: Vec<WaypointNode>,
@@ -18,14 +17,13 @@ pub struct WaypointGraph {
     pub adjacency: Vec<Vec<(usize, f32)>>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct WaypointNode {
-    pub name: String,
+    // pub name: String,
     /// World position (Bevy units, `get_world_pos` conversion)
     pub position: Vec3,
     /// Gothic-space direction the waypoint faces
-    pub direction: Vec3,
+    // pub direction: Vec3,
     pub free: bool,
 }
 

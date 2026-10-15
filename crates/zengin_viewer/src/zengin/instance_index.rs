@@ -46,9 +46,9 @@ impl EntityIndex {
         self.by_instance.get(&id).map_or(&[], Vec::as_slice)
     }
 
-    fn instance(&self, entity: Entity) -> Option<InstanceId> {
-        self.by_entity.get(&entity).copied()
-    }
+    // fn instance(&self, entity: Entity) -> Option<InstanceId> {
+    //     self.by_entity.get(&entity).copied()
+    // }
 }
 
 /// Two-way index of every npc and item instance entity, kept in sync from the
@@ -59,27 +59,26 @@ pub struct InstanceIndex {
     items: EntityIndex,
 }
 
-#[allow(dead_code)]
 impl InstanceIndex {
     /// Entities carrying the given npc instance id.
     pub fn npcs(&self, id: InstanceId) -> &[Entity] {
         self.npcs.entities(id)
     }
 
-    /// Entities carrying the given item instance id.
-    pub fn items(&self, id: InstanceId) -> &[Entity] {
-        self.items.entities(id)
-    }
+    // /// Entities carrying the given item instance id.
+    // pub fn items(&self, id: InstanceId) -> &[Entity] {
+    //     self.items.entities(id)
+    // }
 
-    /// Npc instance id of the given entity.
-    pub fn npc_instance(&self, entity: Entity) -> Option<InstanceId> {
-        self.npcs.instance(entity)
-    }
-
-    /// Item instance id of the given entity.
-    pub fn item_instance(&self, entity: Entity) -> Option<InstanceId> {
-        self.items.instance(entity)
-    }
+    //     /// Npc instance id of the given entity.
+    //     pub fn npc_instance(&self, entity: Entity) -> Option<InstanceId> {
+    //         self.npcs.instance(entity)
+    //     }
+    //
+    //     /// Item instance id of the given entity.
+    //     pub fn item_instance(&self, entity: Entity) -> Option<InstanceId> {
+    //         self.items.instance(entity)
+    //     }
 }
 
 pub struct InstanceIndexPlugin;

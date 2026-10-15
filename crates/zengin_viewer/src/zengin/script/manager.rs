@@ -18,7 +18,6 @@ use super::state::{
 };
 use super::symbol_id::{FunctionId, InstanceId, SymbolId};
 
-#[allow(dead_code)]
 pub struct ScriptManager {
     pub store: Store<ImportCallState>,
     pub instance: Arc<MmWorld>,
@@ -33,7 +32,6 @@ impl HasData for ScriptImports {
     type Data<'a> = &'a mut ImportCallState;
 }
 
-#[allow(dead_code)]
 impl ScriptManager {
     pub fn get_loaded_state(&self) -> &LoadedState {
         &self.store.data().loaded_state
@@ -54,10 +52,10 @@ impl ScriptManager {
         self.npc_instances_mut().entry(index).or_default()
     }
 
-    /// State of every loaded item instance, keyed by instance id.
-    pub fn items_instances(&self) -> &HashMap<InstanceId, ItemInstanceState> {
-        &self.store.data().loaded_state.items_instances
-    }
+    // /// State of every loaded item instance, keyed by instance id.
+    // pub fn items_instances(&self) -> &HashMap<InstanceId, ItemInstanceState> {
+    //     &self.store.data().loaded_state.items_instances
+    // }
 
     /// Mutable state of every loaded item instance, keyed by instance id.
     pub fn items_instances_mut(&mut self) -> &mut HashMap<InstanceId, ItemInstanceState> {

@@ -350,9 +350,9 @@ fn load_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
         let index = graph.nodes.len();
         graph.name_to_index.insert(name.clone(), index);
         graph.nodes.push(WaypointNode {
-            name,
+            // name,
             position: pos,
-            direction: Vec3::new(direction.x, direction.y, direction.z),
+            // direction: Vec3::new(direction.x, direction.y, direction.z),
             free: point.free_point(),
         });
     }
