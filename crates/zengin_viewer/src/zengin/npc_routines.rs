@@ -13,6 +13,7 @@ use crate::zengin::common::{
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{OverlayRequest, RoutineEntry, WeaponMode};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
+use crate::zengin::script_bridge::ScriptChangesApplied;
 use crate::zengin::waypoint_graph::WaypointGraph;
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 
@@ -64,22 +65,20 @@ impl Plugin for NpcRoutinesPlugin {
                 update_npc_weapon,
                 move_along_path.after(update_npc_routines),
             )
-                .after(advance_game_time),
+                .after(advance_game_time)
+                .after(ScriptChangesApplied),
         );
     }
 }
 
-/// Recomputes, on every in-game minute change, the routine entry active for each
-/// npc and inserts, updates or removes its [`RoutineEntry`] component so
-/// [`update_npc_routines`] can react to the change.
+/// Refreshes the active routine entry of already activated npcs on every in-game
+/// minute change. Only npcs that already carry a [`RoutineEntry`] component are
+/// touched; adding and removing the component is driven by the script bridge.
 fn update_npc_routine_entries(
     mut check_state: ResMut<NpcRoutineCheckState>,
     game_time: Res<GameTime>,
     gothic_script: Res<ScriptResource>,
-    mut commands: Commands,
-    // Routine npcs are world root entities, this also excludes the player visual
-    // entity which is a child of the player controller and also carries `GameNpc`.
-    npcs: Query<(Entity, &GameNpc, Option<&RoutineEntry>), Without<ChildOf>>,
+    mut npcs: Query<(&GameNpc, &mut RoutineEntry), Without<ChildOf>>,
 ) {
     let minutes = game_time.minutes_of_day();
     if check_state.last_checked_minute == Some(minutes) {
@@ -89,20 +88,17 @@ fn update_npc_routine_entries(
 
     let gothic_script = gothic_script.lock();
     let instances = gothic_script.npc_instances();
-    for (entity, npc, current) in &npcs {
-        let active = instances
+    for (npc, mut entry) in &mut npcs {
+        let Some(active) = instances
             .get(&npc.npc_instance_id)
-            .and_then(|instance| instance.get_routine_entry(minutes));
-        match (active, current) {
-            (Some(active), Some(current)) if active == current => {}
-            (Some(active), _) => {
-                commands.entity(entity).insert(active.clone());
-            }
-            (None, Some(_)) => {
-                commands.entity(entity).remove::<RoutineEntry>();
-            }
-            (None, None) => {}
+            .and_then(|instance| instance.get_routine_entry(minutes))
+        else {
+            continue;
+        };
+        if *entry == *active {
+            continue;
         }
+        *entry = active.clone();
     }
 }
 

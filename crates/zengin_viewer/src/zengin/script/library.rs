@@ -2,7 +2,9 @@ use wasmtime::AsContextMut;
 
 use super::bindings::mmcomando;
 use super::manager::ScriptImports;
-use super::state::{DialogLine, DialogRoot, ImportCallState, RoutineEntry, SpawnItem, SpawnNpc};
+use super::state::{
+    DialogLine, DialogRoot, ImportCallState, RoutineEntry, RoutineEntryChange, SpawnItem, SpawnNpc,
+};
 use super::symbol_id::{InstanceId, SymbolId};
 use crate::zengin::common::to_zengin_units;
 
@@ -142,12 +144,17 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         };
 
         let state = access.data_mut();
-        let entry = state
-            .loaded_state
-            .npc_instances
-            .entry(npc_index)
-            .or_default();
-        entry.routine_entries.push(routine_entry);
+        {
+            let entry = state
+                .loaded_state
+                .npc_instances
+                .entry(npc_index)
+                .or_default();
+            entry.routine_entries.push(routine_entry);
+        }
+        state.pending_routine_changes.push(RoutineEntryChange {
+            instance_id: npc_index,
+        });
     }
 
     fn ai_playani(

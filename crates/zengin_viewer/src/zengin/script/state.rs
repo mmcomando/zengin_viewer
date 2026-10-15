@@ -1,7 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use bevy::{math::Vec3, prelude::Component};
+use bevy::{
+    math::Vec3,
+    prelude::{Component, Message},
+};
 
 use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
@@ -17,6 +20,13 @@ pub struct RoutineEntry {
     /// Symbol of the routine state function (`ZS_*`), `None` when the state
     /// has no function.
     pub state_fn: Option<FunctionId>,
+}
+
+/// Signal that an instance's routine entries changed (a `TA_Min` was recorded).
+/// Produced by the script, drained to the ECS by the script bridge.
+#[derive(Message)]
+pub struct RoutineEntryChange {
+    pub instance_id: InstanceId,
 }
 
 /// Runtime state of an npc instance.
@@ -265,6 +275,9 @@ pub struct ImportCallState {
     pub dialog_state: DialogState,
     /// Kind of every symbol, used to verify typed symbol ids
     pub symbol_table: SymbolTable,
+    /// Routine entry changes produced by the script, drained to the ECS by the
+    /// script bridge.
+    pub pending_routine_changes: Vec<RoutineEntryChange>,
     // TODO GuildId instead of i32?
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,

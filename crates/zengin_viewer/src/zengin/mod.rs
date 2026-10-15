@@ -8,6 +8,7 @@ mod macros;
 mod npc_routines;
 mod objects_to_entities;
 mod script;
+mod script_bridge;
 mod selection;
 mod sounds;
 mod statistics;
@@ -40,6 +41,7 @@ impl Plugin for ZenginPlugin {
         app.add_plugins(crate::zengin::npc_routines::NpcRoutinesPlugin);
         app.add_plugins(crate::zengin::selection::SelectionPlugin);
         app.add_plugins(crate::zengin::instance_index::InstanceIndexPlugin);
+        app.add_plugins(crate::zengin::script_bridge::ScriptBridgePlugin);
         app.add_plugins(crate::zengin::interaction::PlayerInteractionPlugin);
         app.add_plugins(crate::zengin::statistics::StatisticsZenginPlugin);
         app.add_plugins(crate::zengin::script::component::GothicScriptsPlugin);

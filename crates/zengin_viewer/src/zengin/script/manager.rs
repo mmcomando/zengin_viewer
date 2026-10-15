@@ -14,7 +14,7 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::{
 };
 use super::state::{
     DialogLine, DialogRoot, ImportCallState, ItemInstanceState, LoadedState, NpcInstanceState,
-    SymbolTable,
+    RoutineEntryChange, SymbolTable,
 };
 use super::symbol_id::{FunctionId, InstanceId, SymbolId};
 
@@ -62,6 +62,11 @@ impl ScriptManager {
     /// Mutable state of every loaded item instance, keyed by instance id.
     pub fn items_instances_mut(&mut self) -> &mut HashMap<InstanceId, ItemInstanceState> {
         &mut self.store.data_mut().loaded_state.items_instances
+    }
+
+    /// Drains the routine entry changes the script produced, for the ECS bridge.
+    pub fn drain_routine_changes(&mut self) -> Vec<RoutineEntryChange> {
+        std::mem::take(&mut self.store.data_mut().pending_routine_changes)
     }
 
     pub fn clear_dialog_lines(&mut self) {
