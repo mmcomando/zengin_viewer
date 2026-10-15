@@ -8,9 +8,11 @@ use bevy::prelude::*;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::zengin::GameNpc;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
-use crate::zengin::npc_routines::NpcLookAt;
+use crate::zengin::npc_routines::{NpcLookAt, NpcWeaponMode};
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{NpcLookAtChange, RoutineEntry, RoutineEntryChange};
+use crate::zengin::script::state::{
+    NpcLookAtChange, RoutineEntry, RoutineEntryChange, WeaponMode, WeaponModeChange,
+};
 
 /// Marks systems that have applied script produced changes to the ECS. Systems
 /// reacting to those changes run after this set.
@@ -23,11 +25,13 @@ impl Plugin for ScriptBridgePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<RoutineEntryChange>();
         app.add_message::<NpcLookAtChange>();
+        app.add_message::<WeaponModeChange>();
         app.add_systems(
             Update,
             (
                 (send_routine_changes, apply_routine_changes).chain(),
                 (send_look_at_changes, apply_look_at_changes).chain(),
+                (send_weapon_mode_changes, apply_weapon_mode_changes).chain(),
             )
                 .in_set(ScriptChangesApplied)
                 .after(advance_game_time)
@@ -153,6 +157,64 @@ fn set_look_at(commands: &mut Commands, entity: Entity, target: Option<Entity>) 
         }
         None => {
             commands.entity(entity).remove::<NpcLookAt>();
+        }
+    }
+}
+
+/// Drains the weapon mode changes the script recorded and forwards them as
+/// messages.
+fn send_weapon_mode_changes(
+    mut changes: MessageWriter<WeaponModeChange>,
+    gothic_script: Res<ScriptResource>,
+) {
+    let drained = gothic_script.lock().drain_weapon_mode_changes();
+    for change in drained {
+        changes.write(change);
+    }
+}
+
+/// Applies weapon mode changes to the entities carrying the affected instance
+/// ids and seeds the component on newly spawned npc entities. An entity gets the
+/// mode its instance currently has, or loses the component when it has none.
+fn apply_weapon_mode_changes(
+    mut commands: Commands,
+    mut changes: MessageReader<WeaponModeChange>,
+    index: Res<InstanceIndex>,
+    gothic_script: Res<ScriptResource>,
+    added_npcs: Query<(Entity, &GameNpc), Added<GameNpc>>,
+) {
+    if changes.is_empty() && added_npcs.is_empty() {
+        return;
+    }
+
+    let gothic_script = gothic_script.lock();
+    let instances = gothic_script.npc_instances();
+
+    for change in changes.read() {
+        let mode = instances
+            .get(&change.instance_id)
+            .and_then(|npc| npc.weapon_mode);
+        for entity in index.npcs(change.instance_id) {
+            set_weapon_mode(&mut commands, *entity, mode);
+        }
+    }
+    for (entity, npc) in &added_npcs {
+        let mode = instances
+            .get(&npc.npc_instance_id)
+            .and_then(|npc| npc.weapon_mode);
+        set_weapon_mode(&mut commands, entity, mode);
+    }
+}
+
+/// Inserts the weapon mode on the entity, or removes the component when the npc
+/// has no weapon mode.
+fn set_weapon_mode(commands: &mut Commands, entity: Entity, mode: Option<WeaponMode>) {
+    match mode {
+        Some(mode) => {
+            commands.entity(entity).insert(NpcWeaponMode(mode));
+        }
+        None => {
+            commands.entity(entity).remove::<NpcWeaponMode>();
         }
     }
 }

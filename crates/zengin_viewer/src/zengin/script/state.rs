@@ -36,6 +36,14 @@ pub struct NpcLookAtChange {
     pub instance_id: InstanceId,
 }
 
+/// Signal that an instance's weapon mode changed (`Npc_SetToFightMode`,
+/// `Npc_SetToFistMode`, `AI_RemoveWeapon`, `AI_ReadyMeleeWeapon`). Produced by
+/// the script, drained to the ECS by the script bridge.
+#[derive(Message)]
+pub struct WeaponModeChange {
+    pub instance_id: InstanceId,
+}
+
 /// Runtime state of an npc instance.
 #[derive(Debug, Default)]
 pub struct NpcInstanceState {
@@ -288,6 +296,9 @@ pub struct ImportCallState {
     /// Look-at target changes produced by the script, drained to the ECS by the
     /// script bridge.
     pub pending_look_at_changes: Vec<NpcLookAtChange>,
+    /// Weapon mode changes produced by the script, drained to the ECS by the
+    /// script bridge.
+    pub pending_weapon_mode_changes: Vec<WeaponModeChange>,
     // TODO GuildId instead of i32?
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,
@@ -309,6 +320,8 @@ impl ImportCallState {
             .entry(npc)
             .or_default()
             .weapon_mode = Some(mode);
+        self.pending_weapon_mode_changes
+            .push(WeaponModeChange { instance_id: npc });
     }
 
     /// Queues an overlay apply or remove for an npc.

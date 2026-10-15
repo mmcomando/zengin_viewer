@@ -299,57 +299,34 @@ fn apply_look_at(
     }
 }
 
-#[derive(Component, Default)]
-struct NpcWeaponMode {
-    /// Weapon mode whose idle animation was applied last
-    applied: Option<WeaponMode>,
-}
+/// Weapon mode of the npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI),
+/// maintained by the script bridge.
+#[derive(Component)]
+pub struct NpcWeaponMode(pub WeaponMode);
 
-/// Switches the idle animation of npcs whose weapon mode changed (drawn melee
-/// uses the armed idle `S_1H`, otherwise the scheme standing idle). Only plays an
-/// animation when the mode actually changed.
+/// Switches the idle animation of an npc when its weapon mode changes (drawn
+/// melee uses the armed idle `S_1H`, otherwise the scheme standing idle). Also
+/// applies once when the visual (animation controller) appears.
 #[allow(clippy::type_complexity)]
 fn apply_weapon_mode(
-    gothic_script: Res<ScriptResource>,
     files: Res<AnimationFiles>,
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
-    mut commands: Commands,
-    mut npcs: Query<(
-        Entity,
-        &GameNpc,
-        &NpcModel,
-        Option<&NpcOverlay>,
-        Option<&mut NpcWeaponMode>,
-        Option<&mut AnimationController>,
-    )>,
+    mut npcs: Query<
+        (
+            &NpcModel,
+            Option<&NpcOverlay>,
+            &NpcWeaponMode,
+            &mut AnimationController,
+        ),
+        Or<(Changed<NpcWeaponMode>, Added<AnimationController>)>,
+    >,
 ) {
-    let script = gothic_script.lock();
-    let instances = script.npc_instances();
-
-    for (entity, npc, model, overlay, mode_comp, controller) in &mut npcs {
-        let Some(weapon_mode) = instances
-            .get(&npc.npc_instance_id)
-            .and_then(|npc| npc.weapon_mode)
-        else {
-            continue;
-        };
-        let Some(mut applied) = mode_comp else {
-            commands.entity(entity).insert(NpcWeaponMode::default());
-            continue;
-        };
-        let Some(mut controller) = controller else {
-            continue;
-        };
-        if applied.applied == Some(weapon_mode) {
-            continue;
-        }
-        applied.applied = Some(weapon_mode);
-
+    for (model, overlay, weapon_mode, mut controller) in &mut npcs {
         let Some(scheme) = model.animation_scheme.as_deref() else {
             continue;
         };
-        let animation = match weapon_mode {
+        let animation = match weapon_mode.0 {
             WeaponMode::Melee => "S_1H".to_string(),
             WeaponMode::Fists => {
                 // No resolved standing idle, keep the current animation
