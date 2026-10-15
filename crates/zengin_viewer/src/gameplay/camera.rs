@@ -32,12 +32,16 @@ impl Plugin for CameraPlugin {
 pub struct CameraResource {
     pub current_camera: CurrentCamera,
     pub reference_point: Transform,
+    /// Distance the dialog camera keeps from `reference_point`, set to the
+    /// distance between the two talking characters.
+    pub dialog_distance: f32,
 }
 
 impl CameraResource {
-    pub fn set_dialog_camera(&mut self, reference_point: Transform) {
+    pub fn set_dialog_camera(&mut self, reference_point: Transform, distance: f32) {
         self.current_camera = CurrentCamera::Dialog;
         self.reference_point = reference_point;
+        self.dialog_distance = distance;
     }
 }
 #[derive(Default, PartialEq)]
@@ -123,9 +127,10 @@ fn use_dialog_camera(info: Res<CameraResource>) -> bool {
 
 struct DialogCameraStyle;
 impl DialogCameraStyle {
-    const NPC_DISTANCE: f32 = 5.0;
-    const SIDE_OFFSET: f32 = 2.0;
-    const CAMERA_HEIGHT: f32 = 3.65;
+    /// Minimum distance kept from the viewed character, even when the two talking
+    /// characters stand very close to each other
+    const MIN_DISTANCE: f32 = 2.0;
+    const CAMERA_HEIGHT: f32 = 3.0;
     const LOOK_AT_HEIGHT: f32 = 1.45;
 }
 
@@ -139,13 +144,13 @@ pub(super) fn update_dialog_camera(
 
     let npc_position = info.reference_point.translation;
     let npc_forward = *info.reference_point.forward();
+    // The placement direction (behind the viewed character, offset to the side)
+    // is carried by the reference rotation
     let npc_facing = -Vec3::new(npc_forward.x, 0.0, npc_forward.z).normalize_or_zero();
 
-    let side = Vec3::Y.cross(npc_facing);
-    let position = npc_position
-        + npc_facing * DialogCameraStyle::NPC_DISTANCE
-        + side * DialogCameraStyle::SIDE_OFFSET
-        + Vec3::Y * DialogCameraStyle::CAMERA_HEIGHT;
+    let distance = info.dialog_distance.max(DialogCameraStyle::MIN_DISTANCE);
+    let position =
+        npc_position + npc_facing * distance + Vec3::Y * DialogCameraStyle::CAMERA_HEIGHT;
     camera_transform.translation = position;
     camera_transform.look_at(
         npc_position + Vec3::Y * DialogCameraStyle::LOOK_AT_HEIGHT,

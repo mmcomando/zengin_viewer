@@ -26,7 +26,8 @@ impl Plugin for GameDialogPlugin {
         app.add_systems(Startup, ui::override_default_font);
         app.add_systems(Startup, ui::spawn_dialog_ui);
         // The UI systems emit requests, `handle_dialog_requests` applies them to
-        // the state and `sync_dialog_ui` renders the result, all in one frame.
+        // the state, `aim_dialog_camera` points the camera at the current speaker
+        // and `sync_dialog_ui` renders the result, all in one frame.
         app.add_systems(
             Update,
             (
@@ -34,6 +35,7 @@ impl Plugin for GameDialogPlugin {
                 state::handle_dialog_input,
                 state::advance_dialog_playback,
                 handle_dialog_requests,
+                aim_dialog_camera,
                 ui::sync_dialog_ui,
             )
                 .chain(),
@@ -92,18 +94,18 @@ fn show_closest_npc_dialog(
 }
 
 /// Applies the dialog requests: runs the dialog script functions and updates
-/// [`DialogUiState`], the camera and the speech sounds.
+/// [`DialogUiState`], the npc/player facing and the speech sounds.
 #[allow(clippy::too_many_arguments)]
 fn handle_dialog_requests(
     mut requests: MessageReader<DialogRequest>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut sounds: MessageWriter<PlaySound>,
-    mut camera_info: ResMut<CameraResource>,
     dialog_texts: Res<DialogTexts>,
     speech_sounds: Res<SpeechSounds>,
     gothic_script: Res<ScriptResource>,
     mut npcs: Query<&mut Transform, Without<PlayerPhysicsBodyMarker>>,
-    mut player: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
+    mut player: Query<(Entity, &mut Transform), With<PlayerPhysicsBodyMarker>>,
+    player_visual: Query<Entity, With<PlayerCharacter>>,
 ) {
     for request in requests.read() {
         match request {
@@ -122,20 +124,25 @@ fn handle_dialog_requests(
                     dialog_ui.close();
                     continue;
                 };
+                let Ok((_, mut player_tr)) = player.single_mut() else {
+                    continue;
+                };
+                let Ok(player_visual) = player_visual.single() else {
+                    continue;
+                };
                 dialog_ui.open(
                     *npc_entity,
+                    player_visual,
                     *npc_from,
                     *npc_talk_to,
                     npc_name.clone(),
                     roots.iter().map(option_view).collect(),
                 );
-                // Turn both toward each other and switch to the dialog camera
-                if let Ok(mut npc_tr) = npcs.get_mut(*npc_entity)
-                    && let Ok(mut player_tr) = player.single_mut()
-                {
+                // Turn both toward each other, the camera is aimed afterwards by
+                // `aim_dialog_camera`
+                if let Ok(mut npc_tr) = npcs.get_mut(*npc_entity) {
                     face_towards(&mut npc_tr, player_tr.translation);
                     face_towards(&mut player_tr, npc_tr.translation);
-                    camera_info.set_dialog_camera(*npc_tr);
                 }
             }
             DialogRequest::RefreshRoots {
@@ -214,6 +221,61 @@ fn handle_dialog_requests(
             }
         }
     }
+}
+
+/// How far the camera is offset to the side from directly behind the listening
+/// character, as a fraction of the character separation. The side is fixed to
+/// the pair of characters so the shot does not mirror when the speaker changes.
+const DIALOG_CAMERA_SIDE: f32 = 0.6;
+
+/// Places the dialog camera behind the character that is currently listening,
+/// looking back at the speaker, with its distance scaled to how far the two
+/// talking characters stand apart.
+fn aim_dialog_camera(
+    dialog_ui: Res<DialogUiState>,
+    mut camera_info: ResMut<CameraResource>,
+    transforms: Query<&GlobalTransform>,
+) {
+    if !dialog_ui.is_open() {
+        return;
+    }
+    let (Some((viewed, other)), Some(player), Some(npc)) = (
+        dialog_ui.camera_characters(),
+        dialog_ui.player_entity,
+        dialog_ui.npc_entity,
+    ) else {
+        return;
+    };
+    let (Ok(viewed_tr), Ok(other_tr), Ok(player_tr), Ok(npc_tr)) = (
+        transforms.get(viewed),
+        transforms.get(other),
+        transforms.get(player),
+        transforms.get(npc),
+    ) else {
+        return;
+    };
+
+    let viewed_pos = viewed_tr.translation();
+    let other_pos = other_tr.translation();
+    let separation = viewed_pos.distance(other_pos);
+    // Behind the listening character is away from the speaking one, offset to a
+    // fixed side of the pair so the shot does not mirror when the speaker changes
+    let behind = (other_pos - viewed_pos).normalize_or_zero();
+    let pair = (player_tr.translation() - npc_tr.translation()).normalize_or_zero();
+    let side = Vec3::Y.cross(pair).normalize_or_zero();
+    let behind = (behind + side * DIALOG_CAMERA_SIDE).normalize_or_zero();
+    // The camera sits behind the listener and looks back at the speaker (`viewed`)
+    let camera_pos = other_pos + behind * separation;
+    let to_camera = Vec3::new(
+        camera_pos.x - viewed_pos.x,
+        0.0,
+        camera_pos.z - viewed_pos.z,
+    );
+    let distance = to_camera.length();
+
+    let reference = Transform::from_translation(viewed_pos)
+        .with_rotation(Quat::from_rotation_y(to_camera.x.atan2(to_camera.z)));
+    camera_info.set_dialog_camera(reference, distance);
 }
 
 /// Fetches the npc's root dialog options from the script state, filters them

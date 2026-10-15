@@ -79,6 +79,9 @@ enum DialogUiMode {
 #[derive(Resource, Default)]
 pub(super) struct DialogUiState {
     pub(super) npc_entity: Option<Entity>,
+    /// Player character (visual) entity, used to aim the dialog camera when the
+    /// player is the one talking
+    pub(super) player_entity: Option<Entity>,
     pub(super) npc_player: Option<InstanceId>,
     /// Script instance of the npc the dialog is open with
     pub(super) npc_talk_to: Option<InstanceId>,
@@ -105,12 +108,14 @@ impl DialogUiState {
     pub(super) fn open(
         &mut self,
         npc_entity: Entity,
+        player_entity: Entity,
         npc_self: InstanceId,
         npc_talk_to: InstanceId,
         npc_name: String,
         options: Vec<DialogOptionView>,
     ) {
         self.npc_entity = Some(npc_entity);
+        self.player_entity = Some(player_entity);
         self.npc_player = Some(npc_self);
         self.npc_talk_to = Some(npc_talk_to);
         self.dialog_roots = options;
@@ -118,6 +123,20 @@ impl DialogUiState {
         self.reset_to_options();
         self.npc_name = npc_name;
         self.rows_dirty = true;
+    }
+
+    /// Pair of `(viewed, listener)` character entities for the dialog camera. The
+    /// viewed one is centered by the camera (the speaker of the line being
+    /// played, or the npc we talk to while the options are shown), the listener
+    /// is the other one, only used for the camera distance.
+    pub(super) fn camera_characters(&self) -> Option<(Entity, Entity)> {
+        let viewing_player = self.current_line().map(|line| line.npc_a) == self.npc_player;
+        let (viewed, listener) = if viewing_player {
+            (self.player_entity?, self.npc_entity?)
+        } else {
+            (self.npc_entity?, self.player_entity?)
+        };
+        Some((viewed, listener))
     }
 
     /// Replaces the shown root options
