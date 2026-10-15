@@ -8,17 +8,21 @@ use bevy::prelude::*;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::gui::game_log::GameLogEntry;
 use crate::zengin::GameNpc;
+use crate::zengin::common::get_dialog_sound_path;
+use crate::zengin::dialog::{DialogLineView, DialogOptionView, DialogReply, DialogRequest};
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{
     NpcEquippedWeapon, NpcLookAt, NpcOverlay, NpcWeaponMode, overlay_scheme,
 };
 use crate::zengin::script::TransferItems;
-use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::component::{DialogTexts, ScriptResource};
+use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::{
-    AlignToWpChange, EquipItemChange, GotoChange, NpcLookAtChange, OverlayChange, OverlayRequest,
-    RoutineEntry, RoutineEntryChange, WeaponMode, WeaponModeChange,
+    AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, NpcLookAtChange,
+    OverlayChange, OverlayRequest, RoutineEntry, RoutineEntryChange, WeaponMode, WeaponModeChange,
 };
 use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::sounds::SpeechSounds;
 
 /// Marks systems that have applied script produced changes to the ECS. Systems
 /// reacting to those changes run after this set.
@@ -53,6 +57,7 @@ impl Plugin for ScriptBridgePlugin {
                 .after(InstanceIndexUpdated),
         );
         app.add_systems(Update, handle_transfer_items);
+        app.add_systems(Update, handle_dialog_requests);
     }
 }
 
@@ -84,6 +89,141 @@ fn handle_transfer_items(
             });
         }
     }
+}
+
+/// Handles dialog requests from the UI: runs the dialog script functions and
+/// replies with the produced options/lines, their text and sound resolved here.
+fn handle_dialog_requests(
+    mut requests: MessageReader<DialogRequest>,
+    mut replies: MessageWriter<DialogReply>,
+    dialog_texts: Res<DialogTexts>,
+    speech_sounds: Res<SpeechSounds>,
+    gothic_script: Res<ScriptResource>,
+) {
+    for request in requests.read() {
+        let mut script = gothic_script.lock();
+        match request {
+            DialogRequest::Open {
+                generation,
+                npc_from,
+                npc_talk_to,
+            } => {
+                let roots = npc_dialog_roots(&mut script, *npc_from, *npc_talk_to);
+                if roots.is_none() {
+                    warn!("No dialog_roots for npc({npc_talk_to}), player({npc_from})");
+                }
+                let options = roots.map(|roots| roots.iter().map(option_view).collect());
+                replies.write(DialogReply::Options {
+                    generation: *generation,
+                    options,
+                });
+            }
+            DialogRequest::RefreshRoots {
+                generation,
+                npc_from,
+                npc_talk_to,
+            } => {
+                let options = if script.close_dialog() {
+                    None
+                } else {
+                    npc_dialog_roots(&mut script, *npc_from, *npc_talk_to)
+                        .map(|roots| roots.iter().map(option_view).collect())
+                };
+                replies.write(DialogReply::Options {
+                    generation: *generation,
+                    options,
+                });
+            }
+            DialogRequest::ChooseOption {
+                generation,
+                npc_from,
+                npc_talk_to,
+                sequence_function_id,
+                info_instance_id,
+            } => {
+                script.mark_info_known(*npc_from, *info_instance_id);
+                // Sub choices are cleared before running a root level option
+                script.clear_sub_dialog_choices();
+                script.clear_dialog_lines();
+                // Dialog functions are executed with `self` bound to the npc the
+                // dialog is open with, like the original engine does for every
+                // dialog call
+                script.set_self(*npc_talk_to);
+                script.set_other(*npc_from);
+                script.set_instance(*npc_talk_to);
+                script.call_dialog_sequence_function(*sequence_function_id);
+
+                let sub_choices = script
+                    .sub_dialog_choices()
+                    .iter()
+                    .map(option_view)
+                    .collect();
+                let lines = build_line_views(script.dialog_lines(), &dialog_texts, &speech_sounds);
+                replies.write(DialogReply::Lines {
+                    generation: *generation,
+                    lines,
+                    sub_choices,
+                });
+            }
+        }
+    }
+}
+
+/// Fetches the npc's root dialog options from the script state, filters them
+/// by their condition functions and drops the important ones
+fn npc_dialog_roots(
+    gothic_script: &mut ScriptManager,
+    npc_player: InstanceId,
+    npc_talk_to: InstanceId,
+) -> Option<Vec<DialogRoot>> {
+    let mut roots = gothic_script
+        .get_loaded_state()
+        .npc_instances
+        .get(&npc_talk_to)?
+        .dialog_roots
+        .clone()?;
+    gothic_script.filter_dialog_roots(npc_player, npc_talk_to, &mut roots);
+    roots.retain(|root| !root.important);
+    Some(roots)
+}
+
+/// Strips a script dialog root down to the data the UI needs
+fn option_view(root: &DialogRoot) -> DialogOptionView {
+    DialogOptionView {
+        description: root.description.clone(),
+        sequence_function_id: root.sequence_function_id,
+        info_instance_id: root.info_instance_id,
+    }
+}
+
+/// Resolves display text and sound for the script's dialog lines
+fn build_line_views(
+    lines: &[DialogLine],
+    dialog_texts: &DialogTexts,
+    speech_sounds: &SpeechSounds,
+) -> Vec<DialogLineView> {
+    lines
+        .iter()
+        .map(|line| {
+            let text = dialog_texts.get(&line.line_str).cloned();
+            if text.is_none() {
+                warn!(
+                    "Missing dialog text: npc_a({}) npc_b({}) line_id({}) block({})",
+                    line.npc_a, line.npc_b, line.line_id, line.line_str
+                );
+            }
+            let sound_path = get_dialog_sound_path(&line.line_str);
+            let sound_duration = speech_sounds.duration(&sound_path);
+            DialogLineView {
+                text,
+                sound_path,
+                sound_duration,
+                npc_a: line.npc_a,
+                npc_b: line.npc_b,
+                line_id: line.line_id,
+            }
+        })
+        .collect()
 }
 
 /// Drains the routine entry changes the script recorded and forwards them as messages.

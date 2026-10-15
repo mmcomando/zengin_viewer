@@ -1,24 +1,25 @@
 mod state;
 mod ui;
 
+use crate::audio::sound_manager::PlaySound;
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::GameNpc;
-use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::manager::ScriptManager;
-use crate::zengin::script::state::DialogRoot;
-use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::selection::{Selection, SelectionKind};
-use bevy::log::{info, warn};
+use bevy::log::info;
 use bevy::prelude::*;
 use state::DialogUiState;
+
+pub(crate) use state::{DialogLineView, DialogOptionView, DialogReply, DialogRequest};
 
 pub struct GameDialogPlugin;
 
 impl Plugin for GameDialogPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DialogUiState>();
+        app.add_message::<DialogRequest>();
+        app.add_message::<DialogReply>();
         app.add_systems(Startup, ui::override_default_font);
         app.add_systems(Startup, ui::spawn_dialog_ui);
         app.add_systems(
@@ -26,6 +27,7 @@ impl Plugin for GameDialogPlugin {
             (
                 show_closest_npc_dialog,
                 state::handle_dialog_input,
+                apply_dialog_reply,
                 state::advance_dialog_playback,
                 ui::sync_dialog_ui,
             )
@@ -34,34 +36,15 @@ impl Plugin for GameDialogPlugin {
     }
 }
 
-/// Fetches the npc's root dialog options from the script state, filters them
-/// by their condition functions and drops the important ones
-fn npc_dialog_roots(
-    gothic_script: &mut ScriptManager,
-    npc_player: InstanceId,
-    npc_talk_to: InstanceId,
-) -> Option<Vec<DialogRoot>> {
-    let mut roots = gothic_script
-        .get_loaded_state()
-        .npc_instances
-        .get(&npc_talk_to)?
-        .dialog_roots
-        .clone()?;
-    gothic_script.filter_dialog_roots(npc_player, npc_talk_to, &mut roots);
-    roots.retain(|root| !root.important);
-    Some(roots)
-}
-
-/// Opens the dialog of the currently selected npc on demand
-#[allow(clippy::type_complexity)]
+/// Opens the dialog of the currently selected npc on demand, the root options
+/// arrive with the script reply
 fn show_closest_npc_dialog(
     keys: Res<ButtonInput<KeyCode>>,
     selection: Res<Selection>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut camera_info: ResMut<CameraResource>,
-    gothic_script: Res<ScriptResource>,
-    mut npcs: Query<(&GameNpc, &mut Transform), Without<PlayerPhysicsBodyMarker>>,
-    mut player: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
+    mut requests: MessageWriter<DialogRequest>,
+    npcs: Query<&GameNpc>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
     if !dialog_ui.is_open() && camera_info.current_camera == CurrentCamera::Dialog {
@@ -86,47 +69,94 @@ fn show_closest_npc_dialog(
     let Some(closest_entity) = selection.target else {
         return;
     };
-
-    let Ok(mut player_tr) = player.single_mut() else {
+    let Ok(closest_npc) = npcs.get(closest_entity) else {
         return;
     };
     let Ok(player_npc) = player_npc.single() else {
         return;
     };
-    let Ok((closest_npc, mut tr)) = npcs.get_mut(closest_entity) else {
-        return;
-    };
 
     info!("Selected npc: {}", closest_npc.npc_instance_id);
 
+    let npc_from = player_npc.npc_instance_id;
+    let npc_talk_to = closest_npc.npc_instance_id;
     // The selection system already resolved the npc name
-    let npc_name = selection.name.clone();
-
-    let mut gothic_script = gothic_script.lock();
-    let Some(dialog_roots) = npc_dialog_roots(
-        &mut gothic_script,
-        player_npc.npc_instance_id,
-        closest_npc.npc_instance_id,
-    ) else {
-        warn!(
-            "No dialog_roots for npc({}), player({})",
-            closest_npc.npc_instance_id, player_npc.npc_instance_id
-        );
-        return;
-    };
-
-    face_towards(&mut tr, player_tr.translation);
-    face_towards(&mut player_tr, tr.translation);
-
-    camera_info.set_dialog_camera(*tr);
-
-    dialog_ui.open(
+    let generation = dialog_ui.open(
         closest_entity,
-        player_npc.npc_instance_id,
-        closest_npc.npc_instance_id,
-        dialog_roots,
-        npc_name,
+        npc_from,
+        npc_talk_to,
+        selection.name.clone(),
     );
+    requests.write(DialogRequest::Open {
+        generation,
+        npc_from,
+        npc_talk_to,
+    });
+}
+
+/// Applies the script replies to the dialog state. Stale replies (different
+/// generation) are dropped.
+fn apply_dialog_reply(
+    mut replies: MessageReader<DialogReply>,
+    mut dialog_ui: ResMut<DialogUiState>,
+    mut sounds: MessageWriter<PlaySound>,
+    mut requests: MessageWriter<DialogRequest>,
+    mut camera_info: ResMut<CameraResource>,
+    mut npcs: Query<&mut Transform, Without<PlayerPhysicsBodyMarker>>,
+    mut player: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
+) {
+    for reply in replies.read() {
+        match reply {
+            DialogReply::Options {
+                generation,
+                options,
+            } => {
+                if *generation != dialog_ui.generation {
+                    continue;
+                }
+                let awaiting_open = dialog_ui.awaiting_open;
+                let Some(options) = options else {
+                    dialog_ui.close();
+                    continue;
+                };
+                dialog_ui.accept_options(options.clone());
+                if !awaiting_open {
+                    continue;
+                }
+                // The dialog really opened, turn both toward each other and
+                // switch to the dialog camera
+                let Some(entity) = dialog_ui.npc_entity else {
+                    continue;
+                };
+                let Ok(mut npc_tr) = npcs.get_mut(entity) else {
+                    continue;
+                };
+                let Ok(mut player_tr) = player.single_mut() else {
+                    continue;
+                };
+                face_towards(&mut npc_tr, player_tr.translation);
+                face_towards(&mut player_tr, npc_tr.translation);
+                camera_info.set_dialog_camera(*npc_tr);
+            }
+            DialogReply::Lines {
+                generation,
+                lines,
+                sub_choices,
+            } => {
+                if *generation != dialog_ui.generation {
+                    continue;
+                }
+                dialog_ui.accept_sub_choices(sub_choices.clone());
+                if lines.is_empty() {
+                    // Nothing was produced (e.g. skipped sequence function), keep
+                    // options shown but re-request them as they may have changed
+                    dialog_ui.refresh_root_options(&mut requests);
+                } else {
+                    dialog_ui.begin_line_playback(lines.clone(), &mut sounds);
+                }
+            }
+        }
+    }
 }
 
 /// Horizontally rotates the transform so its facing axis (+Z) points at `target`

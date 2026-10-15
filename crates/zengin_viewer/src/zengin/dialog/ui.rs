@@ -1,5 +1,4 @@
-use super::state::{DialogLineView, DialogUiState};
-use crate::zengin::script::state::DialogRoot;
+use super::state::{DialogLineView, DialogOptionView, DialogUiState};
 use bevy::prelude::*;
 
 /// Visual style of the dialog UI, single place to tweak the look
@@ -482,7 +481,7 @@ fn set_row_display(node: &mut Node, visible: bool) {
 }
 
 /// Option description, fall back to the function id when the description is empty
-fn dialog_row_display_text(root: &DialogRoot) -> String {
+fn dialog_row_display_text(root: &DialogOptionView) -> String {
     if root.description.is_empty() {
         format!("<function {}>", root.sequence_function_id)
     } else {
@@ -497,6 +496,6 @@ fn dialog_line_display_text(view: &DialogLineView) -> String {
     }
     format!(
         "MISSING TEXT npc_a({}) npc_b({}) line_id({}) block(unresolvable)",
-        view.line.npc_a, view.line.npc_b, view.line.line_id
+        view.npc_a, view.npc_b, view.line_id
     )
 }

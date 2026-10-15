@@ -1,10 +1,5 @@
 use crate::audio::sound_manager::{PlaySound, SoundManager};
-use crate::zengin::common::get_dialog_sound_path;
-use crate::zengin::script::component::{DialogTexts, ScriptResource};
-use crate::zengin::script::state::{DialogLine, DialogRoot};
-use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::sounds::SpeechSounds;
-use bevy::log::warn;
+use crate::zengin::script::symbol_id::{FunctionId, InstanceId, StringId};
 use bevy::prelude::*;
 use std::time::Duration;
 
@@ -13,6 +8,75 @@ const LINE_DISPLAY_SECONDS: f32 = 1.0;
 
 /// Extra pause after a line's sound finished before the next line is shown
 const LINE_GAP_SECONDS: f32 = 0.2;
+
+/// A root or sub dialog choice prepared for display and for being sent back when
+/// picked.
+#[derive(Debug, Clone)]
+pub(crate) struct DialogOptionView {
+    pub(crate) description: String,
+    pub(crate) sequence_function_id: FunctionId,
+    pub(crate) info_instance_id: Option<InstanceId>,
+}
+
+/// A dialog line prepared for display, with the real text and sound resolved
+#[derive(Debug, Clone)]
+pub(crate) struct DialogLineView {
+    /// Real line text, `None` if the block was not found
+    pub(crate) text: Option<String>,
+    /// zengin asset path of the line's sound
+    pub(crate) sound_path: String,
+    /// Duration of the line's sound file, `None` if not found/parseable
+    pub(crate) sound_duration: Option<f32>,
+    /// Ids kept only for the "missing text" debug line
+    pub(crate) npc_a: InstanceId,
+    pub(crate) npc_b: InstanceId,
+    pub(crate) line_id: StringId,
+}
+
+/// Requests the script to produce dialog data for the currently open dialog.
+/// Written by the dialog UI, handled by `handle_dialog_requests` in the bridge.
+#[derive(Message)]
+pub(crate) enum DialogRequest {
+    /// Open the dialog with the npc and reply with its current root options
+    Open {
+        generation: u32,
+        npc_from: InstanceId,
+        npc_talk_to: InstanceId,
+    },
+    /// Reply with the current root options, e.g. after a line finished playing
+    RefreshRoots {
+        generation: u32,
+        npc_from: InstanceId,
+        npc_talk_to: InstanceId,
+    },
+    /// Run the picked option sequence and reply with the produced lines/sub choices
+    ChooseOption {
+        generation: u32,
+        npc_from: InstanceId,
+        npc_talk_to: InstanceId,
+        sequence_function_id: FunctionId,
+        info_instance_id: Option<InstanceId>,
+    },
+}
+
+/// Reply produced by the script bridge for a [`DialogRequest`]. A reply whose
+/// `generation` differs from the current one (dialog closed or reopened in the
+/// meantime) is ignored by the UI.
+#[derive(Message)]
+pub(crate) enum DialogReply {
+    /// Root options, `None` closes the dialog (exit / npc has no dialog)
+    Options {
+        generation: u32,
+        options: Option<Vec<DialogOptionView>>,
+    },
+    /// Lines produced by the picked option and possibly sub choices; empty
+    /// `lines` means only the (sub) options should be shown
+    Lines {
+        generation: u32,
+        lines: Vec<DialogLineView>,
+        sub_choices: Vec<DialogOptionView>,
+    },
+}
 
 /// What is currently presented by the dialog UI
 #[derive(Default)]
@@ -30,54 +94,31 @@ enum DialogUiMode {
     },
 }
 
-/// Dialog line prepared for display, with the real text resolved
-pub(super) struct DialogLineView {
-    pub(super) line: DialogLine,
-    /// Real line text, None if the block was not found
-    pub(super) text: Option<String>,
-    /// Duration of the line's sound file, None if not found/parseable
-    pub(super) sound_duration: Option<f32>,
-}
-
 /// State driving the dialog UI, it is shown only while `npc_entity` is present
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub(super) struct DialogUiState {
-    /// Shared handle of the script vm, locked whenever the dialog runs script
-    /// functions
-    script: ScriptResource,
     pub(super) npc_entity: Option<Entity>,
     pub(super) npc_player: Option<InstanceId>,
     /// Script instance of the npc the dialog is open with
     pub(super) npc_talk_to: Option<InstanceId>,
-    pub(super) dialog_roots: Vec<DialogRoot>,
+    pub(super) dialog_roots: Vec<DialogOptionView>,
     /// Sub dialog choices populated by the last executed option, shown instead
     /// of `dialog_roots` when not empty
-    pub(super) sub_choices: Vec<DialogRoot>,
+    pub(super) sub_choices: Vec<DialogOptionView>,
     /// Highlighted entry in options mode
     pub(super) selected_index: usize,
     mode: DialogUiMode,
     /// Symbol name of the npc the dialog is open with, resolved when the dialog opens
     pub(super) npc_name: String,
-    /// Set when `dialog_roots` changed and the option rows have to be re-synced
+    /// Set when the shown options changed and the option rows have to be re-synced
     pub(super) rows_dirty: bool,
-}
-
-impl FromWorld for DialogUiState {
-    /// Sets up the state from the script resource of the world
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            script: world.resource::<ScriptResource>().clone(),
-            npc_entity: None,
-            npc_player: None,
-            npc_talk_to: None,
-            dialog_roots: Vec::new(),
-            sub_choices: Vec::new(),
-            selected_index: 0,
-            mode: DialogUiMode::default(),
-            npc_name: String::new(),
-            rows_dirty: false,
-        }
-    }
+    /// Bumped on every open/close, replies with a different value are stale
+    pub(super) generation: u32,
+    /// A root-options reply is expected, on arrival the npc and player face each
+    /// other and the dialog camera is set
+    pub(super) awaiting_open: bool,
+    /// A request is in flight, input that would issue another one is ignored
+    pub(super) pending: bool,
 }
 
 impl DialogUiState {
@@ -86,27 +127,49 @@ impl DialogUiState {
         self.npc_entity.is_some()
     }
 
-    /// Opens the dialog with the given npc
+    /// Starts opening the dialog with the given npc; its options arrive with the
+    /// script reply. Returns the generation to tag the [`DialogRequest::Open`].
     pub(super) fn open(
         &mut self,
         npc_entity: Entity,
         npc_self: InstanceId,
         npc_talk_to: InstanceId,
-        dialog_roots: Vec<DialogRoot>,
         npc_name: String,
-    ) {
+    ) -> u32 {
+        self.generation = self.generation.wrapping_add(1);
         self.npc_entity = Some(npc_entity);
         self.npc_player = Some(npc_self);
         self.npc_talk_to = Some(npc_talk_to);
-        self.dialog_roots = dialog_roots;
+        self.dialog_roots.clear();
         self.sub_choices.clear();
         self.reset_to_options();
         self.npc_name = npc_name;
         self.rows_dirty = true;
+        self.awaiting_open = true;
+        self.pending = true;
+        self.generation
+    }
+
+    /// Applies the root options reply, replacing the shown options
+    pub(super) fn accept_options(&mut self, options: Vec<DialogOptionView>) {
+        self.dialog_roots = options;
+        if self.selected_index >= self.dialog_roots.len() {
+            self.selected_index = 0;
+        }
+        self.rows_dirty = true;
+        self.awaiting_open = false;
+        self.pending = false;
+    }
+
+    /// Applies the sub choices of a lines reply
+    pub(super) fn accept_sub_choices(&mut self, sub_choices: Vec<DialogOptionView>) {
+        self.sub_choices = sub_choices;
+        self.rows_dirty = true;
+        self.pending = false;
     }
 
     /// Options currently shown: sub dialog choices when present, root options otherwise
-    pub(super) fn active_choices(&self) -> &Vec<DialogRoot> {
+    pub(super) fn active_choices(&self) -> &Vec<DialogOptionView> {
         if self.sub_choices.is_empty() {
             &self.dialog_roots
         } else {
@@ -143,102 +206,62 @@ impl DialogUiState {
     }
 
     /// Selected option
-    fn selected_root(&self) -> Option<&DialogRoot> {
+    fn selected_choice(&self) -> Option<&DialogOptionView> {
         self.active_choices().get(self.selected_index)
     }
 
-    /// Runs the selected option sequence and starts displaying the produced lines.
-    /// Keeps options shown when nothing was produced.
-    pub(super) fn execute_selected(
-        &mut self,
-        dialog_texts: &DialogTexts,
-        speech_sounds: &SpeechSounds,
-        sounds: &mut MessageWriter<PlaySound>,
-    ) {
-        let Some(root) = self.selected_root() else {
+    /// Sends the selected option to the script, the produced lines arrive with
+    /// the reply. Closes the dialog when there is no selected option.
+    pub(super) fn execute_selected(&mut self, requests: &mut MessageWriter<DialogRequest>) {
+        let Some((sequence_function_id, info_instance_id)) = self
+            .selected_choice()
+            .map(|choice| (choice.sequence_function_id, choice.info_instance_id))
+        else {
             self.close();
             return;
         };
-        let Some(npc_player) = self.npc_player else {
+        let (Some(npc_from), Some(npc_talk_to)) = (self.npc_player, self.npc_talk_to) else {
             return;
         };
-        let Some(npc_talk_to) = self.npc_talk_to else {
-            return;
-        };
-        let sequence_function_id = root.sequence_function_id;
-        let info_instance_id = root.info_instance_id;
-
-        let dialog_line_views = {
-            let mut gothic_script = self.script.lock();
-            gothic_script.mark_info_known(npc_player, info_instance_id);
-            // Sub choices are cleared before running a root level option
-            gothic_script.clear_sub_dialog_choices();
-            gothic_script.clear_dialog_lines();
-            // Dialog functions are executed with `self` bound to the npc the dialog
-            // is open with, like the original engine does for every dialog call
-            gothic_script.set_self(npc_talk_to);
-            gothic_script.set_other(npc_player);
-            gothic_script.set_instance(npc_talk_to);
-            // TODO call set_self and set_instance in call_dialog_sequence_function
-            gothic_script.call_dialog_sequence_function(sequence_function_id);
-
-            // The executed option may have registered sub dialog choices, take a
-            // snapshot so they can be shown instead of the root options
-            self.sub_choices = gothic_script.sub_dialog_choices().to_vec();
-            self.rows_dirty = true;
-
-            build_line_views(gothic_script.dialog_lines(), dialog_texts, speech_sounds)
-        };
-
-        if dialog_line_views.is_empty() {
-            // Nothing was produced (e.g. skipped sequence function), keep options shown
-            self.refresh_root_options();
-            return;
-        }
-        self.begin_line_playback(dialog_line_views, sounds);
+        requests.write(DialogRequest::ChooseOption {
+            generation: self.generation,
+            npc_from,
+            npc_talk_to,
+            sequence_function_id,
+            info_instance_id,
+        });
+        self.pending = true;
     }
 
-    /// Re-fetches the npc's root options from the script state, as executed
-    /// options may have changed which options are available. Skipped while sub
+    /// Requests the up to date root options from the script. Skipped while sub
     /// dialog choices are shown, they stay until one of their options runs.
-    fn refresh_root_options(&mut self) {
+    pub(super) fn refresh_root_options(&mut self, requests: &mut MessageWriter<DialogRequest>) {
         if !self.sub_choices.is_empty() {
             return;
         }
-        let (Some(npc_player), Some(npc_talk_to)) = (self.npc_player, self.npc_talk_to) else {
+        let (Some(npc_from), Some(npc_talk_to)) = (self.npc_player, self.npc_talk_to) else {
             return;
         };
-        let mut gothic_script = self.script.lock();
-        let close_dialog = gothic_script.close_dialog();
-        let roots = if close_dialog {
-            None
-        } else {
-            super::npc_dialog_roots(&mut gothic_script, npc_player, npc_talk_to)
-        };
-        // The guard borrows `self`, drop it before mutating the state
-        drop(gothic_script);
-        if close_dialog {
-            self.close();
-            return;
-        }
-        if let Some(roots) = roots {
-            self.dialog_roots = roots;
-            if self.selected_index >= self.dialog_roots.len() {
-                self.selected_index = 0;
-            }
-            self.rows_dirty = true;
-        }
+        requests.write(DialogRequest::RefreshRoots {
+            generation: self.generation,
+            npc_from,
+            npc_talk_to,
+        });
+        self.pending = true;
     }
 
-    /// Closes the dialog by clearing the npc entity
-    fn close(&mut self) {
+    /// Closes the dialog by clearing the npc entity, invalidating in-flight replies
+    pub(super) fn close(&mut self) {
         self.npc_entity = None;
         self.sub_choices.clear();
         self.reset_to_options();
+        self.awaiting_open = false;
+        self.pending = false;
+        self.generation = self.generation.wrapping_add(1);
     }
 
     /// Starts the one line at a time playback of the given lines
-    fn begin_line_playback(
+    pub(super) fn begin_line_playback(
         &mut self,
         lines: Vec<DialogLineView>,
         sounds: &mut MessageWriter<PlaySound>,
@@ -266,7 +289,7 @@ impl DialogUiState {
         };
         *timer = Timer::from_seconds(line_display_seconds(line), TimerMode::Once);
         sounds.write(PlaySound {
-            asset_path: get_dialog_sound_path(&line.line.line_str),
+            asset_path: line.sound_path.clone(),
         });
     }
 
@@ -281,6 +304,7 @@ impl DialogUiState {
         &mut self,
         delta: Duration,
         sounds: &mut MessageWriter<PlaySound>,
+        requests: &mut MessageWriter<DialogRequest>,
     ) {
         let DialogUiMode::Lines { timer, .. } = &mut self.mode else {
             return;
@@ -289,20 +313,28 @@ impl DialogUiState {
         if !timer.is_finished() {
             return;
         }
-        self.finish_current_line(sounds);
+        self.finish_current_line(sounds, requests);
     }
 
     /// Ends the current line early, the next one starts immediately. After the
     /// last line the options are shown again
-    pub(super) fn stop_current_line(&mut self, sounds: &mut MessageWriter<PlaySound>) {
-        self.finish_current_line(sounds);
+    pub(super) fn stop_current_line(
+        &mut self,
+        sounds: &mut MessageWriter<PlaySound>,
+        requests: &mut MessageWriter<DialogRequest>,
+    ) {
+        self.finish_current_line(sounds, requests);
     }
 
     /// Starts the next line after the current one ended, or returns to options
-    /// mode after the last line. When returning to the root options the roots
-    /// are re-fetched from the script state, as the executed option may have
-    /// changed which options are available
-    fn finish_current_line(&mut self, sounds: &mut MessageWriter<PlaySound>) {
+    /// mode after the last line. When returning to the root options they are
+    /// re-requested from the script, as the executed option may have changed
+    /// which options are available
+    fn finish_current_line(
+        &mut self,
+        sounds: &mut MessageWriter<PlaySound>,
+        requests: &mut MessageWriter<DialogRequest>,
+    ) {
         let DialogUiMode::Lines { lines, index, .. } = &mut self.mode else {
             return;
         };
@@ -310,7 +342,7 @@ impl DialogUiState {
         if next_index >= lines.len() {
             // Playback finished, show root options again
             self.reset_to_options();
-            self.refresh_root_options();
+            self.refresh_root_options(requests);
             return;
         }
         *index = next_index;
@@ -323,8 +355,7 @@ impl DialogUiState {
 pub(super) fn handle_dialog_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut dialog_ui: ResMut<DialogUiState>,
-    dialog_texts: Res<DialogTexts>,
-    speech_sounds: Res<SpeechSounds>,
+    mut requests: MessageWriter<DialogRequest>,
     mut sounds: MessageWriter<PlaySound>,
     mut sound_manager: ResMut<SoundManager>,
     mut commands: Commands,
@@ -332,10 +363,14 @@ pub(super) fn handle_dialog_input(
     if !dialog_ui.is_open() {
         return;
     }
+    // A request is in flight, do not issue another one
+    if dialog_ui.pending {
+        return;
+    }
 
     if !dialog_ui.is_showing_options() {
         if keys.just_pressed(KeyCode::Space) {
-            dialog_ui.stop_current_line(&mut sounds);
+            dialog_ui.stop_current_line(&mut sounds, &mut requests);
             sound_manager.stop_active(&mut commands);
         }
         return;
@@ -348,34 +383,8 @@ pub(super) fn handle_dialog_input(
         dialog_ui.move_selection(1);
     }
     if keys.just_pressed(KeyCode::Enter) {
-        dialog_ui.execute_selected(&dialog_texts, &speech_sounds, &mut sounds);
+        dialog_ui.execute_selected(&mut requests);
     }
-}
-
-/// Resolves display text and sound duration for the script's dialog lines
-fn build_line_views(
-    lines: &[DialogLine],
-    dialog_texts: &DialogTexts,
-    speech_sounds: &SpeechSounds,
-) -> Vec<DialogLineView> {
-    lines
-        .iter()
-        .map(|line| {
-            let text = dialog_texts.get(&line.line_str).cloned();
-            if text.is_none() {
-                warn!(
-                    "Missing dialog text: npc_a({}) npc_b({}) line_id({}) block({})",
-                    line.npc_a, line.npc_b, line.line_id, line.line_str
-                );
-            }
-            let sound_duration = speech_sounds.duration(&get_dialog_sound_path(&line.line_str));
-            DialogLineView {
-                line: line.clone(),
-                text,
-                sound_duration,
-            }
-        })
-        .collect()
 }
 
 /// Display time of a single dialog line: sound duration with a gap after
@@ -392,9 +401,10 @@ pub(super) fn advance_dialog_playback(
     time: Res<Time>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut sounds: MessageWriter<PlaySound>,
+    mut requests: MessageWriter<DialogRequest>,
 ) {
     if !dialog_ui.is_open() {
         return;
     }
-    dialog_ui.advance_playback(time.delta(), &mut sounds);
+    dialog_ui.advance_playback(time.delta(), &mut sounds, &mut requests);
 }
