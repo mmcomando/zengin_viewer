@@ -97,35 +97,38 @@ pub(crate) fn create_skinned_mesh_data(
         needs_update: AtomicBool::new(true),
     });
 
-    commands.entity(skeleton_parent).insert(AnimationState {
-        frame_state: frame_state.clone(),
-        fps: animation_data.fps,
-        frames_num: animation_data.frames_num as usize,
-        time_us: AtomicU32::new(0),
-        movement: animation_data.root_movement(base_pos_index),
-        base_pos_node_index: base_pos_index,
-    });
+    let add_animation = animation_data.is_good_animations();
+
+    if add_animation {
+        commands.entity(skeleton_parent).insert(AnimationState {
+            frame_state: frame_state.clone(),
+            fps: animation_data.fps,
+            frames_num: animation_data.frames_num as usize,
+            time_us: AtomicU32::new(0),
+            movement: animation_data.root_movement(base_pos_index),
+            base_pos_node_index: base_pos_index,
+        });
+    }
 
     let joint_entities: Vec<_> = model
         .nodes
         .iter()
         .enumerate()
         .map(|(index, el)| {
-            commands
-                .spawn((
-                    AnimatedJoint,
-                    BoneAnimationData {
-                        skeleton: skeleton_parent,
-                        node_index: index,
-                        is_base_pos_bone: index == base_pos_index,
-                        bone_index: animation_data.get_index_for_bone(index),
-                        animation_data: animation_data.clone(),
-                        frame_state: frame_state.clone(),
-                    },
-                    *el,
-                    Visibility::Inherited,
-                ))
-                .id()
+            let mut ent_cmd = commands.spawn((AnimatedJoint, *el, Visibility::Inherited));
+
+            if add_animation {
+                ent_cmd.insert(BoneAnimationData {
+                    skeleton: skeleton_parent,
+                    node_index: index,
+                    is_base_pos_bone: index == base_pos_index,
+                    bone_index: animation_data.get_index_for_bone(index),
+                    animation_data: animation_data.clone(),
+                    frame_state: frame_state.clone(),
+                });
+            }
+
+            ent_cmd.id()
         })
         .collect();
 

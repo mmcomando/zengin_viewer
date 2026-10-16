@@ -42,6 +42,10 @@ impl AnimationData {
         }
     }
 
+    pub fn is_good_animations(&self) -> bool {
+        self.frames_num > 1
+    }
+
     pub fn get_bone_sample(&self, frame_index: usize, bone_index: usize) -> AnimationSample {
         let bones_num = self.bone_indices.len();
         if let Some(sample) = self.samples.get(bones_num * frame_index + bone_index) {

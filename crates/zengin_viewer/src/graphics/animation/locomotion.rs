@@ -296,6 +296,9 @@ pub(crate) fn update_animations(
             && let Some(next_data) = animations.get(&next)
         {
             let next_data = Arc::new(next_data.clone());
+            if !next_data.is_good_animations() {
+                continue;
+            }
             data.fps = next_data.fps;
             data.frames_num = next_data.frames_num as usize;
             data.movement = next_data.root_movement(data.base_pos_node_index);
