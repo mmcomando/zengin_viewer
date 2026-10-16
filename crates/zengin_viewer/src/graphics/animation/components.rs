@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::atomic::AtomicU32;
+use std::sync::atomic::{AtomicBool, AtomicU32};
 
 use bevy::prelude::*;
 
@@ -30,6 +30,10 @@ pub struct FrameState {
     pub start_frame: AtomicU32,
     pub end_frame: AtomicU32,
     pub mul_1000: AtomicU32,
+    /// Set by `update_animations` depending on whether the skeleton is inside
+    /// the main camera frustum. Joints skip bone computation when it is `false`.
+    /// Starts as `true` so the first frame is processed before the check runs.
+    pub needs_update: AtomicBool,
 }
 
 /// Playback state of the animation currently played by a skeleton.

@@ -2,7 +2,10 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
 use avian3d::prelude::LinearVelocity;
-use bevy::prelude::*;
+use bevy::{
+    camera::primitives::{Aabb, Frustum, Sphere},
+    prelude::*,
+};
 
 use crate::gameplay::distance::DistanceNear;
 
@@ -202,8 +205,8 @@ pub(crate) fn update_animations(
     mut query: Query<
         (
             Entity,
-            // Option<&ChildOf>,
-            // &GlobalTransform,
+            &GlobalTransform,
+            Option<&Aabb>,
             &mut AnimationState,
             Option<&mut AnimationController>,
         ),
@@ -212,17 +215,36 @@ pub(crate) fn update_animations(
     // q_vel: Query<&LinearVelocity>,
     // mut transforms: Query<&mut Transform>,
     mut joints: Query<&mut BoneAnimationData>,
+    frustum: Option<Single<&Frustum, With<Camera3d>>>,
 ) {
     let delta = time.delta_secs();
     let mut switches: Vec<(Entity, Arc<AnimationData>)> = Vec::new();
 
-    for (
-        entity,
-        // parent, global_transform,
-        mut data,
-        controller,
-    ) in &mut query
-    {
+    for (entity, global_transform, aabb, mut data, controller) in &mut query {
+        // Without a main camera (e.g. in tests) fall back to always updating.
+        let needs_update = match (&frustum, aabb) {
+            (Some(frustum), Some(aabb)) => {
+                frustum.intersects_obb(aabb, &global_transform.affine(), true, true)
+            }
+            (Some(frustum), None) => frustum.intersects_sphere(
+                &Sphere {
+                    center: global_transform.translation().into(),
+                    radius: 1.0,
+                },
+                true,
+            ),
+            (None, _) => true,
+        };
+        // TODO better way to know which entities are visible and which not
+        // - check if visible from renderer visibility data
+        // - Mark visible entities with component so we could iterate only on visible Entities
+        data.frame_state
+            .needs_update
+            .store(needs_update, Ordering::Release);
+
+        if !data.frame_state.needs_update.load(Ordering::Acquire) {
+            continue;
+        }
         let Some(update) = advance_animation(&data, delta) else {
             continue;
         };
@@ -314,6 +336,9 @@ pub(crate) fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimatio
         };
 
         let shared = &data.frame_state;
+        if !shared.needs_update.load(Ordering::Acquire) {
+            return;
+        }
         let frame_num = shared.start_frame.load(Ordering::Acquire) as usize;
 
         let end_frame = shared.end_frame.load(Ordering::Acquire) as usize;

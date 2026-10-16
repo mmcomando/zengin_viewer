@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
@@ -27,6 +27,7 @@ fn runl_state(movement: Option<Vec<f32>>) -> AnimationState {
             start_frame: AtomicU32::new(0),
             end_frame: AtomicU32::new(1),
             mul_1000: AtomicU32::new(0),
+            needs_update: AtomicBool::new(true),
         }),
         fps: 25.0,
         frames_num: 20,

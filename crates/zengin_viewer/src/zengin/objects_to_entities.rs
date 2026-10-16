@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::atomic::AtomicU32;
+use std::sync::atomic::{AtomicBool, AtomicU32};
 
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::gameplay::objects::NpcModel;
@@ -94,6 +94,7 @@ pub(crate) fn create_skinned_mesh_data(
         start_frame: AtomicU32::new(0),
         end_frame: AtomicU32::new(1),
         mul_1000: AtomicU32::new(0),
+        needs_update: AtomicBool::new(true),
     });
 
     commands.entity(skeleton_parent).insert(AnimationState {
