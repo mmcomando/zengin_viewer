@@ -69,7 +69,9 @@ struct MovementHandles {
 
 pub(crate) fn create_skinned_mesh_data(
     commands: &mut Commands,
-    skinned_mesh_inverse_bindposes_assets: &mut ResMut<Assets<SkinnedMeshInverseBindposes>>,
+    material_handles: &mut MaterialHandles,
+    skinned_mesh_inverse_bindposes_assets: &mut Assets<SkinnedMeshInverseBindposes>,
+    model_handle: &Handle<ZenGinModel>,
     skeleton_parent: Entity,
     model: &ZenGinModel,
     animation_data: Option<&AnimationData>,
@@ -137,8 +139,11 @@ pub(crate) fn create_skinned_mesh_data(
             .add_child(*ent);
     }
 
-    let inverse_bindposes =
-        skinned_mesh_inverse_bindposes_assets.add(model.inverse_bindposes.clone());
+    let inverse_bindposes = material_handles.get_inverse_bindposes_handle(
+        skinned_mesh_inverse_bindposes_assets,
+        model,
+        model_handle,
+    );
     assert!(!model.inverse_bindposes.is_empty());
     assert!(!joint_entities.is_empty());
     assert!(joint_entities.len() == model.inverse_bindposes.len());
@@ -265,7 +270,9 @@ fn spawn_npcs(
 
         let bones_data = create_skinned_mesh_data(
             &mut commands,
+            &mut *handles_map,
             &mut skinned_mesh_inverse_bindposes_assets,
+            &spawn_state.body_handle,
             entity_id,
             model_data,
             animation_data,
@@ -361,8 +368,11 @@ fn spawn_npcs(
             let armor_data = armor_data.unwrap();
             let bones_data_anim = bones_data.unwrap();
 
-            let inverse_bindposes =
-                skinned_mesh_inverse_bindposes_assets.add(armor_data.inverse_bindposes.clone());
+            let inverse_bindposes = handles_map.get_inverse_bindposes_handle(
+                &mut skinned_mesh_inverse_bindposes_assets,
+                armor_data,
+                spawn_state.armor_handle.as_ref().unwrap(),
+            );
             let bones_data = SkinnedMesh {
                 inverse_bindposes,
                 joints: armor_data

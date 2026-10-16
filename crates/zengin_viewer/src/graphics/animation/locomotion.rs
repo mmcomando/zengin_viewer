@@ -303,6 +303,7 @@ pub(crate) fn update_animations(
 }
 
 #[allow(clippy::cast_precision_loss)]
+#[allow(clippy::type_complexity)]
 pub(crate) fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimationData)>) {
     // Bones of far objects are despawned together with the model root, so this
     // only ever sees joints of nearby skeletons. It is the per-bone inner loop

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use bevy::asset::AssetId;
+
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::graphics::animation::AnimationData;
 use crate::zengin::common::ZenGinModel;
@@ -65,6 +67,7 @@ pub struct MaterialHandles {
     pub models: HashMap<String, Handle<ZenGinModel>>,
     pub meshes: HashMap<ModelMeshKey, Handle<Mesh>>,
     pub animations: HashMap<String, Handle<AnimationData>>,
+    pub inverse_bindposes: HashMap<AssetId<ZenGinModel>, Handle<SkinnedMeshInverseBindposes>>,
 }
 
 impl MaterialHandles {
@@ -127,6 +130,24 @@ impl MaterialHandles {
             })
             .load(model_path.to_string());
         self.models.insert(model_path.to_string(), handle.clone());
+        handle
+    }
+
+    /// Inverse bind poses are derived from the model asset, so the handle is
+    /// cached per model. Recreating it on every model (re)spawn would leak a
+    /// duplicate asset each time.
+    pub fn get_inverse_bindposes_handle(
+        &mut self,
+        inverse_bindposes: &mut Assets<SkinnedMeshInverseBindposes>,
+        model: &ZenGinModel,
+        model_handle: &Handle<ZenGinModel>,
+    ) -> Handle<SkinnedMeshInverseBindposes> {
+        if let Some(handle) = self.inverse_bindposes.get(&model_handle.id()) {
+            return handle.clone();
+        }
+        let handle = inverse_bindposes.add(model.inverse_bindposes.clone());
+        self.inverse_bindposes
+            .insert(model_handle.id(), handle.clone());
         handle
     }
 
@@ -206,7 +227,9 @@ fn convert_zengin_model_to_entities(
         if has_skinned && bones_data.is_none() && !model.nodes.is_empty() {
             bones_data = create_skinned_mesh_data(
                 &mut commands,
+                &mut material_handles,
                 &mut skinned_mesh_inverse_bindposes_assets,
+                handle,
                 entity_id,
                 model,
                 None,
