@@ -5,6 +5,7 @@ use bevy::{
     math::Vec3,
     prelude::{Component, Message, Transform},
 };
+use rand_mt::Mt;
 
 use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
@@ -482,27 +483,24 @@ impl NpcTalents {
     }
 }
 
-// TODO use existing RNG
-/// Deterministic pseudo random generator backing `Hlp_Random`.
+/// Mersenne Twister generator backing `Hlp_Random`, fixed seed for
+/// deterministic replays.
 #[derive(Debug)]
 pub struct ScriptRandom {
-    state: u32,
+    rng: Mt,
 }
 
 impl Default for ScriptRandom {
     fn default() -> Self {
-        Self { state: 0x9E37_79B9 }
+        Self {
+            rng: Mt::new(0x9E37_79B9),
+        }
     }
 }
 
 impl ScriptRandom {
     /// Advances the generator and returns the next raw value.
     pub fn next(&mut self) -> u32 {
-        let mut x = self.state;
-        x ^= x << 13;
-        x ^= x >> 17;
-        x ^= x << 5;
-        self.state = x;
-        x
+        self.rng.next_u32()
     }
 }
