@@ -43,6 +43,9 @@ impl Plugin for ZenGinInsertResources {
 
 pub const STATIC_OBJECT: u32 = 1 << 1;
 pub const DYNAMIC_OBJECT: u32 = 1 << 2;
+/// Collision layer of colliders that only exist for spatial queries (selection),
+/// they collide with nothing.
+pub const SELECTABLE: u32 = 1 << 3;
 
 /// Adding this component will spawn child entities with 3d meshes contained in `model_handle`
 #[derive(Component, Default)]

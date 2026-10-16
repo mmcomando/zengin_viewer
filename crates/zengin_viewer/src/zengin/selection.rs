@@ -1,11 +1,13 @@
 //! Picks the world object (npc or item) the player is most likely aiming at and
 //! draws its name above it, as a screen-space UI label anchored to the object.
 
+use avian3d::prelude::*;
 use bevy::prelude::*;
 
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::zengin_resources::SELECTABLE;
 use crate::zengin::{GameItem, GameNpc};
 
 /// Distance (meters) within which a world object can be selected.
@@ -43,6 +45,8 @@ pub struct SelectionPlugin;
 impl Plugin for SelectionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Selection>();
+        app.add_observer(on_selectable_added::<GameNpc>);
+        app.add_observer(on_selectable_added::<GameItem>);
         app.add_systems(Startup, spawn_selection_label);
         app.add_systems(Update, (update_selection, update_selection_label).chain());
     }
@@ -51,6 +55,35 @@ impl Plugin for SelectionPlugin {
 /// Marker for the screen-space text node showing the selected name.
 #[derive(Component)]
 struct SelectionLabel;
+
+/// Selection collider shape of a selectable world object.
+trait SelectionCollider {
+    fn selection_collider() -> Collider;
+}
+
+impl SelectionCollider for GameNpc {
+    fn selection_collider() -> Collider {
+        Collider::cuboid(0.8, 1.8, 0.8)
+    }
+}
+
+impl SelectionCollider for GameItem {
+    fn selection_collider() -> Collider {
+        Collider::cuboid(0.5, 0.5, 0.5)
+    }
+}
+
+/// Gives every npc/item a collider so avian indexes it for the spatial query.
+/// The collider collides with nothing, it exists only for selection.
+fn on_selectable_added<C: Component + SelectionCollider>(
+    trigger: On<Add, C>,
+    mut commands: Commands,
+) {
+    commands.entity(trigger.entity).insert((
+        C::selection_collider(),
+        CollisionLayers::from_bits(SELECTABLE, 0),
+    ));
+}
 
 /// Spawns the label as an absolutely positioned UI node, it is moved to the
 /// projected screen position of the selected object every frame.
@@ -86,25 +119,26 @@ fn keep_nearest(best: &mut Option<(Entity, f32)>, entity: Entity, distance: f32)
 }
 
 /// Selects the nearest in-range npc/item, preferring objects in front of the
-/// player. The npc name is resolved through the script only when the selection
-/// changes, so the per-frame cost is just the distance scan.
+/// player. Candidate entities are found with an avian spatial query over the
+/// AABBs of their selection colliders, which must be on the queried entities
+/// themselves so the returned entities match `GameNpc`/`GameItem`. The npc name
+/// is resolved through the script only when the selection changes, so the
+/// per-frame cost is just the query and the distance scan of its hits.
 #[allow(clippy::type_complexity)]
 fn update_selection(
     gothic_script: Res<ScriptResource>,
     mut selection: ResMut<Selection>,
-    player: Query<&GlobalTransform, With<PlayerPhysicsBodyMarker>>,
-    candidates: Query<
-        (
-            Entity,
-            Option<&GameNpc>,
-            Option<&GameItem>,
-            Has<PlayerCharacter>,
-            &GlobalTransform,
-        ),
-        Or<(With<GameNpc>, With<GameItem>)>,
-    >,
+    spatial_query: SpatialQuery,
+    player: Query<(Entity, &GlobalTransform), With<PlayerPhysicsBodyMarker>>,
+    candidates: Query<(
+        Entity,
+        Option<&GameNpc>,
+        Option<&GameItem>,
+        Has<PlayerCharacter>,
+        &GlobalTransform,
+    )>,
 ) {
-    let Ok(player_tr) = player.single() else {
+    let Ok((player_entity, player_tr)) = player.single() else {
         return;
     };
     let player_pos = player_tr.translation();
@@ -112,10 +146,19 @@ fn update_selection(
     let back = player_tr.back();
     let forward = Vec3::new(back.x, 0.0, back.z).normalize_or_zero();
 
+    // `aabb_intersections_with_aabb` takes no filter, hits are filtered below.
+    let query_aabb = Collider::sphere(SELECTION_RANGE).aabb(player_pos, Quat::IDENTITY);
     let mut nearest: Option<(Entity, f32)> = None;
     let mut nearest_front: Option<(Entity, f32)> = None;
 
-    for (entity, npc, item, is_player, tr) in &candidates {
+    for entity in spatial_query.aabb_intersections_with_aabb(query_aabb) {
+        // The player body collider is not selectable.
+        if entity == player_entity {
+            continue;
+        }
+        let Ok((_, npc, item, is_player, tr)) = candidates.get(entity) else {
+            continue;
+        };
         // The player visual carries `GameNpc` too, it is not selectable.
         if is_player || (npc.is_none() && item.is_none()) {
             continue;
