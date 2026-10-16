@@ -17,7 +17,6 @@ impl Plugin for GothicScriptsPlugin {
         let script = ScriptResource::new();
         app.insert_resource(script);
         app.insert_resource(load_dialog_texts());
-        app.add_systems(Startup, spawn_entities);
         app.add_systems(Update, update_script_npc_state);
     }
 }
@@ -119,29 +118,4 @@ fn load_dialog_texts() -> DialogTexts {
     }
 
     DialogTexts { texts }
-}
-
-fn spawn_entities() {
-    // TODO more modular spawning of object instead of listing objects in spawn_world function
-    // let data = script.script.store.data();
-    // for spawn_npc in &data.loaded_state.spawn_npcs {
-    //     //     let npc_id = *npc_id as u32;
-    //     //     let string_id = *string_id as u32;
-    //     // let symbol_name = executor.call_get_name(spawn_npc.npc_index);
-    //     //     let waypoint_string = executor.call_get_name(string_id);
-
-    //     // println!(
-    //     //     "spawn_npc npc_index({}), way_point({})",
-    //     //     spawn_npc.npc_index, spawn_npc.way_point
-    //     // );
-    // }
-
-    // for spawn_item in &data.loaded_state.spawn_items {
-    //     // println!(
-    //     //     "spawn_item instance_name({}), way_point({})",
-    //     //     spawn_item.instance_name, spawn_item.way_point
-    //     // );
-    // }
-    // let name = script.script.call_get_name(1000);
-    // println!("script name 0: {:?}", name);
 }

@@ -220,7 +220,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         //     "ai_output npc_a({npc_a}), npc_b({npc_b}), line_id({line_id}), line_str({line_str})"
         // );
         let state = access.data_mut();
-        state.dialog_state.dialog_lines.push(DialogLine {
+        state.pending_dialog_lines.push(DialogLine {
             npc_a,
             npc_b,
             line_id,
@@ -275,18 +275,16 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
             Self::get_string_non_0(&mut access, description_text_id.symbol()).unwrap_or_default();
 
         let state = access.data_mut();
-        state.dialog_state.sub_dialog_choices.insert(
-            0,
-            DialogRoot {
-                info_instance_id: None,
-                sequence_function_id: function_id,
-                condition_function_id: None,
-                order: state.dialog_state.sub_dialog_choices.len() as i32,
-                description,
-                important: false,
-                permanent: false,
-            },
-        );
+        let order = state.pending_sub_dialog_choices.len() as i32;
+        state.pending_sub_dialog_choices.push(DialogRoot {
+            info_instance_id: None,
+            sequence_function_id: function_id,
+            condition_function_id: None,
+            order,
+            description,
+            important: false,
+            permanent: false,
+        });
     }
 
     /// Returns whether the two string symbols hold equal text (Daedalus

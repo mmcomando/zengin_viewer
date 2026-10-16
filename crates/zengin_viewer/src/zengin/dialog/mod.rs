@@ -9,8 +9,9 @@ use crate::zengin::GameNpc;
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::script::component::{DialogTexts, ScriptResource};
 use crate::zengin::script::manager::ScriptManager;
-use crate::zengin::script::state::{DialogLine, DialogRoot};
+use crate::zengin::script::state::{DialogClose, DialogLine, DialogRoot};
 use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::script_bridge::ScriptChangesApplied;
 use crate::zengin::selection::{Selection, SelectionKind};
 use crate::zengin::sounds::SpeechSounds;
 use bevy::log::{info, warn};
@@ -25,9 +26,11 @@ impl Plugin for GameDialogPlugin {
         app.add_message::<DialogRequest>();
         app.add_systems(Startup, ui::override_default_font);
         app.add_systems(Startup, ui::spawn_dialog_ui);
-        // The UI systems emit requests, `handle_dialog_requests` applies them to
-        // the state, `aim_dialog_camera` points the camera at the current speaker
-        // and `sync_dialog_ui` renders the result, all in one frame.
+        // The UI systems emit requests, `handle_dialog_requests` applies them
+        // and runs the script before the script bridge drains the produced
+        // outputs, `handle_dialog_outputs` consumes them in the same frame,
+        // `aim_dialog_camera` points the camera at the current speaker and
+        // `sync_dialog_ui` renders the result.
         app.add_systems(
             Update,
             (
@@ -35,10 +38,15 @@ impl Plugin for GameDialogPlugin {
                 state::handle_dialog_input,
                 state::advance_dialog_playback,
                 handle_dialog_requests,
-                aim_dialog_camera,
-                ui::sync_dialog_ui,
             )
-                .chain(),
+                .chain()
+                .before(ScriptChangesApplied),
+        );
+        app.add_systems(
+            Update,
+            (handle_dialog_outputs, aim_dialog_camera, ui::sync_dialog_ui)
+                .chain()
+                .after(ScriptChangesApplied),
         );
     }
 }
@@ -93,15 +101,84 @@ fn show_closest_npc_dialog(
     });
 }
 
-/// Applies the dialog requests: runs the dialog script functions and updates
-/// [`DialogUiState`], the npc/player facing and the speech sounds.
-#[allow(clippy::too_many_arguments)]
-fn handle_dialog_requests(
-    mut requests: MessageReader<DialogRequest>,
+/// Ends the dialog when the script asked for it via `AI_StopProcessInfos`, and
+/// applies the outputs (`AI_Output` lines, `Info_AddChoice` sub choices) of the
+/// option that was just executed. While lines are still playing a close is
+/// deferred until the playback finished, like the original engine does.
+fn handle_dialog_outputs(
+    mut lines: MessageReader<DialogLine>,
+    mut choices: MessageReader<DialogRoot>,
+    mut closes: MessageReader<DialogClose>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut sounds: MessageWriter<PlaySound>,
     dialog_texts: Res<DialogTexts>,
     speech_sounds: Res<SpeechSounds>,
+    gothic_script: Res<ScriptResource>,
+) {
+    // Messages are always read, stale outputs produced outside an executed
+    // option are dropped instead of leaking into the next capture
+    let new_lines: Vec<DialogLine> = lines.read().cloned().collect();
+    let mut new_choices: Vec<DialogRoot> = choices.read().cloned().collect();
+    let mut close_requested = false;
+    for _ in closes.read() {
+        close_requested = true;
+    }
+    let awaiting = dialog_ui.take_awaiting_outputs();
+
+    // A close request outside an executed option applies directly
+    if close_requested && !awaiting {
+        dialog_ui.request_close();
+        return;
+    }
+    if !awaiting {
+        return;
+    }
+
+    let line_views = build_line_views(&new_lines, &dialog_texts, &speech_sounds);
+    // Sub choices are shown in reverse addition order, like the previous
+    // script state buffer did by inserting at the front
+    new_choices.sort_by(|a, b| b.order.cmp(&a.order));
+    let choice_views: Vec<DialogOptionView> = new_choices.iter().map(option_view).collect();
+
+    dialog_ui.accept_sub_choices(choice_views);
+    if !line_views.is_empty() {
+        dialog_ui.begin_line_playback(line_views, &mut sounds);
+        if close_requested {
+            // The close is deferred until the playback finished
+            dialog_ui.request_close();
+        }
+        return;
+    }
+    if close_requested {
+        dialog_ui.close();
+        return;
+    }
+    if !new_choices.is_empty() {
+        // Only sub choices were produced, they are shown already
+        return;
+    }
+    // With no lines and no sub choices the root options are refreshed, the
+    // executed option may have changed them
+    let options = {
+        let (Some(npc_from), Some(npc_talk_to)) = (dialog_ui.npc_player, dialog_ui.npc_talk_to)
+        else {
+            return;
+        };
+        let mut script = gothic_script.lock();
+        npc_dialog_roots(&mut script, npc_from, npc_talk_to)
+            .map(|roots| roots.iter().map(option_view).collect())
+    };
+    match options {
+        Some(options) => dialog_ui.accept_options(options),
+        None => dialog_ui.close(),
+    }
+}
+
+/// Applies the dialog requests: runs the dialog script functions and updates
+/// the npc/player facing.
+fn handle_dialog_requests(
+    mut requests: MessageReader<DialogRequest>,
+    mut dialog_ui: ResMut<DialogUiState>,
     gothic_script: Res<ScriptResource>,
     mut npcs: Query<&mut Transform, Without<PlayerPhysicsBodyMarker>>,
     mut player: Query<(Entity, &mut Transform), With<PlayerPhysicsBodyMarker>>,
@@ -151,12 +228,8 @@ fn handle_dialog_requests(
             } => {
                 let options = {
                     let mut script = gothic_script.lock();
-                    if script.close_dialog() {
-                        None
-                    } else {
-                        npc_dialog_roots(&mut script, *npc_from, *npc_talk_to)
-                            .map(|roots| roots.iter().map(option_view).collect())
-                    }
+                    npc_dialog_roots(&mut script, *npc_from, *npc_talk_to)
+                        .map(|roots| roots.iter().map(option_view).collect())
                 };
                 match options {
                     None => dialog_ui.close(),
@@ -169,55 +242,19 @@ fn handle_dialog_requests(
                 sequence_function_id,
                 info_instance_id,
             } => {
-                let (raw_lines, sub_choices, roots) = {
-                    let mut script = gothic_script.lock();
-                    script.mark_info_known(*npc_from, *info_instance_id);
-                    // Sub choices are cleared before running a root level option
-                    script.clear_sub_dialog_choices();
-                    script.clear_dialog_lines();
-                    // Dialog functions are executed with `self` bound to the npc the
-                    // dialog is open with, like the original engine does
-                    script.set_self(*npc_talk_to);
-                    script.set_other(*npc_from);
-                    script.set_instance(*npc_talk_to);
-                    script.call_dialog_sequence_function(*sequence_function_id);
-
-                    let sub_choices: Vec<DialogOptionView> = script
-                        .sub_dialog_choices()
-                        .iter()
-                        .map(option_view)
-                        .collect();
-                    let raw_lines: Vec<DialogLine> = script.dialog_lines().to_vec();
-                    // With no lines and no sub choices the root options are
-                    // refreshed, the executed option may have changed them
-                    let roots = if raw_lines.is_empty() && sub_choices.is_empty() {
-                        if script.close_dialog() {
-                            Some(None)
-                        } else {
-                            Some(
-                                npc_dialog_roots(&mut script, *npc_from, *npc_talk_to)
-                                    .map(|roots| roots.iter().map(option_view).collect()),
-                            )
-                        }
-                    } else {
-                        None
-                    };
-                    (raw_lines, sub_choices, roots)
-                };
-
-                let lines = build_line_views(&raw_lines, &dialog_texts, &speech_sounds);
-                dialog_ui.accept_sub_choices(sub_choices);
-                if !lines.is_empty() {
-                    dialog_ui.begin_line_playback(lines, &mut sounds);
-                    continue;
-                }
-                match roots {
-                    Some(Some(options)) => dialog_ui.accept_options(options),
-                    // The script asked to close the dialog
-                    Some(None) => dialog_ui.close(),
-                    // Sub choices are shown, nothing else to do
-                    None => {}
-                }
+                let mut script = gothic_script.lock();
+                script.mark_info_known(*npc_from, *info_instance_id);
+                // Sub choices and lines are cleared before running a root level
+                // option, only outputs of this option are captured
+                script.clear_dialog_outputs();
+                // Dialog functions are executed with `self` bound to the npc the
+                // dialog is open with, like the original engine does
+                script.set_self(*npc_talk_to);
+                script.set_other(*npc_from);
+                script.set_instance(*npc_talk_to);
+                script.call_dialog_sequence_function(*sequence_function_id);
+                drop(script);
+                dialog_ui.begin_output_capture();
             }
         }
     }

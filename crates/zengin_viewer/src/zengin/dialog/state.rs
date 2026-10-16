@@ -96,6 +96,12 @@ pub(super) struct DialogUiState {
     pub(super) npc_name: String,
     /// Set when the shown options changed and the option rows have to be re-synced
     pub(super) rows_dirty: bool,
+    /// Set when the script asked to end the dialog while lines were still being
+    /// played, the dialog closes once the playback finished
+    pending_close: bool,
+    /// Set while waiting for the outputs of the option that is currently being
+    /// executed, consumed by `handle_dialog_outputs` when they arrive
+    awaiting_outputs: bool,
 }
 
 impl DialogUiState {
@@ -123,6 +129,8 @@ impl DialogUiState {
         self.reset_to_options();
         self.npc_name = npc_name;
         self.rows_dirty = true;
+        self.pending_close = false;
+        self.awaiting_outputs = false;
     }
 
     /// Pair of `(viewed, listener)` character entities for the dialog camera. The
@@ -236,7 +244,28 @@ impl DialogUiState {
     pub(super) fn close(&mut self) {
         self.npc_entity = None;
         self.sub_choices.clear();
+        self.pending_close = false;
         self.reset_to_options();
+    }
+
+    /// Requests the dialog to end, immediately when no lines are playing,
+    /// otherwise after the line playback finished
+    pub(super) fn request_close(&mut self) {
+        if self.is_playing_lines() {
+            self.pending_close = true;
+        } else {
+            self.close();
+        }
+    }
+
+    /// Arms the capture of the outputs produced by the option being executed
+    pub(super) fn begin_output_capture(&mut self) {
+        self.awaiting_outputs = true;
+    }
+
+    /// Returns and clears whether outputs of an executed option are awaited
+    pub(super) fn take_awaiting_outputs(&mut self) -> bool {
+        std::mem::take(&mut self.awaiting_outputs)
     }
 
     /// Starts the one line at a time playback of the given lines
@@ -319,8 +348,12 @@ impl DialogUiState {
         };
         let next_index = *index + 1;
         if next_index >= lines.len() {
-            // Playback finished, show root options again
             self.reset_to_options();
+            if self.pending_close {
+                self.close();
+                return;
+            }
+            // Playback finished, show root options again
             self.refresh_root_options(requests);
             return;
         }

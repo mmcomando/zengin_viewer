@@ -95,6 +95,10 @@ pub struct SpawnNpc {
     pub transform: Option<Transform>,
 }
 
+/// Signal that the script asked to end the dialog (`AI_StopProcessInfos`).
+/// Produced by the script, drained to the ECS by the script bridge.
+#[derive(Debug, Message)]
+pub struct DialogClose;
 /// Runtime state of an npc instance.
 #[derive(Debug, Default)]
 pub struct NpcInstanceState {
@@ -220,11 +224,10 @@ impl ItemInstanceState {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Message)]
 pub struct DialogRoot {
     /// Symbol of the `C_INFO` instance this root was loaded from, `None` for
     /// sub dialog choices registered via `Info_AddChoice`
-    // TODO make Info_AddChoice a separate type
     pub info_instance_id: Option<InstanceId>,
     pub sequence_function_id: FunctionId,
     /// `None` when the root has no condition function
@@ -243,19 +246,12 @@ pub struct LoadedState {
     pub npc_instances: HashMap<InstanceId, NpcInstanceState>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Message)]
 pub struct DialogLine {
     pub npc_a: InstanceId,
     pub npc_b: InstanceId,
     pub line_id: StringId,
     pub line_str: String,
-}
-
-#[derive(Debug, Default)]
-pub struct DialogState {
-    pub dialog_lines: Vec<DialogLine>,
-    pub close_dialog: bool,
-    pub sub_dialog_choices: Vec<DialogRoot>,
 }
 
 /// Kind of every loaded symbol, keyed by symbol id. Used to verify typed
@@ -314,7 +310,9 @@ impl SymbolTable {
 pub struct ImportCallState {
     pub world: Option<Arc<MmWorld>>,
     pub loaded_state: LoadedState,
-    pub dialog_state: DialogState,
+    /// Set by `AI_StopProcessInfos`, taken by the script bridge to emit a
+    /// [`DialogClose`] message.
+    pub close_dialog: bool,
     /// Kind of every symbol, used to verify typed symbol ids
     pub symbol_table: SymbolTable,
     /// Routine entry changes produced by the script, drained to the ECS by the
@@ -344,7 +342,12 @@ pub struct ImportCallState {
     /// Npc spawn requests queued by `wld_insertnpc`, drained to the ECS by the
     /// script bridge.
     pub pending_spawn_npcs: Vec<SpawnNpc>,
-    // TODO GuildId instead of i32?
+    /// Dialog lines output by the script (`AI_Output`), drained to the ECS by
+    /// the script bridge.
+    pub pending_dialog_lines: Vec<DialogLine>,
+    /// Sub dialog choices added by the script (`Info_AddChoice`), drained to
+    /// the ECS by the script bridge.
+    pub pending_sub_dialog_choices: Vec<DialogRoot>,
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,
     /// World position of every waypoint/freepoint by lowercased name, filled at

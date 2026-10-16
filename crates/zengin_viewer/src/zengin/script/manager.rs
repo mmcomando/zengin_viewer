@@ -116,28 +116,25 @@ impl ScriptManager {
         &data.loaded_state
     }
 
-    pub fn clear_dialog_lines(&mut self) {
-        self.store.data_mut().dialog_state.dialog_lines.clear();
+    pub fn clear_dialog_outputs(&mut self) {
+        let data = self.store.data_mut();
+        data.pending_dialog_lines.clear();
+        data.pending_sub_dialog_choices.clear();
     }
 
-    pub fn dialog_lines(&self) -> &[DialogLine] {
-        &self.store.data().dialog_state.dialog_lines
+    /// Drains the dialog lines output by the script, for the ECS bridge.
+    pub fn drain_dialog_lines(&mut self) -> Vec<DialogLine> {
+        std::mem::take(&mut self.store.data_mut().pending_dialog_lines)
     }
 
-    pub fn clear_sub_dialog_choices(&mut self) {
-        self.store
-            .data_mut()
-            .dialog_state
-            .sub_dialog_choices
-            .clear();
+    /// Drains the sub dialog choices added by the script, for the ECS bridge.
+    pub fn drain_sub_dialog_choices(&mut self) -> Vec<DialogRoot> {
+        std::mem::take(&mut self.store.data_mut().pending_sub_dialog_choices)
     }
 
-    pub fn sub_dialog_choices(&self) -> &[DialogRoot] {
-        &self.store.data().dialog_state.sub_dialog_choices
-    }
-
-    pub fn close_dialog(&self) -> bool {
-        self.store.data().dialog_state.close_dialog
+    /// Takes the dialog close request, leaving it cleared
+    pub fn take_close_dialog(&mut self) -> bool {
+        std::mem::take(&mut self.store.data_mut().close_dialog)
     }
 
     /// Registers the info instance as known by the npc, used when a dialog
@@ -620,7 +617,7 @@ impl ScriptManager {
     }
 
     pub fn call_dialog_sequence_function(&mut self, sequence_function_id: FunctionId) {
-        self.store.data_mut().dialog_state.close_dialog = false;
+        self.store.data_mut().close_dialog = false;
         // TODO some dialog options are skipped as they cause problems
         if [15670, 15678, 20246].contains(&sequence_function_id.value()) {
             // Function has return value but should not have

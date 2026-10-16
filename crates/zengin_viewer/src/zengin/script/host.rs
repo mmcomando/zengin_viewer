@@ -24,7 +24,7 @@ macro_rules! fake_impl {
 
 impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fn info_clearchoices(&mut self, _dialog_id: i32) {
-        self.dialog_state.sub_dialog_choices.clear();
+        self.pending_sub_dialog_choices.clear();
     }
 
     fn mdl_setvisualbody(
@@ -68,8 +68,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     }
 
     fn ai_stopprocessinfos(&mut self, _npc: i32) {
-        // TODO send event?
-        self.dialog_state.close_dialog = true;
+        self.close_dialog = true;
     }
 
     fn inttofloat(&mut self, v_0: i32) -> i32 {

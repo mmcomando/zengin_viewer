@@ -13,8 +13,9 @@ use crate::zengin::npc_routines::{
 };
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
-    AlignToWpChange, EquipItemChange, GotoChange, NpcLookAtChange, OverlayChange, OverlayRequest,
-    RoutineEntry, RoutineEntryChange, SpawnItem, SpawnNpc, WeaponMode, WeaponModeChange,
+    AlignToWpChange, DialogClose, DialogLine, DialogRoot, EquipItemChange, GotoChange,
+    NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry, RoutineEntryChange, SpawnItem,
+    SpawnNpc, WeaponMode, WeaponModeChange,
 };
 use crate::zengin::script::symbol_id::InstanceId;
 
@@ -36,6 +37,9 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<GotoChange>();
         app.add_message::<SpawnItem>();
         app.add_message::<SpawnNpc>();
+        app.add_message::<DialogClose>();
+        app.add_message::<DialogLine>();
+        app.add_message::<DialogRoot>();
         app.add_systems(
             Update,
             (
@@ -66,6 +70,9 @@ fn send_script_changes(
     mut goto: MessageWriter<GotoChange>,
     mut spawn_item: MessageWriter<SpawnItem>,
     mut spawn_npc: MessageWriter<SpawnNpc>,
+    mut dialog_close: MessageWriter<DialogClose>,
+    mut dialog_line: MessageWriter<DialogLine>,
+    mut sub_dialog_choice: MessageWriter<DialogRoot>,
     gothic_script: Res<ScriptResource>,
 ) {
     let mut script = gothic_script.lock();
@@ -95,6 +102,15 @@ fn send_script_changes(
     }
     for change in script.drain_spawn_npcs() {
         spawn_npc.write(change);
+    }
+    if script.take_close_dialog() {
+        dialog_close.write(DialogClose);
+    }
+    for line in script.drain_dialog_lines() {
+        dialog_line.write(line);
+    }
+    for choice in script.drain_sub_dialog_choices() {
+        sub_dialog_choice.write(choice);
     }
 }
 
