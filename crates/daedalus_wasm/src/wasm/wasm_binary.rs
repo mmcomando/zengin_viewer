@@ -8,6 +8,7 @@ use crate::wasm::ITEM_SYMBOL_GLOBAL_INDEX;
 use crate::wasm::ImportedFunction;
 use crate::wasm::OTHER_SYMBOL_GLOBAL_INDEX;
 use crate::wasm::SELF_SYMBOL_GLOBAL_INDEX;
+use crate::wasm::STRINGS_NUM_GLOBAL_INDEX;
 use crate::wasm::SYMBOLS_NUM_GLOBAL_INDEX;
 use crate::wasm::VICTIM_SYMBOL_GLOBAL_INDEX;
 use wasm_encoder::reencode::{Reencode as _, RoundtripReencoder};
@@ -163,10 +164,11 @@ pub fn create_wasm_binary(
     }
     module.section(&memory);
 
-    // Global section: patch number of symbols global with real value and
-    // symbol indices of the well known daedalus instance variables, resolved
-    // by name
+    // Global section: patch number of symbols and strings globals with real
+    // values and symbol indices of the well known daedalus instance variables,
+    // resolved by name
     let symbols_num = i32::try_from(symbols.len()).unwrap();
+    let strings_num = i32::try_from(memory_layout.static_strings.len()).unwrap();
     let well_known_init = |name: &str| {
         symbols
             .iter()
@@ -177,6 +179,7 @@ pub fn create_wasm_binary(
     for (global_index, global_type) in base.globals.iter().enumerate() {
         let init = match global_index.to_u32() {
             SYMBOLS_NUM_GLOBAL_INDEX => symbols_num,
+            STRINGS_NUM_GLOBAL_INDEX => strings_num,
             SELF_SYMBOL_GLOBAL_INDEX => well_known_init("self"),
             OTHER_SYMBOL_GLOBAL_INDEX => well_known_init("other"),
             VICTIM_SYMBOL_GLOBAL_INDEX => well_known_init("victim"),

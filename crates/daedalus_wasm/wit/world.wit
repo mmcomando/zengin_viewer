@@ -368,6 +368,10 @@ interface manage {
     get-item-visual-change: func(symbol-id: s32) -> option<string>;
     initialize-all-instances: func();
     get-all-symbols-num: func() -> s32;
+    // Number of all (ptr, size) string pairs in memory: one per symbol name
+    // followed by all static string literals. Literal string ids start after
+    // all symbol ids.
+    get-all-strings-num: func() -> s32;
     get-dialog-info: func(symbol-id: s32) -> dialog-info;
     get-symbol-info: func(symbol-id: s32) -> symbol-info;
 }

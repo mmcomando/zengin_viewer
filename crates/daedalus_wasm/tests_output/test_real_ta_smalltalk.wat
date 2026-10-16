@@ -994,6 +994,7 @@
     (global (;6;) (mut i32) i32.const 1618)
     (global (;7;) (mut i32) i32.const 1619)
     (global (;8;) (mut i32) i32.const 1620)
+    (global (;9;) (mut i32) i32.const 121803)
     (export "cabi_realloc" (func 318))
     (export "mmcomando:zengine-scripts/manage@0.1.0#set-instance" (func 320))
     (export "mmcomando:zengine-scripts/manage@0.1.0#set-self" (func 322))
@@ -1005,16 +1006,17 @@
     (export "mmcomando:zengine-scripts/manage@0.1.0#get-name" (func 328))
     (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id" (func 329))
     (export "mmcomando:zengine-scripts/manage@0.1.0#call-function" (func 330))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#call-function-bool" (func 339))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#call-function-bool" (func 340))
     (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num" (func 331))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info" (func 332))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances" (func 333))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual" (func 336))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change" (func 337))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info" (func 338))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-strings-num" (func 332))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info" (func 333))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances" (func 334))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual" (func 337))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change" (func 338))
+    (export "mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info" (func 339))
     (export "memory" (memory 0))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#test-func" (func 341))
-    (elem (;0;) (table 0) (i32.const 0) func 340 341)
+    (export "mmcomando:zengine-scripts/manage@0.1.0#test-func" (func 342))
+    (elem (;0;) (table 0) (i32.const 0) func 341 342)
     (func (;317;) (type 2) (param i32 i32 i32 i32) (result i32)
       (local i32 i32 i32)
       local.get 1
@@ -1225,7 +1227,7 @@
       ;; [i32]
       i32.const 608
       ;; [i32 i32]
-      call 334
+      call 335
       ;; [i32]
       local.tee 1
       ;; [i32]
@@ -1375,7 +1377,11 @@
       global.get 3
       ;; [i32]
     )
-    (func (;332;) (type 3) (param i32) (result i32)
+    (func (;332;) (type 1) (result i32)
+      global.get 9
+      ;; [i32]
+    )
+    (func (;333;) (type 3) (param i32) (result i32)
       (local i32 i32 i32)
       i32.const 0
       ;; [i32]
@@ -1456,7 +1462,7 @@
       local.get 1
       ;; [i32]
     )
-    (func (;333;) (type 0)
+    (func (;334;) (type 0)
       (local i32 i32)
       loop ;; label = @1
         ;; []
@@ -1551,7 +1557,7 @@
       end
       ;; []
     )
-    (func (;334;) (type 6) (param i32 i32) (result i32)
+    (func (;335;) (type 6) (param i32 i32) (result i32)
       local.get 0
       ;; [i32]
       i32.const 16
@@ -1567,7 +1573,7 @@
       i32.load 2
       ;; [i32]
     )
-    (func (;335;) (type 6) (param i32 i32) (result i32)
+    (func (;336;) (type 6) (param i32 i32) (result i32)
       (local i32 i32 i32)
       i32.const 0
       ;; [i32]
@@ -1585,7 +1591,7 @@
       ;; [i32]
       local.get 1
       ;; [i32 i32]
-      call 334
+      call 335
       ;; [i32]
       local.tee 3
       ;; [i32]
@@ -1656,23 +1662,23 @@
       local.get 2
       ;; [i32]
     )
-    (func (;336;) (type 3) (param i32) (result i32)
+    (func (;337;) (type 3) (param i32) (result i32)
       local.get 0
       ;; [i32]
       i32.const 524
       ;; [i32 i32]
-      call 335
+      call 336
       ;; [i32]
     )
-    (func (;337;) (type 3) (param i32) (result i32)
+    (func (;338;) (type 3) (param i32) (result i32)
       local.get 0
       ;; [i32]
       i32.const 544
       ;; [i32 i32]
-      call 335
+      call 336
       ;; [i32]
     )
-    (func (;338;) (type 3) (param i32) (result i32)
+    (func (;339;) (type 3) (param i32) (result i32)
       (local i32)
       i32.const 0
       ;; [i32]
@@ -1692,7 +1698,7 @@
       ;; [i32 i32]
       i32.const 0
       ;; [i32 i32 i32]
-      call 334
+      call 335
       ;; [i32 i32]
       i32.store
       ;; []
@@ -1702,7 +1708,7 @@
       ;; [i32 i32]
       i32.const 4
       ;; [i32 i32 i32]
-      call 334
+      call 335
       ;; [i32 i32]
       i32.store offset=4
       ;; []
@@ -1712,7 +1718,7 @@
       ;; [i32 i32]
       i32.const 12
       ;; [i32 i32 i32]
-      call 334
+      call 335
       ;; [i32 i32]
       i32.store offset=8
       ;; []
@@ -1722,7 +1728,7 @@
       ;; [i32 i32]
       i32.const 16
       ;; [i32 i32 i32]
-      call 334
+      call 335
       ;; [i32 i32]
       i32.store offset=12
       ;; []
@@ -1732,7 +1738,7 @@
       ;; [i32 i32]
       i32.const 20
       ;; [i32 i32 i32]
-      call 334
+      call 335
       ;; [i32 i32]
       i32.store offset=16
       ;; []
@@ -1742,7 +1748,7 @@
       ;; [i32 i32]
       i32.const 8
       ;; [i32 i32 i32]
-      call 334
+      call 335
       ;; [i32 i32]
       i32.const 0
       ;; [i32 i32 i32]
@@ -1756,7 +1762,7 @@
       ;; [i32 i32]
       i32.const 44
       ;; [i32 i32 i32]
-      call 334
+      call 335
       ;; [i32 i32]
       i32.const 0
       ;; [i32 i32 i32]
@@ -1767,7 +1773,7 @@
       local.get 1
       ;; [i32]
     )
-    (func (;339;) (type 3) (param i32) (result i32)
+    (func (;340;) (type 3) (param i32) (result i32)
       local.get 0
       ;; [i32]
       i32.const 16
@@ -1783,7 +1789,7 @@
       i32.ne
       ;; [i32]
     )
-    (func (;340;) (type 324) (param i32 i32 i32 i32 i32)
+    (func (;341;) (type 324) (param i32 i32 i32 i32 i32)
       (local i32 i32)
       local.get 0
       ;; [i32]
@@ -1886,7 +1892,7 @@
       return
       ;; []
     )
-    (func (;341;) (type 325) (result i32)
+    (func (;342;) (type 325) (result i32)
       (local i32 i32)
       i32.const 1
       ;; [i32]
@@ -1906,7 +1912,7 @@
       ;; [i32 i32 i32 i32 i32 i32]
       local.set 1
       ;; [i32 i32 i32 i32 i32]
-      call 340
+      call 341
       ;; []
       local.get 0
       ;; [i32]
@@ -70774,12 +70780,14 @@
   (func $initialize-all-instances (;331;) (type 13) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances)))
   (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num (;333;)))
   (func $get-all-symbols-num (;332;) (type 5) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-all-strings-num" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-all-strings-num (;334;)))
+  (func $get-all-strings-num (;333;) (type 5) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-all-strings-num)))
   (type (;14;) (func (param "symbol-id" s32) (result 2)))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info (;334;)))
-  (func $get-dialog-info (;333;) (type 14) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info) (memory $memory)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info (;335;)))
+  (func $get-dialog-info (;334;) (type 14) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info) (memory $memory)))
   (type (;15;) (func (param "symbol-id" s32) (result 4)))
-  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info (;335;)))
-  (func $get-symbol-info (;334;) (type 15) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info) (memory $memory)))
+  (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info (;336;)))
+  (func $get-symbol-info (;335;) (type 15) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info) (memory $memory)))
   (component $mmcomando:zengine-scripts/manage@0.1.0-shim-component (;0;)
     (type (;0;) (func (result s32)))
     (import "import-func-test-func" (func (;0;) (type 0)))
@@ -70807,16 +70815,17 @@
     (type (;9;) (func))
     (import "import-func-initialize-all-instances" (func (;14;) (type 9)))
     (import "import-func-get-all-symbols-num" (func (;15;) (type 0)))
+    (import "import-func-get-all-strings-num" (func (;16;) (type 0)))
     (type (;10;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool)))
     (import "import-type-dialog-info" (type (;11;) (eq 10)))
     (type (;12;) (func (param "symbol-id" s32) (result 11)))
-    (import "import-func-get-dialog-info" (func (;16;) (type 12)))
+    (import "import-func-get-dialog-info" (func (;17;) (type 12)))
     (type (;13;) (enum "float" "int" "str" "class" "function" "prototype" "instance" "variable-argument"))
     (import "import-type-symbol-kind" (type (;14;) (eq 13)))
     (type (;15;) (record (field "kind" 14) (field "parent" 5) (field "function" 5)))
     (import "import-type-symbol-info" (type (;16;) (eq 15)))
     (type (;17;) (func (param "symbol-id" s32) (result 16)))
-    (import "import-func-get-symbol-info" (func (;17;) (type 17)))
+    (import "import-func-get-symbol-info" (func (;18;) (type 17)))
     (type (;18;) (enum "float" "int" "str" "class" "function" "prototype" "instance" "variable-argument"))
     (export (;19;) "symbol-kind" (type 18))
     (type (;20;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool)))
@@ -70825,34 +70834,35 @@
     (type (;23;) (record (field "kind" 19) (field "parent" 22) (field "function" 22)))
     (export (;24;) "symbol-info" (type 23))
     (type (;25;) (func (result s32)))
-    (export (;18;) "test-func" (func 0) (func (type 25)))
+    (export (;19;) "test-func" (func 0) (func (type 25)))
     (type (;26;) (func (param "instance-id" s32)))
-    (export (;19;) "set-instance" (func 1) (func (type 26)))
-    (export (;20;) "set-self" (func 2) (func (type 26)))
-    (export (;21;) "set-other" (func 3) (func (type 26)))
-    (export (;22;) "set-victim" (func 4) (func (type 26)))
-    (export (;23;) "set-item" (func 5) (func (type 26)))
-    (export (;24;) "set-hero" (func 6) (func (type 26)))
-    (export (;25;) "call-npc-routine" (func 7) (func (type 26)))
+    (export (;20;) "set-instance" (func 1) (func (type 26)))
+    (export (;21;) "set-self" (func 2) (func (type 26)))
+    (export (;22;) "set-other" (func 3) (func (type 26)))
+    (export (;23;) "set-victim" (func 4) (func (type 26)))
+    (export (;24;) "set-item" (func 5) (func (type 26)))
+    (export (;25;) "set-hero" (func 6) (func (type 26)))
+    (export (;26;) "call-npc-routine" (func 7) (func (type 26)))
     (type (;27;) (func (param "symbol-id" s32) (result string)))
-    (export (;26;) "get-name" (func 8) (func (type 27)))
+    (export (;27;) "get-name" (func 8) (func (type 27)))
     (type (;28;) (func (param "symbol-id" s32)))
-    (export (;27;) "call-function" (func 9) (func (type 28)))
+    (export (;28;) "call-function" (func 9) (func (type 28)))
     (type (;29;) (func (param "symbol-id" s32) (result bool)))
-    (export (;28;) "call-function-bool" (func 10) (func (type 29)))
+    (export (;29;) "call-function-bool" (func 10) (func (type 29)))
     (type (;30;) (func (param "symbol-name" string) (result 22)))
-    (export (;29;) "get-symbol-id" (func 11) (func (type 30)))
+    (export (;30;) "get-symbol-id" (func 11) (func (type 30)))
     (type (;31;) (option string))
     (type (;32;) (func (param "symbol-id" s32) (result 31)))
-    (export (;30;) "get-item-visual" (func 12) (func (type 32)))
-    (export (;31;) "get-item-visual-change" (func 13) (func (type 32)))
+    (export (;31;) "get-item-visual" (func 12) (func (type 32)))
+    (export (;32;) "get-item-visual-change" (func 13) (func (type 32)))
     (type (;33;) (func))
-    (export (;32;) "initialize-all-instances" (func 14) (func (type 33)))
-    (export (;33;) "get-all-symbols-num" (func 15) (func (type 25)))
+    (export (;33;) "initialize-all-instances" (func 14) (func (type 33)))
+    (export (;34;) "get-all-symbols-num" (func 15) (func (type 25)))
+    (export (;35;) "get-all-strings-num" (func 16) (func (type 25)))
     (type (;34;) (func (param "symbol-id" s32) (result 21)))
-    (export (;34;) "get-dialog-info" (func 16) (func (type 34)))
+    (export (;36;) "get-dialog-info" (func 17) (func (type 34)))
     (type (;35;) (func (param "symbol-id" s32) (result 24)))
-    (export (;35;) "get-symbol-info" (func 17) (func (type 35)))
+    (export (;37;) "get-symbol-info" (func 18) (func (type 35)))
   )
   (instance $mmcomando:zengine-scripts/manage@0.1.0-shim-instance (;1;) (instantiate $mmcomando:zengine-scripts/manage@0.1.0-shim-component
       (with "import-func-test-func" (func $test-func))
@@ -70871,6 +70881,7 @@
       (with "import-func-get-item-visual-change" (func $get-item-visual-change))
       (with "import-func-initialize-all-instances" (func $initialize-all-instances))
       (with "import-func-get-all-symbols-num" (func $get-all-symbols-num))
+      (with "import-func-get-all-strings-num" (func $get-all-strings-num))
       (with "import-func-get-dialog-info" (func $get-dialog-info))
       (with "import-func-get-symbol-info" (func $get-symbol-info))
       (with "import-type-dialog-info" (type 2))

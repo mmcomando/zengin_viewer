@@ -31,6 +31,9 @@
   (global $victim_symbol_index (mut i32) (i32.const 0))
   (global $item_symbol_index (mut i32) (i32.const 0))
   (global $hero_symbol_index (mut i32) (i32.const 0))
+  ;; Number of all string pairs in memory, patched with real value during merge
+  ;; with daedalus data
+  (global $strings_num (mut i32) (i32.const 0))
 
 
   ;; Compares two strings given as (ptr, size) pairs
@@ -298,6 +301,11 @@
   ;; Returns number of all symbols
   (func $get_all_symbols_num (result i32)
     global.get $symbols_num
+  )
+
+  ;; Returns number of all string pairs in memory
+  (func $get_all_strings_num (result i32)
+    global.get $strings_num
   )
 
   ;; Returns pointer to record symbol-info:
@@ -582,6 +590,7 @@
   (export "mmcomando:zengine-scripts/manage@0.1.0#call-function" (func $call_function))
   (export "mmcomando:zengine-scripts/manage@0.1.0#call-function-bool" (func $call_function_bool))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num" (func $get_all_symbols_num))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-strings-num" (func $get_all_strings_num))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info" (func $get_symbol_info))
   (export "mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances" (func $initialize_all_instances))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual" (func $get_item_visual))
