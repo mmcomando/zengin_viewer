@@ -1,9 +1,9 @@
 //! Waypoint navigation graph built from the world way net.
 
-use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::HashMap;
 
 use bevy::prelude::*;
+use pathfinding::prelude::astar;
 
 use crate::gui_debug::toggle_visibility::show_gizmos;
 
@@ -49,94 +49,25 @@ impl WaypointGraph {
     }
 
     /// Shortest path between two nodes (inclusive), `None` when unreachable.
-    /// A* over the way net adjacency, cost is the edge length in Bevy meters.
-    /// TODO check if there is a library for A*
+    /// A* over the way net adjacency, cost is the edge length in millimeters
+    /// (`pathfinding` requires an ordered integer cost).
     pub fn shortest_path(&self, from: usize, to: usize) -> Option<Vec<usize>> {
         if from >= self.nodes.len() || to >= self.nodes.len() {
             return None;
         }
-        if from == to {
-            return Some(vec![from]);
-        }
-
-        let mut cost_so_far = vec![f32::INFINITY; self.nodes.len()];
-        let mut came_from = vec![usize::MAX; self.nodes.len()];
-        let mut closed = vec![false; self.nodes.len()];
-        cost_so_far[from] = 0.0;
-
-        let mut open = BinaryHeap::new();
-        open.push(MinCost::new(from, 0.0, &self.nodes, to));
-
-        while let Some(MinCost { node, .. }) = open.pop() {
-            if node == to {
-                break;
-            }
-            if closed[node] {
-                continue;
-            }
-            closed[node] = true;
-
-            for &(next, weight) in &self.adjacency[node] {
-                if closed[next] {
-                    continue;
-                }
-                let candidate = cost_so_far[node] + weight;
-                if candidate < cost_so_far[next] {
-                    cost_so_far[next] = candidate;
-                    came_from[next] = node;
-                    open.push(MinCost::new(next, candidate, &self.nodes, to));
-                }
-            }
-        }
-
-        if came_from[to] == usize::MAX {
-            return None;
-        }
-        let mut path = vec![to];
-        let mut node = to;
-        while node != from {
-            node = came_from[node];
-            if node == usize::MAX {
-                return None;
-            }
-            path.push(node);
-        }
-        path.reverse();
-        Some(path)
-    }
-}
-
-/// Min-heap entry for A*, ordered by `f = cost + heuristic`.
-struct MinCost {
-    cost: f32,
-    node: usize,
-}
-
-impl MinCost {
-    fn new(node: usize, cost: f32, nodes: &[WaypointNode], target: usize) -> Self {
-        let heuristic = nodes[node].position.distance(nodes[target].position);
-        Self {
-            cost: cost + heuristic,
-            node,
-        }
-    }
-}
-
-impl PartialEq for MinCost {
-    fn eq(&self, other: &Self) -> bool {
-        self.cost == other.cost
-    }
-}
-impl Eq for MinCost {}
-impl PartialOrd for MinCost {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for MinCost {
-    // Reversed so the smallest cost pops first
-    fn cmp(&self, other: &Self) -> Ordering {
-        other.cost.total_cmp(&self.cost)
+        let target = self.nodes[to].position;
+        let cost = |meters: f32| (meters * 1000.0).round() as i64;
+        astar(
+            &from,
+            |&node| {
+                self.adjacency[node]
+                    .iter()
+                    .map(|&(next, meters)| (next, cost(meters)))
+            },
+            |&node| cost(self.nodes[node].position.distance(target)),
+            |&node| node == to,
+        )
+        .map(|(path, _)| path)
     }
 }
 
