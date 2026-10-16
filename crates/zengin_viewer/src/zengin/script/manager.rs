@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use bevy::log::error;
 use daedalus_wasm::wasm::convert_daedalus_script;
 use wasmtime::component::{Component, HasData, Linker};
 use wasmtime::{Engine, Store};
@@ -346,13 +347,14 @@ impl ScriptManager {
             kinds.insert(index, self.get_symbol_info(symbol_id).kind);
         }
 
-        // Load static string contents once at startup, so import handlers and
-        // host code resolve strings by table lookup instead of calling back
-        // into the guest while a script function is running
+        // Load all string pair contents once at startup (symbol names for ids
+        // below `symbols_count`, static string literals above), so import
+        // handlers and host code resolve strings by table lookup instead of
+        // calling back into the guest while a script function is running
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         let strings_count = guest.call_get_all_strings_num(&mut self.store).unwrap();
-        let mut strings = Vec::with_capacity((strings_count - symbols_count).max(0) as usize);
-        for raw in symbols_count..strings_count {
+        let mut strings = Vec::with_capacity(strings_count.max(0) as usize);
+        for raw in 0..strings_count {
             let string = guest.call_get_name(&mut self.store, raw).unwrap();
             strings.push(string);
         }
@@ -642,11 +644,11 @@ impl ScriptManager {
         self.store.data_mut().close_dialog = false;
         // TODO some dialog options are skipped as they cause problems
         if [15670, 15678, 20246].contains(&sequence_function_id.value()) {
+            error!(
+                "Skip call to script function({}). It returns int where dialog_sequence_function should return void. Such a mismatch in not accepted by wasm and would panic if not skipped.",
+                sequence_function_id.value()
+            );
             // Function has return value but should not have
-            return;
-        }
-        if [18914, 21446, 21880, 23103].contains(&sequence_function_id.value()) {
-            // Real problem with script
             return;
         }
         self.call_function(sequence_function_id);
@@ -697,6 +699,7 @@ impl ScriptManager {
             // The armor id is an item instance symbol, its name must match
             // the item instance names used by the `armor_visual` lookup
             let armor_model = armor_model_id.and_then(|id| self.get_string_non_0(id.value()));
+            dbg!(&armor_model);
             let hierarchy = hierarchy_id.and_then(|id| self.get_show_string(id));
             let head_model = head_model_id.and_then(|id| self.get_show_string(id));
 

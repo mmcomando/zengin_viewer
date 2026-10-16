@@ -269,7 +269,10 @@ pub struct SymbolTable {
     kinds: HashMap<i32, SymbolKind>,
     /// Number of symbols, static string ids start after the last symbol id
     symbols_count: i32,
-    /// Contents of static string literals, indexed by `string id - symbols_count`
+    /// Contents of the guest's string pairs, indexed by raw id: ids below
+    /// `symbols_count` hold symbol names, ids above hold static string
+    /// literals. Loaded once at startup so import handlers never need to call
+    /// back into the guest to resolve string content.
     strings: Vec<String>,
 }
 
@@ -315,17 +318,14 @@ impl SymbolTable {
         StringId::new(raw)
     }
 
-    /// Content of the static string literal `raw`, `None` when the id is out
-    /// of range or the literal is empty.
+    /// Content of the string table entry `raw` (symbol name or static string
+    /// literal), `None` when the id is out of range or the entry is empty.
     /// TODO Empty strings should be a proper value.
     /// Currently a lot of calls returns empty string which is probably a bug
     /// somewhere in scripts implementation.
     /// To prevent further "head model no found errors" return None here.
     pub fn string_content(&self, raw: i32) -> Option<String> {
-        if raw < self.symbols_count {
-            return None;
-        }
-        let string = self.strings.get((raw - self.symbols_count) as usize)?;
+        let string = self.strings.get(raw.max(0) as usize)?;
         if string.is_empty() {
             return None;
         }
