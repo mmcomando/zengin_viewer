@@ -5,7 +5,7 @@ use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
 use super::components::{AnimationController, AnimationState, FrameState, LocomotionSequencer};
-use super::data::AnimationData;
+use super::data::{AnimationData, AnimationSample};
 use super::locomotion::{
     ATOMIC_SCALE, AnimationKind, TIME_SCALE, advance_animation, animation_kind, desired_next,
     update_animations,
@@ -233,6 +233,22 @@ fn foreign_animations_are_left_alone() {
     assert_eq!(animation_kind(&sequencer, &scripted), None);
 }
 
+/// Builds a two-frame animation so it passes the `frames_num > 1` guard
+/// in `update_animations`.
+fn test_animation() -> AnimationData {
+    AnimationData::new(
+        vec![
+            AnimationSample::default(),
+            AnimationSample::default(),
+            AnimationSample::default(),
+            AnimationSample::default(),
+        ],
+        vec![0],
+        2,
+        25.0,
+    )
+}
+
 /// Builds a world with a single near skeleton for `update_animations`.
 /// Time does not advance; the animation progress is pre-loaded via the
 /// state's `time_us`.
@@ -260,8 +276,8 @@ fn run_update_animations(
 #[test]
 fn queued_next_replaces_finished_animation() {
     let mut assets = Assets::<AnimationData>::default();
-    let first = assets.add(AnimationData::default());
-    let second = assets.add(AnimationData::default());
+    let first = assets.add(test_animation());
+    let second = assets.add(test_animation());
 
     // 2 s into the 0.8 s loop: the animation finished this step
     let state = runl_state(Some(runl_movement()));
@@ -285,8 +301,8 @@ fn queued_next_replaces_finished_animation() {
 #[test]
 fn interrupt_current_replaces_playing_animation() {
     let mut assets = Assets::<AnimationData>::default();
-    let first = assets.add(AnimationData::default());
-    let second = assets.add(AnimationData::default());
+    let first = assets.add(test_animation());
+    let second = assets.add(test_animation());
 
     // The animation just started, but the queued next may interrupt it
     let (mut world, model) = run_update_animations(
