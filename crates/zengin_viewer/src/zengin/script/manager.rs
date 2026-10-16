@@ -279,18 +279,10 @@ impl ScriptManager {
     }
 
     /// Fetches the content of the string table entry `raw`, `None` when it is
-    /// empty (see the todo below). Works for both symbol names and static
-    /// string literals, the guest exposes both through `get_name`.
-    fn get_string_non_0(&mut self, raw: i32) -> Option<String> {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        let string = guest.call_get_name(&mut self.store, raw).ok()?;
-        if string.is_empty() {
-            // TODO Empty strings should be a proper value.
-            // Currently a lot of calls returns empty string which is probably a bug somewhere in scripts implementation.
-            // To prevent further "head model no found errors" return None here.
-            return None;
-        }
-        return Some(string);
+    /// empty (see the todo below). Only works for static string literal ids,
+    /// resolved by a table loaded at startup instead of calling into the guest.
+    fn get_string_non_0(&self, raw: i32) -> Option<String> {
+        self.store.data().symbol_table.string_content(raw)
     }
 
     /// Fetches a static string literal with its original case, `None` when it
@@ -353,7 +345,19 @@ impl ScriptManager {
             };
             kinds.insert(index, self.get_symbol_info(symbol_id).kind);
         }
-        self.store.data_mut().symbol_table = SymbolTable::new(kinds, symbols_count);
+
+        // Load static string contents once at startup, so import handlers and
+        // host code resolve strings by table lookup instead of calling back
+        // into the guest while a script function is running
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        let strings_count = guest.call_get_all_strings_num(&mut self.store).unwrap();
+        let mut strings = Vec::with_capacity((strings_count - symbols_count).max(0) as usize);
+        for raw in symbols_count..strings_count {
+            let string = guest.call_get_name(&mut self.store, raw).unwrap();
+            strings.push(string);
+        }
+
+        self.store.data_mut().symbol_table = SymbolTable::new(kinds, symbols_count, strings);
     }
 
     /// Resolves a symbol id by name, `None` when the symbol does not exist.

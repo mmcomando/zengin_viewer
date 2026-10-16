@@ -63,6 +63,7 @@ fn spawn_selection_label(mut commands: Commands) {
             top: Val::Px(0.0),
             ..default()
         },
+        // TODO use proper Text3d probably from bevy_rich_text3d crate
         Text::new(""),
         TextFont {
             font_size: LABEL_FONT_SIZE.into(),

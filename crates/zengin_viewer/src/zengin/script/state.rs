@@ -9,7 +9,7 @@ use rand_mt::Mt;
 
 use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
-use super::string_value::StringCanon;
+use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 
 #[derive(Debug, Default, Clone, PartialEq, Component)]
@@ -261,19 +261,24 @@ pub struct DialogLine {
 
 /// Kind of every loaded symbol, keyed by symbol id. Used to verify typed
 /// symbol ids ([`InstanceId`], [`FunctionId`], [`StringId`]) at conversion
-/// points instead of trusting raw ids.
+/// points instead of trusting raw ids. Also holds the contents of static
+/// string literals, loaded once at startup so import handlers never need to
+/// call back into the guest to resolve string content.
 #[derive(Debug, Default)]
 pub struct SymbolTable {
     kinds: HashMap<i32, SymbolKind>,
     /// Number of symbols, static string ids start after the last symbol id
     symbols_count: i32,
+    /// Contents of static string literals, indexed by `string id - symbols_count`
+    strings: Vec<String>,
 }
 
 impl SymbolTable {
-    pub fn new(kinds: HashMap<i32, SymbolKind>, symbols_count: i32) -> Self {
+    pub fn new(kinds: HashMap<i32, SymbolKind>, symbols_count: i32, strings: Vec<String>) -> Self {
         Self {
             kinds,
             symbols_count,
+            strings,
         }
     }
 
@@ -308,6 +313,23 @@ impl SymbolTable {
             return None;
         }
         StringId::new(raw)
+    }
+
+    /// Content of the static string literal `raw`, `None` when the id is out
+    /// of range or the literal is empty.
+    /// TODO Empty strings should be a proper value.
+    /// Currently a lot of calls returns empty string which is probably a bug
+    /// somewhere in scripts implementation.
+    /// To prevent further "head model no found errors" return None here.
+    pub fn string_content(&self, raw: i32) -> Option<String> {
+        if raw < self.symbols_count {
+            return None;
+        }
+        let string = self.strings.get((raw - self.symbols_count) as usize)?;
+        if string.is_empty() {
+            return None;
+        }
+        Some(string.clone())
     }
 }
 
@@ -420,6 +442,27 @@ impl ImportCallState {
                 }
             });
         (recorded == Some(state)) as i32
+    }
+
+    /// Fetches the string content of a raw string table entry, `None` when the
+    /// entry is empty (see `SymbolTable::string_content`). Resolved by a table
+    /// loaded at startup: import handlers must not call back into the guest
+    /// while a script function is running.
+    pub(crate) fn get_string_non_0(&self, raw: i32) -> Option<String> {
+        self.symbol_table.string_content(raw)
+    }
+
+    /// Fetches a static string literal with its original case
+    pub(crate) fn get_show_string(&self, id: StringId) -> Option<ShowString> {
+        let string = self.get_string_non_0(id.value())?;
+        Some(ShowString::new(string))
+    }
+
+    /// Fetches a static string literal as a canonical (lowercased) lookup key,
+    /// for names matched case-insensitively (waypoints, spots)
+    pub(crate) fn get_canon_string(&self, id: StringId) -> Option<StringCanon> {
+        let string = self.get_string_non_0(id.value())?;
+        Some(StringCanon::new(string))
     }
 }
 

@@ -1,10 +1,13 @@
 use super::bindings::mmcomando;
 use super::state::{
-    AlignToWpChange, EquipItemChange, ImportCallState, NpcLookAtChange, OverlayRequest, WeaponMode,
+    AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, ImportCallState, NpcLookAtChange,
+    OverlayRequest, RoutineEntry, RoutineEntryChange, SpawnItem, SpawnNpc, WeaponMode,
 };
+use super::string_value::StringCanon;
 use super::symbol_id::SymbolId;
 use crate::warn_unimplemented;
 use crate::zengin::common::to_zengin_units;
+use bevy::log::warn;
 use bevy::math::Vec3;
 
 macro_rules! fake_impl {
@@ -23,6 +26,245 @@ macro_rules! fake_impl {
 }
 
 impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
+    fn wld_insertnpc(&mut self, npc_index: i32, waypoint_string_id: i32) {
+        let Some(npc_index) = self.symbol_table.instance(npc_index) else {
+            return;
+        };
+        let Some(waypoint_string_id) = self.symbol_table.string(waypoint_string_id) else {
+            return;
+        };
+        // println!(
+        //     "NEW wld_insertnpc npc_index({npc_index}), waypoint_string_id({waypoint_string_id})"
+        // );
+
+        self.pending_spawn_npcs.push(SpawnNpc {
+            instance_id: npc_index,
+            transform: None,
+            location_name: Some(waypoint_string_id),
+        });
+    }
+
+    fn wld_insertitem(&mut self, item_index: i32, waypoint_string_id: i32) {
+        // println!("CCC");
+        let Some(item_index) = self.symbol_table.instance(item_index) else {
+            return;
+        };
+        let Some(waypoint_string_id) = self.symbol_table.string(waypoint_string_id) else {
+            return;
+        };
+        // println!(
+        //     "NEW wld_insertitem item_index({item_index}), item_name({item_name}), waypoint_string_id({waypoint_string_id}), waypoint_name({waypoint_name})"
+        // );
+
+        self.pending_spawn_items.push(SpawnItem {
+            instance_id: item_index,
+            transform: None,
+            location_name: Some(waypoint_string_id),
+        });
+    }
+
+    fn ta_min(
+        &mut self,
+        npc_index: i32,
+        start_h: i32,
+        start_m: i32,
+        stop_h: i32,
+        stop_m: i32,
+        func_index: i32,
+        way_point: i32,
+    ) {
+        // println!(
+        //     "NEW ta_min npc_index({npc_index}), start_h({start_h}), stop_h({stop_h}), way_point({way_point})"
+        // );
+        let Some(npc_index) = self.symbol_table.instance(npc_index) else {
+            return;
+        };
+        let Some(way_point) = self.symbol_table.string(way_point) else {
+            return;
+        };
+        let Some(way_point) = self.get_canon_string(way_point) else {
+            return;
+        };
+
+        let routine_entry = RoutineEntry {
+            start_h: start_h.max(0) as u32,
+            start_m: start_m.max(0) as u32,
+            stop_h: stop_h.max(0) as u32,
+            stop_m: stop_m.max(0) as u32,
+            way_point,
+            // Id 0 means the state has no function
+            state_fn: self.symbol_table.function(func_index),
+        };
+
+        let entry = self
+            .loaded_state
+            .npc_instances
+            .entry(npc_index)
+            .or_default();
+        entry.routine_entries.push(routine_entry);
+        self.pending_routine_changes.push(RoutineEntryChange {
+            instance_id: npc_index,
+        });
+    }
+
+    fn ai_playani(&mut self, npc_index: i32, ani_id: i32) {
+        let Some(npc_index) = self.symbol_table.instance(npc_index) else {
+            return;
+        };
+        let Some(ani_id) = self.symbol_table.string(ani_id) else {
+            return;
+        };
+        let Some(ani) = self.get_show_string(ani_id) else {
+            return;
+        };
+        self.loaded_state
+            .npc_instances
+            .entry(npc_index)
+            .or_default()
+            .routine_played_anis
+            .push(StringCanon::new(ani.string()));
+    }
+
+    fn ai_playanibs(&mut self, npc_index: i32, ani_id: i32, _body_state: i32) {
+        let Some(npc_index) = self.symbol_table.instance(npc_index) else {
+            return;
+        };
+        let Some(ani_id) = self.symbol_table.string(ani_id) else {
+            return;
+        };
+        let Some(ani) = self.get_show_string(ani_id) else {
+            return;
+        };
+        self.loaded_state
+            .npc_instances
+            .entry(npc_index)
+            .or_default()
+            .routine_played_anis
+            .push(StringCanon::new(ani.string()));
+    }
+
+    fn ai_output(&mut self, npc_a: i32, npc_b: i32, line_id: i32) {
+        let Some(npc_a) = self.symbol_table.instance(npc_a) else {
+            return;
+        };
+        let Some(npc_b) = self.symbol_table.instance(npc_b) else {
+            return;
+        };
+        let Some(line_id) = self.symbol_table.string(line_id) else {
+            return;
+        };
+        let Some(line) = self.get_show_string(line_id) else {
+            warn!(
+                "ai_output with empty line string, npc_a({npc_a}), npc_b({npc_b}), line_id({line_id})"
+            );
+            return;
+        };
+        self.pending_dialog_lines.push(DialogLine {
+            npc_a,
+            npc_b,
+            line_id,
+            line_str: StringCanon::new(line.string()),
+        });
+    }
+
+    fn ai_usemob(&mut self, npc_index: i32, mob_name_id: i32, state: i32) -> i32 {
+        // Negative states release the mob, nothing to animate.
+        if state <= 0 {
+            return 0;
+        }
+        let Some(npc_index) = self.symbol_table.instance(npc_index) else {
+            return 0;
+        };
+        let Some(mob_name_id) = self.symbol_table.string(mob_name_id) else {
+            return 0;
+        };
+        let Some(mob) = self.get_show_string(mob_name_id) else {
+            return 0;
+        };
+        let ani = format!("S_{}_S{state}", mob.string().to_uppercase());
+        self.loaded_state
+            .npc_instances
+            .entry(npc_index)
+            .or_default()
+            .routine_played_anis
+            .push(StringCanon::new(ani));
+        0
+    }
+
+    fn info_addchoice(&mut self, _dialog_id: i32, description_text_id: i32, function_id: i32) {
+        let Some(description_text_id) = self.symbol_table.string(description_text_id) else {
+            return;
+        };
+        let Some(function_id) = self.symbol_table.function(function_id) else {
+            return;
+        };
+        let description = self
+            .get_show_string(description_text_id)
+            .map(|description| description.into_string())
+            .unwrap_or_default();
+
+        let order = self.pending_sub_dialog_choices.len() as i32;
+        self.pending_sub_dialog_choices.push(DialogRoot {
+            info_instance_id: None,
+            sequence_function_id: function_id,
+            condition_function_id: None,
+            order,
+            description,
+            important: false,
+            permanent: false,
+        });
+    }
+
+    /// Returns whether the two string symbols hold equal text (Daedalus
+    /// `Hlp_StrCmp` is an equality test, not an ordering comparison).
+    fn hlp_strcmp(&mut self, a: i32, b: i32) -> i32 {
+        let Some(a) = self.symbol_table.string(a) else {
+            return 0;
+        };
+        let Some(b) = self.symbol_table.string(b) else {
+            return 0;
+        };
+        let a = self.get_show_string(a);
+        let b = self.get_show_string(b);
+        match (a, b) {
+            // Both empty compares equal, like the previous `Option<String>`
+            // equality did
+            (None, None) => 1,
+            (Some(a), Some(b)) => (a.string() == b.string()) as i32,
+            _ => 0,
+        }
+    }
+
+    /// Distance from the npc to a named waypoint in engine units. The engine
+    /// returns `i32::MAX` when the npc or the waypoint is unknown.
+    fn npc_getdisttowp(&mut self, npc: i32, wp_name: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return i32::MAX;
+        };
+        let Some(wp_name) = self.symbol_table.string(wp_name) else {
+            return i32::MAX;
+        };
+        let Some(wp_name) = self.get_canon_string(wp_name) else {
+            return i32::MAX;
+        };
+
+        let Some(target) = self.way_points.get(wp_name.as_str()).copied() else {
+            return i32::MAX;
+        };
+        let Some(position) = self
+            .loaded_state
+            .npc_instances
+            .get(&npc)
+            .and_then(|npc| npc.position)
+        else {
+            return i32::MAX;
+        };
+
+        // Positions are stored in Bevy meters, the engine works in game units
+        let distance = to_zengin_units((position - target).length());
+        distance.min(i32::MAX as f32) as i32
+    }
+
     fn info_clearchoices(&mut self, _dialog_id: i32) {
         self.pending_sub_dialog_choices.clear();
     }
