@@ -5,12 +5,13 @@ use bevy::prelude::*;
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::game_log::{GameLog, GameLogEntry};
-use crate::zengin::npc_routines::{NpcEquippedWeapon, WeaponMeshPaths};
+use crate::zengin::npc_routines::NpcEquippedWeapon;
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::selection::{Selection, SelectionKind};
+use crate::zengin::world::item_model_path;
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
-use crate::zengin::{GameItem, GameNpc};
+use crate::zengin::{GameItem, GameNpc, ZenginVfs};
 
 pub struct PlayerInteractionPlugin;
 
@@ -67,7 +68,8 @@ fn kill_selected_npc(
     keys: Res<ButtonInput<KeyCode>>,
     mut selection: ResMut<Selection>,
     mut transfer_items: MessageWriter<TransferItems>,
-    weapon_mesh_paths: Res<WeaponMeshPaths>,
+    gothic_scripts: Res<ScriptResource>,
+    vfs: Res<ZenginVfs>,
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
@@ -103,9 +105,9 @@ fn kill_selected_npc(
 
     // Drop the equipped weapon on the ground as a pickable item.
     if let Some(item) = equipped {
-        match weapon_mesh_paths.0.get(&item.value()) {
+        match item_model_path(&gothic_scripts, &vfs, item) {
             Some(path) => {
-                let model_handle = handles.get_model_handle(&asset_server, path, None);
+                let model_handle = handles.get_model_handle(&asset_server, &path, None);
                 commands.spawn((
                     ClassifyDistance::default(),
                     ZenGinModelComponent {

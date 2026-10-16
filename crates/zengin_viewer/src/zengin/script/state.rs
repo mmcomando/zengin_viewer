@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use bevy::{
     math::Vec3,
-    prelude::{Component, Message},
+    prelude::{Component, Message, Transform},
 };
 
 use super::bindings::MmWorld;
@@ -74,6 +74,25 @@ pub struct EquipItemChange {
 #[derive(Message)]
 pub struct AlignToWpChange {
     pub instance_id: InstanceId,
+}
+
+/// Requests an item entity to be spawned, with its resolved world placement.
+/// Produced by the world load, drained to the ECS by the script bridge.
+#[derive(Message)]
+pub struct SpawnItem {
+    pub instance_id: InstanceId,
+    pub location_name: Option<StringId>, // Waypoint or spot name
+    pub transform: Option<Transform>,
+}
+
+/// Requests an npc entity to be spawned. Produced by `wld_insertnpc` (at script
+/// load and at runtime), drained to the ECS by the script bridge. The consumer
+/// resolves the visual and placement from the script state.
+#[derive(Message)]
+pub struct SpawnNpc {
+    pub instance_id: InstanceId,
+    pub location_name: Option<StringId>, // Waypoint or spot name
+    pub transform: Option<Transform>,
 }
 
 /// Runtime state of an npc instance.
@@ -182,19 +201,6 @@ impl NpcInstanceState {
     }
 }
 
-#[derive(Debug)]
-pub struct SpawnNpc {
-    pub npc_index: InstanceId,
-    pub way_point: String,
-}
-
-#[derive(Debug)]
-pub struct SpawnItem {
-    pub item_index: InstanceId,
-    pub instance_name: String,
-    pub way_point: String,
-}
-
 /// Runtime state of an item instance, keyed by instance id in
 /// [`LoadedState::items_instances`].
 #[derive(Debug, Default)]
@@ -231,8 +237,6 @@ pub struct DialogRoot {
 
 #[derive(Debug, Default)]
 pub struct LoadedState {
-    pub spawn_npcs: Vec<SpawnNpc>,
-    pub spawn_items: Vec<SpawnItem>,
     /// State of every loaded item instance.
     pub items_instances: HashMap<InstanceId, ItemInstanceState>,
     /// State of every loaded npc instance.
@@ -334,6 +338,12 @@ pub struct ImportCallState {
     /// `AI_GoToWP` requests produced by the script, drained to the ECS by the
     /// script bridge.
     pub pending_goto_changes: Vec<GotoChange>,
+    /// Item spawn requests queued by the world load, drained to the ECS by the
+    /// script bridge.
+    pub pending_spawn_items: Vec<SpawnItem>,
+    /// Npc spawn requests queued by `wld_insertnpc`, drained to the ECS by the
+    /// script bridge.
+    pub pending_spawn_npcs: Vec<SpawnNpc>,
     // TODO GuildId instead of i32?
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,

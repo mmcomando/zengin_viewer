@@ -8,14 +8,20 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::animation::{MovementAnimations, NpcAnimations};
 use crate::gui_debug::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::ZenGinModel;
-use crate::zengin::npc_routines::{AnimationFiles, WayPoints, WeaponMeshPaths};
+use crate::zengin::common::get_full_texture_path;
+use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::world::load_zengin_world_data;
+use crate::zengin::script::state::{SpawnItem, SpawnNpc};
+use crate::zengin::waypoint_graph::Spots;
+use crate::zengin::world::{
+    item_model_path, load_zengin_world_data, mesh_model_path, normalize_mesh_name,
+    resolve_stand_animation,
+};
 use crate::zengin::zengin_resources::{
     DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
 };
-use crate::zengin::{GameItem, GameNpc};
+use crate::zengin::{GameItem, GameNpc, ZenginVfs};
 use avian3d::math::PI;
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
@@ -29,6 +35,7 @@ impl Plugin for ZenGinWorldPlugin {
         app.add_plugins(GameObjectSpawnEntities);
 
         app.add_systems(Startup, spawn_world);
+        app.add_systems(Update, (spawn_npc_entities, spawn_item_entities).chain());
     }
 }
 
@@ -37,25 +44,25 @@ fn spawn_world(
     mut handles_map: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
     gothic_script: Res<ScriptResource>,
-    game_time: Res<GameTime>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut spawn_item: MessageWriter<SpawnItem>,
 ) {
     let _span = info_span!("spawn_world").entered();
     println!("\n-----SCRIPTS VM-----\n");
     let mut gothic_script = gothic_script.lock();
-    let loaded_state = gothic_script.get_loaded_state();
+    let loaded_state = gothic_script.loaded_state();
     println!("\n-----LOAD WORLD ZEN DATA-----\n");
     let mut world_data = load_zengin_world_data(
         "/_WORK/DATA/WORLDS/NEWWORLD/NEWWORLD.ZEN",
         loaded_state,
-        game_time.hour(),
+        &mut spawn_item,
     );
     if false {
         let world_data_oldw = load_zengin_world_data(
             "/_WORK/DATA/WORLDS/OLDWORLD/OLDWORLD.ZEN",
             loaded_state,
-            game_time.hour(),
+            &mut spawn_item,
         );
         world_data
             .light_instances
@@ -75,18 +82,8 @@ fn spawn_world(
             .map(|(name, tr)| (name.clone(), tr.translation))
             .collect(),
     );
-    // Seed npc positions so distance queries work before the first ECS update
-    {
-        let instances = gothic_script.npc_instances_mut();
-        for npc in &world_data.npcs {
-            instances.entry(npc.npc_intance_id).or_default().position =
-                Some(npc.body_tr.translation);
-        }
-    }
     commands.insert_resource(WayPoints { points: way_points });
-    commands.insert_resource(WeaponMeshPaths(std::mem::take(
-        &mut world_data.item_mesh_paths,
-    )));
+    commands.insert_resource(Spots(std::mem::take(&mut world_data.spots)));
     commands.insert_resource(AnimationFiles(std::mem::take(&mut world_data.anim_files)));
     commands.insert_resource(std::mem::take(&mut world_data.waypoint_graph));
 
@@ -106,54 +103,6 @@ fn spawn_world(
         WorldMesh::default(),
     ));
 
-    for npc in &world_data.npcs {
-        // if npc.npc_intance_id.value() != 12562 {
-        //     continue;
-        // }
-        // println!("spawn_npc({})", npc.npc_intance_id);
-        commands.spawn((
-            Visibility::default(),
-            GameNpc {
-                npc_instance_id: npc.npc_intance_id,
-            },
-            NpcModel {
-                hierarchy: npc.hierarchy.clone(),
-                body_model: npc.body_model.clone(),
-                body_texture: npc.body_texture.clone(),
-                head_model: npc.head_model.clone(),
-                head_texture: npc.head_texture.clone(),
-                armor_model: npc.armor_model.clone(),
-                animation_scheme: npc.animation_scheme.clone(),
-                stand_animation: npc.stand_animation.clone(),
-                model_fatness: npc.model_fatness,
-            },
-            NpcAnimations {
-                // animation: Some(
-                //     // "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_WATCHFIGHT.MAN".to_string(),
-                //     "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_FIRE_VICTIM.MAN".to_string(),
-                // ),
-                animation: None,
-                movement_animations: None,
-            },
-            npc.body_tr,
-            NpcVisibility::default(),
-        ));
-    }
-    for instance in &world_data.items {
-        let model_handle = handles_map.get_model_handle(&asset_server, &instance.model, None);
-        commands.spawn((
-            ClassifyDistance::default(),
-            ZenGinModelComponent {
-                model_handle: model_handle.clone(),
-                ..default()
-            },
-            Visibility::default(),
-            instance.tr,
-            GameItem {
-                item_instance_id: instance.instance_id,
-            },
-        ));
-    }
     for instance in &world_data.static_models {
         let model_handle = handles_map.get_model_handle(&asset_server, &instance.archetype, None);
         commands.spawn((
@@ -266,4 +215,237 @@ fn spawn_world(
             }),
         },
     ));
+}
+
+/// Data needed to spawn one npc entity, extracted from the script state in a
+/// single lock.
+struct NpcSpawnScript {
+    body_model: String,
+    body_texture: Option<String>,
+    head_model: Option<String>,
+    face_texture: Option<String>,
+    /// Visual chosen for the equipped armor, when the npc has one.
+    armor_visual: Option<String>,
+    hierarchy: Option<String>,
+    model_scale: Option<Vec3>,
+    model_fatness: Option<f32>,
+    /// Waypoint of the routine entry active at spawn time, takes precedence
+    /// over the spawn location.
+    routine_way_point: Option<String>,
+    location_name: Option<String>,
+}
+
+fn npc_spawn_script_data(
+    scripts: &ScriptResource,
+    spawn: &SpawnNpc,
+    minutes_of_day: u32,
+) -> Option<NpcSpawnScript> {
+    let mut script = scripts.lock();
+    // Resolve the location string first, the instance state borrow below is
+    // immutable while `get_string_non_0` needs `&mut`
+    let location_name = spawn
+        .location_name
+        .and_then(|id| script.get_string_non_0(id.symbol()))
+        .map(|name| name.to_lowercase());
+    let state = script.get_loaded_state();
+    let instance = state.npc_instances.get(&spawn.instance_id)?;
+    let routine_way_point = instance
+        .get_routine_entry(minutes_of_day)
+        .map(|entry| entry.way_point.clone());
+    let armor_visual = instance.armor_model.as_ref().and_then(|name| {
+        state
+            .items_instances
+            .values()
+            .find(|item| &item.name == name)
+            .map(|item| item.chosen_visual().to_string())
+    });
+    Some(NpcSpawnScript {
+        body_model: instance.body_model.clone(),
+        body_texture: instance.body_texture.clone(),
+        head_model: instance.head_model.clone(),
+        face_texture: instance.face_texture.clone(),
+        armor_visual,
+        hierarchy: instance.hierarchy.clone(),
+        model_scale: instance.model_scale,
+        model_fatness: instance.model_fatness,
+        routine_way_point,
+        location_name,
+    })
+}
+
+/// Spawns a full npc entity for every requested npc, resolving its placement
+/// from the routine/spawn location and its visuals from the script state and
+/// the shared vfs.
+fn spawn_npc_entities(
+    mut spawns: MessageReader<SpawnNpc>,
+    mut commands: Commands,
+    gothic_scripts: Res<ScriptResource>,
+    vfs: Res<ZenginVfs>,
+    way_points: Res<WayPoints>,
+    spots: Res<Spots>,
+    game_time: Res<GameTime>,
+) {
+    for spawn in spawns.read() {
+        let Some(script) = npc_spawn_script_data(&gothic_scripts, spawn, game_time.hour() * 60)
+        else {
+            warn!("No instance state for npc({}) spawn", spawn.instance_id);
+            continue;
+        };
+
+        let mut transform = match spawn.transform {
+            Some(tr) => tr,
+            None => {
+                // Routine waypoint takes precedence over the spawn location,
+                // spots take precedence over way points
+                let name = script
+                    .routine_way_point
+                    .or(script.location_name)
+                    .unwrap_or_default();
+                let tr = way_points.points.get(&name).or_else(|| spots.0.get(&name));
+                let Some(tr) = tr else {
+                    warn!(
+                        "No location found for npc({}) on({})",
+                        spawn.instance_id, name
+                    );
+                    continue;
+                };
+                *tr
+            }
+        };
+        // Place the visual on the ground, matching the engine placement
+        transform.translation.y -= 0.5;
+        if let Some(scale) = script.model_scale {
+            transform.scale = scale;
+        }
+
+        let Some(body_model) = mesh_model_path(&vfs, &script.body_model) else {
+            warn!(
+                "No mesh for npc({}) body model({})",
+                spawn.instance_id, script.body_model
+            );
+            continue;
+        };
+        let head_model = script.head_model.as_deref().and_then(|name| {
+            let path = mesh_model_path(&vfs, name);
+            if path.is_none() {
+                warn!(
+                    "No mesh for npc({}) head model({})",
+                    spawn.instance_id, name
+                );
+            }
+            path
+        });
+        let hierarchy = script.hierarchy.as_deref().and_then(|name| {
+            let path = mesh_model_path(&vfs, name);
+            if path.is_none() {
+                warn!("No mesh for npc({}) hierarchy({})", spawn.instance_id, name);
+            }
+            path
+        });
+        let armor_model = script.armor_visual.as_deref().and_then(|visual| {
+            let path = mesh_model_path(&vfs, visual);
+            if path.is_none() {
+                warn!(
+                    "No mesh for npc({}) armor visual({})",
+                    spawn.instance_id, visual
+                );
+            }
+            path
+        });
+
+        // Animations of an npc live in the scheme of its visual (`.mds`), the
+        // body mesh name is unrelated, e.g. the wolf visual `Wolf.mds` uses
+        // `WOLF-*.MAN` while its body mesh is `Wol_Body`.
+        let animation_scheme = script.hierarchy.as_deref().map(normalize_mesh_name);
+        let stand_animation = animation_scheme
+            .as_deref()
+            .and_then(|scheme| resolve_stand_animation(&vfs, scheme));
+
+        commands.spawn((
+            Visibility::default(),
+            GameNpc {
+                npc_instance_id: spawn.instance_id,
+            },
+            NpcModel {
+                hierarchy,
+                body_model,
+                body_texture: script.body_texture.as_deref().map(get_full_texture_path),
+                head_model,
+                head_texture: script.face_texture.as_deref().map(get_full_texture_path),
+                armor_model,
+                animation_scheme,
+                stand_animation,
+                model_fatness: script.model_fatness,
+            },
+            NpcAnimations::default(),
+            transform,
+            NpcVisibility::default(),
+        ));
+    }
+}
+
+/// Spawns an item entity, resolving its model from the script item instance.
+fn spawn_item_entities(
+    mut spawns: MessageReader<SpawnItem>,
+    mut commands: Commands,
+    mut handles_map: ResMut<MaterialHandles>,
+    asset_server: Res<AssetServer>,
+    gothic_scripts: ResMut<ScriptResource>,
+    way_points: Res<WayPoints>,
+    spots: Res<Spots>,
+
+    vfs: Res<ZenginVfs>,
+) {
+    for spawn in spawns.read() {
+        let Some(model) = item_model_path(&gothic_scripts, &vfs, spawn.instance_id) else {
+            crate::warn_once!("No mesh path for item({})", spawn.instance_id);
+            continue;
+        };
+        let waypoint_tr = if let Some(tr) = spawn.transform {
+            tr
+        } else if let Some(waypoint_id) = spawn.location_name {
+            let location_name = gothic_scripts
+                .lock()
+                .get_string_non_0(waypoint_id.symbol())
+                .unwrap()
+                .to_lowercase();
+            let waypoint_tr = if let Some(waypoint_tr) = way_points.points.get(&location_name) {
+                *waypoint_tr
+            } else if let Some(waypoint_tr) = spots.0.get(&location_name) {
+                *waypoint_tr
+            } else {
+                warn!(
+                    "No location found for item({}) on({})",
+                    spawn.instance_id, location_name
+                );
+                continue;
+            };
+
+            // let Some(waypoint_tr) = way_points.points.get(&waypoint_name) else {
+            //     warn!(
+            //         "No location found for item({}) on({})",
+            //         spawn.instance_id, waypoint_name
+            //     );
+            //     continue;
+            // };
+            waypoint_tr
+        } else {
+            continue;
+        };
+
+        let model_handle = handles_map.get_model_handle(&asset_server, &model, None);
+
+        commands.spawn((
+            ClassifyDistance::default(),
+            ZenGinModelComponent {
+                model_handle,
+                ..default()
+            },
+            Visibility::default(),
+            waypoint_tr,
+            GameItem {
+                item_instance_id: spawn.instance_id,
+            },
+        ));
+    }
 }

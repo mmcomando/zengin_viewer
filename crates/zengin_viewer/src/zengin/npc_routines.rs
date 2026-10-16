@@ -7,6 +7,7 @@ use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::animation::AnimationController;
 use crate::zengin::GameNpc;
+use crate::zengin::ZenginVfs;
 use crate::zengin::common::{
     animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
 };
@@ -16,6 +17,7 @@ use crate::zengin::script::state::{AlignToWpChange, GotoChange, RoutineEntry, We
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use crate::zengin::script_bridge::ScriptChangesApplied;
 use crate::zengin::waypoint_graph::WaypointGraph;
+use crate::zengin::world::item_model_path;
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
@@ -384,10 +386,6 @@ struct NpcWeapon {
     slot: Option<Entity>,
 }
 
-/// Item symbol id to weapon mesh asset path, built at world load.
-#[derive(Resource, Default)]
-pub struct WeaponMeshPaths(pub HashMap<i32, String>);
-
 /// Item equipped by the npc (`EquipItem`), maintained by the script bridge.
 /// Absent when the npc has no weapon equipped.
 #[derive(Component)]
@@ -399,7 +397,8 @@ pub struct NpcEquippedWeapon(pub InstanceId);
 /// slots) appearing.
 #[allow(clippy::type_complexity)]
 fn update_npc_weapon(
-    mesh_paths: Res<WeaponMeshPaths>,
+    gothic_scripts: Res<ScriptResource>,
+    vfs: Res<ZenginVfs>,
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
@@ -426,9 +425,7 @@ fn update_npc_weapon(
         let target_slot =
             if drawn { slots.hand } else { slots.hip }.filter(|slot| entities.contains(*slot));
 
-        let path = item
-            .and_then(|item| mesh_paths.0.get(&item.value()))
-            .cloned();
+        let path = item.and_then(|item| item_model_path(&gothic_scripts, &vfs, item));
 
         // The weapon mesh child is despawned with the visual when the npc is far
         let child_alive = weapon

@@ -26,6 +26,11 @@ pub fn get_zengin_asset_bytes(vfs: &Vfs, path: &str) -> Option<Vec<u8>> {
     Some(read_obj.bytes())
 }
 
+/// Shared zengin virtual file system, used to resolve mesh asset paths at
+/// runtime (the world load vfs is not kept around).
+#[derive(Resource, Clone)]
+pub struct ZenginVfs(pub Arc<Mutex<Vfs>>);
+
 pub fn create_zengin_vfs() -> Arc<Mutex<Vfs>> {
     let vfs_override = VfsOverwriteBehavior::ALL;
     let dir = gothic2_dir();

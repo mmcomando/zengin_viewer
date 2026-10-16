@@ -15,7 +15,7 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::{
 use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, ImportCallState,
     ItemInstanceState, LoadedState, NpcInstanceState, NpcLookAtChange, OverlayChange,
-    RoutineEntryChange, SymbolTable, WeaponModeChange,
+    RoutineEntryChange, SpawnItem, SpawnNpc, SymbolTable, WeaponModeChange,
 };
 use super::symbol_id::{FunctionId, InstanceId, SymbolId};
 
@@ -96,6 +96,24 @@ impl ScriptManager {
     /// Drains the `AI_GoToWP` requests the script produced, for the ECS bridge.
     pub fn drain_goto_changes(&mut self) -> Vec<GotoChange> {
         std::mem::take(&mut self.store.data_mut().pending_goto_changes)
+    }
+
+    /// Drains the item spawn requests queued at world load, for the ECS bridge.
+    pub fn drain_spawn_items(&mut self) -> Vec<SpawnItem> {
+        std::mem::take(&mut self.store.data_mut().pending_spawn_items)
+    }
+
+    /// Drains the npc spawn requests queued by `wld_insertnpc`, for the ECS
+    /// bridge.
+    pub fn drain_spawn_npcs(&mut self) -> Vec<SpawnNpc> {
+        std::mem::take(&mut self.store.data_mut().pending_spawn_npcs)
+    }
+
+    /// Loaded state and the pending spawn item buffer, for the world load which
+    /// reads the instance data and queues the item spawns.
+    pub fn loaded_state(&mut self) -> &LoadedState {
+        let data = self.store.data_mut();
+        &data.loaded_state
     }
 
     pub fn clear_dialog_lines(&mut self) {

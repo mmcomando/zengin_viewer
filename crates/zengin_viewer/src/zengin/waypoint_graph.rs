@@ -177,6 +177,10 @@ fn draw_waypoints(mut gizmos: Gizmos, graph: Option<Res<WaypointGraph>>) {
     }
 }
 
+/// Spot - named location
+#[derive(Resource, Debug, Default)]
+pub struct Spots(pub HashMap<String, Transform>);
+
 #[cfg(test)]
 mod tests {
     use super::*;

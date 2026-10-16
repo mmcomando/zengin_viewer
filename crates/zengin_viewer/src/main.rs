@@ -40,7 +40,9 @@ use crate::input::options::{Options, RegisterShaderAsset};
 use crate::xr::{XrPlugin, is_xr_enabled};
 use crate::zengin::SpeechSounds;
 use crate::zengin::ZenginPlugin;
-use crate::zengin::{WaypointDebugPlugin, create_zengin_asset_loader, create_zengin_vfs};
+use crate::zengin::{
+    WaypointDebugPlugin, ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
+};
 use avian3d::prelude::*;
 
 use bevy::prelude::*;
@@ -52,6 +54,7 @@ fn main() {
     app.add_plugins(crate::input::options::OptionsPlugin);
     // This app custom assert source, has to be registered before default plugins.
     let vfs = create_zengin_vfs();
+    app.insert_resource(ZenginVfs(vfs.clone()));
     app.insert_resource(SpeechSounds::new(vfs.clone()));
     app.register_asset_source("zengin", create_zengin_asset_loader(vfs));
     // Default plugin

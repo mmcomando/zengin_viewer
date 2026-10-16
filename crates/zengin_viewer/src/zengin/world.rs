@@ -14,7 +14,7 @@ use crate::{
     zengin::{
         common::*,
         conversions::*,
-        script::state::{NpcInstanceState, SpawnItem, SpawnNpc},
+        script::state::SpawnItem,
         script::symbol_id::InstanceId,
         visual::mesh::meshes_from_zengin_mesh,
         waypoint_graph::{WaypointGraph, WaypointNode},
@@ -23,7 +23,7 @@ use crate::{
 
 const PLARCEHOLDER_MESH: &str = "/_WORK/DATA/MESHES/_COMPILED/SPHERE.MRM";
 
-fn normalize_mesh_name(name: &str) -> String {
+pub fn normalize_mesh_name(name: &str) -> String {
     name.to_uppercase()
         .replace(".3DS", "")
         .replace(".MMS", "")
@@ -56,7 +56,10 @@ fn find_mesh_path(vfs: &Vfs, name: &str) -> Option<String> {
 /// Standing body state animation of an animation scheme. `S_RUN` is the human
 /// idle, most creatures only provide `S_FISTRUN`; probe the anims archive for
 /// the one the scheme has.
-fn resolve_stand_animation(vfs: &Vfs, scheme: &str) -> Option<String> {
+/// Stand (walk) animation of an animation scheme, resolved against the shared
+/// vfs, used when spawning npcs from spawn messages.
+pub fn resolve_stand_animation(vfs: &crate::zengin::ZenginVfs, scheme: &str) -> Option<String> {
+    let vfs = vfs.0.lock().unwrap();
     ["S_RUN", "S_FISTRUN"]
         .into_iter()
         .find(|ani| {
@@ -66,154 +69,36 @@ fn resolve_stand_animation(vfs: &Vfs, scheme: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn get_tr_from_point_name(data: &ZenGinWorldData, name: &str) -> Option<Transform> {
-    let tr = if let Some(tr) = data.spots.get(name) {
-        tr
-    } else if let Some(tr) = data.way_points.get(name) {
-        tr
-    } else {
-        warn_once!("some points are not found, example({})", name);
-        return None;
-    };
-    Some(*tr)
-}
-
-pub fn get_item_mesh_path(
-    vfs: &Vfs,
-    vm_state: &crate::zengin::script::state::LoadedState,
-    item_id: InstanceId,
+/// Resolved mesh asset path of an item instance, from the script item instances
+/// and the shared vfs. Used at runtime, where the world load vfs is gone.
+pub fn item_model_path(
+    scripts: &crate::zengin::script::component::ScriptResource,
+    vfs: &crate::zengin::ZenginVfs,
+    item: InstanceId,
 ) -> Option<String> {
-    let Some(item_instance) = vm_state.items_instances.get(&item_id) else {
-        println!("Failed to find item({item_id}) instance");
-        return None;
-    };
-    find_mesh_path(vfs, item_instance.chosen_visual())
-}
-pub fn load_weapon(
-    data: &mut ZenGinWorldData,
-    vfs: &Vfs,
-    vm_state: &crate::zengin::script::state::LoadedState,
-    item: &SpawnItem,
-) {
-    let Some(tr) = get_tr_from_point_name(data, &item.way_point) else {
-        return;
-    };
-
-    let Some(asset_path) = get_item_mesh_path(vfs, vm_state, item.item_index) else {
-        println!("not found mesh for item({})", &item.instance_name);
-        return;
-    };
-    let item = ZenGinItem {
-        tr,
-        model: asset_path,
-        instance_id: item.item_index,
-    };
-    data.items.push(item);
+    let visual = {
+        let script = scripts.lock();
+        script
+            .get_loaded_state()
+            .items_instances
+            .get(&item)
+            .map(|instance| instance.chosen_visual().to_string())
+    }?;
+    let vfs = vfs.0.lock().unwrap();
+    resolve_mesh_path_quiet(&vfs, &visual)
 }
 
-pub fn load_npc(
-    data: &mut ZenGinWorldData,
-    vfs: &Vfs,
-    vm_state: &crate::zengin::script::state::LoadedState,
-    item_ids: &HashMap<&str, InstanceId>,
-    instance: &NpcInstanceState,
-    spawn_npc: &SpawnNpc,
-    start_hour: u32,
-) {
-    let way_point_name = instance
-        .get_routine_entry(start_hour * 60)
-        .map_or(&spawn_npc.way_point, |el| &el.way_point);
-
-    let Some(tr) = get_tr_from_point_name(data, way_point_name) else {
-        return;
-    };
-
-    let tr = tr.to_matrix();
-    let tr = Transform::from_translation(Vec3 {
-        x: 0.0,
-        y: -0.5,
-        z: 0.0,
-    })
-    .to_matrix()
-        * tr;
-
-    let tr_body = tr;
-
-    let Some(body_model) = find_mesh_path(vfs, &instance.body_model) else {
-        println!("not found mesh for body model({})", instance.body_model);
-        return;
-    };
-    let head_model = if let Some(head_model) = &instance.head_model {
-        if let Some(head_model) = find_mesh_path(vfs, head_model) {
-            Some(head_model)
-        } else {
-            println!("not found mesh for head model({})", head_model);
-            None
-        }
-    } else {
-        None
-    };
-
-    let armor_model = instance.armor_model.as_ref().and_then(|name| {
-        let mesh = item_ids
-            .get(name.as_str())
-            .and_then(|item_id| get_item_mesh_path(vfs, vm_state, *item_id));
-        if mesh.is_none() {
-            println!("not found mesh for armor_model({})", name);
-        }
-        mesh
-    });
-    let hierarchy = if let Some(hierarchy) = &instance.hierarchy {
-        if let Some(hierarchy) = find_mesh_path(vfs, hierarchy) {
-            Some(hierarchy)
-        } else {
-            println!("not found mesh for model({})", hierarchy);
-            None
-        }
-    } else {
-        None
-    };
-
-    // Animations of an npc live in the scheme of its visual (`.mds`), the body
-    // mesh name is unrelated, e.g. the wolf visual `Wolf.mds` uses `WOLF-*.MAN`
-    // while its body mesh is `Wol_Body`.
-    let animation_scheme = instance.hierarchy.as_deref().map(normalize_mesh_name);
-    let stand_animation = animation_scheme
-        .as_deref()
-        .and_then(|scheme| resolve_stand_animation(vfs, scheme));
-
-    let mut body_tr = Transform::from_matrix(tr_body);
-    if let Some(scale) = instance.model_scale {
-        body_tr.scale = scale;
-    }
-
-    let npc = ZenGinNpc {
-        npc_intance_id: spawn_npc.npc_index,
-        hierarchy,
-        animation_scheme,
-        stand_animation,
-        model_fatness: instance.model_fatness,
-        head_model,
-        head_texture: instance
-            .face_texture
-            .as_ref()
-            .map(|el| get_full_texture_path(el)),
-        body_tr,
-        body_model,
-        body_texture: instance
-            .body_texture
-            .as_ref()
-            .map(|el| get_full_texture_path(el)),
-        armor_model,
-    };
-    // println!("Create ZenGinNpc({:?})", npc.body_model);
-    data.npcs.push(npc);
+/// Resolved mesh asset path of a named mesh (body/head/hierarchy/armor), used
+/// when spawning npcs from spawn messages, where the world load vfs is gone.
+pub fn mesh_model_path(vfs: &crate::zengin::ZenginVfs, name: &str) -> Option<String> {
+    let vfs = vfs.0.lock().unwrap();
+    resolve_mesh_path_quiet(&vfs, name)
 }
 
 pub fn load_zengin_world_data(
     world_path: &str,
     vm_state: &crate::zengin::script::state::LoadedState,
-    start_hour: u32,
+    spawn_item: &mut MessageWriter<SpawnItem>,
 ) -> ZenGinWorldData {
     let vfs = Vfs::new();
 
@@ -284,27 +169,10 @@ pub fn load_zengin_world_data(
         .collect();
 
     for obj in world.root_objects() {
-        load_objects(&vfs, &mut data, vm_state, &item_ids, &obj);
+        load_objects(&vfs, &mut data, &item_ids, &obj, spawn_item);
     }
     let way_net = world.way_net();
     load_way_net_points(&way_net, &mut data);
-    for npc_spawn in &vm_state.spawn_npcs {
-        // if npc_spawn.npc_index.value() != 10347 {
-        //     continue;
-        // }
-        if let Some(instance) = vm_state.npc_instances.get(&npc_spawn.npc_index) {
-            load_npc(
-                &mut data, &vfs, vm_state, &item_ids, instance, npc_spawn, start_hour,
-            );
-        } else {
-            println!("unknown data for npc({:?})", npc_spawn);
-            // panic!();
-        }
-    }
-
-    for weapon in &vm_state.spawn_items {
-        load_weapon(&mut data, &vfs, vm_state, weapon);
-    }
 
     if !world.npcs().is_empty() {
         warn_unimplemented!("Loading NPCs from world");
@@ -312,13 +180,6 @@ pub fn load_zengin_world_data(
 
     if world.spawn_location_count() > 0 {
         warn_unimplemented!("Handling spawn locations");
-    }
-
-    // Prebuild item symbol id -> mesh path for runtime equip
-    for (id, item) in &vm_state.items_instances {
-        if let Some(path) = resolve_mesh_path_quiet(&vfs, item.chosen_visual()) {
-            data.item_mesh_paths.insert(id.value(), path);
-        }
     }
 
     // Names of all anim files, used to resolve overlay animations
@@ -420,9 +281,9 @@ fn resolve_mesh_path_quiet(vfs: &Vfs, name: &str) -> Option<String> {
 fn load_objects(
     vfs: &Vfs,
     data: &mut ZenGinWorldData,
-    vm_state: &crate::zengin::script::state::LoadedState,
     item_ids: &HashMap<&str, InstanceId>,
     obj: &VirtualObject,
+    spawn_item: &mut MessageWriter<SpawnItem>,
 ) {
     let visual = obj.visual();
     let visual_name = visual.name();
@@ -468,10 +329,10 @@ fn load_objects(
             });
         }
     } else {
-        handle_other_vob(data, vfs, vm_state, item_ids, obj);
+        handle_other_vob(data, item_ids, obj, spawn_item);
     }
     for child in obj.children() {
-        load_objects(vfs, data, vm_state, item_ids, &child);
+        load_objects(vfs, data, item_ids, &child, spawn_item);
     }
 }
 
@@ -492,10 +353,9 @@ fn handle_light(obj: &VirtualObject, data: &mut ZenGinWorldData) {
 
 fn handle_other_vob(
     data: &mut ZenGinWorldData,
-    vfs: &Vfs,
-    vm_state: &crate::zengin::script::state::LoadedState,
     item_ids: &HashMap<&str, InstanceId>,
     obj: &VirtualObject,
+    spawn_item: &mut MessageWriter<SpawnItem>,
 ) {
     let name = obj.name();
     let type_ = obj.get_type();
@@ -508,16 +368,12 @@ fn handle_other_vob(
                 warn!("Not found instance id for item({}) vob", name);
                 return;
             };
-            let Some(asset_path) = get_item_mesh_path(vfs, vm_state, instance_id) else {
-                warn!("Not found mesh for item({}) vob", name);
-                return;
-            };
-            let npc = ZenGinItem {
-                tr,
-                model: asset_path,
+
+            spawn_item.write(SpawnItem {
                 instance_id,
-            };
-            data.items.push(npc);
+                location_name: None,
+                transform: Some(tr),
+            });
 
             return;
         }

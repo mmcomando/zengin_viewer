@@ -3,10 +3,11 @@ use wasmtime::AsContextMut;
 use super::bindings::mmcomando;
 use super::manager::ScriptImports;
 use super::state::{
-    DialogLine, DialogRoot, ImportCallState, RoutineEntry, RoutineEntryChange, SpawnItem, SpawnNpc,
+    DialogLine, DialogRoot, ImportCallState, RoutineEntry, RoutineEntryChange, SpawnNpc,
 };
 use super::symbol_id::{InstanceId, SymbolId};
 use crate::zengin::common::to_zengin_units;
+use crate::zengin::script::state::SpawnItem;
 
 impl ScriptImports {
     fn get_string_non_0(
@@ -63,21 +64,16 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
             return;
         };
         Self::init_instance(&mut access, npc_index);
-        // let npc_name = Self::get_string_non_0(&mut access, npc_index.symbol()).unwrap();
-        let waypoint_name = Self::get_string_non_0(&mut access, waypoint_string_id.symbol())
-            .unwrap()
-            .to_lowercase();
-
         // println!(
-        //     "NEW wld_insertnpc npc_index({npc_index}), npc_name({npc_name}), waypoint_string_id({waypoint_string_id}), waypoint_name({waypoint_name})"
+        //     "NEW wld_insertnpc npc_index({npc_index}), waypoint_string_id({waypoint_string_id})"
         // );
 
-        let npc = SpawnNpc {
-            npc_index,
-            way_point: waypoint_name,
-        };
         let state = access.data_mut();
-        state.loaded_state.spawn_npcs.push(npc);
+        state.pending_spawn_npcs.push(SpawnNpc {
+            instance_id: npc_index,
+            transform: None,
+            location_name: Some(waypoint_string_id),
+        });
     }
 
     fn wld_insertitem(
@@ -94,19 +90,15 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
             return;
         };
         Self::init_instance(&mut access, item_index);
-        let item_name = Self::get_string_non_0(&mut access, item_index.symbol()).unwrap();
-        let waypoint_name = Self::get_string_non_0(&mut access, waypoint_string_id.symbol())
-            .unwrap()
-            .to_ascii_lowercase();
         // println!(
         //     "NEW wld_insertitem item_index({item_index}), item_name({item_name}), waypoint_string_id({waypoint_string_id}), waypoint_name({waypoint_name})"
         // );
 
         let state = access.data_mut();
-        state.loaded_state.spawn_items.push(SpawnItem {
-            item_index,
-            instance_name: item_name,
-            way_point: waypoint_name,
+        state.pending_spawn_items.push(SpawnItem {
+            instance_id: item_index,
+            transform: None,
+            location_name: Some(waypoint_string_id),
         });
     }
 

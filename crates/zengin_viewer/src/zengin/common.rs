@@ -7,7 +7,6 @@ use std::{
 use bevy::prelude::*;
 use zen_kit_rs::vfs::VfsNode;
 
-use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::waypoint_graph::WaypointGraph;
 
 // zenkit cords have mirrored X compared to bevy
@@ -198,30 +197,6 @@ pub struct ZenGinModel {
     pub animation_bone_index: Vec<usize>,
 }
 
-#[derive(Debug)]
-pub struct ZenGinItem {
-    pub tr: Transform,
-    pub model: String,
-    pub instance_id: InstanceId,
-}
-#[derive(Debug)]
-pub struct ZenGinNpc {
-    pub npc_intance_id: InstanceId,
-    pub head_model: Option<String>,
-    pub head_texture: Option<String>,
-    pub body_tr: Transform,
-    pub body_model: String,
-    pub body_texture: Option<String>,
-    pub armor_model: Option<String>,
-    pub hierarchy: Option<String>,
-    /// Animation scheme (visual `.mds` stem) used as animation file prefix
-    pub animation_scheme: Option<String>,
-    /// Standing body state animation of the scheme
-    pub stand_animation: Option<String>,
-    /// Body fatness (`Mdl_SetModelFatness`)
-    pub model_fatness: Option<f32>,
-}
-
 #[derive(Debug, Default)]
 pub struct ZenGinInstance {
     pub tr: Transform,
@@ -234,12 +209,8 @@ pub struct ZenGinWorldData {
     pub world_model: ZenGinModel,
     pub static_models: Vec<ZenGinInstance>,
     pub light_instances: Vec<LightInstance>,
-    pub npcs: Vec<ZenGinNpc>,
-    pub items: Vec<ZenGinItem>,
     pub spots: HashMap<String, Transform>,
     pub way_points: HashMap<String, Transform>,
-    /// Item symbol id to weapon mesh asset path (`EquipItem`)
-    pub item_mesh_paths: HashMap<i32, String>,
     /// Names of all files in the compiled anim archive (uppercased)
     pub anim_files: HashSet<String>,
     /// Waypoint navigation graph built from the world way net
