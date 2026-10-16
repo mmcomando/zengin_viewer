@@ -17,7 +17,8 @@ use super::state::{
     ItemInstanceState, LoadedState, NpcInstanceState, NpcLookAtChange, OverlayChange,
     RoutineEntryChange, SpawnItem, SpawnNpc, SymbolTable, WeaponModeChange,
 };
-use super::symbol_id::{FunctionId, InstanceId, SymbolId};
+use super::string_value::{ShowString, StringCanon};
+use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 
 pub struct ScriptManager {
     pub store: Store<ImportCallState>,
@@ -277,11 +278,12 @@ impl ScriptManager {
             .unwrap()
     }
 
-    pub fn get_string_non_0(&mut self, string_id: SymbolId) -> Option<String> {
+    /// Fetches the content of the string table entry `raw`, `None` when it is
+    /// empty (see the todo below). Works for both symbol names and static
+    /// string literals, the guest exposes both through `get_name`.
+    fn get_string_non_0(&mut self, raw: i32) -> Option<String> {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
-        let string = guest
-            .call_get_name(&mut self.store, string_id.value())
-            .ok()?;
+        let string = guest.call_get_name(&mut self.store, raw).ok()?;
         if string.is_empty() {
             // TODO Empty strings should be a proper value.
             // Currently a lot of calls returns empty string which is probably a bug somewhere in scripts implementation.
@@ -289,6 +291,21 @@ impl ScriptManager {
             return None;
         }
         return Some(string);
+    }
+
+    /// Fetches a static string literal with its original case, `None` when it
+    /// is empty
+    pub fn get_show_string(&mut self, id: StringId) -> Option<ShowString> {
+        let string = self.get_string_non_0(id.value())?;
+        Some(ShowString::new(string))
+    }
+
+    /// Fetches a static string literal as a canonical (lowercased) lookup key,
+    /// for names matched case-insensitively (waypoints, spots), `None` when it
+    /// is empty
+    pub fn get_canon_string(&mut self, id: StringId) -> Option<StringCanon> {
+        let string = self.get_string_non_0(id.value())?;
+        Some(StringCanon::new(string))
     }
 
     /// Resolves the name of a raw symbol id, `None` when it is not a valid id.
@@ -372,7 +389,7 @@ impl ScriptManager {
         &mut self,
         npc_instance_id: InstanceId,
         state_fn: FunctionId,
-    ) -> Vec<String> {
+    ) -> Vec<StringCanon> {
         self.npc_instances_mut_or_default(npc_instance_id)
             .routine_played_anis
             .clear();
@@ -593,8 +610,9 @@ impl ScriptManager {
             let description = self
                 .symbol_table()
                 .string(dialog_info.description)
-                .and_then(|id| self.get_string_non_0(id.symbol()))
-                .unwrap_or("".to_string());
+                .and_then(|id| self.get_show_string(id))
+                .map(|description| description.into_string())
+                .unwrap_or_default();
 
             let Some(npc_id) = self.symbol_table().instance(dialog_info.npc) else {
                 continue;
@@ -663,8 +681,8 @@ impl ScriptManager {
             ) = raw;
 
             let Some(body_model) = body_model_id
-                .map(|id| id.symbol())
-                .and_then(|id| self.get_string_non_0(id))
+                .and_then(|id| self.get_show_string(id))
+                .map(|body_model| body_model.into_string())
             else {
                 println!(
                     "Not found body model string for npc({index}), body_model({})",
@@ -672,16 +690,15 @@ impl ScriptManager {
                 );
                 continue;
             };
-            let armor_model = armor_model_id.and_then(|id| self.get_string_non_0(id));
-            let hierarchy = hierarchy_id
-                .map(|id| id.symbol())
-                .and_then(|id| self.get_string_non_0(id));
-            let head_model = head_model_id
-                .map(|id| id.symbol())
-                .and_then(|id| self.get_string_non_0(id));
+            // The armor id is an item instance symbol, its name must match
+            // the item instance names used by the `armor_visual` lookup
+            let armor_model = armor_model_id.and_then(|id| self.get_string_non_0(id.value()));
+            let hierarchy = hierarchy_id.and_then(|id| self.get_show_string(id));
+            let head_model = head_model_id.and_then(|id| self.get_show_string(id));
 
             // Sometimes there is model "Hum_Head_Babe." (dot at the end), engine or scripts bug?
             let head_model = head_model.map(|el| {
+                let el = el.into_string();
                 if !el.contains('.') {
                     return el;
                 }
@@ -706,7 +723,7 @@ impl ScriptManager {
             entry.head_model = head_model;
             entry.face_texture = face_texture;
             entry.armor_model = armor_model;
-            entry.hierarchy = hierarchy;
+            entry.hierarchy = hierarchy.map(|hierarchy| hierarchy.into_string());
         }
     }
 }

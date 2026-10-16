@@ -13,6 +13,7 @@ use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{SpawnItem, SpawnNpc};
+use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::waypoint_graph::Spots;
 use crate::zengin::world::{
     item_model_path, load_zengin_world_data, mesh_model_path, normalize_mesh_name,
@@ -231,8 +232,8 @@ struct NpcSpawnScript {
     model_fatness: Option<f32>,
     /// Waypoint of the routine entry active at spawn time, takes precedence
     /// over the spawn location.
-    routine_way_point: Option<String>,
-    location_name: Option<String>,
+    routine_way_point: Option<StringCanon>,
+    location_name: Option<StringCanon>,
 }
 
 fn npc_spawn_script_data(
@@ -242,11 +243,10 @@ fn npc_spawn_script_data(
 ) -> Option<NpcSpawnScript> {
     let mut script = scripts.lock();
     // Resolve the location string first, the instance state borrow below is
-    // immutable while `get_string_non_0` needs `&mut`
+    // immutable while `get_canon_string` needs `&mut`
     let location_name = spawn
         .location_name
-        .and_then(|id| script.get_string_non_0(id.symbol()))
-        .map(|name| name.to_lowercase());
+        .and_then(|id| script.get_canon_string(id));
     let state = script.get_loaded_state();
     let instance = state.npc_instances.get(&spawn.instance_id)?;
     let routine_way_point = instance
@@ -301,7 +301,10 @@ fn spawn_npc_entities(
                     .routine_way_point
                     .or(script.location_name)
                     .unwrap_or_default();
-                let tr = way_points.points.get(&name).or_else(|| spots.0.get(&name));
+                let tr = way_points
+                    .points
+                    .get(name.as_str())
+                    .or_else(|| spots.0.get(name.as_str()));
                 let Some(tr) = tr else {
                     warn!(
                         "No location found for npc({}) on({})",
@@ -404,22 +407,22 @@ fn spawn_item_entities(
         let waypoint_tr = if let Some(tr) = spawn.transform {
             tr
         } else if let Some(waypoint_id) = spawn.location_name {
-            let location_name = gothic_scripts
-                .lock()
-                .get_string_non_0(waypoint_id.symbol())
-                .unwrap()
-                .to_lowercase();
-            let waypoint_tr = if let Some(waypoint_tr) = way_points.points.get(&location_name) {
-                *waypoint_tr
-            } else if let Some(waypoint_tr) = spots.0.get(&location_name) {
-                *waypoint_tr
-            } else {
-                warn!(
-                    "No location found for item({}) on({})",
-                    spawn.instance_id, location_name
-                );
+            let Some(location_name) = gothic_scripts.lock().get_canon_string(waypoint_id) else {
+                warn!("Empty location for item({})", spawn.instance_id);
                 continue;
             };
+            let waypoint_tr =
+                if let Some(waypoint_tr) = way_points.points.get(location_name.as_str()) {
+                    *waypoint_tr
+                } else if let Some(waypoint_tr) = spots.0.get(location_name.as_str()) {
+                    *waypoint_tr
+                } else {
+                    warn!(
+                        "No location found for item({}) on({})",
+                        spawn.instance_id, location_name
+                    );
+                    continue;
+                };
 
             // let Some(waypoint_tr) = way_points.points.get(&waypoint_name) else {
             //     warn!(

@@ -4,6 +4,7 @@ pub mod host;
 pub mod library;
 pub mod manager;
 pub mod state;
+pub mod string_value;
 pub mod symbol_id;
 
 use bevy::prelude::*;

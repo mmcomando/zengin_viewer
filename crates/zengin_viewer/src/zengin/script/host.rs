@@ -48,6 +48,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .or_default();
         entry.body_model_id = self.symbol_table.string(body_model);
         entry.head_model_id = self.symbol_table.string(head_model);
+        // The armor argument is an item instance symbol, not a string literal
         entry.armor_model_id = SymbolId::new(armor_model);
         entry.face_texture_index = face_texture_index;
         entry.body_texture_index = body_texture_index;

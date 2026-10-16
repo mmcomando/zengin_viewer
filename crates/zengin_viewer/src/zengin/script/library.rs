@@ -1,3 +1,4 @@
+use bevy::log::warn;
 use wasmtime::AsContextMut;
 
 use super::bindings::mmcomando;
@@ -5,23 +6,49 @@ use super::manager::ScriptImports;
 use super::state::{
     DialogLine, DialogRoot, ImportCallState, RoutineEntry, RoutineEntryChange, SpawnNpc,
 };
-use super::symbol_id::{InstanceId, SymbolId};
+use super::string_value::{ShowString, StringCanon};
+use super::symbol_id::{InstanceId, StringId};
 use crate::zengin::common::to_zengin_units;
 use crate::zengin::script::state::SpawnItem;
 
 impl ScriptImports {
+    /// Fetches the string content of a raw string table entry, `None` when the
+    /// entry is empty (scripts produce many empty strings, see the todo in
+    /// `ScriptManager::get_string_non_0`)
     fn get_string_non_0(
         access: &mut wasmtime::component::Access<'_, ImportCallState, ScriptImports>,
-        string_id: SymbolId,
+        raw: i32,
     ) -> Option<String> {
         let world = access.get().world.clone().unwrap();
         let store_context = access.as_context_mut();
         let string = world
             .mmcomando_zengine_scripts_manage()
-            .call_get_name(store_context, string_id.value())
+            .call_get_name(store_context, raw)
             .unwrap();
         // .ok()?;
+        if string.is_empty() {
+            return None;
+        }
         Some(string)
+    }
+
+    /// Fetches a static string literal with its original case
+    fn get_show_string(
+        access: &mut wasmtime::component::Access<'_, ImportCallState, ScriptImports>,
+        id: StringId,
+    ) -> Option<ShowString> {
+        let string = Self::get_string_non_0(access, id.value())?;
+        Some(ShowString::new(string))
+    }
+
+    /// Fetches a static string literal as a canonical (lowercased) lookup key,
+    /// for names matched case-insensitively (waypoints, spots)
+    fn get_canon_string(
+        access: &mut wasmtime::component::Access<'_, ImportCallState, ScriptImports>,
+        id: StringId,
+    ) -> Option<StringCanon> {
+        let string = Self::get_string_non_0(access, id.value())?;
+        Some(StringCanon::new(string))
     }
 
     /// Binds the given instance for an engine driven invocation of its
@@ -121,9 +148,9 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let Some(way_point) = access.data_mut().symbol_table.string(way_point) else {
             return;
         };
-        let way_point = Self::get_string_non_0(&mut access, way_point.symbol())
-            .unwrap()
-            .to_lowercase();
+        let Some(way_point) = Self::get_canon_string(&mut access, way_point) else {
+            return;
+        };
 
         let routine_entry = RoutineEntry {
             start_h: start_h.max(0) as u32,
@@ -160,7 +187,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let Some(ani_id) = access.data_mut().symbol_table.string(ani_id) else {
             return;
         };
-        let Some(ani) = Self::get_string_non_0(&mut access, ani_id.symbol()) else {
+        let Some(ani) = Self::get_show_string(&mut access, ani_id) else {
             return;
         };
         let state = access.data_mut();
@@ -170,7 +197,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
             .entry(npc_index)
             .or_default()
             .routine_played_anis
-            .push(ani);
+            .push(StringCanon::new(ani.string()));
     }
 
     fn ai_playanibs(
@@ -185,7 +212,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let Some(ani_id) = access.data_mut().symbol_table.string(ani_id) else {
             return;
         };
-        let Some(ani) = Self::get_string_non_0(&mut access, ani_id.symbol()) else {
+        let Some(ani) = Self::get_show_string(&mut access, ani_id) else {
             return;
         };
         let state = access.data_mut();
@@ -195,7 +222,7 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
             .entry(npc_index)
             .or_default()
             .routine_played_anis
-            .push(ani);
+            .push(StringCanon::new(ani.string()));
     }
 
     fn ai_output(
@@ -213,18 +240,18 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let Some(line_id) = access.data_mut().symbol_table.string(line_id) else {
             return;
         };
-        let line_str = Self::get_string_non_0(&mut access, line_id.symbol())
-            .unwrap()
-            .to_lowercase();
-        // println!(
-        //     "ai_output npc_a({npc_a}), npc_b({npc_b}), line_id({line_id}), line_str({line_str})"
-        // );
+        let Some(line) = Self::get_show_string(&mut access, line_id) else {
+            warn!(
+                "ai_output with empty line string, npc_a({npc_a}), npc_b({npc_b}), line_id({line_id})"
+            );
+            return;
+        };
         let state = access.data_mut();
         state.pending_dialog_lines.push(DialogLine {
             npc_a,
             npc_b,
             line_id,
-            line_str,
+            line_str: StringCanon::new(line.string()),
         });
     }
 
@@ -244,17 +271,17 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let Some(mob_name_id) = access.data_mut().symbol_table.string(mob_name_id) else {
             return 0;
         };
-        let Some(mob) = Self::get_string_non_0(&mut access, mob_name_id.symbol()) else {
+        let Some(mob) = Self::get_show_string(&mut access, mob_name_id) else {
             return 0;
         };
-        let ani = format!("S_{}_S{state}", mob.to_uppercase());
+        let ani = format!("S_{}_S{state}", mob.string().to_uppercase());
         let data = access.data_mut();
         data.loaded_state
             .npc_instances
             .entry(npc_index)
             .or_default()
             .routine_played_anis
-            .push(ani);
+            .push(StringCanon::new(ani));
         0
     }
 
@@ -271,8 +298,9 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let Some(function_id) = access.data_mut().symbol_table.function(function_id) else {
             return;
         };
-        let description =
-            Self::get_string_non_0(&mut access, description_text_id.symbol()).unwrap_or_default();
+        let description = Self::get_show_string(&mut access, description_text_id)
+            .map(|description| description.into_string())
+            .unwrap_or_default();
 
         let state = access.data_mut();
         let order = state.pending_sub_dialog_choices.len() as i32;
@@ -300,9 +328,15 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let Some(b) = access.data_mut().symbol_table.string(b) else {
             return 0;
         };
-        let a = Self::get_string_non_0(&mut access, a.symbol());
-        let b = Self::get_string_non_0(&mut access, b.symbol());
-        (a == b) as i32
+        let a = Self::get_show_string(&mut access, a);
+        let b = Self::get_show_string(&mut access, b);
+        match (a, b) {
+            // Both empty compares equal, like the previous `Option<String>`
+            // equality did
+            (None, None) => 1,
+            (Some(a), Some(b)) => (a.string() == b.string()) as i32,
+            _ => 0,
+        }
     }
 
     /// Distance from the npc to a named waypoint in engine units. The engine
@@ -318,13 +352,12 @@ impl mmcomando::zengine_scripts::scripts::HostWithStore<ImportCallState> for Scr
         let Some(wp_name) = access.data_mut().symbol_table.string(wp_name) else {
             return i32::MAX;
         };
-        let Some(wp_name) = Self::get_string_non_0(&mut access, wp_name.symbol()) else {
+        let Some(wp_name) = Self::get_canon_string(&mut access, wp_name) else {
             return i32::MAX;
         };
-        let wp_name = wp_name.to_lowercase();
 
         let data = access.get();
-        let Some(target) = data.way_points.get(&wp_name).copied() else {
+        let Some(target) = data.way_points.get(wp_name.as_str()).copied() else {
             return i32::MAX;
         };
         let Some(position) = data

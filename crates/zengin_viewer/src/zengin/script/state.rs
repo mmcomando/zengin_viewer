@@ -9,6 +9,7 @@ use rand_mt::Mt;
 
 use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
+use super::string_value::StringCanon;
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 
 #[derive(Debug, Default, Clone, PartialEq, Component)]
@@ -17,7 +18,8 @@ pub struct RoutineEntry {
     pub start_m: u32,
     pub stop_h: u32,
     pub stop_m: u32,
-    pub way_point: String,
+    /// Canonical (lowercased) waypoint name the entry points at
+    pub way_point: StringCanon,
     /// Symbol of the routine state function (`ZS_*`), `None` when the state
     /// has no function.
     pub state_fn: Option<FunctionId>,
@@ -141,7 +143,7 @@ pub struct NpcInstanceState {
 
     /// Animations requested via `AI_PlayAni(BS)` by the last executed routine
     /// state function, in request order.
-    pub routine_played_anis: Vec<String>,
+    pub routine_played_anis: Vec<StringCanon>,
 
     /// State time (seconds) set via `NPC_SetStateTime`.
     pub state_time: i32,
@@ -252,7 +254,9 @@ pub struct DialogLine {
     pub npc_a: InstanceId,
     pub npc_b: InstanceId,
     pub line_id: StringId,
-    pub line_str: String,
+    /// Canonical (lowercased) name of the cutscene block referenced by the
+    /// line, used to look up the real text and the sound file
+    pub line_str: StringCanon,
 }
 
 /// Kind of every loaded symbol, keyed by symbol id. Used to verify typed
@@ -303,7 +307,7 @@ impl SymbolTable {
         if raw < self.symbols_count {
             return None;
         }
-        SymbolId::new(raw).map(StringId::from_symbol)
+        StringId::new(raw)
     }
 }
 

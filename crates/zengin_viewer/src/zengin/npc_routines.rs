@@ -14,6 +14,7 @@ use crate::zengin::common::{
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{AlignToWpChange, GotoChange, RoutineEntry, WeaponMode};
+use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use crate::zengin::script_bridge::ScriptChangesApplied;
 use crate::zengin::waypoint_graph::WaypointGraph;
@@ -33,7 +34,7 @@ const NPC_BODY_Y_OFFSET: f32 = -0.5;
 #[derive(Component)]
 struct NpcRoutineState {
     /// Waypoint the npc was last assigned to by a routine check
-    assigned_waypoint: String,
+    assigned_waypoint: StringCanon,
 }
 
 #[derive(Component, Default)]
@@ -139,7 +140,7 @@ fn update_npc_routines(
             continue;
         }
         state.assigned_waypoint = entry.way_point.clone();
-        let Some(waypoint_tr) = way_points.points.get(&entry.way_point) else {
+        let Some(waypoint_tr) = way_points.points.get(entry.way_point.as_str()) else {
             crate::warn_once!(
                 "routine waypoint not found, npc({}), waypoint({})",
                 npc.npc_instance_id,
@@ -150,7 +151,7 @@ fn update_npc_routines(
 
         // Walk to the waypoint over the graph; teleport when no path exists
         if let (Some(target), Some(start)) = (
-            graph.node_by_name(&entry.way_point),
+            graph.node_by_name(entry.way_point.as_str()),
             graph.nearest_node(tr.translation),
         ) && let Some(path) = graph.shortest_path(start, target)
         {
@@ -259,14 +260,15 @@ const STANDING_ANIMATION: &str = "S_RUN";
 /// by the pose idle itself (`S_Y`). States that request no animation
 /// (`played_anis` empty) leave the npc in the default standing body state, so
 /// they fall back to the scheme standing idle (`stand_animation`) too.
-fn choose_routine_animation(played_anis: &[String], stand_animation: &str) -> String {
+fn choose_routine_animation(played_anis: &[StringCanon], stand_animation: &str) -> String {
     let Some(ani) = played_anis.first() else {
         return stand_animation.to_string();
     };
-    match ani.rsplit_once("_2_") {
-        Some((_, "STAND")) => stand_animation.to_string(),
-        Some((_, pose)) => format!("S_{pose}"),
-        None => ani.clone(),
+    // Requested ani names are canonically lowercased, poses compare lowercase
+    match ani.as_str().rsplit_once("_2_") {
+        Some((_, "stand")) => stand_animation.to_string(),
+        Some((_, pose)) => format!("S_{}", pose.to_uppercase()),
+        None => ani.as_str().to_string(),
     }
 }
 

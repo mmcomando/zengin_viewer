@@ -358,7 +358,7 @@ fn build_line_views(
                     line.npc_a, line.npc_b, line.line_id, line.line_str
                 );
             }
-            let sound_path = get_dialog_sound_path(&line.line_str);
+            let sound_path = get_dialog_sound_path(line.line_str.as_str());
             let sound_duration = speech_sounds.duration(&sound_path);
             DialogLineView {
                 text,

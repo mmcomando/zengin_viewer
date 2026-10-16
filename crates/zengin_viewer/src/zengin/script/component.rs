@@ -1,4 +1,5 @@
 use crate::zengin::GameNpc;
+use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{common::gothic2_dir, script::manager::ScriptManager};
 use bevy::ecs::resource::Resource;
 use bevy::log::info;
@@ -86,11 +87,11 @@ fn load_gothic_script_manager() -> ScriptManager {
 /// Script `AI_Output` references the blocks by the string literal passed to it.
 #[derive(Resource, Default)]
 pub struct DialogTexts {
-    texts: HashMap<String, String>,
+    texts: HashMap<StringCanon, String>,
 }
 
 impl DialogTexts {
-    pub fn get(&self, block_name: &str) -> Option<&String> {
+    pub fn get(&self, block_name: &StringCanon) -> Option<&String> {
         self.texts.get(block_name)
     }
 }
@@ -114,7 +115,7 @@ fn load_dialog_texts() -> DialogTexts {
         let Some(message) = block.message() else {
             continue;
         };
-        texts.insert(block.name().to_lowercase(), message.text());
+        texts.insert(StringCanon::new(block.name()), message.text());
     }
 
     DialogTexts { texts }
