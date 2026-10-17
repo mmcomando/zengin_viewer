@@ -699,7 +699,6 @@ impl ScriptManager {
             // The armor id is an item instance symbol, its name must match
             // the item instance names used by the `armor_visual` lookup
             let armor_model = armor_model_id.and_then(|id| self.get_string_non_0(id.value()));
-            dbg!(&armor_model);
             let hierarchy = hierarchy_id.and_then(|id| self.get_show_string(id));
             let head_model = head_model_id.and_then(|id| self.get_show_string(id));
 

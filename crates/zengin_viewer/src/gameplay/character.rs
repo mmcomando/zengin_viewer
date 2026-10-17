@@ -55,6 +55,13 @@ fn use_character_camera(info: Res<CameraResource>) -> bool {
 )]
 pub struct CharacterController;
 
+/// Collision layer bit for colliders that exist only to be found by explicit
+/// spatial queries (like npc selection), they must never block or carry the
+/// character controller: [`move_and_slide`] and [`update_grounded`] mask this
+/// layer out of their query filters.
+/// See also [`crate::zengin::zengin_resources::SELECTABLE`].
+pub const QUERY_ONLY_LAYER: u32 = 1 << 3;
+
 /// Marks the player physics body entity driven by [`CharacterController`].
 #[derive(Default, Component)]
 pub struct PlayerPhysicsBodyMarker;
@@ -183,7 +190,7 @@ fn update_grounded(
             rotation,
             global_transform.down(),
             &ShapeCastConfig::from_max_distance(ground_detection.max_distance),
-            &SpatialQueryFilter::from_excluded_entities([entity]),
+            &SpatialQueryFilter::from_excluded_entities([entity]).with_mask(!QUERY_ONLY_LAYER),
         );
 
         // The character is grounded if we hit a surface that isn't too steep
@@ -328,7 +335,7 @@ pub fn move_and_slide(
             lin_vel.0,
             time.delta(),
             &MoveAndSlideConfig::default(),
-            &SpatialQueryFilter::from_excluded_entities([entity]),
+            &SpatialQueryFilter::from_excluded_entities([entity]).with_mask(!QUERY_ONLY_LAYER),
             |hit| {
                 // This callback is called for each surface we collide with during move-and-slide.
                 // In this example, we use it to customize collision behavior for ground surfaces,

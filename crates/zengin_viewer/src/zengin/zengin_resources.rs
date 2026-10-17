@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bevy::asset::AssetId;
 
+use crate::gameplay::character::QUERY_ONLY_LAYER;
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::graphics::animation::AnimationData;
 use crate::zengin::common::ZenGinModel;
@@ -45,7 +46,7 @@ pub const STATIC_OBJECT: u32 = 1 << 1;
 pub const DYNAMIC_OBJECT: u32 = 1 << 2;
 /// Collision layer of colliders that only exist for spatial queries (selection),
 /// they collide with nothing.
-pub const SELECTABLE: u32 = 1 << 3;
+pub const SELECTABLE: u32 = QUERY_ONLY_LAYER;
 
 /// Adding this component will spawn child entities with 3d meshes contained in `model_handle`
 #[derive(Component, Default)]
