@@ -4,7 +4,7 @@ use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
-use crate::input::actions::{GlobalInputMapMarker, PlayerAction};
+use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
 /// with support for ground detection and configurable movement settings.
@@ -147,11 +147,11 @@ pub struct CharacterCollision {
 /// Toggles between the free camera and the character camera.
 fn camera_toggle_input(
     mut info: ResMut<CameraResource>,
-    action_state: Single<&ActionState<PlayerAction>, With<GlobalInputMapMarker>>,
+    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
     camera_query: Query<&Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
     mut player_query: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
 ) {
-    if action_state.just_pressed(&PlayerAction::ToggleCharacterCamera) {
+    if action_state.just_pressed(&DebugAction::ToggleCharacterCamera) {
         let next_camera = match info.current_camera {
             CurrentCamera::Free => CurrentCamera::ThirdPerson,
             CurrentCamera::ThirdPerson => CurrentCamera::Free,
@@ -208,10 +208,10 @@ fn update_grounded(
     }
 }
 
-/// Responds to the movement [`PlayerAction`]s and moves character controllers accordingly.
+/// Responds to the movement [`GameplayAction`]s and moves character controllers accordingly.
 fn movement(
     time: Res<Time>,
-    action_state: Single<&ActionState<PlayerAction>, With<GlobalInputMapMarker>>,
+    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut controllers: Query<(
         &CharacterMovementSettings,
         &mut LinearVelocity,
@@ -223,10 +223,10 @@ fn movement(
 
     // Keyboard D-pads and the gamepad stick are summed, so clamp to unit length.
     let direction = action_state
-        .axis_pair(&PlayerAction::Move)
+        .axis_pair(&GameplayAction::Move)
         .clamp_length_max(1.0);
     let is_moving = direction.length_squared() >= 0.1;
-    let jump_pressed = action_state.just_pressed(&PlayerAction::Jump);
+    let jump_pressed = action_state.just_pressed(&GameplayAction::Jump);
 
     for (movement, mut linear_velocity, tr, is_grounded) in &mut controllers {
         if is_moving {

@@ -1,51 +1,145 @@
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-/// Path of the input profile, relative to the working directory
+/// Directory of the input profiles, relative to the working directory
 /// (the same `assets` folder the [`bevy::asset::AssetServer`] reads from).
-const INPUT_PROFILE_PATH: &str = "crates/zengin_viewer/assets/input_bindings.ron";
+const INPUT_PROFILE_DIR: &str = "crates/zengin_viewer/assets";
 
-/// Adds [`leafwing_input_manager`] and spawns the global input entity with the
-/// input profile loaded from [`INPUT_PROFILE_PATH`], falling back to the
+/// Adds [`leafwing_input_manager`] with one input map per action group and
+/// spawns the global input entities with the profiles loaded from the RON
+/// files in [`INPUT_PROFILE_DIR`], falling back to the built-in defaults when
+/// a file is missing or invalid.
 pub struct ActionsPlugin;
 
 impl Plugin for ActionsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(InputManagerPlugin::<PlayerAction>::default());
-        app.add_systems(Startup, spawn_input_map);
+        app.init_resource::<InputMode>();
+        app.add_plugins((
+            InputManagerPlugin::<GameplayAction>::default(),
+            InputManagerPlugin::<GuiAction>::default(),
+            InputManagerPlugin::<DebugAction>::default(),
+        ));
+        app.add_systems(Startup, spawn_input_maps);
+        app.add_systems(Update, update_input_mode);
     }
 }
 
-/// Marker for the entity holding the global [`InputMap`] (and its required
-/// [`ActionState`]) used by all gameplay and UI systems.
-#[derive(Component)]
-pub struct GlobalInputMapMarker;
+/// Which input map is currently active.
+///
+/// [`DebugAction`] is always enabled; [`GameplayAction`] is enabled in
+/// [`InputMode::Gameplay`] and [`GuiAction`] in [`InputMode::Gui`].
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputMode {
+    #[default]
+    Gameplay,
+    Gui,
+}
 
-/// The logical actions of the game, independent of the input device.
+/// Marker for the entity holding the gameplay [`InputMap`] (and its required
+/// [`ActionState`]).
+#[derive(Component)]
+pub struct GameplayInputMarker;
+
+/// Marker for the entity holding the GUI navigation [`InputMap`] (and its
+/// required [`ActionState`]).
+#[derive(Component)]
+pub struct GuiInputMarker;
+
+/// Marker for the entity holding the debug [`InputMap`] (and its required
+/// [`ActionState`]). Debug input is always enabled.
+#[derive(Component)]
+pub struct DebugInputMarker;
+
+/// Actions controlling the character during gameplay.
 ///
 /// Buttonlike is the default control kind; variants with a different kind are
 /// annotated with `#[actionlike(...)]`.
 #[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize)]
-pub enum PlayerAction {
+pub enum GameplayAction {
     /// Movement direction from WASD, the arrow keys, or the left gamepad stick.
     #[actionlike(DualAxis)]
     Move,
     Jump,
-    ToggleCharacterCamera,
+    /// Talk to the selected npc or pick up the selected item.
+    Interact,
+    /// Open the player inventory UI.
+    OpenInventory,
+}
+
+/// Actions used to navigate menus and other UI.
+#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize)]
+pub enum GuiAction {
+    /// Move the selection up.
+    Up,
+    /// Move the selection down.
+    Down,
+    /// Confirm the selected entry.
+    Confirm,
+    /// Close the current view or skip the currently played content.
+    CancelAction,
+}
+
+/// Debug helper actions, always available regardless of [`InputMode`].
+#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize)]
+pub enum DebugAction {
     TeleportOrigin,
     TeleportAway,
+    /// Toggle between the free camera and the character camera.
+    ToggleCharacterCamera,
+    /// Kill the selected npc.
+    KillSelected,
 }
 
-fn spawn_input_map(mut commands: Commands) {
-    let input_map = load_input_profile().unwrap();
-    commands.spawn((GlobalInputMapMarker, input_map));
+fn spawn_input_maps(mut commands: Commands) {
+    let gameplay_map = load_input_profile::<GameplayAction>("input_bindings_gameplay.ron")
+        .unwrap_or_else(|error| {
+            warn!("Falling back to default gameplay input map: {error}");
+            InputMap::default()
+        });
+    let gui_map =
+        load_input_profile::<GuiAction>("input_bindings_gui.ron").unwrap_or_else(|error| {
+            warn!("Falling back to default GUI input map: {error}");
+            InputMap::default()
+        });
+    let debug_map =
+        load_input_profile::<DebugAction>("input_bindings_debug.ron").unwrap_or_else(|error| {
+            warn!("Falling back to default debug input map: {error}");
+            InputMap::default()
+        });
+    commands.spawn((GameplayInputMarker, gameplay_map));
+    commands.spawn((GuiInputMarker, gui_map));
+    commands.spawn((DebugInputMarker, debug_map));
 }
 
-/// Loads the input profile from [`INPUT_PROFILE_PATH`].
-fn load_input_profile() -> Result<InputMap<PlayerAction>, String> {
-    let contents = std::fs::read_to_string(INPUT_PROFILE_PATH)
-        .map_err(|error| format!("failed to read {INPUT_PROFILE_PATH}: {error}"))?;
-    ron::de::from_str(&contents)
-        .map_err(|error| format!("failed to parse {INPUT_PROFILE_PATH}: {error}"))
+/// Enables and disables action groups based on [`InputMode`].
+///
+/// The debug group is never touched, so it stays always enabled.
+fn update_input_mode(
+    input_mode: Res<InputMode>,
+    mut gameplay: Single<&mut ActionState<GameplayAction>, With<GameplayInputMarker>>,
+    mut gui: Single<&mut ActionState<GuiAction>, With<GuiInputMarker>>,
+) {
+    match *input_mode {
+        InputMode::Gameplay => {
+            gui.disable_all_actions();
+            gameplay.enable_all_actions();
+        }
+        InputMode::Gui => {
+            gameplay.disable_all_actions();
+            gui.enable_all_actions();
+        }
+    }
+}
+
+/// Loads an input profile from [`INPUT_PROFILE_DIR`].
+fn load_input_profile<A>(file_name: &str) -> Result<InputMap<A>, String>
+where
+    A: Actionlike + Serialize + DeserializeOwned,
+{
+    let path = format!("{INPUT_PROFILE_DIR}/{file_name}");
+    let contents = std::fs::read_to_string(&path)
+        .map_err(|error| format!("failed to read {path}: {error}"))?;
+    ron::de::from_str(&contents).map_err(|error| format!("failed to parse {path}: {error}"))
 }

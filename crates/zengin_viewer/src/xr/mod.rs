@@ -17,7 +17,7 @@ use bevy_xr_utils::transform_utils::{SnapToPosition, TransformUtilitiesPlugin};
 use leafwing_input_manager::prelude::ActionState;
 use std::sync::OnceLock;
 
-use crate::input::actions::{GlobalInputMapMarker, PlayerAction};
+use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
 
 pub fn is_xr_enabled() -> bool {
     static XR_ENABLED_STATIC: OnceLock<bool> = OnceLock::new();
@@ -90,17 +90,17 @@ impl Plugin for XrPlugin {
 /// Matches the character controller's top speed (acceleration / damping = 35 / 10).
 const XR_MOVE_SPEED: f32 = 3.5;
 
-/// Moves the XR camera by moving the [`XrTrackingRoot`] with [`PlayerAction::Move`],
+/// Moves the XR camera by moving the [`XrTrackingRoot`] with [`GameplayAction::Move`],
 /// relative to the current head yaw.
 fn move_camera(
     time: Res<Time>,
-    action_state: Single<&ActionState<PlayerAction>, With<GlobalInputMapMarker>>,
+    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut root: Single<&mut Transform, With<XrTrackingRoot>>,
     views: Res<OxrViews>,
 ) {
     // Keyboard D-pads and the gamepad stick are summed, so clamp to unit length.
     let direction = action_state
-        .axis_pair(&PlayerAction::Move)
+        .axis_pair(&GameplayAction::Move)
         .clamp_length_max(1.0);
     if direction.length_squared() < 0.1 {
         return;
@@ -123,13 +123,13 @@ fn move_camera(
 }
 
 fn teleport(
-    action_state: Single<&ActionState<PlayerAction>, With<GlobalInputMapMarker>>,
+    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
     mut event_writer: MessageWriter<SnapToPosition>,
 ) {
-    if action_state.just_pressed(&PlayerAction::TeleportOrigin) {
+    if action_state.just_pressed(&DebugAction::TeleportOrigin) {
         event_writer.write(SnapToPosition(Vec3::new(0.0, 0.0, 0.0)));
     }
-    if action_state.just_pressed(&PlayerAction::TeleportAway) {
+    if action_state.just_pressed(&DebugAction::TeleportAway) {
         event_writer.write(SnapToPosition(Vec3::new(10.0, 10.0, 10.0)));
     }
 }

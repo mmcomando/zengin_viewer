@@ -5,6 +5,7 @@ use crate::audio::sound_manager::PlaySound;
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
+use crate::input::actions::{GameplayAction, GameplayInputMarker, InputMode};
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::script::component::{DialogTexts, ScriptResource};
@@ -16,6 +17,7 @@ use crate::zengin::selection::{Selection, SelectionKind};
 use crate::zengin::sounds::SpeechSounds;
 use bevy::log::{info, warn};
 use bevy::prelude::*;
+use leafwing_input_manager::prelude::ActionState;
 use state::{DialogLineView, DialogOptionView, DialogRequest, DialogUiState};
 
 pub struct GameDialogPlugin;
@@ -44,16 +46,33 @@ impl Plugin for GameDialogPlugin {
         );
         app.add_systems(
             Update,
-            (handle_dialog_outputs, aim_dialog_camera, ui::sync_dialog_ui)
+            (
+                handle_dialog_outputs,
+                aim_dialog_camera,
+                ui::sync_dialog_ui,
+                sync_input_mode,
+            )
                 .chain()
                 .after(ScriptChangesApplied),
         );
     }
 }
 
+/// While a dialog is open the input mode is GUI navigation, otherwise gameplay.
+fn sync_input_mode(dialog_ui: Res<DialogUiState>, mut input_mode: ResMut<InputMode>) {
+    let mode = if dialog_ui.is_open() {
+        InputMode::Gui
+    } else {
+        InputMode::Gameplay
+    };
+    if *input_mode != mode {
+        *input_mode = mode;
+    }
+}
+
 /// Opens the dialog of the currently selected npc on demand
 fn show_closest_npc_dialog(
-    keys: Res<ButtonInput<KeyCode>>,
+    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     selection: Res<Selection>,
     dialog_ui: Res<DialogUiState>,
     mut camera_info: ResMut<CameraResource>,
@@ -66,8 +85,7 @@ fn show_closest_npc_dialog(
         return;
     }
 
-    // TODO action instead of key
-    if !keys.just_pressed(KeyCode::KeyE) {
+    if !action_state.just_pressed(&GameplayAction::Interact) {
         return;
     }
 

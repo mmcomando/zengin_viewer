@@ -1,11 +1,3 @@
-// Input profile for ZenGinViewer.
-//
-// Maps the actions defined in `src/input.rs` (`PlayerAction`) to concrete inputs.
-// This file is loaded at startup; if it is missing or invalid, the game falls
-// back to the built-in defaults in `PlayerAction::default_input_map`.
-//
-// The format is the serde representation of `leafwing_input_manager::InputMap`.
-// Each boxed input is externally tagged, e.g. `{"KeyCode": Space}`.
 (
     buttonlike_map: {
         Jump: [
@@ -16,19 +8,14 @@
                 "GamepadButton": South,
             },
         ],
-        ToggleCharacterCamera: [
+        Interact: [
             {
-                "KeyCode": Digit0,
+                "KeyCode": KeyE,
             },
         ],
-        TeleportOrigin: [
+        OpenInventory: [
             {
-                "KeyCode": Digit1,
-            },
-        ],
-        TeleportAway: [
-            {
-                "KeyCode": Digit2,
+                "KeyCode": KeyP,
             },
         ],
     },

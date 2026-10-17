@@ -1,0 +1,28 @@
+(
+    buttonlike_map: {
+        TeleportOrigin: [
+            {
+                "KeyCode": Digit1,
+            },
+        ],
+        TeleportAway: [
+            {
+                "KeyCode": Digit2,
+            },
+        ],
+        ToggleCharacterCamera: [
+            {
+                "KeyCode": Digit0,
+            },
+        ],
+        KillSelected: [
+            {
+                "KeyCode": KeyK,
+            },
+        ],
+    },
+    axislike_map: {},
+    dual_axislike_map: {},
+    triple_axislike_map: {},
+    associated_gamepad: None,
+)

@@ -1,0 +1,34 @@
+(
+    buttonlike_map: {
+        Up: [
+            {
+                "KeyCode": ArrowUp,
+            },
+            {
+                "KeyCode": KeyW,
+            },
+        ],
+        Down: [
+            {
+                "KeyCode": ArrowDown,
+            },
+            {
+                "KeyCode": KeyR,
+            },
+        ],
+        Confirm: [
+            {
+                "KeyCode": Enter,
+            },
+        ],
+        CancelAction: [
+            {
+                "KeyCode": Space,
+            },
+        ],
+    },
+    axislike_map: {},
+    dual_axislike_map: {},
+    triple_axislike_map: {},
+    associated_gamepad: None,
+)

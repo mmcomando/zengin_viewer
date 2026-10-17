@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::game_log::{GameLog, GameLogEntry};
+use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
 use crate::zengin::npc_routines::NpcEquippedWeapon;
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
@@ -12,6 +13,7 @@ use crate::zengin::selection::{Selection, SelectionKind};
 use crate::zengin::world::item_model_path;
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 use crate::zengin::{GameItem, GameNpc, ZenginVfs};
+use leafwing_input_manager::prelude::ActionState;
 
 pub struct PlayerInteractionPlugin;
 
@@ -65,7 +67,7 @@ fn handle_transfer_items(
 /// as a pickable item, and the npc entity is despawned.
 #[allow(clippy::too_many_arguments)]
 fn kill_selected_npc(
-    keys: Res<ButtonInput<KeyCode>>,
+    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
     mut selection: ResMut<Selection>,
     mut transfer_items: MessageWriter<TransferItems>,
     gothic_scripts: Res<ScriptResource>,
@@ -76,7 +78,7 @@ fn kill_selected_npc(
     npcs: Query<(&GameNpc, &GlobalTransform, Option<&NpcEquippedWeapon>), Without<PlayerCharacter>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
-    if !keys.just_pressed(KeyCode::KeyK) {
+    if !action_state.just_pressed(&DebugAction::KillSelected) {
         return;
     }
     if selection.kind != Some(SelectionKind::Npc) {
@@ -135,7 +137,7 @@ fn kill_selected_npc(
 /// Picks up the selected item on `E`: it is added to the player's inventory
 /// (logged bottom-left) and its world entity is despawned.
 fn pickup_selected_item(
-    keys: Res<ButtonInput<KeyCode>>,
+    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut selection: ResMut<Selection>,
     mut game_log: ResMut<GameLog>,
     gothic_script: Res<ScriptResource>,
@@ -143,7 +145,7 @@ fn pickup_selected_item(
     items: Query<&GameItem>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
-    if !keys.just_pressed(KeyCode::KeyE) {
+    if !action_state.just_pressed(&GameplayAction::Interact) {
         return;
     }
     if selection.kind != Some(SelectionKind::Item) {
@@ -179,13 +181,14 @@ fn pickup_selected_item(
 }
 
 /// Prints the whole player inventory into the item log on `P`.
+/// Renamed to `OpenInventory`: later this will open the inventory UI.
 fn print_player_items(
-    keys: Res<ButtonInput<KeyCode>>,
+    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut game_log: ResMut<GameLog>,
     gothic_script: Res<ScriptResource>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
-    if !keys.just_pressed(KeyCode::KeyP) {
+    if !action_state.just_pressed(&GameplayAction::OpenInventory) {
         return;
     }
     let Ok(player_npc) = player_npc.single() else {

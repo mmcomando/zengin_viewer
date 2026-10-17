@@ -1,6 +1,8 @@
 use crate::audio::sound_manager::{PlaySound, SoundManager};
+use crate::input::actions::{GuiAction, GuiInputMarker};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId, StringId};
 use bevy::prelude::*;
+use leafwing_input_manager::prelude::ActionState;
 use std::time::Duration;
 
 /// How long a single dialog line is displayed during playback
@@ -365,7 +367,7 @@ impl DialogUiState {
 /// Options mode input: navigation and activation. In lines mode space ends
 /// the current line early
 pub(super) fn handle_dialog_input(
-    keys: Res<ButtonInput<KeyCode>>,
+    action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut requests: MessageWriter<DialogRequest>,
     mut sounds: MessageWriter<PlaySound>,
@@ -377,20 +379,20 @@ pub(super) fn handle_dialog_input(
     }
 
     if !dialog_ui.is_showing_options() {
-        if keys.just_pressed(KeyCode::Space) {
+        if action_state.just_pressed(&GuiAction::CancelAction) {
             dialog_ui.stop_current_line(&mut sounds, &mut requests);
             sound_manager.stop_active(&mut commands);
         }
         return;
     }
 
-    if keys.just_pressed(KeyCode::ArrowUp) {
+    if action_state.just_pressed(&GuiAction::Up) {
         dialog_ui.move_selection(-1);
     }
-    if keys.just_pressed(KeyCode::ArrowDown) {
+    if action_state.just_pressed(&GuiAction::Down) {
         dialog_ui.move_selection(1);
     }
-    if keys.just_pressed(KeyCode::Enter) {
+    if action_state.just_pressed(&GuiAction::Confirm) {
         dialog_ui.execute_selected(&mut requests);
     }
 }
