@@ -33,6 +33,16 @@ pub struct RoutineEntryChange {
     pub instance_id: InstanceId,
 }
 
+/// Signal that an npc requested `Npc_ExchangeRoutine`: its routine entries are
+/// replaced by the ones created by the `Rtn_{name}_{npcId}` function. Produced
+/// by the script, resolved to a function call by the script manager.
+#[derive(Message)]
+pub struct RoutineExchange {
+    pub instance_id: InstanceId,
+    /// Routine name with its original case (symbol names compare exactly).
+    pub routine_name: String,
+}
+
 /// Signal that an instance's `AI_LookAtNPC`/`AI_StopLookAt` target changed.
 /// Produced by the script, drained to the ECS by the script bridge.
 #[derive(Message)]
@@ -373,6 +383,9 @@ pub struct ImportCallState {
     /// `AI_GoToWP` requests produced by the script, drained to the ECS by the
     /// script bridge.
     pub pending_goto_changes: Vec<GotoChange>,
+    /// `Npc_ExchangeRoutine` requests produced by the script, drained to the
+    /// ECS by the script bridge.
+    pub pending_routine_exchanges: Vec<RoutineExchange>,
     /// Item spawn requests queued by the world load, drained to the ECS by the
     /// script bridge.
     pub pending_spawn_items: Vec<SpawnItem>,

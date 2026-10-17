@@ -1,8 +1,8 @@
 use super::bindings::mmcomando;
 use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, ImportCallState, InventoryGain,
-    NpcLookAtChange, OverlayRequest, RoutineEntry, RoutineEntryChange, SpawnItem, SpawnNpc,
-    WeaponMode,
+    NpcLookAtChange, OverlayRequest, RoutineEntry, RoutineEntryChange, RoutineExchange, SpawnItem,
+    SpawnNpc, WeaponMode,
 };
 use super::string_value::StringCanon;
 use super::symbol_id::SymbolId;
@@ -912,7 +912,23 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(ta_beginoverlay(_0));
     fake_impl!(ta_endoverlay(_0));
     fake_impl!(ta_removeoverlay(_0));
-    fake_impl!(npc_exchangeroutine(_0, _1));
+    /// Records a routine exchange request; the `Rtn_{name}_{npcId}` function is
+    /// resolved and run outside of the script execution by the script manager.
+    fn npc_exchangeroutine(&mut self, npc: i32, routine_name: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(routine_name) = self.symbol_table.string(routine_name) else {
+            return;
+        };
+        let Some(name) = self.get_string_non_0(routine_name.value()) else {
+            return;
+        };
+        self.pending_routine_exchanges.push(RoutineExchange {
+            instance_id: npc,
+            routine_name: name,
+        });
+    }
     fake_impl!(rtn_exchange(_0, _1));
     fake_impl!(perc_setrange(_0, _1));
     fake_impl!(npc_setperctime(_0, _1));

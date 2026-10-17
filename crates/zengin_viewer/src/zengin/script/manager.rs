@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use bevy::log::error;
+use bevy::log::{error, warn};
 use daedalus_wasm::wasm::convert_daedalus_script;
 use wasmtime::component::{Component, HasData, Linker};
 use wasmtime::{Engine, Store};
@@ -16,7 +16,8 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::{
 use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, ImportCallState,
     InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState, NpcLookAtChange,
-    OverlayChange, RoutineEntryChange, SpawnItem, SpawnNpc, SymbolTable, WeaponModeChange,
+    OverlayChange, RoutineEntryChange, RoutineExchange, SpawnItem, SpawnNpc, SymbolTable,
+    WeaponModeChange,
 };
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
@@ -63,6 +64,36 @@ impl ScriptManager {
     /// Mutable state of every loaded item instance, keyed by instance id.
     pub fn items_instances_mut(&mut self) -> &mut HashMap<InstanceId, ItemInstanceState> {
         &mut self.store.data_mut().loaded_state.items_instances
+    }
+
+    /// Drains the `Npc_ExchangeRoutine` requests the script produced, for the
+    /// ECS bridge.
+    pub fn drain_routine_exchanges(&mut self) -> Vec<RoutineExchange> {
+        std::mem::take(&mut self.store.data_mut().pending_routine_exchanges)
+    }
+
+    /// Clears the npc's routine entries and runs the `Rtn_{name}_{npcId}`
+    /// function, which re-fills them via `TA_Min` (`Npc_ExchangeRoutine`).
+    pub fn exchange_routine(&mut self, npc: InstanceId, routine_name: &str) {
+        let symbol_name = format!("Rtn_{routine_name}_{}", npc.value());
+        let Some(symbol) = self.try_get_symbol_id(&symbol_name) else {
+            warn!("No routine symbol({symbol_name}) for npc({})", npc.value());
+            return;
+        };
+        let Some(function) = self.symbol_table().function(symbol.value()) else {
+            warn!(
+                "Routine symbol({symbol_name}) is not callable for npc({})",
+                npc.value()
+            );
+            return;
+        };
+        self.npc_instances_mut_or_default(npc)
+            .routine_entries
+            .clear();
+        self.set_self(npc);
+        if let Err(error) = self.try_call_function(function) {
+            warn!("Routine function({symbol_name}) failed: {error:?}");
+        }
     }
 
     /// Drains the routine entry changes the script produced, for the ECS bridge.

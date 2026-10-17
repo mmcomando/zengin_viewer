@@ -119,6 +119,16 @@ fn send_script_changes(
     for gain in script.drain_inventory_gains() {
         inventory_gain.write(gain);
     }
+    // `Npc_ExchangeRoutine` cannot run its `Rtn_*` function from inside the
+    // host import (wasmtime traps on re-entrancy), so it is resolved here: the
+    // function refills the npc's routine entries and the produced routine entry
+    // changes are forwarded in the same frame.
+    for exchange in script.drain_routine_exchanges() {
+        script.exchange_routine(exchange.instance_id, &exchange.routine_name);
+    }
+    for change in script.drain_routine_changes() {
+        routine.write(change);
+    }
 }
 
 /// Shows the items the player's inventory gained through the script in the
