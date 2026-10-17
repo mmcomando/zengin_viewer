@@ -539,7 +539,13 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(npc_canseenpc(_0, _1) -> i32);
     fake_impl!(npc_canseenpcfreelos(_0, _1) -> i32);
     fake_impl!(npc_canseeitem(_0, _1) -> i32);
-    fake_impl!(npc_isplayer(_0) -> i32);
+    /// True when the npc is the recorded player instance (`PC_Hero`).
+    fn npc_isplayer(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        (self.player_instance == Some(npc)) as i32
+    }
     fake_impl!(npc_knowsplayer(_0, _1) -> i32);
     fake_impl!(npc_setknowsplayer(_0, _1));
     fake_impl!(npc_isinfightmode(_0, _1) -> i32);
