@@ -1,7 +1,11 @@
 use bevy::prelude::*;
+use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+
+use crate::input::record::ActionRecordingPlugin;
+use crate::input::replay::ActionReplayPlugin;
 
 /// Directory of the input profiles, relative to the working directory
 /// (the same `assets` folder the [`bevy::asset::AssetServer`] reads from).
@@ -22,7 +26,15 @@ impl Plugin for ActionsPlugin {
             InputManagerPlugin::<DebugAction>::default(),
         ));
         app.add_systems(Startup, spawn_input_maps);
-        app.add_systems(Update, update_input_mode);
+        // Mode switching must happen before synthetic replay presses and
+        // before consumers read the action states.
+        app.add_systems(
+            PreUpdate,
+            update_input_mode
+                .after(InputManagerSystem::Update)
+                .before(InputManagerSystem::ManualControl),
+        );
+        app.add_plugins((ActionRecordingPlugin, ActionReplayPlugin));
     }
 }
 
@@ -116,7 +128,7 @@ fn spawn_input_maps(mut commands: Commands) {
 /// Enables and disables action groups based on [`InputMode`].
 ///
 /// The debug group is never touched, so it stays always enabled.
-fn update_input_mode(
+pub(crate) fn update_input_mode(
     input_mode: Res<InputMode>,
     mut gameplay: Single<&mut ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut gui: Single<&mut ActionState<GuiAction>, With<GuiInputMarker>>,

@@ -1,6 +1,6 @@
 mod common;
 mod conversions;
-mod dialog;
+pub(crate) mod dialog;
 mod instance_index;
 mod interaction;
 mod loaders;

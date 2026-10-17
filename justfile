@@ -7,6 +7,10 @@ run:
 run-renderless:
     cargo run -- --renderless --frames 600
 
+# Record every triggered input action with its frame number into the given file.
+run-record-actions path="misc/actions.ron":
+    cargo run -- --save-actions {{path}}
+
 # Headless CPU profile: writes a ~1GB chrome trace, then prints heaviest spans.
 trace-chrome:
     cargo run --release --features trace_chrome -- --renderless --frames 600

@@ -18,7 +18,8 @@ use crate::zengin::sounds::SpeechSounds;
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
-use state::{DialogLineView, DialogOptionView, DialogRequest, DialogUiState};
+pub(crate) use state::DialogUiState;
+use state::{DialogLineView, DialogOptionView, DialogRequest};
 
 pub struct GameDialogPlugin;
 
@@ -59,7 +60,7 @@ impl Plugin for GameDialogPlugin {
 }
 
 /// While a dialog is open the input mode is GUI navigation, otherwise gameplay.
-fn sync_input_mode(dialog_ui: Res<DialogUiState>, mut input_mode: ResMut<InputMode>) {
+pub(crate) fn sync_input_mode(dialog_ui: Res<DialogUiState>, mut input_mode: ResMut<InputMode>) {
     let mode = if dialog_ui.is_open() {
         InputMode::Gui
     } else {

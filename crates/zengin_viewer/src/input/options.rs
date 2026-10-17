@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use bevy::prelude::*;
 use clap::Parser;
 
@@ -15,6 +17,13 @@ pub struct Options {
     /// Stop the application after this many frames (mainly for headless runs).
     #[arg(long)]
     frames: Option<u64>,
+    /// Record every triggered action with its frame number into this file.
+    /// An existing file is removed at startup so recording starts clean.
+    #[arg(long = "save-actions", value_name = "PATH")]
+    save_actions: Option<PathBuf>,
+    /// Replay the actions recorded with `--save-actions` from this file.
+    #[arg(long = "replay-actions", value_name = "PATH")]
+    replay_actions: Option<PathBuf>,
 }
 
 impl Options {
@@ -28,6 +37,14 @@ impl Options {
 
     pub fn frames(&self) -> Option<u64> {
         self.frames
+    }
+
+    pub fn save_actions(&self) -> Option<&PathBuf> {
+        self.save_actions.as_ref()
+    }
+
+    pub fn replay_actions(&self) -> Option<&PathBuf> {
+        self.replay_actions.as_ref()
     }
 }
 

@@ -79,7 +79,7 @@ enum DialogUiMode {
 
 /// State driving the dialog UI, it is shown only while `npc_entity` is present
 #[derive(Resource, Default)]
-pub(super) struct DialogUiState {
+pub(crate) struct DialogUiState {
     pub(super) npc_entity: Option<Entity>,
     /// Player character (visual) entity, used to aim the dialog camera when the
     /// player is the one talking

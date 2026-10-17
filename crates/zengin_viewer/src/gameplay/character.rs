@@ -15,10 +15,11 @@ impl Plugin for CharacterControllerPlugin {
         app.insert_resource(CameraResource::default());
 
         // Toggles in `PreUpdate` so the `Update` systems see the new value this frame.
-        // Runs after leafwing's action update so this frame's actions are read.
+        // Runs after leafwing's action update and after replayed presses so this
+        // frame's actions are read either way.
         app.add_systems(
             PreUpdate,
-            camera_toggle_input.after(InputManagerSystem::Update),
+            camera_toggle_input.after(InputManagerSystem::ManualControl),
         );
 
         app.add_systems(
