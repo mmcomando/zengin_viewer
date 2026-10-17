@@ -13,6 +13,7 @@ use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::{
     DialogInfo, SymbolInfo, SymbolKind,
 };
+use super::journal::JournalChange;
 use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, ImportCallState,
     InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState, NpcLookAtChange,
@@ -169,6 +170,12 @@ impl ScriptManager {
     /// bridge game log.
     pub fn drain_inventory_gains(&mut self) -> Vec<InventoryGain> {
         std::mem::take(&mut self.store.data_mut().pending_inventory_gains)
+    }
+
+    /// Drains the journal changes the script produced, for the ECS bridge game
+    /// log.
+    pub fn drain_journal_changes(&mut self) -> Vec<JournalChange> {
+        std::mem::take(&mut self.store.data_mut().pending_journal_changes)
     }
 
     /// Records the instance id of the player (`PC_Hero`), used by

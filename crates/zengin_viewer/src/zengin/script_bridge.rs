@@ -13,6 +13,7 @@ use crate::zengin::npc_routines::{
     NpcEquippedWeapon, NpcLookAt, NpcOverlay, NpcWeaponMode, overlay_scheme,
 };
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use crate::zengin::script::state::{
     AlignToWpChange, DialogClose, DialogLine, DialogRoot, EquipItemChange, GotoChange,
     InventoryGain, NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry,
@@ -42,11 +43,13 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<DialogLine>();
         app.add_message::<DialogRoot>();
         app.add_message::<InventoryGain>();
+        app.add_message::<JournalChange>();
         app.add_systems(
             Update,
             (
                 send_script_changes,
                 log_inventory_gains,
+                log_journal_changes,
                 apply_routine_changes,
                 apply_look_at_changes,
                 apply_weapon_mode_changes,
@@ -77,6 +80,7 @@ fn send_script_changes(
     mut dialog_line: MessageWriter<DialogLine>,
     mut sub_dialog_choice: MessageWriter<DialogRoot>,
     mut inventory_gain: MessageWriter<InventoryGain>,
+    mut journal_change: MessageWriter<JournalChange>,
     gothic_script: Res<ScriptResource>,
 ) {
     let mut script = gothic_script.lock();
@@ -119,6 +123,9 @@ fn send_script_changes(
     for gain in script.drain_inventory_gains() {
         inventory_gain.write(gain);
     }
+    for change in script.drain_journal_changes() {
+        journal_change.write(change);
+    }
     // `Npc_ExchangeRoutine` cannot run its `Rtn_*` function from inside the
     // host import (wasmtime traps on re-entrancy), so it is resolved here: the
     // function refills the npc's routine entries and the produced routine entry
@@ -155,6 +162,38 @@ fn log_inventory_gains(
             name,
             gain.count
         );
+    }
+}
+
+/// Shows the journal (quest log) changes the script made in the bottom-left
+/// game log.
+fn log_journal_changes(
+    mut changes: MessageReader<JournalChange>,
+    mut game_log: MessageWriter<GameLogEntry>,
+) {
+    for change in changes.read() {
+        let action = match &change.action {
+            JournalAction::Created { section } => format!(
+                "created, section {}",
+                match section {
+                    JournalSection::Mission => "mission",
+                    JournalSection::Note => "note",
+                }
+            ),
+            JournalAction::Status(status) => format!(
+                "status {}",
+                match status {
+                    JournalStatus::Running => "running",
+                    JournalStatus::Success => "success",
+                    JournalStatus::Failed => "failed",
+                    JournalStatus::Obsolete => "obsolete",
+                }
+            ),
+            JournalAction::Entry(entry) => format!("entry: {entry}"),
+        };
+        game_log.write(GameLogEntry {
+            text: format!("Journal: {} — {action}", change.topic),
+        });
     }
 }
 

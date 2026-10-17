@@ -10,6 +10,7 @@ use rand_mt::Mt;
 use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::inventory::Inventory;
+use super::journal::{JournalChange, JournalManager};
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 
@@ -405,6 +406,11 @@ pub struct ImportCallState {
     /// Sub dialog choices added by the script (`Info_AddChoice`), drained to
     /// the ECS by the script bridge.
     pub pending_sub_dialog_choices: Vec<DialogRoot>,
+    /// Journal (quest log) topics, filled by the `Log_*` host functions.
+    pub journal: JournalManager,
+    /// Journal changes produced by the script, drained to the ECS by the
+    /// script bridge for the game log.
+    pub pending_journal_changes: Vec<JournalChange>,
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,
     /// World position of every waypoint/freepoint by lowercased name, filled at
