@@ -153,6 +153,11 @@ fn spawn_world(
     }
 
     // Player collider
+    // TODO hardcoded player instance id
+    let player_instance = gothic_script
+        .instance_id(1620)
+        .expect("player instance id should be a valid instance symbol");
+    gothic_script.set_player_instance(player_instance);
     let mut player_collider = commands.spawn((
         Visibility::default(),
         PlayerPhysicsBodyMarker,
@@ -179,10 +184,7 @@ fn spawn_world(
         Transform::from_xyz(0.0, -1.0, 0.0),
         PlayerCharacter,
         GameNpc {
-            // TODO hardcoded player instance id
-            npc_instance_id: gothic_script
-                .instance_id(1620)
-                .expect("player instance id should be a valid instance symbol"),
+            npc_instance_id: player_instance,
         },
         NpcModel {
             hierarchy: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS.MDH".to_string()),

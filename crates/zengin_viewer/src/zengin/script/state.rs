@@ -98,6 +98,15 @@ pub struct SpawnNpc {
     pub transform: Option<Transform>,
 }
 
+/// Items an npc's inventory gained through the script, recorded only when the
+/// receiver is the player.
+#[derive(Debug, Message)]
+pub struct InventoryGain {
+    pub npc: InstanceId,
+    pub item: InstanceId,
+    pub count: i32,
+}
+
 /// Signal that the script asked to end the dialog (`AI_StopProcessInfos`).
 /// Produced by the script, drained to the ECS by the script bridge.
 #[derive(Debug, Message)]
@@ -372,6 +381,13 @@ pub struct ImportCallState {
     /// Dialog lines output by the script (`AI_Output`), drained to the ECS by
     /// the script bridge.
     pub pending_dialog_lines: Vec<DialogLine>,
+    /// Items the player's inventory gained through the script
+    /// (`CreateInvItem(s)`, `Npc_GiveItem`), drained to the ECS by the script
+    /// bridge for the game log.
+    pub pending_inventory_gains: Vec<InventoryGain>,
+    /// Instance id of the player (`PC_Hero`), set by the world spawn. Compared
+    /// against by `Npc_IsPlayer` and the inventory-gain log.
+    pub player_instance: Option<InstanceId>,
     /// Sub dialog choices added by the script (`Info_AddChoice`), drained to
     /// the ECS by the script bridge.
     pub pending_sub_dialog_choices: Vec<DialogRoot>,

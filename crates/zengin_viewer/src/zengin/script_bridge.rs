@@ -6,6 +6,7 @@
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::{GameTime, advance_game_time};
+use crate::gui::game_log::GameLogEntry;
 use crate::zengin::GameNpc;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{
@@ -14,8 +15,8 @@ use crate::zengin::npc_routines::{
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
     AlignToWpChange, DialogClose, DialogLine, DialogRoot, EquipItemChange, GotoChange,
-    NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry, RoutineEntryChange, SpawnItem,
-    SpawnNpc, WeaponMode, WeaponModeChange,
+    InventoryGain, NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry,
+    RoutineEntryChange, SpawnItem, SpawnNpc, WeaponMode, WeaponModeChange,
 };
 use crate::zengin::script::symbol_id::InstanceId;
 
@@ -40,10 +41,12 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<DialogClose>();
         app.add_message::<DialogLine>();
         app.add_message::<DialogRoot>();
+        app.add_message::<InventoryGain>();
         app.add_systems(
             Update,
             (
                 send_script_changes,
+                log_inventory_gains,
                 apply_routine_changes,
                 apply_look_at_changes,
                 apply_weapon_mode_changes,
@@ -73,6 +76,7 @@ fn send_script_changes(
     mut dialog_close: MessageWriter<DialogClose>,
     mut dialog_line: MessageWriter<DialogLine>,
     mut sub_dialog_choice: MessageWriter<DialogRoot>,
+    mut inventory_gain: MessageWriter<InventoryGain>,
     gothic_script: Res<ScriptResource>,
 ) {
     let mut script = gothic_script.lock();
@@ -111,6 +115,36 @@ fn send_script_changes(
     }
     for choice in script.drain_sub_dialog_choices() {
         sub_dialog_choice.write(choice);
+    }
+    for gain in script.drain_inventory_gains() {
+        inventory_gain.write(gain);
+    }
+}
+
+/// Shows the items the player's inventory gained through the script in the
+/// bottom-left game log.
+fn log_inventory_gains(
+    mut gains: MessageReader<InventoryGain>,
+    mut game_log: MessageWriter<GameLogEntry>,
+    gothic_script: Res<ScriptResource>,
+) {
+    if gains.is_empty() {
+        return;
+    }
+    let mut script = gothic_script.lock();
+    for gain in gains.read() {
+        let name = script
+            .get_name_by_id(gain.item.value())
+            .unwrap_or_else(|| gain.item.value().to_string());
+        game_log.write(GameLogEntry {
+            text: format!("{name} x{}", gain.count),
+        });
+        info!(
+            "Player({}) received item({}) x{}",
+            gain.npc.value(),
+            name,
+            gain.count
+        );
     }
 }
 

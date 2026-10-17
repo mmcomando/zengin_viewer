@@ -15,8 +15,8 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::{
 };
 use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, ImportCallState,
-    ItemInstanceState, LoadedState, NpcInstanceState, NpcLookAtChange, OverlayChange,
-    RoutineEntryChange, SpawnItem, SpawnNpc, SymbolTable, WeaponModeChange,
+    InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState, NpcLookAtChange,
+    OverlayChange, RoutineEntryChange, SpawnItem, SpawnNpc, SymbolTable, WeaponModeChange,
 };
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
@@ -132,6 +132,18 @@ impl ScriptManager {
     /// Drains the sub dialog choices added by the script, for the ECS bridge.
     pub fn drain_sub_dialog_choices(&mut self) -> Vec<DialogRoot> {
         std::mem::take(&mut self.store.data_mut().pending_sub_dialog_choices)
+    }
+
+    /// Drains the player inventory gains the script produced, for the ECS
+    /// bridge game log.
+    pub fn drain_inventory_gains(&mut self) -> Vec<InventoryGain> {
+        std::mem::take(&mut self.store.data_mut().pending_inventory_gains)
+    }
+
+    /// Records the instance id of the player (`PC_Hero`), used by
+    /// `Npc_IsPlayer` and the inventory-gain log.
+    pub fn set_player_instance(&mut self, player: InstanceId) {
+        self.store.data_mut().player_instance = Some(player);
     }
 
     /// Takes the dialog close request, leaving it cleared

@@ -1,7 +1,8 @@
 use super::bindings::mmcomando;
 use super::state::{
-    AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, ImportCallState, NpcLookAtChange,
-    OverlayRequest, RoutineEntry, RoutineEntryChange, SpawnItem, SpawnNpc, WeaponMode,
+    AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, ImportCallState, InventoryGain,
+    NpcLookAtChange, OverlayRequest, RoutineEntry, RoutineEntryChange, SpawnItem, SpawnNpc,
+    WeaponMode,
 };
 use super::string_value::StringCanon;
 use super::symbol_id::SymbolId;
@@ -386,7 +387,51 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .copied()
             .unwrap_or(0)
     }
-    fake_impl!(npc_giveitem(_0, _1, _2));
+    fn npc_giveitem(&mut self, from: i32, item: i32, to: i32) {
+        let Some(from) = self.symbol_table.instance(from) else {
+            return;
+        };
+        let Some(item) = self.symbol_table.instance(item) else {
+            return;
+        };
+        let Some(to) = self.symbol_table.instance(to) else {
+            return;
+        };
+        let count = self
+            .loaded_state
+            .npc_instances
+            .get(&from)
+            .and_then(|npc| npc.inventory.get(&item))
+            .copied()
+            .unwrap_or(0);
+        if count <= 0 {
+            return;
+        }
+        // Remove the whole stack from the giver and add it to the receiver.
+        *self
+            .loaded_state
+            .npc_instances
+            .get_mut(&from)
+            .expect("from instance checked above")
+            .inventory
+            .get_mut(&item)
+            .expect("count checked above") = 0;
+        *self
+            .loaded_state
+            .npc_instances
+            .entry(to)
+            .or_default()
+            .inventory
+            .entry(item)
+            .or_insert(0) += count;
+        if self.player_instance == Some(to) {
+            self.pending_inventory_gains.push(InventoryGain {
+                npc: to,
+                item,
+                count,
+            });
+        }
+    }
     fn createinvitem(&mut self, npc: i32, item: i32) {
         self.createinvitems(npc, item, 1);
     }
@@ -407,6 +452,10 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .or_default()
             .inventory;
         *inventory.entry(item).or_insert(0) += count;
+        if self.player_instance == Some(npc) {
+            self.pending_inventory_gains
+                .push(InventoryGain { npc, item, count });
+        }
     }
     /// Records the item equipped on the npc; the mesh is attached by an ECS
     /// system. Works both at instance init and at runtime.
