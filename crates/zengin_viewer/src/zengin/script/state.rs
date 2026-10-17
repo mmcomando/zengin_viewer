@@ -9,6 +9,7 @@ use rand_mt::Mt;
 
 use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
+use super::inventory::Inventory;
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 
@@ -164,7 +165,7 @@ pub struct NpcInstanceState {
     pub talents: NpcTalents,
 
     /// Inventory, item instance id to count.
-    pub inventory: HashMap<InstanceId, i32>,
+    pub inventory: Inventory,
 
     /// Routine state function currently active (`Npc_IsInState`).
     pub current_routine_state: Option<FunctionId>,
@@ -458,6 +459,14 @@ impl ImportCallState {
                 }
             });
         (recorded == Some(state)) as i32
+    }
+
+    /// Resolves both ids as npc/item instance symbols, `None` when either is
+    /// not valid.
+    pub(crate) fn npc_item_pair(&self, npc: i32, item: i32) -> Option<(InstanceId, InstanceId)> {
+        let npc = self.symbol_table.instance(npc)?;
+        let item = self.symbol_table.instance(item)?;
+        Some((npc, item))
     }
 
     /// Fetches the string content of a raw string table entry, `None` when the

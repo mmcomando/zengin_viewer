@@ -207,27 +207,23 @@ impl ScriptManager {
         from: InstanceId,
         to: InstanceId,
     ) -> Vec<(InstanceId, i32)> {
-        let Some(items) = self
+        let taken = self
             .npc_instances_mut()
             .get_mut(&from)
-            .map(|npc| std::mem::take(&mut npc.inventory))
-        else {
+            .map(|npc| npc.inventory.take_all());
+        let Some(taken) = taken else {
             return Vec::new();
         };
-        let target = &mut self.npc_instances_mut_or_default(to).inventory;
-        for (item, count) in &items {
-            *target.entry(*item).or_insert(0) += count;
-        }
-        items.into_iter().collect()
+        let moved = taken.items();
+        self.npc_instances_mut_or_default(to).inventory.merge(taken);
+        moved
     }
 
     /// Adds `count` of `item` to an npc's inventory.
     pub fn add_inventory(&mut self, npc: InstanceId, item: InstanceId, count: i32) {
-        if count <= 0 {
-            return;
-        }
-        let inventory = &mut self.npc_instances_mut_or_default(npc).inventory;
-        *inventory.entry(item).or_insert(0) += count;
+        self.npc_instances_mut_or_default(npc)
+            .inventory
+            .create(item, count);
     }
 
     /// Contents of an npc's inventory as `(item, count)` pairs, empty when the
@@ -235,12 +231,7 @@ impl ScriptManager {
     pub fn inventory(&self, npc: InstanceId) -> Vec<(InstanceId, i32)> {
         self.npc_instances()
             .get(&npc)
-            .map(|npc| {
-                npc.inventory
-                    .iter()
-                    .map(|(item, count)| (*item, *count))
-                    .collect()
-            })
+            .map(|npc| npc.inventory.items())
             .unwrap_or_default()
     }
 

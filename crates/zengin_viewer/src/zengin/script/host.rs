@@ -374,18 +374,13 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(npc_learnspell(_0, _1));
 
     fn npc_hasitems(&mut self, npc: i32, item: i32) -> i32 {
-        let Some(npc) = self.symbol_table.instance(npc) else {
-            return 0;
-        };
-        let Some(item) = self.symbol_table.instance(item) else {
+        let Some((npc, item)) = self.npc_item_pair(npc, item) else {
             return 0;
         };
         self.loaded_state
             .npc_instances
             .get(&npc)
-            .and_then(|npc| npc.inventory.get(&item))
-            .copied()
-            .unwrap_or(0)
+            .map_or(0, |npc| npc.inventory.count(item))
     }
     fn npc_giveitem(&mut self, from: i32, item: i32, to: i32) {
         let Some(from) = self.symbol_table.instance(from) else {
@@ -400,30 +395,17 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let count = self
             .loaded_state
             .npc_instances
-            .get(&from)
-            .and_then(|npc| npc.inventory.get(&item))
-            .copied()
-            .unwrap_or(0);
+            .get_mut(&from)
+            .map_or(0, |npc| npc.inventory.take(item));
         if count <= 0 {
             return;
         }
-        // Remove the whole stack from the giver and add it to the receiver.
-        *self
-            .loaded_state
-            .npc_instances
-            .get_mut(&from)
-            .expect("from instance checked above")
-            .inventory
-            .get_mut(&item)
-            .expect("count checked above") = 0;
-        *self
-            .loaded_state
+        self.loaded_state
             .npc_instances
             .entry(to)
             .or_default()
             .inventory
-            .entry(item)
-            .or_insert(0) += count;
+            .create(item, count);
         if self.player_instance == Some(to) {
             self.pending_inventory_gains.push(InventoryGain {
                 npc: to,
@@ -436,22 +418,15 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         self.createinvitems(npc, item, 1);
     }
     fn createinvitems(&mut self, npc: i32, item: i32, count: i32) {
-        let Some(npc) = self.symbol_table.instance(npc) else {
+        let Some((npc, item)) = self.npc_item_pair(npc, item) else {
             return;
         };
-        let Some(item) = self.symbol_table.instance(item) else {
-            return;
-        };
-        if count <= 0 {
-            return;
-        }
-        let inventory = &mut self
-            .loaded_state
+        self.loaded_state
             .npc_instances
             .entry(npc)
             .or_default()
-            .inventory;
-        *inventory.entry(item).or_insert(0) += count;
+            .inventory
+            .create(item, count);
         if self.player_instance == Some(npc) {
             self.pending_inventory_gains
                 .push(InventoryGain { npc, item, count });
@@ -477,7 +452,17 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(npc_getinvitem(_0, _1) -> i32);
     fake_impl!(npc_getinvitembyslot(_0, _1, _2) -> i32);
     fake_impl!(npc_removeinvitem(_0, _1) -> i32);
-    fake_impl!(npc_removeinvitems(_0, _1, _2) -> i32);
+    /// Removes up to `amount` of the item from the inventory, returns how many
+    /// were actually removed. No effect when `amount < 1`.
+    fn npc_removeinvitems(&mut self, npc: i32, item: i32, amount: i32) -> i32 {
+        let Some((npc, item)) = self.npc_item_pair(npc, item) else {
+            return 0;
+        };
+        self.loaded_state
+            .npc_instances
+            .get_mut(&npc)
+            .map_or(0, |npc| npc.inventory.remove(item, amount))
+    }
     fake_impl!(npc_clearinventory(_0));
     fn npc_isinstate(&mut self, npc: i32, state: i32) -> i32 {
         self.is_in_state(npc, state, false)
