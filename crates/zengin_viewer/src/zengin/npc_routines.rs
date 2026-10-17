@@ -124,7 +124,9 @@ fn update_npc_routines(
     mut removed: RemovedComponents<RoutineEntry>,
 ) {
     for entity in removed.read() {
-        commands.entity(entity).remove::<NpcRoutineState>();
+        // Despawned entities are fine here (e.g. a killed npc), `try_remove`
+        // treats the command as a no-op for them.
+        commands.entity(entity).try_remove::<NpcRoutineState>();
     }
 
     for (entity, npc, entry, mut tr, routine_state) in &mut npcs {
