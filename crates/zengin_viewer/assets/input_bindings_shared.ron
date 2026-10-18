@@ -1,0 +1,13 @@
+(
+    buttonlike_map: {
+        Inventory: [
+            {
+                "KeyCode": KeyI,
+            },
+        ],
+    },
+    axislike_map: {},
+    dual_axislike_map: {},
+    triple_axislike_map: {},
+    associated_gamepad: None,
+)

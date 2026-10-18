@@ -16,6 +16,22 @@
                 "KeyCode": KeyR,
             },
         ],
+        Left: [
+            {
+                "KeyCode": ArrowLeft,
+            },
+            {
+                "KeyCode": KeyA,
+            },
+        ],
+        Right: [
+            {
+                "KeyCode": ArrowRight,
+            },
+            {
+                "KeyCode": KeyD,
+            },
+        ],
         Confirm: [
             {
                 "KeyCode": Enter,

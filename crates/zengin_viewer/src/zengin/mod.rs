@@ -24,12 +24,12 @@ mod debug_zengin_scripts;
 
 use bevy::prelude::*;
 
-use crate::zengin::script::symbol_id::InstanceId;
-
 // Expose only what is needed for outside modules
 pub use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };
+pub use crate::zengin::script::component::ScriptResource;
+pub use crate::zengin::script::symbol_id::InstanceId;
 pub use crate::zengin::sounds::SpeechSounds;
 pub use crate::zengin::statistics::StatisticsZengin;
 pub use crate::zengin::waypoint_graph::WaypointDebugPlugin;
@@ -55,6 +55,13 @@ impl Plugin for ZenginPlugin {
 #[derive(Debug, Component)]
 pub struct GameNpc {
     npc_instance_id: InstanceId,
+}
+
+impl GameNpc {
+    /// Script instance id of this npc.
+    pub fn instance_id(&self) -> InstanceId {
+        self.npc_instance_id
+    }
 }
 
 /// Identifies Entity with a Zengin script item instance id

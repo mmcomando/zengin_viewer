@@ -59,9 +59,14 @@ impl Plugin for GameDialogPlugin {
     }
 }
 
-/// While a dialog is open the input mode is GUI navigation, otherwise gameplay.
-pub(crate) fn sync_input_mode(dialog_ui: Res<DialogUiState>, mut input_mode: ResMut<InputMode>) {
-    let mode = if dialog_ui.is_open() {
+/// While a dialog or the inventory is open the input mode is GUI navigation,
+/// otherwise gameplay.
+pub(crate) fn sync_input_mode(
+    dialog_ui: Res<DialogUiState>,
+    inventory_ui: Res<crate::gui::inventory::InventoryUiState>,
+    mut input_mode: ResMut<InputMode>,
+) {
+    let mode = if dialog_ui.is_open() || inventory_ui.is_open() {
         InputMode::Gui
     } else {
         InputMode::Gameplay

@@ -23,6 +23,7 @@ impl Plugin for ActionsPlugin {
         app.add_plugins((
             InputManagerPlugin::<GameplayAction>::default(),
             InputManagerPlugin::<GuiAction>::default(),
+            InputManagerPlugin::<SharedAction>::default(),
             InputManagerPlugin::<DebugAction>::default(),
         ));
         app.add_systems(Startup, spawn_input_maps);
@@ -70,7 +71,19 @@ pub struct DebugInputMarker;
 /// Buttonlike is the default control kind; variants with a different kind are
 /// annotated with `#[actionlike(...)]`. `EnumIter` lets the recording iterate
 /// over all variants, so new actions are recorded/replayed automatically.
-#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize, strum::EnumIter)]
+#[derive(
+    Actionlike,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    Hash,
+    Debug,
+    Reflect,
+    Serialize,
+    Deserialize,
+    strum::EnumIter,
+)]
 pub enum GameplayAction {
     /// Movement direction from WASD, the arrow keys, or the left gamepad stick.
     #[actionlike(DualAxis)]
@@ -82,8 +95,6 @@ pub enum GameplayAction {
     Jump,
     /// Talk to the selected npc or pick up the selected item.
     Interact,
-    /// Open the player inventory UI.
-    OpenInventory,
     /// Open the journal UI.
     Journal,
     /// Move faster while held.
@@ -91,20 +102,74 @@ pub enum GameplayAction {
 }
 
 /// Actions used to navigate menus and other UI.
-#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize, strum::EnumIter)]
+#[derive(
+    Actionlike,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    Hash,
+    Debug,
+    Reflect,
+    Serialize,
+    Deserialize,
+    strum::EnumIter,
+)]
 pub enum GuiAction {
     /// Move the selection up.
     Up,
     /// Move the selection down.
     Down,
+    /// Move the selection left.
+    Left,
+    /// Move the selection right.
+    Right,
     /// Confirm the selected entry.
     Confirm,
     /// Close the current view or skip the currently played content.
     CancelAction,
 }
 
+/// Actions available in both [`InputMode`]s (gameplay and menu), for things
+/// like the inventory toggle that must work while a GUI is open. Unlike
+/// [`DebugAction`] this set is a normal, mode-independent feature set.
+#[derive(
+    Actionlike,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    Hash,
+    Debug,
+    Reflect,
+    Serialize,
+    Deserialize,
+    strum::EnumIter,
+)]
+pub enum SharedAction {
+    /// Toggle the player inventory UI, closes it when it is open.
+    Inventory,
+}
+
+/// Marker for the entity holding the shared [`InputMap`] (and its required
+/// [`ActionState`]). Shared input is enabled in both gameplay and GUI modes.
+#[derive(Component)]
+pub struct SharedInputMarker;
+
 /// Debug helper actions, always available regardless of [`InputMode`].
-#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize, strum::EnumIter)]
+#[derive(
+    Actionlike,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    Hash,
+    Debug,
+    Reflect,
+    Serialize,
+    Deserialize,
+    strum::EnumIter,
+)]
 pub enum DebugAction {
     TeleportOrigin,
     TeleportAway,
@@ -114,6 +179,8 @@ pub enum DebugAction {
     KillSelected,
     /// Quit the application.
     QuitGame,
+    /// Grants a few items to the player for testing the inventory UI.
+    GiveTestItems,
 }
 
 /// Exits the application on the `QuitGame` debug action (Escape).
@@ -138,6 +205,11 @@ fn spawn_input_maps(mut commands: Commands) {
             warn!("Falling back to default GUI input map: {error}");
             InputMap::default()
         });
+    let shared_map = load_input_profile::<SharedAction>("input_bindings_shared.ron")
+        .unwrap_or_else(|error| {
+            warn!("Falling back to default shared input map: {error}");
+            InputMap::default()
+        });
     let debug_map =
         load_input_profile::<DebugAction>("input_bindings_debug.ron").unwrap_or_else(|error| {
             warn!("Falling back to default debug input map: {error}");
@@ -145,12 +217,14 @@ fn spawn_input_maps(mut commands: Commands) {
         });
     commands.spawn((GameplayInputMarker, gameplay_map));
     commands.spawn((GuiInputMarker, gui_map));
+    commands.spawn((SharedInputMarker, shared_map));
     commands.spawn((DebugInputMarker, debug_map));
 }
 
 /// Enables and disables action groups based on [`InputMode`].
 ///
-/// The debug group is never touched, so it stays always enabled.
+/// The shared and debug groups are never touched, so they stay enabled in
+/// every mode.
 pub(crate) fn update_input_mode(
     input_mode: Res<InputMode>,
     mut gameplay: Single<&mut ActionState<GameplayAction>, With<GameplayInputMarker>>,

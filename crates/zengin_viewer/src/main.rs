@@ -154,6 +154,7 @@ fn main() {
     app.add_plugins(StatisticsPlugin)
         .add_plugins(GameAudioPlugin)
         .add_plugins(GameLogPlugin)
+        .add_plugins(crate::gui::inventory::InventoryUiPlugin)
         .add_plugins(CameraPlugin)
         .add_plugins(SkeletalAnimations);
 

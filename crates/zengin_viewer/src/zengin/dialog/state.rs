@@ -108,7 +108,7 @@ pub(crate) struct DialogUiState {
 
 impl DialogUiState {
     /// Dialog is open while the npc entity is present
-    pub(super) fn is_open(&self) -> bool {
+    pub(crate) fn is_open(&self) -> bool {
         self.npc_entity.is_some()
     }
 

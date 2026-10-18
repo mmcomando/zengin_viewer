@@ -13,11 +13,6 @@
                 "KeyCode": KeyE,
             },
         ],
-        OpenInventory: [
-            {
-                "KeyCode": KeyP,
-            },
-        ],
         Journal: [
             {
                 "KeyCode": KeyJ,

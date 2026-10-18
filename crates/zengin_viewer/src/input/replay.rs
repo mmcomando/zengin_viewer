@@ -17,7 +17,7 @@ use leafwing_input_manager::prelude::{ActionState, Actionlike};
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::input::actions::{
     DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker, GuiAction, GuiInputMarker,
-    update_input_mode,
+    SharedAction, SharedInputMarker, update_input_mode,
 };
 use crate::input::options::Options;
 use crate::input::record::{RecordedAction, ReplayCommand};
@@ -145,6 +145,7 @@ fn replay_actions(
     replay: Option<ResMut<ActionReplay>>,
     mut gameplay: Query<&mut ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut gui: Query<&mut ActionState<GuiAction>, With<GuiInputMarker>>,
+    mut shared: Query<&mut ActionState<SharedAction>, With<SharedInputMarker>>,
     mut debug: Query<&mut ActionState<DebugAction>, With<DebugInputMarker>>,
     mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
     mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
@@ -214,7 +215,14 @@ fn replay_actions(
 
     for action in replay.held_buttons.iter() {
         let started = replay.started_buttons.contains(action);
-        press(&mut gameplay, &mut gui, &mut debug, *action, started);
+        press(
+            &mut gameplay,
+            &mut gui,
+            &mut shared,
+            &mut debug,
+            *action,
+            started,
+        );
     }
     for (action, value) in replay.held_axes.iter() {
         set_axis_pair(&mut gameplay, *action, *value);
@@ -228,6 +236,7 @@ fn replay_actions(
 fn press(
     gameplay: &mut Query<&mut ActionState<GameplayAction>, With<GameplayInputMarker>>,
     gui: &mut Query<&mut ActionState<GuiAction>, With<GuiInputMarker>>,
+    shared: &mut Query<&mut ActionState<SharedAction>, With<SharedInputMarker>>,
     debug: &mut Query<&mut ActionState<DebugAction>, With<DebugInputMarker>>,
     action: RecordedAction,
     started: bool,
@@ -240,6 +249,11 @@ fn press(
         }
         RecordedAction::Gui(action) => {
             if let Ok(mut state) = gui.single_mut() {
+                apply_press(&mut state, &action, started);
+            }
+        }
+        RecordedAction::Shared(action) => {
+            if let Ok(mut state) = shared.single_mut() {
                 apply_press(&mut state, &action, started);
             }
         }

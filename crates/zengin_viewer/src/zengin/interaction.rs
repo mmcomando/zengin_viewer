@@ -9,6 +9,7 @@ use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, Gamep
 use crate::zengin::npc_routines::NpcEquippedWeapon;
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::selection::{Selection, SelectionKind};
 use crate::zengin::world::item_model_path;
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
@@ -26,7 +27,7 @@ impl Plugin for PlayerInteractionPlugin {
                 kill_selected_npc,
                 handle_transfer_items,
                 pickup_selected_item,
-                print_player_items,
+                give_test_items,
                 open_journal,
             ),
         );
@@ -194,40 +195,52 @@ fn open_journal(
     info!("Journal action triggered");
 }
 
-/// Prints the whole player inventory into the item log on `P`.
-/// Renamed to `OpenInventory`: later this will open the inventory UI.
-fn print_player_items(
-    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
+/// Grants a few items to the player on the debug key, for testing the
+/// inventory UI without having to pick things up first.
+fn give_test_items(
+    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
     mut game_log: ResMut<GameLog>,
     gothic_script: Res<ScriptResource>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
-    if !action_state.just_pressed(&GameplayAction::OpenInventory) {
+    if !action_state.just_pressed(&DebugAction::GiveTestItems) {
         return;
     }
     let Ok(player_npc) = player_npc.single() else {
         return;
     };
 
+    const TEST_ITEM_COUNT: usize = 12;
     let mut script = gothic_script.lock();
-    let mut items = script.inventory(player_npc.npc_instance_id);
-    if items.is_empty() {
-        game_log.add(format!(
-            "player({}) inventory is empty",
-            player_npc.npc_instance_id
-        ));
+    let mut candidates: Vec<InstanceId> = script
+        .get_loaded_state()
+        .items_instances
+        .iter()
+        .filter(|(_, instance)| !instance.name.is_empty())
+        .map(|(id, _)| *id)
+        .collect();
+    candidates.sort_unstable_by_key(|id| id.value());
+    if candidates.is_empty() {
+        warn!("No item instances loaded, cannot grant test items");
         return;
     }
 
-    items.sort_by_key(|(item, _count)| *item);
-    let lines: Vec<String> = items
-        .iter()
-        .map(|(item, count)| {
-            let name = script
-                .get_name_by_id(item.value())
-                .unwrap_or_else(|| item.value().to_string());
-            format!("{name} x{count}")
-        })
-        .collect();
+    let player_id = player_npc.npc_instance_id;
+    let granted = candidates.iter().take(TEST_ITEM_COUNT).enumerate();
+    let mut lines: Vec<String> = Vec::new();
+    for (offset, &item) in granted {
+        let count = 1 + (offset as i32 % 3);
+        script.add_inventory(player_id, item, count);
+        let name = script
+            .get_name_by_id(item.value())
+            .map(|symbol_name| crate::gui::inventory::display_item_name(&symbol_name))
+            .unwrap_or_else(|| item.value().to_string());
+        lines.push(format!("{name} x{count}"));
+    }
     game_log.add(lines.join("\n"));
+    info!(
+        "Granted {} test item stack(s) to player({})",
+        lines.len(),
+        player_id
+    );
 }

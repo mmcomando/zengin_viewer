@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::input::actions::{
     DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker, GuiAction, GuiInputMarker,
+    SharedAction, SharedInputMarker,
 };
 use crate::input::options::Options;
 
@@ -33,6 +34,7 @@ impl Plugin for ActionRecordingPlugin {
 pub(crate) enum RecordedAction {
     Gameplay(GameplayAction),
     Gui(GuiAction),
+    Shared(SharedAction),
     Debug(DebugAction),
 }
 
@@ -95,6 +97,7 @@ struct ActionRecording {
     /// the action gets disabled before it is released.
     held_gameplay: HashSet<GameplayAction>,
     held_gui: HashSet<GuiAction>,
+    held_shared: HashSet<SharedAction>,
     held_debug: HashSet<DebugAction>,
     /// Last recorded dual axis values, to detect changes.
     last_axis: HashMap<RecordedAction, Vec2>,
@@ -116,6 +119,7 @@ fn open_recording_file(options: Res<Options>, mut commands: Commands) {
         commands: Vec::new(),
         held_gameplay: HashSet::new(),
         held_gui: HashSet::new(),
+        held_shared: HashSet::new(),
         held_debug: HashSet::new(),
         last_axis: HashMap::new(),
     });
@@ -126,6 +130,7 @@ fn record_triggered_actions(
     mut recording: Option<ResMut<ActionRecording>>,
     gameplay: Option<Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>>,
     gui: Option<Single<&ActionState<GuiAction>, With<GuiInputMarker>>>,
+    shared: Option<Single<&ActionState<SharedAction>, With<SharedInputMarker>>>,
     debug: Option<Single<&ActionState<DebugAction>, With<DebugInputMarker>>>,
 ) {
     let Some(recording) = recording.as_deref_mut() else {
@@ -138,6 +143,7 @@ fn record_triggered_actions(
 
     let gameplay = gameplay.map(|state| state.into_inner());
     let gui = gui.map(|state| state.into_inner());
+    let shared = shared.map(|state| state.into_inner());
     let debug = debug.map(|state| state.into_inner());
 
     // Commands are collected in a local vector to avoid double borrows of the
@@ -159,6 +165,13 @@ fn record_triggered_actions(
         &mut recording.held_gui,
     );
     record_buttons(
+        shared,
+        RecordedAction::Shared,
+        frame,
+        &mut commands,
+        &mut recording.held_shared,
+    );
+    record_buttons(
         debug,
         RecordedAction::Debug,
         frame,
@@ -178,6 +191,13 @@ fn record_triggered_actions(
     record_map_axes(
         gui,
         RecordedAction::Gui,
+        frame,
+        &mut commands,
+        &mut recording.last_axis,
+    );
+    record_map_axes(
+        shared,
+        RecordedAction::Shared,
         frame,
         &mut commands,
         &mut recording.last_axis,
