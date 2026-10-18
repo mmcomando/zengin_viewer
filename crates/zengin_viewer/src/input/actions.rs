@@ -78,6 +78,8 @@ pub enum GameplayAction {
     Interact,
     /// Open the player inventory UI.
     OpenInventory,
+    /// Open the journal UI.
+    Journal,
 }
 
 /// Actions used to navigate menus and other UI.

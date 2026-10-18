@@ -18,6 +18,11 @@
                 "KeyCode": KeyP,
             },
         ],
+        Journal: [
+            {
+                "KeyCode": KeyJ,
+            },
+        ],
     },
     axislike_map: {},
     dual_axislike_map: {

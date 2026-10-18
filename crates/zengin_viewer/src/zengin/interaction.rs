@@ -27,6 +27,7 @@ impl Plugin for PlayerInteractionPlugin {
                 handle_transfer_items,
                 pickup_selected_item,
                 print_player_items,
+                open_journal,
             ),
         );
     }
@@ -178,6 +179,19 @@ fn pickup_selected_item(
     selection.target = None;
     selection.kind = None;
     selection.name.clear();
+}
+
+/// Placeholder journal trigger: logs that the journal was requested until a
+/// real journal UI exists.
+fn open_journal(
+    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
+    mut game_log: ResMut<GameLog>,
+) {
+    if !action_state.just_pressed(&GameplayAction::Journal) {
+        return;
+    }
+    game_log.add("Journal clicked".to_string());
+    info!("Journal action triggered");
 }
 
 /// Prints the whole player inventory into the item log on `P`.

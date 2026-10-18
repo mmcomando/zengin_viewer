@@ -1,0 +1,9 @@
+
+// Recorded replay commands, replayable with --replay-actions
+[
+  Axis(frame:1,action:Gameplay(Move),value:(0.0,0.0)),
+  SetCameraLocation(frame: 260, translation: (5.0, 0.0, -5.0), rotation: (89.0, 0.0, 0.0)),
+  Press(frame:280,action:Gameplay(Journal)),
+  Release(frame:284,action:Gameplay(Journal)),
+  Screenshot(frame: 290, path: "misc/shots/screen_journal_open.png"),
+]
