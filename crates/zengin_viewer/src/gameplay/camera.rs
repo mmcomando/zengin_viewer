@@ -1,13 +1,17 @@
 use bevy::{
     anti_alias::smaa::Smaa,
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
     dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin, FrameTimeGraphConfig},
+    input::mouse::AccumulatedMouseMotion,
     pbr::{ContactShadows, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
 };
 use std::time::Duration;
 
+use crate::input::actions::{GameplayAction, GameplayInputMarker};
 use crate::xr::is_xr_enabled;
+use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
+use leafwing_input_manager::prelude::ActionState;
 
 pub struct CameraPlugin;
 
@@ -15,11 +19,16 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FreeCameraPlugin);
         app.insert_resource(CameraResource::default());
+        app.add_systems(
+            Update,
+            (
+                sync_free_camera_enabled,
+                sync_third_person_cursor,
+                (rotate_third_person_camera, rotate_third_person_camera_mouse)
+                    .before(crate::gameplay::character::camera_movement_system),
+            ),
+        );
         app.add_systems(Update, update_dialog_camera.run_if(use_dialog_camera));
-
-        // Currently ThirdPerson relies on FreeCamera to change orientation of Camera
-        // TODO disable FreeCamera when other camera type is enabled
-        // app.add_systems(Update, sync_free_camera_enabled);
 
         if !is_xr_enabled() {
             // Disable main camera for performance
@@ -110,20 +119,113 @@ fn use_dialog_camera(info: Res<CameraResource>) -> bool {
     info.current_camera == CurrentCamera::Dialog
 }
 
-// /// Keeps bevy's free camera controller enabled only in the free camera mode,
-// /// otherwise it fights with the other camera systems for the transform
-// fn sync_free_camera_enabled(
-//     info: Res<CameraResource>,
-//     mut query: Query<&mut FreeCameraState, With<Camera3d>>,
-// ) {
-//     let Ok(mut state) = query.single_mut() else {
-//         return;
-//     };
-//     let enabled = info.current_camera == CurrentCamera::Free;
-//     if state.enabled != enabled {
-//         state.enabled = enabled;
-//     }
-// }
+fn use_third_person_camera(info: Res<CameraResource>) -> bool {
+    info.current_camera == CurrentCamera::ThirdPerson
+}
+
+/// Keeps bevy's free camera controller enabled only in the free camera mode,
+/// otherwise it fights with the other camera systems for the transform.
+fn sync_free_camera_enabled(
+    info: Res<CameraResource>,
+    mut query: Query<&mut FreeCameraState, With<Camera3d>>,
+) {
+    let Ok(mut state) = query.single_mut() else {
+        return;
+    };
+    let enabled = info.current_camera == CurrentCamera::Free;
+    if state.enabled != enabled {
+        state.enabled = enabled;
+    }
+}
+
+/// Locks and hides the cursor while the third person camera is active, so
+/// the camera can be rotated infinitely with mouse movement; releases it in
+/// every other camera mode.
+fn sync_third_person_cursor(
+    info: Res<CameraResource>,
+    mut windows: Query<(&mut Window, &mut CursorOptions), With<PrimaryWindow>>,
+) {
+    let Ok((_, mut cursor)) = windows.single_mut() else {
+        return;
+    };
+    let third_person = use_third_person_camera(info);
+    let locked = cursor.grab_mode == CursorGrabMode::Locked;
+    if third_person == locked {
+        return;
+    }
+    if third_person {
+        cursor.grab_mode = CursorGrabMode::Locked;
+        cursor.visible = false;
+    } else {
+        cursor.grab_mode = CursorGrabMode::None;
+        cursor.visible = true;
+    }
+}
+
+/// Rotation speed of the third person camera, radians per second.
+const THIRD_PERSON_ROTATE_SPEED: f32 = 2.0;
+/// Pitch limits of the third person camera, keeps the camera from flipping.
+const THIRD_PERSON_PITCH_LIMIT: f32 = 1.4;
+
+/// Rotates the third person camera with the `RotateCamera` action (arrow keys
+/// or right gamepad stick). The camera position follows from its rotation in
+/// [`crate::gameplay::character::camera_movement_system`].
+fn rotate_third_person_camera(
+    info: Res<CameraResource>,
+    time: Res<Time>,
+    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
+    mut camera_query: Query<&mut Transform, With<Camera3d>>,
+) -> Result<(), BevyError> {
+    if !use_third_person_camera(info) {
+        return Ok(());
+    }
+    let direction = action_state.axis_pair(&GameplayAction::RotateCamera);
+    if direction.length_squared() < 0.01 {
+        return Ok(());
+    }
+
+    let delta = THIRD_PERSON_ROTATE_SPEED * time.delta_secs();
+    let mut transform = camera_query.single_mut()?;
+    rotate_camera_transform(&mut transform, direction * delta);
+    Ok(())
+}
+
+/// Rotation speed of the third person camera mouse movement, radians per
+/// pixel of mouse movement.
+const THIRD_PERSON_MOUSE_SENSITIVITY: f32 = 0.003;
+
+/// Rotates the third person camera with mouse movement.
+fn rotate_third_person_camera_mouse(
+    info: Res<CameraResource>,
+    mouse_motion: Res<AccumulatedMouseMotion>,
+    mut camera_query: Query<&mut Transform, With<Camera3d>>,
+) -> Result<(), BevyError> {
+    if !use_third_person_camera(info) {
+        return Ok(());
+    }
+    if mouse_motion.delta == Vec2::ZERO {
+        return Ok(());
+    }
+
+    let mut transform = camera_query.single_mut()?;
+    // Mouse y is inverted: moving the mouse up should look up. Side rotation
+    // (x) keeps its direction.
+    rotate_camera_transform(
+        &mut transform,
+        Vec2::new(mouse_motion.delta.x, -mouse_motion.delta.y) * THIRD_PERSON_MOUSE_SENSITIVITY,
+    );
+    Ok(())
+}
+
+/// Rotates the camera transform by `delta` (x: yaw, y: pitch in radians).
+fn rotate_camera_transform(transform: &mut Transform, delta: Vec2) {
+    let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
+    // Looking right means rotating around Y by a negative angle.
+    let yaw = yaw - delta.x;
+    // Positive pitch looks up.
+    let pitch = (pitch + delta.y).clamp(-THIRD_PERSON_PITCH_LIMIT, THIRD_PERSON_PITCH_LIMIT);
+    transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
+}
 
 struct DialogCameraStyle;
 impl DialogCameraStyle {

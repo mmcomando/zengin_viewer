@@ -34,6 +34,7 @@ impl Plugin for ActionsPlugin {
                 .after(InputManagerSystem::Update)
                 .before(InputManagerSystem::ManualControl),
         );
+        app.add_systems(Update, quit_game);
         app.add_plugins((ActionRecordingPlugin, ActionReplayPlugin));
     }
 }
@@ -67,12 +68,17 @@ pub struct DebugInputMarker;
 /// Actions controlling the character during gameplay.
 ///
 /// Buttonlike is the default control kind; variants with a different kind are
-/// annotated with `#[actionlike(...)]`.
-#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize)]
+/// annotated with `#[actionlike(...)]`. `EnumIter` lets the recording iterate
+/// over all variants, so new actions are recorded/replayed automatically.
+#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize, strum::EnumIter)]
 pub enum GameplayAction {
     /// Movement direction from WASD, the arrow keys, or the left gamepad stick.
     #[actionlike(DualAxis)]
     Move,
+    /// Third person camera rotation from the arrow keys or the right gamepad
+    /// stick.
+    #[actionlike(DualAxis)]
+    RotateCamera,
     Jump,
     /// Talk to the selected npc or pick up the selected item.
     Interact,
@@ -80,10 +86,12 @@ pub enum GameplayAction {
     OpenInventory,
     /// Open the journal UI.
     Journal,
+    /// Move faster while held.
+    Accelerate,
 }
 
 /// Actions used to navigate menus and other UI.
-#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize)]
+#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize, strum::EnumIter)]
 pub enum GuiAction {
     /// Move the selection up.
     Up,
@@ -96,7 +104,7 @@ pub enum GuiAction {
 }
 
 /// Debug helper actions, always available regardless of [`InputMode`].
-#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize)]
+#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect, Serialize, Deserialize, strum::EnumIter)]
 pub enum DebugAction {
     TeleportOrigin,
     TeleportAway,
@@ -104,6 +112,19 @@ pub enum DebugAction {
     ToggleCharacterCamera,
     /// Kill the selected npc.
     KillSelected,
+    /// Quit the application.
+    QuitGame,
+}
+
+/// Exits the application on the `QuitGame` debug action (Escape).
+fn quit_game(
+    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    if action_state.just_pressed(&DebugAction::QuitGame) {
+        info!("QuitGame action triggered, exiting");
+        exit.write(AppExit::Success);
+    }
 }
 
 fn spawn_input_maps(mut commands: Commands) {

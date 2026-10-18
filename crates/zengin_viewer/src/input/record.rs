@@ -9,7 +9,8 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use bevy::prelude::*;
-use leafwing_input_manager::prelude::{ActionState, Actionlike};
+use leafwing_input_manager::prelude::{ActionState, Actionlike, InputControlKind};
+use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::input::actions::{
@@ -165,17 +166,29 @@ fn record_triggered_actions(
         &mut recording.held_debug,
     );
 
-    // The only dual axis action is gameplay `Move`.
-    if let Some(state) = gameplay {
-        let value = state.axis_pair(&GameplayAction::Move);
-        record_axis(
-            RecordedAction::Gameplay(GameplayAction::Move),
-            value,
-            frame,
-            &mut commands,
-            &mut recording.last_axis,
-        );
-    }
+    // The action enums are iterable, so all dual axis actions of every map
+    // are recorded; new axis actions are picked up automatically.
+    record_map_axes(
+        gameplay,
+        RecordedAction::Gameplay,
+        frame,
+        &mut commands,
+        &mut recording.last_axis,
+    );
+    record_map_axes(
+        gui,
+        RecordedAction::Gui,
+        frame,
+        &mut commands,
+        &mut recording.last_axis,
+    );
+    record_map_axes(
+        debug,
+        RecordedAction::Debug,
+        frame,
+        &mut commands,
+        &mut recording.last_axis,
+    );
 
     recording.commands = commands;
     if recording.commands.len() != before {
@@ -218,6 +231,35 @@ fn record_buttons<A: Actionlike + Copy>(
     });
 }
 
+/// Records dual axis value changes of one input map.
+///
+/// Iterates over all variants of the action enum, so newly added axis actions
+/// are recorded without changes here; the control kind decides what is
+/// recorded.
+fn record_map_axes<A: Actionlike + Copy + strum::IntoEnumIterator>(
+    state: Option<&ActionState<A>>,
+    to_recorded: impl Fn(A) -> RecordedAction,
+    frame: u64,
+    commands: &mut Vec<ReplayCommand>,
+    last_axis: &mut HashMap<RecordedAction, Vec2>,
+) {
+    let Some(state) = state else {
+        return;
+    };
+    for action in A::iter() {
+        if action.input_control_kind() != InputControlKind::DualAxis {
+            continue;
+        }
+        record_axis(
+            to_recorded(action),
+            state.axis_pair(&action),
+            frame,
+            commands,
+            last_axis,
+        );
+    }
+}
+
 /// Records a dual axis value change, including the return to zero.
 fn record_axis(
     action: RecordedAction,
@@ -242,7 +284,9 @@ fn record_axis(
 
 /// Rewrites the whole recording file with the current command list.
 fn save_recording(recording: &ActionRecording) {
-    let contents = match ron::ser::to_string(&recording.commands) {
+    let mut pretty_config = PrettyConfig::default();
+    pretty_config.depth_limit = 1;
+    let contents = match ron::ser::to_string_pretty(&recording.commands, pretty_config) {
         Ok(contents) => contents,
         Err(error) => {
             warn!("Failed to serialize action recording: {error}");

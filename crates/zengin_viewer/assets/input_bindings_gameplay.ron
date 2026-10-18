@@ -23,6 +23,14 @@
                 "KeyCode": KeyJ,
             },
         ],
+        Accelerate: [
+            {
+                "KeyCode": ShiftLeft,
+            },
+            {
+                "GamepadButton": North,
+            },
+        ],
     },
     axislike_map: {},
     dual_axislike_map: {
@@ -48,6 +56,32 @@
                 "GamepadStick": (
                     x: LeftStickX,
                     y: LeftStickY,
+                    processors: [],
+                ),
+            },
+        ],
+        RotateCamera: [
+            {
+                "VirtualDPad": (
+                    up: {
+                        "KeyCode": ArrowUp,
+                    },
+                    down: {
+                        "KeyCode": ArrowDown,
+                    },
+                    left: {
+                        "KeyCode": ArrowLeft,
+                    },
+                    right: {
+                        "KeyCode": ArrowRight,
+                    },
+                    processors: [],
+                ),
+            },
+            {
+                "GamepadStick": (
+                    x: RightStickX,
+                    y: RightStickY,
                     processors: [],
                 ),
             },

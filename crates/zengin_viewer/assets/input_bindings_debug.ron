@@ -20,6 +20,11 @@
                 "KeyCode": KeyK,
             },
         ],
+        QuitGame: [
+            {
+                "KeyCode": Escape,
+            },
+        ],
     },
     axislike_map: {},
     dual_axislike_map: {},

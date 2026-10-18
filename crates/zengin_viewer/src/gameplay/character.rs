@@ -209,6 +209,9 @@ fn update_grounded(
     }
 }
 
+/// Acceleration multiplier while the `Accelerate` action is held.
+const ACCELERATION_MULTIPLIER: Scalar = 5.0;
+
 /// Responds to the movement [`GameplayAction`]s and moves character controllers accordingly.
 fn movement(
     time: Res<Time>,
@@ -228,6 +231,7 @@ fn movement(
         .clamp_length_max(1.0);
     let is_moving = direction.length_squared() >= 0.1;
     let jump_pressed = action_state.just_pressed(&GameplayAction::Jump);
+    let accelerating = action_state.pressed(&GameplayAction::Accelerate);
 
     for (movement, mut linear_velocity, tr, is_grounded) in &mut controllers {
         if is_moving {
@@ -238,8 +242,13 @@ fn movement(
                 z: direction.y,
             }
             .rotate_y(rot.0);
-            linear_velocity.x += dir.x * movement.acceleration * delta_secs;
-            linear_velocity.z += dir.z * movement.acceleration * delta_secs;
+            let acceleration = if accelerating {
+                movement.acceleration * ACCELERATION_MULTIPLIER
+            } else {
+                movement.acceleration
+            };
+            linear_velocity.x += dir.x * acceleration * delta_secs;
+            linear_velocity.z += dir.z * acceleration * delta_secs;
         }
 
         if jump_pressed && is_grounded {
