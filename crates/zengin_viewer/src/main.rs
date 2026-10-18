@@ -104,6 +104,17 @@ fn main() {
     if let Some(frames) = app.world().resource::<Options>().frames() {
         app.add_plugins(crate::input::options::FrameLimitPlugin(frames));
     }
+    // Recording or replaying runs with a fixed frame delta, so frame numbers
+    // map to the same simulated time and physics steps in every run.
+    if app.world().resource::<Options>().deterministic_time() {
+        use crate::input::options::SCENARIO_FRAME_DELTA;
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            SCENARIO_FRAME_DELTA,
+        ));
+        app.world_mut()
+            .resource_mut::<bevy::time::Time<bevy::time::Fixed>>()
+            .set_timestep(SCENARIO_FRAME_DELTA);
+    }
 
     // Plugins from crates
     app.add_plugins(PhysicsPlugins::default());

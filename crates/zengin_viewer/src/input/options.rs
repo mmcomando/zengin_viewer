@@ -39,7 +39,16 @@ impl Options {
     pub fn replay_actions(&self) -> Option<&PathBuf> {
         self.replay_actions.as_ref()
     }
+
+    /// Recording or replaying requires deterministic frame timing.
+    pub fn deterministic_time(&self) -> bool {
+        self.save_actions.is_some() || self.replay_actions.is_some()
+    }
 }
+
+/// Fixed frame delta used when recording or replaying, so recorded frame
+/// numbers map to the same simulated time across runs.
+pub const SCENARIO_FRAME_DELTA: std::time::Duration = std::time::Duration::from_millis(20);
 
 /// Registers the Shader asset type in headless mode, normally done by RenderPlugin.
 pub struct RegisterShaderAsset;
