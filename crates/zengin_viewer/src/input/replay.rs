@@ -5,17 +5,19 @@ use std::fs;
 use std::path::Path;
 
 use bevy::prelude::*;
+use bevy::render::view::window::screenshot::{Screenshot, save_to_disk};
 use leafwing_input_manager::action_state::ActionKindData;
 use leafwing_input_manager::buttonlike::ButtonState;
 use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::{ActionState, Actionlike};
 
+use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::input::actions::{
     DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker, GuiAction, GuiInputMarker,
     update_input_mode,
 };
 use crate::input::options::Options;
-use crate::input::record::{RecordedAction, RecordedInput};
+use crate::input::record::{RecordedAction, ReplayCommand};
 
 /// Replays the actions recorded with `--save-actions`.
 pub struct ActionReplayPlugin;
@@ -39,7 +41,7 @@ impl Plugin for ActionReplayPlugin {
 #[derive(Resource)]
 struct ActionReplay {
     /// Events sorted by frame.
-    events: Vec<RecordedInput>,
+    commands: Vec<ReplayCommand>,
     /// Index of the next event to apply.
     next: usize,
     frame: u64,
@@ -65,8 +67,8 @@ fn load_replay_file(options: Res<Options>, mut commands: Commands) {
         }
     };
     info!(
-        "Replaying {} recorded action event(s) from {path:?}",
-        replay.events.len()
+        "Replaying {} recorded replay command(s) from {path:?}",
+        replay.commands.len()
     );
     commands.insert_resource(replay);
 }
@@ -74,11 +76,11 @@ fn load_replay_file(options: Res<Options>, mut commands: Commands) {
 fn read_replay(path: &Path) -> Result<ActionReplay, String> {
     let contents =
         fs::read_to_string(path).map_err(|error| format!("failed to read {path:?}: {error}"))?;
-    let mut events: Vec<RecordedInput> = ron::de::from_str(&contents)
+    let mut commands: Vec<ReplayCommand> = ron::de::from_str(&contents)
         .map_err(|error| format!("failed to parse {path:?}: {error}"))?;
-    events.sort_by_key(|event| event.frame());
+    commands.sort_by_key(|command| command.frame());
     Ok(ActionReplay {
-        events,
+        commands,
         next: 0,
         frame: 0,
         held_buttons: HashSet::new(),
@@ -93,10 +95,12 @@ fn read_replay(path: &Path) -> Result<ActionReplay, String> {
 /// manager recomputes action states from raw device input each frame and
 /// would otherwise wipe synthetic changes immediately.
 fn replay_actions(
+    mut commands: Commands,
     replay: Option<ResMut<ActionReplay>>,
     mut gameplay: Query<&mut ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut gui: Query<&mut ActionState<GuiAction>, With<GuiInputMarker>>,
     mut debug: Query<&mut ActionState<DebugAction>, With<DebugInputMarker>>,
+    mut player: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
 ) {
     let Some(mut replay) = replay else {
         return;
@@ -104,24 +108,38 @@ fn replay_actions(
     replay.frame += 1;
     replay.started_buttons.clear();
 
-    while replay.next < replay.events.len() && replay.events[replay.next].frame() <= replay.frame {
-        let event = replay.events[replay.next].clone();
+    while replay.next < replay.commands.len()
+        && replay.commands[replay.next].frame() <= replay.frame
+    {
+        let command = replay.commands[replay.next].clone();
         replay.next += 1;
-        info!("Replay triggered action: {event:?}");
-        match &event {
-            RecordedInput::Press { action, .. } => {
+        info!("Replay triggered command: {command:?}");
+        match &command {
+            ReplayCommand::Press { action, .. } => {
                 replay.started_buttons.insert(*action);
                 replay.held_buttons.insert(*action);
             }
-            RecordedInput::Release { action, .. } => {
+            ReplayCommand::Release { action, .. } => {
                 replay.held_buttons.remove(action);
             }
-            RecordedInput::Axis { action, value, .. } => {
+            ReplayCommand::Axis { action, value, .. } => {
                 if *value == Vec2::ZERO {
                     replay.held_axes.remove(action);
                 } else {
                     replay.held_axes.insert(*action, *value);
                 }
+            }
+            ReplayCommand::Teleport {
+                translation,
+                rotation,
+                ..
+            } => {
+                teleport_player(&mut player, *translation, *rotation);
+            }
+            ReplayCommand::Screenshot { path, .. } => {
+                commands
+                    .spawn(Screenshot::primary_window())
+                    .observe(save_to_disk(path.clone()));
             }
         }
     }
@@ -191,4 +209,24 @@ fn set_axis_pair(
     if let Ok(mut state) = gameplay.single_mut() {
         state.set_axis_pair(&action, value);
     }
+}
+
+/// Teleports the player character to `translation` with `rotation` given in
+/// degrees around the XYZ axes.
+fn teleport_player(
+    player: &mut Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
+    translation: Vec3,
+    rotation: Vec3,
+) {
+    let Ok(mut transform) = player.single_mut() else {
+        warn!("Replay teleport failed: no player character found");
+        return;
+    };
+    transform.translation = translation;
+    transform.rotation = Quat::from_euler(
+        EulerRot::XYZ,
+        rotation.x.to_radians(),
+        rotation.y.to_radians(),
+        rotation.z.to_radians(),
+    );
 }

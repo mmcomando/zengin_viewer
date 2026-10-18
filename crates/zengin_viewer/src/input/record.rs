@@ -1,7 +1,7 @@
 //! Recording of triggered actions into a RON file, enabled by `--save-actions`.
 //!
-//! The recording is a frame-indexed event stream (`RecordedInput`) that can be
-//! replayed later with `--replay-actions` (see `input/replay.rs`).
+//! The recording is a frame-indexed command stream (`ReplayCommand`) that can
+//! be replayed later with `--replay-actions` (see `input/replay.rs`).
 
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
@@ -35,10 +35,10 @@ pub(crate) enum RecordedAction {
     Debug(DebugAction),
 }
 
-/// One recorded input event. Together these fully describe the triggered
-/// inputs of a run so they can be replayed frame by frame.
+/// One recorded replay command. Together these fully describe the triggered
+/// inputs and extra commands of a run so they can be replayed frame by frame.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub(crate) enum RecordedInput {
+pub(crate) enum ReplayCommand {
     /// Button was pressed on `frame`; replay holds it until a matching
     /// `Release`.
     Press { frame: u64, action: RecordedAction },
@@ -50,25 +50,36 @@ pub(crate) enum RecordedInput {
         action: RecordedAction,
         value: Vec2,
     },
+    /// Teleport the player character on `frame` to `translation` with
+    /// `rotation` in degrees around the XYZ axes.
+    Teleport {
+        frame: u64,
+        translation: Vec3,
+        rotation: Vec3,
+    },
+    /// Save a screenshot of the primary window to `path` on `frame`.
+    Screenshot { frame: u64, path: String },
 }
 
-impl RecordedInput {
+impl ReplayCommand {
     pub(crate) fn frame(&self) -> u64 {
         match *self {
-            RecordedInput::Press { frame, .. }
-            | RecordedInput::Release { frame, .. }
-            | RecordedInput::Axis { frame, .. } => frame,
+            ReplayCommand::Press { frame, .. }
+            | ReplayCommand::Release { frame, .. }
+            | ReplayCommand::Axis { frame, .. }
+            | ReplayCommand::Teleport { frame, .. }
+            | ReplayCommand::Screenshot { frame, .. } => frame,
         }
     }
 }
 
-/// In-memory recording, rewritten to the target file whenever new events
+/// In-memory recording, rewritten to the target file whenever new commands
 /// appear.
 #[derive(Resource)]
 struct ActionRecording {
     path: PathBuf,
     frame: u64,
-    events: Vec<RecordedInput>,
+    commands: Vec<ReplayCommand>,
     /// Buttons currently recorded as pressed, to detect releases even when
     /// the action gets disabled before it is released.
     held_gameplay: HashSet<GameplayAction>,
@@ -91,7 +102,7 @@ fn open_recording_file(options: Res<Options>, mut commands: Commands) {
     commands.insert_resource(ActionRecording {
         path: path.clone(),
         frame: 0,
-        events: Vec::new(),
+        commands: Vec::new(),
         held_gameplay: HashSet::new(),
         held_gui: HashSet::new(),
         held_debug: HashSet::new(),
@@ -112,35 +123,35 @@ fn record_triggered_actions(
     recording.frame += 1;
     let frame = recording.frame;
 
-    let before = recording.events.len();
+    let before = recording.commands.len();
 
     let gameplay = gameplay.map(|state| state.into_inner());
     let gui = gui.map(|state| state.into_inner());
     let debug = debug.map(|state| state.into_inner());
 
-    // Events are collected in a local vector to avoid double borrows of the
+    // Commands are collected in a local vector to avoid double borrows of the
     // resource through the separate held-state fields.
-    let mut events = std::mem::take(&mut recording.events);
+    let mut commands = std::mem::take(&mut recording.commands);
 
     record_buttons(
         gameplay,
         RecordedAction::Gameplay,
         frame,
-        &mut events,
+        &mut commands,
         &mut recording.held_gameplay,
     );
     record_buttons(
         gui,
         RecordedAction::Gui,
         frame,
-        &mut events,
+        &mut commands,
         &mut recording.held_gui,
     );
     record_buttons(
         debug,
         RecordedAction::Debug,
         frame,
-        &mut events,
+        &mut commands,
         &mut recording.held_debug,
     );
 
@@ -151,13 +162,13 @@ fn record_triggered_actions(
             RecordedAction::Gameplay(GameplayAction::Move),
             value,
             frame,
-            &mut events,
+            &mut commands,
             &mut recording.last_axis,
         );
     }
 
-    recording.events = events;
-    if recording.events.len() != before {
+    recording.commands = commands;
+    if recording.commands.len() != before {
         save_recording(recording);
     }
 }
@@ -171,7 +182,7 @@ fn record_buttons<A: Actionlike + Copy>(
     state: Option<&ActionState<A>>,
     to_recorded: impl Fn(A) -> RecordedAction,
     frame: u64,
-    events: &mut Vec<RecordedInput>,
+    commands: &mut Vec<ReplayCommand>,
     held: &mut HashSet<A>,
 ) {
     let Some(state) = state else {
@@ -179,7 +190,7 @@ fn record_buttons<A: Actionlike + Copy>(
     };
     for action in state.get_just_pressed() {
         if held.insert(action) {
-            events.push(RecordedInput::Press {
+            commands.push(ReplayCommand::Press {
                 frame,
                 action: to_recorded(action),
             });
@@ -189,7 +200,7 @@ fn record_buttons<A: Actionlike + Copy>(
         if state.pressed(action) {
             return true;
         }
-        events.push(RecordedInput::Release {
+        commands.push(ReplayCommand::Release {
             frame,
             action: to_recorded(*action),
         });
@@ -202,7 +213,7 @@ fn record_axis(
     action: RecordedAction,
     value: Vec2,
     frame: u64,
-    events: &mut Vec<RecordedInput>,
+    commands: &mut Vec<ReplayCommand>,
     last_axis: &mut HashMap<RecordedAction, Vec2>,
 ) {
     let unchanged = last_axis
@@ -212,16 +223,16 @@ fn record_axis(
         return;
     }
     last_axis.insert(action, value);
-    events.push(RecordedInput::Axis {
+    commands.push(ReplayCommand::Axis {
         frame,
         action,
         value,
     });
 }
 
-/// Rewrites the whole recording file with the current event list.
+/// Rewrites the whole recording file with the current command list.
 fn save_recording(recording: &ActionRecording) {
-    let contents = match ron::ser::to_string(&recording.events) {
+    let contents = match ron::ser::to_string(&recording.commands) {
         Ok(contents) => contents,
         Err(error) => {
             warn!("Failed to serialize action recording: {error}");
@@ -231,7 +242,7 @@ fn save_recording(recording: &ActionRecording) {
     let result = File::create(&recording.path).and_then(|mut file| {
         writeln!(
             file,
-            "// Recorded input events, replayable with --replay-actions"
+            "// Recorded replay commands, replayable with --replay-actions"
         )?;
         writeln!(file, "{contents}")
     });
