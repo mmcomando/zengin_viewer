@@ -66,6 +66,14 @@ fn main() {
     };
     let replay_enabled = app.world().resource::<Options>().replay_actions().is_some();
     crate::input::replay::apply_scenario_window_settings(&mut primary_window, replay_enabled);
+    if replay_enabled {
+        // Repeatable replays: fixed game time, no progression. GameTimePlugin
+        // keeps this resource because init_resource does not overwrite it.
+        app.insert_resource(crate::gameplay::game_time::GameTime {
+            total_hours: 12.0,
+            speed: 0.0,
+        });
+    }
     let window_plugin_options = WindowPlugin {
         primary_window: Some(primary_window),
         ..default()
@@ -120,8 +128,11 @@ fn main() {
     app.add_plugins(PhysicsPlugins::default());
     // FPS overlay requires rendering, skip it in renderless mode.
     if !app.world().resource::<Options>().renderless() {
-        app.add_plugins(get_overlay_plugin());
-        app.add_plugins(WaypointDebugPlugin);
+        if !replay_enabled {
+            // Scenario replays must not show debug overlays in screenshots.
+            app.add_plugins(get_overlay_plugin());
+            app.add_plugins(WaypointDebugPlugin);
+        }
     }
 
     // This app custom plugins
@@ -134,9 +145,13 @@ fn main() {
         .add_plugins(DistancePlugin)
         .add_plugins(GameTimePlugin)
         .add_plugins(RenderOptionsPlugin)
-        .add_plugins(LightingPlugin)
-        .add_plugins(GameDebugUI)
-        .add_plugins(StatisticsPlugin)
+        .add_plugins(LightingPlugin);
+    // The egui debug UI (Info window, camera overlay) is skipped for scenario
+    // replays so screenshots contain no debug overlays.
+    if !replay_enabled {
+        app.add_plugins(GameDebugUI);
+    }
+    app.add_plugins(StatisticsPlugin)
         .add_plugins(GameAudioPlugin)
         .add_plugins(GameLogPlugin)
         .add_plugins(CameraPlugin)

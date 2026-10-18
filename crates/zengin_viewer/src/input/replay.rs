@@ -94,6 +94,13 @@ fn load_replay_file(options: Res<Options>, mut commands: Commands) {
         return;
     };
     let workdir = scenario_workdir(path);
+    // Start from an empty workdir so everything left in it was produced by
+    // this run, not by an earlier one.
+    match fs::remove_dir_all(&workdir) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => warn!("Failed to remove old scenario workdir {workdir:?}: {error}"),
+    }
     if let Err(error) = fs::create_dir_all(&workdir) {
         warn!("Failed to create scenario workdir {workdir:?}: {error}");
     }

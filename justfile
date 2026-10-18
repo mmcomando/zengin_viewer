@@ -13,7 +13,7 @@ record-replay name:
 
 # Replay the commands from the given scenario
 run-replay name:
-    cargo run -- --replay-actions misc/scenarios/{{name}}.ron
+    cargo run -- --replay-actions misc/scenarios/{{name}}.ron --frames 600
 
 # Headless CPU profile: writes a ~1GB chrome trace, then prints heaviest spans.
 trace-chrome:
