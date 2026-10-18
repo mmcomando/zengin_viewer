@@ -51,8 +51,17 @@ pub(crate) enum ReplayCommand {
         value: Vec2,
     },
     /// Teleport the player character on `frame` to `translation` with
-    /// `rotation` in degrees around the XYZ axes.
-    Teleport {
+    /// `rotation` in axis labeled degrees `(x = pitch, y = yaw, z = roll)`,
+    /// matching the camera info overlay.
+    TeleportPlayer {
+        frame: u64,
+        translation: Vec3,
+        rotation: Vec3,
+    },
+    /// Set the camera location on `frame` to `translation` with `rotation`
+    /// in axis labeled degrees `(x = pitch, y = yaw, z = roll)`, matching
+    /// the camera info overlay.
+    SetCameraLocation {
         frame: u64,
         translation: Vec3,
         rotation: Vec3,
@@ -67,7 +76,8 @@ impl ReplayCommand {
             ReplayCommand::Press { frame, .. }
             | ReplayCommand::Release { frame, .. }
             | ReplayCommand::Axis { frame, .. }
-            | ReplayCommand::Teleport { frame, .. }
+            | ReplayCommand::TeleportPlayer { frame, .. }
+            | ReplayCommand::SetCameraLocation { frame, .. }
             | ReplayCommand::Screenshot { frame, .. } => frame,
         }
     }

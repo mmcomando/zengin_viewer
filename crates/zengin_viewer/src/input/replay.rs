@@ -100,7 +100,8 @@ fn replay_actions(
     mut gameplay: Query<&mut ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut gui: Query<&mut ActionState<GuiAction>, With<GuiInputMarker>>,
     mut debug: Query<&mut ActionState<DebugAction>, With<DebugInputMarker>>,
-    mut player: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
+    mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
+    mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
 ) {
     let Some(mut replay) = replay else {
         return;
@@ -129,12 +130,19 @@ fn replay_actions(
                     replay.held_axes.insert(*action, *value);
                 }
             }
-            ReplayCommand::Teleport {
+            ReplayCommand::TeleportPlayer {
                 translation,
                 rotation,
                 ..
             } => {
                 teleport_player(&mut player, *translation, *rotation);
+            }
+            ReplayCommand::SetCameraLocation {
+                translation,
+                rotation,
+                ..
+            } => {
+                set_camera_location(&mut camera, *translation, *rotation);
             }
             ReplayCommand::Screenshot { path, .. } => {
                 commands
@@ -211,10 +219,22 @@ fn set_axis_pair(
     }
 }
 
-/// Teleports the player character to `translation` with `rotation` given in
-/// degrees around the XYZ axes.
+/// Builds a quaternion from degrees labeled by axis:
+/// `(x = pitch, y = yaw, z = roll)`, applied as yaw around Y first, then
+/// pitch around X, then roll around Z (the standard camera convention).
+fn rotation_from_degrees(rotation: Vec3) -> Quat {
+    Quat::from_euler(
+        EulerRot::YXZ,
+        rotation.y.to_radians(),
+        rotation.x.to_radians(),
+        rotation.z.to_radians(),
+    )
+}
+
+/// Teleports the player character to `translation` with `rotation` in axis
+/// labeled degrees `(x = pitch, y = yaw, z = roll)`.
 fn teleport_player(
-    player: &mut Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
+    player: &mut Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
     translation: Vec3,
     rotation: Vec3,
 ) {
@@ -223,10 +243,20 @@ fn teleport_player(
         return;
     };
     transform.translation = translation;
-    transform.rotation = Quat::from_euler(
-        EulerRot::XYZ,
-        rotation.x.to_radians(),
-        rotation.y.to_radians(),
-        rotation.z.to_radians(),
-    );
+    transform.rotation = rotation_from_degrees(rotation);
+}
+
+/// Sets the camera to `translation` with `rotation` in axis labeled degrees
+/// `(x = pitch, y = yaw, z = roll)`.
+fn set_camera_location(
+    camera: &mut Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
+    translation: Vec3,
+    rotation: Vec3,
+) {
+    let Ok(mut transform) = camera.single_mut() else {
+        warn!("Replay set camera location failed: no camera found");
+        return;
+    };
+    transform.translation = translation;
+    transform.rotation = rotation_from_degrees(rotation);
 }

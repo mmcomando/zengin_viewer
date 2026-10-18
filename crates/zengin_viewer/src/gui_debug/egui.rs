@@ -70,13 +70,15 @@ fn camera_info_overlay(context: &egui::Context, camera: &GlobalTransform) {
     let position = camera.translation();
     let (yaw, pitch, roll) = camera.rotation().to_euler(EulerRot::YXZ);
     let degrees = |rad: f32| rad.to_degrees();
+    // Printed in axis labeled order (x = pitch, y = yaw, z = roll) to match
+    // the rotation format of replay location commands.
     let text = format!(
         "pos: {:6.1}, {:6.1}, {:6.1}\nrot: {:5.1} {:5.1} {:5.1}",
         position.x,
         position.y,
         position.z,
-        degrees(yaw),
         degrees(pitch),
+        degrees(yaw),
         degrees(roll)
     );
     egui::Area::new(egui::Id::new("camera_info"))
