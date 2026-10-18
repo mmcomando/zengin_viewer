@@ -4,8 +4,10 @@ use leafwing_input_manager::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use crate::gui::inventory::InventoryUiState;
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
+use crate::zengin::dialog::DialogUiState;
 
 /// Directory of the input profiles, relative to the working directory
 /// (the same `assets` folder the [`bevy::asset::AssetServer`] reads from).
@@ -183,15 +185,29 @@ pub enum DebugAction {
     GiveTestItems,
 }
 
-/// Exits the application on the `QuitGame` debug action (Escape).
+/// Exits the application on the `QuitGame` debug action (Escape). While a GUI
+/// (inventory or dialog) is open, it closes that GUI instead of exiting.
 fn quit_game(
     action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
+    mut inventory_ui: ResMut<InventoryUiState>,
+    mut dialog_ui: ResMut<DialogUiState>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    if action_state.just_pressed(&DebugAction::QuitGame) {
-        info!("QuitGame action triggered, exiting");
-        exit.write(AppExit::Success);
+    if !action_state.just_pressed(&DebugAction::QuitGame) {
+        return;
     }
+    if inventory_ui.is_open() {
+        inventory_ui.close();
+        info!("QuitGame closed the open inventory");
+        return;
+    }
+    if dialog_ui.is_open() {
+        dialog_ui.close();
+        info!("QuitGame closed the open dialog");
+        return;
+    }
+    info!("QuitGame action triggered, exiting");
+    exit.write(AppExit::Success);
 }
 
 fn spawn_input_maps(mut commands: Commands) {

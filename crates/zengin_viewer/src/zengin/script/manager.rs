@@ -284,6 +284,22 @@ impl ScriptManager {
             .push(WeaponModeChange { instance_id: npc });
     }
 
+    /// Unequips the npc's weapon and sheathes it (`AI_RemoveWeapon` + clearing
+    /// `EquipItem` semantics), leaving the changes queued for the ECS bridge.
+    pub fn unequip_item(&mut self, npc: InstanceId) {
+        let instance = self.npc_instances_mut_or_default(npc);
+        instance.equipped_weapon = None;
+        instance.weapon_mode = Some(WeaponMode::Fists);
+        self.store
+            .data_mut()
+            .pending_equip_item_changes
+            .push(EquipItemChange { instance_id: npc });
+        self.store
+            .data_mut()
+            .pending_weapon_mode_changes
+            .push(WeaponModeChange { instance_id: npc });
+    }
+
     /// Contents of an npc's inventory as `(item, count)` pairs, empty when the
     /// npc has no inventory.
     pub fn inventory(&self, npc: InstanceId) -> Vec<(InstanceId, i32)> {

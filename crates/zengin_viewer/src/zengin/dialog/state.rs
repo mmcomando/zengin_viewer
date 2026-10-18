@@ -243,7 +243,7 @@ impl DialogUiState {
     }
 
     /// Closes the dialog by clearing the npc entity
-    pub(super) fn close(&mut self) {
+    pub(crate) fn close(&mut self) {
         self.npc_entity = None;
         self.sub_choices.clear();
         self.pending_close = false;

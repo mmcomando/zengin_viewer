@@ -436,6 +436,8 @@ fn update_npc_weapon(
             .as_ref()
             .and_then(|weapon| weapon.entity)
             .is_some_and(|child| entities.contains(child));
+        // A different equipped item needs a different mesh child
+        let item_changed = weapon.as_ref().is_some_and(|weapon| weapon.item != item);
 
         let Some(path) = path else {
             // Nothing equipped, or its mesh is unknown
@@ -443,8 +445,15 @@ fn update_npc_weapon(
             continue;
         };
 
-        if !child_alive {
-            // Weapon child was despawned (npc went far) or never spawned
+        if !child_alive || item_changed {
+            // Replace the stale/obsolete weapon mesh child
+            if let Some(child) = weapon
+                .as_ref()
+                .and_then(|weapon| weapon.entity)
+                .filter(|child| entities.contains(*child))
+            {
+                commands.entity(child).despawn();
+            }
             let Some(target_slot) = target_slot else {
                 // No slot available, only drop the stale child reference
                 if let Some(mut weapon) = weapon {

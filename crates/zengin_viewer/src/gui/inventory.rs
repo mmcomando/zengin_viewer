@@ -31,6 +31,8 @@ impl InventoryStyle {
     const INFO_FONT_SIZE: f32 = 24.0;
     const SLOT_NAME_CHARS: usize = 7;
     const PANEL_BACKGROUND: Color = Color::srgba(0.06, 0.05, 0.04, 0.85);
+    /// Translucent red fill drawn over equipped item slots.
+    const EQUIPPED_OVERLAY: Color = Color::srgba(0.7, 0.05, 0.05, 0.1);
     const TEXT_COLOR: Color = Color::srgb(0.9, 0.8, 0.6);
     const COUNT_TEXT_COLOR: Color = Color::srgb(0.95, 0.95, 0.9);
     const TEXT_SHADOW: TextShadow = TextShadow {
@@ -69,12 +71,13 @@ pub(crate) fn display_item_name(symbol_name: &str) -> String {
         .replace("addon", "")
 }
 
-/// One openable inventory panel. Only the player window exists today; trade
-/// will add a second (trader) window rendered from the same code.
+/// One window's state: open panels snapshot their items on open.
 struct InventoryWindowState {
     /// Header title, e.g. a category name or the trader name.
     title: String,
     selected: usize,
+    /// Currently equipped weapon of this window's npc, shown with a red slot.
+    equipped: Option<InstanceId>,
     items: Vec<InventoryEntry>,
 }
 
@@ -100,6 +103,11 @@ pub struct InventoryUiState {
 impl InventoryUiState {
     pub(crate) fn is_open(&self) -> bool {
         self.open
+    }
+
+    /// Closes the inventory UI.
+    pub(crate) fn close(&mut self) {
+        self.open = false;
     }
 
     /// Window whose grid receives the navigation input.
@@ -141,6 +149,10 @@ struct InventoryWindowTitleText(usize);
 /// Header gold text of one window panel
 #[derive(Component)]
 struct InventoryWindowGoldText(usize);
+
+/// Red translucent fill over an equipped item's slot
+#[derive(Component)]
+struct InventorySlotEquippedOverlay;
 
 /// Item info text in the bottom left panel
 #[derive(Component)]
@@ -368,6 +380,22 @@ fn spawn_inventory_window(
                 },
             ))
             .id();
+        // Equipped marker: translucent red fill over the whole slot, like the
+        // original trade inventory
+        commands.spawn((
+            ChildOf(slot),
+            InventorySlotEquippedOverlay,
+            BackgroundColor(InventoryStyle::EQUIPPED_OVERLAY),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(0.0),
+                bottom: Val::Px(0.0),
+                display: Display::None,
+                ..default()
+            },
+        ));
         commands.spawn((
             ChildOf(slot),
             InventorySlotTextOrCount::Name,
@@ -442,9 +470,14 @@ fn toggle_inventory(
         .collect();
     // Deterministic grid order (the script inventory is a hash map)
     items.sort_unstable_by_key(|entry| entry.instance_id.value());
+    let equipped = script
+        .npc_instances()
+        .get(&player_id)
+        .and_then(|npc| npc.equipped_weapon);
     state.windows = vec![InventoryWindowState {
         title: "Inventory".to_string(),
         selected: 0,
+        equipped,
         items,
     }];
     state.open = true;
@@ -508,32 +541,49 @@ fn handle_inventory_input(
     if action_state.just_pressed(&GuiAction::Confirm)
         && let Some(entry) = window.items.get(*selected)
     {
-        equip_selected_item(entry, &mut game_log, &gothic_script, player_npc);
+        let now_equipped = equip_selected_item(entry, &mut game_log, &gothic_script, player_npc);
+        window.equipped = now_equipped;
     }
 }
 
 /// Equips the selected item as the player's drawn weapon on confirm. Only
 /// weapon items (`itmw_*`/`itrw_*` symbols) are accepted, everything else is
-/// reported in the game log instead.
+/// reported in the game log instead. Returns the item equipped afterwards,
+/// `None` when nothing is equipped now.
 fn equip_selected_item(
     entry: &InventoryEntry,
     game_log: &mut GameLog,
     gothic_script: &ScriptResource,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
-) {
+) -> Option<InstanceId> {
     let Ok(player_npc) = player_npc.single() else {
-        return;
+        return None;
     };
     let player_id = player_npc.instance_id();
 
     let mut script = gothic_script.lock();
+    let equipped = script
+        .npc_instances()
+        .get(&player_id)
+        .and_then(|npc| npc.equipped_weapon);
+    if equipped == Some(entry.instance_id) {
+        script.unequip_item(player_id);
+        game_log.add(format!("Unequipped {}", entry.name));
+        info!(
+            "Player({}) unequipped item({})",
+            player_id.value(),
+            entry.instance_id.value()
+        );
+        return None;
+    }
+
     let symbol = script
         .get_name_by_id(entry.instance_id.value())
         .unwrap_or_default()
         .to_lowercase();
     if !symbol.starts_with("itmw_") && !symbol.starts_with("itrw_") {
         game_log.add(format!("{} is not a weapon", entry.name));
-        return;
+        return equipped;
     }
 
     script.equip_item(player_id, entry.instance_id);
@@ -544,6 +594,7 @@ fn equip_selected_item(
         player_id.value(),
         entry.instance_id.value()
     );
+    Some(entry.instance_id)
 }
 
 /// Updates visibility, header texts, slot contents and the info panel from
@@ -552,7 +603,11 @@ fn sync_inventory_ui(
     state: Res<InventoryUiState>,
     textures: Res<InventoryTextures>,
     mut containers: Query<(&InventoryContainer, &mut Visibility)>,
-    mut slots: Query<(&InventorySlot, &mut Node, &mut ImageNode, &Children)>,
+    mut slots: Query<
+        (&InventorySlot, &mut Node, &mut ImageNode, &Children),
+        Without<InventorySlotEquippedOverlay>,
+    >,
+    mut equipped_overlays: Query<&mut Node, With<InventorySlotEquippedOverlay>>,
     mut slot_texts: Query<
         (&mut Text, &InventorySlotTextOrCount),
         (
@@ -633,6 +688,8 @@ fn sync_inventory_ui(
             if !used {
                 continue;
             }
+            let entry = &window.items[slot.index];
+            let is_equipped = window.equipped == Some(entry.instance_id);
             let texture = if slot.index == window.selected {
                 &textures.focus
             } else {
@@ -642,7 +699,6 @@ fn sync_inventory_ui(
                 image.image = texture.clone();
             }
 
-            let entry = &window.items[slot.index];
             let display_text: String = entry
                 .name
                 .chars()
@@ -654,6 +710,17 @@ fn sync_inventory_ui(
                 String::new()
             };
             for &child in children {
+                if let Ok(mut overlay) = equipped_overlays.get_mut(child) {
+                    let desired = if is_equipped {
+                        Display::Flex
+                    } else {
+                        Display::None
+                    };
+                    if overlay.display != desired {
+                        overlay.display = desired;
+                    }
+                    continue;
+                }
                 if let Ok((mut text, kind)) = slot_texts.get_mut(child) {
                     let desired = match kind {
                         InventorySlotTextOrCount::Name => display_text.clone(),
