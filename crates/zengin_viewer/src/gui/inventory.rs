@@ -14,7 +14,7 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::game_log::GameLog;
 use crate::input::actions::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::dialog::DialogUiState;
-use crate::zengin::{GameNpc, ScriptResource};
+use crate::zengin::{GameNpc, InstanceId, ScriptResource};
 
 /// Visual style of the inventory UI, single place to tweak the look
 struct InventoryStyle;
@@ -47,6 +47,7 @@ fn inv_texture(name: &str) -> String {
 
 /// One entry shown in a grid: an inventory stack with its display name.
 struct InventoryEntry {
+    instance_id: InstanceId,
     count: i32,
     name: String,
 }
@@ -425,16 +426,22 @@ fn toggle_inventory(
     let player_id = player_npc.instance_id();
     let mut script = gothic_script.lock();
     let items = script.inventory(player_id);
-    let items = items
+    let mut items: Vec<_> = items
         .into_iter()
         .map(|(instance_id, count)| {
             let name = script
                 .get_name_by_id(instance_id.value())
                 .map(|symbol_name| display_item_name(&symbol_name))
                 .unwrap_or_else(|| instance_id.value().to_string());
-            InventoryEntry { count, name }
+            InventoryEntry {
+                instance_id,
+                count,
+                name,
+            }
         })
         .collect();
+    // Deterministic grid order (the script inventory is a hash map)
+    items.sort_unstable_by_key(|entry| entry.instance_id.value());
     state.windows = vec![InventoryWindowState {
         title: "Inventory".to_string(),
         selected: 0,
@@ -449,10 +456,13 @@ fn toggle_inventory(
 
 /// Grid navigation and closing while the inventory is open. Input goes to the
 /// active window; with a single window that is always the player inventory.
+/// Confirm equips the selected item as the player's drawn weapon.
 fn handle_inventory_input(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     mut state: ResMut<InventoryUiState>,
     mut game_log: ResMut<GameLog>,
+    gothic_script: Res<ScriptResource>,
+    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
     if !state.open {
         return;
@@ -498,8 +508,42 @@ fn handle_inventory_input(
     if action_state.just_pressed(&GuiAction::Confirm)
         && let Some(entry) = window.items.get(*selected)
     {
-        game_log.add(format!("{} x{}", entry.name, entry.count));
+        equip_selected_item(entry, &mut game_log, &gothic_script, player_npc);
     }
+}
+
+/// Equips the selected item as the player's drawn weapon on confirm. Only
+/// weapon items (`itmw_*`/`itrw_*` symbols) are accepted, everything else is
+/// reported in the game log instead.
+fn equip_selected_item(
+    entry: &InventoryEntry,
+    game_log: &mut GameLog,
+    gothic_script: &ScriptResource,
+    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+) {
+    let Ok(player_npc) = player_npc.single() else {
+        return;
+    };
+    let player_id = player_npc.instance_id();
+
+    let mut script = gothic_script.lock();
+    let symbol = script
+        .get_name_by_id(entry.instance_id.value())
+        .unwrap_or_default()
+        .to_lowercase();
+    if !symbol.starts_with("itmw_") && !symbol.starts_with("itrw_") {
+        game_log.add(format!("{} is not a weapon", entry.name));
+        return;
+    }
+
+    script.equip_item(player_id, entry.instance_id);
+    script.draw_weapon(player_id);
+    game_log.add(format!("Equipped {}", entry.name));
+    info!(
+        "Player({}) equipped item({}) as drawn weapon",
+        player_id.value(),
+        entry.instance_id.value()
+    );
 }
 
 /// Updates visibility, header texts, slot contents and the info panel from

@@ -18,7 +18,7 @@ use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, ImportCallState,
     InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState, NpcLookAtChange,
     OverlayChange, RoutineEntryChange, RoutineExchange, SpawnItem, SpawnNpc, SymbolTable,
-    WeaponModeChange,
+    WeaponMode, WeaponModeChange,
 };
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
@@ -262,6 +262,26 @@ impl ScriptManager {
         self.npc_instances_mut_or_default(npc)
             .inventory
             .create(item, count);
+    }
+
+    /// Equips an item as the npc's weapon (`EquipItem` semantics), leaving the
+    /// change queued for the ECS bridge.
+    pub fn equip_item(&mut self, npc: InstanceId, item: InstanceId) {
+        self.npc_instances_mut_or_default(npc).equipped_weapon = Some(item);
+        self.store
+            .data_mut()
+            .pending_equip_item_changes
+            .push(EquipItemChange { instance_id: npc });
+    }
+
+    /// Draws the npc's weapon into the hand (`Npc_SetToFightMode` semantics),
+    /// leaving the change queued for the ECS bridge.
+    pub fn draw_weapon(&mut self, npc: InstanceId) {
+        self.npc_instances_mut_or_default(npc).weapon_mode = Some(WeaponMode::Melee);
+        self.store
+            .data_mut()
+            .pending_weapon_mode_changes
+            .push(WeaponModeChange { instance_id: npc });
     }
 
     /// Contents of an npc's inventory as `(item, count)` pairs, empty when the

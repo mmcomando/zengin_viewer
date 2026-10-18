@@ -1,0 +1,8 @@
+[
+  Axis(frame:1,action:Gameplay(Move),value:(0.0,0.0)),
+  EquipWeapon(frame: 160, item: "itmw_1h_mil_sword"),
+  TeleportPlayer(frame: 170, translation: (6.0, -0.0, 27.0), rotation: (5.0, -30, 0.0)),
+  SetCameraLocation(frame: 180, translation: (2.0, 0.0, 30.0), rotation: (-4.6, -58.3, 0.0)),
+  Screenshot(frame: 290, path: "screen_character_equipment.png"),
+  Press(frame: 210, action: Debug(QuitGame)),
+]

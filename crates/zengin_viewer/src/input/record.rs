@@ -69,6 +69,9 @@ pub(crate) enum ReplayCommand {
         translation: Vec3,
         rotation: Vec3,
     },
+    /// Equips the item with the given (case-insensitive) instance symbol name
+    /// on the player as a drawn weapon on `frame`.
+    EquipWeapon { frame: u64, item: String },
     /// Save a screenshot of the primary window to `path` on `frame`.
     Screenshot { frame: u64, path: String },
 }
@@ -81,6 +84,7 @@ impl ReplayCommand {
             | ReplayCommand::Axis { frame, .. }
             | ReplayCommand::TeleportPlayer { frame, .. }
             | ReplayCommand::SetCameraLocation { frame, .. }
+            | ReplayCommand::EquipWeapon { frame, .. }
             | ReplayCommand::Screenshot { frame, .. } => frame,
         }
     }

@@ -212,14 +212,24 @@ fn give_test_items(
 
     const TEST_ITEM_COUNT: usize = 12;
     let mut script = gothic_script.lock();
-    let mut candidates: Vec<InstanceId> = script
-        .get_loaded_state()
-        .items_instances
-        .iter()
-        .filter(|(_, instance)| !instance.name.is_empty())
-        .map(|(id, _)| *id)
-        .collect();
-    candidates.sort_unstable_by_key(|id| id.value());
+    let mut weapons: Vec<InstanceId> = Vec::new();
+    let mut others: Vec<InstanceId> = Vec::new();
+    for (id, instance) in script.get_loaded_state().items_instances.iter() {
+        if instance.name.is_empty() {
+            continue;
+        }
+        let lowered = instance.name.to_lowercase();
+        if lowered.starts_with("itmw_") || lowered.starts_with("itrw_") {
+            weapons.push(*id);
+        } else {
+            others.push(*id);
+        }
+    }
+    // Weapons first, so a known slot holds an equippable item
+    weapons.sort_unstable_by_key(|id| id.value());
+    others.sort_unstable_by_key(|id| id.value());
+    let mut candidates = weapons;
+    candidates.extend(others);
     if candidates.is_empty() {
         warn!("No item instances loaded, cannot grant test items");
         return;

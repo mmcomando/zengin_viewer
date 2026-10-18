@@ -15,12 +15,14 @@ use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::{ActionState, Actionlike};
 
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
+use crate::gameplay::objects::PlayerCharacter;
 use crate::input::actions::{
     DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker, GuiAction, GuiInputMarker,
     SharedAction, SharedInputMarker, update_input_mode,
 };
 use crate::input::options::Options;
 use crate::input::record::{RecordedAction, ReplayCommand};
+use crate::zengin::{GameNpc, ScriptResource};
 
 /// Root directory of all scenario workdirs.
 const SCENARIO_DIR: &str = "misc/scenario_output";
@@ -147,6 +149,8 @@ fn replay_actions(
     mut gui: Query<&mut ActionState<GuiAction>, With<GuiInputMarker>>,
     mut shared: Query<&mut ActionState<SharedAction>, With<SharedInputMarker>>,
     mut debug: Query<&mut ActionState<DebugAction>, With<DebugInputMarker>>,
+    gothic_script: Res<ScriptResource>,
+    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
     mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
     mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
 ) {
@@ -190,6 +194,9 @@ fn replay_actions(
                 ..
             } => {
                 set_camera_location(&mut camera, *translation, *rotation);
+            }
+            ReplayCommand::EquipWeapon { item, .. } => {
+                equip_player_weapon(&gothic_script, &player_npc, item);
             }
             ReplayCommand::Screenshot { path, .. } => {
                 let Some(file_path) = resolve_scenario_path(&replay.workdir, path) else {
@@ -344,4 +351,38 @@ fn set_camera_location(
     };
     transform.translation = translation;
     transform.rotation = rotation_from_degrees(rotation);
+}
+
+/// Equips the named item on the player as a drawn weapon. Item names are
+/// matched case-insensitively against the loaded item instance symbols.
+fn equip_player_weapon(
+    gothic_script: &ScriptResource,
+    player_npc: &Query<&GameNpc, With<PlayerCharacter>>,
+    item: &str,
+) {
+    let Ok(player_npc) = player_npc.single() else {
+        warn!("Replay equip failed: no player character found");
+        return;
+    };
+    let player_id = player_npc.instance_id();
+
+    let mut script = gothic_script.lock();
+    let lowered = item.to_lowercase();
+    let Some(item_id) = script
+        .get_loaded_state()
+        .items_instances
+        .iter()
+        .find(|(_, instance)| instance.name.to_lowercase() == lowered)
+        .map(|(id, _)| *id)
+    else {
+        warn!("Replay equip failed: no item instance named {item}");
+        return;
+    };
+
+    script.equip_item(player_id, item_id);
+    script.draw_weapon(player_id);
+    info!(
+        "Replay equipped item({item}) on player({}) as drawn weapon",
+        player_id.value()
+    );
 }
