@@ -3,14 +3,9 @@ use std::path::PathBuf;
 use bevy::prelude::*;
 use clap::Parser;
 
-use crate::input::scenario::{Scenario, ScenarioPlugin};
-
 /// Command line options of the application.
 #[derive(Parser, Resource, Debug)]
 pub struct Options {
-    /// Run a predefined scenario instead of the normal game loop.
-    #[arg(long)]
-    run_scenario: Option<Scenario>,
     /// Run without rendering, only application logic and logs.
     #[arg(long)]
     renderless: bool,
@@ -21,16 +16,14 @@ pub struct Options {
     /// An existing file is removed at startup so recording starts clean.
     #[arg(long = "save-actions", value_name = "PATH")]
     save_actions: Option<PathBuf>,
-    /// Replay the actions recorded with `--save-actions` from this file.
+    /// Replay the commands from this RON file (any location). Paths inside
+    /// the file (screenshots) are resolved relative to
+    /// `misc/scenario_output/<file stem>/` and must not be absolute.
     #[arg(long = "replay-actions", value_name = "PATH")]
     replay_actions: Option<PathBuf>,
 }
 
 impl Options {
-    pub fn scenario(&self) -> Scenario {
-        self.run_scenario.unwrap_or(Scenario::Normal)
-    }
-
     pub fn renderless(&self) -> bool {
         self.renderless
     }
@@ -89,7 +82,6 @@ impl Plugin for OptionsPlugin {
     fn build(&self, app: &mut App) {
         let options = Options::parse();
         info!("Command line options: {options:?}");
-        app.add_plugins(ScenarioPlugin::new(options.scenario()));
         app.insert_resource(options);
     }
 }

@@ -1,8 +1,11 @@
-//! Replay of recorded actions from a RON file, enabled by `--replay-actions`.
+//! Replay of recorded commands from a RON file, enabled by `--replay-actions`.
+//!
+//! The file can live anywhere; paths inside it (screenshots) are resolved
+//! relative to `misc/scenario_output/<file stem>/` and must not be absolute.
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use bevy::prelude::*;
 use bevy::render::view::window::screenshot::{Screenshot, save_to_disk};
@@ -18,6 +21,32 @@ use crate::input::actions::{
 };
 use crate::input::options::Options;
 use crate::input::record::{RecordedAction, ReplayCommand};
+
+/// Root directory of all scenario workdirs.
+const SCENARIO_DIR: &str = "misc/scenario_output";
+
+/// Resolution used for scenario runs.
+const SCENARIO_WINDOW_RESOLUTION: (u32, u32) = (1024, 768);
+
+/// Workdir of the replay named by its file: contains all outputs (screenshots)
+/// of the replay under `misc/scenario_output/<file stem>/`.
+fn scenario_workdir(replay_path: &Path) -> PathBuf {
+    let name = replay_path
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "replay".to_string());
+    Path::new(SCENARIO_DIR).join(name)
+}
+
+/// Applies the scenario window settings for replay runs: hidden window with a
+/// fixed resolution, so screenshots are reproducible.
+pub fn apply_scenario_window_settings(window: &mut Window, replay_enabled: bool) {
+    if !replay_enabled {
+        return;
+    }
+    window.visible = false;
+    window.resolution = SCENARIO_WINDOW_RESOLUTION.into();
+}
 
 /// Replays the actions recorded with `--save-actions`.
 pub struct ActionReplayPlugin;
@@ -37,10 +66,12 @@ impl Plugin for ActionReplayPlugin {
     }
 }
 
-/// Replay schedule loaded from the recording file plus the replay state.
+/// Replay schedule loaded from the scenario file plus the replay state.
 #[derive(Resource)]
 struct ActionReplay {
-    /// Events sorted by frame.
+    /// Workdir used to resolve relative paths inside the commands.
+    workdir: PathBuf,
+    /// Commands sorted by frame.
     commands: Vec<ReplayCommand>,
     /// Index of the next event to apply.
     next: usize,
@@ -54,12 +85,19 @@ struct ActionReplay {
     held_axes: HashMap<RecordedAction, Vec2>,
 }
 
-/// Loads and prepares the recording file for replay.
+/// Loads and prepares the replay file.
+///
+/// Outputs of the replay (screenshots) resolve against the scenario workdir
+/// named after the replay file.
 fn load_replay_file(options: Res<Options>, mut commands: Commands) {
     let Some(path) = options.replay_actions() else {
         return;
     };
-    let replay = match read_replay(path) {
+    let workdir = scenario_workdir(path);
+    if let Err(error) = fs::create_dir_all(&workdir) {
+        warn!("Failed to create scenario workdir {workdir:?}: {error}");
+    }
+    let replay = match read_replay(&workdir, path) {
         Ok(replay) => replay,
         Err(error) => {
             warn!("Replaying actions disabled: {error}");
@@ -73,13 +111,14 @@ fn load_replay_file(options: Res<Options>, mut commands: Commands) {
     commands.insert_resource(replay);
 }
 
-fn read_replay(path: &Path) -> Result<ActionReplay, String> {
+fn read_replay(workdir: &Path, path: &Path) -> Result<ActionReplay, String> {
     let contents =
         fs::read_to_string(path).map_err(|error| format!("failed to read {path:?}: {error}"))?;
     let mut commands: Vec<ReplayCommand> = ron::de::from_str(&contents)
         .map_err(|error| format!("failed to parse {path:?}: {error}"))?;
     commands.sort_by_key(|command| command.frame());
     Ok(ActionReplay {
+        workdir: workdir.to_path_buf(),
         commands,
         next: 0,
         frame: 0,
@@ -145,9 +184,23 @@ fn replay_actions(
                 set_camera_location(&mut camera, *translation, *rotation);
             }
             ReplayCommand::Screenshot { path, .. } => {
+                let Some(file_path) = resolve_scenario_path(&replay.workdir, path) else {
+                    warn!(
+                        "Replay disabled: screenshot path {path:?} must be relative to the \
+                         scenario workdir {:?}",
+                        replay.workdir
+                    );
+                    commands.remove_resource::<ActionReplay>();
+                    return;
+                };
+                if let Some(parent) = file_path.parent() {
+                    if let Err(error) = fs::create_dir_all(parent) {
+                        warn!("Failed to create screenshot dir {parent:?}: {error}");
+                    }
+                }
                 commands
                     .spawn(Screenshot::primary_window())
-                    .observe(save_to_disk(path.clone()));
+                    .observe(save_to_disk(file_path.to_string_lossy().into_owned()));
             }
         }
     }
@@ -229,6 +282,17 @@ fn rotation_from_degrees(rotation: Vec3) -> Quat {
         rotation.x.to_radians(),
         rotation.z.to_radians(),
     )
+}
+
+/// Resolves a relative path inside the scenario workdir.
+///
+/// Returns `None` for absolute paths, which abort the whole replay.
+fn resolve_scenario_path(workdir: &Path, path: &str) -> Option<PathBuf> {
+    let path = Path::new(path);
+    if path.is_absolute() {
+        return None;
+    }
+    Some(workdir.join(path))
 }
 
 /// Teleports the player character to `translation` with `rotation` in axis

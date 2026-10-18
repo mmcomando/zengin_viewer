@@ -7,9 +7,13 @@ run:
 run-renderless:
     cargo run -- --renderless --frames 600
 
-# Record every triggered input action with its frame number into the given file.
-run-record-actions path="misc/actions.ron":
-    cargo run -- --save-actions {{path}}
+# Record actions into the scenario replay file of the given scenario name.
+record-replay name:
+    cargo run -- --save-actions misc/scenario/{{name}}.ron
+
+# Replay the commands from the given scenario
+run-replay name:
+    cargo run -- --replay-actions misc/scenario/{{name}}.ron
 
 # Headless CPU profile: writes a ~1GB chrome trace, then prints heaviest spans.
 trace-chrome:

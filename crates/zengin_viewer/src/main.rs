@@ -64,8 +64,8 @@ fn main() {
         // present_mode: PresentMode::AutoVsync,
         ..default()
     };
-    let scenario = app.world().resource::<Options>().scenario();
-    crate::input::scenario::apply_scenario_window_settings(&mut primary_window, scenario);
+    let replay_enabled = app.world().resource::<Options>().replay_actions().is_some();
+    crate::input::replay::apply_scenario_window_settings(&mut primary_window, replay_enabled);
     let window_plugin_options = WindowPlugin {
         primary_window: Some(primary_window),
         ..default()
