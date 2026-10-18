@@ -528,6 +528,37 @@ pub fn imported_functions_num(symbols: &[Symbol]) -> u32 {
 }
 
 #[derive(Debug, Clone)]
+/// External function declared by the compiled script (engine-provided).
+pub struct ExternalFunctionInfo {
+    /// Lowercased external function name.
+    pub name: String,
+    /// Number of parameters the external expects.
+    pub parameters_num: u32,
+    /// Whether the external returns a value.
+    pub returns: bool,
+}
+
+#[must_use]
+/// Information about all functions which are imported from the engine.
+/// They become imports of the created wasm module.
+pub fn external_functions(symbols: &[Symbol]) -> Vec<ExternalFunctionInfo> {
+    symbols
+        .iter()
+        .filter_map(|symbol| {
+            let func = symbol.function.as_ref()?;
+            if !func.is_external {
+                return None;
+            }
+            Some(ExternalFunctionInfo {
+                name: func.name.clone(),
+                parameters_num: func.call_signature.parameters_num,
+                returns: func.call_signature.returns,
+            })
+        })
+        .collect()
+}
+
+#[derive(Debug, Clone)]
 /// Daedalus function representation.
 pub struct Function {
     pub(crate) call_signature: CallSignature,
@@ -773,7 +804,7 @@ fn decode_bytecode(bytes: &[u8], offset: usize) -> Vec<Instruction> {
             30 => add_instruction(&mut result, &mut i, Instruction::UnaryPlus),
             31 => add_instruction(&mut result, &mut i, Instruction::UnaryMinus),
             32 => add_instruction(&mut result, &mut i, Instruction::UnaryNot),
-            // 33 => add_instruction(&mut result, &mut i, Instruction::Complement),
+            33 => add_instruction(&mut result, &mut i, Instruction::Complement),
             60 => add_instruction(&mut result, &mut i, Instruction::Return),
             61 => result.push(Instruction::Call(read_u32(bytes, &mut i))),
             62 => result.push(Instruction::CallExternal(read_u32(bytes, &mut i))),

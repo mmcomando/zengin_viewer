@@ -82,6 +82,9 @@ pub enum Instruction {
     /// Compute `!a` and put the result back onto the stack.
     UnaryNot,
 
+    /// Compute the bitwise complement (`~a`) and put the result back onto the stack.
+    Complement,
+
     /// Test if `a == 1` or `b == 1` and put `1` or `0` onto the stack if
     /// the test is true or false respectively.
     LogicalOr,
@@ -158,6 +161,7 @@ impl Instruction {
             Instruction::UnaryPlus => "UnaryPlus",
             Instruction::UnaryMinus => "UnaryMinus",
             Instruction::UnaryNot => "UnaryNot",
+            Instruction::Complement => "Complement",
             Instruction::LogicalOr => "LogicalOr",
             Instruction::LogicalAnd => "LogicalAnd",
             Instruction::Return => "Return",
@@ -200,9 +204,10 @@ impl Instruction {
             | Instruction::UnaryPlus
             | Instruction::UnaryMinus
             | Instruction::UnaryNot
+            | Instruction::Complement
             | Instruction::LogicalOr
-            | Instruction::LogicalAnd
-            | Instruction::Return
+            | Instruction::LogicalAnd => 1,
+            Instruction::Return
             | Instruction::AssignString
             | Instruction::AssignFunc
             | Instruction::AssignFloat
@@ -232,5 +237,6 @@ mod tests {
         assert_eq!(Instruction::Call(7).size(), 5);
         assert_eq!(Instruction::JumpIf(11).size(), 5);
         assert_eq!(Instruction::PushArrayVar(3, 2).size(), 6);
+        assert_eq!(Instruction::Complement.size(), 1);
     }
 }

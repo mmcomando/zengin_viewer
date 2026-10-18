@@ -338,6 +338,14 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(playvideoex(_0, _1, _2) -> i32);
     fake_impl!(setpercentdone(_0));
     fake_impl!(introducechapter(_0, _1, _2, _3, _4));
+    // Menu script (MENU.DAT) externals: options apply callbacks and the
+    // choicebox update used by settings menus. Not implemented yet.
+    fake_impl!(apply_options_audio());
+    fake_impl!(apply_options_controls());
+    fake_impl!(apply_options_game());
+    fake_impl!(apply_options_performance());
+    fake_impl!(apply_options_video());
+    fake_impl!(update_choicebox(_0));
     fake_impl!(npc_memoryentry(_0, _1, _2, _3, _4));
     fake_impl!(npc_memoryentryguild(_0, _1, _2, _3, _4));
     fake_impl!(npc_hasnews(_0, _1, _2, _3) -> i32);

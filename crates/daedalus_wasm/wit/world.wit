@@ -77,6 +77,11 @@ interface scripts {
     ai-waittillend: func(v-0: s32, v-1: s32);
     ai-whirlaround: func(v-0: s32, v-1: s32);
     ai-whirlaroundtosource: func(v-0: s32);
+    apply-options-audio: func();
+    apply-options-controls: func();
+    apply-options-game: func();
+    apply-options-performance: func();
+    apply-options-video: func();
     concatstrings: func(v-0: s32, v-1: s32) -> s32;
     createinvitem: func(v-0: s32, v-1: s32);
     createinvitems: func(v-0: s32, v-1: s32, v-2: s32);
@@ -284,6 +289,7 @@ interface scripts {
     ta-removeoverlay: func(v-0: s32);
     ta: func(v-0: s32, v-1: s32, v-2: s32, v-3: s32, v-4: s32);
     tal-configure: func(v-0: s32, v-1: s32);
+    update-choicebox: func(v-0: s32);
     wld-assignroomtoguild: func(v-0: s32, v-1: s32);
     wld-assignroomtonpc: func(v-0: s32, v-1: s32);
     wld-detectitem: func(v-0: s32, v-1: s32) -> s32;

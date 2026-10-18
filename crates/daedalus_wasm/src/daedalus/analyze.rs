@@ -98,7 +98,7 @@ impl Instruction {
             | Self::AssignInteger
             | Self::AddTo
             | Self::SubTo => InstructionProducesValue::new(0, 2),
-            Self::UnaryPlus | Self::UnaryMinus | Self::UnaryNot => {
+            Self::UnaryPlus | Self::UnaryMinus | Self::UnaryNot | Self::Complement => {
                 InstructionProducesValue::new(1, 1)
             }
             Self::SetInstance(_) | Self::Return => InstructionProducesValue::new(0, 0),
@@ -278,7 +278,10 @@ impl InstructionBlock {
                     instructions_to_produce_ref
                         .push(ref_producer.instruction_index_in_block(block_index));
                 }
-                Instruction::UnaryPlus | Instruction::UnaryMinus | Instruction::UnaryNot => {
+                Instruction::UnaryPlus
+                | Instruction::UnaryMinus
+                | Instruction::UnaryNot
+                | Instruction::Complement => {
                     // Consumes one value
                     mark_used.push(stack_values.pop().unwrap());
                     // Produces one value

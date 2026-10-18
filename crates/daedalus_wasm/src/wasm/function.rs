@@ -197,6 +197,10 @@ impl<'a> ConversionState<'a> {
             InstDD::UnaryNot => {
                 func.instruction(&Instruction::I32Eqz);
             }
+            InstDD::Complement => {
+                func.instruction(&Instruction::I32Const(-1));
+                func.instruction(&Instruction::I32Xor);
+            }
             InstDD::Return => {
                 if analyzed_instruction.implicit_return {
                     func.instruction(&Instruction::I32Const(0));

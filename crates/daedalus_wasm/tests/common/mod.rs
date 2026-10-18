@@ -77,6 +77,12 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(playvideoex(_0, _1, _2) -> i32);
     count_import!(setpercentdone(_0));
     count_import!(introducechapter(_0, _1, _2, _3, _4));
+    count_import!(apply_options_audio());
+    count_import!(apply_options_controls());
+    count_import!(apply_options_game());
+    count_import!(apply_options_performance());
+    count_import!(apply_options_video());
+    count_import!(update_choicebox(_0));
     count_import!(npc_memoryentry(_0, _1, _2, _3, _4));
     count_import!(npc_memoryentryguild(_0, _1, _2, _3, _4));
     count_import!(npc_hasnews(_0, _1, _2, _3) -> i32);

@@ -273,6 +273,35 @@ fn test_un_not_negative() {
 }
 
 #[test]
+fn test_complement() {
+    let result =
+        WasmExecutor::simple_return_test(&[InstDD::PushInt(0), InstDD::Complement, InstDD::Return]);
+    assert_eq!(result, -1);
+}
+
+#[test]
+fn test_complement_negative() {
+    // ~42 = -43
+    let result = WasmExecutor::simple_return_test(&[
+        InstDD::PushInt(42),
+        InstDD::Complement,
+        InstDD::Return,
+    ]);
+    assert_eq!(result, -43);
+}
+
+#[test]
+fn test_complement_double_negation() {
+    let result = WasmExecutor::simple_return_test(&[
+        InstDD::PushInt(42),
+        InstDD::Complement,
+        InstDD::Complement,
+        InstDD::Return,
+    ]);
+    assert_eq!(result, 42);
+}
+
+#[test]
 fn test_push_int() {
     let result = WasmExecutor::simple_return_test(&[InstDD::PushInt(42), InstDD::Return]);
     assert_eq!(result, 42);
