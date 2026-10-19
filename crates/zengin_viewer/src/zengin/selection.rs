@@ -1,8 +1,9 @@
 //! Picks the world object (npc or item) the player is most likely aiming at and
-//! draws its name above it, as a screen-space UI label anchored to the object.
+//! draws its name above it, as a 3d text label anchored to the object.
 
 use avian3d::prelude::*;
 use bevy::prelude::*;
+use bevy_rich_text3d::{Text3d, Text3dPlugin, Text3dStyling, TextAnchor, TextAtlas};
 
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
@@ -13,13 +14,13 @@ use crate::zengin::{GameItem, GameNpc};
 /// Distance (meters) within which a world object can be selected.
 const SELECTION_RANGE: f32 = 5.0;
 /// Height of the name label above a selected npc.
-const NPC_LABEL_HEIGHT: f32 = 2.0;
+const NPC_LABEL_HEIGHT: f32 = 2.2;
 /// Height of the name label above a selected item.
 const ITEM_LABEL_HEIGHT: f32 = 0.6;
-/// Font size of the label in logical pixels.
-const LABEL_FONT_SIZE: f32 = 18.0;
-/// Draw order of the label, above the dialog UI.
-const LABEL_Z_INDEX: i32 = 10;
+/// Base font size of the label in font units, scaled down to world units by
+/// [`LABEL_WORLD_SCALE`] so the label is a few tenths of a meter tall.
+const LABEL_FONT_SIZE: f32 = 64.0;
+const LABEL_WORLD_SCALE: f32 = 0.25;
 
 /// Kind of the currently selected world object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,6 +46,12 @@ pub struct SelectionPlugin;
 impl Plugin for SelectionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Selection>();
+        // Text3dPlugin already registers TouchTextMaterial3dPlugin for
+        // StandardMaterial, non-standard materials need it added manually.
+        app.add_plugins(Text3dPlugin {
+            load_system_fonts: true,
+            ..default()
+        });
         app.add_observer(on_selectable_added::<GameNpc>);
         app.add_observer(on_selectable_added::<GameItem>);
         app.add_systems(Startup, spawn_selection_label);
@@ -52,9 +59,13 @@ impl Plugin for SelectionPlugin {
     }
 }
 
-/// Marker for the screen-space text node showing the selected name.
+/// Marker of the 3d text label showing the selected name.
 #[derive(Component)]
 struct SelectionLabel;
+
+/// Last text shown by the label, to only rebuild the text mesh on change.
+#[derive(Component, Default)]
+struct SelectionLabelText(String);
 
 /// Selection collider shape of a selectable world object.
 trait SelectionCollider {
@@ -85,30 +96,33 @@ fn on_selectable_added<C: Component + SelectionCollider>(
     ));
 }
 
-/// Spawns the label as an absolutely positioned UI node, it is moved to the
-/// projected screen position of the selected object every frame.
-fn spawn_selection_label(mut commands: Commands) {
+/// Spawns the 3d text label, it is moved above the selected object every
+/// frame. The text material uses the font atlas texture and no lighting so the
+/// label reads the same everywhere.
+fn spawn_selection_label(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
+    let material = materials.add(StandardMaterial {
+        base_color_texture: Some(TextAtlas::DEFAULT_IMAGE.clone()),
+        alpha_mode: AlphaMode::Mask(0.5),
+        unlit: true,
+        cull_mode: None,
+        ..default()
+    });
     commands.spawn((
         SelectionLabel,
-        Node {
-            position_type: PositionType::Absolute,
-            left: Val::Px(0.0),
-            top: Val::Px(0.0),
+        SelectionLabelText::default(),
+        Text3d::new(""),
+        Text3dStyling {
+            size: LABEL_FONT_SIZE,
+            font: "DejaVu Serif".into(),
+            anchor: TextAnchor::BOTTOM_CENTER,
+            color: Srgba::WHITE,
+            stroke: None,
+            world_scale: Some(Vec2::splat(LABEL_WORLD_SCALE)),
             ..default()
         },
-        // TODO use proper Text3d probably from bevy_rich_text3d crate
-        Text::new(""),
-        TextFont {
-            font_size: LABEL_FONT_SIZE.into(),
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        TextShadow {
-            offset: Vec2::new(1.0, 1.0),
-            color: Color::BLACK,
-        },
+        Mesh3d::default(),
+        MeshMaterial3d(material),
         Visibility::Hidden,
-        ZIndex(LABEL_Z_INDEX),
     ));
 }
 
@@ -212,23 +226,30 @@ fn update_selection(
     selection.target = Some(entity);
 }
 
-/// Places the label at the screen position the selected object's name anchor
-/// projects to, and hides it when nothing is selected or the anchor is off
-/// screen (behind the camera).
+/// Places the label above the selected object's name anchor, facing the
+/// camera, and hides it when nothing is selected.
 fn update_selection_label(
     selection: Res<Selection>,
-    camera: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
+    camera: Query<&GlobalTransform, With<Camera3d>>,
     targets: Query<&GlobalTransform>,
-    mut label: Query<(&mut Node, &mut Text, &mut Visibility, &ComputedNode), With<SelectionLabel>>,
+    mut label: Query<
+        (
+            &mut Text3d,
+            &mut SelectionLabelText,
+            &mut Transform,
+            &mut Visibility,
+        ),
+        With<SelectionLabel>,
+    >,
 ) {
-    let Ok((mut node, mut text, mut visibility, computed)) = label.single_mut() else {
+    let Ok((mut text3d, mut label_text, mut transform, mut visibility)) = label.single_mut() else {
         return;
     };
     let Some(target) = selection.target.and_then(|entity| targets.get(entity).ok()) else {
         *visibility = Visibility::Hidden;
         return;
     };
-    let Ok((camera, camera_tr)) = camera.single() else {
+    let Ok(camera_tr) = camera.single() else {
         *visibility = Visibility::Hidden;
         return;
     };
@@ -237,21 +258,14 @@ fn update_selection_label(
         Some(SelectionKind::Item) => ITEM_LABEL_HEIGHT,
         Some(SelectionKind::Npc) | None => NPC_LABEL_HEIGHT,
     };
-    let anchor = target.translation() + Vec3::Y * height;
-    // `world_to_viewport` fails for points behind the camera.
-    let Ok(screen) = camera.world_to_viewport(camera_tr, anchor) else {
-        *visibility = Visibility::Hidden;
-        return;
-    };
+    transform.translation = target.translation() + Vec3::Y * height;
+    // Billboard: the text mesh faces its local +Z, so aligning it with the
+    // camera orientation makes the label always readable.
+    transform.rotation = camera_tr.rotation();
 
-    // Center the label horizontally, put its bottom at the anchor (the size is
-    // the previous frame's, which is fine for a static name).
-    let size = computed.size();
-    node.left = Val::Px(screen.x - size.x * 0.5);
-    node.top = Val::Px(screen.y - size.y);
-
-    if text.0 != selection.name {
-        text.0.clone_from(&selection.name);
+    if label_text.0 != selection.name {
+        *text3d = Text3d::new(selection.name.clone());
+        label_text.0.clone_from(&selection.name);
     }
     *visibility = Visibility::Inherited;
 }
