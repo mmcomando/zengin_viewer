@@ -2,8 +2,8 @@
   EquipWeapon(frame: 160, item: "itrw_bow_h_01"),
   // Equipping the melee weapon sheathes the bow on the back
   EquipWeapon(frame: 200, item: "itmw_1h_mil_sword"),
-  TeleportPlayer(frame: 220, translation: (6.0, -0.0, 27.0), rotation: (5.0, -30, 0.0)),
-  SetCameraLocation(frame: 230, translation: (2.0, 0.0, 30.0), rotation: (-4.6, -58.3, 0.0)),
+  TeleportPlayer(frame: 220, translation: (6, -0, 27), rotation: (5, -30, 0)),
+  SetCameraLocation(frame: 230, translation: (2, 0, 30), rotation: (-5, -60, 0)),
   // Both equipped: sword drawn, bow sheathed on the back
   Screenshot(frame: 300, path: "screen_step2_both.png"),
   // 1 again: sheathe the sword, bow stays on the back

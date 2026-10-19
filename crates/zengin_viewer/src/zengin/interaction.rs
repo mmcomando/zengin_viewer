@@ -133,8 +133,9 @@ fn handle_transfer_items(
 }
 
 /// Kills the selected npc on `K`: its inventory moves into the player's
-/// inventory (logged bottom-left), the equipped weapon is dropped on the ground
-/// as a pickable item, and the npc entity is despawned.
+/// inventory (logged bottom-left), the drawn weapon is dropped on the ground
+/// as a pickable item (removed from the inventory first so it is not
+/// duplicated), and the npc entity is despawned.
 #[allow(clippy::too_many_arguments)]
 fn kill_selected_npc(
     action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
@@ -189,8 +190,20 @@ fn kill_selected_npc(
         instance_to_id: player_id,
     });
 
-    // Drop the drawn weapon on the ground as a pickable item.
+    // Drop the drawn weapon on the ground as a pickable item. Remove it from
+    // the npc inventory first when present, otherwise the transfer below
+    // would duplicate it.
     if let Some(item) = dropped {
+        let mut script = gothic_scripts.lock();
+        let removed = script.remove_inventory(npc_id, item, 1);
+        if removed == 0 {
+            warn!(
+                "Dropped weapon item({}) of npc({}) was not in its inventory",
+                item.value(),
+                npc_id.value()
+            );
+        }
+        drop(script);
         match item_model_path(&gothic_scripts, &vfs, item) {
             Some(path) => {
                 let model_handle = handles.get_model_handle(&asset_server, &path, None);

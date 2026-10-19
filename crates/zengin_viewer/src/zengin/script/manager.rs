@@ -264,6 +264,14 @@ impl ScriptManager {
             .create(item, count);
     }
 
+    /// Removes up to `count` of `item` from an npc's inventory, returns how
+    /// many were actually removed.
+    pub fn remove_inventory(&mut self, npc: InstanceId, item: InstanceId, count: i32) -> i32 {
+        self.npc_instances_mut_or_default(npc)
+            .inventory
+            .remove(item, count)
+    }
+
     /// Equips an item as the npc's melee or ranged weapon depending on its
     /// instance symbol name (`EquipItem` semantics), leaving the change queued
     /// for the ECS bridge. Equipping the same slot again replaces the weapon.

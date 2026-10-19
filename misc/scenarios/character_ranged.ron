@@ -1,7 +1,7 @@
 [
   EquipWeapon(frame: 160, item: "itrw_bow_h_01"),
-  TeleportPlayer(frame: 170, translation: (6.0, -0.0, 27.0), rotation: (5.0, -30, 0.0)),
-  SetCameraLocation(frame: 180, translation: (2.0, 0.0, 30.0), rotation: (-4.6, -58.3, 0.0)),
+  TeleportPlayer(frame: 170, translation: (6, -0, 27), rotation: (5, -30, 0)),
+  SetCameraLocation(frame: 180, translation: (2, 0, 30), rotation: (-5, -60, 0)),
   Screenshot(frame: 240, path: "screen_step1_bow.png"),
   Press(frame: 250, action: Debug(QuitGame)),
 ]

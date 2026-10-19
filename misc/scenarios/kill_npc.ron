@@ -1,0 +1,10 @@
+[
+    EquipWeapon(frame: 120, item: "itmw_1h_mil_sword"),
+    TeleportPlayer(frame: 120, translation: (-3, 0, -11), rotation: (0, 90, 0)),
+    SetCameraLocation(frame: 120, translation: (-7, 1, -8), rotation: (-15, -80, 0)),
+    Screenshot(frame: 220, path: "screen_step3_before.png"),
+    Press(frame: 260, action: Debug(KillSelected)),
+    Release(frame: 270, action: Debug(KillSelected)),
+    Screenshot(frame: 340, path: "screen_step3_killed.png"),
+    Press(frame: 350, action: Debug(QuitGame)),
+]
