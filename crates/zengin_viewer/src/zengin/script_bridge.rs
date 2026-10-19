@@ -233,14 +233,16 @@ fn apply_routine_changes(
 }
 
 /// Inserts the active routine entry on the entity, or removes the component when
-/// the instance has no routine entry active.
+/// the instance has no routine entry active. Index tracked entities may have
+/// been despawned earlier in the same frame, so the commands must not panic on
+/// despawned entities.
 fn set_routine_entry(commands: &mut Commands, entity: Entity, active: Option<&RoutineEntry>) {
     match active {
         Some(active) => {
-            commands.entity(entity).insert(active.clone());
+            commands.entity(entity).try_insert(active.clone());
         }
         None => {
-            commands.entity(entity).remove::<RoutineEntry>();
+            commands.entity(entity).try_remove::<RoutineEntry>();
         }
     }
 }
@@ -277,10 +279,10 @@ fn apply_look_at_changes(
 fn set_look_at(commands: &mut Commands, entity: Entity, target: Option<Entity>) {
     match target {
         Some(target) => {
-            commands.entity(entity).insert(NpcLookAt(target));
+            commands.entity(entity).try_insert(NpcLookAt(target));
         }
         None => {
-            commands.entity(entity).remove::<NpcLookAt>();
+            commands.entity(entity).try_remove::<NpcLookAt>();
         }
     }
 }
@@ -316,10 +318,10 @@ fn apply_weapon_mode_changes(
 fn set_weapon_mode(commands: &mut Commands, entity: Entity, mode: Option<WeaponMode>) {
     match mode {
         Some(mode) => {
-            commands.entity(entity).insert(NpcWeaponMode(mode));
+            commands.entity(entity).try_insert(NpcWeaponMode(mode));
         }
         None => {
-            commands.entity(entity).remove::<NpcWeaponMode>();
+            commands.entity(entity).try_remove::<NpcWeaponMode>();
         }
     }
 }
@@ -362,10 +364,10 @@ fn set_equipped_weapon(
 ) {
     match equipped {
         Some(equipped) => {
-            commands.entity(entity).insert(equipped);
+            commands.entity(entity).try_insert(equipped);
         }
         None => {
-            commands.entity(entity).remove::<NpcEquippedWeapon>();
+            commands.entity(entity).try_remove::<NpcEquippedWeapon>();
         }
     }
 }
@@ -389,9 +391,10 @@ fn apply_health_changes(
             continue;
         };
         for entity in index.npcs(change.instance_id) {
+            // The npc may have been despawned earlier in this frame, skip it.
             commands
                 .entity(*entity)
-                .insert(NpcHealth::new(hitpoints, hitpoints_max));
+                .try_insert(NpcHealth::new(hitpoints, hitpoints_max));
         }
     }
 }
@@ -419,7 +422,9 @@ fn apply_overlay_changes(
             OverlayRequest::Remove => None,
         };
         for entity in index.npcs(change.instance_id) {
-            commands.entity(*entity).insert(NpcOverlay(scheme.clone()));
+            commands
+                .entity(*entity)
+                .try_insert(NpcOverlay(scheme.clone()));
         }
     }
 }

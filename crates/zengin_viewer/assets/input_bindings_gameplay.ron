@@ -13,6 +13,11 @@
                 "KeyCode": KeyE,
             },
         ],
+        DealDamage: [
+            {
+                "KeyCode": KeyF,
+            },
+        ],
         EquipMelee: [
             {
                 "KeyCode": Digit1,

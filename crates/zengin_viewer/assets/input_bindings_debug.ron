@@ -15,11 +15,6 @@
                 "KeyCode": Digit0,
             },
         ],
-        KillSelected: [
-            {
-                "KeyCode": KeyK,
-            },
-        ],
         QuitGame: [
             {
                 "KeyCode": Escape,

@@ -22,10 +22,12 @@ pub struct PlayerInteractionPlugin;
 impl Plugin for PlayerInteractionPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<TransferItems>();
+        app.add_message::<NpcDied>();
         app.add_systems(
             Update,
             (
-                kill_selected_npc,
+                hit_selected_npc,
+                handle_npc_death,
                 handle_transfer_items,
                 pickup_selected_item,
                 toggle_player_weapons,
@@ -132,13 +134,111 @@ fn handle_transfer_items(
     }
 }
 
-/// Kills the selected npc on `K`: its inventory moves into the player's
-/// inventory (logged bottom-left), the drawn weapon is dropped on the ground
-/// as a pickable item (removed from the inventory first so it is not
-/// duplicated), and the npc entity is despawned.
+/// An npc died (hitpoints reached 0): its inventory moves to the player, the
+/// drawn weapon drops on the ground and the npc entity is despawned.
+#[derive(Message)]
+pub struct NpcDied {
+    pub entity: Entity,
+    pub instance_id: InstanceId,
+    /// Position where the dropped weapon is placed.
+    pub position: Vec3,
+}
+
+/// Deals damage with the drawn weapon to the selected npc on `DealDamage` (F).
+/// The damage is the drawn weapon's `damagetotal`; without a drawn weapon or a
+/// selected npc nothing happens. The npc dies when its hitpoints reach 0.
+fn hit_selected_npc(
+    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
+    selection: Res<Selection>,
+    npcs: Query<(&GameNpc, &GlobalTransform), Without<PlayerCharacter>>,
+    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+    gothic_script: Res<ScriptResource>,
+    mut game_log: ResMut<GameLog>,
+    mut npc_died: MessageWriter<NpcDied>,
+) {
+    if !action_state.just_pressed(&GameplayAction::DealDamage) {
+        return;
+    }
+    if selection.kind != Some(SelectionKind::Npc) {
+        return;
+    }
+    let Some(target) = selection.target else {
+        return;
+    };
+    let Ok((npc, global_tr)) = npcs.get(target) else {
+        return;
+    };
+    let Ok(player_npc) = player_npc.single() else {
+        return;
+    };
+    let player_id = player_npc.npc_instance_id;
+    let npc_id = npc.npc_instance_id;
+
+    let mut script = gothic_script.lock();
+    let weapon = match script
+        .npc_instances()
+        .get(&player_id)
+        .and_then(|player| player.weapon_mode)
+    {
+        Some(WeaponMode::Melee) => script
+            .npc_instances()
+            .get(&player_id)
+            .and_then(|player| player.equipped_melee),
+        Some(WeaponMode::Ranged) => script
+            .npc_instances()
+            .get(&player_id)
+            .and_then(|player| player.equipped_ranged),
+        _ => {
+            game_log.add("No weapon drawn");
+            info!(
+                "Deal damage ignored: player({}) has no weapon drawn",
+                player_id.value()
+            );
+            return;
+        }
+    };
+    let Some(weapon) = weapon else {
+        warn!(
+            "Deal damage ignored: player({}) weapon mode without equipped weapon",
+            player_id.value()
+        );
+        return;
+    };
+    let Some(damage) = script.item_damage_total(weapon) else {
+        warn!(
+            "Deal damage ignored: no damage data for weapon item({})",
+            weapon.value()
+        );
+        return;
+    };
+    let Some(hitpoints) = script.change_hitpoints(npc_id, -damage) else {
+        warn!(
+            "Deal damage ignored: no hitpoints data for npc({})",
+            npc_id.value()
+        );
+        return;
+    };
+    info!(
+        "Player({}) dealt {damage} damage to npc({}), hitpoints now {hitpoints}",
+        player_id.value(),
+        npc_id.value()
+    );
+    game_log.add(format!("Dealt {damage} damage"));
+    if hitpoints <= 0 {
+        npc_died.write(NpcDied {
+            entity: target,
+            instance_id: npc_id,
+            position: global_tr.translation(),
+        });
+    }
+}
+
+/// Handles npc death: the inventory moves to the player, the drawn weapon
+/// drops on the ground (removed from the inventory first so it is not
+/// duplicated) and the npc entity is despawned.
 #[allow(clippy::too_many_arguments)]
-fn kill_selected_npc(
-    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
+fn handle_npc_death(
+    mut deaths: MessageReader<NpcDied>,
     mut selection: ResMut<Selection>,
     mut transfer_items: MessageWriter<TransferItems>,
     gothic_scripts: Res<ScriptResource>,
@@ -148,8 +248,7 @@ fn kill_selected_npc(
     mut commands: Commands,
     npcs: Query<
         (
-            &GameNpc,
-            &GlobalTransform,
+            Option<&GameNpc>,
             Option<&NpcEquippedWeapon>,
             Option<&NpcWeaponMode>,
         ),
@@ -157,78 +256,75 @@ fn kill_selected_npc(
     >,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
-    if !action_state.just_pressed(&DebugAction::KillSelected) {
-        return;
-    }
-    if selection.kind != Some(SelectionKind::Npc) {
-        return;
-    }
-    let Some(target) = selection.target else {
-        return;
-    };
-    let Ok((npc, global_tr, equipped, weapon_mode)) = npcs.get(target) else {
-        return;
-    };
-    let npc_id = npc.npc_instance_id;
-    let position = global_tr.translation();
-    // Only the drawn weapon drops on the ground; sheathed weapons stay part of
-    // the inventory that moves to the player
-    let dropped = match weapon_mode.map(|mode| mode.0).unwrap_or(WeaponMode::Fists) {
-        WeaponMode::Melee => equipped.and_then(|equipped| equipped.melee),
-        WeaponMode::Ranged => equipped.and_then(|equipped| equipped.ranged),
-        WeaponMode::Fists => None,
-    };
+    for death in deaths.read() {
+        let Ok((npc, equipped, weapon_mode)) = npcs.get(death.entity) else {
+            continue;
+        };
+        let npc_id = npc
+            .map(|npc| npc.npc_instance_id)
+            .unwrap_or(death.instance_id);
+        let position = death.position;
+        // Only the drawn weapon drops on the ground; sheathed weapons stay
+        // part of the inventory that moves to the player
+        let dropped = match weapon_mode.map(|mode| mode.0).unwrap_or(WeaponMode::Fists) {
+            WeaponMode::Melee => equipped.and_then(|equipped| equipped.melee),
+            WeaponMode::Ranged => equipped.and_then(|equipped| equipped.ranged),
+            WeaponMode::Fists => None,
+        };
 
-    let Ok(player_npc) = player_npc.single() else {
-        return;
-    };
-    let player_id = player_npc.npc_instance_id;
+        let Ok(player_npc) = player_npc.single() else {
+            return;
+        };
+        let player_id = player_npc.npc_instance_id;
 
-    // Move the inventory to the player, it is logged by `handle_transfer_items`.
-    transfer_items.write(TransferItems {
-        instance_from_id: npc_id,
-        instance_to_id: player_id,
-    });
+        // Move the inventory to the player, it is logged by `handle_transfer_items`.
+        transfer_items.write(TransferItems {
+            instance_from_id: npc_id,
+            instance_to_id: player_id,
+        });
 
-    // Drop the drawn weapon on the ground as a pickable item. Remove it from
-    // the npc inventory first when present, otherwise the transfer below
-    // would duplicate it.
-    if let Some(item) = dropped {
-        let mut script = gothic_scripts.lock();
-        let removed = script.remove_inventory(npc_id, item, 1);
-        if removed == 0 {
-            warn!(
-                "Dropped weapon item({}) of npc({}) was not in its inventory",
-                item.value(),
-                npc_id.value()
-            );
-        }
-        drop(script);
-        match item_model_path(&gothic_scripts, &vfs, item) {
-            Some(path) => {
-                let model_handle = handles.get_model_handle(&asset_server, &path, None);
-                commands.spawn((
-                    ClassifyDistance::default(),
-                    ZenGinModelComponent {
-                        model_handle,
-                        ..default()
-                    },
-                    Visibility::default(),
-                    Transform::from_translation(position),
-                    GameItem {
-                        item_instance_id: item,
-                    },
-                ));
+        // Drop the drawn weapon on the ground as a pickable item. Remove it
+        // from the npc inventory first when present, otherwise the transfer
+        // below would duplicate it.
+        if let Some(item) = dropped {
+            let mut script = gothic_scripts.lock();
+            let removed = script.remove_inventory(npc_id, item, 1);
+            if removed == 0 {
+                warn!(
+                    "Dropped weapon item({}) of npc({}) was not in its inventory",
+                    item.value(),
+                    npc_id.value()
+                );
             }
-            None => warn!("No mesh path for dropped weapon item({item})"),
+            drop(script);
+            match item_model_path(&gothic_scripts, &vfs, item) {
+                Some(path) => {
+                    let model_handle = handles.get_model_handle(&asset_server, &path, None);
+                    commands.spawn((
+                        ClassifyDistance::default(),
+                        ZenGinModelComponent {
+                            model_handle,
+                            ..default()
+                        },
+                        Visibility::default(),
+                        Transform::from_translation(position),
+                        GameItem {
+                            item_instance_id: item,
+                        },
+                    ));
+                }
+                None => warn!("No mesh path for dropped weapon item({item})"),
+            }
+        }
+
+        info!("Npc({npc_id}) died, moved its inventory to player({player_id})");
+        commands.entity(death.entity).despawn();
+        if selection.target == Some(death.entity) {
+            selection.target = None;
+            selection.kind = None;
+            selection.name.clear();
         }
     }
-
-    info!("Killed npc({npc_id}), moved its inventory to player({player_id})");
-    commands.entity(target).despawn();
-    selection.target = None;
-    selection.kind = None;
-    selection.name.clear();
 }
 
 /// Picks up the selected item on `E`: it is added to the player's inventory

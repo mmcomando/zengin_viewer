@@ -97,6 +97,8 @@ pub enum GameplayAction {
     Jump,
     /// Talk to the selected npc or pick up the selected item.
     Interact,
+    /// Deal damage with the drawn weapon to the selected npc.
+    DealDamage,
     /// Toggle the equipped melee weapon between sheathed and drawn.
     EquipMelee,
     /// Toggle the equipped ranged weapon between sheathed and drawn.
@@ -181,8 +183,6 @@ pub enum DebugAction {
     TeleportAway,
     /// Toggle between the free camera and the character camera.
     ToggleCharacterCamera,
-    /// Kill the selected npc.
-    KillSelected,
     /// Quit the application.
     QuitGame,
     /// Grants a few items to the player for testing the inventory UI.
