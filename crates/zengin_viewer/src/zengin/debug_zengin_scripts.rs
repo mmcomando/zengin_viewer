@@ -129,3 +129,27 @@ fn debug_npc_routine(executor: &mut ScriptManager, npc_id: InstanceId) {
     let anis = executor.call_routine_state_function(npc_id, state_fn);
     println!("played anis: {anis:?}");
 }
+
+/// Documents why the player uses the `pc_hero` instance: the `hero` instance
+/// global has no data of its own (hitpoints 0), the player data lives in
+/// `PC_HERO`
+#[test]
+#[ignore]
+fn debug_player_instance_hitpoints() {
+    let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
+    let wasm_bytes = convert_daedalus_script(&script_path);
+    let mut executor = ScriptManager::new(&wasm_bytes);
+    executor.load_symbol_table();
+    executor.initialize_instances();
+
+    let Some(raw) = SymbolId::new(1620) else {
+        println!("1620 is not a valid symbol id");
+        return;
+    };
+    println!("symbol(1620) name: {:?}", executor.call_get_name(raw));
+    let Some(npc) = executor.symbol_table().instance(1620) else {
+        println!("symbol(1620) is not an instance");
+        return;
+    };
+    println!("player instance hitpoints: {:?}", executor.hitpoints(npc));
+}

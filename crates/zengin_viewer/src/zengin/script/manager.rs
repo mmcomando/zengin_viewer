@@ -555,9 +555,11 @@ impl ScriptManager {
         &self.store.data().symbol_table
     }
 
-    /// Verifies the raw id refers to an instance symbol
-    pub fn instance_id(&self, raw: i32) -> Option<InstanceId> {
-        self.symbol_table().instance(raw)
+    /// Resolves an instance symbol by name, `None` when the symbol does not
+    /// exist or is not an instance.
+    pub fn symbol_instance(&mut self, symbol_name: &str) -> Option<InstanceId> {
+        let symbol = self.try_get_symbol_id(symbol_name)?;
+        self.symbol_table().instance(symbol.value())
     }
 
     /// Loads the kind of every symbol into the symbol table used to verify

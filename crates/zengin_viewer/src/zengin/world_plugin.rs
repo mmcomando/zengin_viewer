@@ -152,11 +152,11 @@ fn spawn_world(
         }
     }
 
-    // Player collider
-    // TODO hardcoded player instance id
+    // Player collider. The player is the `PC_HERO` instance, the `hero`
+    // instance global has no data of its own (its stats come from `PC_HERO`)
     let player_instance = gothic_script
-        .instance_id(1620)
-        .expect("player instance id should be a valid instance symbol");
+        .symbol_instance("pc_hero")
+        .expect("player instance pc_hero should be a valid instance symbol");
     gothic_script.set_player_instance(player_instance);
     let mut player_collider = commands.spawn((
         Visibility::default(),

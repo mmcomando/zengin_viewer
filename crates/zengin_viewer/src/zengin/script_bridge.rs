@@ -448,6 +448,11 @@ fn seed_npc_components_on_add(
                 npc.npc_instance_id,
                 NpcHealth::new(hitpoints, hitpoints_max),
             );
+        } else {
+            warn!(
+                "No hitpoints data for npc({}) on spawn",
+                npc.npc_instance_id.value()
+            );
         }
     }
     let instances = gothic_script.npc_instances();

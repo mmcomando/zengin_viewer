@@ -1,0 +1,7 @@
+[
+  TeleportPlayer(frame: 120, translation: (-3, 0, -11), rotation: (0, 90, 0)),
+  SetCameraLocation(frame: 120, translation: (-7, 1, -8), rotation: (-15, -80, 0)),
+  // Selection of an npc takes a moment to settle
+  Screenshot(frame: 260, path: "screen_health_bars.png"),
+  Press(frame: 270, action: Debug(QuitGame)),
+]
