@@ -217,22 +217,30 @@ impl Animation<'_> {
         unsafe { ZkAnimation_getCameraTremorCount(self.ptr.as_ptr()) }
     }
 
-    // pub fn ZkAnimation_getEventTag(slf: *const ZkAnimation, i: ZkSize) -> *const ZkEventTag;
-
     // pub fn ZkAnimation_getParticleEffect(
     //     slf: *const ZkAnimation,
     //     i: ZkSize,
     // ) -> *const ZkEventParticleEffect;
 
-    // pub fn ZkAnimation_getParticleEffectStop(
-    //     slf: *const ZkAnimation,
-    //     i: ZkSize,
-    // ) -> *const ZkEventParticleEffectStop;
+    pub fn event_tag(&self, index: u64) -> Option<EventTag<'_>> {
+        unsafe { EventTag::from_raw_ptr(ZkAnimation_getEventTag(self.ptr.as_ptr(), index)) }
+    }
 
-    // pub fn ZkAnimation_getSoundEffect(
-    //     slf: *const ZkAnimation,
-    //     i: ZkSize,
-    // ) -> *const ZkEventSoundEffect;
+    pub fn event_tags(&self) -> Vec<EventTag<'_>> {
+        (0..self.event_tag_count())
+            .map_while(|i| self.event_tag(i))
+            .collect()
+    }
+
+    pub fn sound_effect(&self, index: u64) -> Option<SoundEffect<'_>> {
+        unsafe { SoundEffect::from_raw_ptr(ZkAnimation_getSoundEffect(self.ptr.as_ptr(), index)) }
+    }
+
+    pub fn sound_effects(&self) -> Vec<SoundEffect<'_>> {
+        (0..self.sound_effect_count())
+            .map_while(|i| self.sound_effect(i))
+            .collect()
+    }
 
     // pub fn ZkAnimation_getSoundEffectGround(
     //     slf: *const ZkAnimation,
@@ -248,4 +256,77 @@ impl Animation<'_> {
     //     slf: *const ZkAnimation,
     //     i: ZkSize,
     // ) -> *const ZkEventCameraTremor;
+}
+
+/// Event tag of a [`Animation`] — a scripted event at a frame, e.g. placing or
+/// removing an item in a slot, fight related frames.
+#[derive(Debug)]
+pub struct EventTag<'a> {
+    ptr: NonNull<ZkEventTag>,
+    _marker: PhantomData<&'a ZkAnimation>,
+}
+
+impl EventTag<'_> {
+    pub unsafe fn from_raw_ptr(ptr: *const ZkEventTag) -> Option<Self> {
+        NonNull::new(ptr.cast_mut()).map(|ptr| Self {
+            ptr,
+            _marker: PhantomData,
+        })
+    }
+
+    /// First frame of the event, -1 when the event has an explicit frame list.
+    pub fn frame(&self) -> i32 {
+        unsafe { ZkEventTag_getFrame(self.ptr.as_ptr()) }
+    }
+
+    pub fn event_type(&self) -> ZkEventType {
+        unsafe { ZkEventTag_getType(self.ptr.as_ptr()) }
+    }
+
+    /// Item instance name carried by item events (e.g. the arrow placed in hand).
+    pub fn item(&self) -> String {
+        unsafe { ZkEventTag_getItem(self.ptr.as_ptr()).to_string() }
+    }
+
+    /// Explicit frame list, used when [`Self::frame`] is -1 (e.g. hit limbs over
+    /// multiple frames).
+    pub fn frames(&self) -> Vec<i32> {
+        unsafe {
+            let mut count: ZkSize = 0;
+            let ptr = ZkEventTag_getFrames(self.ptr.as_ptr(), &mut count);
+            if ptr.is_null() {
+                return Vec::new();
+            }
+            std::slice::from_raw_parts(ptr, count as usize).to_vec()
+        }
+    }
+}
+
+/// Sound effect event of an [`Animation`] — a sound played at a frame.
+#[derive(Debug)]
+pub struct SoundEffect<'a> {
+    ptr: NonNull<ZkEventSoundEffect>,
+    _marker: PhantomData<&'a ZkAnimation>,
+}
+
+impl SoundEffect<'_> {
+    pub unsafe fn from_raw_ptr(ptr: *const ZkEventSoundEffect) -> Option<Self> {
+        NonNull::new(ptr.cast_mut()).map(|ptr| Self {
+            ptr,
+            _marker: PhantomData,
+        })
+    }
+
+    pub fn frame(&self) -> i32 {
+        unsafe { ZkEventSoundEffect_getFrame(self.ptr.as_ptr()) }
+    }
+
+    /// Sound effect name, e.g. `S_BOW_SHOOT`.
+    pub fn name(&self) -> String {
+        unsafe { ZkEventSoundEffect_getName(self.ptr.as_ptr()).to_string() }
+    }
+
+    pub fn range(&self) -> f32 {
+        unsafe { ZkEventSoundEffect_getRange(self.ptr.as_ptr()) }
+    }
 }
