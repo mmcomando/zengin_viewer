@@ -286,8 +286,8 @@ fn spawn_npcs(
             apply_torso_fatness(&mut commands, model_data, bones_data.as_ref(), fatness);
         }
 
-        // Record the engine weapon slot nodes (hip for sheathed, hand for drawn)
-        // so the weapon system can attach/move the equipped weapon later.
+        // Record the engine weapon slot nodes (sheathed and drawn positions)
+        // so the weapon system can attach/move the equipped weapons later.
         if let Some(bones) = bones_data.as_ref() {
             let find = |name: &str| {
                 model_data
@@ -297,12 +297,22 @@ fn spawn_npcs(
                     .and_then(|index| bones.joints.get(index))
                     .copied()
             };
-            let hand = find("ZS_RIGHTHAND");
-            let hip = find("ZS_SWORD").or_else(|| find("ZS_LONGSWORD"));
-            if hand.is_some() || hip.is_some() {
-                commands
-                    .entity(entity_id)
-                    .insert(NpcWeaponSlots { hip, hand });
+            let slots = NpcWeaponSlots {
+                hand: find("ZS_RIGHTHAND"),
+                left_hand: find("ZS_LEFTHAND"),
+                sword: find("ZS_SWORD"),
+                longsword: find("ZS_LONGSWORD"),
+                bow: find("ZS_BOW"),
+                crossbow: find("ZS_CROSSBOW"),
+            };
+            if slots.hand.is_some()
+                || slots.left_hand.is_some()
+                || slots.sword.is_some()
+                || slots.longsword.is_some()
+                || slots.bow.is_some()
+                || slots.crossbow.is_some()
+            {
+                commands.entity(entity_id).insert(slots);
             }
         }
 

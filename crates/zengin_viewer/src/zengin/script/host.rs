@@ -3,7 +3,7 @@ use super::journal::{JournalAction, JournalChange, JournalSection, JournalStatus
 use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, ImportCallState, InventoryGain,
     NpcLookAtChange, OverlayRequest, RoutineEntry, RoutineEntryChange, RoutineExchange, SpawnItem,
-    SpawnNpc, WeaponMode,
+    SpawnNpc, WeaponKind, WeaponMode,
 };
 use super::string_value::StringCanon;
 use super::symbol_id::SymbolId;
@@ -442,19 +442,34 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         }
     }
     /// Records the item equipped on the npc; the mesh is attached by an ECS
-    /// system. Works both at instance init and at runtime.
+    /// system. Works both at instance init and at runtime. The weapon slot
+    /// (melee vs ranged) is resolved from the item symbol name; the name comes
+    /// from the preloaded string table, so no guest re-entry is needed here.
     fn equipitem(&mut self, npc: i32, item: i32) {
+        let item_raw = item;
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
         let Some(item) = self.symbol_table.instance(item) else {
             return;
         };
-        self.loaded_state
-            .npc_instances
-            .entry(npc)
-            .or_default()
-            .equipped_weapon = Some(item);
+        let kind = self
+            .symbol_table
+            .symbol_name(item_raw)
+            .as_deref()
+            .and_then(WeaponKind::from_symbol_name);
+        let Some(kind) = kind else {
+            warn!(
+                "EquipItem: item({}) has no known weapon kind, not equipped",
+                item_raw
+            );
+            return;
+        };
+        let instance = self.loaded_state.npc_instances.entry(npc).or_default();
+        match kind {
+            WeaponKind::Melee => instance.equipped_melee = Some(item),
+            WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = Some(item),
+        }
         self.pending_equip_item_changes
             .push(EquipItemChange { instance_id: npc });
     }

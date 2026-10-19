@@ -14,7 +14,7 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::game_log::GameLog;
 use crate::input::actions::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::dialog::DialogUiState;
-use crate::zengin::{GameNpc, InstanceId, ScriptResource};
+use crate::zengin::{GameNpc, InstanceId, ScriptResource, WeaponKind};
 
 /// Visual style of the inventory UI, single place to tweak the look
 struct InventoryStyle;
@@ -76,8 +76,9 @@ struct InventoryWindowState {
     /// Header title, e.g. a category name or the trader name.
     title: String,
     selected: usize,
-    /// Currently equipped weapon of this window's npc, shown with a red slot.
-    equipped: Option<InstanceId>,
+    /// Currently equipped weapons of this window's npc, shown with a red slot.
+    equipped_melee: Option<InstanceId>,
+    equipped_ranged: Option<InstanceId>,
     items: Vec<InventoryEntry>,
 }
 
@@ -470,14 +471,16 @@ fn toggle_inventory(
         .collect();
     // Deterministic grid order (the script inventory is a hash map)
     items.sort_unstable_by_key(|entry| entry.instance_id.value());
-    let equipped = script
+    let (equipped_melee, equipped_ranged) = script
         .npc_instances()
         .get(&player_id)
-        .and_then(|npc| npc.equipped_weapon);
+        .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
+        .unwrap_or_default();
     state.windows = vec![InventoryWindowState {
         title: "Inventory".to_string(),
         selected: 0,
-        equipped,
+        equipped_melee,
+        equipped_ranged,
         items,
     }];
     state.open = true;
@@ -541,60 +544,73 @@ fn handle_inventory_input(
     if action_state.just_pressed(&GuiAction::Confirm)
         && let Some(entry) = window.items.get(*selected)
     {
-        let now_equipped = equip_selected_item(entry, &mut game_log, &gothic_script, player_npc);
-        window.equipped = now_equipped;
+        let (equipped_melee, equipped_ranged) =
+            equip_selected_item(entry, &mut game_log, &gothic_script, player_npc);
+        window.equipped_melee = equipped_melee;
+        window.equipped_ranged = equipped_ranged;
     }
 }
 
-/// Equips the selected item as the player's drawn weapon on confirm. Only
+/// Equips the selected item as the player's weapon of its kind on confirm, a
+/// second confirm unequips it again. A melee and a ranged weapon can be
+/// equipped at the same time, equipping again replaces the same slot. Only
 /// weapon items (`itmw_*`/`itrw_*` symbols) are accepted, everything else is
-/// reported in the game log instead. Returns the item equipped afterwards,
-/// `None` when nothing is equipped now.
+/// reported in the game log instead. Equipping sheathes the weapon, drawing is
+/// done by the dedicated weapon inputs. Returns the items equipped afterwards.
 fn equip_selected_item(
     entry: &InventoryEntry,
     game_log: &mut GameLog,
     gothic_script: &ScriptResource,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
-) -> Option<InstanceId> {
+) -> (Option<InstanceId>, Option<InstanceId>) {
     let Ok(player_npc) = player_npc.single() else {
-        return None;
+        return (None, None);
     };
     let player_id = player_npc.instance_id();
 
     let mut script = gothic_script.lock();
-    let equipped = script
+    let (equipped_melee, equipped_ranged) = script
         .npc_instances()
         .get(&player_id)
-        .and_then(|npc| npc.equipped_weapon);
-    if equipped == Some(entry.instance_id) {
-        script.unequip_item(player_id);
+        .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
+        .unwrap_or_default();
+
+    let symbol = script
+        .get_name_by_id(entry.instance_id.value())
+        .unwrap_or_default()
+        .to_lowercase();
+    let Some(kind) = WeaponKind::from_symbol_name(&symbol) else {
+        game_log.add(format!("{} is not a weapon", entry.name));
+        return (equipped_melee, equipped_ranged);
+    };
+
+    let currently = match kind {
+        WeaponKind::Melee => equipped_melee,
+        WeaponKind::Bow | WeaponKind::Crossbow => equipped_ranged,
+    };
+    if currently == Some(entry.instance_id) {
+        script.unequip_weapon_kind(player_id, kind);
         game_log.add(format!("Unequipped {}", entry.name));
         info!(
             "Player({}) unequipped item({})",
             player_id.value(),
             entry.instance_id.value()
         );
-        return None;
+    } else {
+        script.equip_item(player_id, entry.instance_id);
+        game_log.add(format!("Equipped {}", entry.name));
+        info!(
+            "Player({}) equipped item({}) sheathed",
+            player_id.value(),
+            entry.instance_id.value()
+        );
     }
 
-    let symbol = script
-        .get_name_by_id(entry.instance_id.value())
+    script
+        .npc_instances()
+        .get(&player_id)
+        .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
         .unwrap_or_default()
-        .to_lowercase();
-    if !symbol.starts_with("itmw_") && !symbol.starts_with("itrw_") {
-        game_log.add(format!("{} is not a weapon", entry.name));
-        return equipped;
-    }
-
-    script.equip_item(player_id, entry.instance_id);
-    script.draw_weapon(player_id);
-    game_log.add(format!("Equipped {}", entry.name));
-    info!(
-        "Player({}) equipped item({}) as drawn weapon",
-        player_id.value(),
-        entry.instance_id.value()
-    );
-    Some(entry.instance_id)
 }
 
 /// Updates visibility, header texts, slot contents and the info panel from
@@ -689,7 +705,8 @@ fn sync_inventory_ui(
                 continue;
             }
             let entry = &window.items[slot.index];
-            let is_equipped = window.equipped == Some(entry.instance_id);
+            let is_equipped = window.equipped_melee == Some(entry.instance_id)
+                || window.equipped_ranged == Some(entry.instance_id);
             let texture = if slot.index == window.selected {
                 &textures.focus
             } else {

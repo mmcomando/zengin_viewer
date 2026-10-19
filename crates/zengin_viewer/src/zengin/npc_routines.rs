@@ -13,7 +13,9 @@ use crate::zengin::common::{
 };
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{AlignToWpChange, GotoChange, RoutineEntry, WeaponMode};
+use crate::zengin::script::state::{
+    AlignToWpChange, GotoChange, RoutineEntry, WeaponKind, WeaponMode,
+};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use crate::zengin::script_bridge::ScriptChangesApplied;
@@ -334,6 +336,9 @@ fn apply_weapon_mode(
         };
         let animation = match weapon_mode.0 {
             WeaponMode::Melee => "S_1H".to_string(),
+            // Approximation: both ranged kinds use the bow idle, a per-kind
+            // scheme choice needs the weapon kind, not only the mode
+            WeaponMode::Ranged => "S_BOW".to_string(),
             WeaponMode::Fists => {
                 // No resolved standing idle, keep the current animation
                 let Some(stand) = model.stand_animation.clone() else {
@@ -374,31 +379,62 @@ fn apply_align_to_wp(
     }
 }
 
-/// Engine weapon slot nodes of an npc model, `hip` is the sheathed position
-/// (`ZS_SWORD`), `hand` the drawn one (`ZS_RIGHTHAND`).
+/// Engine weapon slot nodes of an npc model. Melee weapons sheathe at
+/// `sword`/`longsword` (hip), ranged at `bow`/`crossbow` (back); drawn weapons
+/// go to the hands (bow in the left hand, everything else in the right).
 #[derive(Component, Default)]
 pub struct NpcWeaponSlots {
-    pub hip: Option<Entity>,
     pub hand: Option<Entity>,
+    pub left_hand: Option<Entity>,
+    pub sword: Option<Entity>,
+    pub longsword: Option<Entity>,
+    pub bow: Option<Entity>,
+    pub crossbow: Option<Entity>,
 }
 
-/// Weapon mesh currently attached to an npc, managed by [`update_npc_weapon`].
-#[derive(Component, Default)]
-struct NpcWeapon {
+impl NpcWeaponSlots {
+    /// Slot a weapon of `kind` attaches to when `drawn`, `None` when the model
+    /// has no matching node.
+    fn slot_for(&self, kind: WeaponKind, drawn: bool) -> Option<Entity> {
+        match (kind, drawn) {
+            (WeaponKind::Melee, true) => self.hand,
+            (WeaponKind::Melee, false) => self.sword.or(self.longsword),
+            (WeaponKind::Bow, true) => self.left_hand,
+            (WeaponKind::Bow, false) => self.bow,
+            (WeaponKind::Crossbow, true) => self.hand,
+            (WeaponKind::Crossbow, false) => self.crossbow,
+        }
+    }
+}
+
+/// One attached weapon mesh child of an npc, managed by [`update_npc_weapon`].
+#[derive(Default, Clone, PartialEq)]
+struct WeaponMesh {
     entity: Option<Entity>,
     item: Option<InstanceId>,
     slot: Option<Entity>,
 }
 
-/// Item equipped by the npc (`EquipItem`), maintained by the script bridge.
-/// Absent when the npc has no weapon equipped.
-#[derive(Component)]
-pub struct NpcEquippedWeapon(pub InstanceId);
+/// Weapon mesh children currently attached to an npc per weapon kind, managed
+/// by [`update_npc_weapon`].
+#[derive(Component, Default, Clone, PartialEq)]
+struct NpcWeapon {
+    melee: WeaponMesh,
+    ranged: WeaponMesh,
+}
 
-/// Keeps a weapon mesh on each npc that has one equipped. The default position
-/// is the hip, switching to melee mode moves it to the hand. Reacts to the
-/// equipped item changing, the weapon mode changing, and the visual (weapon
-/// slots) appearing.
+/// Weapons equipped by the npc (`EquipItem`), maintained by the script bridge.
+/// A melee and a ranged weapon can be equipped at the same time.
+#[derive(Component, Clone)]
+pub struct NpcEquippedWeapon {
+    pub melee: Option<InstanceId>,
+    pub ranged: Option<InstanceId>,
+}
+
+/// Keeps a weapon mesh on each npc that has one equipped. Melee sheathes at the
+/// hip, ranged on the back; switching to melee/ranged weapon mode moves the
+/// weapon to the hand. Reacts to the equipped items changing, the weapon mode
+/// changing, and the visual (weapon slots) appearing.
 #[allow(clippy::type_complexity)]
 fn update_npc_weapon(
     gothic_scripts: Res<ScriptResource>,
@@ -422,124 +458,132 @@ fn update_npc_weapon(
         )>,
     >,
 ) {
-    for (entity, slots, equipped, weapon_mode, mut weapon) in &mut npcs {
-        let item = equipped.map(|equipped| equipped.0);
-        let drawn = weapon_mode.is_some_and(|mode| mode.0 == WeaponMode::Melee);
-        // The joints are despawned with the visual when the npc is far
-        let target_slot =
-            if drawn { slots.hand } else { slots.hip }.filter(|slot| entities.contains(*slot));
+    for (entity, slots, equipped, weapon_mode, weapon) in &mut npcs {
+        let mode = weapon_mode.map(|mode| mode.0).unwrap_or(WeaponMode::Fists);
+        let (melee_item, ranged_item) = equipped
+            .map(|equipped| (equipped.melee, equipped.ranged))
+            .unwrap_or_default();
 
-        let path = item.and_then(|item| item_model_path(&gothic_scripts, &vfs, item));
-
-        // The weapon mesh child is despawned with the visual when the npc is far
-        let child_alive = weapon
-            .as_ref()
-            .and_then(|weapon| weapon.entity)
-            .is_some_and(|child| entities.contains(child));
-        // A different equipped item needs a different mesh child
-        let item_changed = weapon.as_ref().is_some_and(|weapon| weapon.item != item);
-
-        let Some(path) = path else {
-            // Nothing equipped, or its mesh is unknown
-            detach_weapon(&mut commands, entities, weapon.as_deref_mut());
-            continue;
+        // Work on a plain copy, written back at the end, so the component does
+        // not need to exist yet
+        let mut tracked = weapon.as_deref().cloned().unwrap_or_default();
+        // Bow and crossbow share the equipped ranged item, the kind is picked
+        // by the slot the model provides
+        let ranged_kind = if slots.crossbow.is_some() {
+            WeaponKind::Crossbow
+        } else {
+            WeaponKind::Bow
         };
-
-        if !child_alive || item_changed {
-            // Replace the stale/obsolete weapon mesh child
-            if let Some(child) = weapon
-                .as_ref()
-                .and_then(|weapon| weapon.entity)
-                .filter(|child| entities.contains(*child))
-            {
-                commands.entity(child).despawn();
-            }
-            let Some(target_slot) = target_slot else {
-                // No slot available, only drop the stale child reference
-                if let Some(mut weapon) = weapon {
-                    weapon.entity = None;
-                    weapon.slot = None;
-                }
-                continue;
+        for (kind, item, mesh) in [
+            (WeaponKind::Melee, melee_item, &mut tracked.melee),
+            (ranged_kind, ranged_item, &mut tracked.ranged),
+        ] {
+            let drawn = match kind {
+                WeaponKind::Melee => mode == WeaponMode::Melee,
+                _ => mode == WeaponMode::Ranged,
             };
-            let handle = handles.get_model_handle(&asset_server, &path, None);
-            let child = commands
-                .spawn((
-                    Visibility::default(),
-                    ZenGinModelComponent {
-                        model_handle: handle,
-                        ..default()
-                    },
-                    Transform::IDENTITY,
-                    ChildOf(target_slot),
-                ))
-                .id();
-            attach_weapon(
+            let target_slot = slots
+                .slot_for(kind, drawn)
+                .filter(|slot| entities.contains(*slot));
+            update_weapon_mesh(
                 &mut commands,
-                entity,
-                weapon.as_deref_mut(),
-                child,
+                entities,
+                mesh,
                 item,
                 target_slot,
+                &gothic_scripts,
+                &vfs,
+                &mut handles,
+                &asset_server,
             );
-            continue;
         }
+        if weapon.as_deref() != Some(&tracked) {
+            commands.entity(entity).insert(tracked);
+        }
+    }
+}
 
-        let Some(mut weapon) = weapon else {
-            continue;
+/// Syncs one weapon mesh child with its equipped item and target slot: creates
+/// the mesh child when missing or the item changed, moves it between slots and
+/// despawns it when nothing is equipped.
+#[allow(clippy::too_many_arguments)]
+fn update_weapon_mesh(
+    commands: &mut Commands,
+    entities: &Entities,
+    mesh: &mut WeaponMesh,
+    item: Option<InstanceId>,
+    target_slot: Option<Entity>,
+    gothic_scripts: &Res<ScriptResource>,
+    vfs: &Res<ZenginVfs>,
+    handles: &mut ResMut<MaterialHandles>,
+    asset_server: &Res<AssetServer>,
+) {
+    let path = item.and_then(|item| item_model_path(gothic_scripts, vfs, item));
+
+    let Some(path) = path else {
+        // Nothing equipped, or its mesh is unknown
+        detach_weapon(commands, entities, mesh);
+        return;
+    };
+
+    // The weapon mesh child is despawned with the visual when the npc is far
+    let child_alive = mesh.entity.is_some_and(|child| entities.contains(child));
+    // A different equipped item needs a different mesh child
+    let item_changed = mesh.item != item;
+
+    if !child_alive || item_changed {
+        // Replace the stale/obsolete weapon mesh child
+        if let Some(child) = mesh.entity.filter(|child| entities.contains(*child)) {
+            commands.entity(child).despawn();
+        }
+        let Some(target_slot) = target_slot else {
+            // No slot available, only drop the stale child reference
+            mesh.entity = None;
+            mesh.slot = None;
+            return;
         };
-        weapon.item = item;
+        let handle = handles.get_model_handle(asset_server, &path, None);
+        let child = commands
+            .spawn((
+                Visibility::default(),
+                ZenGinModelComponent {
+                    model_handle: handle,
+                    ..default()
+                },
+                Transform::IDENTITY,
+                ChildOf(target_slot),
+            ))
+            .id();
+        *mesh = WeaponMesh {
+            entity: Some(child),
+            item,
+            slot: Some(target_slot),
+        };
+        return;
+    }
 
-        // Move between sheathed and drawn
-        if weapon.slot != target_slot
-            && let Some(child) = weapon.entity
-            && let Some(target_slot) = target_slot
-        {
-            commands.entity(child).insert(ChildOf(target_slot));
-            weapon.slot = Some(target_slot);
-        }
+    mesh.item = item;
+
+    // Move between sheathed and drawn
+    if mesh.slot != target_slot
+        && let Some(child) = mesh.entity
+        && let Some(target_slot) = target_slot
+    {
+        commands.entity(child).insert(ChildOf(target_slot));
+        mesh.slot = Some(target_slot);
     }
 }
 
 /// Despawns the weapon mesh child when it is still alive and clears the tracked
 /// state.
-fn detach_weapon(commands: &mut Commands, entities: &Entities, weapon: Option<&mut NpcWeapon>) {
-    let Some(weapon) = weapon else {
-        return;
-    };
-    if let Some(child) = weapon.entity.take()
+fn detach_weapon(commands: &mut Commands, entities: &Entities, mesh: &mut WeaponMesh) {
+    if let Some(child) = mesh.entity.take()
         && entities.contains(child)
     {
         commands.entity(child).despawn();
     }
-    weapon.item = None;
-    weapon.slot = None;
-}
-
-/// Records the spawned weapon mesh child, creating the component when it was
-/// absent.
-fn attach_weapon(
-    commands: &mut Commands,
-    entity: Entity,
-    weapon: Option<&mut NpcWeapon>,
-    child: Entity,
-    item: Option<InstanceId>,
-    slot: Entity,
-) {
-    match weapon {
-        Some(weapon) => {
-            weapon.entity = Some(child);
-            weapon.item = item;
-            weapon.slot = Some(slot);
-        }
-        None => {
-            commands.entity(entity).insert(NpcWeapon {
-                entity: Some(child),
-                item,
-                slot: Some(slot),
-            });
-        }
-    }
+    mesh.item = None;
+    mesh.slot = None;
 }
 
 /// Overlay animation scheme currently applied to an npc (`Mdl_ApplyOverlayMds`).

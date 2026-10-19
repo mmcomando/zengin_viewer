@@ -6,9 +6,10 @@ use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::game_log::{GameLog, GameLogEntry};
 use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
-use crate::zengin::npc_routines::NpcEquippedWeapon;
+use crate::zengin::npc_routines::{NpcEquippedWeapon, NpcWeaponMode};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::selection::{Selection, SelectionKind};
 use crate::zengin::world::item_model_path;
@@ -77,7 +78,15 @@ fn kill_selected_npc(
     mut handles: ResMut<MaterialHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    npcs: Query<(&GameNpc, &GlobalTransform, Option<&NpcEquippedWeapon>), Without<PlayerCharacter>>,
+    npcs: Query<
+        (
+            &GameNpc,
+            &GlobalTransform,
+            Option<&NpcEquippedWeapon>,
+            Option<&NpcWeaponMode>,
+        ),
+        Without<PlayerCharacter>,
+    >,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
     if !action_state.just_pressed(&DebugAction::KillSelected) {
@@ -89,12 +98,18 @@ fn kill_selected_npc(
     let Some(target) = selection.target else {
         return;
     };
-    let Ok((npc, global_tr, equipped)) = npcs.get(target) else {
+    let Ok((npc, global_tr, equipped, weapon_mode)) = npcs.get(target) else {
         return;
     };
     let npc_id = npc.npc_instance_id;
     let position = global_tr.translation();
-    let equipped = equipped.map(|equipped| equipped.0);
+    // Only the drawn weapon drops on the ground; sheathed weapons stay part of
+    // the inventory that moves to the player
+    let dropped = match weapon_mode.map(|mode| mode.0).unwrap_or(WeaponMode::Fists) {
+        WeaponMode::Melee => equipped.and_then(|equipped| equipped.melee),
+        WeaponMode::Ranged => equipped.and_then(|equipped| equipped.ranged),
+        WeaponMode::Fists => None,
+    };
 
     let Ok(player_npc) = player_npc.single() else {
         return;
@@ -107,8 +122,8 @@ fn kill_selected_npc(
         instance_to_id: player_id,
     });
 
-    // Drop the equipped weapon on the ground as a pickable item.
-    if let Some(item) = equipped {
+    // Drop the drawn weapon on the ground as a pickable item.
+    if let Some(item) = dropped {
         match item_model_path(&gothic_scripts, &vfs, item) {
             Some(path) => {
                 let model_handle = handles.get_model_handle(&asset_server, &path, None);

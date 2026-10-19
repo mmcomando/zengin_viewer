@@ -19,7 +19,6 @@ use crate::zengin::script::state::{
     InventoryGain, NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry,
     RoutineEntryChange, SpawnItem, SpawnNpc, WeaponMode, WeaponModeChange,
 };
-use crate::zengin::script::symbol_id::InstanceId;
 
 /// Marks systems that have applied script produced changes to the ECS. Systems
 /// reacting to those changes run after this set.
@@ -318,8 +317,8 @@ fn set_weapon_mode(commands: &mut Commands, entity: Entity, mode: Option<WeaponM
 }
 
 /// Applies equipped item changes to the entities carrying the affected instance
-/// ids. An entity gets the item its instance currently has equipped, or loses
-/// the component when it has none.
+/// ids. An entity gets the melee/ranged weapons its instance currently has
+/// equipped, or loses the component when it has none.
 fn apply_equip_item_changes(
     mut commands: Commands,
     mut changes: MessageReader<EquipItemChange>,
@@ -334,21 +333,28 @@ fn apply_equip_item_changes(
     let instances = gothic_script.npc_instances();
 
     for change in changes.read() {
-        let item = instances
+        let equipped = instances
             .get(&change.instance_id)
-            .and_then(|npc| npc.equipped_weapon);
+            .map(|npc| NpcEquippedWeapon {
+                melee: npc.equipped_melee,
+                ranged: npc.equipped_ranged,
+            });
         for entity in index.npcs(change.instance_id) {
-            set_equipped_weapon(&mut commands, *entity, item);
+            set_equipped_weapon(&mut commands, *entity, equipped.clone());
         }
     }
 }
 
-/// Inserts the equipped item on the entity, or removes the component when the
-/// npc has no item equipped.
-fn set_equipped_weapon(commands: &mut Commands, entity: Entity, item: Option<InstanceId>) {
-    match item {
-        Some(item) => {
-            commands.entity(entity).insert(NpcEquippedWeapon(item));
+/// Inserts the equipped weapons on the entity, or removes the component when
+/// the npc has none equipped.
+fn set_equipped_weapon(
+    commands: &mut Commands,
+    entity: Entity,
+    equipped: Option<NpcEquippedWeapon>,
+) {
+    match equipped {
+        Some(equipped) => {
+            commands.entity(entity).insert(equipped);
         }
         None => {
             commands.entity(entity).remove::<NpcEquippedWeapon>();
@@ -412,6 +418,11 @@ fn seed_npc_components_on_add(
             .and_then(|id| index.npcs(id).first().copied());
         set_look_at(&mut commands, entity, target);
         set_weapon_mode(&mut commands, entity, instance.weapon_mode);
-        set_equipped_weapon(&mut commands, entity, instance.equipped_weapon);
+        let equipped = (instance.equipped_melee.is_some() || instance.equipped_ranged.is_some())
+            .then_some(NpcEquippedWeapon {
+                melee: instance.equipped_melee,
+                ranged: instance.equipped_ranged,
+            });
+        set_equipped_weapon(&mut commands, entity, equipped);
     }
 }

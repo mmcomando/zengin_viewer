@@ -200,8 +200,11 @@ pub struct NpcInstanceState {
     /// Weapon mode (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI).
     pub weapon_mode: Option<WeaponMode>,
 
-    /// Item symbol equipped (`EquipItem`).
-    pub equipped_weapon: Option<InstanceId>,
+    /// Melee weapon equipped (`EquipItem` with an `itmw_*` item).
+    pub equipped_melee: Option<InstanceId>,
+
+    /// Ranged weapon equipped (`EquipItem` with an `itrw_*` item).
+    pub equipped_ranged: Option<InstanceId>,
 }
 
 impl NpcInstanceState {
@@ -328,6 +331,16 @@ impl SymbolTable {
             }
             _ => None,
         }
+    }
+
+    /// Name of a symbol by its raw id (ids below `symbols_count`), `None`
+    /// when the id is out of range. Reads the preloaded string table, so it is
+    /// safe to call from import handlers (no guest re-entry).
+    pub fn symbol_name(&self, raw: i32) -> Option<String> {
+        if raw < 0 || raw >= self.symbols_count {
+            return None;
+        }
+        self.string_content(raw)
     }
 
     /// String literals are not symbols, their ids are indices into the static
@@ -526,6 +539,43 @@ pub enum WeaponMode {
     Fists,
     /// Melee weapon drawn
     Melee,
+    /// Ranged weapon (bow or crossbow) drawn
+    Ranged,
+}
+
+/// Kind of a weapon item, resolved from its instance symbol name prefix.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WeaponKind {
+    /// `itmw_*` melee weapon
+    Melee,
+    /// `itrw_*` bow (not a crossbow)
+    Bow,
+    /// `itrw_*` crossbow
+    Crossbow,
+}
+
+impl WeaponKind {
+    /// Resolves the weapon kind of an item symbol name, `None` when the item
+    /// is not a weapon.
+    pub fn from_symbol_name(name: &str) -> Option<Self> {
+        let name = name.to_lowercase();
+        if name.starts_with("itmw_") {
+            return Some(Self::Melee);
+        }
+        if name.starts_with("itrw_") {
+            return Some(if name.contains("crossbow") {
+                Self::Crossbow
+            } else {
+                Self::Bow
+            });
+        }
+        None
+    }
+
+    /// Whether drawing this weapon kind switches the mode to [`WeaponMode::Ranged`].
+    pub fn is_ranged(self) -> bool {
+        matches!(self, Self::Bow | Self::Crossbow)
+    }
 }
 
 /// Talent slots per npc, `TALENT_MAX_G2`.

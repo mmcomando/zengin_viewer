@@ -18,7 +18,7 @@ use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, ImportCallState,
     InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState, NpcLookAtChange,
     OverlayChange, RoutineEntryChange, RoutineExchange, SpawnItem, SpawnNpc, SymbolTable,
-    WeaponMode, WeaponModeChange,
+    WeaponKind, WeaponMode, WeaponModeChange,
 };
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
@@ -264,10 +264,28 @@ impl ScriptManager {
             .create(item, count);
     }
 
-    /// Equips an item as the npc's weapon (`EquipItem` semantics), leaving the
-    /// change queued for the ECS bridge.
+    /// Equips an item as the npc's melee or ranged weapon depending on its
+    /// instance symbol name (`EquipItem` semantics), leaving the change queued
+    /// for the ECS bridge. Equipping the same slot again replaces the weapon.
     pub fn equip_item(&mut self, npc: InstanceId, item: InstanceId) {
-        self.npc_instances_mut_or_default(npc).equipped_weapon = Some(item);
+        let kind = self
+            .symbol_table()
+            .symbol_name(item.value() as i32)
+            .as_deref()
+            .and_then(WeaponKind::from_symbol_name);
+        let Some(kind) = kind else {
+            warn!(
+                "Cannot equip item({}) on npc({}): not a known weapon kind",
+                item.value(),
+                npc.value()
+            );
+            return;
+        };
+        let instance = self.npc_instances_mut_or_default(npc);
+        match kind {
+            WeaponKind::Melee => instance.equipped_melee = Some(item),
+            WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = Some(item),
+        }
         self.store
             .data_mut()
             .pending_equip_item_changes
@@ -275,20 +293,74 @@ impl ScriptManager {
     }
 
     /// Draws the npc's weapon into the hand (`Npc_SetToFightMode` semantics),
-    /// leaving the change queued for the ECS bridge.
+    /// leaving the change queued for the ECS bridge. Prefers the melee weapon
+    /// when both are equipped.
     pub fn draw_weapon(&mut self, npc: InstanceId) {
-        self.npc_instances_mut_or_default(npc).weapon_mode = Some(WeaponMode::Melee);
+        let instance = self.npc_instances_mut_or_default(npc);
+        let mode = if instance.equipped_melee.is_some() {
+            WeaponMode::Melee
+        } else if instance.equipped_ranged.is_some() {
+            WeaponMode::Ranged
+        } else {
+            warn!(
+                "Cannot draw weapon of npc({}): nothing equipped",
+                npc.value()
+            );
+            return;
+        };
+        instance.weapon_mode = Some(mode);
         self.store
             .data_mut()
             .pending_weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
     }
 
-    /// Unequips the npc's weapon and sheathes it (`AI_RemoveWeapon` + clearing
-    /// `EquipItem` semantics), leaving the changes queued for the ECS bridge.
+    /// Sheathes the drawn weapon back to its stowed position
+    /// (`Npc_SetToFistMode`/`AI_RemoveWeapon` semantics), leaving the change
+    /// queued for the ECS bridge. The weapon stays equipped.
+    #[allow(dead_code)] // used by the draw/sheathe weapon inputs
+    pub fn sheathe_weapon(&mut self, npc: InstanceId) {
+        self.npc_instances_mut_or_default(npc).weapon_mode = Some(WeaponMode::Fists);
+        self.store
+            .data_mut()
+            .pending_weapon_mode_changes
+            .push(WeaponModeChange { instance_id: npc });
+    }
+
+    /// Unequips the npc's weapon of the given kind, sheathing it when it was
+    /// drawn. Leaves the changes queued for the ECS bridge.
+    pub fn unequip_weapon_kind(&mut self, npc: InstanceId, kind: WeaponKind) {
+        let instance = self.npc_instances_mut_or_default(npc);
+        match kind {
+            WeaponKind::Melee => instance.equipped_melee = None,
+            WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = None,
+        }
+        let drawn_kind_matches = match instance.weapon_mode {
+            Some(WeaponMode::Melee) => kind == WeaponKind::Melee,
+            Some(WeaponMode::Ranged) => kind.is_ranged(),
+            _ => false,
+        };
+        if drawn_kind_matches {
+            instance.weapon_mode = Some(WeaponMode::Fists);
+            self.store
+                .data_mut()
+                .pending_weapon_mode_changes
+                .push(WeaponModeChange { instance_id: npc });
+        }
+        self.store
+            .data_mut()
+            .pending_equip_item_changes
+            .push(EquipItemChange { instance_id: npc });
+    }
+
+    /// Unequips all of the npc's weapons and sheathes them (`AI_RemoveWeapon`
+    /// + clearing `EquipItem` semantics), leaving the changes queued for the
+    /// ECS bridge.
+    #[allow(dead_code)] // semantics kept for the AI_UnEquipWeapons host import
     pub fn unequip_item(&mut self, npc: InstanceId) {
         let instance = self.npc_instances_mut_or_default(npc);
-        instance.equipped_weapon = None;
+        instance.equipped_melee = None;
+        instance.equipped_ranged = None;
         instance.weapon_mode = Some(WeaponMode::Fists);
         self.store
             .data_mut()
