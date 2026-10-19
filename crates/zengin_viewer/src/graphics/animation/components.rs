@@ -68,6 +68,33 @@ pub struct AnimationController {
     pub next: Option<Handle<AnimationData>>,
     /// Whether the queued `next` may replace `current` immediately
     pub interrupt_current: bool,
+    /// Whether the root movement of the current animation moves the entity
+    /// itself (Gothic-style root motion: the animation drives the position,
+    /// the character controller only handles gravity and collisions).
+    pub should_move_entity: bool,
+}
+
+/// Sent when an animation enters its `last_frame-2` window — the receiver has
+/// two frames to schedule the next animation before the current one ends.
+/// Fires on every loop wrap of looping animations.
+// Consumers come with the sequencer phase.
+#[allow(dead_code)]
+#[derive(Message, Debug)]
+pub struct AnimationEnds {
+    /// Skeleton entity playing the animation
+    pub who: Entity,
+    pub what_animation: Handle<AnimationData>,
+}
+
+/// Sent when the currently played animation crosses a trigger frame declared
+/// in the model script (e.g. the arrow release event).
+// Consumers come with the sequencer phase.
+#[allow(dead_code)]
+#[derive(Message, Debug)]
+pub struct AnimationTrigger {
+    /// Skeleton entity playing the animation
+    pub who: Entity,
+    pub trigger_name: String,
 }
 
 /// Movement animation set driving the [`AnimationController`] of moving entities.

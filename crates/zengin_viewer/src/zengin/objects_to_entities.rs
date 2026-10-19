@@ -321,6 +321,7 @@ fn spawn_npcs(
                 current: animation_handle,
                 next: None,
                 interrupt_current: false,
+                should_move_entity: false,
             });
             // Entities with movement animations get a locomotion sequencer
             // driving their controller, the rest just loops its single animation

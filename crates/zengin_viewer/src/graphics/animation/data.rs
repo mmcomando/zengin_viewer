@@ -42,8 +42,9 @@ impl AnimationData {
         }
     }
 
+    /// Single frame poses hold their frame, so they count as playable.
     pub fn is_good_animations(&self) -> bool {
-        self.frames_num > 1
+        self.frames_num > 0
     }
 
     pub fn get_bone_sample(&self, frame_index: usize, bone_index: usize) -> AnimationSample {

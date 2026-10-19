@@ -1,6 +1,7 @@
 mod common;
 mod conversions;
 pub(crate) mod dialog;
+pub mod human_animations;
 mod instance_index;
 mod interaction;
 mod loaders;
@@ -52,6 +53,7 @@ impl Plugin for ZenginPlugin {
         app.add_plugins(crate::zengin::interaction::PlayerInteractionPlugin);
         app.add_plugins(crate::zengin::ranged::RangedCombatPlugin);
         app.add_plugins(crate::zengin::statistics::StatisticsZenginPlugin);
+        app.add_plugins(crate::zengin::human_animations::HumanAnimationsPlugin);
         app.add_plugins(crate::zengin::script::component::GothicScriptsPlugin);
         app.add_plugins(crate::zengin::dialog::GameDialogPlugin);
     }

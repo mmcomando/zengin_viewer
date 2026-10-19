@@ -4,7 +4,7 @@ use crate::gameplay::character::move_and_slide;
 use crate::gui_debug::toggle_visibility::show_gizmos;
 
 use super::ScriptedAnimations;
-use super::components::AnimatedJoint;
+use super::components::{AnimationEnds, AnimationTrigger, AnimatedJoint};
 use super::locomotion::{compute_animations, update_animations, update_locomotion};
 
 #[derive(Default)]
@@ -12,6 +12,8 @@ pub struct SkeletalAnimations;
 
 impl Plugin for SkeletalAnimations {
     fn build(&self, app: &mut App) {
+        app.add_message::<AnimationEnds>();
+        app.add_message::<AnimationTrigger>();
         app.add_systems(Update, draw_bones.run_if(show_gizmos));
 
         // Root movement has to be applied before the character controller,

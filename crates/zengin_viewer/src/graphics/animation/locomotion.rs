@@ -8,9 +8,14 @@ use bevy::{
 };
 
 use crate::gameplay::distance::DistanceNear;
+use crate::gameplay::objects::PlayerCharacter;
+use crate::zengin::human_animations::{
+    AnimationTriggers, animation_name_from_path, crossed_triggers,
+};
 
 use super::components::{
-    AnimationController, AnimationState, BoneAnimationData, LocomotionSequencer,
+    AnimationController, AnimationEnds, AnimationState, AnimationTrigger, BoneAnimationData,
+    LocomotionSequencer,
 };
 use super::data::AnimationData;
 
@@ -27,10 +32,15 @@ pub(crate) struct FrameUpdate {
     pub(crate) mul_1000: u32,
     pub(crate) time_us: u32,
     /// How much root movement the entity should be moved by this step.
-    #[allow(unused)]
     pub(crate) delta_movement: f32,
     /// Whether the animation completed at least one loop this step
     pub(crate) finished: bool,
+    /// How many full loops this step wrapped through
+    pub(crate) loops: u32,
+    /// Animation progress in frames before this step
+    pub(crate) old_progress: f32,
+    /// Animation progress in frames after this step
+    pub(crate) new_progress: f32,
 }
 
 /// Advances an animation by `delta` seconds on its natural pace
@@ -41,10 +51,27 @@ pub(crate) struct FrameUpdate {
 /// as much as the animation moves its base pos bone.
 #[allow(clippy::cast_precision_loss)]
 pub(crate) fn advance_animation(data: &AnimationState, delta: f32) -> Option<FrameUpdate> {
-    if data.fps <= 0.0 || data.frames_num < 2 {
+    if data.fps <= 0.0 || data.frames_num < 1 {
         return None;
     }
     let frames_num = data.frames_num;
+
+    // Single frame poses hold their frame: they never finish on their own and
+    // are left only via an interrupting switch.
+    if frames_num == 1 {
+        return Some(FrameUpdate {
+            start_frame: 0,
+            end_frame: 0,
+            mul_1000: 0,
+            time_us: 0,
+            delta_movement: 0.0,
+            finished: false,
+            loops: 0,
+            old_progress: 0.0,
+            new_progress: 0.0,
+        });
+    }
+
     let loop_time = frames_num as f32 / data.fps;
 
     let old_time = data.time_us.load(Ordering::Acquire) as f32 / TIME_SCALE;
@@ -77,6 +104,9 @@ pub(crate) fn advance_animation(data: &AnimationState, delta: f32) -> Option<Fra
         time_us: (new_time * TIME_SCALE) as u32,
         delta_movement,
         finished: loops > 0,
+        loops,
+        old_progress: old_time * data.fps,
+        new_progress: progress,
     })
 }
 
@@ -194,33 +224,43 @@ pub(crate) fn update_locomotion(
     }
 }
 
-/// Applies animations to entities. Animations play purely on time; when an animation
-/// moves its base pos bone, the entity itself is moved by that root movement.
+/// Applies animations to entities. Animations play purely on time; when an
+/// animation moves its base pos bone, the entity itself is moved by that root
+/// motion if its controller enables it.
 /// Queued `next` animations are switched to when the current one ends or may
 /// be interrupted (decided by [`update_locomotion`]).
+/// For entities marked as players it emits [`AnimationEnds`] when entering
+/// the `last_frame-2` window and [`AnimationTrigger`] when crossing a model
+/// script trigger frame, so the sequencer can schedule follow up animations.
+#[allow(clippy::cast_precision_loss)]
 #[allow(clippy::type_complexity)]
 pub(crate) fn update_animations(
     time: Res<Time>,
     animations: Res<Assets<AnimationData>>,
+    triggers: Option<Res<AnimationTriggers>>,
+    mut ends: MessageWriter<AnimationEnds>,
+    mut animation_triggers: MessageWriter<AnimationTrigger>,
     mut query: Query<
         (
             Entity,
             &GlobalTransform,
             Option<&Aabb>,
+            Option<&ChildOf>,
+            Option<&PlayerCharacter>,
             &mut AnimationState,
             Option<&mut AnimationController>,
         ),
         With<DistanceNear>,
     >,
-    // q_vel: Query<&LinearVelocity>,
-    // mut transforms: Query<&mut Transform>,
+    q_vel: Query<&LinearVelocity>,
+    mut transforms: Query<&mut Transform>,
     mut joints: Query<&mut BoneAnimationData>,
     frustum: Option<Single<&Frustum, With<Camera3d>>>,
 ) {
     let delta = time.delta_secs();
     let mut switches: Vec<(Entity, Arc<AnimationData>)> = Vec::new();
 
-    for (entity, global_transform, aabb, mut data, controller) in &mut query {
+    for (entity, global_transform, aabb, parent, player, mut data, controller) in &mut query {
         // Without a main camera (e.g. in tests) fall back to always updating.
         let needs_update = match (&frustum, aabb) {
             (Some(frustum), Some(aabb)) => {
@@ -261,23 +301,56 @@ pub(crate) fn update_animations(
             .store(update.mul_1000, Ordering::Release);
         data.time_us.store(update.time_us, Ordering::Release);
 
-        // TODO: Improve movement by using update.delta_movement as animations know how much model should be moved to remove sliding
-        // if update.delta_movement != 0.0 {
-        //     // The animation state lives on the model entity. Characters with a physics body
-        //     // own the model as a child, so move the physics entity, otherwise move the model itself.
-        //     let target = match parent {
-        //         Some(parent) if q_vel.contains(parent.parent()) => parent.parent(),
-        //         _ => entity,
-        //     };
-        //     if let Ok(mut transform) = transforms.get_mut(target) {
-        //         transform.translation +=
-        //             global_transform.rotation() * Vec3::Z * update.delta_movement;
-        //     }
-        // }
-
         let Some(mut controller) = controller else {
             continue;
         };
+
+        // Root motion: the animation drives the position of the entity (the
+        // physics body owns the model as a child, so move that one and let
+        // move-and-slide react to the new position).
+        if controller.should_move_entity && update.delta_movement != 0.0 {
+            let target = match parent {
+                Some(parent) if q_vel.contains(parent.parent()) => parent.parent(),
+                _ => entity,
+            };
+            if let Ok(mut transform) = transforms.get_mut(target) {
+                transform.translation +=
+                    global_transform.rotation() * Vec3::Z * update.delta_movement;
+            }
+        }
+
+        // Animation event messages are emitted only for players for now; the
+        // sequencer consuming them is player-only.
+        if player.is_some() {
+            let frames_num = data.frames_num as f32;
+            // The receiver has two frames to schedule the next animation
+            let end_window = (frames_num as usize).saturating_sub(2) as f32;
+            let crossed_end = update.loops > 0
+                || (update.old_progress < end_window && update.new_progress >= end_window);
+            if crossed_end {
+                ends.write(AnimationEnds {
+                    who: entity,
+                    what_animation: controller.current.clone(),
+                });
+            }
+
+            if let Some(triggers) = triggers.as_ref()
+                && let Some(path) = Handle::path(&controller.current)
+                && let Some(animation) = animation_name_from_path(path.path())
+            {
+                for trigger in crossed_triggers(
+                    triggers.triggers(animation),
+                    update.old_progress,
+                    update.new_progress,
+                    update.loops,
+                ) {
+                    animation_triggers.write(AnimationTrigger {
+                        who: entity,
+                        trigger_name: trigger.name.clone(),
+                    });
+                }
+            }
+        }
 
         // // Uncomment to debug animations
         // if update.finished && controller.next.is_none() {
@@ -298,7 +371,7 @@ pub(crate) fn update_animations(
             let next_data = Arc::new(next_data.clone());
             let current_path = Handle::path(&controller.current);
             let next_path = Handle::path(&next);
-            if !next_data.is_good_animations() {
+            if next_data.frames_num == 0 {
                 warn!(
                     "Animation switch to {next_path:?} on entity({entity}) skipped: not playable (frames {})",
                     next_data.frames_num,
@@ -312,7 +385,11 @@ pub(crate) fn update_animations(
             // New animation starts from its first frame
             data.time_us.store(0, Ordering::Release);
             data.frame_state.start_frame.store(0, Ordering::Release);
-            data.frame_state.end_frame.store(1, Ordering::Release);
+            // Single frame poses have no second frame to interpolate to
+            data.frame_state.end_frame.store(
+                if next_data.frames_num > 1 { 1 } else { 0 },
+                Ordering::Release,
+            );
             data.frame_state.mul_1000.store(0, Ordering::Release);
             controller.current = next;
             switches.push((entity, next_data));
