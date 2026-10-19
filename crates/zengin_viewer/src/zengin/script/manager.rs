@@ -11,7 +11,7 @@ use bevy::math::Vec3;
 
 use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::{
-    DialogInfo, SymbolInfo, SymbolKind,
+    DialogInfo, ItemInfo, NpcInfo, SymbolInfo, SymbolKind,
 };
 use super::journal::JournalChange;
 use super::state::{
@@ -478,6 +478,41 @@ impl ScriptManager {
         Some(self.call_get_name(symbol))
     }
 
+    /// Content of a daedalus string id, `None` when unset or empty.
+    fn string_by_id(&self, raw: Option<i32>) -> Option<String> {
+        self.get_string_non_0(raw?)
+    }
+
+    /// Display name of an npc from its `C_NPC` `name` member, `None` when the
+    /// instance has no data or the name string is unset.
+    pub fn npc_display_name(&mut self, npc: InstanceId) -> Option<String> {
+        let name = self.npc_info(npc).name;
+        self.string_by_id(name)
+    }
+
+    /// Display name of an item from its `C_ITEM` `name` member, `None` when
+    /// the instance has no data or the name string is unset.
+    pub fn item_display_name(&mut self, item: InstanceId) -> Option<String> {
+        let name = self.item_info(item).name;
+        self.string_by_id(name)
+    }
+
+    /// Raw npc-info record of an npc instance, read from the instance data.
+    fn npc_info(&mut self, npc: InstanceId) -> NpcInfo {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_get_npc_info(&mut self.store, npc.symbol().value())
+            .unwrap()
+    }
+
+    /// Raw item-info record of an item instance, read from the instance data.
+    fn item_info(&mut self, item: InstanceId) -> ItemInfo {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_get_item_info(&mut self.store, item.symbol().value())
+            .unwrap()
+    }
+
     /// Hitpoints and hitpoints max of an npc, read from the npc instance data
     /// (`ZkNpcInstance_getAttribute` semantics, attribute `ATR_HITPOINTS` and
     /// `ATR_HITPOINTS_MAX`). Seeds the instance state on first access, `None`
@@ -488,10 +523,7 @@ impl ScriptManager {
             .get(&npc)
             .is_some_and(|npc| npc.hitpoints.is_some());
         if !seeded {
-            let guest = self.instance.mmcomando_zengine_scripts_manage();
-            let info = guest
-                .call_get_npc_info(&mut self.store, npc.symbol().value())
-                .unwrap();
+            let info = self.npc_info(npc);
             let instance = self.npc_instances_mut_or_default(npc);
             instance.hitpoints = Some(info.hitpoints);
             instance.hitpoints_max = Some(info.hitpoints_max);
@@ -526,11 +558,7 @@ impl ScriptManager {
     /// the item instance has no data.
     #[allow(dead_code)] // used by the damage systems (next step)
     pub fn item_damage_total(&mut self, item: InstanceId) -> Option<i32> {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        let info = guest
-            .call_get_item_info(&mut self.store, item.symbol().value())
-            .unwrap();
-        Some(info.damage_total)
+        Some(self.item_info(item).damage_total)
     }
 
     pub fn get_symbol_id(&mut self, symbol_name: &str) -> SymbolId {

@@ -195,13 +195,19 @@ fn update_selection(
         let raw = item.item_instance_id.value();
         selection.name = gothic_script
             .lock()
-            .get_name_by_id(raw)
+            .item_display_name(item.item_instance_id)
+            .or_else(|| gothic_script.lock().get_name_by_id(raw))
             .unwrap_or_else(|| raw.to_string());
     } else if let Some(npc) = npc {
         selection.kind = Some(SelectionKind::Npc);
         selection.name = gothic_script
             .lock()
-            .call_get_name(npc.npc_instance_id.symbol());
+            .npc_display_name(npc.npc_instance_id)
+            .unwrap_or_else(|| {
+                gothic_script
+                    .lock()
+                    .call_get_name(npc.npc_instance_id.symbol())
+            });
     }
     selection.target = Some(entity);
 }
