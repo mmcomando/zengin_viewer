@@ -28,9 +28,76 @@ impl Plugin for PlayerInteractionPlugin {
                 kill_selected_npc,
                 handle_transfer_items,
                 pickup_selected_item,
+                toggle_player_weapons,
                 give_test_items,
                 open_journal,
             ),
+        );
+    }
+}
+
+/// Toggles the player's equipped weapons between sheathed and drawn on
+/// `EquipMelee`/`EquipRanged` (1/2): pressing draws the respective weapon into
+/// the hand, pressing again sheathes it back to the hip/back. A warn is logged
+/// when nothing of that kind is equipped.
+fn toggle_player_weapons(
+    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
+    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+    gothic_script: Res<ScriptResource>,
+    mut game_log: ResMut<GameLog>,
+) {
+    let Ok(player_npc) = player_npc.single() else {
+        return;
+    };
+    let player_id = player_npc.instance_id();
+
+    for (action, ranged) in [
+        (GameplayAction::EquipMelee, false),
+        (GameplayAction::EquipRanged, true),
+    ] {
+        if !action_state.just_pressed(&action) {
+            continue;
+        }
+        let mut script = gothic_script.lock();
+        let instance = match script.npc_instances().get(&player_id) {
+            Some(instance) => instance,
+            None => {
+                warn!(
+                    "No script instance for player({}) on weapon toggle",
+                    player_id.value()
+                );
+                continue;
+            }
+        };
+        let equipped = if ranged {
+            instance.equipped_ranged.is_some()
+        } else {
+            instance.equipped_melee.is_some()
+        };
+        let drawn = match instance.weapon_mode {
+            Some(WeaponMode::Melee) => !ranged,
+            Some(WeaponMode::Ranged) => ranged,
+            _ => false,
+        };
+        let name = if ranged { "ranged" } else { "melee" };
+        if !equipped {
+            game_log.add(format!("No {name} weapon equipped"));
+            info!(
+                "Weapon toggle for player({}) ignored: no {name} weapon equipped",
+                player_id.value()
+            );
+            continue;
+        }
+        if drawn {
+            script.sheathe_weapon(player_id);
+        } else {
+            script.draw_weapon(player_id, ranged);
+        }
+        info!(
+            "Player({}) {} its {} weapon",
+            player_id.value(),
+            if drawn { "sheathed" } else { "drew" },
+            name
         );
     }
 }

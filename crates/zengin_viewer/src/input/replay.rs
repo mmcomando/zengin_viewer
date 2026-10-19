@@ -22,7 +22,7 @@ use crate::input::actions::{
 };
 use crate::input::options::Options;
 use crate::input::record::{RecordedAction, ReplayCommand};
-use crate::zengin::{GameNpc, ScriptResource};
+use crate::zengin::{GameNpc, ScriptResource, WeaponKind};
 
 /// Root directory of all scenario workdirs.
 const SCENARIO_DIR: &str = "misc/scenario_output";
@@ -379,8 +379,9 @@ fn equip_player_weapon(
         return;
     };
 
+    let ranged = WeaponKind::from_symbol_name(&lowered).is_some_and(|kind| kind.is_ranged());
     script.equip_item(player_id, item_id);
-    script.draw_weapon(player_id);
+    script.draw_weapon(player_id, ranged);
     info!(
         "Replay equipped item({item}) on player({}) as drawn weapon",
         player_id.value()

@@ -13,6 +13,16 @@
                 "KeyCode": KeyE,
             },
         ],
+        EquipMelee: [
+            {
+                "KeyCode": Digit1,
+            },
+        ],
+        EquipRanged: [
+            {
+                "KeyCode": Digit2,
+            },
+        ],
         Journal: [
             {
                 "KeyCode": KeyJ,

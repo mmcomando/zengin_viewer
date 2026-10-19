@@ -97,6 +97,10 @@ pub enum GameplayAction {
     Jump,
     /// Talk to the selected npc or pick up the selected item.
     Interact,
+    /// Toggle the equipped melee weapon between sheathed and drawn.
+    EquipMelee,
+    /// Toggle the equipped ranged weapon between sheathed and drawn.
+    EquipRanged,
     /// Open the journal UI.
     Journal,
     /// Move faster while held.

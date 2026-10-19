@@ -293,22 +293,30 @@ impl ScriptManager {
     }
 
     /// Draws the npc's weapon into the hand (`Npc_SetToFightMode` semantics),
-    /// leaving the change queued for the ECS bridge. Prefers the melee weapon
-    /// when both are equipped.
-    pub fn draw_weapon(&mut self, npc: InstanceId) {
-        let instance = self.npc_instances_mut_or_default(npc);
-        let mode = if instance.equipped_melee.is_some() {
-            WeaponMode::Melee
-        } else if instance.equipped_ranged.is_some() {
+    /// leaving the change queued for the ECS bridge. `ranged` selects the
+    /// ranged weapon, otherwise the melee one is drawn.
+    pub fn draw_weapon(&mut self, npc: InstanceId, ranged: bool) {
+        let mode = if ranged {
             WeaponMode::Ranged
         } else {
+            WeaponMode::Melee
+        };
+        let equipped = self.npc_instances().get(&npc).map(|npc| {
+            if ranged {
+                npc.equipped_ranged.is_some()
+            } else {
+                npc.equipped_melee.is_some()
+            }
+        });
+        if equipped != Some(true) {
             warn!(
-                "Cannot draw weapon of npc({}): nothing equipped",
+                "Cannot draw {} weapon of npc({}): nothing equipped",
+                if ranged { "ranged" } else { "melee" },
                 npc.value()
             );
             return;
-        };
-        instance.weapon_mode = Some(mode);
+        }
+        self.npc_instances_mut_or_default(npc).weapon_mode = Some(mode);
         self.store
             .data_mut()
             .pending_weapon_mode_changes
