@@ -745,13 +745,52 @@
       ;; []
       local.get 1
       ;; [i32]
+      local.get 0
+      ;; [i32 i32]
+      i32.const 292
+      ;; [i32 i32 i32]
+      call 18
+      ;; [i32 i32]
+      i32.store offset=8
+      ;; []
+      local.get 1
+      ;; [i32]
     )
     (func (;23;) (type 3) (param i32) (result i32)
-      local.get 0
+      (local i32)
+      i32.const 0
       ;; [i32]
-      i32.const 360
+      i32.const 0
       ;; [i32 i32]
+      i32.const 0
+      ;; [i32 i32 i32]
+      i32.const 0
+      ;; [i32 i32 i32 i32]
+      call 1
+      ;; [i32]
+      local.set 1
+      ;; []
+      local.get 1
+      ;; [i32]
+      local.get 0
+      ;; [i32 i32]
+      i32.const 360
+      ;; [i32 i32 i32]
       call 18
+      ;; [i32 i32]
+      i32.store
+      ;; []
+      local.get 1
+      ;; [i32]
+      local.get 0
+      ;; [i32 i32]
+      i32.const 292
+      ;; [i32 i32 i32]
+      call 18
+      ;; [i32 i32]
+      i32.store offset=4
+      ;; []
+      local.get 1
       ;; [i32]
     )
     (func (;24;) (type 3) (param i32) (result i32)
@@ -1022,8 +1061,8 @@
   (type (;1;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool)))
   (type (;2;) (option s32))
   (type (;3;) (record (field "kind" 0) (field "parent" 2) (field "function" 2)))
-  (type (;4;) (record (field "hitpoints" s32) (field "hitpoints-max" s32)))
-  (type (;5;) (record (field "damage-total" s32)))
+  (type (;4;) (record (field "hitpoints" s32) (field "hitpoints-max" s32) (field "name" s32)))
+  (type (;5;) (record (field "damage-total" s32) (field "name" s32)))
   (core instance $main (;0;) (instantiate $main))
   (alias core export $main "memory" (core memory $memory (;0;)))
   (type (;6;) (func (result s32)))
@@ -1068,7 +1107,7 @@
   (func $get-npc-info (;14;) (type 14) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-npc-info) (memory $memory)))
   (type (;15;) (func (param "symbol-id" s32) (result 5)))
   (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#get-item-info" (core func $mmcomando:zengine-scripts/manage@0.1.0#get-item-info (;16;)))
-  (func $get-item-info (;15;) (type 15) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-item-info)))
+  (func $get-item-info (;15;) (type 15) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#get-item-info) (memory $memory)))
   (type (;16;) (func))
   (alias core export $main "mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances" (core func $mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances (;17;)))
   (func $initialize-all-instances (;16;) (type 16) (canon lift (core func $mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances)))
@@ -1106,11 +1145,11 @@
     (type (;8;) (func (param "symbol-id" s32) (result 7)))
     (import "import-func-get-item-visual" (func (;12;) (type 8)))
     (import "import-func-get-item-visual-change" (func (;13;) (type 8)))
-    (type (;9;) (record (field "hitpoints" s32) (field "hitpoints-max" s32)))
+    (type (;9;) (record (field "hitpoints" s32) (field "hitpoints-max" s32) (field "name" s32)))
     (import "import-type-npc-info" (type (;10;) (eq 9)))
     (type (;11;) (func (param "symbol-id" s32) (result 10)))
     (import "import-func-get-npc-info" (func (;14;) (type 11)))
-    (type (;12;) (record (field "damage-total" s32)))
+    (type (;12;) (record (field "damage-total" s32) (field "name" s32)))
     (import "import-type-item-info" (type (;13;) (eq 12)))
     (type (;14;) (func (param "symbol-id" s32) (result 13)))
     (import "import-func-get-item-info" (func (;15;) (type 14)))
@@ -1135,9 +1174,9 @@
     (type (;28;) (option s32))
     (type (;29;) (record (field "kind" 25) (field "parent" 28) (field "function" 28)))
     (export (;30;) "symbol-info" (type 29))
-    (type (;31;) (record (field "hitpoints" s32) (field "hitpoints-max" s32)))
+    (type (;31;) (record (field "hitpoints" s32) (field "hitpoints-max" s32) (field "name" s32)))
     (export (;32;) "npc-info" (type 31))
-    (type (;33;) (record (field "damage-total" s32)))
+    (type (;33;) (record (field "damage-total" s32) (field "name" s32)))
     (export (;34;) "item-info" (type 33))
     (type (;35;) (func (result s32)))
     (export (;21;) "test-func" (func 0) (func (type 35)))

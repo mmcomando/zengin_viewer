@@ -512,11 +512,12 @@
     (call $get_class_member_string (local.get $symbol_id) (i32.const 544))
   )
 
-  ;; Returns pointer to an npc-info record with the hitpoints and hitpoints max
-  ;; of an npc instance (C_NPC attribute ATR_HITPOINTS and ATR_HITPOINTS_MAX
-  ;; member offsets)
+  ;; Returns pointer to an npc-info record with the hitpoints, hitpoints max
+  ;; and name of an npc instance (C_NPC attribute ATR_HITPOINTS and
+  ;; ATR_HITPOINTS_MAX member offsets, C_NPC name member offset). The name is
+  ;; the raw daedalus string id, None when the member value is not set (0).
   (func $get_npc_info (param $symbol_id i32) (result i32)
-    (local $mem_start i32)
+    (local $mem_start i32) (local $name_value i32)
 
     (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0))
     local.set $mem_start
@@ -531,13 +532,54 @@
     (call $get_class_member (local.get $symbol_id) (i32.const 444))
     i32.store $main offset=4
 
+    ;; name @8: option<s32> lowers to a discriminant byte @8 and the value @12
+    ;; C_NPC name member offset, member value 0 means the string is not set
+    (call $get_class_member (local.get $symbol_id) (i32.const 292))
+    local.set $name_value
+
+    local.get $mem_start
+    local.get $name_value
+    i32.const 0
+    i32.ne ;; normalize bool to 0/1
+    i32.store8 $main offset=8
+
+    local.get $mem_start
+    local.get $name_value
+    i32.store $main offset=12
+
     local.get $mem_start
   )
 
-  ;; Returns the total damage of an item instance (C_ITEM damagetotal member
-  ;; offset)
+  ;; Returns pointer to an item-info record with the total damage and name of
+  ;; an item instance (C_ITEM damagetotal and name member offsets). The name
+  ;; is the raw daedalus string id, None when the member value is not set (0).
   (func $get_item_info (param $symbol_id i32) (result i32)
+    (local $mem_start i32) (local $name_value i32)
+
+    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0))
+    local.set $mem_start
+
+    ;; damage-total @0
+    local.get $mem_start
     (call $get_class_member (local.get $symbol_id) (i32.const 360))
+    i32.store $main offset=0
+
+    ;; name @4: option<s32> lowers to a discriminant byte @4 and the value @8
+    ;; C_ITEM name member offset, member value 0 means the string is not set
+    (call $get_class_member (local.get $symbol_id) (i32.const 292))
+    local.set $name_value
+
+    local.get $mem_start
+    local.get $name_value
+    i32.const 0
+    i32.ne ;; normalize bool to 0/1
+    i32.store8 $main offset=4
+
+    local.get $mem_start
+    local.get $name_value
+    i32.store $main offset=8
+
+    local.get $mem_start
   )
 
   ;; Return information about dialog

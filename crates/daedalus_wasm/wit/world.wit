@@ -376,9 +376,13 @@ interface manage {
     record npc-info {
         hitpoints: s32,
         hitpoints-max: s32,
+        // C_NPC name member, daedalus string id (None when not set)
+        name: option<s32>,
     }
     record item-info {
         damage-total: s32,
+        // C_ITEM name member, daedalus string id (None when not set)
+        name: option<s32>,
     }
     get-npc-info: func(symbol-id: s32) -> npc-info;
     get-item-info: func(symbol-id: s32) -> item-info;
