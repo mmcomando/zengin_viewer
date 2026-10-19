@@ -52,6 +52,9 @@ struct InventoryEntry {
     instance_id: InstanceId,
     count: i32,
     name: String,
+    /// Whether the item is a gold stack, based on the script symbol name so
+    /// localized display names do not break the gold sum.
+    is_gold: bool,
 }
 
 /// Display name of an item instance symbol: strips the script item class
@@ -87,7 +90,7 @@ impl InventoryWindowState {
     fn gold(&self) -> i32 {
         self.items
             .iter()
-            .filter(|entry| entry.name.to_lowercase().contains("gold"))
+            .filter(|entry| entry.is_gold)
             .map(|entry| entry.count)
             .sum()
     }
@@ -458,14 +461,18 @@ fn toggle_inventory(
     let mut items: Vec<_> = items
         .into_iter()
         .map(|(instance_id, count)| {
-            let name = script
+            let symbol_name = script
                 .get_name_by_id(instance_id.value())
-                .map(|symbol_name| display_item_name(&symbol_name))
-                .unwrap_or_else(|| instance_id.value().to_string());
+                .unwrap_or_default();
+            let is_gold = symbol_name.to_lowercase().contains("gold");
+            let name = script
+                .item_display_name(instance_id)
+                .unwrap_or_else(|| display_item_name(&symbol_name));
             InventoryEntry {
                 instance_id,
                 count,
                 name,
+                is_gold,
             }
         })
         .collect();
