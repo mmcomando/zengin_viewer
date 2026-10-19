@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::gameplay::character::move_and_slide;
 use crate::gui_debug::toggle_visibility::show_gizmos;
 
+use super::ScriptedAnimations;
 use super::components::AnimatedJoint;
 use super::locomotion::{compute_animations, update_animations, update_locomotion};
 
@@ -15,6 +16,14 @@ impl Plugin for SkeletalAnimations {
 
         // Root movement has to be applied before the character controller,
         // so move-and-slide starts from the new position and can react to it.
+        // Scripted animation sequences run between locomotion and the
+        // animation advance, see [`ScriptedAnimations`].
+        app.configure_sets(
+            Update,
+            ScriptedAnimations
+                .after(update_locomotion)
+                .before(update_animations),
+        );
         app.add_systems(
             Update,
             (

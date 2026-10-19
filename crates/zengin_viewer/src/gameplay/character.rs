@@ -5,6 +5,7 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
+use crate::zengin::NPC_BODY;
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
 /// with support for ground detection and configurable movement settings.
@@ -191,7 +192,8 @@ fn update_grounded(
             rotation,
             global_transform.down(),
             &ShapeCastConfig::from_max_distance(ground_detection.max_distance),
-            &SpatialQueryFilter::from_excluded_entities([entity]).with_mask(!QUERY_ONLY_LAYER),
+            &SpatialQueryFilter::from_excluded_entities([entity])
+                .with_mask(!(QUERY_ONLY_LAYER | NPC_BODY)),
         );
 
         // The character is grounded if we hit a surface that isn't too steep
@@ -345,7 +347,11 @@ pub fn move_and_slide(
             lin_vel.0,
             time.delta(),
             &MoveAndSlideConfig::default(),
-            &SpatialQueryFilter::from_excluded_entities([entity]).with_mask(!QUERY_ONLY_LAYER),
+            // Selection and npc hit colliders are not physical surfaces, the
+            // player would collide with its own hit volume and the invisible
+            // capsules of nearby npcs.
+            &SpatialQueryFilter::from_excluded_entities([entity])
+                .with_mask(!(QUERY_ONLY_LAYER | NPC_BODY)),
             |hit| {
                 // This callback is called for each surface we collide with during move-and-slide.
                 // In this example, we use it to customize collision behavior for ground surfaces,

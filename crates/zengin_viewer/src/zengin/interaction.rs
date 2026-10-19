@@ -144,19 +144,31 @@ pub struct NpcDied {
     pub position: Vec3,
 }
 
-/// Deals damage with the drawn weapon to the selected npc on `DealDamage` (F).
-/// The damage is the drawn weapon's `damagetotal`; without a drawn weapon or a
-/// selected npc nothing happens. The npc dies when its hitpoints reach 0.
+/// Deals damage with the drawn weapon to the selected npc on `DealDamage` (F)
+/// or on `Interact` while a melee weapon is drawn. With a ranged weapon drawn
+/// `Interact` starts the bow attack sequence instead, handled by the ranged
+/// combat module. The damage is the drawn weapon's `damagetotal`; without a
+/// drawn weapon or a selected npc nothing happens. The npc dies when its
+/// hitpoints reach 0.
+#[allow(clippy::too_many_arguments)]
 fn hit_selected_npc(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     selection: Res<Selection>,
     npcs: Query<(&GameNpc, &GlobalTransform), Without<PlayerCharacter>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+    player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     gothic_script: Res<ScriptResource>,
     mut game_log: ResMut<GameLog>,
     mut npc_died: MessageWriter<NpcDied>,
 ) {
-    if !action_state.just_pressed(&GameplayAction::DealDamage) {
+    let weapon_mode = player_weapon
+        .single()
+        .map(|mode| mode.0)
+        .unwrap_or(WeaponMode::Fists);
+    // Ranged attacks go through the bow attack sequence, not instant damage.
+    let melee_interact =
+        weapon_mode == WeaponMode::Melee && action_state.just_pressed(&GameplayAction::Interact);
+    if !action_state.just_pressed(&GameplayAction::DealDamage) && !melee_interact {
         return;
     }
     if selection.kind != Some(SelectionKind::Npc) {
@@ -175,19 +187,11 @@ fn hit_selected_npc(
     let npc_id = npc.npc_instance_id;
 
     let mut script = gothic_script.lock();
-    let weapon = match script
-        .npc_instances()
-        .get(&player_id)
-        .and_then(|player| player.weapon_mode)
-    {
-        Some(WeaponMode::Melee) => script
+    let weapon = match weapon_mode {
+        WeaponMode::Melee => script
             .npc_instances()
             .get(&player_id)
             .and_then(|player| player.equipped_melee),
-        Some(WeaponMode::Ranged) => script
-            .npc_instances()
-            .get(&player_id)
-            .and_then(|player| player.equipped_ranged),
         _ => {
             game_log.add("No weapon drawn");
             info!(
@@ -386,8 +390,27 @@ fn open_journal(
     info!("Journal action triggered");
 }
 
-/// Grants a few items to the player on the debug key, for testing the
-/// inventory UI without having to pick things up first.
+/// Hardcoded test items granted by [`give_test_items`]: one weapon of each
+/// kind, ammo, gold and a few extras worth testing with.
+const TEST_ITEMS: &[(&str, i32)] = &[
+    ("ITMW_1H_MIL_SWORD", 1),
+    ("ITMW_2H_SLD_SWORD", 1),
+    ("ITMW_1H_SLD_AXE", 1),
+    ("ITMW_2H_SLD_AXE", 1),
+    ("ITRW_BOW_H_01", 1),
+    ("ITRW_MIL_CROSSBOW", 1),
+    ("ITRW_ARROW", 25),
+    ("ITRW_BOLT", 25),
+    ("ITMI_GOLD", 50),
+    ("ITAR_MIL_M", 1),
+    ("ITPO_HEALTH_01", 5),
+    ("ITPO_MANA_01", 5),
+    ("ITRI_STR_01", 1),
+    ("ITAM_HP_01", 1),
+];
+
+/// Grants the hardcoded [`TEST_ITEMS`] to the player on the debug key, for
+/// testing combat and the inventory UI without having to pick things up first.
 fn give_test_items(
     action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
     mut game_log: ResMut<GameLog>,
@@ -401,42 +424,32 @@ fn give_test_items(
         return;
     };
 
-    const TEST_ITEM_COUNT: usize = 12;
-    let mut script = gothic_script.lock();
-    let mut weapons: Vec<InstanceId> = Vec::new();
-    let mut others: Vec<InstanceId> = Vec::new();
-    for (id, instance) in script.get_loaded_state().items_instances.iter() {
-        if instance.name.is_empty() {
-            continue;
-        }
-        let lowered = instance.name.to_lowercase();
-        if lowered.starts_with("itmw_") || lowered.starts_with("itrw_") {
-            weapons.push(*id);
-        } else {
-            others.push(*id);
-        }
-    }
-    // Weapons first, so a known slot holds an equippable item
-    weapons.sort_unstable_by_key(|id| id.value());
-    others.sort_unstable_by_key(|id| id.value());
-    let mut candidates = weapons;
-    candidates.extend(others);
-    if candidates.is_empty() {
-        warn!("No item instances loaded, cannot grant test items");
-        return;
-    }
-
     let player_id = player_npc.npc_instance_id;
-    let granted = candidates.iter().take(TEST_ITEM_COUNT).enumerate();
+    let mut script = gothic_script.lock();
     let mut lines: Vec<String> = Vec::new();
-    for (offset, &item) in granted {
-        let count = 1 + (offset as i32 % 3);
-        script.add_inventory(player_id, item, count);
+    for (item_name, count) in TEST_ITEMS {
+        // Item instances are keyed by id, resolve the hardcoded symbol name
+        // against the loaded instances.
+        let Some(item) = script
+            .get_loaded_state()
+            .items_instances
+            .iter()
+            .find(|(_, instance)| instance.name.eq_ignore_ascii_case(item_name))
+            .map(|(id, _)| *id)
+        else {
+            warn!("Test item {item_name} not found among the loaded instances");
+            continue;
+        };
+        script.add_inventory(player_id, item, *count);
         let name = script
             .get_name_by_id(item.value())
             .map(|symbol_name| crate::gui::inventory::display_item_name(&symbol_name))
             .unwrap_or_else(|| item.value().to_string());
         lines.push(format!("{name} x{count}"));
+    }
+    if lines.is_empty() {
+        warn!("No test item granted to player({})", player_id);
+        return;
     }
     game_log.add(lines.join("\n"));
     info!(

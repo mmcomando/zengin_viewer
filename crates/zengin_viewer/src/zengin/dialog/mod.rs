@@ -8,9 +8,10 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::input::actions::{GameplayAction, GameplayInputMarker, InputMode};
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_dialog_sound_path;
+use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::component::{DialogTexts, ScriptResource};
 use crate::zengin::script::manager::ScriptManager;
-use crate::zengin::script::state::{DialogClose, DialogLine, DialogRoot};
+use crate::zengin::script::state::{DialogClose, DialogLine, DialogRoot, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::script_bridge::ScriptChangesApplied;
 use crate::zengin::selection::{Selection, SelectionKind};
@@ -77,6 +78,7 @@ pub(crate) fn sync_input_mode(
 }
 
 /// Opens the dialog of the currently selected npc on demand
+#[allow(clippy::too_many_arguments)]
 fn show_closest_npc_dialog(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     selection: Res<Selection>,
@@ -85,6 +87,7 @@ fn show_closest_npc_dialog(
     mut requests: MessageWriter<DialogRequest>,
     npcs: Query<&GameNpc>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+    player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
 ) {
     if !dialog_ui.is_open() && camera_info.current_camera == CurrentCamera::Dialog {
         camera_info.current_camera = CurrentCamera::ThirdPerson;
@@ -92,6 +95,15 @@ fn show_closest_npc_dialog(
     }
 
     if !action_state.just_pressed(&GameplayAction::Interact) {
+        return;
+    }
+
+    // With a weapon drawn Interact attacks instead of talking.
+    let weapon_mode = player_weapon
+        .single()
+        .map(|mode| mode.0)
+        .unwrap_or(WeaponMode::Fists);
+    if weapon_mode != WeaponMode::Fists {
         return;
     }
 

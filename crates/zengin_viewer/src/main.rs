@@ -9,6 +9,7 @@
     clippy::cast_sign_loss,
     clippy::manual_assert,
     clippy::case_sensitive_file_extension_comparisons,
+    clippy::too_many_arguments,
     clippy::wildcard_imports
 )]
 

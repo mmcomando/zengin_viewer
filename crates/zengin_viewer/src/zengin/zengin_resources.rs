@@ -47,6 +47,11 @@ pub const DYNAMIC_OBJECT: u32 = 1 << 2;
 /// Collision layer of colliders that only exist for spatial queries (selection),
 /// they collide with nothing.
 pub const SELECTABLE: u32 = QUERY_ONLY_LAYER;
+/// Collision layer of the npc hit volumes, used by flying arrows (sensors) to
+/// detect hits on npcs.
+pub const NPC_BODY: u32 = 1 << 4;
+/// Collision layer of arrow sensors.
+pub const ARROW: u32 = 1 << 5;
 
 /// Adding this component will spawn child entities with 3d meshes contained in `model_handle`
 #[derive(Component, Default)]

@@ -7,12 +7,26 @@ use bevy_rich_text3d::{Text3d, Text3dPlugin, Text3dStyling, TextAnchor, TextAtla
 
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
+use crate::gui_debug::toggle_visibility::show_gizmos;
+use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::zengin_resources::SELECTABLE;
+use crate::zengin::script::state::WeaponMode;
+use crate::zengin::zengin_resources::{ARROW, NPC_BODY, SELECTABLE};
 use crate::zengin::{GameItem, GameNpc};
 
 /// Distance (meters) within which a world object can be selected.
 const SELECTION_RANGE: f32 = 5.0;
+/// Selection range with a ranged weapon drawn, matching the FAI long range.
+const RANGED_SELECTION_RANGE: f32 = 20.0;
+/// Radius of the hardcoded npc selection collider capsule.
+const NPC_COLLIDER_RADIUS: f32 = 0.4;
+/// Cylinder length of the hardcoded npc selection collider capsule, the caps
+/// add twice the radius, so the total height is 1.8 m like a human npc.
+const NPC_COLLIDER_LENGTH: f32 = 1.0;
+/// Vertical offset of the npc collider above the npc entity origin. The npc
+/// origin sits at the feet, so half of the capsule height places it exactly
+/// over the body (0..1.8 m) instead of half-buried in the ground.
+const NPC_COLLIDER_OFFSET: f32 = (NPC_COLLIDER_LENGTH + 2.0 * NPC_COLLIDER_RADIUS) * 0.5;
 /// Height of the name label above a selected npc.
 const NPC_LABEL_HEIGHT: f32 = 2.2;
 /// Height of the name label above a selected item.
@@ -56,6 +70,7 @@ impl Plugin for SelectionPlugin {
         app.add_observer(on_selectable_added::<GameItem>);
         app.add_systems(Startup, spawn_selection_label);
         app.add_systems(Update, (update_selection, update_selection_label).chain());
+        app.add_systems(Update, draw_npc_colliders.run_if(show_gizmos));
     }
 }
 
@@ -67,14 +82,32 @@ struct SelectionLabel;
 #[derive(Component, Default)]
 struct SelectionLabelText(String);
 
+/// Marker of the npc hit collider child entity, pointing at the npc entity it
+/// belongs to. The collider is a child because it is offset upwards from the
+/// npc origin (which sits at the feet) while the npc entity transform itself
+/// drives the visuals.
+#[derive(Component)]
+pub struct NpcHitCollider {
+    pub owner: Entity,
+}
+
 /// Selection collider shape of a selectable world object.
 trait SelectionCollider {
     fn selection_collider() -> Collider;
+    /// Whether the kind is an npc (`GameNpc`), used for collision layers and
+    /// gizmo rendering of the collider.
+    fn is_npc() -> bool;
 }
 
 impl SelectionCollider for GameNpc {
     fn selection_collider() -> Collider {
-        Collider::cuboid(0.8, 1.8, 0.8)
+        // Capsule roughly matching a human npc volume, used both for selection
+        // and as the hit target of flying arrows (they collide with `NPC_BODY`).
+        Collider::capsule(NPC_COLLIDER_RADIUS, NPC_COLLIDER_LENGTH)
+    }
+
+    fn is_npc() -> bool {
+        true
     }
 }
 
@@ -82,18 +115,41 @@ impl SelectionCollider for GameItem {
     fn selection_collider() -> Collider {
         Collider::cuboid(0.5, 0.5, 0.5)
     }
+
+    fn is_npc() -> bool {
+        false
+    }
 }
 
 /// Gives every npc/item a collider so avian indexes it for the spatial query.
-/// The collider collides with nothing, it exists only for selection.
+/// Npc colliders also carry `NPC_BODY` and accept contacts from the `ARROW`
+/// layer so arrows can hit them; items remain query-only (they collide with
+/// nothing). The npc collider is a child entity offset upwards from the feet
+/// origin, see [`NpcHitCollider`]; the item collider stays on the item entity.
 fn on_selectable_added<C: Component + SelectionCollider>(
     trigger: On<Add, C>,
     mut commands: Commands,
 ) {
-    commands.entity(trigger.entity).insert((
+    let (layers, filters) = if C::is_npc() {
+        (SELECTABLE | NPC_BODY, ARROW)
+    } else {
+        (SELECTABLE, 0)
+    };
+    let collider = (
         C::selection_collider(),
-        CollisionLayers::from_bits(SELECTABLE, 0),
-    ));
+        CollisionLayers::from_bits(layers, filters),
+    );
+    if C::is_npc() {
+        commands.entity(trigger.entity).with_child((
+            collider,
+            NpcHitCollider {
+                owner: trigger.entity,
+            },
+            Transform::from_xyz(0.0, NPC_COLLIDER_OFFSET, 0.0),
+        ));
+    } else {
+        commands.entity(trigger.entity).insert(collider);
+    }
 }
 
 /// Spawns the 3d text label, it is moved above the selected object every
@@ -133,17 +189,21 @@ fn keep_nearest(best: &mut Option<(Entity, f32)>, entity: Entity, distance: f32)
 }
 
 /// Selects the nearest in-range npc/item, preferring objects in front of the
-/// player. Candidate entities are found with an avian spatial query over the
-/// AABBs of their selection colliders, which must be on the queried entities
-/// themselves so the returned entities match `GameNpc`/`GameItem`. The npc name
-/// is resolved through the script only when the selection changes, so the
-/// per-frame cost is just the query and the distance scan of its hits.
+/// player. With a weapon drawn only npcs are selectable; a drawn ranged weapon
+/// extends the range to [`RANGED_SELECTION_RANGE`]. Candidate entities are
+/// found with an avian spatial query over the AABBs of their selection
+/// colliders, which must be on the queried entities themselves so the returned
+/// entities match `GameNpc`/`GameItem`. The npc name is resolved through the
+/// script only when the selection changes, so the per-frame cost is just the
+/// query and the distance scan of its hits.
 #[allow(clippy::type_complexity)]
 fn update_selection(
     gothic_script: Res<ScriptResource>,
     mut selection: ResMut<Selection>,
     spatial_query: SpatialQuery,
     player: Query<(Entity, &GlobalTransform), With<PlayerPhysicsBodyMarker>>,
+    player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
+    hit_colliders: Query<&NpcHitCollider>,
     candidates: Query<(
         Entity,
         Option<&GameNpc>,
@@ -155,17 +215,31 @@ fn update_selection(
     let Ok((player_entity, player_tr)) = player.single() else {
         return;
     };
+    let weapon_mode = player_weapon
+        .single()
+        .map(|mode| mode.0)
+        .unwrap_or(WeaponMode::Fists);
+    let (range, npcs_only) = match weapon_mode {
+        WeaponMode::Melee => (SELECTION_RANGE, true),
+        WeaponMode::Ranged => (RANGED_SELECTION_RANGE, true),
+        WeaponMode::Fists => (SELECTION_RANGE, false),
+    };
     let player_pos = player_tr.translation();
     // The player faces +Z, see `face_towards` in the dialog module.
     let back = player_tr.back();
     let forward = Vec3::new(back.x, 0.0, back.z).normalize_or_zero();
 
     // `aabb_intersections_with_aabb` takes no filter, hits are filtered below.
-    let query_aabb = Collider::sphere(SELECTION_RANGE).aabb(player_pos, Quat::IDENTITY);
+    let query_aabb = Collider::sphere(range).aabb(player_pos, Quat::IDENTITY);
     let mut nearest: Option<(Entity, f32)> = None;
     let mut nearest_front: Option<(Entity, f32)> = None;
 
     for entity in spatial_query.aabb_intersections_with_aabb(query_aabb) {
+        // Npc hit colliders are child entities, resolve them to the npc.
+        let entity = hit_colliders
+            .get(entity)
+            .map(|collider| collider.owner)
+            .unwrap_or(entity);
         // The player body collider is not selectable.
         if entity == player_entity {
             continue;
@@ -177,9 +251,13 @@ fn update_selection(
         if is_player || (npc.is_none() && item.is_none()) {
             continue;
         }
+        // With a weapon drawn items are not selectable.
+        if npcs_only && npc.is_none() {
+            continue;
+        }
         let delta = tr.translation() - player_pos;
         let distance = delta.length();
-        if distance > SELECTION_RANGE {
+        if distance > range {
             continue;
         }
         let flat = Vec3::new(delta.x, 0.0, delta.z).normalize_or_zero();
@@ -196,8 +274,11 @@ fn update_selection(
         return;
     };
 
-    // Same target stays selected, its name is already resolved.
-    if selection.target == Some(entity) {
+    // Same target stays selected, its name is already resolved. An item stays
+    // selected only while items can be selected at all.
+    if selection.target == Some(entity)
+        && (!npcs_only || selection.kind == Some(SelectionKind::Npc))
+    {
         return;
     }
 
@@ -268,4 +349,26 @@ fn update_selection_label(
         label_text.0.clone_from(&selection.name);
     }
     *visibility = Visibility::Inherited;
+}
+
+/// Draws the npc collider capsules as debug gizmos when the "Show Gizmos"
+/// toggle is on, so the selection/arrow hit volume can be verified visually.
+/// The colliders are child entities offset above the feet origin, the gizmo is
+/// drawn at the child transform, which already includes the offset.
+fn draw_npc_colliders(
+    mut gizmos: Gizmos,
+    npcs: Query<(&GlobalTransform, &NpcHitCollider)>,
+    players: Query<(), With<PlayerCharacter>>,
+) {
+    let capsule = Capsule3d::new(NPC_COLLIDER_RADIUS, NPC_COLLIDER_LENGTH);
+    for (transform, collider) in &npcs {
+        if players.contains(collider.owner) {
+            continue;
+        }
+        gizmos.primitive_3d(
+            &capsule,
+            transform.translation(),
+            Color::srgb(1.0, 0.2, 0.2),
+        );
+    }
 }

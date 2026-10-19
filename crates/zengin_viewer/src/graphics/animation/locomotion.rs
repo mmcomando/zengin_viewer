@@ -296,9 +296,16 @@ pub(crate) fn update_animations(
             && let Some(next_data) = animations.get(&next)
         {
             let next_data = Arc::new(next_data.clone());
+            let current_path = Handle::path(&controller.current);
+            let next_path = Handle::path(&next);
             if !next_data.is_good_animations() {
+                warn!(
+                    "Animation switch to {next_path:?} on entity({entity}) skipped: not playable (frames {})",
+                    next_data.frames_num,
+                );
                 continue;
             }
+            debug!("Animation switch on entity({entity}): {current_path:?} -> {next_path:?}",);
             data.fps = next_data.fps;
             data.frames_num = next_data.frames_num as usize;
             data.movement = next_data.root_movement(data.base_pos_node_index);
