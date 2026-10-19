@@ -512,6 +512,34 @@
     (call $get_class_member_string (local.get $symbol_id) (i32.const 544))
   )
 
+  ;; Returns pointer to an npc-info record with the hitpoints and hitpoints max
+  ;; of an npc instance (C_NPC attribute ATR_HITPOINTS and ATR_HITPOINTS_MAX
+  ;; member offsets)
+  (func $get_npc_info (param $symbol_id i32) (result i32)
+    (local $mem_start i32)
+
+    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0))
+    local.set $mem_start
+
+    ;; hitpoints @0
+    local.get $mem_start
+    (call $get_class_member (local.get $symbol_id) (i32.const 440))
+    i32.store $main offset=0
+
+    ;; hitpoints-max @4
+    local.get $mem_start
+    (call $get_class_member (local.get $symbol_id) (i32.const 444))
+    i32.store $main offset=4
+
+    local.get $mem_start
+  )
+
+  ;; Returns the total damage of an item instance (C_ITEM damagetotal member
+  ;; offset)
+  (func $get_item_info (param $symbol_id i32) (result i32)
+    (call $get_class_member (local.get $symbol_id) (i32.const 360))
+  )
+
   ;; Return information about dialog
   (func $get_dialog_info (param $symbol_id i32) (result i32)
     (local $mem_start i32)
@@ -595,6 +623,8 @@
   (export "mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances" (func $initialize_all_instances))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual" (func $get_item_visual))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change" (func $get_item_visual_change))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#get-npc-info" (func $get_npc_info))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-info" (func $get_item_info))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info" (func $get_dialog_info))
   (export "memory" (memory $main))
 )

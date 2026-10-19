@@ -84,6 +84,14 @@ pub struct EquipItemChange {
     pub instance_id: InstanceId,
 }
 
+/// Signal that an instance hitpoints changed. Produced by seeding the health
+/// from the npc instance data, `Npc_ChangeAttribute` and damage, drained to the
+/// ECS by the script bridge.
+#[derive(Message)]
+pub struct HealthChange {
+    pub instance_id: InstanceId,
+}
+
 /// Signal that an instance requested `AI_AlignToWP` (face its routine waypoint).
 /// Produced by the script, drained to the ECS by the script bridge.
 #[derive(Message)]
@@ -205,6 +213,13 @@ pub struct NpcInstanceState {
 
     /// Ranged weapon equipped (`EquipItem` with an `itrw_*` item).
     pub equipped_ranged: Option<InstanceId>,
+
+    /// Current hitpoints (`attribute[ATR_HITPOINTS]`), `None` until seeded
+    /// from the npc instance data.
+    pub hitpoints: Option<i32>,
+
+    /// Maximum hitpoints (`attribute[ATR_HITPOINTS_MAX]`), `None` until seeded.
+    pub hitpoints_max: Option<i32>,
 }
 
 impl NpcInstanceState {
@@ -388,6 +403,9 @@ pub struct ImportCallState {
     /// Equipped item changes produced by the script, drained to the ECS by the
     /// script bridge.
     pub pending_equip_item_changes: Vec<EquipItemChange>,
+    /// Hitpoints changes produced by the host, drained to the ECS by the
+    /// script bridge.
+    pub pending_health_changes: Vec<HealthChange>,
     /// `AI_AlignToWP` requests produced by the script, drained to the ECS by the
     /// script bridge.
     pub pending_align_to_wp_changes: Vec<AlignToWpChange>,

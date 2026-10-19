@@ -10,6 +10,8 @@ use wasmtime::{Config, Engine, Store};
 
 use wasmtime::component::{Component, HasSelf, Linker, bindgen};
 
+use self::exports::mmcomando::zengine_scripts::manage::{ItemInfo, NpcInfo};
+
 bindgen!({
     path:"wit",
 });
@@ -544,6 +546,16 @@ impl WasmExecutor {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_get_item_visual_change(&mut self.store, symbol_id)
+            .unwrap()
+    }
+    pub fn get_npc_info(&mut self, symbol_id: i32) -> NpcInfo {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest.call_get_npc_info(&mut self.store, symbol_id).unwrap()
+    }
+    pub fn get_item_info(&mut self, symbol_id: i32) -> ItemInfo {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_get_item_info(&mut self.store, symbol_id)
             .unwrap()
     }
 

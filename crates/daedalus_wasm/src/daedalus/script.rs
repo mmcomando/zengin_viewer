@@ -500,6 +500,30 @@ impl Symbol {
     }
 
     #[must_use]
+    /// Parent class symbol index for class member variables.
+    pub fn parent(&self) -> Option<u32> {
+        self.parent
+    }
+
+    #[must_use]
+    /// Byte offset of a class member variable inside its parent class.
+    pub fn offset(&self) -> Option<u32> {
+        self.offset
+    }
+
+    #[must_use]
+    /// Number of 32bit values which can be stored in this symbol.
+    pub fn elements_count(&self) -> u32 {
+        self.elements_count
+    }
+
+    #[must_use]
+    /// Kind of daedalus symbol.
+    pub fn kind(&self) -> SymbolKind {
+        self.kind
+    }
+
+    #[must_use]
     /// Check if symbol is a function and if this function is not external function.
     pub fn is_function_with_code(&self) -> bool {
         if let Some(func) = &self.function

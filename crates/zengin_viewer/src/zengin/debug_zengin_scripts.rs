@@ -75,6 +75,26 @@ fn unsafe_wrap_instance_callable(instance_id: InstanceId) -> FunctionId {
     FunctionId::from_symbol(instance_id.symbol())
 }
 
+/// Prints the hitpoints of a npc instance, verifying the `get-npc-info` export
+#[test]
+#[ignore]
+fn debug_npc_hitpoints() {
+    let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
+    let wasm_bytes = convert_daedalus_script(&script_path);
+    let mut executor = ScriptManager::new(&wasm_bytes);
+    executor.load_symbol_table();
+    executor.initialize_instances();
+
+    for name in ["pc_hero", "vlk_449_lares"] {
+        let symbol = executor.get_symbol_id(name);
+        let Some(npc) = executor.symbol_table().instance(symbol.value()) else {
+            println!("symbol({name}) is not an instance");
+            continue;
+        };
+        println!("{name} hitpoints: {:?}", executor.hitpoints(npc));
+    }
+}
+
 /// Prints the routine entries of the npc instance and executes its active
 /// routine state function, so its import calls show up in the recording
 fn debug_npc_routine(executor: &mut ScriptManager, npc_id: InstanceId) {

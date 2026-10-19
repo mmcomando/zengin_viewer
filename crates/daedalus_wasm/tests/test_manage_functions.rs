@@ -74,6 +74,60 @@ fn test_get_item_visual() {
 }
 
 #[test]
+fn test_get_npc_info() {
+    // Class member data words: C_NPC hitpoints @ word 110 (offset 440),
+    // hitpoints max @ word 111 (offset 444)
+    let hitpoints_word = 440 / 4;
+    let hitpoints_max_word = 444 / 4;
+
+    let mut values = vec![0; 200];
+    values[hitpoints_word] = 40;
+    values[hitpoints_max_word] = 400;
+
+    let symbols = &mut [
+        Symbol::new(0, false, 1, None),
+        Symbol::new(1, false, 1, None),
+        Symbol::new(2, false, 200, None),
+    ];
+    symbols[2].set_default_values(values);
+
+    let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
+    let info = executor.get_npc_info(2);
+    assert_eq!(info.hitpoints, 40);
+    assert_eq!(info.hitpoints_max, 400);
+
+    // Empty instance data reads as zeroes
+    symbols[2].set_default_values(vec![0; 200]);
+    let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
+    let info = executor.get_npc_info(2);
+    assert_eq!(info.hitpoints, 0);
+    assert_eq!(info.hitpoints_max, 0);
+}
+
+#[test]
+fn test_get_item_info() {
+    // Class member data word: C_ITEM damagetotal @ word 90 (offset 360)
+    let damage_total_word = 360 / 4;
+
+    let mut values = vec![0; 200];
+    values[damage_total_word] = 65;
+
+    let symbols = &mut [
+        Symbol::new(0, false, 1, None),
+        Symbol::new(1, false, 1, None),
+        Symbol::new(2, false, 200, None),
+    ];
+    symbols[2].set_default_values(values);
+
+    let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
+    assert_eq!(executor.get_item_info(2).damage_total, 65);
+
+    symbols[2].set_default_values(vec![0; 200]);
+    let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
+    assert_eq!(executor.get_item_info(2).damage_total, 0);
+}
+
+#[test]
 fn test_call_function() {
     let symbols = &mut [
         Symbol::new(0, false, 1, None),

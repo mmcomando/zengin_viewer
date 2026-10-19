@@ -15,10 +15,10 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::{
 };
 use super::journal::JournalChange;
 use super::state::{
-    AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, ImportCallState,
-    InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState, NpcLookAtChange,
-    OverlayChange, RoutineEntryChange, RoutineExchange, SpawnItem, SpawnNpc, SymbolTable,
-    WeaponKind, WeaponMode, WeaponModeChange,
+    AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, HealthChange,
+    ImportCallState, InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState,
+    NpcLookAtChange, OverlayChange, RoutineEntryChange, RoutineExchange, SpawnItem, SpawnNpc,
+    SymbolTable, WeaponKind, WeaponMode, WeaponModeChange,
 };
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
@@ -115,6 +115,12 @@ impl ScriptManager {
     /// Drains the equipped item changes the script produced, for the ECS bridge.
     pub fn drain_equip_item_changes(&mut self) -> Vec<EquipItemChange> {
         std::mem::take(&mut self.store.data_mut().pending_equip_item_changes)
+    }
+
+    /// Drains the hitpoints changes the host produced, for the ECS bridge.
+    #[allow(dead_code)] // used by the damage systems (next step)
+    pub fn drain_health_changes(&mut self) -> Vec<HealthChange> {
+        std::mem::take(&mut self.store.data_mut().pending_health_changes)
     }
 
     /// Drains the `AI_AlignToWP` requests the script produced, for the ECS bridge.
@@ -470,6 +476,61 @@ impl ScriptManager {
     pub fn get_name_by_id(&mut self, raw: i32) -> Option<String> {
         let symbol = SymbolId::new(raw)?;
         Some(self.call_get_name(symbol))
+    }
+
+    /// Hitpoints and hitpoints max of an npc, read from the npc instance data
+    /// (`ZkNpcInstance_getAttribute` semantics, attribute `ATR_HITPOINTS` and
+    /// `ATR_HITPOINTS_MAX`). Seeds the instance state on first access, `None`
+    /// when the id is not an npc instance.
+    pub fn hitpoints(&mut self, npc: InstanceId) -> Option<(i32, i32)> {
+        let seeded = self
+            .npc_instances()
+            .get(&npc)
+            .is_some_and(|npc| npc.hitpoints.is_some());
+        if !seeded {
+            let guest = self.instance.mmcomando_zengine_scripts_manage();
+            let info = guest
+                .call_get_npc_info(&mut self.store, npc.symbol().value())
+                .unwrap();
+            let instance = self.npc_instances_mut_or_default(npc);
+            instance.hitpoints = Some(info.hitpoints);
+            instance.hitpoints_max = Some(info.hitpoints_max);
+            self.store
+                .data_mut()
+                .pending_health_changes
+                .push(HealthChange { instance_id: npc });
+        }
+        let instance = self.npc_instances().get(&npc)?;
+        Some((instance.hitpoints?, instance.hitpoints_max?))
+    }
+
+    /// Changes the hitpoints of an npc by `delta` (damage is negative),
+    /// clamped to `0..=hitpoints_max`. Leaves the change queued for the ECS
+    /// bridge. Returns the new hitpoints, `None` when not seeded yet.
+    #[allow(dead_code)] // used by the damage systems (next step)
+    pub fn change_hitpoints(&mut self, npc: InstanceId, delta: i32) -> Option<i32> {
+        self.hitpoints(npc)?;
+        let instance = self.npc_instances_mut_or_default(npc);
+        let max = instance.hitpoints_max.unwrap_or_default();
+        let current = instance.hitpoints.unwrap_or_default();
+        let changed = (current + delta).clamp(0, max);
+        instance.hitpoints = Some(changed);
+        self.store
+            .data_mut()
+            .pending_health_changes
+            .push(HealthChange { instance_id: npc });
+        Some(changed)
+    }
+
+    /// Total damage of an item instance (`C_Item.damagetotal`), `None` when
+    /// the item instance has no data.
+    #[allow(dead_code)] // used by the damage systems (next step)
+    pub fn item_damage_total(&mut self, item: InstanceId) -> Option<i32> {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        let info = guest
+            .call_get_item_info(&mut self.store, item.symbol().value())
+            .unwrap();
+        Some(info.damage_total)
     }
 
     pub fn get_symbol_id(&mut self, symbol_name: &str) -> SymbolId {

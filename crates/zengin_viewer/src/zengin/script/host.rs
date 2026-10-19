@@ -1,9 +1,9 @@
 use super::bindings::mmcomando;
 use super::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use super::state::{
-    AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, ImportCallState, InventoryGain,
-    NpcLookAtChange, OverlayRequest, RoutineEntry, RoutineEntryChange, RoutineExchange, SpawnItem,
-    SpawnNpc, WeaponKind, WeaponMode,
+    AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, HealthChange, ImportCallState,
+    InventoryGain, NpcLookAtChange, OverlayRequest, RoutineEntry, RoutineEntryChange,
+    RoutineExchange, SpawnItem, SpawnNpc, WeaponKind, WeaponMode,
 };
 use super::string_value::StringCanon;
 use super::symbol_id::SymbolId;
@@ -519,7 +519,25 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     }
     fake_impl!(npc_getattitude(_0, _1) -> i32);
     fake_impl!(npc_getpermattitude(_0, _1) -> i32);
-    fake_impl!(npc_changeattribute(_0, _1, _2));
+    /// Sets an npc attribute (`Npc_ChangeAttribute`). Only the hitpoints
+    /// attributes are tracked, other attributes are ignored.
+    fn npc_changeattribute(&mut self, npc: i32, atr: i32, value: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        // ATR_HITPOINTS = 0, ATR_HITPOINTS_MAX = 1
+        if atr != 0 && atr != 1 {
+            return;
+        }
+        let instance = self.loaded_state.npc_instances.entry(npc).or_default();
+        if atr == 0 {
+            instance.hitpoints = Some(value);
+        } else {
+            instance.hitpoints_max = Some(value);
+        }
+        self.pending_health_changes
+            .push(HealthChange { instance_id: npc });
+    }
     fake_impl!(npc_getcomrades(_0) -> i32);
     fake_impl!(npc_isnear(_0, _1) -> i32);
     /// Distance between two npcs in engine units, `i32::MAX` when either has no

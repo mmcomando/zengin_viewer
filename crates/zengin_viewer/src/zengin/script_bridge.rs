@@ -3,6 +3,8 @@
 //! messages and the matching `apply_*` systems turn them into component changes
 //! on the affected entities.
 
+use std::collections::HashMap;
+
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::{GameTime, advance_game_time};
@@ -10,13 +12,13 @@ use crate::gui::game_log::GameLogEntry;
 use crate::zengin::GameNpc;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{
-    NpcEquippedWeapon, NpcLookAt, NpcOverlay, NpcWeaponMode, overlay_scheme,
+    NpcEquippedWeapon, NpcHealth, NpcLookAt, NpcOverlay, NpcWeaponMode, overlay_scheme,
 };
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use crate::zengin::script::state::{
     AlignToWpChange, DialogClose, DialogLine, DialogRoot, EquipItemChange, GotoChange,
-    InventoryGain, NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry,
+    HealthChange, InventoryGain, NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry,
     RoutineEntryChange, SpawnItem, SpawnNpc, WeaponMode, WeaponModeChange,
 };
 
@@ -33,6 +35,7 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<NpcLookAtChange>();
         app.add_message::<WeaponModeChange>();
         app.add_message::<EquipItemChange>();
+        app.add_message::<HealthChange>();
         app.add_message::<AlignToWpChange>();
         app.add_message::<OverlayChange>();
         app.add_message::<GotoChange>();
@@ -53,6 +56,7 @@ impl Plugin for ScriptBridgePlugin {
                 apply_look_at_changes,
                 apply_weapon_mode_changes,
                 apply_equip_item_changes,
+                apply_health_changes,
                 apply_overlay_changes,
                 seed_npc_components_on_add,
             )
@@ -70,6 +74,7 @@ fn send_script_changes(
     mut look_at: MessageWriter<NpcLookAtChange>,
     mut weapon_mode: MessageWriter<WeaponModeChange>,
     mut equip_item: MessageWriter<EquipItemChange>,
+    mut health: MessageWriter<HealthChange>,
     mut align_to_wp: MessageWriter<AlignToWpChange>,
     mut overlay: MessageWriter<OverlayChange>,
     mut goto: MessageWriter<GotoChange>,
@@ -94,6 +99,9 @@ fn send_script_changes(
     }
     for change in script.drain_equip_item_changes() {
         equip_item.write(change);
+    }
+    for change in script.drain_health_changes() {
+        health.write(change);
     }
     for change in script.drain_align_to_wp_changes() {
         align_to_wp.write(change);
@@ -362,6 +370,32 @@ fn set_equipped_weapon(
     }
 }
 
+/// Applies hitpoints changes to the entities carrying the affected instance
+/// ids. Seeds the instance hitpoints from the npc instance data on first
+/// access.
+fn apply_health_changes(
+    mut commands: Commands,
+    mut changes: MessageReader<HealthChange>,
+    index: Res<InstanceIndex>,
+    gothic_script: Res<ScriptResource>,
+) {
+    if changes.is_empty() {
+        return;
+    }
+
+    let mut gothic_script = gothic_script.lock();
+    for change in changes.read() {
+        let Some((hitpoints, hitpoints_max)) = gothic_script.hitpoints(change.instance_id) else {
+            continue;
+        };
+        for entity in index.npcs(change.instance_id) {
+            commands
+                .entity(*entity)
+                .insert(NpcHealth::new(hitpoints, hitpoints_max));
+        }
+    }
+}
+
 /// Applies overlay change requests to the entities carrying the affected
 /// instance ids, writing the [`NpcOverlay`] component. The overlay symbol name
 /// is resolved through the script vm, which is only safe outside a running
@@ -405,13 +439,26 @@ fn seed_npc_components_on_add(
     }
 
     let minutes = game_time.minutes_of_day();
-    let gothic_script = gothic_script.lock();
+    let mut gothic_script = gothic_script.lock();
+    // Seed the hitpoints from the npc instance data first, this needs `&mut`
+    let mut healths = HashMap::new();
+    for (_, npc) in &added_npcs {
+        if let Some((hitpoints, hitpoints_max)) = gothic_script.hitpoints(npc.npc_instance_id) {
+            healths.insert(
+                npc.npc_instance_id,
+                NpcHealth::new(hitpoints, hitpoints_max),
+            );
+        }
+    }
     let instances = gothic_script.npc_instances();
 
     for (entity, npc) in &added_npcs {
         let Some(instance) = instances.get(&npc.npc_instance_id) else {
             continue;
         };
+        if let Some(health) = healths.get(&npc.npc_instance_id) {
+            commands.entity(entity).insert(*health);
+        }
         set_routine_entry(&mut commands, entity, instance.get_routine_entry(minutes));
         let target = instance
             .look_at
