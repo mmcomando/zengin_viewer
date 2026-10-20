@@ -1,3 +1,5 @@
+mod animation_graph_nodes;
+pub use crate::zengin::animation_graph_nodes::{AnimationGraph, AnimationIndex};
 mod common;
 mod conversions;
 pub(crate) mod dialog;
@@ -22,6 +24,8 @@ mod zengin_resources;
 
 // Used to debug data, it is more like a tool than a test
 #[cfg(test)]
+mod animation_graph_export;
+#[cfg(test)]
 mod debug_zengin_scripts;
 
 use bevy::prelude::*;
@@ -29,6 +33,7 @@ use bevy::prelude::*;
 // Expose only what is needed for outside modules
 pub use crate::zengin::common::face_direction_quat;
 pub use crate::zengin::common::get_animation_path;
+pub use crate::zengin::human_animations::animation_name_from_path;
 pub use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };

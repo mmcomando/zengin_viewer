@@ -206,16 +206,17 @@ fn spawn_world(
         },
         NpcAnimations {
             animation: None,
-            movement_animations: Some(MovementAnimations {
-                idle: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUN.MAN".to_string(),
-                move_start: Some(
-                    "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-T_RUN_2_RUNL.MAN".to_string(),
-                ),
-                move_loop: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUNL.MAN".to_string(),
-                move_stop: Some(
-                    "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-T_RUNL_2_RUN.MAN".to_string(),
-                ),
-            }),
+            movement_animations: None,
+            // movement_animations: Some(MovementAnimations {
+            //     idle: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUN.MAN".to_string(),
+            //     move_start: Some(
+            //         "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-T_RUN_2_RUNL.MAN".to_string(),
+            //     ),
+            //     move_loop: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUNL.MAN".to_string(),
+            //     move_stop: Some(
+            //         "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-T_RUNL_2_RUN.MAN".to_string(),
+            //     ),
+            // }),
         },
     ));
 }

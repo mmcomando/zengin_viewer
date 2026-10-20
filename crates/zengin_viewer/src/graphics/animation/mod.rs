@@ -1,3 +1,4 @@
+mod auto_anim_sequencer;
 mod components;
 mod data;
 mod human;

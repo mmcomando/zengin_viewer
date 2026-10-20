@@ -4,7 +4,9 @@ use crate::gameplay::character::move_and_slide;
 use crate::gui_debug::toggle_visibility::show_gizmos;
 
 use super::ScriptedAnimations;
+use super::auto_anim_sequencer::AutoAnimSequencerPlugin;
 use super::components::{AnimatedJoint, AnimationEnds, AnimationTrigger};
+#[allow(unused_imports)] // plugin disabled in favour of the auto anim sequencer
 use super::human_sequencer::HumanSequencerPlugin;
 use super::locomotion::{compute_animations, update_animations, update_locomotion};
 
@@ -15,7 +17,9 @@ impl Plugin for SkeletalAnimations {
     fn build(&self, app: &mut App) {
         app.add_message::<AnimationEnds>();
         app.add_message::<AnimationTrigger>();
-        app.add_plugins(HumanSequencerPlugin);
+        // Disabled in favour of the graph driven auto anim sequencer
+        // app.add_plugins(HumanSequencerPlugin);
+        app.add_plugins(AutoAnimSequencerPlugin);
         app.add_systems(Update, draw_bones.run_if(show_gizmos));
 
         // Root movement has to be applied before the character controller,

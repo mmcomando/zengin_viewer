@@ -20,7 +20,7 @@ pub struct AnimationIndex(u32);
 /// Animation transition graph with index keys.
 // Used by tests and the upcoming sequencer integration.
 #[allow(dead_code)]
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct AnimationGraph {
     /// Index -> animation name.
     names: Vec<String>,

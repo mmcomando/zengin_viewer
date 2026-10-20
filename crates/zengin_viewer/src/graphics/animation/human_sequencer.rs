@@ -2,6 +2,9 @@
 //! polling based locomotion sequencer and the timer based bow attack for the
 //! player.
 //!
+// The plugin is currently disabled in favour of the auto anim sequencer; the
+// module is kept (tests included) until the sequencer migration is done.
+#![allow(dead_code)]
 //! The sequencer owns the [`AnimationController`] of the entities it drives.
 //! Desired actions arrive as [`ChangeDesiredAction`] messages (written every
 //! frame by the input bridge, deduplicated here), animation progression
