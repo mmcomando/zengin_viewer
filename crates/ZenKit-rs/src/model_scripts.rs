@@ -96,12 +96,17 @@ impl ModelScript<'_> {
     pub fn animation_alias_count(&self) -> u64 {
         unsafe { ZkModelScript_getAnimationAliasCount(self.ptr.as_ptr()) }
     }
-    // unsafe extern "C" {
-    //     pub fn ZkModelScript_getAnimationAlias(
-    //         slf: *const ZkModelScript,
-    //         i: ZkSize,
-    //     ) -> *const ZkAnimationAlias;
-    // }
+    pub fn animation_alias(&self, index: u64) -> Option<AnimationAlias<'_>> {
+        unsafe {
+            let ptr = ZkModelScript_getAnimationAlias(self.ptr.as_ptr(), index);
+            AnimationAlias::from_raw_ptr(ptr)
+        }
+    }
+    pub fn animation_aliases(&self) -> Vec<AnimationAlias<'_>> {
+        (0..self.animation_alias_count())
+            .map_while(|i| self.animation_alias(i))
+            .collect()
+    }
 
     pub fn model_tag_count(&self) -> u64 {
         unsafe { ZkModelScript_getModelTagCount(self.ptr.as_ptr()) }
@@ -256,6 +261,38 @@ impl Animation<'_> {
     //     slf: *const ZkAnimation,
     //     i: ZkSize,
     // ) -> *const ZkEventCameraTremor;
+}
+
+/// Alias entry of a [`ModelScript`] — an animation name mapped onto another
+/// animation (`alias (name = target ...)` in the model script).
+#[derive(Debug)]
+pub struct AnimationAlias<'a> {
+    ptr: NonNull<ZkAnimationAlias>,
+    _marker: PhantomData<&'a ZkModelScript>,
+}
+
+impl AnimationAlias<'_> {
+    pub unsafe fn from_raw_ptr(ptr: *const ZkAnimationAlias) -> Option<Self> {
+        NonNull::new(ptr.cast_mut()).map(|ptr| Self {
+            ptr,
+            _marker: PhantomData,
+        })
+    }
+
+    /// Name the alias defines.
+    pub fn name(&self) -> String {
+        unsafe { ZkAnimationAlias_getName(self.ptr.as_ptr()).to_string() }
+    }
+
+    /// Animation the alias plays.
+    pub fn alias(&self) -> String {
+        unsafe { ZkAnimationAlias_getAlias(self.ptr.as_ptr()).to_string() }
+    }
+
+    /// Animation chained after the alias finishes.
+    pub fn next(&self) -> String {
+        unsafe { ZkAnimationAlias_getNext(self.ptr.as_ptr()).to_string() }
+    }
 }
 
 /// Event tag of a [`Animation`] — a scripted event at a frame, e.g. placing or
