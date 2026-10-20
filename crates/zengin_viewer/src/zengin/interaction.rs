@@ -23,10 +23,11 @@ impl Plugin for PlayerInteractionPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<TransferItems>();
         app.add_message::<NpcDied>();
+        app.add_message::<MeleeHit>();
         app.add_systems(
             Update,
             (
-                hit_selected_npc,
+                melee_swing_hit,
                 handle_npc_death,
                 handle_transfer_items,
                 pickup_selected_item,
@@ -144,15 +145,24 @@ pub struct NpcDied {
     pub position: Vec3,
 }
 
-/// Deals damage with the drawn weapon to the selected npc on `DealDamage` (F)
-/// or on `Interact` while a melee weapon is drawn. With a ranged weapon drawn
-/// `Interact` starts the bow attack sequence instead, handled by the ranged
-/// combat module. The damage is the drawn weapon's `damagetotal`; without a
-/// drawn weapon or a selected npc nothing happens. The npc dies when its
-/// hitpoints reach 0.
-#[allow(clippy::too_many_arguments)]
-fn hit_selected_npc(
-    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
+/// Melee swing impact: written by the animation sequencer when the attack
+/// swing animation of the player finishes (see `AutoAnimSequencer`), the
+/// counterpart of the ranged `ArrowShot`.
+#[derive(Message, Debug)]
+pub struct MeleeHit {
+    /// Animation model entity of the attacking player. Not used by the
+    /// damage application (it goes through the player's script instance),
+    /// kept for parity with [`crate::zengin::ranged::ArrowShot`].
+    #[allow(dead_code)]
+    pub shooter: Entity,
+}
+
+/// Applies the melee swing damage to the currently selected npc when a
+/// [`MeleeHit`] arrives. The damage is the drawn weapon's `damagetotal`; a
+/// swing without a selected npc hits nothing. The npc dies when its hitpoints
+/// reach 0.
+fn melee_swing_hit(
+    mut hits: MessageReader<MeleeHit>,
     selection: Res<Selection>,
     npcs: Query<(&GameNpc, &GlobalTransform), Without<PlayerCharacter>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
@@ -165,75 +175,62 @@ fn hit_selected_npc(
         .single()
         .map(|mode| mode.0)
         .unwrap_or(WeaponMode::Fists);
-    // Ranged attacks go through the bow attack sequence, not instant damage.
-    let melee_interact =
-        weapon_mode == WeaponMode::Melee && action_state.just_pressed(&GameplayAction::Interact);
-    if !action_state.just_pressed(&GameplayAction::DealDamage) && !melee_interact {
-        return;
-    }
-    if selection.kind != Some(SelectionKind::Npc) {
-        return;
-    }
-    let Some(target) = selection.target else {
-        return;
-    };
-    let Ok((npc, global_tr)) = npcs.get(target) else {
-        return;
-    };
-    let Ok(player_npc) = player_npc.single() else {
-        return;
-    };
-    let player_id = player_npc.npc_instance_id;
-    let npc_id = npc.npc_instance_id;
+    for _hit in hits.read() {
+        if selection.kind != Some(SelectionKind::Npc) {
+            continue;
+        }
+        let Some(target) = selection.target else {
+            continue;
+        };
+        let Ok((npc, global_tr)) = npcs.get(target) else {
+            continue;
+        };
+        let Ok(player_npc) = player_npc.single() else {
+            continue;
+        };
+        let player_id = player_npc.npc_instance_id;
+        let npc_id = npc.npc_instance_id;
 
-    let mut script = gothic_script.lock();
-    let weapon = match weapon_mode {
-        WeaponMode::Melee => script
+        let mut script = gothic_script.lock();
+        let Some(weapon) = script
             .npc_instances()
             .get(&player_id)
-            .and_then(|player| player.equipped_melee),
-        _ => {
-            game_log.add("No weapon drawn");
-            info!(
-                "Deal damage ignored: player({}) has no weapon drawn",
+            .and_then(|player| player.equipped_melee)
+            .filter(|_| weapon_mode == WeaponMode::Melee)
+        else {
+            warn!(
+                "Melee hit ignored: player({}) swing ended without an equipped melee weapon",
                 player_id.value()
             );
-            return;
-        }
-    };
-    let Some(weapon) = weapon else {
-        warn!(
-            "Deal damage ignored: player({}) weapon mode without equipped weapon",
-            player_id.value()
-        );
-        return;
-    };
-    let Some(damage) = script.item_damage_total(weapon) else {
-        warn!(
-            "Deal damage ignored: no damage data for weapon item({})",
-            weapon.value()
-        );
-        return;
-    };
-    let Some(hitpoints) = script.change_hitpoints(npc_id, -damage) else {
-        warn!(
-            "Deal damage ignored: no hitpoints data for npc({})",
+            continue;
+        };
+        let Some(damage) = script.item_damage_total(weapon) else {
+            warn!(
+                "Melee hit ignored: no damage data for weapon item({})",
+                weapon.value()
+            );
+            continue;
+        };
+        let Some(hitpoints) = script.change_hitpoints(npc_id, -damage) else {
+            warn!(
+                "Melee hit ignored: no hitpoints data for npc({})",
+                npc_id.value()
+            );
+            continue;
+        };
+        info!(
+            "Player({}) dealt {damage} damage to npc({}), hitpoints now {hitpoints}",
+            player_id.value(),
             npc_id.value()
         );
-        return;
-    };
-    info!(
-        "Player({}) dealt {damage} damage to npc({}), hitpoints now {hitpoints}",
-        player_id.value(),
-        npc_id.value()
-    );
-    game_log.add(format!("Dealt {damage} damage"));
-    if hitpoints <= 0 {
-        npc_died.write(NpcDied {
-            entity: target,
-            instance_id: npc_id,
-            position: global_tr.translation(),
-        });
+        game_log.add(format!("Dealt {damage} damage"));
+        if hitpoints <= 0 {
+            npc_died.write(NpcDied {
+                entity: target,
+                instance_id: npc_id,
+                position: global_tr.translation(),
+            });
+        }
     }
 }
 

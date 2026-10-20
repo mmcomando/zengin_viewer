@@ -34,6 +34,7 @@ use bevy::prelude::*;
 pub use crate::zengin::animation_triggers::animation_name_from_path;
 pub use crate::zengin::common::face_direction_quat;
 pub use crate::zengin::common::get_animation_path;
+pub use crate::zengin::interaction::MeleeHit;
 pub use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };

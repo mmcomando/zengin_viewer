@@ -9,9 +9,8 @@ use super::data::AnimationData;
 /// allows the queued `next` to replace a still playing animation immediately —
 /// otherwise one-shot animations have to play to their end first.
 ///
-/// What to play next is decided by other systems: moving entities get their
-/// controller driven by a [`LocomotionSequencer`]. The only way to change the
-/// played animation is [`AnimationController::queue_next`]; the playback switch
+/// What to play next is decided by other systems (the auto anim sequencer or
+/// scripted sequences). The only way to change the played animation is [`AnimationController::queue_next`]; the playback switch
 /// itself is performed by the animation update system.
 #[derive(Component, Debug)]
 pub struct AnimationController {

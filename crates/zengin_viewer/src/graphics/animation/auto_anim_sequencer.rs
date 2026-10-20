@@ -1,13 +1,12 @@
 //! Auto animation sequencer: data driven animation selection through the
 //! [`AnimationGraph`].
 //!
-//! Unlike [`super::human_sequencer`] (currently disabled) the sequencer does
-//! not know about sequence families or loops. It only knows the *desired*
-//! animation (arriving as a [`SetDesiredAnimation`] message, written every
-//! frame from the move input) and walks the animation graph from the
-//! currently played animation towards it: on every [`AnimationEnds`] of the
-//! current animation it queries the graph for the next animation on the path
-//! and queues it; when the graph offers no path it cuts straight to the
+//! The sequencer does not know about sequence families or loops. It only knows
+//! the *desired* animation (arriving as a [`SetDesiredAnimation`] message,
+//! written every frame from the move input) and walks the animation graph from
+//! the currently played animation towards it: on every [`AnimationEnds`] of
+//! the current animation it queries the graph for the next animation on the
+//! path and queues it; when the graph offers no path it cuts straight to the
 //! desired animation.
 //!
 //! Movement still works through root motion (`should_move_entity`), the
@@ -23,7 +22,7 @@ use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::input::actions::{GameplayAction, GameplayInputMarker};
 use crate::zengin::{
-    AnimationGraph, AnimationIndex, ArrowShot, MaterialHandles, NpcWeaponMode, Selection,
+    AnimationGraph, AnimationIndex, ArrowShot, MaterialHandles, MeleeHit, NpcWeaponMode, Selection,
     WeaponMode, animation_name_from_path, face_direction_quat, get_animation_path,
 };
 
@@ -58,6 +57,9 @@ pub enum DesiredAnimation {
     Run,
     /// Bow fire: the reload loop, an arrow shot on every wrap.
     Fire,
+    /// 1H melee attack: the swing, a hit on every loop (wrap). Held while
+    /// attacking; the loop makes the swing repeat for the next hit.
+    MeleeAttack,
 }
 
 impl DesiredAnimation {
@@ -68,6 +70,7 @@ impl DesiredAnimation {
             DesiredAnimation::Run => "S_RUNL",
             // DesiredAnimation::Fire => "S_BOWSHOOT",
             DesiredAnimation::Fire => "T_BOWRELOAD",
+            DesiredAnimation::MeleeAttack => "T_1HATTACKR",
         }
     }
 }
@@ -154,7 +157,15 @@ fn send_desired_animations(
     };
 
     let mode = weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0);
-    if mode == WeaponMode::Ranged && action_state.pressed(&GameplayAction::Interact) {
+    let attacking = match mode {
+        WeaponMode::Ranged => action_state.pressed(&GameplayAction::Interact),
+        WeaponMode::Melee => {
+            action_state.pressed(&GameplayAction::Interact)
+                || action_state.pressed(&GameplayAction::DealDamage)
+        }
+        WeaponMode::Fists => false,
+    };
+    if attacking {
         // Aim at the selected npc, fall back to the current facing direction.
         let target = selection
             .target
@@ -167,9 +178,13 @@ fn send_desired_animations(
         } else {
             Some(direction)
         };
+        let animation = match mode {
+            WeaponMode::Ranged => DesiredAnimation::Fire,
+            _ => DesiredAnimation::MeleeAttack,
+        };
         writer.write(SetDesiredAnimation {
             who: entity,
-            animation: DesiredAnimation::Fire,
+            animation,
             direction,
             force_change: true,
         });
@@ -220,6 +235,7 @@ fn run_auto_anim_sequencer(
     mut desired: MessageReader<SetDesiredAnimation>,
     mut ends: MessageReader<AnimationEnds>,
     mut arrows: MessageWriter<ArrowShot>,
+    mut hits: MessageWriter<MeleeHit>,
     mut sequencers: Query<(
         Entity,
         &mut AutoAnimSequencer,
@@ -241,6 +257,7 @@ fn run_auto_anim_sequencer(
     let ends: Vec<_> = ends.read().cloned().collect();
     let desired: Vec<_> = desired.read().cloned().collect();
     let delta = time.delta_secs();
+    let melee_swing_index = index_of(graph, DesiredAnimation::MeleeAttack);
 
     for (entity, mut seq, mut controller, mut tr, parent) in &mut sequencers {
         for message in desired.iter().filter(|message| message.who == entity) {
@@ -251,6 +268,11 @@ fn run_auto_anim_sequencer(
                 );
                 seq.desired = Some(message.animation);
                 seq.force_change = message.force_change;
+                // Let a started melee swing finish: interrupting the queued
+                // follow-up would cut it mid-way and the hit would never land
+                if animation_index(graph, controller.current()) == Some(melee_swing_index) {
+                    seq.force_change = false;
+                }
                 let anim_index = index_of(graph, message.animation);
                 if seq.force_change {
                     queue_animation(
@@ -278,6 +300,11 @@ fn run_auto_anim_sequencer(
                 );
                 continue;
             };
+            if current == melee_swing_index {
+                // The swing loop wrapped: the hit lands on the selected
+                // target, even when the attack was already released
+                hits.write(MeleeHit { shooter: entity });
+            }
             let Some(desired) = seq.desired else {
                 warn!("No desired");
                 continue;
@@ -415,6 +442,7 @@ mod tests {
         world.init_resource::<Messages<AnimationEnds>>();
         world.init_resource::<Messages<SetDesiredAnimation>>();
         world.init_resource::<Messages<ArrowShot>>();
+        world.init_resource::<Messages<MeleeHit>>();
         world.insert_resource(test_asset_server());
         world.insert_resource(MaterialHandles::default());
         let mut graph =
@@ -435,12 +463,21 @@ mod tests {
     }
 
     fn send_desired(world: &mut World, who: Entity, animation: DesiredAnimation) {
+        send_desired_force(world, who, animation, false);
+    }
+
+    fn send_desired_force(
+        world: &mut World,
+        who: Entity,
+        animation: DesiredAnimation,
+        force_change: bool,
+    ) {
         world
             .resource_mut::<Messages<SetDesiredAnimation>>()
             .write(SetDesiredAnimation {
                 who,
                 animation,
-                force_change: false,
+                force_change,
                 direction: None,
             });
     }
@@ -578,6 +615,54 @@ mod tests {
             .unwrap()
             .switch_to(run_out.clone());
         world.run_system_once(run_auto_anim_sequencer).unwrap();
+        assert_eq!(queued_next(&world, model), Some(stand));
+    }
+
+    /// Melee attack: the swing animation loops while the attack is held and
+    /// every wrap lands a `MeleeHit`.
+    #[test]
+    fn melee_swing_loop_hits_on_every_wrap() {
+        let (mut world, model) = run_sequencer_world("T_1HATTACKR");
+        let swing = animation_handle(&mut world, "T_1HATTACKR");
+
+        send_desired(&mut world, model, DesiredAnimation::MeleeAttack);
+        send_ends(&mut world, model, swing);
+        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        // Reached: the swing keeps looping, no animation queued
+        assert_eq!(queued_next(&world, model), None);
+        // The wrap landed the melee hit
+        assert_eq!(
+            world
+                .resource::<Messages<MeleeHit>>()
+                .iter_current_update_messages()
+                .count(),
+            1
+        );
+    }
+
+    /// Releasing the attack mid-swing still lands the hit: the swing plays
+    /// out and only then the follow-up (here the standing idle) is queued.
+    #[test]
+    fn melee_hit_lands_when_attack_released_mid_swing() {
+        let (mut world, model) = run_sequencer_world("T_1HATTACKR");
+        let swing = animation_handle(&mut world, "T_1HATTACKR");
+        let stand = animation_handle(&mut world, "S_RUN");
+
+        // Attack starts (the real input path sends force_change)
+        send_desired_force(&mut world, model, DesiredAnimation::MeleeAttack, true);
+        // Released before the swing wrapped
+        send_desired(&mut world, model, DesiredAnimation::Stand);
+        send_ends(&mut world, model, swing);
+        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        // The swing wrap landed the hit...
+        assert_eq!(
+            world
+                .resource::<Messages<MeleeHit>>()
+                .iter_current_update_messages()
+                .count(),
+            1
+        );
+        // ...and only afterwards the follow-up stand is queued
         assert_eq!(queued_next(&world, model), Some(stand));
     }
 }
