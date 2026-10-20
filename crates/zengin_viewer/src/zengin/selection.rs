@@ -188,8 +188,8 @@ fn keep_nearest(best: &mut Option<(Entity, f32)>, entity: Entity, distance: f32)
     }
 }
 
-/// Selects the nearest in-range npc/item, preferring objects in front of the
-/// player. With a weapon drawn only npcs are selectable; a drawn ranged weapon
+/// Selects the in-range npc/item best matching the aim direction (camera
+/// forward) weighted over distance — direction matters more than raw distance. With a weapon drawn only npcs are selectable; a drawn ranged weapon
 /// extends the range to [`RANGED_SELECTION_RANGE`]. Candidate entities are
 /// found with an avian spatial query over the AABBs of their selection
 /// colliders, which must be on the queried entities themselves so the returned
@@ -202,6 +202,9 @@ fn update_selection(
     mut selection: ResMut<Selection>,
     spatial_query: SpatialQuery,
     player: Query<(Entity, &GlobalTransform), With<PlayerPhysicsBodyMarker>>,
+    // Aiming/selection follows the camera, it feels more direct than using
+    // the player model facing (which lags behind camera turns).
+    camera: Query<&GlobalTransform, With<Camera3d>>,
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     hit_colliders: Query<&NpcHitCollider>,
     candidates: Query<(
@@ -225,14 +228,20 @@ fn update_selection(
         WeaponMode::Fists => (SELECTION_RANGE, false),
     };
     let player_pos = player_tr.translation();
-    // The player faces +Z, see `face_towards` in the dialog module.
-    let back = player_tr.back();
-    let forward = Vec3::new(back.x, 0.0, back.z).normalize_or_zero();
+    // Camera looks at the player from behind, its flattened forward is the
+    // direction the player is aiming at.
+    let forward = camera
+        .single()
+        .map(|tr| *tr.forward())
+        .unwrap_or(*player_tr.back());
+    let forward = Vec3::new(forward.x, 0.0, forward.z).normalize_or_zero();
 
     // `aabb_intersections_with_aabb` takes no filter, hits are filtered below.
     let query_aabb = Collider::sphere(range).aabb(player_pos, Quat::IDENTITY);
+    // Direction matters more than distance: the raw distance is multiplied by
+    // `(2 - dot)`, so a target 90 deg off the aim direction counts twice as
+    // far and one directly behind three times as far.
     let mut nearest: Option<(Entity, f32)> = None;
-    let mut nearest_front: Option<(Entity, f32)> = None;
 
     for entity in spatial_query.aabb_intersections_with_aabb(query_aabb) {
         // Npc hit colliders are child entities, resolve them to the npc.
@@ -261,13 +270,11 @@ fn update_selection(
             continue;
         }
         let flat = Vec3::new(delta.x, 0.0, delta.z).normalize_or_zero();
-        keep_nearest(&mut nearest, entity, distance);
-        if forward.dot(flat) > 0.0 {
-            keep_nearest(&mut nearest_front, entity, distance);
-        }
+        let score = distance * (2.0 - forward.dot(flat));
+        keep_nearest(&mut nearest, entity, score);
     }
 
-    let Some((entity, _)) = nearest_front.or(nearest) else {
+    let Some((entity, _)) = nearest else {
         selection.target = None;
         selection.kind = None;
         selection.name.clear();
