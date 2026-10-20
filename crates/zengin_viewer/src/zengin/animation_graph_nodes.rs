@@ -35,21 +35,42 @@ impl AnimationGraph {
     /// Loads the graph from the exported RON file:
     /// `[(animation, [successor animations])]`.
     pub fn load_from_ron(path: &Path) -> Option<AnimationGraph> {
-        let contents = match std::fs::read_to_string(path) {
-            Ok(contents) => contents,
-            Err(error) => {
-                warn!("Failed to read animation graph({path:?}): {error}");
-                return None;
-            }
-        };
-        let export: Vec<(String, Vec<String>)> = match ron::de::from_str(&contents) {
-            Ok(export) => export,
-            Err(error) => {
-                warn!("Failed to parse animation graph({path:?}): {error}");
-                return None;
-            }
-        };
+        Some(Self::from_export(read_ron_export(path)?))
+    }
 
+    /// Adds edges from an additional RON file in the same
+    /// `[(animation, [successor animations])]` format. All referenced
+    /// animations have to already exist in the graph — missing entries are
+    /// skipped with a warning, no new nodes are created and already present
+    /// edges are not duplicated.
+    pub fn load_additional_edges(&mut self, path: &Path) {
+        let Some(export) = read_ron_export(path) else {
+            return;
+        };
+        for (name, successors) in export {
+            let Some(index) = self.indices.get(&name).copied() else {
+                warn!(
+                    "Manual edge node({name}) missing from the animation graph({path:?}), it is skipped"
+                );
+                continue;
+            };
+            let list = &mut self.next[index.0 as usize];
+            for successor in successors {
+                let Some(successor) = self.indices.get(&successor).copied() else {
+                    warn!(
+                        "Manual edge successor({successor}) of {name} missing from the animation graph({path:?}), it is skipped"
+                    );
+                    continue;
+                };
+                if !list.contains(&successor) {
+                    list.push(successor);
+                }
+            }
+        }
+    }
+
+    /// Builds a graph from parsed export entries, interning all node names.
+    fn from_export(export: Vec<(String, Vec<String>)>) -> AnimationGraph {
         let mut graph = AnimationGraph::default();
         // Intern all names first, so successor references resolve.
         for (name, _) in &export {
@@ -69,7 +90,7 @@ impl AnimationGraph {
             }
             graph.next[index.0 as usize] = list;
         }
-        Some(graph)
+        graph
     }
 
     fn intern(&mut self, name: &str) -> AnimationIndex {
@@ -143,6 +164,25 @@ impl AnimationGraph {
     }
 }
 
+/// Reads and parses a RON file with `[(animation, [successor animations])]`
+/// entries. Returns `None` and logs on read or parse failure.
+fn read_ron_export(path: &Path) -> Option<Vec<(String, Vec<String>)>> {
+    let contents = match std::fs::read_to_string(path) {
+        Ok(contents) => contents,
+        Err(error) => {
+            warn!("Failed to read animation graph({path:?}): {error}");
+            return None;
+        }
+    };
+    match ron::de::from_str(&contents) {
+        Ok(export) => Some(export),
+        Err(error) => {
+            warn!("Failed to parse animation graph({path:?}): {error}");
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,5 +202,35 @@ mod tests {
             .expect("run-in transition in the graph");
 
         assert_eq!(graph.next_animation(stand, run_in), Some(run_in));
+    }
+
+    /// Additional edges only add successors of existing nodes, never
+    /// duplicate entries and never new indices.
+    #[test]
+    fn additional_edges_merge() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/humans_anim_graph.ron");
+        let mut graph = AnimationGraph::load_from_ron(&path).expect("animation graph ron");
+        let before: Vec<_> = graph.names.clone();
+        let manual =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/humans_anim_manual_edges.ron");
+        graph.load_additional_edges(&manual);
+
+        assert_eq!(graph.names, before, "no new nodes are interned");
+        let runl = graph
+            .animation_index("HUMANS-S_RUNL")
+            .expect("run loop in the graph");
+        let two_hand = graph
+            .animation_index("HUMANS-S_2HRUNL")
+            .expect("two hand run loop in the graph");
+        let successors = &graph.next[runl.0 as usize];
+        assert!(successors.contains(&two_hand), "manual edge added");
+        assert_eq!(
+            successors.len(),
+            successors
+                .iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len(),
+            "no duplicated edges"
+        );
     }
 }

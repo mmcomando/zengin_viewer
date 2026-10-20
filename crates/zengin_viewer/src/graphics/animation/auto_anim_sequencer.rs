@@ -40,6 +40,12 @@ const TURN_SPEED: f32 = 3.0;
 /// directory so it is found regardless of the working directory.
 const GRAPH_ASSET: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/humans_anim_graph.ron");
 
+/// Additional hand written graph edges, same format as [`GRAPH_ASSET`].
+const MANUAL_EDGES_ASSET: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/humans_anim_manual_edges.ron"
+);
+
 /// Scheme prefix of the animations driven by this sequencer.
 const SCHEME: &str = "HUMANS";
 
@@ -88,7 +94,8 @@ pub struct AutoAnimSequencerPlugin;
 impl Plugin for AutoAnimSequencerPlugin {
     fn build(&self, app: &mut App) {
         match AnimationGraph::load_from_ron(Path::new(GRAPH_ASSET)) {
-            Some(graph) => {
+            Some(mut graph) => {
+                graph.load_additional_edges(Path::new(MANUAL_EDGES_ASSET));
                 app.insert_resource(graph);
             }
             None => warn!("AutoAnimSequencerPlugin without an animation graph({GRAPH_ASSET})"),
@@ -389,6 +396,7 @@ mod tests {
             .write(SetDesiredAnimation {
                 who,
                 animation,
+                force_change: false,
                 direction: None,
             });
     }
