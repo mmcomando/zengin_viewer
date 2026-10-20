@@ -239,7 +239,10 @@ pub(crate) fn update_animations(
             });
         }
 
-        if let Some(triggers) = triggers.as_ref()
+        // Animation trigger events are emitted only for players for now; the
+        // sequencer consuming them is player-only.
+        if player.is_some()
+            && let Some(triggers) = triggers.as_ref()
             && let Some(path) = controller.current().path()
             && let Some(animation) = animation_name_from_path(path.path())
         {

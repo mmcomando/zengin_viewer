@@ -7,9 +7,11 @@
 
 use bevy::prelude::*;
 
-use crate::gameplay::objects::PlayerCharacter;
+use crate::gameplay::objects::{NpcModel, PlayerCharacter};
+use crate::graphics::animation::AnimationController;
 use crate::gui::game_log::GameLog;
-use crate::zengin::interaction::NpcDied;
+use crate::zengin::interaction::{NpcDamageData, NpcDied, NpcHitReaction, damage_npc};
+use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::selection::{NpcHitCollider, Selection};
@@ -204,8 +206,21 @@ fn arrow_hits(
     mut contacts: MessageReader<CollisionStart>,
     arrows: Query<&Arrow>,
     hit_colliders: Query<&NpcHitCollider>,
-    npcs: Query<(&GameNpc, &GlobalTransform), Without<PlayerCharacter>>,
+    mut npcs: Query<
+        (
+            &GameNpc,
+            &GlobalTransform,
+            &NpcModel,
+            Option<&NpcOverlay>,
+            Option<&mut AnimationController>,
+            Option<&NpcHitReaction>,
+        ),
+        Without<PlayerCharacter>,
+    >,
     gothic_script: Res<ScriptResource>,
+    files: Res<AnimationFiles>,
+    mut handles: ResMut<MaterialHandles>,
+    asset_server: Res<AssetServer>,
     mut game_log: ResMut<GameLog>,
     mut npc_died: MessageWriter<NpcDied>,
     mut commands: Commands,
@@ -228,32 +243,32 @@ fn arrow_hits(
             .get(hit_entity)
             .map(|collider| collider.owner)
             .unwrap_or(hit_entity);
-        let Ok((npc, transform)) = npcs.get(hit_entity) else {
+        let Ok((npc, global_tr, npc_model, overlay, controller, reaction)) =
+            npcs.get_mut(hit_entity)
+        else {
             continue;
         };
-        let npc_id = npc.npc_instance_id;
-        let hitpoints = gothic_script.lock().change_hitpoints(npc_id, -arrow.damage);
-        let Some(hitpoints) = hitpoints else {
-            warn!(
-                "Arrow damage ignored: no hitpoints data for npc({})",
-                npc_id.value()
-            );
-            continue;
+        let npc_data = NpcDamageData {
+            npc,
+            global_tr,
+            model: npc_model,
+            overlay,
+            controller,
+            reaction,
         };
-        info!(
-            "Arrow of player({}) dealt {} damage to npc({}), hitpoints now {hitpoints}",
-            arrow.shooter.value(),
+        damage_npc(
+            &mut commands,
+            hit_entity,
+            npc_data,
             arrow.damage,
-            npc_id.value()
+            arrow.shooter,
+            &gothic_script,
+            &files,
+            &mut handles,
+            &asset_server,
+            &mut game_log,
+            &mut npc_died,
         );
-        game_log.add(format!("Dealt {} damage", arrow.damage));
-        if hitpoints <= 0 {
-            npc_died.write(NpcDied {
-                entity: hit_entity,
-                instance_id: npc_id,
-                position: transform.translation(),
-            });
-        }
         commands.entity(arrow_entity).despawn();
     }
 }
