@@ -9,6 +9,7 @@
 
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
+use std::collections::HashMap;
 
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::game_log::GameLog;
@@ -55,6 +56,8 @@ struct InventoryEntry {
     /// Whether the item is a gold stack, based on the script symbol name so
     /// localized display names do not break the gold sum.
     is_gold: bool,
+    /// Sort group: melee weapon, ranged weapon, everything else.
+    sort_group: u8,
 }
 
 /// Display name of an item instance symbol: strips the script item class
@@ -465,6 +468,14 @@ fn toggle_inventory(
                 .get_name_by_id(instance_id.value())
                 .unwrap_or_default();
             let is_gold = symbol_name.to_lowercase().contains("gold");
+            let lowered = symbol_name.to_lowercase();
+            let sort_group = if lowered.starts_with("itmw_") {
+                0
+            } else if lowered.starts_with("itrw_") {
+                1
+            } else {
+                2
+            };
             let name = script
                 .item_display_name(instance_id)
                 .unwrap_or_else(|| display_item_name(&symbol_name));
@@ -473,11 +484,37 @@ fn toggle_inventory(
                 count,
                 name,
                 is_gold,
+                sort_group,
             }
         })
         .collect();
-    // Deterministic grid order (the script inventory is a hash map)
-    items.sort_unstable_by_key(|entry| entry.instance_id.value());
+    // Melee weapons first, then ranged, then the rest; within a group by
+    // damage descending (0 for items without damage data), ties broken by
+    // instance id for a deterministic order (the script inventory is a hash
+    // map). Item values are not available in the script data yet.
+    let damages: HashMap<InstanceId, i32> = items
+        .iter()
+        .map(|entry| {
+            (
+                entry.instance_id,
+                script
+                    .item_damage_total(entry.instance_id)
+                    .unwrap_or_default(),
+            )
+        })
+        .collect();
+    items.sort_unstable_by(|a, b| {
+        a.sort_group
+            .cmp(&b.sort_group)
+            .then_with(|| {
+                damages
+                    .get(&b.instance_id)
+                    .copied()
+                    .unwrap_or_default()
+                    .cmp(&damages.get(&a.instance_id).copied().unwrap_or_default())
+            })
+            .then_with(|| a.instance_id.cmp(&b.instance_id))
+    });
     let (equipped_melee, equipped_ranged) = script
         .npc_instances()
         .get(&player_id)
