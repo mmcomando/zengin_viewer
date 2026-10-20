@@ -4,6 +4,7 @@ use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
+use crate::gameplay::objects::PlayerCharacter;
 use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
 use crate::zengin::NPC_BODY;
 
@@ -152,6 +153,14 @@ fn camera_toggle_input(
     action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
     camera_query: Query<&Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
     mut player_query: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
+    mut player_visual: Query<
+        &mut Transform,
+        (
+            With<PlayerCharacter>,
+            Without<PlayerPhysicsBodyMarker>,
+            Without<Camera3d>,
+        ),
+    >,
 ) {
     if action_state.just_pressed(&DebugAction::ToggleCharacterCamera) {
         let next_camera = match info.current_camera {
@@ -165,6 +174,16 @@ fn camera_toggle_input(
                 (camera_query.single(), player_query.single_mut())
             {
                 player_transform.translation = camera_transform.translation;
+                // The camera looks along its forward; make the character face
+                // that direction (the model carries the facing, not the body).
+                if let Ok(mut visual_transform) = player_visual.single_mut() {
+                    let forward = camera_transform.forward();
+                    let dir = Vec3::new(forward.x, 0.0, forward.z);
+                    if dir.length_squared() > f32::EPSILON {
+                        let dir = dir.normalize();
+                        visual_transform.rotation = Quat::from_rotation_y(dir.x.atan2(dir.z));
+                    }
+                }
             }
         }
         info.current_camera = next_camera;
