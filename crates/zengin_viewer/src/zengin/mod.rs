@@ -33,7 +33,7 @@ pub use crate::zengin::loaders::vdf_reader::{
 };
 pub use crate::zengin::npc_routines::NpcHealth;
 pub use crate::zengin::npc_routines::{NpcWeaponMode, WayPoints};
-pub use crate::zengin::ranged::{ArrowShot, SHOT_INTERVAL};
+pub use crate::zengin::ranged::ArrowShot;
 pub use crate::zengin::script::component::ScriptResource;
 pub use crate::zengin::script::state::WeaponKind;
 pub use crate::zengin::script::state::WeaponMode;

@@ -41,7 +41,8 @@ pub enum RunSequence {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum FireBowSequence {
     Start,
-    Loop,
+    /// Loading the next arrow; shot arrow at the end.
+    Reload,
     End,
 }
 
@@ -114,7 +115,7 @@ impl HumanAnimationSequence {
             Self::Stand => match armed {
                 ArmedState::Unarmed => "S_RUN",
                 ArmedState::Melee => "S_1H",
-                ArmedState::Ranged => "S_BOW",
+                ArmedState::Ranged => "S_BOWRUN",
             },
             Self::WalkSequence(_) | Self::RunSequence(_) => match self {
                 Self::WalkSequence(WalkSequence::Start) | Self::RunSequence(RunSequence::Start) => {
@@ -125,8 +126,8 @@ impl HumanAnimationSequence {
                 }
                 _ => "S_RUNL",
             },
-            Self::FireBowSequence(FireBowSequence::End) => "T_BOWAIM_2_BOWRUN",
-            Self::FireBowSequence(FireBowSequence::Loop) => "S_BOWSHOOT",
+            Self::FireBowSequence(FireBowSequence::End) => "BOWRUN_2_BOWRUNL",
+            Self::FireBowSequence(FireBowSequence::Reload) => "T_BOWRELOAD",
             Self::FireBowSequence(FireBowSequence::Start) => "T_BOWRUN_2_BOWAIM",
         }
     }
@@ -143,13 +144,10 @@ pub struct HumanAnimationSequencer {
     pub desired_state: HumanAnimationSequence,
     pub prefered_locomotion: PreferedLocomotion,
     pub desired_action: DesiredAction,
-    /// Seconds until the next arrow while holding the aim in
-    /// `FireBowSequence::Loop`.
-    pub shot_cooldown: f32,
 }
 
 /// Every animation the human sequencer can reference in the v1 set.
-pub const HUMAN_ANIMATIONS: [&str; 9] = [
+pub const HUMAN_ANIMATIONS: [&str; 14] = [
     "S_RUN",
     "S_1H",
     "S_BOW",
@@ -157,6 +155,11 @@ pub const HUMAN_ANIMATIONS: [&str; 9] = [
     "S_RUNL",
     "T_RUNL_2_RUN",
     "T_BOWRUN_2_BOWAIM",
+    "T_BOWRELOAD",
     "S_BOWSHOOT",
     "T_BOWAIM_2_BOWRUN",
+    "T_BOWAIM_2_BOWRUN",
+    "BOWRUN_2_BOWRUNL",
+    "S_BOWRUNL",
+    "S_BOWRUN",
 ];

@@ -27,9 +27,6 @@ impl Plugin for RangedCombatPlugin {
     }
 }
 
-/// Interval between repeat shots while the attack key is held. Used by the
-/// human animation sequencer while it holds the aim.
-pub const SHOT_INTERVAL: f32 = 1.2;
 /// Local axis of the arrow item mesh pointing along the shaft. The arrow
 /// meshes are authored sideways (like weapons: grip at origin), not along -Z,
 /// so the shot direction is aligned with this axis.

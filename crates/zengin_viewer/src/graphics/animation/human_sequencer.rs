@@ -24,7 +24,7 @@ use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::input::actions::{GameplayAction, GameplayInputMarker};
 use crate::zengin::{
-    ArrowShot, NpcWeaponMode, SHOT_INTERVAL, Selection, WayPoints, WeaponMode, face_direction_quat,
+    ArrowShot, NpcWeaponMode, Selection, WayPoints, WeaponMode, face_direction_quat,
 };
 
 use super::components::{AnimationController, AnimationEnds};
@@ -139,7 +139,6 @@ fn send_desired_actions(
     };
 
     let (cam_yaw, _, _) = camera.rotation.to_euler(EulerRot::YXZ);
-    debug!("Desired action player({entity}) camera_yaw({cam_yaw}) action({action:?})");
     writer.write(ChangeDesiredAction {
         who: entity,
         action,
@@ -163,7 +162,7 @@ fn desired_state(sequencer: &HumanAnimationSequencer) -> HumanAnimationSequence 
     match &sequencer.desired_action {
         DesiredAction::Stand => HumanAnimationSequence::Stand,
         DesiredAction::RangedFireLocation(_) => {
-            HumanAnimationSequence::FireBowSequence(FireBowSequence::Loop)
+            HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload)
         }
         DesiredAction::GoDir(_) | DesiredAction::GoWaypoint(_) => {
             match sequencer.prefered_locomotion {
@@ -263,23 +262,9 @@ fn run_sequencer(
                 | HumanAnimationSequence::WalkSequence(WalkSequence::Loop) => {
                     leave_loop(&mut seq, &mut controller, &library, armed, ends_now);
                 }
-                // The aim hold is a 1 frame pose, it never wraps.
-                HumanAnimationSequence::FireBowSequence(FireBowSequence::Loop) => {
-                    seq.current_state =
-                        HumanAnimationSequence::FireBowSequence(FireBowSequence::End);
-                    queue_animation(&mut seq, &mut controller, &library, armed, true);
-                }
+
                 // One-shot transitions wait for their AnimationEnds.
                 _ => {}
-            }
-        } else if seq.current_state
-            == HumanAnimationSequence::FireBowSequence(FireBowSequence::Loop)
-        {
-            // Hold the aim and repeat shots while the fire action persists.
-            seq.shot_cooldown -= delta;
-            if seq.shot_cooldown <= 0.0 {
-                arrows.write(ArrowShot { shooter: entity });
-                seq.shot_cooldown = SHOT_INTERVAL;
             }
         }
 
@@ -397,9 +382,20 @@ fn on_animation_ends(
                 | HumanAnimationSequence::WalkSequence(WalkSequence::Loop)
         ) {
             leave_loop(seq, controller, library, armed, true);
+        } else if seq.current_state
+            == HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload)
+        {
+            // A release while loading the arrow still lowers the bow via the
+            // aim-out instead of snapping to the idle.
+            seq.current_state = HumanAnimationSequence::FireBowSequence(FireBowSequence::End);
+            queue_animation(seq, controller, library, armed, false);
         } else {
             transition_to_desired(seq, controller, library, armed, false);
         }
+        println!(
+            "on_animation_ends current_state({:?}) desired_state({:?})",
+            seq.current_state, seq.desired_state
+        );
         return;
     }
 
@@ -414,13 +410,23 @@ fn on_animation_ends(
         | HumanAnimationSequence::WalkSequence(WalkSequence::End) => {
             transition_to_desired(seq, controller, library, armed, false);
         }
-        // The aim in transition finished: hold the aim and fire
+        // The aim in transition finished: load the next arrow
         HumanAnimationSequence::FireBowSequence(FireBowSequence::Start) => {
             if seq.desired_state.family() == SequenceFamily::FireBow {
-                seq.current_state = HumanAnimationSequence::FireBowSequence(FireBowSequence::Loop);
+                seq.current_state =
+                    HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload);
+            } else {
+                seq.current_state = HumanAnimationSequence::FireBowSequence(FireBowSequence::End);
+            }
+            queue_animation(seq, controller, library, armed, false);
+        }
+        // The arrow loaded: hold the aim and fire
+        HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload) => {
+            if seq.desired_state.family() == SequenceFamily::FireBow {
+                seq.current_state =
+                    HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload);
                 queue_animation(seq, controller, library, armed, false);
                 arrows.write(ArrowShot { shooter: entity });
-                seq.shot_cooldown = SHOT_INTERVAL;
             } else {
                 seq.current_state = HumanAnimationSequence::FireBowSequence(FireBowSequence::End);
                 queue_animation(seq, controller, library, armed, false);
@@ -429,6 +435,10 @@ fn on_animation_ends(
         // Loops and standing stay as they are
         _ => {}
     }
+    println!(
+        "on_animation_ends current_state({:?}) desired_state({:?})",
+        seq.current_state, seq.desired_state
+    );
 }
 
 /// Enters the loop state of the current sequence family; the loop animation
@@ -460,6 +470,7 @@ fn queue_animation(
     interrupt: bool,
 ) {
     let name = seq.current_state.animation_name(armed);
+    println!("queue_animation({name})");
     let Some(handle) = library.animation_handle(name) else {
         warn!("Sequencer animation({name}) is missing from the human animation library");
         return;
@@ -651,9 +662,10 @@ mod tests {
     }
 
     #[test]
-    fn firing_starts_then_shoots_on_aim_in_end() {
+    fn firing_starts_then_loads_then_shoots_on_aim_entry() {
         let (mut world, model, library) = run_sequencer_world(HumanAnimationSequencer::default());
         let aim_in = handle_of(&library, "T_BOWRUN_2_BOWAIM");
+        let reload = handle_of(&library, "T_BOWRELOAD");
         let aim_hold = handle_of(&library, "S_BOWSHOOT");
 
         send_action(
@@ -668,13 +680,30 @@ mod tests {
         );
         assert_eq!(queued_next(&world, model), Some(aim_in.clone()));
 
-        // Aim in finished: hold the aim and fire the first arrow
+        // Aim in finished: load the next arrow, no shot yet
         world.get_mut::<AnimationController>(model).unwrap().current = aim_in.clone();
         send_ends(&mut world, model, aim_in);
         world.run_system_once(run_sequencer).unwrap();
         assert_eq!(
             current_state(&world, model),
-            HumanAnimationSequence::FireBowSequence(FireBowSequence::Loop)
+            HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload)
+        );
+        assert_eq!(queued_next(&world, model), Some(reload.clone()));
+        assert_eq!(
+            world
+                .resource::<Messages<ArrowShot>>()
+                .iter_current_update_messages()
+                .count(),
+            0
+        );
+
+        // Reload finished: hold the aim and fire the arrow
+        world.get_mut::<AnimationController>(model).unwrap().current = reload.clone();
+        send_ends(&mut world, model, reload);
+        world.run_system_once(run_sequencer).unwrap();
+        assert_eq!(
+            current_state(&world, model),
+            HumanAnimationSequence::FireBowSequence(FireBowSequence::Aim)
         );
         assert_eq!(queued_next(&world, model), Some(aim_hold));
         assert_eq!(
@@ -689,10 +718,9 @@ mod tests {
     #[test]
     fn firing_stops_via_aim_out() {
         let (mut world, model, library) = run_sequencer_world(HumanAnimationSequencer {
-            current_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Loop),
-            desired_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Loop),
+            current_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Aim),
+            desired_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Aim),
             desired_action: DesiredAction::RangedFireLocation(Vec3::ONE),
-            shot_cooldown: 1.0,
             ..HumanAnimationSequencer::default()
         });
         let aim_out = handle_of(&library, "T_BOWAIM_2_BOWRUN");
@@ -705,5 +733,42 @@ mod tests {
             HumanAnimationSequence::FireBowSequence(FireBowSequence::End)
         );
         assert_eq!(queued_next(&world, model), Some(aim_out));
+    }
+
+    #[test]
+    fn firing_stops_during_reload_via_aim_out() {
+        let (mut world, model, library) = run_sequencer_world(HumanAnimationSequencer {
+            current_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload),
+            desired_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload),
+            desired_action: DesiredAction::RangedFireLocation(Vec3::ONE),
+            ..HumanAnimationSequencer::default()
+        });
+        let reload = handle_of(&library, "T_BOWRELOAD");
+        let aim_out = handle_of(&library, "T_BOWAIM_2_BOWRUN");
+
+        // Release while loading: the reload one-shot plays out first
+        send_action(&mut world, model, DesiredAction::Stand);
+        world.run_system_once(run_sequencer).unwrap();
+        assert_eq!(
+            current_state(&world, model),
+            HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload)
+        );
+
+        // The reload finished: lower the bow instead of firing
+        world.get_mut::<AnimationController>(model).unwrap().current = reload.clone();
+        send_ends(&mut world, model, reload);
+        world.run_system_once(run_sequencer).unwrap();
+        assert_eq!(
+            current_state(&world, model),
+            HumanAnimationSequence::FireBowSequence(FireBowSequence::End)
+        );
+        assert_eq!(queued_next(&world, model), Some(aim_out));
+        assert_eq!(
+            world
+                .resource::<Messages<ArrowShot>>()
+                .iter_current_update_messages()
+                .count(),
+            0
+        );
     }
 }
