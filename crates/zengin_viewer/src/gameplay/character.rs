@@ -213,13 +213,21 @@ fn update_grounded(
 }
 
 /// Acceleration multiplier while the `Accelerate` action is held.
-const ACCELERATION_MULTIPLIER: Scalar = 5.0;
+pub(crate) const ACCELERATION_MULTIPLIER: Scalar = 5.0;
+
+/// Marks a root motion driven physics body whose animation movement is
+/// currently accelerated (the player holds the `Accelerate` action). Read by
+/// the animation system to scale the animation's root motion.
+#[derive(Component, Debug)]
+pub(crate) struct AcceleratingRootMotion;
 
 /// Responds to the movement [`GameplayAction`]s and moves character controllers accordingly.
 fn movement(
     time: Res<Time>,
+    mut commands: Commands,
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut controllers: Query<(
+        Entity,
         &CharacterMovementSettings,
         &mut LinearVelocity,
         &Transform,
@@ -237,7 +245,18 @@ fn movement(
     let jump_pressed = action_state.just_pressed(&GameplayAction::Jump);
     let accelerating = action_state.pressed(&GameplayAction::Accelerate);
 
-    for (movement, mut linear_velocity, tr, is_grounded, root_motion) in &mut controllers {
+    for (entity, movement, mut linear_velocity, tr, is_grounded, root_motion) in &mut controllers {
+        // Root motion driven characters are moved by the animation itself;
+        // accelerate scales the animation's delta movement instead (read by
+        // the animation system via [`AcceleratingRootMotion`]).
+        if root_motion {
+            if accelerating {
+                commands.entity(entity).insert(AcceleratingRootMotion);
+            } else {
+                commands.entity(entity).remove::<AcceleratingRootMotion>();
+            }
+        }
+
         if is_moving && !root_motion {
             let rot = tr.rotation.to_euler(EulerRot::YXZ);
             let dir = Vec3 {

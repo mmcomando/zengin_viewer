@@ -7,6 +7,7 @@ use bevy::{
     prelude::*,
 };
 
+use crate::gameplay::character::{ACCELERATION_MULTIPLIER, AcceleratingRootMotion};
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::human_animations::{
@@ -254,6 +255,7 @@ pub(crate) fn update_animations(
         With<DistanceNear>,
     >,
     q_vel: Query<&LinearVelocity>,
+    accelerating: Query<(), With<AcceleratingRootMotion>>,
     mut transforms: Query<&mut Transform>,
     mut joints: Query<&mut BoneAnimationData>,
     frustum: Option<Single<&Frustum, With<Camera3d>>>,
@@ -314,9 +316,14 @@ pub(crate) fn update_animations(
                 Some(parent) if q_vel.contains(parent.parent()) => parent.parent(),
                 _ => entity,
             };
+            let speed = if accelerating.contains(target) {
+                ACCELERATION_MULTIPLIER as f32
+            } else {
+                1.0
+            };
             if let Ok(mut transform) = transforms.get_mut(target) {
                 transform.translation +=
-                    global_transform.rotation() * Vec3::Z * update.delta_movement;
+                    global_transform.rotation() * Vec3::Z * update.delta_movement * speed;
             }
         }
 
