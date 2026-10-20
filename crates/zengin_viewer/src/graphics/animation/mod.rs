@@ -11,7 +11,7 @@ mod tests;
 
 use bevy::prelude::*;
 
-pub use components::{AnimatedJoint, AnimationState, BoneAnimationData, FrameState};
+pub use components::{AnimatedJoint, AnimationEnds, AnimationState, BoneAnimationData, FrameState};
 pub use controller::AnimationController;
 pub use data::{AnimationData, AnimationSample};
 pub use npc::NpcAnimations;

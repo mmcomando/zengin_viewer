@@ -3,10 +3,13 @@
 use bevy::prelude::*;
 
 use crate::gameplay::distance::ClassifyDistance;
-use crate::gameplay::objects::PlayerCharacter;
+use crate::gameplay::objects::{NpcModel, PlayerCharacter};
+use crate::graphics::animation::AnimationEnds;
+use crate::graphics::animation::{AnimationController, AnimationData};
 use crate::gui::game_log::{GameLog, GameLogEntry};
 use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
-use crate::zengin::npc_routines::{NpcEquippedWeapon, NpcWeaponMode};
+use crate::zengin::common::choose_animation_scheme;
+use crate::zengin::npc_routines::{AnimationFiles, NpcEquippedWeapon, NpcOverlay, NpcWeaponMode};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
@@ -14,7 +17,7 @@ use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::selection::{Selection, SelectionKind};
 use crate::zengin::world::item_model_path;
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
-use crate::zengin::{GameItem, GameNpc, ZenginVfs};
+use crate::zengin::{GameItem, GameNpc, ZenginVfs, get_animation_path};
 use leafwing_input_manager::prelude::ActionState;
 
 pub struct PlayerInteractionPlugin;
@@ -28,6 +31,7 @@ impl Plugin for PlayerInteractionPlugin {
             Update,
             (
                 melee_swing_hit,
+                npc_hit_reaction_end,
                 handle_npc_death,
                 handle_transfer_items,
                 pickup_selected_item,
@@ -157,17 +161,89 @@ pub struct MeleeHit {
     pub shooter: Entity,
 }
 
+/// Npc currently playing the `T_GOTHIT` hit reaction; carries the animation
+/// handle to resume when the reaction one-shot ends.
+#[derive(Component)]
+struct NpcHitReaction {
+    resume: Handle<AnimationData>,
+}
+
+/// Interrupts the npc animation with the `T_GOTHIT` hit reaction one-shot,
+/// remembering the currently played animation to resume when it ends. A
+/// no-op while a reaction is already playing (no flinch stacking).
+#[allow(clippy::too_many_arguments)]
+fn play_hit_reaction(
+    commands: &mut Commands,
+    npc: Entity,
+    npc_model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    controller: Option<Mut<'_, AnimationController>>,
+    reaction: Option<&NpcHitReaction>,
+    files: &AnimationFiles,
+    handles: &mut MaterialHandles,
+    asset_server: &AssetServer,
+) {
+    if reaction.is_some() {
+        return;
+    }
+    let Some(mut controller) = controller else {
+        return;
+    };
+    let Some(scheme) = npc_model.animation_scheme.as_deref() else {
+        return;
+    };
+    // Base scheme reaction: the weapon overlays have no own `T_GOTHIT`
+    let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
+    let scheme = choose_animation_scheme(scheme, overlay, "T_GOTHIT", &files.0);
+    let path = get_animation_path(scheme, "T_GOTHIT");
+    let resume = controller.current().clone();
+    controller.queue_next(handles.get_animation_handle(asset_server, &path), true);
+    commands.entity(npc).insert(NpcHitReaction { resume });
+}
+
+/// Restores the interrupted animation when the `T_GOTHIT` hit reaction of an
+/// npc ends (see [`play_hit_reaction`]). Without a matching end (the reaction
+/// switch was dropped, e.g. the animation asset was still loading) the next
+/// end of any animation clears the stale flag.
+fn npc_hit_reaction_end(
+    mut ends: MessageReader<AnimationEnds>,
+    mut commands: Commands,
+    mut npcs: Query<(Entity, &NpcHitReaction, &mut AnimationController)>,
+) {
+    for end in ends.read() {
+        let Ok((entity, reaction, mut controller)) = npcs.get_mut(end.who) else {
+            continue;
+        };
+        controller.queue_next(reaction.resume.clone(), true);
+        commands.entity(entity).remove::<NpcHitReaction>();
+    }
+}
+
 /// Applies the melee swing damage to the currently selected npc when a
 /// [`MeleeHit`] arrives. The damage is the drawn weapon's `damagetotal`; a
 /// swing without a selected npc hits nothing. The npc dies when its hitpoints
 /// reach 0.
 fn melee_swing_hit(
+    mut commands: Commands,
     mut hits: MessageReader<MeleeHit>,
     selection: Res<Selection>,
-    npcs: Query<(&GameNpc, &GlobalTransform), Without<PlayerCharacter>>,
+    mut npcs: Query<
+        (
+            &GameNpc,
+            &GlobalTransform,
+            &NpcModel,
+            Option<&NpcOverlay>,
+            Option<&mut AnimationController>,
+            Option<&NpcHitReaction>,
+        ),
+        Without<PlayerCharacter>,
+    >,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     gothic_script: Res<ScriptResource>,
+    files: Res<AnimationFiles>,
+    mut handles: ResMut<MaterialHandles>,
+    asset_server: Res<AssetServer>,
     mut game_log: ResMut<GameLog>,
     mut npc_died: MessageWriter<NpcDied>,
 ) {
@@ -182,7 +258,8 @@ fn melee_swing_hit(
         let Some(target) = selection.target else {
             continue;
         };
-        let Ok((npc, global_tr)) = npcs.get(target) else {
+        let Ok((npc, global_tr, npc_model, overlay, controller, reaction)) = npcs.get_mut(target)
+        else {
             continue;
         };
         let Ok(player_npc) = player_npc.single() else {
@@ -224,6 +301,17 @@ fn melee_swing_hit(
             npc_id.value()
         );
         game_log.add(format!("Dealt {damage} damage"));
+        play_hit_reaction(
+            &mut commands,
+            target,
+            npc_model,
+            overlay,
+            controller,
+            reaction,
+            &files,
+            &mut handles,
+            &asset_server,
+        );
         if hitpoints <= 0 {
             npc_died.write(NpcDied {
                 entity: target,
