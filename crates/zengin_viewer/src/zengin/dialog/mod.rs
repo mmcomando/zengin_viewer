@@ -216,9 +216,12 @@ fn handle_dialog_requests(
     mut requests: MessageReader<DialogRequest>,
     mut dialog_ui: ResMut<DialogUiState>,
     gothic_script: Res<ScriptResource>,
-    mut npcs: Query<&mut Transform, Without<PlayerPhysicsBodyMarker>>,
-    mut player: Query<(Entity, &mut Transform), With<PlayerPhysicsBodyMarker>>,
-    player_visual: Query<Entity, With<PlayerCharacter>>,
+    mut npcs: Query<&mut Transform, (Without<PlayerPhysicsBodyMarker>, Without<PlayerCharacter>)>,
+    player: Query<&Transform, (With<PlayerPhysicsBodyMarker>, Without<PlayerCharacter>)>,
+    mut player_visual: Query<
+        (Entity, &mut Transform),
+        (With<PlayerCharacter>, Without<PlayerPhysicsBodyMarker>),
+    >,
 ) {
     for request in requests.read() {
         match request {
@@ -237,25 +240,30 @@ fn handle_dialog_requests(
                     dialog_ui.close();
                     continue;
                 };
-                let Ok((_, mut player_tr)) = player.single_mut() else {
+                let Ok(player_tr) = player.single() else {
                     continue;
                 };
-                let Ok(player_visual) = player_visual.single() else {
+                let Ok((player_visual_entity, mut player_visual_tr)) = player_visual.single_mut()
+                else {
                     continue;
                 };
                 dialog_ui.open(
                     *npc_entity,
-                    player_visual,
+                    player_visual_entity,
                     *npc_from,
                     *npc_talk_to,
                     npc_name.clone(),
                     roots.iter().map(option_view).collect(),
                 );
                 // Turn both toward each other, the camera is aimed afterwards by
-                // `aim_dialog_camera`
+                // `aim_dialog_camera`. The player visual model is rotated, not
+                // the physics body: the sequencer drives the model facing and
+                // the root motion direction from the model's global rotation,
+                // a stale body yaw would skew post-dialog movement off the
+                // camera direction.
                 if let Ok(mut npc_tr) = npcs.get_mut(*npc_entity) {
                     face_towards(&mut npc_tr, player_tr.translation);
-                    face_towards(&mut player_tr, npc_tr.translation);
+                    face_towards(&mut player_visual_tr, npc_tr.translation);
                 }
             }
             DialogRequest::RefreshRoots {
