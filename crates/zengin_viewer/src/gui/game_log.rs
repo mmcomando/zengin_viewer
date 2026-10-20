@@ -68,7 +68,7 @@ fn spawn_game_log(mut commands: Commands) {
         Node {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
-            bottom: Val::Px(12.0),
+            bottom: Val::Px(36.0),
             ..default()
         },
         Text::new(""),

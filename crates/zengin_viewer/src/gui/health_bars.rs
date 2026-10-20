@@ -53,14 +53,14 @@ impl Plugin for HealthBarsPlugin {
 }
 
 fn spawn_health_bars(mut commands: Commands) {
-    // Player bar, bottom left above the game log
+    // Player bar, bottom left corner; the game log sits above it
     commands
         .spawn((
             PlayerHealthBar,
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Px(12.0),
-                bottom: Val::Px(160.0),
+                bottom: Val::Px(12.0),
                 width: Val::Px(BAR_WIDTH),
                 height: Val::Px(BAR_HEIGHT),
                 border: UiRect::all(Val::Px(1.0)),
