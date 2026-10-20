@@ -487,13 +487,18 @@ fn update_npc_weapon(
         // Work on a plain copy, written back at the end, so the component does
         // not need to exist yet
         let mut tracked = weapon.as_deref().cloned().unwrap_or_default();
-        // Bow and crossbow share the equipped ranged item, the kind is picked
-        // by the slot the model provides
-        let ranged_kind = if slots.crossbow.is_some() {
-            WeaponKind::Crossbow
-        } else {
-            WeaponKind::Bow
-        };
+        // Bow and crossbow share the equipped ranged item; both `ZS_` slots
+        // exist on humanoid models, so the kind is resolved from the item's
+        // symbol name, not from the slot the model provides
+        let ranged_kind = ranged_item
+            .and_then(|item| {
+                let mut script = gothic_scripts.lock();
+                script.get_name_by_id(item.value())
+            })
+            .map(|name| name.to_lowercase())
+            .and_then(|name| WeaponKind::from_symbol_name(&name))
+            .filter(|kind| *kind != WeaponKind::Melee)
+            .unwrap_or(WeaponKind::Bow);
         for (kind, item, mesh) in [
             (WeaponKind::Melee, melee_item, &mut tracked.melee),
             (ranged_kind, ranged_item, &mut tracked.ranged),
