@@ -1,0 +1,3104 @@
+[
+    ("HUMANS-C_BOW_1", []),
+    ("HUMANS-C_BOW_2", []),
+    ("HUMANS-C_BOW_3", []),
+    ("HUMANS-C_BOW_4", []),
+    ("HUMANS-C_BOW_5", []),
+    ("HUMANS-C_BOW_6", []),
+    ("HUMANS-C_BOW_7", []),
+    ("HUMANS-C_BOW_8", []),
+    ("HUMANS-C_BOW_9", []),
+    ("HUMANS-C_CBOW_1", []),
+    ("HUMANS-C_CBOW_2", []),
+    ("HUMANS-C_CBOW_3", []),
+    ("HUMANS-C_CBOW_4", []),
+    ("HUMANS-C_CBOW_5", []),
+    ("HUMANS-C_CBOW_6", []),
+    ("HUMANS-C_CBOW_7", []),
+    ("HUMANS-C_CBOW_8", []),
+    ("HUMANS-C_CBOW_9", []),
+    ("HUMANS-C_IGET_1", []),
+    ("HUMANS-C_IGET_2", []),
+    ("HUMANS-C_IGET_2_STAND_1", []),
+    ("HUMANS-C_IGET_2_STAND_2", []),
+    ("HUMANS-C_IGET_2_STAND_3", []),
+    ("HUMANS-C_IGET_3", []),
+    ("HUMANS-C_LOOK_1", []),
+    ("HUMANS-C_LOOK_2", []),
+    ("HUMANS-C_LOOK_3", []),
+    ("HUMANS-C_LOOK_4", []),
+    ("HUMANS-C_LOOK_5", []),
+    ("HUMANS-C_LOOK_6", []),
+    ("HUMANS-C_LOOK_7", []),
+    ("HUMANS-C_LOOK_8", []),
+    ("HUMANS-C_LOOK_9", []),
+    ("HUMANS-C_ORE_S1_1", []),
+    ("HUMANS-C_ORE_S1_2", []),
+    ("HUMANS-C_ORE_S1_3", []),
+    ("HUMANS-C_ORE_T01_1", []),
+    ("HUMANS-C_ORE_T01_2", []),
+    ("HUMANS-C_ORE_T01_3", []),
+    ("HUMANS-C_ORE_T10_1", []),
+    ("HUMANS-C_ORE_T10_2", []),
+    ("HUMANS-C_ORE_T10_3", []),
+    ("HUMANS-C_POINT_1", []),
+    ("HUMANS-C_POINT_2", []),
+    ("HUMANS-C_POINT_3", []),
+    ("HUMANS-C_POINT_4", []),
+    ("HUMANS-C_POINT_5", []),
+    ("HUMANS-C_POINT_6", []),
+    ("HUMANS-C_POINT_7", []),
+    ("HUMANS-C_POINT_8", []),
+    ("HUMANS-C_POINT_9", []),
+    ("HUMANS-C_STAND_2_IGET_1", []),
+    ("HUMANS-C_STAND_2_IGET_2", []),
+    ("HUMANS-C_STAND_2_IGET_3", []),
+    ("HUMANS-S_1H", [
+        "HUMANS-S_1H",
+        "HUMANS-T_1H_2_1HRUN",
+        "HUMANS_1HST1-T_1H_2_1HRUN",
+        "HUMANS_1HST2-T_1H_2_1HRUN",
+    ]),
+    ("HUMANS-S_1HATTACK", [
+        "HUMANS-S_1HATTACK",
+    ]),
+    ("HUMANS-S_1HRUN", [
+        "HUMANS-S_1HRUN",
+        "HUMANS-T_1HRUN_2_1H",
+        "HUMANS-T_1HRUN_2_1HRUNL",
+        "HUMANS-T_1HRUN_2_1HSNEAK",
+        "HUMANS-T_1HWALK_2_1HWALKL",
+        "HUMANS_1HST1-T_1HRUN_2_1H",
+        "HUMANS_1HST1-T_1HRUN_2_1HRUNL",
+        "HUMANS_1HST1-T_1HRUN_2_1HSNEAK",
+        "HUMANS_1HST1-T_1HWALK_2_1HWALKL",
+        "HUMANS_1HST2-T_1HRUN_2_1H",
+        "HUMANS_1HST2-T_1HRUN_2_1HRUNL",
+        "HUMANS_1HST2-T_1HRUN_2_1HSNEAK",
+        "HUMANS_1HST2-T_1HWALK_2_1HWALKL",
+    ]),
+    ("HUMANS-S_1HRUNL", [
+        "HUMANS-S_1HRUNL",
+        "HUMANS-T_1HRUNL_2_1HRUN",
+        "HUMANS_1HST1-T_1HRUNL_2_1HRUN",
+        "HUMANS_1HST2-T_1HRUNL_2_1HRUN",
+    ]),
+    ("HUMANS-S_1HSNEAK", [
+        "HUMANS-S_1HSNEAK",
+        "HUMANS-T_1HSNEAK_2_1HSNEAKL",
+    ]),
+    ("HUMANS-S_1HSNEAKL", [
+        "HUMANS-S_1HSNEAKL",
+        "HUMANS-T_1HSNEAKL_2_1HSNEAK",
+    ]),
+    ("HUMANS-S_1HWALKL", [
+        "HUMANS-S_1HWALKL",
+        "HUMANS-T_1HWALKL_2_1HWALK",
+        "HUMANS_1HST1-T_1HWALKL_2_1HWALK",
+        "HUMANS_1HST2-T_1HWALKL_2_1HWALK",
+    ]),
+    ("HUMANS-S_2H", [
+        "HUMANS-S_2H",
+        "HUMANS-T_2H_2_2HRUN",
+        "HUMANS_2HST1-T_2H_2_2HRUN",
+        "HUMANS_2HST2-T_2H_2_2HRUN",
+    ]),
+    ("HUMANS-S_2HATTACK", [
+        "HUMANS-S_2HATTACK",
+    ]),
+    ("HUMANS-S_2HRUN", [
+        "HUMANS-S_2HRUN",
+        "HUMANS-T_2HRUN_2_2H",
+        "HUMANS-T_2HRUN_2_2HRUNL",
+        "HUMANS-T_2HRUN_2_2HSNEAK",
+        "HUMANS-T_2HWALK_2_2HWALKL",
+        "HUMANS_2HST1-T_2HRUN_2_2H",
+        "HUMANS_2HST1-T_2HRUN_2_2HRUNL",
+        "HUMANS_2HST1-T_2HRUN_2_2HSNEAK",
+        "HUMANS_2HST1-T_2HWALK_2_2HWALKL",
+        "HUMANS_2HST2-T_2HRUN_2_2H",
+        "HUMANS_2HST2-T_2HRUN_2_2HRUNL",
+        "HUMANS_2HST2-T_2HRUN_2_2HSNEAK",
+        "HUMANS_2HST2-T_2HWALK_2_2HWALKL",
+    ]),
+    ("HUMANS-S_2HRUNL", [
+        "HUMANS-S_2HRUNL",
+        "HUMANS-T_2HRUNL_2_2HRUN",
+        "HUMANS_2HST1-T_2HRUNL_2_2HRUN",
+        "HUMANS_2HST2-T_2HRUNL_2_2HRUN",
+    ]),
+    ("HUMANS-S_2HSNEAK", [
+        "HUMANS-S_2HSNEAK",
+        "HUMANS-T_2HSNEAK_2_2HSNEAKL",
+    ]),
+    ("HUMANS-S_2HSNEAKL", [
+        "HUMANS-S_2HSNEAKL",
+        "HUMANS-T_2HSNEAKL_2_2HSNEAK",
+    ]),
+    ("HUMANS-S_2HWALKL", [
+        "HUMANS-S_2HWALKL",
+        "HUMANS-T_2HWALKL_2_2HWALK",
+        "HUMANS_2HST1-T_2HWALKL_2_2HWALK",
+        "HUMANS_2HST2-T_2HWALKL_2_2HWALK",
+    ]),
+    ("HUMANS-S_BARBQ_S0", [
+        "HUMANS-S_BARBQ_S0",
+        "HUMANS-T_BARBQ_S0_2_S1",
+    ]),
+    ("HUMANS-S_BARBQ_S1", [
+        "HUMANS-S_BARBQ_S1",
+    ]),
+    ("HUMANS-S_BAUMSAEGE_S0", [
+        "HUMANS-S_BAUMSAEGE_S0",
+        "HUMANS-T_BAUMSAEGE_S0_2_S1",
+        "HUMANS-T_BAUMSAEGE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_BAUMSAEGE_S1", [
+        "HUMANS-S_BAUMSAEGE_S1",
+    ]),
+    ("HUMANS-S_BEDHIGH_BACK_S0", [
+        "HUMANS-S_BEDHIGH_BACK_S0",
+        "HUMANS-T_BEDHIGH_BACK_S0_2_S1",
+    ]),
+    ("HUMANS-S_BEDHIGH_BACK_S1", [
+        "HUMANS-S_BEDHIGH_BACK_S1",
+    ]),
+    ("HUMANS-S_BEDHIGH_FRONT_S0", [
+        "HUMANS-S_BEDHIGH_FRONT_S0",
+        "HUMANS-T_BEDHIGH_FRONT_S0_2_S1",
+    ]),
+    ("HUMANS-S_BEDHIGH_FRONT_S1", [
+        "HUMANS-S_BEDHIGH_FRONT_S1",
+    ]),
+    ("HUMANS-S_BENCH_S0", [
+        "HUMANS-S_BENCH_S0",
+        "HUMANS-T_BENCH_S0_2_S1",
+    ]),
+    ("HUMANS-S_BENCH_S1", [
+        "HUMANS-S_BENCH_S1",
+    ]),
+    ("HUMANS-S_BOOK_S0", [
+        "HUMANS-S_BOOK_S0",
+        "HUMANS-T_BOOK_S0_2_S1",
+    ]),
+    ("HUMANS-S_BOOK_S1", [
+        "HUMANS-S_BOOK_S1",
+    ]),
+    ("HUMANS-S_BOW", [
+        "HUMANS-S_BOW",
+        "HUMANS-T_BOW_2_BOWRUN",
+        "HUMANS_BOWT1-T_BOW_2_BOWRUN",
+        "HUMANS_BOWT2-T_BOW_2_BOWRUN",
+    ]),
+    ("HUMANS-S_BOWRUN", [
+        "HUMANS-S_BOWRUN",
+        "HUMANS-T_BOWRUN_2_BOW",
+        "HUMANS-T_BOWRUN_2_BOWAIM",
+        "HUMANS-T_BOWRUN_2_BOWRUNL",
+        "HUMANS-T_BOWRUN_2_BOWSNEAK",
+        "HUMANS-T_BOWWALK_2_BOWWALKL",
+        "HUMANS_BOWT1-T_BOWRUN_2_BOW",
+        "HUMANS_BOWT1-T_BOWRUN_2_BOWAIM",
+        "HUMANS_BOWT2-T_BOWRUN_2_BOW",
+        "HUMANS_BOWT2-T_BOWRUN_2_BOWAIM",
+    ]),
+    ("HUMANS-S_BOWRUNL", [
+        "HUMANS-S_BOWRUNL",
+        "HUMANS-T_BOWRUNL_2_BOWRUN",
+    ]),
+    ("HUMANS-S_BOWSHOOT", [
+        "HUMANS-S_BOWSHOOT",
+        "HUMANS-T_BOWAIM_2_BOWRUN",
+        "HUMANS_BOWT1-T_BOWAIM_2_BOWRUN",
+        "HUMANS_BOWT2-T_BOWAIM_2_BOWRUN",
+    ]),
+    ("HUMANS-S_BOWSNEAK", [
+        "HUMANS-S_BOWSNEAK",
+        "HUMANS-T_BOWSNEAK_2_BOWSNEAKL",
+    ]),
+    ("HUMANS-S_BOWSNEAKL", [
+        "HUMANS-S_BOWSNEAKL",
+        "HUMANS-T_BOWSNEAKL_2_BOWSNEAK",
+    ]),
+    ("HUMANS-S_BOWWALKL", [
+        "HUMANS-S_BOWWALKL",
+        "HUMANS-T_BOWWALKL_2_BOWWALK",
+    ]),
+    ("HUMANS-S_BROOM_S0", [
+        "HUMANS-S_BROOM_S0",
+        "HUMANS-T_BROOM_S0_2_S1",
+        "HUMANS-T_BROOM_S0_2_STAND",
+    ]),
+    ("HUMANS-S_BROOM_S1", [
+        "HUMANS-S_BROOM_S1",
+        "HUMANS-T_BROOM_S1_2_S0",
+    ]),
+    ("HUMANS-S_BRUSH_S0", [
+        "HUMANS-S_BRUSH_S0",
+        "HUMANS-T_BRUSH_S0_2_S1",
+        "HUMANS-T_BRUSH_S0_2_STAND",
+    ]),
+    ("HUMANS-S_BRUSH_S1", [
+        "HUMANS-S_BRUSH_S1",
+    ]),
+    ("HUMANS-S_BSANVIL_S0", [
+        "HUMANS-S_BSANVIL_S0",
+        "HUMANS-T_BSANVIL_S0_2_S1",
+        "HUMANS-T_BSANVIL_S0_2_STAND",
+    ]),
+    ("HUMANS-S_BSANVIL_S1", [
+        "HUMANS-S_BSANVIL_S1",
+        "HUMANS-T_BSANVIL_S1_2_S0",
+    ]),
+    ("HUMANS-S_BSCOOL_S0", [
+        "HUMANS-S_BSCOOL_S0",
+        "HUMANS-T_BSCOOL_S0_2_S1",
+        "HUMANS-T_BSCOOL_S0_2_STAND",
+    ]),
+    ("HUMANS-S_BSCOOL_S1", [
+        "HUMANS-S_BSCOOL_S1",
+        "HUMANS-T_BSCOOL_S1_2_S0",
+    ]),
+    ("HUMANS-S_BSFIRE_S0", [
+        "HUMANS-S_BSFIRE_S0",
+        "HUMANS-T_BSFIRE_S0_2_S1",
+        "HUMANS-T_BSFIRE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_BSFIRE_S1", [
+        "HUMANS-S_BSFIRE_S1",
+        "HUMANS-T_BSFIRE_S1_2_S0",
+    ]),
+    ("HUMANS-S_BSSHARP_S0", [
+        "HUMANS-S_BSSHARP_S0",
+        "HUMANS-T_BSSHARP_S0_2_S1",
+        "HUMANS-T_BSSHARP_S0_2_STAND",
+    ]),
+    ("HUMANS-S_BSSHARP_S1", [
+        "HUMANS-S_BSSHARP_S1",
+        "HUMANS-T_BSSHARP_S1_2_S0",
+    ]),
+    ("HUMANS-S_CAULDRON_S0", [
+        "HUMANS-S_CAULDRON_S0",
+        "HUMANS-T_CAULDRON_S0_2_S1",
+        "HUMANS-T_CAULDRON_S0_2_STAND",
+    ]),
+    ("HUMANS-S_CAULDRON_S1", [
+        "HUMANS-S_CAULDRON_S1",
+    ]),
+    ("HUMANS-S_CBOW", [
+        "HUMANS-S_CBOW",
+        "HUMANS-T_CBOW_2_CBOWRUN",
+        "HUMANS_CBOWT1-T_CBOW_2_CBOWRUN",
+        "HUMANS_CBOWT2-T_CBOW_2_CBOWRUN",
+    ]),
+    ("HUMANS-S_CBOWRUN", [
+        "HUMANS-S_CBOWRUN",
+        "HUMANS-T_CBOWRUN_2_CBOW",
+        "HUMANS-T_CBOWRUN_2_CBOWAIM",
+        "HUMANS-T_CBOWRUN_2_CBOWRUNL",
+        "HUMANS-T_CBOWRUN_2_CBOWSNEAK",
+        "HUMANS-T_CBOWWALK_2_CBOWWALKL",
+        "HUMANS_CBOWT1-T_CBOWRUN_2_CBOW",
+        "HUMANS_CBOWT1-T_CBOWRUN_2_CBOWAIM",
+        "HUMANS_CBOWT2-T_CBOWRUN_2_CBOW",
+        "HUMANS_CBOWT2-T_CBOWRUN_2_CBOWAIM",
+    ]),
+    ("HUMANS-S_CBOWRUNL", [
+        "HUMANS-S_CBOWRUNL",
+        "HUMANS-T_CBOWRUNL_2_CBOWRUN",
+    ]),
+    ("HUMANS-S_CBOWSHOOT", [
+        "HUMANS-S_CBOWSHOOT",
+    ]),
+    ("HUMANS-S_CBOWSNEAK", [
+        "HUMANS-S_CBOWSNEAK",
+        "HUMANS-T_CBOWSNEAK_2_CBOWSNEAKL",
+    ]),
+    ("HUMANS-S_CBOWSNEAKL", [
+        "HUMANS-S_CBOWSNEAKL",
+        "HUMANS-T_CBOWSNEAKL_2_CBOWSNEAK",
+    ]),
+    ("HUMANS-S_CBOWWALKL", [
+        "HUMANS-S_CBOWWALKL",
+        "HUMANS-T_CBOWWALKL_2_CBOWWALK",
+    ]),
+    ("HUMANS-S_CELLO_S0", [
+        "HUMANS-S_CELLO_S0",
+        "HUMANS-T_CELLO_S0_2_S1",
+        "HUMANS-T_CELLO_S0_2_STAND",
+    ]),
+    ("HUMANS-S_CELLO_S1", [
+        "HUMANS-S_CELLO_S1",
+        "HUMANS-T_CELLO_S1_2_S0",
+    ]),
+    ("HUMANS-S_CHAIR_S0", [
+        "HUMANS-S_CHAIR_S0",
+        "HUMANS-T_CHAIR_S0_2_S1",
+    ]),
+    ("HUMANS-S_CHAIR_S1", [
+        "HUMANS-S_CHAIR_S1",
+    ]),
+    ("HUMANS-S_CHESTBIG_S0", [
+        "HUMANS-S_CHESTBIG_S0",
+        "HUMANS-T_CHESTBIG_S0_2_S1",
+    ]),
+    ("HUMANS-S_CHESTBIG_S1", [
+        "HUMANS-S_CHESTBIG_S1",
+        "HUMANS-T_CHESTBIG_S1_2_S0",
+    ]),
+    ("HUMANS-S_CHESTSMALL_S0", [
+        "HUMANS-S_CHESTSMALL_S0",
+        "HUMANS-T_CHESTSMALL_S0_2_S1",
+    ]),
+    ("HUMANS-S_CHESTSMALL_S1", [
+        "HUMANS-S_CHESTSMALL_S1",
+        "HUMANS-T_CHESTSMALL_S1_2_S0",
+    ]),
+    ("HUMANS-S_DEAD", [
+        "HUMANS-S_DEAD",
+        "HUMANS-T_DEAD",
+        "HUMANS_SKELETON-T_DEAD",
+    ]),
+    ("HUMANS-S_DEADB", [
+        "HUMANS-S_DEADB",
+        "HUMANS-T_DEADB",
+    ]),
+    ("HUMANS-S_DIVE", [
+        "HUMANS-S_DIVE",
+        "HUMANS-T_DIVE_2_DROWNED",
+    ]),
+    ("HUMANS-S_DIVEF", [
+        "HUMANS-S_DIVEF",
+    ]),
+    ("HUMANS-S_DOOR_BACK_S0", [
+        "HUMANS-S_DOOR_BACK_S0",
+        "HUMANS-T_DOOR_BACK_S0_2_S1",
+    ]),
+    ("HUMANS-S_DOOR_BACK_S1", [
+        "HUMANS-S_DOOR_BACK_S1",
+        "HUMANS-T_DOOR_BACK_S1_2_S0",
+        "HUMANS-T_DOOR_BACK_S1_2_STAND",
+    ]),
+    ("HUMANS-S_DOOR_FRONT_S0", [
+        "HUMANS-S_DOOR_FRONT_S0",
+        "HUMANS-T_DOOR_FRONT_S0_2_S1",
+    ]),
+    ("HUMANS-S_DOOR_FRONT_S1", [
+        "HUMANS-S_DOOR_FRONT_S1",
+        "HUMANS-T_DOOR_FRONT_S1_2_S0",
+        "HUMANS-T_DOOR_FRONT_S1_2_STAND",
+    ]),
+    ("HUMANS-S_DROWNED", [
+        "HUMANS-S_DROWNED",
+    ]),
+    ("HUMANS-S_DRUMSCHEIT_S0", [
+        "HUMANS-S_DRUMSCHEIT_S0",
+        "HUMANS-T_DRUMSCHEIT_S0_2_S1",
+        "HUMANS-T_DRUMSCHEIT_S0_2_STAND",
+    ]),
+    ("HUMANS-S_DRUMSCHEIT_S1", [
+        "HUMANS-S_DRUMSCHEIT_S1",
+        "HUMANS-T_DRUMSCHEIT_S1_2_S0",
+    ]),
+    ("HUMANS-S_DUDEL_S0", [
+        "HUMANS-S_DUDEL_S0",
+        "HUMANS-T_DUDEL_S0_2_S1",
+        "HUMANS-T_DUDEL_S0_2_STAND",
+    ]),
+    ("HUMANS-S_DUDEL_S1", [
+        "HUMANS-S_DUDEL_S1",
+        "HUMANS-T_DUDEL_S1_2_S0",
+    ]),
+    ("HUMANS-S_FALL", [
+        "HUMANS-S_FALL",
+        "HUMANS-T_FALL_2_FALLEN",
+        "HUMANS_ACROBATIC-T_FALL_2_DIVE",
+        "HUMANS_ACROBATIC-T_FALL_2_FALLEN",
+    ]),
+    ("HUMANS-S_FALLB", [
+        "HUMANS-S_FALLB",
+        "HUMANS-T_FALLB_2_FALLENB",
+        "HUMANS_ACROBATIC-T_FALLB_2_DIVE",
+        "HUMANS_ACROBATIC-T_FALLB_2_FALLENB",
+    ]),
+    ("HUMANS-S_FALLDN", [
+        "HUMANS-S_FALLDN",
+        "HUMANS-T_FALLDN_2_STAND",
+        "HUMANS_ACROBATIC-T_FALLDN_2_DIVE",
+        "HUMANS_ACROBATIC-T_FALLDN_2_FALL",
+        "HUMANS_ACROBATIC-T_FALLDN_2_FALLB",
+        "HUMANS_ACROBATIC-T_FALLDN_2_RUNL",
+        "HUMANS_ACROBATIC-T_FALLDN_2_STAND",
+    ]),
+    ("HUMANS-S_FALLEN", [
+        "HUMANS-S_FALLEN",
+        "HUMANS-T_FALLEN_2_STAND",
+    ]),
+    ("HUMANS-S_FALLENB", [
+        "HUMANS-S_FALLENB",
+        "HUMANS-T_FALLENB_2_STAND",
+        "HUMANS_ACROBATIC-T_FALLENB_2_STAND",
+    ]),
+    ("HUMANS-S_FEAR_VICTIM1", [
+        "HUMANS-T_FEAR_VICTIM_2_STAND",
+    ]),
+    ("HUMANS-S_FEAR_VICTIM2", [
+        "HUMANS-T_FEAR_VICTIM_2_STAND",
+    ]),
+    ("HUMANS-S_FEAR_VICTIM3", [
+        "HUMANS-T_FEAR_VICTIM_2_STAND",
+    ]),
+    ("HUMANS-S_FEASHOOT", [
+        "HUMANS-S_FEASHOOT",
+        "HUMANS-T_FEASHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_FIBCAST", [
+        "HUMANS-S_FIBCAST",
+        "HUMANS-T_FIBCAST_2_FIBSHOOT",
+    ]),
+    ("HUMANS-S_FIBSHOOT", [
+        "HUMANS-S_FIBSHOOT",
+        "HUMANS-T_FIBSHOOT_2_STAND",
+        "HUMANS_SKELETON_FLY-T_FBTSHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_FIRESPIT_S0", [
+        "HUMANS-S_FIRESPIT_S0",
+        "HUMANS-T_FIRESPIT_S0_2_S1",
+        "HUMANS-T_FIRESPIT_S0_2_STAND",
+    ]),
+    ("HUMANS-S_FIRESPIT_S1", [
+        "HUMANS-S_FIRESPIT_S1",
+        "HUMANS-T_FIRESPIT_S1_2_S2",
+    ]),
+    ("HUMANS-S_FIRESPIT_S2", [
+        "HUMANS-S_FIRESPIT_S2",
+        "HUMANS-T_FIRESPIT_S2_2_S3",
+    ]),
+    ("HUMANS-S_FIRESPIT_S3", [
+        "HUMANS-S_FIRESPIT_S3",
+        "HUMANS-T_FIRESPIT_S3_2_S4",
+    ]),
+    ("HUMANS-S_FIRESPIT_S4", [
+        "HUMANS-S_FIRESPIT_S4",
+        "HUMANS-T_FIRESPIT_S4_2_STAND",
+    ]),
+    ("HUMANS-S_FIRE_VICTIM", [
+        "HUMANS-S_FIRE_VICTIM",
+    ]),
+    ("HUMANS-S_FIST", [
+        "HUMANS-S_FIST",
+        "HUMANS-T_FIST_2_FISTRUN",
+    ]),
+    ("HUMANS-S_FISTATTACK", [
+        "HUMANS-S_FISTATTACK",
+    ]),
+    ("HUMANS-S_FISTRUN", [
+        "HUMANS-S_FISTRUN",
+        "HUMANS-T_FISTRUN_2_FIST",
+        "HUMANS-T_FISTRUN_2_FISTRUNL",
+        "HUMANS-T_FISTWALK_2_FISTWALKL",
+        "HUMANS_SKELETON_FLY-T_MAGRUN_2_FBTSHOOT",
+        "HUMANS_SKELETON_FLY-T_MAGRUN_2_MAG",
+        "HUMANS_SKELETON_FLY-T_RUN_2_MAG",
+    ]),
+    ("HUMANS-S_FISTRUNL", [
+        "HUMANS-S_FISTRUNL",
+        "HUMANS-T_FISTRUNL_2_FISTRUN",
+    ]),
+    ("HUMANS-S_FISTWALKL", [
+        "HUMANS-S_FISTWALKL",
+        "HUMANS-T_FISTWALKL_2_FISTWALK",
+    ]),
+    ("HUMANS-S_FOODHUGE_S0", [
+        "HUMANS-S_FOODHUGE_S0",
+        "HUMANS-T_FOODHUGE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_FOOD_S0", [
+        "HUMANS-S_FOOD_S0",
+        "HUMANS-T_FOOD_S0_2_STAND",
+    ]),
+    ("HUMANS-S_FREEZE_VICTIM", [
+        "HUMANS-S_FREEZE_VICTIM",
+    ]),
+    ("HUMANS-S_FRZSHOOT", [
+        "HUMANS-S_FRZSHOOT",
+        "HUMANS-T_FRZSHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_GRAVE_S0", [
+        "HUMANS-S_GRAVE_S0",
+        "HUMANS-T_GRAVE_S0_2_S1",
+    ]),
+    ("HUMANS-S_GRAVE_S1", [
+        "HUMANS-S_GRAVE_S1",
+        "HUMANS-T_GRAVE_S1_2_STAND",
+    ]),
+    ("HUMANS-S_GREENTENTACLEA_VICTIM", [
+        "HUMANS-S_GREENTENTACLEA_VICTIM",
+        "HUMANS-T_GREENTENTACLEA_VICTIM_2_STAND",
+    ]),
+    ("HUMANS-S_GREENTENTACLEB_VICTIM", [
+        "HUMANS-S_GREENTENTACLEB_VICTIM",
+        "HUMANS-T_GREENTENTACLEB_VICTIM_2_STAND",
+    ]),
+    ("HUMANS-S_GREENTENTACLEC_VICTIM", [
+        "HUMANS-S_GREENTENTACLEC_VICTIM",
+        "HUMANS-T_GREENTENTACLEC_VICTIM_2_STAND",
+    ]),
+    ("HUMANS-S_HANG", [
+        "HUMANS-S_HANG",
+        "HUMANS-T_HANG_2_STAND",
+    ]),
+    ("HUMANS-S_HARFE_S0", [
+        "HUMANS-S_HARFE_S0",
+        "HUMANS-T_HARFE_S0_2_S1",
+        "HUMANS-T_HARFE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_HARFE_S1", [
+        "HUMANS-S_HARFE_S1",
+        "HUMANS-T_HARFE_S1_2_S0",
+    ]),
+    ("HUMANS-S_HEASHOOT", [
+        "HUMANS-S_HEASHOOT",
+        "HUMANS-T_HEASHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_HERB_S0", [
+        "HUMANS-S_HERB_S0",
+        "HUMANS-T_HERB_S0_2_S1",
+        "HUMANS-T_HERB_S0_2_STAND",
+    ]),
+    ("HUMANS-S_HERB_S1", [
+        "HUMANS-S_HERB_S1",
+        "HUMANS-T_HERB_S1_2_S0",
+    ]),
+    ("HUMANS-S_HGUARD", [
+        "HUMANS-S_HGUARD",
+        "HUMANS-T_HGUARD_2_STAND",
+    ]),
+    ("HUMANS-S_HORN_S0", [
+        "HUMANS-S_HORN_S0",
+        "HUMANS-T_HORN_S0_2_S1",
+        "HUMANS-T_HORN_S0_2_STAND",
+    ]),
+    ("HUMANS-S_HORN_S1", [
+        "HUMANS-S_HORN_S1",
+        "HUMANS-T_HORN_S1_2_STAND",
+    ]),
+    ("HUMANS-S_IDOL_S0", [
+        "HUMANS-S_IDOL_S0",
+        "HUMANS-T_IDOL_S0_2_S1",
+    ]),
+    ("HUMANS-S_IDOL_S1", [
+        "HUMANS-S_IDOL_S1",
+    ]),
+    ("HUMANS-S_IDROP", [
+        "HUMANS-S_IDROP",
+        "HUMANS-T_IDROP_2_STAND",
+    ]),
+    ("HUMANS-S_IELAUTE_S0", [
+        "HUMANS-S_IELAUTE_S0",
+        "HUMANS-T_IELAUTE_S0_2_S1",
+        "HUMANS-T_IELAUTE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_IELAUTE_S1", [
+        "HUMANS-S_IELAUTE_S1",
+        "HUMANS-T_IELAUTE_S1_2_S0",
+    ]),
+    ("HUMANS-S_INFLATE_VICTIM", [
+        "HUMANS-S_INFLATE_VICTIM",
+        "HUMANS-T_INFLATE_VICTIM_2_STAND",
+    ]),
+    ("HUMANS-S_INNOS_S0", [
+        "HUMANS-S_INNOS_S0",
+        "HUMANS-T_INNOS_S0_2_S1",
+        "HUMANS-T_INNOS_S0_2_STAND",
+    ]),
+    ("HUMANS-S_INNOS_S1", [
+        "HUMANS-S_INNOS_S1",
+        "HUMANS-T_INNOS_S1_2_S0",
+    ]),
+    ("HUMANS-S_JOINT_S0", [
+        "HUMANS-S_JOINT_S0",
+        "HUMANS-T_JOINT_S0_2_STAND",
+    ]),
+    ("HUMANS-S_JUMP", [
+        "HUMANS-S_JUMP",
+        "HUMANS-T_JUMP_2_HANG",
+        "HUMANS-T_JUMP_2_STAND",
+        "HUMANS_ACROBATIC-T_JUMP_2_FALLDN",
+        "HUMANS_ACROBATIC-T_JUMP_2_RUNL",
+        "HUMANS_ACROBATIC-T_JUMP_2_STAND",
+    ]),
+    ("HUMANS-S_JUMPUP", [
+        "HUMANS-S_JUMPUP",
+    ]),
+    ("HUMANS-S_JUMPUPLOW", [
+        "HUMANS-T_JUMPUPLOW_2_STAND",
+    ]),
+    ("HUMANS-S_JUMPUPMID", [
+        "HUMANS-T_JUMPUPMID_2_STAND",
+    ]),
+    ("HUMANS-S_LAB_S0", [
+        "HUMANS-S_LAB_S0",
+        "HUMANS-T_LAB_S0_2_S1",
+        "HUMANS-T_LAB_S0_2_STAND",
+    ]),
+    ("HUMANS-S_LAB_S1", [
+        "HUMANS-S_LAB_S1",
+        "HUMANS-T_LAB_S1_2_S0",
+    ]),
+    ("HUMANS-S_LADDER_S0", [
+        "HUMANS-S_LADDER_S0",
+        "HUMANS-T_LADDER_S0_2_S1",
+        "HUMANS-T_LADDER_S1_2_STAND",
+    ]),
+    ("HUMANS-S_LEVER_S0", [
+        "HUMANS-S_LEVER_S0",
+        "HUMANS-T_LEVER_S0_2_S1",
+    ]),
+    ("HUMANS-S_LEVER_S1", [
+        "HUMANS-S_LEVER_S1",
+        "HUMANS-T_LEVER_S1_2_STAND",
+    ]),
+    ("HUMANS-S_LGUARD", [
+        "HUMANS-S_LGUARD",
+        "HUMANS-T_LGUARD_2_STAND",
+    ]),
+    ("HUMANS-S_LIGHTNING_VICTIM", [
+        "HUMANS-S_LIGHTNING_VICTIM",
+    ]),
+    ("HUMANS-S_LUTE_S0", [
+        "HUMANS-S_LUTE_S0",
+        "HUMANS-T_LUTE_S0_2_S1",
+        "HUMANS-T_LUTE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_LUTE_S1", [
+        "HUMANS-S_LUTE_S1",
+        "HUMANS-T_LUTE_S1_2_S0",
+    ]),
+    ("HUMANS-S_MAG", [
+        "HUMANS-S_MAG",
+        "HUMANS-T_MAG_2_MAGRUN",
+        "HUMANS_SKELETON_FLY-T_MAG_2_MAGRUN",
+    ]),
+    ("HUMANS-S_MAGRUN", [
+        "HUMANS-S_MAGRUN",
+        "HUMANS-T_MAGRUN_2_FEASHOOT",
+        "HUMANS-T_MAGRUN_2_FIBCAST",
+        "HUMANS-T_MAGRUN_2_FRZSHOOT",
+        "HUMANS-T_MAGRUN_2_HEASHOOT",
+        "HUMANS-T_MAGRUN_2_MAG",
+        "HUMANS-T_MAGRUN_2_MAGRUNL",
+        "HUMANS-T_MAGRUN_2_MSDSHOOT",
+        "HUMANS-T_MAGRUN_2_PYRSHOOT",
+        "HUMANS-T_MAGRUN_2_SCKSHOOT",
+        "HUMANS-T_MAGRUN_2_SLESHOOT",
+        "HUMANS-T_MAGRUN_2_STMSHOOT",
+        "HUMANS-T_MAGRUN_2_SUMSHOOT",
+        "HUMANS-T_MAGRUN_2_TRFSHOOT",
+        "HUMANS-T_MAGRUN_2_WHISHOOT",
+        "HUMANS-T_MAGRUN_2_WNDCAST",
+        "HUMANS-T_MAGWALK_2_MAGWALKL",
+    ]),
+    ("HUMANS-S_MAGRUNL", [
+        "HUMANS-S_MAGRUNL",
+        "HUMANS-T_MAGRUNL_2_MAGRUN",
+    ]),
+    ("HUMANS-S_MAGWALKL", [
+        "HUMANS-S_MAGWALKL",
+        "HUMANS-T_MAGWALKL_2_MAGWALK",
+    ]),
+    ("HUMANS-S_MAP_S0", [
+        "HUMANS-S_MAP_S0",
+        "HUMANS-T_MAPSEALED_S0_2_STAND",
+        "HUMANS-T_MAP_S0_2_STAND",
+    ]),
+    ("HUMANS-S_MEAT_S0", [
+        "HUMANS-S_MEAT_S0",
+        "HUMANS-T_MEAT_S0_2_STAND",
+    ]),
+    ("HUMANS-S_MSDSHOOT", [
+        "HUMANS-S_MSDSHOOT",
+        "HUMANS-T_MSDSHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_ORE_S0", [
+        "HUMANS-S_ORE_S0",
+        "HUMANS-T_ORE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_PAN_S0", [
+        "HUMANS-S_PAN_S0",
+        "HUMANS-T_PAN_S0_2_S1",
+    ]),
+    ("HUMANS-S_PAN_S1", [
+        "HUMANS-S_PAN_S1",
+        "HUMANS-T_PAN_S1_2_S0",
+    ]),
+    ("HUMANS-S_PAUKE_S0", [
+        "HUMANS-S_PAUKE_S0",
+        "HUMANS-T_PAUKE_S0_2_S1",
+        "HUMANS-T_PAUKE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_PAUKE_S1", [
+        "HUMANS-S_PAUKE_S1",
+        "HUMANS-T_PAUKE_S1_2_S0",
+    ]),
+    ("HUMANS-S_PEE", [
+        "HUMANS-S_PEE",
+        "HUMANS-T_PEE_2_STAND",
+    ]),
+    ("HUMANS-S_POTIONFAST_S0", [
+        "HUMANS-S_POTIONFAST_S0",
+        "HUMANS-T_POTIONFAST_S0_2_STAND",
+    ]),
+    ("HUMANS-S_POTION_S0", [
+        "HUMANS-S_POTION_S0",
+        "HUMANS-T_POTION_S0_2_STAND",
+    ]),
+    ("HUMANS-S_PRAY", [
+        "HUMANS-S_PRAY",
+    ]),
+    ("HUMANS-S_PYRSHOOT", [
+        "HUMANS-S_PYRSHOOT",
+        "HUMANS-T_PYRSHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_RAKE_S0", [
+        "HUMANS-S_RAKE_S0",
+        "HUMANS-T_RAKE_S0_2_S1",
+        "HUMANS-T_RAKE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_RAKE_S1", [
+        "HUMANS-S_RAKE_S1",
+        "HUMANS-T_RAKE_S1_2_S0",
+    ]),
+    ("HUMANS-S_REPAIR_S0", [
+        "HUMANS-S_REPAIR_S0",
+        "HUMANS-T_REPAIR_S0_2_S1",
+        "HUMANS-T_REPAIR_S0_2_STAND",
+    ]),
+    ("HUMANS-S_REPAIR_S1", [
+        "HUMANS-S_REPAIR_S1",
+    ]),
+    ("HUMANS-S_RICE_S0", [
+        "HUMANS-S_RICE_S0",
+        "HUMANS-T_RICE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_RMAKER_S0", [
+        "HUMANS-S_RMAKER_S0",
+        "HUMANS-T_RMAKER_S0_2_S1",
+        "HUMANS-T_RMAKER_S0_2_STAND",
+    ]),
+    ("HUMANS-S_RMAKER_S1", [
+        "HUMANS-S_RMAKER_S1",
+        "HUMANS-T_RMAKER_S1_2_S0",
+    ]),
+    ("HUMANS-S_RUN", [
+        "HUMANS-S_RUN",
+        "HUMANS-T_RUN_2_1H",
+        "HUMANS-T_RUN_2_2H",
+        "HUMANS-T_RUN_2_BOW",
+        "HUMANS-T_RUN_2_CBOW",
+        "HUMANS-T_RUN_2_FIST",
+        "HUMANS-T_RUN_2_MAG",
+        "HUMANS-T_RUN_2_RUNL",
+        "HUMANS-T_RUN_2_SNEAK",
+        "HUMANS-T_WALK_2_WALKL",
+        "HUMANS-T_WALK_2_WALKWL",
+        "HUMANS_1HST1-T_RUN_2_1H",
+        "HUMANS_1HST2-T_RUN_2_1H",
+        "HUMANS_2HST1-T_RUN_2_2H",
+        "HUMANS_2HST2-T_RUN_2_2H",
+        "HUMANS_ARROGANCE-T_WALK_2_WALKL",
+        "HUMANS_BABE-T_RUN_2_RUNL",
+        "HUMANS_BABE-T_WALK_2_WALKL",
+        "HUMANS_BOWT1-T_RUN_2_BOW",
+        "HUMANS_BOWT2-T_RUN_2_BOW",
+        "HUMANS_CBOWT1-T_RUN_2_CBOW",
+        "HUMANS_CBOWT2-T_RUN_2_CBOW",
+        "HUMANS_FLEE-T_RUN_2_RUNL",
+        "HUMANS_MAGE-T_WALK_2_WALKL",
+        "HUMANS_MILITIA-T_WALK_2_WALKL",
+        "HUMANS_RELAXED-T_WALK_2_WALKL",
+        "HUMANS_SPRINT-T_RUN_2_RUNL",
+        "HUMANS_TIRED-T_WALK_2_WALKL",
+        "HUMANS_TORCH-T_RUN_2_RUNL",
+        "HUMANS_TORCH-T_WALK_2_WALKL",
+    ]),
+    ("HUMANS-S_RUNL", [
+        "HUMANS-S_RUNL",
+        "HUMANS-T_RUNL_2_JUMP",
+        "HUMANS-T_RUNL_2_RUN",
+        "HUMANS_ACROBATIC-T_RUNL_2_JUMP",
+        "HUMANS_BABE-T_RUNL_2_RUN",
+        "HUMANS_FLEE-T_RUNL_2_RUN",
+        "HUMANS_SPRINT-T_RUNL_2_RUN",
+        "HUMANS_TORCH-T_RUNL_2_RUN",
+    ]),
+    ("HUMANS-S_SCKSHOOT", [
+        "HUMANS-S_SCKSHOOT",
+        "HUMANS-T_SCKSHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_SDW_S0", [
+        "HUMANS-S_SDW_S0",
+        "HUMANS-T_SDW_S0_2_S1",
+        "HUMANS-T_SDW_S0_2_STAND",
+    ]),
+    ("HUMANS-S_SDW_S1", [
+        "HUMANS-S_SDW_S1",
+        "HUMANS-T_SDW_S1_2_S0",
+    ]),
+    ("HUMANS-S_SIT", [
+        "HUMANS-S_SIT",
+    ]),
+    ("HUMANS-S_SLEEPGROUND", [
+        "HUMANS-S_SLEEPGROUND",
+        "HUMANS-T_SLEEPGROUND_2_STAND",
+    ]),
+    ("HUMANS-S_SLESHOOT", [
+        "HUMANS-S_SLESHOOT",
+        "HUMANS-T_SLESHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_SLIDE", [
+        "HUMANS-S_SLIDE",
+    ]),
+    ("HUMANS-S_SLIDEB", [
+        "HUMANS-S_SLIDEB",
+    ]),
+    ("HUMANS-S_SMOKE_S0", [
+        "HUMANS-S_SMOKE_S0",
+        "HUMANS-T_SMOKE_S0_2_S1",
+    ]),
+    ("HUMANS-S_SMOKE_S1", [
+        "HUMANS-S_SMOKE_S1",
+    ]),
+    ("HUMANS-S_SNEAK", [
+        "HUMANS-S_SNEAK",
+        "HUMANS-T_SNEAK_2_SNEAKL",
+        "HUMANS_TORCH-T_SNEAK_2_SNEAKL",
+    ]),
+    ("HUMANS-S_SNEAKL", [
+        "HUMANS-S_SNEAKL",
+        "HUMANS-T_SNEAKL_2_SNEAK",
+        "HUMANS_TORCH-T_SNEAKL_2_SNEAK",
+    ]),
+    ("HUMANS-S_STMSHOOT", [
+        "HUMANS-S_STMSHOOT",
+        "HUMANS-T_STMSHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_STOVE_S0", [
+        "HUMANS-S_STOVE_S0",
+        "HUMANS-T_STOVE_S0_2_S1",
+        "HUMANS-T_STOVE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_STOVE_S1", [
+        "HUMANS-S_STOVE_S1",
+        "HUMANS-T_STOVE_S1_2_S0",
+    ]),
+    ("HUMANS-S_SUCKENERGY_VICTIM", [
+        "HUMANS-T_SUCKENERGY_VICTIM_2_STAND",
+    ]),
+    ("HUMANS-S_SUMSHOOT", [
+        "HUMANS-S_SUMSHOOT",
+        "HUMANS-T_SUMSHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_SWARM_VICTIM", [
+        "HUMANS-S_SWARM_VICTIM",
+        "HUMANS-T_SWARM_VICTIM_2_STAND",
+    ]),
+    ("HUMANS-S_SWIM", [
+        "HUMANS-S_SWIM",
+        "HUMANS-T_SWIM_2_DIVE",
+        "HUMANS-T_SWIM_2_HANG",
+    ]),
+    ("HUMANS-S_SWIMB", [
+        "HUMANS-S_SWIMB",
+    ]),
+    ("HUMANS-S_SWIMF", [
+        "HUMANS-S_SWIMF",
+    ]),
+    ("HUMANS-S_THRONE_S0", [
+        "HUMANS-S_THRONE_S0",
+        "HUMANS-T_THRONE_S0_2_S1",
+        "HUMANS-T_THRONE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_THRONE_S1", [
+        "HUMANS-S_THRONE_S1",
+    ]),
+    ("HUMANS-S_TOUCHPLATE_S0", [
+        "HUMANS-S_TOUCHPLATE_S0",
+        "HUMANS-T_TOUCHPLATE_S0_2_S1",
+    ]),
+    ("HUMANS-S_TOUCHPLATE_S1", [
+        "HUMANS-S_TOUCHPLATE_S1",
+    ]),
+    ("HUMANS-S_TREASURE_S0", [
+        "HUMANS-T_TREASURE_S0_2_S1",
+        "HUMANS-T_TREASURE_S0_2_STAND",
+    ]),
+    ("HUMANS-S_TREASURE_S1", [
+        "HUMANS-T_TREASURE_S0_2_STAND",
+        "HUMANS-T_TREASURE_S1_2_STAND",
+    ]),
+    ("HUMANS-S_TREASURE_S2", [
+        "HUMANS-S_TREASURE_S3",
+    ]),
+    ("HUMANS-S_TREASURE_S3", [
+        "HUMANS-S_TREASURE_S4",
+    ]),
+    ("HUMANS-S_TREASURE_S4", [
+        "HUMANS-S_TREASURE_S0",
+    ]),
+    ("HUMANS-S_TRFSHOOT", [
+        "HUMANS-S_TRFSHOOT",
+        "HUMANS-T_TRFSHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_TURNSWITCH_S0", [
+        "HUMANS-S_TURNSWITCH_S0",
+        "HUMANS-T_TURNSWITCH_S0_2_S1",
+    ]),
+    ("HUMANS-S_TURNSWITCH_S1", [
+        "HUMANS-S_TURNSWITCH_S1",
+    ]),
+    ("HUMANS-S_VICTIM_SLE", [
+        "HUMANS-S_VICTIM_SLE",
+        "HUMANS-T_VICTIM_SLE_2_STAND",
+    ]),
+    ("HUMANS-S_VWHEEL_S0", [
+        "HUMANS-S_VWHEEL_S0",
+        "HUMANS-T_VWHEEL_S0_2_S1",
+    ]),
+    ("HUMANS-S_VWHEEL_S1", [
+        "HUMANS-S_VWHEEL_S1",
+        "HUMANS-T_VWHEEL_S1_2_STAND",
+    ]),
+    ("HUMANS-S_WALKL", [
+        "HUMANS-S_WALKL",
+        "HUMANS-T_WALKBL_2_WALK",
+        "HUMANS-T_WALKL_2_WALK",
+        "HUMANS_ARROGANCE-T_WALKL_2_WALK",
+        "HUMANS_BABE-T_WALKL_2_WALK",
+        "HUMANS_MAGE-T_WALKL_2_WALK",
+        "HUMANS_MILITIA-T_WALKL_2_WALK",
+        "HUMANS_RELAXED-T_WALKL_2_WALK",
+        "HUMANS_TIRED-T_WALKL_2_WALK",
+        "HUMANS_TORCH-T_WALKBL_2_WALK",
+        "HUMANS_TORCH-T_WALKL_2_WALK",
+    ]),
+    ("HUMANS-S_WALKWL", [
+        "HUMANS-S_WALKWL",
+        "HUMANS-T_WALKWL_2_WALK",
+    ]),
+    ("HUMANS-S_WASH", [
+        "HUMANS-S_WASH",
+        "HUMANS-T_WASH_2_STAND",
+    ]),
+    ("HUMANS-S_WATCHFIGHT", [
+        "HUMANS-S_WATCHFIGHT",
+    ]),
+    ("HUMANS-S_WHIRLWIND_VICTIM", [
+        "HUMANS-S_WHIRLWIND_VICTIM",
+        "HUMANS-T_WHIRLWIND_VICTIM_2_STAND",
+    ]),
+    ("HUMANS-S_WHISHOOT", [
+        "HUMANS-S_WHISHOOT",
+        "HUMANS-T_WHISHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_WNDCAST", [
+        "HUMANS-S_WNDCAST",
+        "HUMANS-T_WNDCAST_2_WNDSHOOT",
+    ]),
+    ("HUMANS-S_WNDSHOOT", [
+        "HUMANS-S_WNDSHOOT",
+        "HUMANS-T_WNDSHOOT_2_STAND",
+    ]),
+    ("HUMANS-S_WOUNDED", [
+        "HUMANS-S_WOUNDED",
+        "HUMANS-T_WOUNDED_2_DEAD",
+        "HUMANS-T_WOUNDED_2_STAND",
+    ]),
+    ("HUMANS-S_WOUNDEDB", [
+        "HUMANS-S_WOUNDEDB",
+        "HUMANS-T_WOUNDEDB_2_DEADB",
+        "HUMANS-T_WOUNDEDB_2_STAND",
+    ]),
+    ("HUMANS-T_1HATTACKL", []),
+    ("HUMANS-T_1HATTACKMOVE", []),
+    ("HUMANS-T_1HATTACKR", []),
+    ("HUMANS-T_1HJUMPB", [
+        "HUMANS-S_1HRUN",
+    ]),
+    ("HUMANS-T_1HMOVE_2_MOVE", []),
+    ("HUMANS-T_1HPARADEJUMPB", []),
+    ("HUMANS-T_1HPARADE_0", []),
+    ("HUMANS-T_1HPARADE_0_A2", []),
+    ("HUMANS-T_1HPARADE_0_A3", []),
+    ("HUMANS-T_1HRUNL_2_1HRUN", [
+        "HUMANS-S_1HRUN",
+    ]),
+    ("HUMANS-T_1HRUNSTRAFEL", [
+        "HUMANS-T_1HRUNSTRAFEL",
+    ]),
+    ("HUMANS-T_1HRUNSTRAFER", [
+        "HUMANS-T_1HRUNSTRAFER",
+    ]),
+    ("HUMANS-T_1HRUNTURNL", [
+        "HUMANS-T_1HRUNTURNL",
+    ]),
+    ("HUMANS-T_1HRUNTURNR", [
+        "HUMANS-T_1HRUNTURNR",
+    ]),
+    ("HUMANS-T_1HRUN_2_1H", [
+        "HUMANS-S_1H",
+    ]),
+    ("HUMANS-T_1HRUN_2_1HRUNL", [
+        "HUMANS-S_1HRUNL",
+    ]),
+    ("HUMANS-T_1HRUN_2_1HSNEAK", [
+        "HUMANS-S_1HSNEAK",
+    ]),
+    ("HUMANS-T_1HSFINISH", []),
+    ("HUMANS-T_1HSFREE", []),
+    ("HUMANS-T_1HSINSPECT", []),
+    ("HUMANS-T_1HSNEAKL_2_1HSNEAK", [
+        "HUMANS-S_1HSNEAK",
+    ]),
+    ("HUMANS-T_1HSNEAKR_2_1HSNEAK", [
+        "HUMANS-S_1HSNEAK",
+    ]),
+    ("HUMANS-T_1HSNEAKSTRAFEL", [
+        "HUMANS-T_1HSNEAKSTRAFEL",
+    ]),
+    ("HUMANS-T_1HSNEAKTURNL", [
+        "HUMANS-T_1HSNEAKTURNL",
+    ]),
+    ("HUMANS-T_1HSNEAKTURNR", [
+        "HUMANS-T_1HSNEAKTURNR",
+    ]),
+    ("HUMANS-T_1HSNEAK_2_1HSNEAKL", [
+        "HUMANS-S_1HSNEAKL",
+    ]),
+    ("HUMANS-T_1HWALKL_2_1HWALK", [
+        "HUMANS-S_1HRUN",
+    ]),
+    ("HUMANS-T_1HWALK_2_1HWALKL", [
+        "HUMANS-S_1HWALKL",
+    ]),
+    ("HUMANS-T_1H_2_1HRUN", [
+        "HUMANS-S_1HRUN",
+    ]),
+    ("HUMANS-T_2HATTACKL", []),
+    ("HUMANS-T_2HATTACKMOVE", []),
+    ("HUMANS-T_2HATTACKR", []),
+    ("HUMANS-T_2HJUMPB", [
+        "HUMANS-S_2HRUN",
+    ]),
+    ("HUMANS-T_2HMOVE_2_MOVE", []),
+    ("HUMANS-T_2HPARADEJUMPB", []),
+    ("HUMANS-T_2HPARADE_0", []),
+    ("HUMANS-T_2HPARADE_0_A2", []),
+    ("HUMANS-T_2HPARADE_0_A3", []),
+    ("HUMANS-T_2HRUNL_2_2HRUN", [
+        "HUMANS-S_2HRUN",
+    ]),
+    ("HUMANS-T_2HRUNSTRAFEL", [
+        "HUMANS-T_2HRUNSTRAFEL",
+    ]),
+    ("HUMANS-T_2HRUNSTRAFER", [
+        "HUMANS-T_2HRUNSTRAFER",
+    ]),
+    ("HUMANS-T_2HRUNTURNL", [
+        "HUMANS-T_2HRUNTURNL",
+    ]),
+    ("HUMANS-T_2HRUN_2_2H", [
+        "HUMANS-S_2H",
+    ]),
+    ("HUMANS-T_2HRUN_2_2HRUNL", [
+        "HUMANS-S_2HRUNL",
+    ]),
+    ("HUMANS-T_2HRUN_2_2HSNEAK", [
+        "HUMANS-S_2HSNEAK",
+    ]),
+    ("HUMANS-T_2HSNEAKL_2_2HSNEAK", [
+        "HUMANS-S_2HSNEAK",
+    ]),
+    ("HUMANS-T_2HSNEAKR_2_2HSNEAK", [
+        "HUMANS-S_2HSNEAK",
+    ]),
+    ("HUMANS-T_2HSNEAKSTRAFEL", [
+        "HUMANS-T_2HSNEAKSTRAFEL",
+    ]),
+    ("HUMANS-T_2HSNEAKTURNL", [
+        "HUMANS-T_2HSNEAKTURNL",
+    ]),
+    ("HUMANS-T_2HSNEAKTURNR", [
+        "HUMANS-T_2HSNEAKTURNR",
+    ]),
+    ("HUMANS-T_2HSNEAK_2_2HSNEAKL", [
+        "HUMANS-S_2HSNEAKL",
+    ]),
+    ("HUMANS-T_2HWALKL_2_2HWALK", [
+        "HUMANS-S_2HRUN",
+    ]),
+    ("HUMANS-T_2HWALK_2_2HWALKL", [
+        "HUMANS-S_2HWALKL",
+    ]),
+    ("HUMANS-T_2H_2_2HRUN", [
+        "HUMANS-S_2HRUN",
+    ]),
+    ("HUMANS-T_BARBQ_S0_2_S1", [
+        "HUMANS-S_BARBQ_S1",
+    ]),
+    ("HUMANS-T_BARBQ_STAND_2_S0", [
+        "HUMANS-S_BARBQ_S0",
+    ]),
+    ("HUMANS-T_BAUMSAEGE_RANDOM_1", []),
+    ("HUMANS-T_BAUMSAEGE_S0_2_S1", [
+        "HUMANS-S_BAUMSAEGE_S1",
+    ]),
+    ("HUMANS-T_BAUMSAEGE_S0_2_STAND", []),
+    ("HUMANS-T_BAUMSAEGE_STAND_2_S0", [
+        "HUMANS-S_BAUMSAEGE_S0",
+    ]),
+    ("HUMANS-T_BEDHIGH_BACK_S0_2_S1", [
+        "HUMANS-S_BEDHIGH_BACK_S1",
+    ]),
+    ("HUMANS-T_BEDHIGH_BACK_STAND_2_S0", [
+        "HUMANS-S_BEDHIGH_BACK_S0",
+    ]),
+    ("HUMANS-T_BEDHIGH_FRONT_S0_2_S1", [
+        "HUMANS-S_BEDHIGH_FRONT_S1",
+    ]),
+    ("HUMANS-T_BEDHIGH_FRONT_STAND_2_S0", [
+        "HUMANS-S_BEDHIGH_FRONT_S0",
+    ]),
+    ("HUMANS-T_BENCH_S0_2_S1", [
+        "HUMANS-S_BENCH_S1",
+    ]),
+    ("HUMANS-T_BENCH_STAND_2_S0", [
+        "HUMANS-S_BENCH_S0",
+    ]),
+    ("HUMANS-T_BOOK_S0_2_S1", [
+        "HUMANS-S_BOOK_S1",
+    ]),
+    ("HUMANS-T_BOOK_STAND_2_S0", [
+        "HUMANS-S_BOOK_S0",
+    ]),
+    ("HUMANS-T_BORINGKICK", []),
+    ("HUMANS-T_BOWAIM_2_BOWRUN", [
+        "HUMANS-S_BOWRUN",
+    ]),
+    ("HUMANS-T_BOWJUMPB", [
+        "HUMANS-S_BOWRUN",
+    ]),
+    ("HUMANS-T_BOWMOVE_2_MOVE", []),
+    ("HUMANS-T_BOWRELOAD", [
+        "HUMANS-S_BOWSHOOT",
+    ]),
+    ("HUMANS-T_BOWRUNL_2_BOWRUN", [
+        "HUMANS-S_BOWRUN",
+    ]),
+    ("HUMANS-T_BOWRUNSTRAFEL", [
+        "HUMANS-T_BOWRUNSTRAFEL",
+    ]),
+    ("HUMANS-T_BOWRUNSTRAFER", [
+        "HUMANS-T_BOWRUNSTRAFER",
+    ]),
+    ("HUMANS-T_BOWRUNTURNL", [
+        "HUMANS-T_BOWRUNTURNL",
+    ]),
+    ("HUMANS-T_BOWRUNTURNR", [
+        "HUMANS-T_BOWRUNTURNR",
+    ]),
+    ("HUMANS-T_BOWRUN_2_BOW", [
+        "HUMANS-S_BOW",
+    ]),
+    ("HUMANS-T_BOWRUN_2_BOWAIM", [
+        "HUMANS-S_BOWSHOOT",
+    ]),
+    ("HUMANS-T_BOWRUN_2_BOWRUNL", [
+        "HUMANS-S_BOWRUNL",
+    ]),
+    ("HUMANS-T_BOWRUN_2_BOWSNEAK", [
+        "HUMANS-S_BOWSNEAK",
+    ]),
+    ("HUMANS-T_BOWSNEAKL_2_BOWSNEAK", [
+        "HUMANS-S_BOWSNEAK",
+    ]),
+    ("HUMANS-T_BOWSNEAKSTRAFEL", [
+        "HUMANS-S_BOWSNEAK",
+    ]),
+    ("HUMANS-T_BOWSNEAKTURNL", [
+        "HUMANS-T_BOWSNEAKTURNL",
+    ]),
+    ("HUMANS-T_BOWSNEAKTURNR", [
+        "HUMANS-T_BOWSNEAKTURNR",
+    ]),
+    ("HUMANS-T_BOWSNEAK_2_BOWSNEAKL", [
+        "HUMANS-S_BOWSNEAKL",
+    ]),
+    ("HUMANS-T_BOWWALKL_2_BOWWALK", [
+        "HUMANS-S_BOWRUN",
+    ]),
+    ("HUMANS-T_BOWWALK_2_BOWWALKL", [
+        "HUMANS-S_BOWWALKL",
+    ]),
+    ("HUMANS-T_BOW_2_BOWRUN", [
+        "HUMANS-S_BOWRUN",
+    ]),
+    ("HUMANS-T_BROOM_S0_2_S1", [
+        "HUMANS-S_BROOM_S1",
+    ]),
+    ("HUMANS-T_BROOM_S0_2_STAND", []),
+    ("HUMANS-T_BROOM_S1_2_S0", [
+        "HUMANS-S_BROOM_S0",
+    ]),
+    ("HUMANS-T_BROOM_STAND_2_S0", [
+        "HUMANS-S_BROOM_S0",
+    ]),
+    ("HUMANS-T_BRUSH_S0_2_S1", [
+        "HUMANS-S_BRUSH_S1",
+    ]),
+    ("HUMANS-T_BRUSH_S0_2_STAND", []),
+    ("HUMANS-T_BRUSH_STAND_2_S0", [
+        "HUMANS-S_BRUSH_S0",
+    ]),
+    ("HUMANS-T_BSANVIL_S0_2_S1", [
+        "HUMANS-S_BSANVIL_S1",
+    ]),
+    ("HUMANS-T_BSANVIL_S0_2_STAND", []),
+    ("HUMANS-T_BSANVIL_S1_2_S0", [
+        "HUMANS-S_BSANVIL_S0",
+    ]),
+    ("HUMANS-T_BSANVIL_STAND_2_S0", [
+        "HUMANS-S_BSANVIL_S0",
+    ]),
+    ("HUMANS-T_BSCOOL_S0_2_S1", [
+        "HUMANS-S_BSCOOL_S1",
+    ]),
+    ("HUMANS-T_BSCOOL_S0_2_STAND", []),
+    ("HUMANS-T_BSCOOL_S1_2_S0", [
+        "HUMANS-S_BSCOOL_S0",
+    ]),
+    ("HUMANS-T_BSCOOL_STAND_2_S0", [
+        "HUMANS-S_BSCOOL_S0",
+    ]),
+    ("HUMANS-T_BSFIRE_S0_2_S1", [
+        "HUMANS-S_BSFIRE_S1",
+    ]),
+    ("HUMANS-T_BSFIRE_S0_2_STAND", []),
+    ("HUMANS-T_BSFIRE_S1_2_S0", [
+        "HUMANS-S_BSFIRE_S0",
+    ]),
+    ("HUMANS-T_BSFIRE_STAND_2_S0", [
+        "HUMANS-S_BSFIRE_S0",
+    ]),
+    ("HUMANS-T_BSSHARP_S0_2_S1", [
+        "HUMANS-S_BSSHARP_S1",
+    ]),
+    ("HUMANS-T_BSSHARP_S0_2_STAND", []),
+    ("HUMANS-T_BSSHARP_S1_2_S0", [
+        "HUMANS-S_BSSHARP_S0",
+    ]),
+    ("HUMANS-T_BSSHARP_STAND_2_S0", [
+        "HUMANS-S_BSSHARP_S0",
+    ]),
+    ("HUMANS-T_CANNOTTAKE", []),
+    ("HUMANS-T_CASTFAIL", []),
+    ("HUMANS-T_CAULDRON_S0_2_S1", [
+        "HUMANS-S_CAULDRON_S1",
+    ]),
+    ("HUMANS-T_CAULDRON_S0_2_STAND", []),
+    ("HUMANS-T_CAULDRON_STAND_2_S0", [
+        "HUMANS-S_CAULDRON_S0",
+    ]),
+    ("HUMANS-T_CBOWJUMPB", [
+        "HUMANS-S_CBOWRUN",
+    ]),
+    ("HUMANS-T_CBOWMOVE_2_MOVE", []),
+    ("HUMANS-T_CBOWRELOAD", [
+        "HUMANS-S_CBOWSHOOT",
+    ]),
+    ("HUMANS-T_CBOWRUNL_2_CBOWRUN", [
+        "HUMANS-S_CBOWRUN",
+    ]),
+    ("HUMANS-T_CBOWRUNSTRAFEL", [
+        "HUMANS-T_CBOWRUNSTRAFEL",
+    ]),
+    ("HUMANS-T_CBOWRUNSTRAFER", [
+        "HUMANS-T_CBOWRUNSTRAFER",
+    ]),
+    ("HUMANS-T_CBOWRUNTURNL", [
+        "HUMANS-T_CBOWRUNTURNL",
+    ]),
+    ("HUMANS-T_CBOWRUNTURNR", [
+        "HUMANS-T_CBOWRUNTURNR",
+    ]),
+    ("HUMANS-T_CBOWRUN_2_CBOW", [
+        "HUMANS-S_CBOW",
+    ]),
+    ("HUMANS-T_CBOWRUN_2_CBOWAIM", [
+        "HUMANS-S_CBOWSHOOT",
+    ]),
+    ("HUMANS-T_CBOWRUN_2_CBOWRUNL", [
+        "HUMANS-S_CBOWRUNL",
+    ]),
+    ("HUMANS-T_CBOWRUN_2_CBOWSNEAK", [
+        "HUMANS-S_CBOWSNEAK",
+    ]),
+    ("HUMANS-T_CBOWSNEAKL_2_CBOWSNEAK", [
+        "HUMANS-S_CBOWSNEAK",
+    ]),
+    ("HUMANS-T_CBOWSNEAKSTRAFEL", [
+        "HUMANS-S_CBOWSNEAK",
+    ]),
+    ("HUMANS-T_CBOWSNEAKSTRAFER", [
+        "HUMANS-S_CBOWSNEAK",
+    ]),
+    ("HUMANS-T_CBOWSNEAKTURNL", [
+        "HUMANS-T_CBOWSNEAKTURNL",
+    ]),
+    ("HUMANS-T_CBOWSNEAKTURNR", [
+        "HUMANS-T_CBOWSNEAKTURNR",
+    ]),
+    ("HUMANS-T_CBOWSNEAK_2_CBOWSNEAKL", [
+        "HUMANS-S_CBOWSNEAKL",
+    ]),
+    ("HUMANS-T_CBOWWALKL_2_CBOWWALK", [
+        "HUMANS-S_CBOWRUN",
+    ]),
+    ("HUMANS-T_CBOWWALK_2_CBOWWALKL", [
+        "HUMANS-S_CBOWWALKL",
+    ]),
+    ("HUMANS-T_CBOW_2_CBOWRUN", [
+        "HUMANS-S_CBOWRUN",
+    ]),
+    ("HUMANS-T_CELLO_S0_2_S1", [
+        "HUMANS-S_CELLO_S1",
+    ]),
+    ("HUMANS-T_CELLO_S0_2_STAND", []),
+    ("HUMANS-T_CELLO_S1_2_S0", [
+        "HUMANS-S_CELLO_S0",
+    ]),
+    ("HUMANS-T_CELLO_STAND_2_S0", [
+        "HUMANS-S_CELLO_S0",
+    ]),
+    ("HUMANS-T_CHAIR_S0_2_S1", [
+        "HUMANS-S_CHAIR_S1",
+    ]),
+    ("HUMANS-T_CHAIR_STAND_2_S0", [
+        "HUMANS-S_CHAIR_S0",
+    ]),
+    ("HUMANS-T_CHESTBIG_S0_2_S1", [
+        "HUMANS-S_CHESTBIG_S1",
+    ]),
+    ("HUMANS-T_CHESTBIG_S0_PICKLEFT", [
+        "HUMANS-S_CHESTBIG_S0",
+    ]),
+    ("HUMANS-T_CHESTBIG_S0_TRY", []),
+    ("HUMANS-T_CHESTBIG_S0_UNLOCK", [
+        "HUMANS-S_CHESTBIG_S0",
+    ]),
+    ("HUMANS-T_CHESTBIG_S1_2_S0", [
+        "HUMANS-S_CHESTBIG_S0",
+    ]),
+    ("HUMANS-T_CHESTBIG_STAND_2_S0", [
+        "HUMANS-S_CHESTBIG_S0",
+    ]),
+    ("HUMANS-T_CHESTSMALL_S0_2_S1", [
+        "HUMANS-S_CHESTSMALL_S1",
+    ]),
+    ("HUMANS-T_CHESTSMALL_S0_PICKLEFT", [
+        "HUMANS-S_CHESTSMALL_S0",
+    ]),
+    ("HUMANS-T_CHESTSMALL_S0_TRY", []),
+    ("HUMANS-T_CHESTSMALL_S0_UNLOCK", [
+        "HUMANS-S_CHESTSMALL_S0",
+    ]),
+    ("HUMANS-T_CHESTSMALL_S1_2_S0", [
+        "HUMANS-S_CHESTSMALL_S0",
+    ]),
+    ("HUMANS-T_CHESTSMALL_STAND_2_S0", [
+        "HUMANS-S_CHESTSMALL_S0",
+    ]),
+    ("HUMANS-T_COMEOVERHERE", []),
+    ("HUMANS-T_DANCE_01", []),
+    ("HUMANS-T_DANCE_02", []),
+    ("HUMANS-T_DANCE_03", []),
+    ("HUMANS-T_DANCE_04", []),
+    ("HUMANS-T_DANCE_05", []),
+    ("HUMANS-T_DANCE_06", []),
+    ("HUMANS-T_DANCE_07", []),
+    ("HUMANS-T_DANCE_08", []),
+    ("HUMANS-T_DANCE_09", []),
+    ("HUMANS-T_DEAD", [
+        "HUMANS-S_DEAD",
+    ]),
+    ("HUMANS-T_DEADB", [
+        "HUMANS-S_DEADB",
+    ]),
+    ("HUMANS-T_DIALOGGESTURE_01", []),
+    ("HUMANS-T_DIALOGGESTURE_02", []),
+    ("HUMANS-T_DIALOGGESTURE_03", []),
+    ("HUMANS-T_DIALOGGESTURE_04", []),
+    ("HUMANS-T_DIALOGGESTURE_05", []),
+    ("HUMANS-T_DIALOGGESTURE_06", []),
+    ("HUMANS-T_DIALOGGESTURE_07", []),
+    ("HUMANS-T_DIALOGGESTURE_08", []),
+    ("HUMANS-T_DIALOGGESTURE_09", []),
+    ("HUMANS-T_DIALOGGESTURE_10", []),
+    ("HUMANS-T_DIVETURNL", [
+        "HUMANS-T_DIVETURNL",
+    ]),
+    ("HUMANS-T_DIVETURNR", [
+        "HUMANS-T_DIVETURNR",
+    ]),
+    ("HUMANS-T_DIVE_2_DROWNED", [
+        "HUMANS-S_DROWNED",
+    ]),
+    ("HUMANS-T_DONTKNOW", []),
+    ("HUMANS-T_DOOR_BACK_S0_2_S1", [
+        "HUMANS-S_DOOR_BACK_S1",
+    ]),
+    ("HUMANS-T_DOOR_BACK_S0_PICKLEFT", [
+        "HUMANS-S_DOOR_BACK_S0",
+    ]),
+    ("HUMANS-T_DOOR_BACK_S0_PICKRIGHT", [
+        "HUMANS-S_DOOR_BACK_S0",
+    ]),
+    ("HUMANS-T_DOOR_BACK_S0_TRY", []),
+    ("HUMANS-T_DOOR_BACK_S0_UNLOCK", [
+        "HUMANS-S_DOOR_BACK_S0",
+    ]),
+    ("HUMANS-T_DOOR_BACK_S1_2_S0", [
+        "HUMANS-S_DOOR_BACK_S0",
+    ]),
+    ("HUMANS-T_DOOR_BACK_S1_2_STAND", []),
+    ("HUMANS-T_DOOR_BACK_STAND_2_S0", [
+        "HUMANS-S_DOOR_BACK_S0",
+    ]),
+    ("HUMANS-T_DOOR_FRONT_S0_2_S1", [
+        "HUMANS-S_DOOR_FRONT_S1",
+    ]),
+    ("HUMANS-T_DOOR_FRONT_S0_PICKLEFT", [
+        "HUMANS-S_DOOR_FRONT_S0",
+    ]),
+    ("HUMANS-T_DOOR_FRONT_S0_PICKRIGHT", [
+        "HUMANS-S_DOOR_FRONT_S0",
+    ]),
+    ("HUMANS-T_DOOR_FRONT_S0_TRY", []),
+    ("HUMANS-T_DOOR_FRONT_S0_UNLOCK", [
+        "HUMANS-S_DOOR_FRONT_S0",
+    ]),
+    ("HUMANS-T_DOOR_FRONT_S1_2_S0", [
+        "HUMANS-S_DOOR_FRONT_S0",
+    ]),
+    ("HUMANS-T_DOOR_FRONT_S1_2_STAND", []),
+    ("HUMANS-T_DOOR_FRONT_STAND_2_S0", [
+        "HUMANS-S_DOOR_FRONT_S0",
+    ]),
+    ("HUMANS-T_DRUMSCHEIT_S0_2_S1", [
+        "HUMANS-S_DRUMSCHEIT_S1",
+    ]),
+    ("HUMANS-T_DRUMSCHEIT_S0_2_STAND", []),
+    ("HUMANS-T_DRUMSCHEIT_S1_2_S0", [
+        "HUMANS-S_DRUMSCHEIT_S0",
+    ]),
+    ("HUMANS-T_DRUMSCHEIT_STAND_2_S0", [
+        "HUMANS-S_DRUMSCHEIT_S0",
+    ]),
+    ("HUMANS-T_DUDEL_S0_2_S1", [
+        "HUMANS-S_DUDEL_S1",
+    ]),
+    ("HUMANS-T_DUDEL_S0_2_STAND", []),
+    ("HUMANS-T_DUDEL_S1_2_S0", [
+        "HUMANS-S_DUDEL_S0",
+    ]),
+    ("HUMANS-T_DUDEL_STAND_2_S0", [
+        "HUMANS-S_DUDEL_S0",
+    ]),
+    ("HUMANS-T_FALLB_2_FALLENB", [
+        "HUMANS-S_FALLENB",
+    ]),
+    ("HUMANS-T_FALLDN_2_STAND", []),
+    ("HUMANS-T_FALLENB_2_STAND", []),
+    ("HUMANS-T_FALLEN_2_STAND", []),
+    ("HUMANS-T_FALL_2_FALLEN", [
+        "HUMANS-S_FALLEN",
+    ]),
+    ("HUMANS-T_FEAR_VICTIM_2_STAND", []),
+    ("HUMANS-T_FEASHOOT_2_STAND", []),
+    ("HUMANS-T_FIBCAST_2_FIBSHOOT", [
+        "HUMANS-S_FIBSHOOT",
+    ]),
+    ("HUMANS-T_FIBSHOOT_2_STAND", []),
+    ("HUMANS-T_FIRESPIT_S0_2_S1", [
+        "HUMANS-S_FIRESPIT_S1",
+    ]),
+    ("HUMANS-T_FIRESPIT_S0_2_STAND", []),
+    ("HUMANS-T_FIRESPIT_S1_2_S2", [
+        "HUMANS-S_FIRESPIT_S2",
+    ]),
+    ("HUMANS-T_FIRESPIT_S2_2_S3", [
+        "HUMANS-S_FIRESPIT_S3",
+    ]),
+    ("HUMANS-T_FIRESPIT_S3_2_S4", [
+        "HUMANS-S_FIRESPIT_S4",
+    ]),
+    ("HUMANS-T_FIRESPIT_S4_2_STAND", []),
+    ("HUMANS-T_FIRESPIT_STAND_2_S0", [
+        "HUMANS-S_FIRESPIT_S0",
+    ]),
+    ("HUMANS-T_FISTATTACKMOVE", []),
+    ("HUMANS-T_FISTMOVE_2_MOVE", []),
+    ("HUMANS-T_FISTPARADEJUMPB", []),
+    ("HUMANS-T_FISTPARADE_0", []),
+    ("HUMANS-T_FISTRUNL_2_FISTRUN", [
+        "HUMANS-S_FISTRUN",
+    ]),
+    ("HUMANS-T_FISTRUNSTRAFEL", [
+        "HUMANS-T_FISTRUNSTRAFEL",
+    ]),
+    ("HUMANS-T_FISTRUNSTRAFER", [
+        "HUMANS-T_FISTRUNSTRAFER",
+    ]),
+    ("HUMANS-T_FISTRUN_2_FIST", [
+        "HUMANS-S_FIST",
+    ]),
+    ("HUMANS-T_FISTRUN_2_FISTRUNL", [
+        "HUMANS-S_FISTRUNL",
+    ]),
+    ("HUMANS-T_FISTWALKL_2_FISTWALK", [
+        "HUMANS-S_FISTRUN",
+    ]),
+    ("HUMANS-T_FISTWALK_2_FISTWALKL", [
+        "HUMANS-S_FISTWALKL",
+    ]),
+    ("HUMANS-T_FIST_2_FISTRUN", [
+        "HUMANS-S_FISTRUN",
+    ]),
+    ("HUMANS-T_FOODHUGE_RANDOM_1", []),
+    ("HUMANS-T_FOODHUGE_S0_2_STAND", []),
+    ("HUMANS-T_FOODHUGE_STAND_2_S0", [
+        "HUMANS-S_FOODHUGE_S0",
+    ]),
+    ("HUMANS-T_FOOD_RANDOM_1", []),
+    ("HUMANS-T_FOOD_RANDOM_2", []),
+    ("HUMANS-T_FOOD_S0_2_STAND", []),
+    ("HUMANS-T_FOOD_STAND_2_S0", [
+        "HUMANS-S_FOOD_S0",
+    ]),
+    ("HUMANS-T_FORGETIT", []),
+    ("HUMANS-T_FRZSHOOT_2_STAND", []),
+    ("HUMANS-T_GETLOST", []),
+    ("HUMANS-T_GETLOST2", []),
+    ("HUMANS-T_GOTHIT", []),
+    ("HUMANS-T_GRAVE_S0_2_S1", [
+        "HUMANS-S_GRAVE_S1",
+    ]),
+    ("HUMANS-T_GRAVE_S1_2_STAND", []),
+    ("HUMANS-T_GRAVE_STAND_2_S0", [
+        "HUMANS-S_GRAVE_S0",
+    ]),
+    ("HUMANS-T_GREENTENTACLEA_VICTIM_2_STAND", []),
+    ("HUMANS-T_GREENTENTACLEB_VICTIM_2_STAND", []),
+    ("HUMANS-T_GREENTENTACLEC_VICTIM_2_STAND", []),
+    ("HUMANS-T_GREETCOOL", []),
+    ("HUMANS-T_GREETGRD", []),
+    ("HUMANS-T_GREETLEFT", []),
+    ("HUMANS-T_GREETNOV", []),
+    ("HUMANS-T_GREETRIGHT", []),
+    ("HUMANS-T_HANG_2_STAND", []),
+    ("HUMANS-T_HARFE_S0_2_S1", [
+        "HUMANS-S_HARFE_S1",
+    ]),
+    ("HUMANS-T_HARFE_S0_2_STAND", []),
+    ("HUMANS-T_HARFE_S1_2_S0", [
+        "HUMANS-S_HARFE_S0",
+    ]),
+    ("HUMANS-T_HARFE_STAND_2_S0", [
+        "HUMANS-S_HARFE_S0",
+    ]),
+    ("HUMANS-T_HEASHOOT_2_STAND", []),
+    ("HUMANS-T_HERB_S0_2_S1", [
+        "HUMANS-S_HERB_S1",
+    ]),
+    ("HUMANS-T_HERB_S0_2_STAND", []),
+    ("HUMANS-T_HERB_S1_2_S0", [
+        "HUMANS-S_HERB_S0",
+    ]),
+    ("HUMANS-T_HERB_STAND_2_S0", [
+        "HUMANS-S_HERB_S0",
+    ]),
+    ("HUMANS-T_HGUARD_2_STAND", []),
+    ("HUMANS-T_HGUARD_COMEIN", []),
+    ("HUMANS-T_HGUARD_GREET", []),
+    ("HUMANS-T_HGUARD_LOOKAROUND", []),
+    ("HUMANS-T_HGUARD_NOENTRY", []),
+    ("HUMANS-T_HORN_S0_2_S1", [
+        "HUMANS-S_HORN_S1",
+    ]),
+    ("HUMANS-T_HORN_S0_2_STAND", []),
+    ("HUMANS-T_HORN_S1_2_STAND", []),
+    ("HUMANS-T_HORN_STAND_2_S0", [
+        "HUMANS-S_HORN_S0",
+    ]),
+    ("HUMANS-T_IDOL_S0_2_S1", [
+        "HUMANS-S_IDOL_S1",
+    ]),
+    ("HUMANS-T_IDOL_STAND_2_S0", [
+        "HUMANS-S_IDOL_S0",
+    ]),
+    ("HUMANS-T_IDROP_2_STAND", []),
+    ("HUMANS-T_IELAUTE_S0_2_S1", [
+        "HUMANS-S_IELAUTE_S1",
+    ]),
+    ("HUMANS-T_IELAUTE_S0_2_STAND", []),
+    ("HUMANS-T_IELAUTE_S1_2_S0", [
+        "HUMANS-S_IELAUTE_S0",
+    ]),
+    ("HUMANS-T_IELAUTE_STAND_2_S0", [
+        "HUMANS-S_IELAUTE_S0",
+    ]),
+    ("HUMANS-T_IGETYOU", []),
+    ("HUMANS-T_INFLATE_VICTIM_2_STAND", []),
+    ("HUMANS-T_INNOS_S0_2_S1", [
+        "HUMANS-S_INNOS_S1",
+    ]),
+    ("HUMANS-T_INNOS_S0_2_STAND", []),
+    ("HUMANS-T_INNOS_S1_2_S0", [
+        "HUMANS-S_INNOS_S0",
+    ]),
+    ("HUMANS-T_INNOS_STAND_2_S0", [
+        "HUMANS-S_INNOS_S0",
+    ]),
+    ("HUMANS-T_JOINT_RANDOM_1", []),
+    ("HUMANS-T_JOINT_S0_2_STAND", []),
+    ("HUMANS-T_JOINT_STAND_2_S0", [
+        "HUMANS-S_JOINT_S0",
+    ]),
+    ("HUMANS-T_JUMPB", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS-T_JUMPUPLOW_2_STAND", []),
+    ("HUMANS-T_JUMPUPMID_2_STAND", []),
+    ("HUMANS-T_JUMP_2_HANG", [
+        "HUMANS-S_HANG",
+    ]),
+    ("HUMANS-T_JUMP_2_STAND", []),
+    ("HUMANS-T_LAB_S0_2_S1", [
+        "HUMANS-S_LAB_S1",
+    ]),
+    ("HUMANS-T_LAB_S0_2_STAND", []),
+    ("HUMANS-T_LAB_S1_2_S0", [
+        "HUMANS-S_LAB_S0",
+    ]),
+    ("HUMANS-T_LAB_STAND_2_S0", [
+        "HUMANS-S_LAB_S0",
+    ]),
+    ("HUMANS-T_LADDER_S0_2_S1", [
+        "HUMANS-S_LADDER_S0",
+    ]),
+    ("HUMANS-T_LADDER_S1_2_STAND", []),
+    ("HUMANS-T_LADDER_STAND_2_S0", [
+        "HUMANS-S_LADDER_S0",
+    ]),
+    ("HUMANS-T_LADDER_STAND_2_S1", [
+        "HUMANS-S_LADDER_S0",
+    ]),
+    ("HUMANS-T_LEVER_S0_2_S1", [
+        "HUMANS-S_LEVER_S1",
+    ]),
+    ("HUMANS-T_LEVER_S1_2_STAND", []),
+    ("HUMANS-T_LEVER_STAND_2_S0", [
+        "HUMANS-S_LEVER_S0",
+    ]),
+    ("HUMANS-T_LGUARD_2_STAND", []),
+    ("HUMANS-T_LGUARD_ALLRIGHT", []),
+    ("HUMANS-T_LGUARD_CHANGELEG", []),
+    ("HUMANS-T_LGUARD_COMEIN", []),
+    ("HUMANS-T_LGUARD_GREET", []),
+    ("HUMANS-T_LGUARD_NOENTRY", []),
+    ("HUMANS-T_LGUARD_SCRATCH", []),
+    ("HUMANS-T_LGUARD_STRETCH", []),
+    ("HUMANS-T_LUTE_S0_2_S1", [
+        "HUMANS-S_LUTE_S1",
+    ]),
+    ("HUMANS-T_LUTE_S0_2_STAND", []),
+    ("HUMANS-T_LUTE_S1_2_S0", [
+        "HUMANS-S_LUTE_S0",
+    ]),
+    ("HUMANS-T_LUTE_STAND_2_S0", [
+        "HUMANS-S_LUTE_S0",
+    ]),
+    ("HUMANS-T_MAGJUMPB", [
+        "HUMANS-S_MAGRUN",
+    ]),
+    ("HUMANS-T_MAGMOVE_2_MOVE", []),
+    ("HUMANS-T_MAGRUNL_2_MAGRUN", [
+        "HUMANS-S_MAGRUN",
+    ]),
+    ("HUMANS-T_MAGRUNSTRAFEL", [
+        "HUMANS-T_MAGRUNSTRAFEL",
+    ]),
+    ("HUMANS-T_MAGRUNSTRAFER", [
+        "HUMANS-T_MAGRUNSTRAFER",
+    ]),
+    ("HUMANS-T_MAGRUNTURNL", [
+        "HUMANS-T_MAGRUNTURNL",
+    ]),
+    ("HUMANS-T_MAGRUNTURNR", [
+        "HUMANS-T_MAGRUNTURNR",
+    ]),
+    ("HUMANS-T_MAGRUN_2_FEASHOOT", [
+        "HUMANS-S_FEASHOOT",
+    ]),
+    ("HUMANS-T_MAGRUN_2_FIBCAST", [
+        "HUMANS-S_FIBCAST",
+    ]),
+    ("HUMANS-T_MAGRUN_2_FRZSHOOT", [
+        "HUMANS-S_FRZSHOOT",
+    ]),
+    ("HUMANS-T_MAGRUN_2_HEASHOOT", [
+        "HUMANS-S_HEASHOOT",
+    ]),
+    ("HUMANS-T_MAGRUN_2_MAG", [
+        "HUMANS-S_MAG",
+    ]),
+    ("HUMANS-T_MAGRUN_2_MAGRUNL", [
+        "HUMANS-S_MAGRUNL",
+    ]),
+    ("HUMANS-T_MAGRUN_2_MSDSHOOT", [
+        "HUMANS-S_MSDSHOOT",
+    ]),
+    ("HUMANS-T_MAGRUN_2_PYRSHOOT", [
+        "HUMANS-S_PYRSHOOT",
+    ]),
+    ("HUMANS-T_MAGRUN_2_SCKSHOOT", [
+        "HUMANS-S_SCKSHOOT",
+    ]),
+    ("HUMANS-T_MAGRUN_2_SLESHOOT", [
+        "HUMANS-S_SLESHOOT",
+    ]),
+    ("HUMANS-T_MAGRUN_2_STMSHOOT", [
+        "HUMANS-S_STMSHOOT",
+    ]),
+    ("HUMANS-T_MAGRUN_2_SUMSHOOT", [
+        "HUMANS-S_SUMSHOOT",
+    ]),
+    ("HUMANS-T_MAGRUN_2_TRFSHOOT", [
+        "HUMANS-S_TRFSHOOT",
+    ]),
+    ("HUMANS-T_MAGRUN_2_WHISHOOT", [
+        "HUMANS-S_WHISHOOT",
+    ]),
+    ("HUMANS-T_MAGRUN_2_WNDCAST", [
+        "HUMANS-S_WNDCAST",
+    ]),
+    ("HUMANS-T_MAGWALKL_2_MAGWALK", [
+        "HUMANS-S_MAGRUN",
+    ]),
+    ("HUMANS-T_MAGWALK_2_MAGWALKL", [
+        "HUMANS-S_MAGWALKL",
+    ]),
+    ("HUMANS-T_MAG_2_MAGRUN", [
+        "HUMANS-S_MAGRUN",
+    ]),
+    ("HUMANS-T_MAPSEALED_S0_2_STAND", []),
+    ("HUMANS-T_MAP_S0_2_STAND", []),
+    ("HUMANS-T_MAP_STAND_2_S0", [
+        "HUMANS-S_MAP_S0",
+    ]),
+    ("HUMANS-T_MEAT_RANDOM_1", []),
+    ("HUMANS-T_MEAT_S0_2_STAND", []),
+    ("HUMANS-T_MEAT_STAND_2_S0", [
+        "HUMANS-S_MEAT_S0",
+    ]),
+    ("HUMANS-T_MOVE_2_1HMOVE", []),
+    ("HUMANS-T_MOVE_2_2HMOVE", []),
+    ("HUMANS-T_MOVE_2_BOWMOVE", []),
+    ("HUMANS-T_MOVE_2_CBOWMOVE", []),
+    ("HUMANS-T_MOVE_2_FISTMOVE", []),
+    ("HUMANS-T_MOVE_2_MAGMOVE", []),
+    ("HUMANS-T_MSDSHOOT_2_STAND", []),
+    ("HUMANS-T_NO", []),
+    ("HUMANS-T_ORE_S0_2_STAND", []),
+    ("HUMANS-T_ORE_STAND_2_S0", [
+        "HUMANS-S_ORE_S0",
+    ]),
+    ("HUMANS-T_PAN_S0_2_S1", [
+        "HUMANS-S_PAN_S1",
+    ]),
+    ("HUMANS-T_PAN_S1_2_S0", [
+        "HUMANS-S_PAN_S0",
+    ]),
+    ("HUMANS-T_PAN_STAND_2_S0", [
+        "HUMANS-S_PAN_S0",
+    ]),
+    ("HUMANS-T_PAUKE_S0_2_S1", [
+        "HUMANS-S_PAUKE_S1",
+    ]),
+    ("HUMANS-T_PAUKE_S0_2_STAND", []),
+    ("HUMANS-T_PAUKE_S1_2_S0", [
+        "HUMANS-S_PAUKE_S0",
+    ]),
+    ("HUMANS-T_PAUKE_STAND_2_S0", [
+        "HUMANS-S_PAUKE_S0",
+    ]),
+    ("HUMANS-T_PEE_2_STAND", []),
+    ("HUMANS-T_PLUNDER", []),
+    ("HUMANS-T_POTIONFAST_S0_2_STAND", []),
+    ("HUMANS-T_POTIONFAST_STAND_2_S0", [
+        "HUMANS-S_POTIONFAST_S0",
+    ]),
+    ("HUMANS-T_POTION_RANDOM_1", []),
+    ("HUMANS-T_POTION_RANDOM_2", []),
+    ("HUMANS-T_POTION_RANDOM_3", []),
+    ("HUMANS-T_POTION_S0_2_STAND", []),
+    ("HUMANS-T_POTION_STAND_2_S0", [
+        "HUMANS-S_POTION_S0",
+    ]),
+    ("HUMANS-T_PRACTICEMAGIC", []),
+    ("HUMANS-T_PRACTICEMAGIC2", []),
+    ("HUMANS-T_PRACTICEMAGIC3", []),
+    ("HUMANS-T_PRACTICEMAGIC4", []),
+    ("HUMANS-T_PRACTICEMAGIC5", []),
+    ("HUMANS-T_PRAY_RANDOM", []),
+    ("HUMANS-T_PYRSHOOT_2_STAND", []),
+    ("HUMANS-T_RAKE_S0_2_S1", [
+        "HUMANS-S_RAKE_S1",
+    ]),
+    ("HUMANS-T_RAKE_S0_2_STAND", []),
+    ("HUMANS-T_RAKE_S1_2_S0", [
+        "HUMANS-S_RAKE_S0",
+    ]),
+    ("HUMANS-T_RAKE_STAND_2_S0", [
+        "HUMANS-S_RAKE_S0",
+    ]),
+    ("HUMANS-T_REPAIR_RANDOM_1", []),
+    ("HUMANS-T_REPAIR_S0_2_S1", [
+        "HUMANS-S_REPAIR_S1",
+    ]),
+    ("HUMANS-T_REPAIR_S0_2_STAND", []),
+    ("HUMANS-T_REPAIR_STAND_2_S0", [
+        "HUMANS-S_REPAIR_S0",
+    ]),
+    ("HUMANS-T_RICE_RANDOM_1", []),
+    ("HUMANS-T_RICE_RANDOM_2", []),
+    ("HUMANS-T_RICE_S0_2_STAND", []),
+    ("HUMANS-T_RICE_STAND_2_S0", [
+        "HUMANS-S_RICE_S0",
+    ]),
+    ("HUMANS-T_RMAKER_S0_2_S1", [
+        "HUMANS-S_RMAKER_S1",
+    ]),
+    ("HUMANS-T_RMAKER_S0_2_STAND", []),
+    ("HUMANS-T_RMAKER_S1_2_S0", [
+        "HUMANS-S_RMAKER_S0",
+    ]),
+    ("HUMANS-T_RMAKER_STAND_2_S0", [
+        "HUMANS-S_RMAKER_S0",
+    ]),
+    ("HUMANS-T_RUNL_2_JUMP", [
+        "HUMANS-S_JUMP",
+    ]),
+    ("HUMANS-T_RUNL_2_RUN", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS-T_RUNR_2_JUMP", [
+        "HUMANS-S_JUMP",
+    ]),
+    ("HUMANS-T_RUNSTRAFEL", [
+        "HUMANS-T_RUNSTRAFEL",
+    ]),
+    ("HUMANS-T_RUNSTRAFER", [
+        "HUMANS-T_RUNSTRAFER",
+    ]),
+    ("HUMANS-T_RUNTURNL", [
+        "HUMANS-T_RUNTURNL",
+    ]),
+    ("HUMANS-T_RUNTURNR", [
+        "HUMANS-T_RUNTURNR",
+    ]),
+    ("HUMANS-T_RUN_2_1H", [
+        "HUMANS-S_1H",
+    ]),
+    ("HUMANS-T_RUN_2_2H", [
+        "HUMANS-S_2H",
+    ]),
+    ("HUMANS-T_RUN_2_BOW", [
+        "HUMANS-S_BOW",
+    ]),
+    ("HUMANS-T_RUN_2_CBOW", [
+        "HUMANS-S_CBOW",
+    ]),
+    ("HUMANS-T_RUN_2_FIST", [
+        "HUMANS-S_FIST",
+    ]),
+    ("HUMANS-T_RUN_2_MAG", [
+        "HUMANS-S_MAG",
+    ]),
+    ("HUMANS-T_RUN_2_RUNL", [
+        "HUMANS-S_RUNL",
+    ]),
+    ("HUMANS-T_RUN_2_SNEAK", [
+        "HUMANS-S_SNEAK",
+    ]),
+    ("HUMANS-T_SCKSHOOT_2_STAND", []),
+    ("HUMANS-T_SDW_S0_2_S1", [
+        "HUMANS-S_SDW_S1",
+    ]),
+    ("HUMANS-T_SDW_S0_2_STAND", []),
+    ("HUMANS-T_SDW_S1_2_S0", [
+        "HUMANS-S_SDW_S0",
+    ]),
+    ("HUMANS-T_SDW_STAND_2_S0", [
+        "HUMANS-S_SDW_S0",
+    ]),
+    ("HUMANS-T_SEARCH", []),
+    ("HUMANS-T_SLEEPGROUND_2_STAND", []),
+    ("HUMANS-T_SLESHOOT_2_STAND", []),
+    ("HUMANS-T_SMOKE_S0_2_S1", [
+        "HUMANS-S_SMOKE_S1",
+    ]),
+    ("HUMANS-T_SMOKE_STAND_2_S0", [
+        "HUMANS-S_SMOKE_S0",
+    ]),
+    ("HUMANS-T_SNEAKL_2_SNEAK", [
+        "HUMANS-S_SNEAK",
+    ]),
+    ("HUMANS-T_SNEAKR_2_SNEAK", [
+        "HUMANS-S_SNEAK",
+    ]),
+    ("HUMANS-T_SNEAKSTRAFEL", [
+        "HUMANS-S_SNEAK",
+    ]),
+    ("HUMANS-T_SNEAKTURNL", [
+        "HUMANS-T_SNEAKTURNL",
+    ]),
+    ("HUMANS-T_SNEAKTURNR", [
+        "HUMANS-T_SNEAKTURNR",
+    ]),
+    ("HUMANS-T_SNEAK_2_SNEAKL", [
+        "HUMANS-S_SNEAKL",
+    ]),
+    ("HUMANS-T_STAND_2_FEAR_VICTIM1", [
+        "HUMANS-S_FEAR_VICTIM1",
+    ]),
+    ("HUMANS-T_STAND_2_FEAR_VICTIM2", [
+        "HUMANS-S_FEAR_VICTIM2",
+    ]),
+    ("HUMANS-T_STAND_2_FEAR_VICTIM3", [
+        "HUMANS-S_FEAR_VICTIM3",
+    ]),
+    ("HUMANS-T_STAND_2_FREEZE_VICTIM", [
+        "HUMANS-S_FREEZE_VICTIM",
+    ]),
+    ("HUMANS-T_STAND_2_GREENTENTACLEA_VICTIM", [
+        "HUMANS-S_GREENTENTACLEA_VICTIM",
+    ]),
+    ("HUMANS-T_STAND_2_GREENTENTACLEB_VICTIM", [
+        "HUMANS-S_GREENTENTACLEB_VICTIM",
+    ]),
+    ("HUMANS-T_STAND_2_GREENTENTACLEC_VICTIM", [
+        "HUMANS-S_GREENTENTACLEC_VICTIM",
+    ]),
+    ("HUMANS-T_STAND_2_HGUARD", [
+        "HUMANS-S_HGUARD",
+    ]),
+    ("HUMANS-T_STAND_2_IDROP", [
+        "HUMANS-S_IDROP",
+    ]),
+    ("HUMANS-T_STAND_2_INFLATE_VICTIM", [
+        "HUMANS-S_INFLATE_VICTIM",
+    ]),
+    ("HUMANS-T_STAND_2_JUMP", [
+        "HUMANS-S_JUMP",
+    ]),
+    ("HUMANS-T_STAND_2_JUMPUP", [
+        "HUMANS-S_JUMPUP",
+    ]),
+    ("HUMANS-T_STAND_2_JUMPUPLOW", [
+        "HUMANS-S_JUMPUPLOW",
+    ]),
+    ("HUMANS-T_STAND_2_JUMPUPMID", [
+        "HUMANS-S_JUMPUPMID",
+    ]),
+    ("HUMANS-T_STAND_2_LGUARD", [
+        "HUMANS-S_LGUARD",
+    ]),
+    ("HUMANS-T_STAND_2_LIGHTNING_VICTIM", [
+        "HUMANS-S_LIGHTNING_VICTIM",
+    ]),
+    ("HUMANS-T_STAND_2_PEE", [
+        "HUMANS-S_PEE",
+    ]),
+    ("HUMANS-T_STAND_2_PRAY", [
+        "HUMANS-S_PRAY",
+    ]),
+    ("HUMANS-T_STAND_2_SIT", [
+        "HUMANS-S_SIT",
+    ]),
+    ("HUMANS-T_STAND_2_SLEEPGROUND", [
+        "HUMANS-S_SLEEPGROUND",
+    ]),
+    ("HUMANS-T_STAND_2_SUCKENERGY_VICTIM", [
+        "HUMANS-S_SUCKENERGY_VICTIM",
+    ]),
+    ("HUMANS-T_STAND_2_SWARM_VICTIM", [
+        "HUMANS-S_SWARM_VICTIM",
+    ]),
+    ("HUMANS-T_STAND_2_VICTIM_SLE", [
+        "HUMANS-S_VICTIM_SLE",
+    ]),
+    ("HUMANS-T_STAND_2_WASH", [
+        "HUMANS-S_WASH",
+    ]),
+    ("HUMANS-T_STAND_2_WATCHFIGHT", [
+        "HUMANS-S_WATCHFIGHT",
+    ]),
+    ("HUMANS-T_STAND_2_WHIRLWIND_VICTIM", [
+        "HUMANS-S_WHIRLWIND_VICTIM",
+    ]),
+    ("HUMANS-T_STAND_2_WOUNDED", [
+        "HUMANS-S_WOUNDED",
+    ]),
+    ("HUMANS-T_STAND_2_WOUNDEDB", [
+        "HUMANS-S_WOUNDEDB",
+    ]),
+    ("HUMANS-T_STMSHOOT_2_STAND", []),
+    ("HUMANS-T_STOVE_RANDOM_1", []),
+    ("HUMANS-T_STOVE_S0_2_S1", [
+        "HUMANS-S_STOVE_S1",
+    ]),
+    ("HUMANS-T_STOVE_S0_2_STAND", []),
+    ("HUMANS-T_STOVE_S1_2_S0", [
+        "HUMANS-S_STOVE_S0",
+    ]),
+    ("HUMANS-T_STOVE_STAND_2_S0", [
+        "HUMANS-S_STOVE_S0",
+    ]),
+    ("HUMANS-T_STUMBLE", []),
+    ("HUMANS-T_STUMBLEB", []),
+    ("HUMANS-T_SUCKENERGY_VICTIM_2_STAND", []),
+    ("HUMANS-T_SUMSHOOT_2_STAND", []),
+    ("HUMANS-T_SWARM_VICTIM_2_STAND", []),
+    ("HUMANS-T_SWIMTURNL", [
+        "HUMANS-T_SWIMTURNL",
+    ]),
+    ("HUMANS-T_SWIMTURNR", [
+        "HUMANS-T_SWIMTURNR",
+    ]),
+    ("HUMANS-T_SWIM_2_DIVE", [
+        "HUMANS-S_DIVE",
+    ]),
+    ("HUMANS-T_SWIM_2_HANG", [
+        "HUMANS-S_HANG",
+    ]),
+    ("HUMANS-T_THRONE_S0_2_S1", [
+        "HUMANS-S_THRONE_S1",
+    ]),
+    ("HUMANS-T_THRONE_S0_2_STAND", []),
+    ("HUMANS-T_THRONE_STAND_2_S0", [
+        "HUMANS-S_THRONE_S0",
+    ]),
+    ("HUMANS-T_TOUCHPLATE_S0_2_S1", [
+        "HUMANS-S_TOUCHPLATE_S1",
+    ]),
+    ("HUMANS-T_TOUCHPLATE_STAND_2_S0", [
+        "HUMANS-S_TOUCHPLATE_S0",
+    ]),
+    ("HUMANS-T_TRADEITEM", []),
+    ("HUMANS-T_TREASURE_S0_2_S1", [
+        "HUMANS-S_TREASURE_S1",
+    ]),
+    ("HUMANS-T_TREASURE_S0_2_STAND", []),
+    ("HUMANS-T_TREASURE_S1_2_STAND", []),
+    ("HUMANS-T_TREASURE_STAND_2_S0", [
+        "HUMANS-S_TREASURE_S2",
+    ]),
+    ("HUMANS-T_TRFSHOOT_2_STAND", []),
+    ("HUMANS-T_TURNSWITCH_S0_2_S1", [
+        "HUMANS-S_TURNSWITCH_S1",
+    ]),
+    ("HUMANS-T_TURNSWITCH_STAND_2_S0", [
+        "HUMANS-S_TURNSWITCH_S0",
+    ]),
+    ("HUMANS-T_VICTIM_SLE_2_STAND", []),
+    ("HUMANS-T_VWHEEL_S0_2_S1", [
+        "HUMANS-S_VWHEEL_S1",
+    ]),
+    ("HUMANS-T_VWHEEL_S1_2_STAND", []),
+    ("HUMANS-T_VWHEEL_STAND_2_S0", [
+        "HUMANS-S_VWHEEL_S0",
+    ]),
+    ("HUMANS-T_WALKBL_2_WALK", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS-T_WALKL_2_WALK", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS-T_WALKR_2_WALK", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS-T_WALKSTRAFEL", []),
+    ("HUMANS-T_WALKSTRAFER", []),
+    ("HUMANS-T_WALKWL_2_WALK", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS-T_WALKWSTRAFEL", []),
+    ("HUMANS-T_WALKWTURNL", [
+        "HUMANS-T_WALKWTURNL",
+    ]),
+    ("HUMANS-T_WALKWTURNR", [
+        "HUMANS-T_WALKWTURNR",
+    ]),
+    ("HUMANS-T_WALK_2_WALKL", [
+        "HUMANS-S_WALKL",
+    ]),
+    ("HUMANS-T_WALK_2_WALKWL", [
+        "HUMANS-S_WALKWL",
+    ]),
+    ("HUMANS-T_WASH_2_STAND", []),
+    ("HUMANS-T_WATCHFIGHT_OHNO", [
+        "HUMANS-S_WATCHFIGHT",
+    ]),
+    ("HUMANS-T_WATCHFIGHT_YEAH", [
+        "HUMANS-S_WATCHFIGHT",
+    ]),
+    ("HUMANS-T_WHIRLWIND_VICTIM_2_STAND", []),
+    ("HUMANS-T_WHISHOOT_2_STAND", []),
+    ("HUMANS-T_WNDCAST_2_WNDSHOOT", [
+        "HUMANS-S_WNDSHOOT",
+    ]),
+    ("HUMANS-T_WNDSHOOT_2_STAND", []),
+    ("HUMANS-T_WOUNDEDB_2_DEADB", [
+        "HUMANS-S_DEADB",
+    ]),
+    ("HUMANS-T_WOUNDEDB_2_STAND", []),
+    ("HUMANS-T_WOUNDED_2_DEAD", [
+        "HUMANS-S_DEAD",
+    ]),
+    ("HUMANS-T_WOUNDED_2_STAND", []),
+    ("HUMANS-T_YES", []),
+    ("HUMANS_1HST1-S_1H", [
+        "HUMANS-T_1H_2_1HRUN",
+        "HUMANS_1HST1-S_1H",
+        "HUMANS_1HST1-T_1H_2_1HRUN",
+        "HUMANS_1HST2-T_1H_2_1HRUN",
+    ]),
+    ("HUMANS_1HST1-S_1HATTACK", [
+        "HUMANS_1HST1-S_1HATTACK",
+    ]),
+    ("HUMANS_1HST1-S_1HRUN", [
+        "HUMANS-T_1HRUN_2_1H",
+        "HUMANS-T_1HRUN_2_1HRUNL",
+        "HUMANS-T_1HRUN_2_1HSNEAK",
+        "HUMANS-T_1HWALK_2_1HWALKL",
+        "HUMANS_1HST1-S_1HRUN",
+        "HUMANS_1HST1-T_1HRUN_2_1H",
+        "HUMANS_1HST1-T_1HRUN_2_1HRUNL",
+        "HUMANS_1HST1-T_1HRUN_2_1HSNEAK",
+        "HUMANS_1HST1-T_1HWALK_2_1HWALKL",
+        "HUMANS_1HST2-T_1HRUN_2_1H",
+        "HUMANS_1HST2-T_1HRUN_2_1HRUNL",
+        "HUMANS_1HST2-T_1HRUN_2_1HSNEAK",
+        "HUMANS_1HST2-T_1HWALK_2_1HWALKL",
+    ]),
+    ("HUMANS_1HST1-S_1HRUNL", [
+        "HUMANS-T_1HRUNL_2_1HRUN",
+        "HUMANS_1HST1-S_1HRUNL",
+        "HUMANS_1HST1-T_1HRUNL_2_1HRUN",
+        "HUMANS_1HST2-T_1HRUNL_2_1HRUN",
+    ]),
+    ("HUMANS_1HST1-S_1HWALKL", [
+        "HUMANS-T_1HWALKL_2_1HWALK",
+        "HUMANS_1HST1-S_1HWALKL",
+        "HUMANS_1HST1-T_1HWALKL_2_1HWALK",
+        "HUMANS_1HST2-T_1HWALKL_2_1HWALK",
+    ]),
+    ("HUMANS_1HST1-T_1HATTACKL", []),
+    ("HUMANS_1HST1-T_1HATTACKR", []),
+    ("HUMANS_1HST1-T_1HJUMPB", [
+        "HUMANS_1HST1-S_1HRUN",
+    ]),
+    ("HUMANS_1HST1-T_1HPARADEJUMPB", []),
+    ("HUMANS_1HST1-T_1HPARADE_0", []),
+    ("HUMANS_1HST1-T_1HPARADE_0_A2", []),
+    ("HUMANS_1HST1-T_1HPARADE_0_A3", []),
+    ("HUMANS_1HST1-T_1HRUNL_2_1HRUN", [
+        "HUMANS_1HST1-S_1HRUN",
+    ]),
+    ("HUMANS_1HST1-T_1HRUNSTRAFEL", [
+        "HUMANS_1HST1-T_1HRUNSTRAFEL",
+    ]),
+    ("HUMANS_1HST1-T_1HRUNSTRAFER", [
+        "HUMANS_1HST1-T_1HRUNSTRAFER",
+    ]),
+    ("HUMANS_1HST1-T_1HRUNTURNL", [
+        "HUMANS_1HST1-T_1HRUNTURNL",
+    ]),
+    ("HUMANS_1HST1-T_1HRUNTURNR", [
+        "HUMANS_1HST1-T_1HRUNTURNR",
+    ]),
+    ("HUMANS_1HST1-T_1HRUN_2_1H", [
+        "HUMANS_1HST1-S_1H",
+    ]),
+    ("HUMANS_1HST1-T_1HRUN_2_1HRUNL", [
+        "HUMANS_1HST1-S_1HRUNL",
+    ]),
+    ("HUMANS_1HST1-T_1HRUN_2_1HSNEAK", [
+        "HUMANS-S_1HSNEAK",
+    ]),
+    ("HUMANS_1HST1-T_1HWALKL_2_1HWALK", [
+        "HUMANS_1HST1-S_1HRUN",
+    ]),
+    ("HUMANS_1HST1-T_1HWALK_2_1HWALKL", [
+        "HUMANS_1HST1-S_1HWALKL",
+    ]),
+    ("HUMANS_1HST1-T_1H_2_1HRUN", [
+        "HUMANS_1HST1-S_1HRUN",
+    ]),
+    ("HUMANS_1HST1-T_RUN_2_1H", [
+        "HUMANS_1HST1-S_1H",
+    ]),
+    ("HUMANS_1HST2-S_1H", [
+        "HUMANS-T_1H_2_1HRUN",
+        "HUMANS_1HST1-T_1H_2_1HRUN",
+        "HUMANS_1HST2-S_1H",
+        "HUMANS_1HST2-T_1H_2_1HRUN",
+    ]),
+    ("HUMANS_1HST2-S_1HATTACK", [
+        "HUMANS_1HST2-S_1HATTACK",
+    ]),
+    ("HUMANS_1HST2-S_1HRUN", [
+        "HUMANS-T_1HRUN_2_1H",
+        "HUMANS-T_1HRUN_2_1HRUNL",
+        "HUMANS-T_1HRUN_2_1HSNEAK",
+        "HUMANS-T_1HWALK_2_1HWALKL",
+        "HUMANS_1HST1-T_1HRUN_2_1H",
+        "HUMANS_1HST1-T_1HRUN_2_1HRUNL",
+        "HUMANS_1HST1-T_1HRUN_2_1HSNEAK",
+        "HUMANS_1HST1-T_1HWALK_2_1HWALKL",
+        "HUMANS_1HST2-S_1HRUN",
+        "HUMANS_1HST2-T_1HRUN_2_1H",
+        "HUMANS_1HST2-T_1HRUN_2_1HRUNL",
+        "HUMANS_1HST2-T_1HRUN_2_1HSNEAK",
+        "HUMANS_1HST2-T_1HWALK_2_1HWALKL",
+    ]),
+    ("HUMANS_1HST2-S_1HRUNL", [
+        "HUMANS-T_1HRUNL_2_1HRUN",
+        "HUMANS_1HST1-T_1HRUNL_2_1HRUN",
+        "HUMANS_1HST2-S_1HRUNL",
+        "HUMANS_1HST2-T_1HRUNL_2_1HRUN",
+    ]),
+    ("HUMANS_1HST2-S_1HWALKL", [
+        "HUMANS-T_1HWALKL_2_1HWALK",
+        "HUMANS_1HST1-T_1HWALKL_2_1HWALK",
+        "HUMANS_1HST2-S_1HWALKL",
+        "HUMANS_1HST2-T_1HWALKL_2_1HWALK",
+    ]),
+    ("HUMANS_1HST2-T_1HATTACKL", []),
+    ("HUMANS_1HST2-T_1HATTACKR", []),
+    ("HUMANS_1HST2-T_1HJUMPB", [
+        "HUMANS_1HST2-S_1HRUN",
+    ]),
+    ("HUMANS_1HST2-T_1HPARADEJUMPB", []),
+    ("HUMANS_1HST2-T_1HPARADE_0", []),
+    ("HUMANS_1HST2-T_1HPARADE_0_A2", []),
+    ("HUMANS_1HST2-T_1HPARADE_0_A3", []),
+    ("HUMANS_1HST2-T_1HRUNL_2_1HRUN", [
+        "HUMANS_1HST2-S_1HRUN",
+    ]),
+    ("HUMANS_1HST2-T_1HRUNSTRAFEL", [
+        "HUMANS_1HST2-T_1HRUNSTRAFEL",
+    ]),
+    ("HUMANS_1HST2-T_1HRUNSTRAFER", [
+        "HUMANS_1HST2-T_1HRUNSTRAFER",
+    ]),
+    ("HUMANS_1HST2-T_1HRUNTURNL", [
+        "HUMANS_1HST2-T_1HRUNTURNL",
+    ]),
+    ("HUMANS_1HST2-T_1HRUNTURNR", [
+        "HUMANS_1HST2-T_1HRUNTURNR",
+    ]),
+    ("HUMANS_1HST2-T_1HRUN_2_1H", [
+        "HUMANS_1HST2-S_1H",
+    ]),
+    ("HUMANS_1HST2-T_1HRUN_2_1HRUNL", [
+        "HUMANS_1HST2-S_1HRUNL",
+    ]),
+    ("HUMANS_1HST2-T_1HRUN_2_1HSNEAK", [
+        "HUMANS-S_1HSNEAK",
+    ]),
+    ("HUMANS_1HST2-T_1HWALKL_2_1HWALK", [
+        "HUMANS_1HST2-S_1HRUN",
+    ]),
+    ("HUMANS_1HST2-T_1HWALK_2_1HWALKL", [
+        "HUMANS_1HST2-S_1HWALKL",
+    ]),
+    ("HUMANS_1HST2-T_1H_2_1HRUN", [
+        "HUMANS_1HST2-S_1HRUN",
+    ]),
+    ("HUMANS_1HST2-T_RUN_2_1H", [
+        "HUMANS_1HST2-S_1H",
+    ]),
+    ("HUMANS_2HST1-S_2H", [
+        "HUMANS-T_2H_2_2HRUN",
+        "HUMANS_2HST1-S_2H",
+        "HUMANS_2HST1-T_2H_2_2HRUN",
+        "HUMANS_2HST2-T_2H_2_2HRUN",
+    ]),
+    ("HUMANS_2HST1-S_2HATTACK", [
+        "HUMANS_2HST1-S_2HATTACK",
+    ]),
+    ("HUMANS_2HST1-S_2HRUN", [
+        "HUMANS-T_2HRUN_2_2H",
+        "HUMANS-T_2HRUN_2_2HRUNL",
+        "HUMANS-T_2HRUN_2_2HSNEAK",
+        "HUMANS-T_2HWALK_2_2HWALKL",
+        "HUMANS_2HST1-S_2HRUN",
+        "HUMANS_2HST1-T_2HRUN_2_2H",
+        "HUMANS_2HST1-T_2HRUN_2_2HRUNL",
+        "HUMANS_2HST1-T_2HRUN_2_2HSNEAK",
+        "HUMANS_2HST1-T_2HWALK_2_2HWALKL",
+        "HUMANS_2HST2-T_2HRUN_2_2H",
+        "HUMANS_2HST2-T_2HRUN_2_2HRUNL",
+        "HUMANS_2HST2-T_2HRUN_2_2HSNEAK",
+        "HUMANS_2HST2-T_2HWALK_2_2HWALKL",
+    ]),
+    ("HUMANS_2HST1-S_2HRUNL", [
+        "HUMANS-T_2HRUNL_2_2HRUN",
+        "HUMANS_2HST1-S_2HRUNL",
+        "HUMANS_2HST1-T_2HRUNL_2_2HRUN",
+        "HUMANS_2HST2-T_2HRUNL_2_2HRUN",
+    ]),
+    ("HUMANS_2HST1-S_2HWALKL", [
+        "HUMANS-T_2HWALKL_2_2HWALK",
+        "HUMANS_2HST1-S_2HWALKL",
+        "HUMANS_2HST1-T_2HWALKL_2_2HWALK",
+        "HUMANS_2HST2-T_2HWALKL_2_2HWALK",
+    ]),
+    ("HUMANS_2HST1-T_2HATTACKL", []),
+    ("HUMANS_2HST1-T_2HATTACKR", []),
+    ("HUMANS_2HST1-T_2HPARADEJUMPB", []),
+    ("HUMANS_2HST1-T_2HPARADE_0", []),
+    ("HUMANS_2HST1-T_2HPARADE_0_A2", []),
+    ("HUMANS_2HST1-T_2HPARADE_0_A3", []),
+    ("HUMANS_2HST1-T_2HRUNL_2_2HRUN", [
+        "HUMANS_2HST1-S_2HRUN",
+    ]),
+    ("HUMANS_2HST1-T_2HRUNSTRAFEL", [
+        "HUMANS_2HST1-T_2HRUNSTRAFEL",
+    ]),
+    ("HUMANS_2HST1-T_2HRUNSTRAFER", [
+        "HUMANS_2HST1-T_2HRUNSTRAFER",
+    ]),
+    ("HUMANS_2HST1-T_2HRUNTURNL", [
+        "HUMANS_2HST1-T_2HRUNTURNL",
+    ]),
+    ("HUMANS_2HST1-T_2HRUN_2_2H", [
+        "HUMANS_2HST1-S_2H",
+    ]),
+    ("HUMANS_2HST1-T_2HRUN_2_2HRUNL", [
+        "HUMANS_2HST1-S_2HRUNL",
+    ]),
+    ("HUMANS_2HST1-T_2HRUN_2_2HSNEAK", [
+        "HUMANS-S_2HSNEAK",
+    ]),
+    ("HUMANS_2HST1-T_2HWALKL_2_2HWALK", [
+        "HUMANS_2HST1-S_2HRUN",
+    ]),
+    ("HUMANS_2HST1-T_2HWALK_2_2HWALKL", [
+        "HUMANS_2HST1-S_2HWALKL",
+    ]),
+    ("HUMANS_2HST1-T_2H_2_2HRUN", [
+        "HUMANS_2HST1-S_2HRUN",
+    ]),
+    ("HUMANS_2HST1-T_RUN_2_2H", [
+        "HUMANS_2HST1-S_2H",
+    ]),
+    ("HUMANS_2HST2-S_2H", [
+        "HUMANS-T_2H_2_2HRUN",
+        "HUMANS_2HST1-T_2H_2_2HRUN",
+        "HUMANS_2HST2-S_2H",
+        "HUMANS_2HST2-T_2H_2_2HRUN",
+    ]),
+    ("HUMANS_2HST2-S_2HATTACK", [
+        "HUMANS_2HST2-S_2HATTACK",
+    ]),
+    ("HUMANS_2HST2-S_2HRUN", [
+        "HUMANS-T_2HRUN_2_2H",
+        "HUMANS-T_2HRUN_2_2HRUNL",
+        "HUMANS-T_2HRUN_2_2HSNEAK",
+        "HUMANS-T_2HWALK_2_2HWALKL",
+        "HUMANS_2HST1-T_2HRUN_2_2H",
+        "HUMANS_2HST1-T_2HRUN_2_2HRUNL",
+        "HUMANS_2HST1-T_2HRUN_2_2HSNEAK",
+        "HUMANS_2HST1-T_2HWALK_2_2HWALKL",
+        "HUMANS_2HST2-S_2HRUN",
+        "HUMANS_2HST2-T_2HRUN_2_2H",
+        "HUMANS_2HST2-T_2HRUN_2_2HRUNL",
+        "HUMANS_2HST2-T_2HRUN_2_2HSNEAK",
+        "HUMANS_2HST2-T_2HWALK_2_2HWALKL",
+    ]),
+    ("HUMANS_2HST2-S_2HRUNL", [
+        "HUMANS-T_2HRUNL_2_2HRUN",
+        "HUMANS_2HST1-T_2HRUNL_2_2HRUN",
+        "HUMANS_2HST2-S_2HRUNL",
+        "HUMANS_2HST2-T_2HRUNL_2_2HRUN",
+    ]),
+    ("HUMANS_2HST2-S_2HWALK", [
+        "HUMANS-T_2HRUN_2_2H",
+        "HUMANS-T_2HRUN_2_2HRUNL",
+        "HUMANS-T_2HRUN_2_2HSNEAK",
+        "HUMANS-T_2HWALK_2_2HWALKL",
+        "HUMANS_2HST1-T_2HRUN_2_2H",
+        "HUMANS_2HST1-T_2HRUN_2_2HRUNL",
+        "HUMANS_2HST1-T_2HRUN_2_2HSNEAK",
+        "HUMANS_2HST1-T_2HWALK_2_2HWALKL",
+        "HUMANS_2HST2-S_2HWALK",
+        "HUMANS_2HST2-T_2HRUN_2_2H",
+        "HUMANS_2HST2-T_2HRUN_2_2HRUNL",
+        "HUMANS_2HST2-T_2HRUN_2_2HSNEAK",
+        "HUMANS_2HST2-T_2HWALK_2_2HWALKL",
+    ]),
+    ("HUMANS_2HST2-S_2HWALKL", [
+        "HUMANS-T_2HWALKL_2_2HWALK",
+        "HUMANS_2HST1-T_2HWALKL_2_2HWALK",
+        "HUMANS_2HST2-S_2HWALKL",
+        "HUMANS_2HST2-T_2HWALKL_2_2HWALK",
+    ]),
+    ("HUMANS_2HST2-T_2HATTACKL", []),
+    ("HUMANS_2HST2-T_2HATTACKR", []),
+    ("HUMANS_2HST2-T_2HPARADEJUMPB", []),
+    ("HUMANS_2HST2-T_2HPARADE_0", []),
+    ("HUMANS_2HST2-T_2HPARADE_0_A2", []),
+    ("HUMANS_2HST2-T_2HPARADE_0_A3", []),
+    ("HUMANS_2HST2-T_2HRUNL_2_2HRUN", [
+        "HUMANS_2HST2-S_2HRUN",
+    ]),
+    ("HUMANS_2HST2-T_2HRUNSTRAFEL", [
+        "HUMANS_2HST2-T_2HRUNSTRAFEL",
+    ]),
+    ("HUMANS_2HST2-T_2HRUNSTRAFER", [
+        "HUMANS_2HST2-T_2HRUNSTRAFER",
+    ]),
+    ("HUMANS_2HST2-T_2HRUNTURNL", [
+        "HUMANS_2HST2-T_2HRUNTURNL",
+    ]),
+    ("HUMANS_2HST2-T_2HRUN_2_2H", [
+        "HUMANS_2HST2-S_2H",
+    ]),
+    ("HUMANS_2HST2-T_2HRUN_2_2HRUNL", [
+        "HUMANS_2HST2-S_2HRUNL",
+    ]),
+    ("HUMANS_2HST2-T_2HRUN_2_2HSNEAK", [
+        "HUMANS-S_2HSNEAK",
+    ]),
+    ("HUMANS_2HST2-T_2HWALKL_2_2HWALK", [
+        "HUMANS_2HST2-S_2HRUN",
+    ]),
+    ("HUMANS_2HST2-T_2HWALK_2_2HWALKL", [
+        "HUMANS_2HST2-S_2HWALKL",
+    ]),
+    ("HUMANS_2HST2-T_2H_2_2HRUN", [
+        "HUMANS_2HST2-S_2HRUN",
+    ]),
+    ("HUMANS_2HST2-T_RUN_2_2H", [
+        "HUMANS_2HST2-S_2H",
+    ]),
+    ("HUMANS_ACROBATIC-S_FALL", [
+        "HUMANS-T_FALL_2_FALLEN",
+        "HUMANS_ACROBATIC-S_FALL",
+        "HUMANS_ACROBATIC-T_FALL_2_DIVE",
+        "HUMANS_ACROBATIC-T_FALL_2_FALLEN",
+    ]),
+    ("HUMANS_ACROBATIC-S_FALLB", [
+        "HUMANS-T_FALLB_2_FALLENB",
+        "HUMANS_ACROBATIC-S_FALLB",
+        "HUMANS_ACROBATIC-T_FALLB_2_DIVE",
+        "HUMANS_ACROBATIC-T_FALLB_2_FALLENB",
+    ]),
+    ("HUMANS_ACROBATIC-S_FALLDN", [
+        "HUMANS-T_FALLDN_2_STAND",
+        "HUMANS_ACROBATIC-S_FALLDN",
+        "HUMANS_ACROBATIC-T_FALLDN_2_DIVE",
+        "HUMANS_ACROBATIC-T_FALLDN_2_FALL",
+        "HUMANS_ACROBATIC-T_FALLDN_2_FALLB",
+        "HUMANS_ACROBATIC-T_FALLDN_2_RUNL",
+        "HUMANS_ACROBATIC-T_FALLDN_2_STAND",
+    ]),
+    ("HUMANS_ACROBATIC-S_FALLENB", [
+        "HUMANS-T_FALLENB_2_STAND",
+        "HUMANS_ACROBATIC-S_FALLENB",
+        "HUMANS_ACROBATIC-T_FALLENB_2_STAND",
+    ]),
+    ("HUMANS_ACROBATIC-S_JUMP", [
+        "HUMANS-T_JUMP_2_HANG",
+        "HUMANS-T_JUMP_2_STAND",
+        "HUMANS_ACROBATIC-S_JUMP",
+        "HUMANS_ACROBATIC-T_JUMP_2_FALLDN",
+        "HUMANS_ACROBATIC-T_JUMP_2_RUNL",
+        "HUMANS_ACROBATIC-T_JUMP_2_STAND",
+    ]),
+    ("HUMANS_ACROBATIC-T_FALLB_2_DIVE", [
+        "HUMANS-S_DIVE",
+    ]),
+    ("HUMANS_ACROBATIC-T_FALLB_2_FALLENB", [
+        "HUMANS_ACROBATIC-S_FALLENB",
+    ]),
+    ("HUMANS_ACROBATIC-T_FALLDN_2_DIVE", [
+        "HUMANS-S_DIVE",
+    ]),
+    ("HUMANS_ACROBATIC-T_FALLDN_2_FALL", [
+        "HUMANS_ACROBATIC-S_FALL",
+    ]),
+    ("HUMANS_ACROBATIC-T_FALLDN_2_FALLB", [
+        "HUMANS_ACROBATIC-S_FALL",
+    ]),
+    ("HUMANS_ACROBATIC-T_FALLDN_2_RUNL", [
+        "HUMANS-S_RUNL",
+    ]),
+    ("HUMANS_ACROBATIC-T_FALLDN_2_STAND", []),
+    ("HUMANS_ACROBATIC-T_FALLENB_2_STAND", []),
+    ("HUMANS_ACROBATIC-T_FALL_2_DIVE", [
+        "HUMANS-S_DIVE",
+    ]),
+    ("HUMANS_ACROBATIC-T_FALL_2_FALLEN", [
+        "HUMANS-S_FALLEN",
+    ]),
+    ("HUMANS_ACROBATIC-T_JUMP_2_FALLDN", [
+        "HUMANS_ACROBATIC-S_FALLDN",
+    ]),
+    ("HUMANS_ACROBATIC-T_JUMP_2_RUNL", [
+        "HUMANS-S_RUNL",
+    ]),
+    ("HUMANS_ACROBATIC-T_JUMP_2_STAND", []),
+    ("HUMANS_ACROBATIC-T_RUNL_2_JUMP", [
+        "HUMANS_ACROBATIC-S_JUMP",
+    ]),
+    ("HUMANS_ACROBATIC-T_STAND_2_JUMP", [
+        "HUMANS_ACROBATIC-S_JUMP",
+    ]),
+    ("HUMANS_ARROGANCE-S_SIT", [
+        "HUMANS_ARROGANCE-S_SIT",
+    ]),
+    ("HUMANS_ARROGANCE-S_WALKL", [
+        "HUMANS-T_WALKBL_2_WALK",
+        "HUMANS-T_WALKL_2_WALK",
+        "HUMANS_ARROGANCE-S_WALKL",
+        "HUMANS_ARROGANCE-T_WALKL_2_WALK",
+        "HUMANS_BABE-T_WALKL_2_WALK",
+        "HUMANS_MAGE-T_WALKL_2_WALK",
+        "HUMANS_MILITIA-T_WALKL_2_WALK",
+        "HUMANS_RELAXED-T_WALKL_2_WALK",
+        "HUMANS_TIRED-T_WALKL_2_WALK",
+        "HUMANS_TORCH-T_WALKBL_2_WALK",
+        "HUMANS_TORCH-T_WALKL_2_WALK",
+    ]),
+    ("HUMANS_ARROGANCE-T_STAND_2_SIT", [
+        "HUMANS_ARROGANCE-S_SIT",
+    ]),
+    ("HUMANS_ARROGANCE-T_WALKL_2_WALK", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS_ARROGANCE-T_WALK_2_WALKL", [
+        "HUMANS_ARROGANCE-S_WALKL",
+    ]),
+    ("HUMANS_BABE-S_RUNL", [
+        "HUMANS-T_RUNL_2_JUMP",
+        "HUMANS-T_RUNL_2_RUN",
+        "HUMANS_ACROBATIC-T_RUNL_2_JUMP",
+        "HUMANS_BABE-S_RUNL",
+        "HUMANS_BABE-T_RUNL_2_RUN",
+        "HUMANS_FLEE-T_RUNL_2_RUN",
+        "HUMANS_SPRINT-T_RUNL_2_RUN",
+        "HUMANS_TORCH-T_RUNL_2_RUN",
+    ]),
+    ("HUMANS_BABE-S_WALKL", [
+        "HUMANS-T_WALKBL_2_WALK",
+        "HUMANS-T_WALKL_2_WALK",
+        "HUMANS_ARROGANCE-T_WALKL_2_WALK",
+        "HUMANS_BABE-S_WALKL",
+        "HUMANS_BABE-T_WALKL_2_WALK",
+        "HUMANS_MAGE-T_WALKL_2_WALK",
+        "HUMANS_MILITIA-T_WALKL_2_WALK",
+        "HUMANS_RELAXED-T_WALKL_2_WALK",
+        "HUMANS_TIRED-T_WALKL_2_WALK",
+        "HUMANS_TORCH-T_WALKBL_2_WALK",
+        "HUMANS_TORCH-T_WALKL_2_WALK",
+    ]),
+    ("HUMANS_BABE-T_RUNL_2_RUN", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS_BABE-T_RUN_2_RUNL", [
+        "HUMANS_BABE-S_RUNL",
+    ]),
+    ("HUMANS_BABE-T_WALKL_2_WALK", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS_BABE-T_WALK_2_WALKL", [
+        "HUMANS_BABE-S_WALKL",
+    ]),
+    ("HUMANS_BOWT1-C_BOW_1", []),
+    ("HUMANS_BOWT1-C_BOW_2", []),
+    ("HUMANS_BOWT1-C_BOW_3", []),
+    ("HUMANS_BOWT1-C_BOW_4", []),
+    ("HUMANS_BOWT1-C_BOW_5", []),
+    ("HUMANS_BOWT1-C_BOW_6", []),
+    ("HUMANS_BOWT1-C_BOW_7", []),
+    ("HUMANS_BOWT1-C_BOW_8", []),
+    ("HUMANS_BOWT1-C_BOW_9", []),
+    ("HUMANS_BOWT1-S_BOW", [
+        "HUMANS-T_BOW_2_BOWRUN",
+        "HUMANS_BOWT1-S_BOW",
+        "HUMANS_BOWT1-T_BOW_2_BOWRUN",
+        "HUMANS_BOWT2-T_BOW_2_BOWRUN",
+    ]),
+    ("HUMANS_BOWT1-S_BOWSHOOT", [
+        "HUMANS-T_BOWAIM_2_BOWRUN",
+        "HUMANS_BOWT1-S_BOWSHOOT",
+        "HUMANS_BOWT1-T_BOWAIM_2_BOWRUN",
+        "HUMANS_BOWT2-T_BOWAIM_2_BOWRUN",
+    ]),
+    ("HUMANS_BOWT1-T_BOWAIM_2_BOWRUN", [
+        "HUMANS-S_BOWRUN",
+    ]),
+    ("HUMANS_BOWT1-T_BOWRELOAD", [
+        "HUMANS_BOWT1-S_BOWSHOOT",
+    ]),
+    ("HUMANS_BOWT1-T_BOWRUN_2_BOW", [
+        "HUMANS_BOWT1-S_BOW",
+    ]),
+    ("HUMANS_BOWT1-T_BOWRUN_2_BOWAIM", [
+        "HUMANS_BOWT1-S_BOWSHOOT",
+    ]),
+    ("HUMANS_BOWT1-T_BOW_2_BOWRUN", [
+        "HUMANS-S_BOWRUN",
+    ]),
+    ("HUMANS_BOWT1-T_RUN_2_BOW", [
+        "HUMANS_BOWT1-S_BOW",
+    ]),
+    ("HUMANS_BOWT2-C_BOW_1", []),
+    ("HUMANS_BOWT2-C_BOW_2", []),
+    ("HUMANS_BOWT2-C_BOW_3", []),
+    ("HUMANS_BOWT2-C_BOW_4", []),
+    ("HUMANS_BOWT2-C_BOW_5", []),
+    ("HUMANS_BOWT2-C_BOW_6", []),
+    ("HUMANS_BOWT2-C_BOW_7", []),
+    ("HUMANS_BOWT2-C_BOW_8", []),
+    ("HUMANS_BOWT2-C_BOW_9", []),
+    ("HUMANS_BOWT2-S_BOW", [
+        "HUMANS-T_BOW_2_BOWRUN",
+        "HUMANS_BOWT1-T_BOW_2_BOWRUN",
+        "HUMANS_BOWT2-S_BOW",
+        "HUMANS_BOWT2-T_BOW_2_BOWRUN",
+    ]),
+    ("HUMANS_BOWT2-S_BOWSHOOT", [
+        "HUMANS-T_BOWAIM_2_BOWRUN",
+        "HUMANS_BOWT1-T_BOWAIM_2_BOWRUN",
+        "HUMANS_BOWT2-S_BOWSHOOT",
+        "HUMANS_BOWT2-T_BOWAIM_2_BOWRUN",
+    ]),
+    ("HUMANS_BOWT2-T_BOWAIM_2_BOWRUN", [
+        "HUMANS-S_BOWRUN",
+    ]),
+    ("HUMANS_BOWT2-T_BOWRELOAD", [
+        "HUMANS_BOWT2-S_BOWSHOOT",
+    ]),
+    ("HUMANS_BOWT2-T_BOWRUN_2_BOW", [
+        "HUMANS_BOWT2-S_BOW",
+    ]),
+    ("HUMANS_BOWT2-T_BOWRUN_2_BOWAIM", [
+        "HUMANS_BOWT2-S_BOWSHOOT",
+    ]),
+    ("HUMANS_BOWT2-T_BOW_2_BOWRUN", [
+        "HUMANS-S_BOWRUN",
+    ]),
+    ("HUMANS_BOWT2-T_RUN_2_BOW", [
+        "HUMANS_BOWT2-S_BOW",
+    ]),
+    ("HUMANS_CBOWT1-C_CBOW_1", []),
+    ("HUMANS_CBOWT1-C_CBOW_2", []),
+    ("HUMANS_CBOWT1-C_CBOW_3", []),
+    ("HUMANS_CBOWT1-C_CBOW_4", []),
+    ("HUMANS_CBOWT1-C_CBOW_5", []),
+    ("HUMANS_CBOWT1-C_CBOW_6", []),
+    ("HUMANS_CBOWT1-C_CBOW_7", []),
+    ("HUMANS_CBOWT1-C_CBOW_8", []),
+    ("HUMANS_CBOWT1-C_CBOW_9", []),
+    ("HUMANS_CBOWT1-S_CBOW", [
+        "HUMANS-T_CBOW_2_CBOWRUN",
+        "HUMANS_CBOWT1-S_CBOW",
+        "HUMANS_CBOWT1-T_CBOW_2_CBOWRUN",
+        "HUMANS_CBOWT2-T_CBOW_2_CBOWRUN",
+    ]),
+    ("HUMANS_CBOWT1-S_CBOWSHOOT", [
+        "HUMANS_CBOWT1-S_CBOWSHOOT",
+    ]),
+    ("HUMANS_CBOWT1-T_CBOWRELOAD", [
+        "HUMANS_CBOWT1-S_CBOWSHOOT",
+    ]),
+    ("HUMANS_CBOWT1-T_CBOWRUN_2_CBOW", [
+        "HUMANS_CBOWT1-S_CBOW",
+    ]),
+    ("HUMANS_CBOWT1-T_CBOWRUN_2_CBOWAIM", [
+        "HUMANS_CBOWT1-S_CBOWSHOOT",
+    ]),
+    ("HUMANS_CBOWT1-T_CBOW_2_CBOWRUN", [
+        "HUMANS-S_CBOWRUN",
+    ]),
+    ("HUMANS_CBOWT1-T_RUN_2_CBOW", [
+        "HUMANS_CBOWT1-S_CBOW",
+    ]),
+    ("HUMANS_CBOWT2-C_CBOW_1", []),
+    ("HUMANS_CBOWT2-C_CBOW_2", []),
+    ("HUMANS_CBOWT2-C_CBOW_3", []),
+    ("HUMANS_CBOWT2-C_CBOW_4", []),
+    ("HUMANS_CBOWT2-C_CBOW_5", []),
+    ("HUMANS_CBOWT2-C_CBOW_6", []),
+    ("HUMANS_CBOWT2-C_CBOW_7", []),
+    ("HUMANS_CBOWT2-C_CBOW_8", []),
+    ("HUMANS_CBOWT2-C_CBOW_9", []),
+    ("HUMANS_CBOWT2-S_CBOW", [
+        "HUMANS-T_CBOW_2_CBOWRUN",
+        "HUMANS_CBOWT1-T_CBOW_2_CBOWRUN",
+        "HUMANS_CBOWT2-S_CBOW",
+        "HUMANS_CBOWT2-T_CBOW_2_CBOWRUN",
+    ]),
+    ("HUMANS_CBOWT2-S_CBOWSHOOT", [
+        "HUMANS_CBOWT2-S_CBOWSHOOT",
+    ]),
+    ("HUMANS_CBOWT2-T_CBOWRELOAD", [
+        "HUMANS_CBOWT2-S_CBOWSHOOT",
+    ]),
+    ("HUMANS_CBOWT2-T_CBOWRUN_2_CBOW", [
+        "HUMANS_CBOWT2-S_CBOW",
+    ]),
+    ("HUMANS_CBOWT2-T_CBOWRUN_2_CBOWAIM", [
+        "HUMANS_CBOWT2-S_CBOWSHOOT",
+    ]),
+    ("HUMANS_CBOWT2-T_CBOW_2_CBOWRUN", [
+        "HUMANS-S_CBOWRUN",
+    ]),
+    ("HUMANS_CBOWT2-T_RUN_2_CBOW", [
+        "HUMANS_CBOWT2-S_CBOW",
+    ]),
+    ("HUMANS_FLEE-S_RUNL", [
+        "HUMANS-T_RUNL_2_JUMP",
+        "HUMANS-T_RUNL_2_RUN",
+        "HUMANS_ACROBATIC-T_RUNL_2_JUMP",
+        "HUMANS_BABE-T_RUNL_2_RUN",
+        "HUMANS_FLEE-S_RUNL",
+        "HUMANS_FLEE-T_RUNL_2_RUN",
+        "HUMANS_SPRINT-T_RUNL_2_RUN",
+        "HUMANS_TORCH-T_RUNL_2_RUN",
+    ]),
+    ("HUMANS_FLEE-T_RUNL_2_RUN", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS_FLEE-T_RUN_2_RUNL", [
+        "HUMANS_FLEE-S_RUNL",
+    ]),
+    ("HUMANS_MAGE-S_WALKL", [
+        "HUMANS-T_WALKBL_2_WALK",
+        "HUMANS-T_WALKL_2_WALK",
+        "HUMANS_ARROGANCE-T_WALKL_2_WALK",
+        "HUMANS_BABE-T_WALKL_2_WALK",
+        "HUMANS_MAGE-S_WALKL",
+        "HUMANS_MAGE-T_WALKL_2_WALK",
+        "HUMANS_MILITIA-T_WALKL_2_WALK",
+        "HUMANS_RELAXED-T_WALKL_2_WALK",
+        "HUMANS_TIRED-T_WALKL_2_WALK",
+        "HUMANS_TORCH-T_WALKBL_2_WALK",
+        "HUMANS_TORCH-T_WALKL_2_WALK",
+    ]),
+    ("HUMANS_MAGE-T_WALKL_2_WALK", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS_MAGE-T_WALK_2_WALKL", [
+        "HUMANS_MAGE-S_WALKL",
+    ]),
+    ("HUMANS_MILITIA-S_WALKL", [
+        "HUMANS-T_WALKBL_2_WALK",
+        "HUMANS-T_WALKL_2_WALK",
+        "HUMANS_ARROGANCE-T_WALKL_2_WALK",
+        "HUMANS_BABE-T_WALKL_2_WALK",
+        "HUMANS_MAGE-T_WALKL_2_WALK",
+        "HUMANS_MILITIA-S_WALKL",
+        "HUMANS_MILITIA-T_WALKL_2_WALK",
+        "HUMANS_RELAXED-T_WALKL_2_WALK",
+        "HUMANS_TIRED-T_WALKL_2_WALK",
+        "HUMANS_TORCH-T_WALKBL_2_WALK",
+        "HUMANS_TORCH-T_WALKL_2_WALK",
+    ]),
+    ("HUMANS_MILITIA-T_WALKL_2_WALK", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS_MILITIA-T_WALK_2_WALKL", [
+        "HUMANS_MILITIA-S_WALKL",
+    ]),
+    ("HUMANS_RELAXED-S_WALKL", [
+        "HUMANS-T_WALKBL_2_WALK",
+        "HUMANS-T_WALKL_2_WALK",
+        "HUMANS_ARROGANCE-T_WALKL_2_WALK",
+        "HUMANS_BABE-T_WALKL_2_WALK",
+        "HUMANS_MAGE-T_WALKL_2_WALK",
+        "HUMANS_MILITIA-T_WALKL_2_WALK",
+        "HUMANS_RELAXED-S_WALKL",
+        "HUMANS_RELAXED-T_WALKL_2_WALK",
+        "HUMANS_TIRED-T_WALKL_2_WALK",
+        "HUMANS_TORCH-T_WALKBL_2_WALK",
+        "HUMANS_TORCH-T_WALKL_2_WALK",
+    ]),
+    ("HUMANS_RELAXED-T_WALKL_2_WALK", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS_RELAXED-T_WALKR_2_WALK", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS_RELAXED-T_WALK_2_WALKL", [
+        "HUMANS_RELAXED-S_WALKL",
+    ]),
+    ("HUMANS_SKELETON-S_DEAD", [
+        "HUMANS-T_DEAD",
+        "HUMANS_SKELETON-S_DEAD",
+        "HUMANS_SKELETON-T_DEAD",
+    ]),
+    ("HUMANS_SKELETON-T_DEAD", [
+        "HUMANS_SKELETON-S_DEAD",
+    ]),
+    ("HUMANS_SKELETON-T_SPAWN", []),
+    ("HUMANS_SKELETON_FLY-S_FBTSHOOT", [
+        "HUMANS-T_FIBSHOOT_2_STAND",
+        "HUMANS_SKELETON_FLY-S_FBTSHOOT",
+        "HUMANS_SKELETON_FLY-T_FBTSHOOT_2_STAND",
+    ]),
+    ("HUMANS_SKELETON_FLY-S_FISTATTACK", []),
+    ("HUMANS_SKELETON_FLY-S_FISTRUN", [
+        "HUMANS-T_FISTRUN_2_FIST",
+        "HUMANS-T_FISTRUN_2_FISTRUNL",
+        "HUMANS-T_FISTWALK_2_FISTWALKL",
+        "HUMANS_SKELETON_FLY-S_FISTRUN",
+        "HUMANS_SKELETON_FLY-T_MAGRUN_2_FBTSHOOT",
+        "HUMANS_SKELETON_FLY-T_MAGRUN_2_MAG",
+        "HUMANS_SKELETON_FLY-T_RUN_2_MAG",
+    ]),
+    ("HUMANS_SKELETON_FLY-S_FISTRUNL", [
+        "HUMANS-T_FISTRUNL_2_FISTRUN",
+        "HUMANS_SKELETON_FLY-S_FISTRUNL",
+    ]),
+    ("HUMANS_SKELETON_FLY-S_MAG", [
+        "HUMANS-T_MAG_2_MAGRUN",
+        "HUMANS_SKELETON_FLY-S_MAG",
+        "HUMANS_SKELETON_FLY-T_MAG_2_MAGRUN",
+    ]),
+    ("HUMANS_SKELETON_FLY-T_FBTSHOOT_2_STAND", []),
+    ("HUMANS_SKELETON_FLY-T_FISTJUMPB", [
+        "HUMANS_SKELETON_FLY-S_FISTRUN",
+    ]),
+    ("HUMANS_SKELETON_FLY-T_FISTRUNSTRAFEL", []),
+    ("HUMANS_SKELETON_FLY-T_FISTRUNSTRAFER", []),
+    ("HUMANS_SKELETON_FLY-T_MAGRUN_2_FBTSHOOT", [
+        "HUMANS-S_FIBSHOOT",
+    ]),
+    ("HUMANS_SKELETON_FLY-T_MAGRUN_2_MAG", [
+        "HUMANS_SKELETON_FLY-S_MAG",
+    ]),
+    ("HUMANS_SKELETON_FLY-T_MAG_2_MAGRUN", [
+        "HUMANS_SKELETON_FLY-S_FISTRUN",
+    ]),
+    ("HUMANS_SKELETON_FLY-T_RUN_2_MAG", [
+        "HUMANS_SKELETON_FLY-S_MAG",
+    ]),
+    ("HUMANS_SKELETON_FLY-T_WARN", []),
+    ("HUMANS_SPRINT-S_RUNL", [
+        "HUMANS-T_RUNL_2_JUMP",
+        "HUMANS-T_RUNL_2_RUN",
+        "HUMANS_ACROBATIC-T_RUNL_2_JUMP",
+        "HUMANS_BABE-T_RUNL_2_RUN",
+        "HUMANS_FLEE-T_RUNL_2_RUN",
+        "HUMANS_SPRINT-S_RUNL",
+        "HUMANS_SPRINT-T_RUNL_2_RUN",
+        "HUMANS_TORCH-T_RUNL_2_RUN",
+    ]),
+    ("HUMANS_SPRINT-T_RUNL_2_RUN", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS_SPRINT-T_RUN_2_RUNL", [
+        "HUMANS_SPRINT-S_RUNL",
+    ]),
+    ("HUMANS_SWIM-S_SWIM", [
+        "HUMANS-T_SWIM_2_DIVE",
+        "HUMANS-T_SWIM_2_HANG",
+        "HUMANS_SWIM-S_SWIM",
+    ]),
+    ("HUMANS_SWIM-S_SWIMF", [
+        "HUMANS_SWIM-S_SWIMF",
+    ]),
+    ("HUMANS_TIRED-S_WALKL", [
+        "HUMANS-T_WALKBL_2_WALK",
+        "HUMANS-T_WALKL_2_WALK",
+        "HUMANS_ARROGANCE-T_WALKL_2_WALK",
+        "HUMANS_BABE-T_WALKL_2_WALK",
+        "HUMANS_MAGE-T_WALKL_2_WALK",
+        "HUMANS_MILITIA-T_WALKL_2_WALK",
+        "HUMANS_RELAXED-T_WALKL_2_WALK",
+        "HUMANS_TIRED-S_WALKL",
+        "HUMANS_TIRED-T_WALKL_2_WALK",
+        "HUMANS_TORCH-T_WALKBL_2_WALK",
+        "HUMANS_TORCH-T_WALKL_2_WALK",
+    ]),
+    ("HUMANS_TIRED-T_WALKL_2_WALK", [
+        "HUMANS-S_RUN",
+    ]),
+    ("HUMANS_TIRED-T_WALK_2_WALKL", [
+        "HUMANS_TIRED-S_WALKL",
+    ]),
+    ("HUMANS_TORCH-S_RUN", [
+        "HUMANS-T_RUN_2_1H",
+        "HUMANS-T_RUN_2_2H",
+        "HUMANS-T_RUN_2_BOW",
+        "HUMANS-T_RUN_2_CBOW",
+        "HUMANS-T_RUN_2_FIST",
+        "HUMANS-T_RUN_2_MAG",
+        "HUMANS-T_RUN_2_RUNL",
+        "HUMANS-T_RUN_2_SNEAK",
+        "HUMANS-T_WALK_2_WALKL",
+        "HUMANS-T_WALK_2_WALKWL",
+        "HUMANS_1HST1-T_RUN_2_1H",
+        "HUMANS_1HST2-T_RUN_2_1H",
+        "HUMANS_2HST1-T_RUN_2_2H",
+        "HUMANS_2HST2-T_RUN_2_2H",
+        "HUMANS_ARROGANCE-T_WALK_2_WALKL",
+        "HUMANS_BABE-T_RUN_2_RUNL",
+        "HUMANS_BABE-T_WALK_2_WALKL",
+        "HUMANS_BOWT1-T_RUN_2_BOW",
+        "HUMANS_BOWT2-T_RUN_2_BOW",
+        "HUMANS_CBOWT1-T_RUN_2_CBOW",
+        "HUMANS_CBOWT2-T_RUN_2_CBOW",
+        "HUMANS_FLEE-T_RUN_2_RUNL",
+        "HUMANS_MAGE-T_WALK_2_WALKL",
+        "HUMANS_MILITIA-T_WALK_2_WALKL",
+        "HUMANS_RELAXED-T_WALK_2_WALKL",
+        "HUMANS_SPRINT-T_RUN_2_RUNL",
+        "HUMANS_TIRED-T_WALK_2_WALKL",
+        "HUMANS_TORCH-S_RUN",
+        "HUMANS_TORCH-T_RUN_2_RUNL",
+        "HUMANS_TORCH-T_WALK_2_WALKL",
+    ]),
+    ("HUMANS_TORCH-S_RUNL", [
+        "HUMANS-T_RUNL_2_JUMP",
+        "HUMANS-T_RUNL_2_RUN",
+        "HUMANS_ACROBATIC-T_RUNL_2_JUMP",
+        "HUMANS_BABE-T_RUNL_2_RUN",
+        "HUMANS_FLEE-T_RUNL_2_RUN",
+        "HUMANS_SPRINT-T_RUNL_2_RUN",
+        "HUMANS_TORCH-S_RUNL",
+        "HUMANS_TORCH-T_RUNL_2_RUN",
+    ]),
+    ("HUMANS_TORCH-S_SNEAK", [
+        "HUMANS-T_SNEAK_2_SNEAKL",
+        "HUMANS_TORCH-S_SNEAK",
+        "HUMANS_TORCH-T_SNEAK_2_SNEAKL",
+    ]),
+    ("HUMANS_TORCH-S_SNEAKL", [
+        "HUMANS-T_SNEAKL_2_SNEAK",
+        "HUMANS_TORCH-S_SNEAKL",
+        "HUMANS_TORCH-T_SNEAKL_2_SNEAK",
+    ]),
+    ("HUMANS_TORCH-S_WALK", [
+        "HUMANS-T_RUN_2_1H",
+        "HUMANS-T_RUN_2_2H",
+        "HUMANS-T_RUN_2_BOW",
+        "HUMANS-T_RUN_2_CBOW",
+        "HUMANS-T_RUN_2_FIST",
+        "HUMANS-T_RUN_2_MAG",
+        "HUMANS-T_RUN_2_RUNL",
+        "HUMANS-T_RUN_2_SNEAK",
+        "HUMANS-T_WALK_2_WALKL",
+        "HUMANS-T_WALK_2_WALKWL",
+        "HUMANS_1HST1-T_RUN_2_1H",
+        "HUMANS_1HST2-T_RUN_2_1H",
+        "HUMANS_2HST1-T_RUN_2_2H",
+        "HUMANS_2HST2-T_RUN_2_2H",
+        "HUMANS_ARROGANCE-T_WALK_2_WALKL",
+        "HUMANS_BABE-T_RUN_2_RUNL",
+        "HUMANS_BABE-T_WALK_2_WALKL",
+        "HUMANS_BOWT1-T_RUN_2_BOW",
+        "HUMANS_BOWT2-T_RUN_2_BOW",
+        "HUMANS_CBOWT1-T_RUN_2_CBOW",
+        "HUMANS_CBOWT2-T_RUN_2_CBOW",
+        "HUMANS_FLEE-T_RUN_2_RUNL",
+        "HUMANS_MAGE-T_WALK_2_WALKL",
+        "HUMANS_MILITIA-T_WALK_2_WALKL",
+        "HUMANS_RELAXED-T_WALK_2_WALKL",
+        "HUMANS_SPRINT-T_RUN_2_RUNL",
+        "HUMANS_TIRED-T_WALK_2_WALKL",
+        "HUMANS_TORCH-S_WALK",
+        "HUMANS_TORCH-T_RUN_2_RUNL",
+        "HUMANS_TORCH-T_WALK_2_WALKL",
+    ]),
+    ("HUMANS_TORCH-S_WALKL", [
+        "HUMANS-T_WALKBL_2_WALK",
+        "HUMANS-T_WALKL_2_WALK",
+        "HUMANS_ARROGANCE-T_WALKL_2_WALK",
+        "HUMANS_BABE-T_WALKL_2_WALK",
+        "HUMANS_MAGE-T_WALKL_2_WALK",
+        "HUMANS_MILITIA-T_WALKL_2_WALK",
+        "HUMANS_RELAXED-T_WALKL_2_WALK",
+        "HUMANS_TIRED-T_WALKL_2_WALK",
+        "HUMANS_TORCH-S_WALKL",
+        "HUMANS_TORCH-T_WALKBL_2_WALK",
+        "HUMANS_TORCH-T_WALKL_2_WALK",
+    ]),
+    ("HUMANS_TORCH-T_JUMPB", [
+        "HUMANS_TORCH-S_RUN",
+    ]),
+    ("HUMANS_TORCH-T_RUNL_2_RUN", [
+        "HUMANS_TORCH-S_RUN",
+    ]),
+    ("HUMANS_TORCH-T_RUNSTRAFEL", [
+        "HUMANS_TORCH-S_RUN",
+    ]),
+    ("HUMANS_TORCH-T_RUNSTRAFER", [
+        "HUMANS_TORCH-S_RUN",
+    ]),
+    ("HUMANS_TORCH-T_RUNTURNL", [
+        "HUMANS_TORCH-T_RUNTURNL",
+    ]),
+    ("HUMANS_TORCH-T_RUNTURNR", [
+        "HUMANS_TORCH-T_RUNTURNR",
+    ]),
+    ("HUMANS_TORCH-T_RUN_2_RUNL", [
+        "HUMANS_TORCH-S_RUNL",
+    ]),
+    ("HUMANS_TORCH-T_SNEAKL_2_SNEAK", [
+        "HUMANS_TORCH-S_SNEAK",
+    ]),
+    ("HUMANS_TORCH-T_SNEAKSTRAFEL", [
+        "HUMANS_TORCH-S_SNEAK",
+    ]),
+    ("HUMANS_TORCH-T_SNEAKSTRAFER", [
+        "HUMANS_TORCH-S_SNEAK",
+    ]),
+    ("HUMANS_TORCH-T_SNEAKTURNL", [
+        "HUMANS_TORCH-T_SNEAKTURNL",
+    ]),
+    ("HUMANS_TORCH-T_SNEAKTURNR", [
+        "HUMANS_TORCH-T_SNEAKTURNR",
+    ]),
+    ("HUMANS_TORCH-T_SNEAK_2_SNEAKL", [
+        "HUMANS_TORCH-S_SNEAKL",
+    ]),
+    ("HUMANS_TORCH-T_WALKBL_2_WALK", [
+        "HUMANS_TORCH-S_RUN",
+    ]),
+    ("HUMANS_TORCH-T_WALKL_2_WALK", [
+        "HUMANS_TORCH-S_RUN",
+    ]),
+    ("HUMANS_TORCH-T_WALKR_2_WALK", [
+        "HUMANS_TORCH-S_RUN",
+    ]),
+    ("HUMANS_TORCH-T_WALK_2_WALKL", [
+        "HUMANS_TORCH-S_WALKL",
+    ]),
+]

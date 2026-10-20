@@ -25,8 +25,11 @@ flamegraph frames="2500":
     perf record -F 299 --call-graph fp -D 4000 -o target/perf.data -- cargo run --release -- --renderless --frames {{frames}}
     flamegraph --perfdata target/perf.data -o target/flamegraph.svg
 
-export_symbol_names:
+export-symbol-names:
     cargo test -p ZenGinViewer -- --ignored --nocapture debug_zengin_scripts > misc/script_game_symbols.log
 
-get_submodules:
+generate-animation-graph:
+    cargo test -p ZenGinViewer animation_graph -- --ignored
+
+get-submodules:
     git submodule update --init --recursive --checkout
