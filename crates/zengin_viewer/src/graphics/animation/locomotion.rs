@@ -220,41 +220,39 @@ pub(crate) fn update_animations(
             }
         }
 
-        // Animation event messages are emitted only for players for now; the
-        // sequencer consuming them is player-only.
-        if player.is_some() {
-            let frames_num = data.frames_num as f32;
-            // The receiver has two frames to schedule the next animation
-            let end_window = (frames_num as usize).saturating_sub(2) as f32;
-            // Single frame poses hold their frame (progress stays 0, they
-            // never cross the end window): they count as ended, so a
-            // sequencer can leave them as soon as the desired animation
-            // differs from the held pose.
-            let crossed_end = data.frames_num == 1
-                || update.loops > 0
-                || (update.old_progress < end_window && update.new_progress >= end_window);
-            if crossed_end {
-                ends.write(AnimationEnds {
-                    who: entity,
-                    what_animation: controller.current().clone(),
-                });
-            }
+        // The end window drives the animation switch scheduling of the
+        // sequencer and the hit reaction resume; consumers filter by `who`.
+        let frames_num = data.frames_num as f32;
+        // The receiver has two frames to schedule the next animation
+        let end_window = (frames_num as usize).saturating_sub(2) as f32;
+        // Single frame poses hold their frame (progress stays 0, they
+        // never cross the end window): they count as ended, so a
+        // sequencer can leave them as soon as the desired animation
+        // differs from the held pose.
+        let crossed_end = data.frames_num == 1
+            || update.loops > 0
+            || (update.old_progress < end_window && update.new_progress >= end_window);
+        if crossed_end {
+            ends.write(AnimationEnds {
+                who: entity,
+                what_animation: controller.current().clone(),
+            });
+        }
 
-            if let Some(triggers) = triggers.as_ref()
-                && let Some(path) = controller.current().path()
-                && let Some(animation) = animation_name_from_path(path.path())
-            {
-                for trigger in crossed_triggers(
-                    triggers.triggers(animation),
-                    update.old_progress,
-                    update.new_progress,
-                    update.loops,
-                ) {
-                    animation_triggers.write(AnimationTrigger {
-                        who: entity,
-                        trigger_name: trigger.name.clone(),
-                    });
-                }
+        if let Some(triggers) = triggers.as_ref()
+            && let Some(path) = controller.current().path()
+            && let Some(animation) = animation_name_from_path(path.path())
+        {
+            for trigger in crossed_triggers(
+                triggers.triggers(animation),
+                update.old_progress,
+                update.new_progress,
+                update.loops,
+            ) {
+                animation_triggers.write(AnimationTrigger {
+                    who: entity,
+                    trigger_name: trigger.name.clone(),
+                });
             }
         }
 
