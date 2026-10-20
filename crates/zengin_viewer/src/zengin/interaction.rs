@@ -12,6 +12,7 @@ use crate::zengin::common::choose_animation_scheme;
 use crate::zengin::npc_routines::{AnimationFiles, NpcEquippedWeapon, NpcOverlay, NpcWeaponMode};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::selection::{Selection, SelectionKind};
@@ -37,6 +38,7 @@ impl Plugin for PlayerInteractionPlugin {
                 pickup_selected_item,
                 toggle_player_weapons,
                 give_test_items,
+                debug_equipment_on_start,
                 open_journal,
             ),
         );
@@ -564,28 +566,18 @@ fn give_test_items(
         return;
     };
 
-    let player_id = player_npc.npc_instance_id;
+    let player_id = player_npc.instance_id();
     let mut script = gothic_script.lock();
     let mut lines: Vec<String> = Vec::new();
     for (item_name, count) in TEST_ITEMS {
-        // Item instances are keyed by id, resolve the hardcoded symbol name
-        // against the loaded instances.
-        let Some(item) = script
-            .get_loaded_state()
-            .items_instances
-            .iter()
-            .find(|(_, instance)| instance.name.eq_ignore_ascii_case(item_name))
-            .map(|(id, _)| *id)
-        else {
+        let Some(item) = grant_test_item(&mut *script, player_id, item_name, *count) else {
             warn!("Test item {item_name} not found among the loaded instances");
             continue;
         };
-        script.add_inventory(player_id, item, *count);
-        let name = script
-            .get_name_by_id(item.value())
-            .map(|symbol_name| crate::gui::inventory::display_item_name(&symbol_name))
-            .unwrap_or_else(|| item.value().to_string());
-        lines.push(format!("{name} x{count}"));
+        lines.push(format!(
+            "{} x{count}",
+            item_display_name(&mut *script, item)
+        ));
     }
     if lines.is_empty() {
         warn!("No test item granted to player({})", player_id);
@@ -597,4 +589,88 @@ fn give_test_items(
         lines.len(),
         player_id
     );
+}
+
+/// Resolves a hardcoded item symbol name against the loaded instances and
+/// adds `count` of it to the player's inventory, returning the item id.
+fn grant_test_item(
+    script: &mut ScriptManager,
+    player_id: InstanceId,
+    item_name: &str,
+    count: i32,
+) -> Option<InstanceId> {
+    let item = script
+        .get_loaded_state()
+        .items_instances
+        .iter()
+        .find(|(_, instance)| instance.name.eq_ignore_ascii_case(item_name))
+        .map(|(id, _)| *id)?;
+    script.add_inventory(player_id, item, count);
+    Some(item)
+}
+
+/// Display name of an item for the game log.
+fn item_display_name(script: &mut ScriptManager, item: InstanceId) -> String {
+    script
+        .get_name_by_id(item.value())
+        .map(|symbol_name| crate::gui::inventory::display_item_name(&symbol_name))
+        .unwrap_or_else(|| item.value().to_string())
+}
+
+/// Grants the debug equipment to the player once at the start of a game and
+/// equips the first melee and ranged weapon from [`TEST_ITEMS`] (sheathed, the
+/// player draws them with the weapon toggle inputs).
+fn debug_equipment_on_start(
+    mut done: Local<bool>,
+    gothic_script: Res<ScriptResource>,
+    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+    mut game_log: ResMut<GameLog>,
+) {
+    if *done {
+        return;
+    }
+    let Ok(player_npc) = player_npc.single() else {
+        return;
+    };
+    let player_id = player_npc.instance_id();
+    let mut script = gothic_script.lock();
+    // The player script instance is created when the game world spawns, that
+    // marks the start of the game.
+    if !script.npc_instances().contains_key(&player_id) {
+        return;
+    }
+
+    let mut lines: Vec<String> = Vec::new();
+    let mut melee = None;
+    let mut ranged = None;
+    for (item_name, count) in TEST_ITEMS {
+        let Some(item) = grant_test_item(&mut *script, player_id, item_name, *count) else {
+            warn!("Test item {item_name} not found among the loaded instances");
+            continue;
+        };
+        // Skip the ranged ammo when picking the ranged weapon to equip.
+        let is_ammo = matches!(
+            item_name.to_ascii_lowercase().as_str(),
+            "itrw_arrow" | "itrw_bolt"
+        );
+        if item_name.starts_with("ITMW_") {
+            melee = melee.or(Some(item));
+        } else if item_name.starts_with("ITRW_") && !is_ammo {
+            ranged = ranged.or(Some(item));
+        }
+        lines.push(format!(
+            "{} x{count}",
+            item_display_name(&mut *script, item)
+        ));
+    }
+    for (_, weapon) in [(false, melee), (true, ranged)] {
+        let Some(weapon) = weapon else {
+            continue;
+        };
+        script.equip_item(player_id, weapon);
+    }
+    drop(script);
+    *done = true;
+    game_log.add(format!("Debug equipment:\n{}", lines.join("\n")));
+    info!("Granted debug equipment to player({})", player_id);
 }
