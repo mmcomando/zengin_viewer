@@ -31,7 +31,8 @@ use crate::zengin::{
     face_direction_quat, get_animation_path,
 };
 
-use super::components::{AnimationController, AnimationEnds};
+use super::components::AnimationEnds;
+use super::controller::AnimationController;
 use super::data::AnimationData;
 use super::human::{
     ArmedState, DesiredAction, FireBowSequence, HumanAnimationSequence, HumanAnimationSequencer,
@@ -84,7 +85,7 @@ fn add_human_sequencer(
 ) {
     for (entity, mut controller, parent) in &mut players {
         // The sequencer drives the player by root motion
-        controller.should_move_entity = true;
+        controller.set_root_motion(true);
         commands
             .entity(entity)
             .insert(HumanAnimationSequencer::default());
@@ -233,7 +234,7 @@ fn run_sequencer(
         // resolve over the following frames.
         let current_ends: Vec<Handle<AnimationData>> = ends
             .iter()
-            .filter(|end| end.who == entity && end.what_animation == controller.current)
+            .filter(|end| end.who == entity && end.what_animation == *controller.current())
             .map(|end| end.what_animation.clone())
             .collect();
         let ends_now = !current_ends.is_empty();
@@ -482,11 +483,7 @@ fn queue_animation(
 ) {
     let name = seq.current_state.animation_name(armed);
     let handle = handles.get_animation_handle(asset_server, &get_animation_path("HUMANS", name));
-    if controller.current == handle {
-        return;
-    }
-    controller.next = Some(handle);
-    controller.interrupt_current = interrupt;
+    controller.queue_next(handle, interrupt);
 }
 
 #[cfg(test)]
@@ -529,12 +526,7 @@ mod tests {
                 DistanceNear::default(),
                 GlobalTransform::default(),
                 Transform::default(),
-                AnimationController {
-                    current: idle,
-                    next: None,
-                    interrupt_current: false,
-                    should_move_entity: false,
-                },
+                AnimationController::new(idle),
                 sequencer,
                 PlayerCharacter,
             ))
@@ -568,8 +560,8 @@ mod tests {
         world
             .get::<AnimationController>(model)
             .unwrap()
-            .next
-            .clone()
+            .next()
+            .cloned()
     }
 
     #[test]
@@ -597,7 +589,10 @@ mod tests {
         });
         let run_start = animation_handle(&mut world, "T_RUN_2_RUNL");
         let run_loop = animation_handle(&mut world, "S_RUNL");
-        world.get_mut::<AnimationController>(model).unwrap().current = run_start.clone();
+        world
+            .get_mut::<AnimationController>(model)
+            .unwrap()
+            .switch_to(run_start.clone());
 
         send_ends(&mut world, model, run_start);
         world.run_system_once(run_sequencer).unwrap();
@@ -619,7 +614,10 @@ mod tests {
         });
         let run_loop = animation_handle(&mut world, "S_RUNL");
         let run_end = animation_handle(&mut world, "T_RUNL_2_RUN");
-        world.get_mut::<AnimationController>(model).unwrap().current = run_loop.clone();
+        world
+            .get_mut::<AnimationController>(model)
+            .unwrap()
+            .switch_to(run_loop.clone());
 
         // Loop wrap while still running: stay in the loop
         send_ends(&mut world, model, run_loop.clone());
@@ -647,7 +645,10 @@ mod tests {
         });
         let run_end = animation_handle(&mut world, "T_RUNL_2_RUN");
         let idle = animation_handle(&mut world, "S_RUN");
-        world.get_mut::<AnimationController>(model).unwrap().current = run_end.clone();
+        world
+            .get_mut::<AnimationController>(model)
+            .unwrap()
+            .switch_to(run_end.clone());
 
         // Desired stand while ending: the end animation hands over to stand
         send_action(&mut world, model, DesiredAction::Stand);
@@ -677,7 +678,10 @@ mod tests {
         assert_eq!(queued_next(&world, model), Some(aim_in.clone()));
 
         // Aim in finished: the reload loop starts, no shot yet
-        world.get_mut::<AnimationController>(model).unwrap().current = aim_in.clone();
+        world
+            .get_mut::<AnimationController>(model)
+            .unwrap()
+            .switch_to(aim_in.clone());
         send_ends(&mut world, model, aim_in);
         world.run_system_once(run_sequencer).unwrap();
         assert_eq!(
@@ -694,7 +698,10 @@ mod tests {
         );
 
         // The reload loop wrapped: the arrow fires and the loop continues
-        world.get_mut::<AnimationController>(model).unwrap().current = reload.clone();
+        world
+            .get_mut::<AnimationController>(model)
+            .unwrap()
+            .switch_to(reload.clone());
         send_ends(&mut world, model, reload);
         world.run_system_once(run_sequencer).unwrap();
         assert_eq!(
@@ -745,7 +752,10 @@ mod tests {
         // Release and the loop wrap in the same step: leave at the boundary,
         // no arrow for the released shot
         send_action(&mut world, model, DesiredAction::Stand);
-        world.get_mut::<AnimationController>(model).unwrap().current = reload.clone();
+        world
+            .get_mut::<AnimationController>(model)
+            .unwrap()
+            .switch_to(reload.clone());
         send_ends(&mut world, model, reload);
         world.run_system_once(run_sequencer).unwrap();
         assert_eq!(

@@ -383,7 +383,7 @@ fn spawn_npc_entities(
                 stand_animation,
                 model_fatness: script.model_fatness,
             },
-            NpcAnimations::default(),
+            // NpcAnimations::default(),
             transform,
             NpcVisibility::default(),
         ));

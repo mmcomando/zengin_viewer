@@ -23,11 +23,12 @@ use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::input::actions::{GameplayAction, GameplayInputMarker};
 use crate::zengin::{
-    AnimationGraph, AnimationIndex, MaterialHandles, animation_name_from_path, face_direction_quat,
-    get_animation_path,
+    AnimationGraph, AnimationIndex, ArrowShot, MaterialHandles, NpcWeaponMode, Selection,
+    WeaponMode, animation_name_from_path, face_direction_quat, get_animation_path,
 };
 
-use super::components::{AnimationController, AnimationEnds};
+use super::components::AnimationEnds;
+use super::controller::AnimationController;
 use super::data::AnimationData;
 use super::human_sequencer::RootMotionMovement;
 
@@ -56,6 +57,8 @@ pub enum DesiredAnimation {
     Stand,
     /// Run loop.
     Run,
+    /// Bow fire: the reload loop, an arrow shot on every wrap.
+    Fire,
 }
 
 impl DesiredAnimation {
@@ -64,6 +67,8 @@ impl DesiredAnimation {
         match self {
             DesiredAnimation::Stand => "S_RUN",
             DesiredAnimation::Run => "S_RUNL",
+            // DesiredAnimation::Fire => "S_BOWSHOOT",
+            DesiredAnimation::Fire => "T_BOWRELOAD",
         }
     }
 }
@@ -97,6 +102,7 @@ impl Plugin for AutoAnimSequencerPlugin {
             Some(mut graph) => {
                 graph.load_additional_edges(Path::new(MANUAL_EDGES_ASSET));
                 app.insert_resource(graph);
+                app.add_systems(Startup, preload_graph_animations);
             }
             None => warn!("AutoAnimSequencerPlugin without an animation graph({GRAPH_ASSET})"),
         }
@@ -124,7 +130,7 @@ fn add_auto_anim_sequencer(
 ) {
     for (entity, mut controller, parent) in &mut players {
         // The sequencer drives the player by root motion
-        controller.should_move_entity = true;
+        controller.set_root_motion(true);
         commands.entity(entity).insert(AutoAnimSequencer::default());
         if let Some(parent) = parent {
             commands.entity(parent.parent()).insert(RootMotionMovement);
@@ -134,16 +140,45 @@ fn add_auto_anim_sequencer(
 
 /// Writes the desired animation of the player every frame from the move
 /// input, resolved camera relative (forward input moves away from the
-/// camera; holds for every camera mode).
+/// camera; holds for every camera mode). Firing (ranged weapon drawn and
+/// attack pressed) wins over movement; the model aims at the target.
 fn send_desired_animations(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
-    players: Query<Entity, (With<PlayerCharacter>, With<AutoAnimSequencer>)>,
+    players: Query<
+        (Entity, Option<&NpcWeaponMode>, &GlobalTransform),
+        (With<PlayerCharacter>, With<AutoAnimSequencer>),
+    >,
     camera: Single<&Transform, With<Camera3d>>,
+    selection: Res<Selection>,
+    transforms: Query<&GlobalTransform>,
     mut writer: MessageWriter<SetDesiredAnimation>,
 ) {
-    let Ok(entity) = players.single() else {
+    let Ok((entity, weapon_mode, player_tr)) = players.single() else {
         return;
     };
+
+    let mode = weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0);
+    if mode == WeaponMode::Ranged && action_state.pressed(&GameplayAction::Interact) {
+        // Aim at the selected npc, fall back to the current facing direction.
+        let target = selection
+            .target
+            .and_then(|target| transforms.get(target).ok())
+            .map(|target| target.translation())
+            .unwrap_or_else(|| player_tr.translation() + (player_tr.rotation() * Vec3::Z) * 20.0);
+        let direction = horizontal(target - player_tr.translation());
+        let direction = if direction.length_squared() < 0.0001 {
+            None
+        } else {
+            Some(direction)
+        };
+        writer.write(SetDesiredAnimation {
+            who: entity,
+            animation: DesiredAnimation::Fire,
+            direction,
+            force_change: true,
+        });
+        return;
+    }
 
     let direction = action_state.axis_pair(&GameplayAction::Move);
     if direction.length_squared() < 0.1 {
@@ -188,6 +223,7 @@ fn run_auto_anim_sequencer(
     graph: Option<Res<AnimationGraph>>,
     mut desired: MessageReader<SetDesiredAnimation>,
     mut ends: MessageReader<AnimationEnds>,
+    mut arrows: MessageWriter<ArrowShot>,
     mut sequencers: Query<(
         Entity,
         &mut AutoAnimSequencer,
@@ -234,7 +270,7 @@ fn run_auto_anim_sequencer(
 
         // The desired animation is taken into account only after the current
         // animation finishes (its wrap for loops).
-        let current_handle = controller.current.clone();
+        let current_handle = controller.current().clone();
         for _end in ends
             .iter()
             .filter(|end| end.who == entity && end.what_animation == current_handle)
@@ -252,11 +288,19 @@ fn run_auto_anim_sequencer(
             };
             let desired_index = index_of(graph, desired);
             if current == desired_index {
-                // Reached: keep the current animation looping.
-                controller.next = None;
-                warn!(
+                if desired == DesiredAnimation::Fire {
+                    // The reload loop wrapped: the arrow leaves the bow. The
+                    // arrow system aims at the selected target.
+                    arrows.write(ArrowShot { shooter: entity });
+                }
+                // Reached: keep the current animation looping. Held one
+                // frame poses emit ends every frame, so this is a normal
+                // state, not an anomaly.
+                controller.clear_next();
+                debug!(
                     "keep looping desired({:?}), current({:?})",
-                    desired, current
+                    desired,
+                    controller.current().path()
                 );
                 continue;
             }
@@ -296,6 +340,23 @@ fn run_auto_anim_sequencer(
     }
 }
 
+/// Preloads every animation of the graph so sequencer switches never have to
+/// wait for the animation asset to load. Graph names carry the scheme prefix
+/// (`HUMANS-S_RUN`), which maps directly to the asset path scheme.
+fn preload_graph_animations(
+    graph: Res<AnimationGraph>,
+    mut handles: ResMut<MaterialHandles>,
+    asset_server: Res<AssetServer>,
+) {
+    for name in graph.animation_names() {
+        let Some((scheme, animation)) = name.split_once('-') else {
+            warn!("Animation graph node({name}) without a scheme prefix, it is not preloaded",);
+            continue;
+        };
+        handles.get_animation_handle(&asset_server, &get_animation_path(scheme, animation));
+    }
+}
+
 /// Graph index of an animation by its sequencer name.
 fn index_of(graph: &AnimationGraph, animation: DesiredAnimation) -> AnimationIndex {
     let name = animation.name();
@@ -326,17 +387,7 @@ fn queue_animation(
 ) {
     let animation = name.strip_prefix(&format!("{SCHEME}-")).unwrap_or(name);
     let handle = handles.get_animation_handle(asset_server, &get_animation_path(SCHEME, animation));
-    if controller.current == handle {
-        info!("queue_animation controller.current == handle",);
-        return;
-    }
-    info!(
-        "queue_animation next({:?}), current({:?})",
-        handle.path(),
-        controller.current.path()
-    );
-    controller.next = Some(handle);
-    controller.interrupt_current = interrupt_current;
+    controller.queue_next(handle, interrupt_current);
 }
 
 #[cfg(test)]
@@ -367,22 +418,19 @@ mod tests {
         world.insert_resource(Time::<()>::default());
         world.init_resource::<Messages<AnimationEnds>>();
         world.init_resource::<Messages<SetDesiredAnimation>>();
+        world.init_resource::<Messages<ArrowShot>>();
         world.insert_resource(test_asset_server());
         world.insert_resource(MaterialHandles::default());
-        let graph =
+        let mut graph =
             AnimationGraph::load_from_ron(Path::new(GRAPH_ASSET)).expect("animation graph ron");
+        graph.load_additional_edges(Path::new(MANUAL_EDGES_ASSET));
         world.insert_resource(graph);
         let current = animation_handle(&mut world, current_name);
         let model = world
             .spawn((
                 GlobalTransform::default(),
                 Transform::default(),
-                AnimationController {
-                    current,
-                    next: None,
-                    interrupt_current: false,
-                    should_move_entity: false,
-                },
+                AnimationController::new(current),
                 AutoAnimSequencer::default(),
                 PlayerCharacter,
             ))
@@ -414,8 +462,8 @@ mod tests {
         world
             .get::<AnimationController>(model)
             .unwrap()
-            .next
-            .clone()
+            .next()
+            .cloned()
     }
 
     /// Stand wrap with run desired: the graph walk queues the run-in
@@ -460,6 +508,59 @@ mod tests {
         assert_eq!(queued_next(&world, model), None);
     }
 
+    /// Firing: the graph offers no path to the reload loop, so the sequencer
+    /// cuts to it; on its wrap the arrow is shot and the loop keeps playing.
+    #[test]
+    fn firing_cuts_to_reload_and_shoots_on_wrap() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        let stand = animation_handle(&mut world, "S_RUN");
+        let reload = animation_handle(&mut world, "T_BOWRELOAD");
+
+        send_desired(&mut world, model, DesiredAnimation::Fire);
+        send_ends(&mut world, model, stand);
+        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        assert_eq!(queued_next(&world, model), Some(reload.clone()));
+
+        // The reload loop wraps: the arrow leaves the bow.
+        world
+            .get_mut::<AnimationController>(model)
+            .unwrap()
+            .switch_to(reload.clone());
+        send_desired(&mut world, model, DesiredAnimation::Fire);
+        send_ends(&mut world, model, reload.clone());
+        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        assert_eq!(queued_next(&world, model), None);
+        assert_eq!(
+            world
+                .resource::<Messages<ArrowShot>>()
+                .iter_current_update_messages()
+                .count(),
+            1
+        );
+    }
+
+    /// Releasing the fire button: the reload wrap queues the aim-out
+    /// transition instead of shooting, and no arrow is written.
+    #[test]
+    fn release_fire_leaves_via_aim_out_without_shot() {
+        let (mut world, model) = run_sequencer_world("T_BOWRELOAD");
+        let reload = animation_handle(&mut world, "T_BOWRELOAD");
+        let aim_out = animation_handle(&mut world, "T_BOWAIM_2_BOWRUN");
+
+        send_desired(&mut world, model, DesiredAnimation::Stand);
+        send_ends(&mut world, model, reload);
+        world.run_system_once(run_auto_anim_sequencer).unwrap();
+
+        assert_eq!(queued_next(&world, model), Some(aim_out));
+        assert_eq!(
+            world
+                .resource::<Messages<ArrowShot>>()
+                .iter_current_update_messages()
+                .count(),
+            0
+        );
+    }
+
     /// Stopping: the run loop wrap queues the run-out, its end queues the
     /// standing idle again.
     #[test]
@@ -476,7 +577,10 @@ mod tests {
 
         send_desired(&mut world, model, DesiredAnimation::Stand);
         send_ends(&mut world, model, run_out.clone());
-        world.get_mut::<AnimationController>(model).unwrap().current = run_out.clone();
+        world
+            .get_mut::<AnimationController>(model)
+            .unwrap()
+            .switch_to(run_out.clone());
         world.run_system_once(run_auto_anim_sequencer).unwrap();
         assert_eq!(queued_next(&world, model), Some(stand));
     }

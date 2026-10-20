@@ -51,29 +51,6 @@ pub struct AnimationState {
     pub base_pos_node_index: usize,
 }
 
-/// Playback control of a skeleton.
-///
-/// When the current animation ends, [`AnimationController::next`] is played;
-/// if it is `None`, the current animation loops. [`AnimationController::interrupt_current`]
-/// allows the queued `next` to replace a still playing animation immediately —
-/// otherwise one-shot animations have to play to their end first.
-///
-/// What to play next is decided by other systems: moving entities get their
-/// controller driven by a [`LocomotionSequencer`].
-#[derive(Component, Debug)]
-pub struct AnimationController {
-    /// Currently played animation
-    pub current: Handle<AnimationData>,
-    /// Animation to play when the current one ends; `None` loops the current one
-    pub next: Option<Handle<AnimationData>>,
-    /// Whether the queued `next` may replace `current` immediately
-    pub interrupt_current: bool,
-    /// Whether the root movement of the current animation moves the entity
-    /// itself (Gothic-style root motion: the animation drives the position,
-    /// the character controller only handles gravity and collisions).
-    pub should_move_entity: bool,
-}
-
 /// Sent when an animation enters its `last_frame-2` window — the receiver has
 /// two frames to schedule the next animation before the current one ends.
 /// Fires on every loop wrap of looping animations.
@@ -97,7 +74,7 @@ pub struct AnimationTrigger {
     pub trigger_name: String,
 }
 
-/// Movement animation set driving the [`AnimationController`] of moving entities.
+/// Movement animation set driving the `AnimationController` of moving entities.
 ///
 /// A system watches entity movement and writes `next` and `interrupt_current`
 /// of the controller. Entities without movement animations don't have this

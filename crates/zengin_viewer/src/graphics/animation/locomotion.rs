@@ -15,9 +15,9 @@ use crate::zengin::human_animations::{
 };
 
 use super::components::{
-    AnimationController, AnimationEnds, AnimationState, AnimationTrigger, BoneAnimationData,
-    LocomotionSequencer,
+    AnimationEnds, AnimationState, AnimationTrigger, BoneAnimationData, LocomotionSequencer,
 };
+use super::controller::AnimationController;
 use super::data::AnimationData;
 use super::human::HumanAnimationSequencer;
 
@@ -67,7 +67,7 @@ pub(crate) fn advance_animation(data: &AnimationState, delta: f32) -> Option<Fra
             mul_1000: 0,
             time_us: 0,
             delta_movement: 0.0,
-            finished: false,
+            finished: true,
             loops: 0,
             old_progress: 0.0,
             new_progress: 0.0,
@@ -217,12 +217,15 @@ pub(crate) fn update_locomotion(
     q_vel: Query<&LinearVelocity>,
 ) {
     for (parent, sequencer, mut controller) in &mut query {
-        let Some(kind) = animation_kind(sequencer, &controller.current) else {
+        let Some(kind) = animation_kind(sequencer, controller.current()) else {
             continue;
         };
         let (next, interrupt) = desired_next(sequencer, kind, is_moving(parent, &q_vel));
-        controller.next = next;
-        controller.interrupt_current = interrupt;
+        if let Some(next) = next {
+            controller.queue_next(next, interrupt);
+        } else {
+            controller.clear_next();
+        }
     }
 }
 
@@ -285,9 +288,9 @@ pub(crate) fn update_animations(
             .needs_update
             .store(needs_update, Ordering::Release);
 
-        if !data.frame_state.needs_update.load(Ordering::Acquire) {
-            continue;
-        }
+        // if !data.frame_state.needs_update.load(Ordering::Acquire) {
+        //     continue;
+        // }
         let Some(update) = advance_animation(&data, delta) else {
             continue;
         };
@@ -305,13 +308,14 @@ pub(crate) fn update_animations(
         data.time_us.store(update.time_us, Ordering::Release);
 
         let Some(mut controller) = controller else {
+            println!("no controller");
             continue;
         };
 
         // Root motion: the animation drives the position of the entity (the
         // physics body owns the model as a child, so move that one and let
         // move-and-slide react to the new position).
-        if controller.should_move_entity && update.delta_movement != 0.0 {
+        if controller.root_motion() && update.delta_movement != 0.0 {
             let target = match parent {
                 Some(parent) if q_vel.contains(parent.parent()) => parent.parent(),
                 _ => entity,
@@ -333,17 +337,22 @@ pub(crate) fn update_animations(
             let frames_num = data.frames_num as f32;
             // The receiver has two frames to schedule the next animation
             let end_window = (frames_num as usize).saturating_sub(2) as f32;
-            let crossed_end = update.loops > 0
+            // Single frame poses hold their frame (progress stays 0, they
+            // never cross the end window): they count as ended, so a
+            // sequencer can leave them as soon as the desired animation
+            // differs from the held pose.
+            let crossed_end = data.frames_num == 1
+                || update.loops > 0
                 || (update.old_progress < end_window && update.new_progress >= end_window);
             if crossed_end {
                 ends.write(AnimationEnds {
                     who: entity,
-                    what_animation: controller.current.clone(),
+                    what_animation: controller.current().clone(),
                 });
             }
 
             if let Some(triggers) = triggers.as_ref()
-                && let Some(path) = Handle::path(&controller.current)
+                && let Some(path) = controller.current().path()
                 && let Some(animation) = animation_name_from_path(path.path())
             {
                 for trigger in crossed_triggers(
@@ -368,16 +377,23 @@ pub(crate) fn update_animations(
         // Switch when the current animation ended. Interruptible animations are
         // switched immediately, otherwise e.g. the 2s idle loop would delay
         // movement start.
-        if (update.finished || controller.interrupt_current)
+        // println!(
+        //     "aaaa {} {}",
+        //     (update.finished || controller.interrupt_current()),
+        //     controller
+        //         .next()
+        //         .is_some_and(|next| next != controller.current())
+        // );
+        if (update.finished || controller.interrupt_current())
             && controller
-                .next
-                .as_ref()
-                .is_some_and(|next| *next != controller.current)
-            && let Some(next) = controller.next.take()
+                .next()
+                .is_some_and(|next| next != controller.current())
+            && let Some(next) = controller.take_next()
             && let Some(next_data) = animations.get(&next)
         {
+            // println!("switch animation");
             let next_data = Arc::new(next_data.clone());
-            let current_path = Handle::path(&controller.current);
+            let current_path = controller.current().path();
             let next_path = Handle::path(&next);
             if next_data.frames_num == 0 {
                 warn!(
@@ -399,7 +415,7 @@ pub(crate) fn update_animations(
                 Ordering::Release,
             );
             data.frame_state.mul_1000.store(0, Ordering::Release);
-            controller.current = next;
+            controller.switch_to(next);
             switches.push((entity, next_data));
         }
     }

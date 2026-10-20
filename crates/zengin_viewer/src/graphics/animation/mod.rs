@@ -1,5 +1,6 @@
 mod auto_anim_sequencer;
 mod components;
+mod controller;
 mod data;
 mod human;
 mod human_sequencer;
@@ -13,9 +14,9 @@ mod tests;
 use bevy::prelude::*;
 
 pub use components::{
-    AnimatedJoint, AnimationController, AnimationState, BoneAnimationData, FrameState,
-    LocomotionSequencer,
+    AnimatedJoint, AnimationState, BoneAnimationData, FrameState, LocomotionSequencer,
 };
+pub use controller::AnimationController;
 pub use data::{AnimationData, AnimationSample};
 pub use human_sequencer::RootMotionMovement;
 pub use npc::{MovementAnimations, NpcAnimations};

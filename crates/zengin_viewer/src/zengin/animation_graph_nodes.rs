@@ -120,6 +120,11 @@ impl AnimationGraph {
         &self.names[index.0 as usize]
     }
 
+    /// All animation names of the graph (e.g. `HUMANS-S_RUN`).
+    pub fn animation_names(&self) -> impl Iterator<Item = &str> {
+        self.names.iter().map(String::as_str)
+    }
+
     /// Next animation to play to reach the `desired` animation from the
     /// `current` one. Both are animation indices (see
     /// [`Self::animation_index`]).

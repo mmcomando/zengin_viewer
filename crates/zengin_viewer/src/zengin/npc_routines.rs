@@ -250,8 +250,7 @@ fn update_npc_routine_animations(
         // Applied via `next` so the animation system syncs its playback state on
         // the switch. When the animation asset does not exist the switch is
         // silently dropped and the npc keeps its current animation.
-        controller.next = Some(handles.get_animation_handle(&asset_server, &path));
-        controller.interrupt_current = true;
+        controller.queue_next(handles.get_animation_handle(&asset_server, &path), true);
     }
 }
 
@@ -354,8 +353,7 @@ fn apply_weapon_mode(
         let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
         let scheme = choose_animation_scheme(scheme, overlay, &animation, &files.0);
         let path = get_animation_path(scheme, &animation);
-        controller.next = Some(handles.get_animation_handle(&asset_server, &path));
-        controller.interrupt_current = true;
+        controller.queue_next(handles.get_animation_handle(&asset_server, &path), true);
     }
 }
 
@@ -764,8 +762,7 @@ fn move_along_path(
                 existing_animation(scheme, overlay, &WALK_ANIMATIONS, &files.0)
             {
                 let path = get_animation_path(scheme, animation);
-                controller.next = Some(handles.get_animation_handle(&asset_server, &path));
-                controller.interrupt_current = true;
+                controller.queue_next(handles.get_animation_handle(&asset_server, &path), true);
             }
         } else if arrived && walk.walking {
             walk.walking = false;
@@ -775,8 +772,7 @@ fn move_along_path(
                 .unwrap_or(STANDING_ANIMATION);
             let scheme = choose_animation_scheme(scheme, overlay, animation, &files.0);
             let path = get_animation_path(scheme, animation);
-            controller.next = Some(handles.get_animation_handle(&asset_server, &path));
-            controller.interrupt_current = true;
+            controller.queue_next(handles.get_animation_handle(&asset_server, &path), true);
         }
     }
 }

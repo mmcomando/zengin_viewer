@@ -317,12 +317,9 @@ fn spawn_npcs(
         }
 
         if let Some(animation_handle) = spawn_state.animation_handle.clone() {
-            commands.entity(entity_id).insert(AnimationController {
-                current: animation_handle,
-                next: None,
-                interrupt_current: false,
-                should_move_entity: false,
-            });
+            commands
+                .entity(entity_id)
+                .insert(AnimationController::new(animation_handle));
             // Entities with movement animations get a locomotion sequencer
             // driving their controller, the rest just loops its single animation
             if let Some(movement) = spawn_state.movement_handles.clone() {

@@ -6,9 +6,9 @@ use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
 use super::components::{
-    AnimationController, AnimationEnds, AnimationState, AnimationTrigger, FrameState,
-    LocomotionSequencer,
+    AnimationEnds, AnimationState, AnimationTrigger, FrameState, LocomotionSequencer,
 };
+use super::controller::AnimationController;
 use super::data::{AnimationData, AnimationSample};
 use super::locomotion::{
     ATOMIC_SCALE, AnimationKind, TIME_SCALE, advance_animation, animation_kind, desired_next,
@@ -290,21 +290,14 @@ fn queued_next_replaces_finished_animation() {
     // 2 s into the 0.8 s loop: the animation finished this step
     let state = runl_state(Some(runl_movement()));
     state.time_us.store(2_000_000, Ordering::Release);
-    let (mut world, model) = run_update_animations(
-        assets,
-        state,
-        AnimationController {
-            current: first,
-            next: Some(second.clone()),
-            interrupt_current: false,
-            should_move_entity: false,
-        },
-    );
+    let mut controller = AnimationController::new(first.clone());
+    controller.queue_next(second.clone(), false);
+    let (mut world, model) = run_update_animations(assets, state, controller);
     world.run_system_once(update_animations).unwrap();
 
     let controller = world.get::<AnimationController>(model).unwrap();
-    assert_eq!(controller.current, second);
-    assert_eq!(controller.next, None);
+    assert_eq!(controller.current(), &second);
+    assert_eq!(controller.next(), None);
 }
 
 #[test]
@@ -314,21 +307,15 @@ fn interrupt_current_replaces_playing_animation() {
     let second = assets.add(test_animation());
 
     // The animation just started, but the queued next may interrupt it
-    let (mut world, model) = run_update_animations(
-        assets,
-        runl_state(Some(runl_movement())),
-        AnimationController {
-            current: first,
-            next: Some(second.clone()),
-            interrupt_current: true,
-            should_move_entity: false,
-        },
-    );
+    let mut controller = AnimationController::new(first.clone());
+    controller.queue_next(second.clone(), true);
+    let (mut world, model) =
+        run_update_animations(assets, runl_state(Some(runl_movement())), controller);
     world.run_system_once(update_animations).unwrap();
 
     let controller = world.get::<AnimationController>(model).unwrap();
-    assert_eq!(controller.current, second);
-    assert_eq!(controller.next, None);
+    assert_eq!(controller.current(), &second);
+    assert_eq!(controller.next(), None);
 }
 
 #[test]
@@ -338,21 +325,15 @@ fn queued_next_waits_for_current_to_end() {
     let second = assets.add(AnimationData::default());
 
     // The animation just started and may not be interrupted
-    let (mut world, model) = run_update_animations(
-        assets,
-        runl_state(Some(runl_movement())),
-        AnimationController {
-            current: first.clone(),
-            next: Some(second.clone()),
-            interrupt_current: false,
-            should_move_entity: false,
-        },
-    );
+    let mut controller = AnimationController::new(first.clone());
+    controller.queue_next(second.clone(), false);
+    let (mut world, model) =
+        run_update_animations(assets, runl_state(Some(runl_movement())), controller);
     world.run_system_once(update_animations).unwrap();
 
     let controller = world.get::<AnimationController>(model).unwrap();
-    assert_eq!(controller.current, first);
-    assert_eq!(controller.next, Some(second));
+    assert_eq!(controller.current(), &first);
+    assert_eq!(controller.next(), Some(&second));
 }
 
 #[test]
@@ -379,16 +360,8 @@ fn animation_ends_fires_when_entering_end_window() {
     // 16 frames in (of 20): the next two frame step crosses into the
     // last_frame-2 window (frame 18)
     state.time_us.store(640_000, Ordering::Release);
-    let (mut world, model) = run_update_animations(
-        assets,
-        state,
-        AnimationController {
-            current: current.clone(),
-            next: None,
-            interrupt_current: false,
-            should_move_entity: false,
-        },
-    );
+    let (mut world, model) =
+        run_update_animations(assets, state, AnimationController::new(current.clone()));
     world.entity_mut(model).insert(PlayerCharacter);
     world
         .resource_mut::<Time<()>>()
@@ -411,16 +384,8 @@ fn animation_messages_only_fire_for_players() {
     let current = assets.add(test_animation());
     let state = runl_state(Some(runl_movement()));
     state.time_us.store(640_000, Ordering::Release);
-    let (mut world, _model) = run_update_animations(
-        assets,
-        state,
-        AnimationController {
-            current,
-            next: None,
-            interrupt_current: false,
-            should_move_entity: false,
-        },
-    );
+    let (mut world, _model) =
+        run_update_animations(assets, state, AnimationController::new(current));
 
     world.run_system_once(update_animations).unwrap();
 
