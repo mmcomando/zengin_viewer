@@ -4,6 +4,7 @@ use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
+use crate::graphics::animation::RootMotionMovement;
 use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
 use crate::zengin::NPC_BODY;
 
@@ -223,6 +224,7 @@ fn movement(
         &mut LinearVelocity,
         &Transform,
         Has<Grounded>,
+        Has<RootMotionMovement>,
     )>,
 ) {
     let delta_secs = time.delta_secs_f64().adjust_precision();
@@ -235,8 +237,8 @@ fn movement(
     let jump_pressed = action_state.just_pressed(&GameplayAction::Jump);
     let accelerating = action_state.pressed(&GameplayAction::Accelerate);
 
-    for (movement, mut linear_velocity, tr, is_grounded) in &mut controllers {
-        if is_moving {
+    for (movement, mut linear_velocity, tr, is_grounded, root_motion) in &mut controllers {
+        if is_moving && !root_motion {
             let rot = tr.rotation.to_euler(EulerRot::YXZ);
             let dir = Vec3 {
                 x: -direction.x,
@@ -510,11 +512,11 @@ fn apply_forces_to_dynamic_bodies(
 }
 
 pub fn camera_movement_system(
-    mut player_query: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
+    player_query: Query<&Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
     mut camera_query: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
 ) {
     let mut camera_transform = camera_query.single_mut().unwrap();
-    let mut player_transform = player_query.single_mut().unwrap();
+    let player_transform = player_query.single().unwrap();
 
     let camera_dt = camera_transform.rotation * Vec3::Z * 6.0;
 
@@ -522,6 +524,7 @@ pub fn camera_movement_system(
     camera_transform.translation.y = player_transform.translation.y + 1.3 + camera_dt.y;
     camera_transform.translation.z = player_transform.translation.z + camera_dt.z;
 
-    let rot_euler = camera_transform.rotation.to_euler(EulerRot::YXZ);
-    player_transform.rotation = Quaternion::from_rotation_y(rot_euler.0 + PI);
+    // The player rotation is owned by the human animation sequencer (model
+    // facing); the body keeps its rotation so the model's global facing and
+    // root motion direction stay camera independent.
 }

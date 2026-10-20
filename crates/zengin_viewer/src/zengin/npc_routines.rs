@@ -314,7 +314,8 @@ pub struct NpcWeaponMode(pub WeaponMode);
 
 /// Switches the idle animation of an npc when its weapon mode changes (drawn
 /// melee uses the armed idle `S_1H`, otherwise the scheme standing idle). Also
-/// applies once when the visual (animation controller) appears.
+/// applies once when the visual (animation controller) appears. The player is
+/// excluded: its idle is handled by the human animation sequencer.
 #[allow(clippy::type_complexity)]
 fn apply_weapon_mode(
     files: Res<AnimationFiles>,
@@ -327,7 +328,10 @@ fn apply_weapon_mode(
             &NpcWeaponMode,
             &mut AnimationController,
         ),
-        Or<(Changed<NpcWeaponMode>, Added<AnimationController>)>,
+        (
+            Or<(Changed<NpcWeaponMode>, Added<AnimationController>)>,
+            Without<PlayerCharacter>,
+        ),
     >,
 ) {
     for (model, overlay, weapon_mode, mut controller) in &mut npcs {

@@ -16,7 +16,7 @@ use zen_kit_rs::model_scripts::ModelScript;
 use zen_kit_rs::stream::Read;
 
 use crate::graphics::animation::AnimationData;
-use crate::graphics::animation::{HUMAN_ANIMATIONS, HumanAnimationSequence};
+use crate::graphics::animation::{ArmedState, HUMAN_ANIMATIONS, HumanAnimationSequence};
 use crate::zengin::common::get_animation_path;
 use crate::zengin::loaders::vdf_reader::{ZenginVfs, get_zengin_asset_bytes};
 use crate::zengin::zengin_resources::MaterialHandles;
@@ -60,15 +60,19 @@ impl AnimationTriggers {
 /// before any sequencer asks for them (queued animations are dropped while an
 /// asset is still loading, preloading avoids that race).
 #[allow(dead_code)]
-#[derive(Resource, Default)]
+#[derive(Resource, Clone, Default)]
 pub struct HumanAnimationLibrary {
-    animations: HashMap<&'static str, Handle<AnimationData>>,
+    pub(crate) animations: HashMap<&'static str, Handle<AnimationData>>,
 }
 
 impl HumanAnimationLibrary {
     #[allow(dead_code)]
-    pub fn handle(&self, sequence: HumanAnimationSequence) -> Option<&Handle<AnimationData>> {
-        self.animation_handle(sequence.animation_name())
+    pub fn handle(
+        &self,
+        sequence: HumanAnimationSequence,
+        armed: ArmedState,
+    ) -> Option<&Handle<AnimationData>> {
+        self.animation_handle(sequence.animation_name(armed))
     }
 
     #[allow(dead_code)]

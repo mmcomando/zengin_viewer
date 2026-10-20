@@ -18,6 +18,7 @@ use super::components::{
     LocomotionSequencer,
 };
 use super::data::AnimationData;
+use super::human::HumanAnimationSequencer;
 
 pub(crate) const ATOMIC_SCALE: f32 = 1000.0;
 /// Animation time is stored scaled to integers so it can be shared without locks.
@@ -210,7 +211,7 @@ pub(crate) fn update_locomotion(
             &LocomotionSequencer,
             &mut AnimationController,
         ),
-        With<DistanceNear>,
+        (With<DistanceNear>, Without<HumanAnimationSequencer>),
     >,
     q_vel: Query<&LinearVelocity>,
 ) {

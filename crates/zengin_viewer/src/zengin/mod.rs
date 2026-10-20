@@ -27,12 +27,16 @@ mod debug_zengin_scripts;
 use bevy::prelude::*;
 
 // Expose only what is needed for outside modules
+pub use crate::zengin::common::face_direction_quat;
 pub use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };
 pub use crate::zengin::npc_routines::NpcHealth;
+pub use crate::zengin::npc_routines::{NpcWeaponMode, WayPoints};
+pub use crate::zengin::ranged::{ArrowShot, SHOT_INTERVAL};
 pub use crate::zengin::script::component::ScriptResource;
 pub use crate::zengin::script::state::WeaponKind;
+pub use crate::zengin::script::state::WeaponMode;
 pub use crate::zengin::script::symbol_id::InstanceId;
 pub use crate::zengin::selection::{Selection, SelectionKind};
 pub use crate::zengin::sounds::SpeechSounds;

@@ -1,9 +1,7 @@
 mod components;
 mod data;
-// The sequencer component and systems consuming these types come in a later
-// phase; until then the API is intentionally unused.
-#[allow(dead_code)]
 mod human;
+mod human_sequencer;
 mod locomotion;
 mod npc;
 mod plugin;
@@ -18,7 +16,8 @@ pub use components::{
     LocomotionSequencer,
 };
 pub use data::{AnimationData, AnimationSample};
-pub use human::{HUMAN_ANIMATIONS, HumanAnimationSequence};
+pub use human::{ArmedState, HUMAN_ANIMATIONS, HumanAnimationSequence};
+pub use human_sequencer::RootMotionMovement;
 pub use npc::{MovementAnimations, NpcAnimations};
 pub use plugin::SkeletalAnimations;
 

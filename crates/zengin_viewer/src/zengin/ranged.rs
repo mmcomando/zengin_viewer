@@ -1,25 +1,16 @@
-//! Ranged combat: the player bow attack sequence and flying arrows.
+//! Ranged combat: arrow projectiles of the player bow attack.
 //!
-//! Pressing `Interact` with a ranged weapon drawn starts the sequence: an
-//! aim-in transition, then the aim/fire loop (`S_BOWSHOOT`). The arrow spawns
-//! at a fixed frame of the loop (Gothic-like), a reload transition follows and
-//! another `Interact` press (or holding the key) fires again; releasing the
-//! key plays the aim-out transition and hands the animation control back.
+//! The bow attack sequence itself is driven by the human animation sequencer
+//! (`FireBowSequence` in the animation module), which writes [`ArrowShot`]
+//! messages when an arrow releases. This module spawns the flying arrows,
+//! resolves their hits and cleans them up.
 
 use bevy::prelude::*;
-use leafwing_input_manager::prelude::ActionState;
 
-use crate::gameplay::objects::{NpcModel, PlayerCharacter};
-use crate::graphics::animation::{
-    AnimationController, AnimationData, LocomotionSequencer, ScriptedAnimations,
-};
+use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::game_log::GameLog;
-use crate::input::actions::{GameplayAction, GameplayInputMarker};
-use crate::zengin::common::{choose_animation_scheme, get_animation_path};
 use crate::zengin::interaction::NpcDied;
-use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay, NpcWeaponMode};
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::selection::{NpcHitCollider, Selection};
 use crate::zengin::world::item_model_path;
@@ -32,24 +23,13 @@ pub struct RangedCombatPlugin;
 impl Plugin for RangedCombatPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<ArrowShot>();
-        app.add_systems(Update, add_bow_attack);
-        app.add_systems(Update, bow_attack_state_machine.in_set(ScriptedAnimations));
         app.add_systems(Update, (spawn_arrows, arrow_hits, arrow_cleanup).chain());
     }
 }
 
-/// Aim-in transition played when the player starts the bow attack.
-const AIM_IN_ANIMATION: &str = "T_BOWRUN_2_BOWAIM";
-/// Aim-out transition played when the player stops shooting.
-const AIM_OUT_ANIMATION: &str = "T_BOWAIM_2_BOWRUN";
-/// Delay between entering the aim stage and the first arrow release. The
-/// aim/fire animation `S_BOWSHOOT` is a 1-frame pose the animation system
-/// cannot advance (logged as "not playable"), so the hold is the looping
-/// aim-in animation and the release is a fixed delay instead of an animation
-/// frame.
-const ARROW_RELEASE_DELAY: f32 = 0.3;
-/// Interval between repeat shots while the attack key is held.
-const SHOT_INTERVAL: f32 = 1.2;
+/// Interval between repeat shots while the attack key is held. Used by the
+/// human animation sequencer while it holds the aim.
+pub const SHOT_INTERVAL: f32 = 1.2;
 /// Local axis of the arrow item mesh pointing along the shaft. The arrow
 /// meshes are authored sideways (like weapons: grip at origin), not along -Z,
 /// so the shot direction is aligned with this axis.
@@ -63,26 +43,6 @@ const BOW_HEIGHT: f32 = 0.9;
 /// Seconds after which an arrow that hit nothing despawns.
 const ARROW_LIFETIME: f32 = 10.0;
 
-/// Stages of the player bow attack sequence.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-enum BowStage {
-    #[default]
-    Idle,
-    AimIn,
-    Aim,
-    AimOut,
-}
-
-/// State of the player bow attack sequence, on the player model entity.
-#[derive(Component, Default)]
-pub struct BowAttack {
-    stage: BowStage,
-    elapsed: f32,
-    /// Time within the `Aim` stage at which the next arrow releases; `None`
-    /// while no shot is scheduled.
-    next_shot_at: Option<f32>,
-}
-
 /// An arrow about to be spawned by the bow attack of the given shooter.
 #[derive(Message)]
 pub struct ArrowShot {
@@ -95,221 +55,6 @@ pub struct Arrow {
     pub damage: i32,
     pub shooter: InstanceId,
     spawned_at: f32,
-}
-
-/// Adds the bow attack state component to the player model entity, also after
-/// the visual was respawned (far to near).
-fn add_bow_attack(
-    mut commands: Commands,
-    players: Query<Entity, (Added<AnimationController>, With<PlayerCharacter>)>,
-) {
-    for entity in &players {
-        commands.entity(entity).insert(BowAttack::default());
-    }
-}
-
-/// Resolves the animation path for a bow animation of the player scheme.
-fn bow_animation(
-    model: &NpcModel,
-    overlay: Option<&NpcOverlay>,
-    files: &AnimationFiles,
-    animation: &str,
-    handles: &mut MaterialHandles,
-    asset_server: &Res<AssetServer>,
-) -> Handle<AnimationData> {
-    let base = model.animation_scheme.as_deref().unwrap_or("HUMANS");
-    let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
-    let scheme = choose_animation_scheme(base, overlay, animation, &files.0);
-    let path = get_animation_path(scheme, animation);
-    handles.get_animation_handle(asset_server, &path)
-}
-
-/// Duration of one animation loop in seconds, `None` while the asset loads or
-/// for animations the playback system cannot advance.
-fn animation_duration(
-    animations: &Assets<AnimationData>,
-    handle: &Handle<AnimationData>,
-) -> Option<f32> {
-    let data = animations.get(handle)?;
-    if data.fps <= 0.0 || data.frames_num < 2 {
-        return None;
-    }
-    Some(data.frames_num as f32 / data.fps)
-}
-
-/// Queues `handle` as the next animation unless it already plays.
-fn queue_animation(
-    controller: &mut AnimationController,
-    handle: &Handle<AnimationData>,
-    interrupt: bool,
-) {
-    if controller.current == *handle {
-        return;
-    }
-    controller.next = Some(handle.clone());
-    controller.interrupt_current = interrupt;
-}
-
-/// Advances the player bow attack sequence and queues the matching animations.
-/// Runs between the locomotion animation pick and the animation advance, see
-/// [`ScriptedAnimations`], so queued animations are applied in the same frame
-/// and not overwritten while the current animation is locomotion-owned.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-fn bow_attack_state_machine(
-    time: Res<Time>,
-    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
-    animations: Res<Assets<AnimationData>>,
-    mut handles: ResMut<MaterialHandles>,
-    asset_server: Res<AssetServer>,
-    files: Res<AnimationFiles>,
-    mut shots: MessageWriter<ArrowShot>,
-    mut players: Query<
-        (
-            Entity,
-            &NpcModel,
-            Option<&NpcOverlay>,
-            Option<&NpcWeaponMode>,
-            Option<&LocomotionSequencer>,
-            &mut AnimationController,
-            &mut BowAttack,
-        ),
-        With<PlayerCharacter>,
-    >,
-) {
-    let delta = time.delta_secs();
-    let interact_held = action_state.pressed(&GameplayAction::Interact);
-
-    for (entity, model, overlay, weapon_mode, sequencer, mut controller, mut bow) in &mut players {
-        let mode = weapon_mode.map(|mode| mode.0).unwrap_or(WeaponMode::Fists);
-        if mode != WeaponMode::Ranged && bow.stage != BowStage::Idle {
-            // Weapon sheathed mid-sequence, cancel it. `apply_weapon_mode`
-            // restores the idle on the weapon-mode change.
-            info!("Bow attack of player({entity}) canceled, weapon no longer drawn");
-            *bow = BowAttack::default();
-            continue;
-        }
-        if mode != WeaponMode::Ranged {
-            continue;
-        }
-
-        // Stage transitions queue their animation with `interrupt_current =
-        // false`, so each animation plays to its end before the next one
-        // starts; the stage only advances once the queued animation actually
-        // became current and played for its duration. The exception is
-        // stopping the aim hold, which interrupts immediately.
-        match bow.stage {
-            BowStage::Idle => {
-                if !action_state.just_pressed(&GameplayAction::Interact) {
-                    continue;
-                }
-                let aim_in = bow_animation(
-                    model,
-                    overlay,
-                    &files,
-                    AIM_IN_ANIMATION,
-                    &mut handles,
-                    &asset_server,
-                );
-                queue_animation(&mut controller, &aim_in, false);
-                bow.stage = BowStage::AimIn;
-                bow.elapsed = 0.0;
-                bow.next_shot_at = None;
-                info!("Player({entity}) starts a bow attack");
-            }
-            BowStage::AimIn => {
-                let aim_in = bow_animation(
-                    model,
-                    overlay,
-                    &files,
-                    AIM_IN_ANIMATION,
-                    &mut handles,
-                    &asset_server,
-                );
-                queue_animation(&mut controller, &aim_in, false);
-                // Wait until the queued animation actually plays, the previous
-                // one has to end first.
-                if controller.current != aim_in {
-                    continue;
-                }
-                bow.elapsed += delta;
-                let Some(duration) = animation_duration(&animations, &aim_in) else {
-                    continue;
-                };
-                if bow.elapsed >= duration {
-                    // The aim/fire animation is a 1-frame pose the playback
-                    // cannot advance, so aiming keeps the aim-in animation
-                    // looping and shots are timed instead.
-                    bow.stage = BowStage::Aim;
-                    bow.elapsed = 0.0;
-                    // Holding the key fires the first shot after the release
-                    // delay, further shots every [`SHOT_INTERVAL`].
-                    bow.next_shot_at = interact_held.then_some(ARROW_RELEASE_DELAY);
-                }
-            }
-            BowStage::Aim => {
-                bow.elapsed += delta;
-                if let Some(release) = bow.next_shot_at
-                    && bow.elapsed >= release
-                {
-                    // A scheduled shot only fires while the key is still held.
-                    bow.next_shot_at = if interact_held {
-                        shots.write(ArrowShot { shooter: entity });
-                        info!("Player({entity}) releases an arrow");
-                        Some(bow.elapsed + SHOT_INTERVAL)
-                    } else {
-                        None
-                    };
-                }
-                if bow.next_shot_at.is_none() && !interact_held {
-                    let aim_out = bow_animation(
-                        model,
-                        overlay,
-                        &files,
-                        AIM_OUT_ANIMATION,
-                        &mut handles,
-                        &asset_server,
-                    );
-                    // The aim hold never ends on its own (1-frame animation),
-                    // stop it immediately.
-                    queue_animation(&mut controller, &aim_out, true);
-                    bow.stage = BowStage::AimOut;
-                    bow.elapsed = 0.0;
-                }
-            }
-            BowStage::AimOut => {
-                let aim_out = bow_animation(
-                    model,
-                    overlay,
-                    &files,
-                    AIM_OUT_ANIMATION,
-                    &mut handles,
-                    &asset_server,
-                );
-                // Re-queue every frame: a just-loaded animation handle can be
-                // dropped by the playback while its asset is still loading.
-                queue_animation(&mut controller, &aim_out, true);
-                if controller.current != aim_out {
-                    continue;
-                }
-                bow.elapsed += delta;
-                let Some(duration) = animation_duration(&animations, &aim_out) else {
-                    continue;
-                };
-                if bow.elapsed >= duration {
-                    // Hand the animation control back to the locomotion idle;
-                    // the armed idle `S_BOW` is a 1-frame pose the playback
-                    // cannot switch to, the player would never leave the
-                    // aim-out animation.
-                    let idle = sequencer.map(|sequencer| sequencer.idle.clone());
-                    if let Some(idle) = idle {
-                        queue_animation(&mut controller, &idle, true);
-                    }
-                    *bow = BowAttack::default();
-                    info!("Player({entity}) finished the bow attack");
-                }
-            }
-        }
-    }
 }
 
 /// Spawns an arrow entity for each requested shot, aimed at the selected npc

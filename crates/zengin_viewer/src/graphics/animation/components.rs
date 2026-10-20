@@ -79,7 +79,7 @@ pub struct AnimationController {
 /// Fires on every loop wrap of looping animations.
 // Consumers come with the sequencer phase.
 #[allow(dead_code)]
-#[derive(Message, Debug)]
+#[derive(Message, Debug, Clone)]
 pub struct AnimationEnds {
     /// Skeleton entity playing the animation
     pub who: Entity,
@@ -90,7 +90,7 @@ pub struct AnimationEnds {
 /// in the model script (e.g. the arrow release event).
 // Consumers come with the sequencer phase.
 #[allow(dead_code)]
-#[derive(Message, Debug)]
+#[derive(Message, Debug, Clone)]
 pub struct AnimationTrigger {
     /// Skeleton entity playing the animation
     pub who: Entity,
