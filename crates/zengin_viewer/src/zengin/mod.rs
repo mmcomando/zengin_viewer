@@ -1,9 +1,9 @@
 mod animation_graph_nodes;
 pub use crate::zengin::animation_graph_nodes::{AnimationGraph, AnimationIndex};
+pub mod animation_triggers;
 mod common;
 mod conversions;
 pub(crate) mod dialog;
-pub mod human_animations;
 mod instance_index;
 mod interaction;
 mod loaders;
@@ -31,14 +31,14 @@ mod debug_zengin_scripts;
 use bevy::prelude::*;
 
 // Expose only what is needed for outside modules
+pub use crate::zengin::animation_triggers::animation_name_from_path;
 pub use crate::zengin::common::face_direction_quat;
 pub use crate::zengin::common::get_animation_path;
-pub use crate::zengin::human_animations::animation_name_from_path;
 pub use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };
 pub use crate::zengin::npc_routines::NpcHealth;
-pub use crate::zengin::npc_routines::{NpcWeaponMode, WayPoints};
+pub use crate::zengin::npc_routines::NpcWeaponMode;
 pub use crate::zengin::ranged::ArrowShot;
 pub use crate::zengin::script::component::ScriptResource;
 pub use crate::zengin::script::state::WeaponKind;
@@ -64,7 +64,7 @@ impl Plugin for ZenginPlugin {
         app.add_plugins(crate::zengin::interaction::PlayerInteractionPlugin);
         app.add_plugins(crate::zengin::ranged::RangedCombatPlugin);
         app.add_plugins(crate::zengin::statistics::StatisticsZenginPlugin);
-        app.add_plugins(crate::zengin::human_animations::HumanAnimationsPlugin);
+        app.add_plugins(crate::zengin::animation_triggers::AnimationTriggersPlugin);
         app.add_plugins(crate::zengin::script::component::GothicScriptsPlugin);
         app.add_plugins(crate::zengin::dialog::GameDialogPlugin);
     }

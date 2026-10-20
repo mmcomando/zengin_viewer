@@ -6,7 +6,7 @@
 //! (`HUMANS.MDS` in the anims archive). [`AnimationTriggers`] exposes them
 //! keyed by animation name so the playback can emit `AnimationTrigger`
 //! messages when an animation crosses a trigger frame. Entries missing from
-//! the script fall back to [`FALLBACK_TRIGGERS`].
+//! the script are simply absent.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -16,20 +16,13 @@ use zen_kit_rs::model_scripts::ModelScript;
 use zen_kit_rs::stream::Read;
 
 use crate::zengin::loaders::vdf_reader::{ZenginVfs, get_zengin_asset_bytes};
-use crate::zengin::zengin_resources::MaterialHandles;
 
 /// Compiled model script of the human visual scheme. In Gothic 2 compiled
 /// `.MDS` scripts are stored with the `.MSB` extension (see OpenGothic's
 /// `Resources::implLoadAnimation`).
 const HUMANS_MODEL_SCRIPT: &str = "_WORK/DATA/ANIMS/_COMPILED/HUMANS.MSB";
 
-/// Hand-written triggers for animations the model script does not describe.
-/// Filled from the script dump as sequencer states need them.
-const FALLBACK_TRIGGERS: &[(&str, &[(u32, &str)])] = &[];
-
 /// One animation event: `name` fires when the animation reaches `frame`.
-/// Read by the sequencer phase; until then only built and logged.
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct AnimationTriggerDef {
     pub frame: u32,
@@ -37,14 +30,12 @@ pub struct AnimationTriggerDef {
 }
 
 /// Animation triggers by animation name (uppercased, e.g. `S_BOWSHOOT`).
-#[allow(dead_code)]
 #[derive(Resource, Default)]
 pub struct AnimationTriggers {
     animations: HashMap<String, Vec<AnimationTriggerDef>>,
 }
 
 impl AnimationTriggers {
-    #[allow(dead_code)]
     pub fn triggers(&self, animation: &str) -> &[AnimationTriggerDef] {
         self.animations
             .get(&animation.to_uppercase())
@@ -82,56 +73,37 @@ pub fn crossed_triggers<'a>(
     })
 }
 
-pub struct HumanAnimationsPlugin;
+pub struct AnimationTriggersPlugin;
 
-impl Plugin for HumanAnimationsPlugin {
+impl Plugin for AnimationTriggersPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, load_human_animation_data);
     }
 }
 
-/// Loads the model script triggers and preloads the sequencer animation
-/// handles. Both are best effort: without the script the fallback table is
-/// used, without an animation file its handle is simply absent.
-fn load_human_animation_data(
-    mut commands: Commands,
-    vfs: Res<ZenginVfs>,
-    asset_server: Res<AssetServer>,
-    mut handles: ResMut<MaterialHandles>,
-) {
+/// Loads the model script triggers. Best effort: without the script no
+/// triggers are registered.
+fn load_human_animation_data(mut commands: Commands, vfs: Res<ZenginVfs>) {
     let bytes = {
         let vfs = vfs.0.lock().unwrap();
         get_zengin_asset_bytes(&vfs, HUMANS_MODEL_SCRIPT)
     };
-    let (mut triggers, source) = match bytes {
+    let (triggers, source) = match bytes {
         Some(bytes) => match load_script_triggers(&bytes) {
             Some(triggers) => (triggers, "HUMANS.MDS"),
-            None => (HashMap::new(), "fallback"),
+            None => (HashMap::new(), "script parse failed"),
         },
         None => {
             warn!(
-                "Model script({HUMANS_MODEL_SCRIPT}) not found in the anims archive, animation triggers fall back to the builtin table"
+                "Model script({HUMANS_MODEL_SCRIPT}) not found in the anims archive, animation triggers are not loaded"
             );
-            (HashMap::new(), "fallback")
+            (HashMap::new(), "script missing")
         }
     };
 
-    let fallbacks = FALLBACK_TRIGGERS.len();
-    for (animation, fallback) in FALLBACK_TRIGGERS {
-        let existing = triggers.entry(animation.to_uppercase()).or_default();
-        for (frame, name) in fallback.iter() {
-            existing.push(AnimationTriggerDef {
-                frame: *frame,
-                name: name.to_string(),
-            });
-        }
-    }
-
     let animations: usize = triggers.len();
     let trigger_count: usize = triggers.values().map(Vec::len).sum();
-    info!(
-        "Loaded animation triggers({animations}, {trigger_count}) from {source} (+{fallbacks} fallback entries)"
-    );
+    info!("Loaded animation triggers({animations}, {trigger_count}) from {source}");
     for (animation, animation_triggers) in &triggers {
         if animation_triggers.is_empty() {
             continue;

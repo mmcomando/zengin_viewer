@@ -5,18 +5,13 @@ use std::time::Duration;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
-use super::components::{
-    AnimationEnds, AnimationState, AnimationTrigger, FrameState, LocomotionSequencer,
-};
+use super::components::{AnimationEnds, AnimationState, AnimationTrigger, FrameState};
 use super::controller::AnimationController;
 use super::data::{AnimationData, AnimationSample};
-use super::locomotion::{
-    ATOMIC_SCALE, AnimationKind, TIME_SCALE, advance_animation, animation_kind, desired_next,
-    update_animations,
-};
+use super::locomotion::{ATOMIC_SCALE, TIME_SCALE, advance_animation, update_animations};
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::zengin::human_animations::{AnimationTriggerDef, crossed_triggers};
+use crate::zengin::animation_triggers::{AnimationTriggerDef, crossed_triggers};
 
 /// Root movement dumped from the real `HUMANS-S_RUNL.MAN` (20 frames, 25 fps).
 fn runl_movement() -> Vec<f32> {
@@ -121,122 +116,6 @@ fn invalid_animation_data_is_skipped() {
         ..state
     };
     assert!(advance_animation(&state, 0.02).is_none());
-}
-
-/// Distinct handles backed by a real asset store
-fn test_sequencer() -> (Assets<AnimationData>, LocomotionSequencer) {
-    let mut assets = Assets::<AnimationData>::default();
-    let idle = assets.add(AnimationData::default());
-    let move_start = assets.add(AnimationData::default());
-    let move_loop = assets.add(AnimationData::default());
-    let move_stop = assets.add(AnimationData::default());
-    (
-        assets,
-        LocomotionSequencer {
-            idle,
-            move_start: Some(move_start),
-            move_loop,
-            move_stop: Some(move_stop),
-        },
-    )
-}
-
-#[test]
-fn movement_starts_with_transition_into_loop() {
-    let (_assets, sequencer) = test_sequencer();
-    let move_start = sequencer.move_start.clone().unwrap();
-
-    // Standing still keeps looping the idle animation
-    assert_eq!(
-        animation_kind(&sequencer, &sequencer.idle),
-        Some(AnimationKind::Idle)
-    );
-    assert_eq!(
-        desired_next(&sequencer, AnimationKind::Idle, false),
-        (None, true)
-    );
-
-    // Starting to move queues the start transition, replacing the idle
-    // loop immediately
-    assert_eq!(
-        desired_next(&sequencer, AnimationKind::Idle, true),
-        (Some(move_start.clone()), true)
-    );
-
-    // The start transition leads into the movement loop, playing out first
-    assert_eq!(
-        animation_kind(&sequencer, &move_start),
-        Some(AnimationKind::MoveStart)
-    );
-    assert_eq!(
-        desired_next(&sequencer, AnimationKind::MoveStart, true),
-        (Some(sequencer.move_loop.clone()), false)
-    );
-}
-
-#[test]
-fn stopping_movement_transitions_back_to_idle() {
-    let (_assets, sequencer) = test_sequencer();
-    let move_stop = sequencer.move_stop.clone().unwrap();
-
-    // Running keeps the movement loop
-    assert_eq!(
-        animation_kind(&sequencer, &sequencer.move_loop),
-        Some(AnimationKind::MoveLoop)
-    );
-    assert_eq!(
-        desired_next(&sequencer, AnimationKind::MoveLoop, true),
-        (None, true)
-    );
-
-    // Stopping queues the stop transition, replacing the run loop
-    // immediately
-    assert_eq!(
-        desired_next(&sequencer, AnimationKind::MoveLoop, false),
-        (Some(move_stop.clone()), true)
-    );
-
-    // The stop transition leads back to idle, playing out first
-    assert_eq!(
-        animation_kind(&sequencer, &move_stop),
-        Some(AnimationKind::MoveStop)
-    );
-    assert_eq!(
-        desired_next(&sequencer, AnimationKind::MoveStop, false),
-        (Some(sequencer.idle.clone()), false)
-    );
-    assert_eq!(
-        desired_next(&sequencer, AnimationKind::MoveStop, true),
-        (Some(sequencer.move_start.clone().unwrap()), false)
-    );
-}
-
-#[test]
-fn missing_transitions_fall_back_to_loops() {
-    let (_assets, mut sequencer) = test_sequencer();
-    sequencer.move_start = None;
-    sequencer.move_stop = None;
-
-    // Start of movement goes straight into the movement loop
-    assert_eq!(
-        desired_next(&sequencer, AnimationKind::Idle, true),
-        (Some(sequencer.move_loop.clone()), true)
-    );
-    // Stop of movement goes straight back to idle
-    assert_eq!(
-        desired_next(&sequencer, AnimationKind::MoveLoop, false),
-        (Some(sequencer.idle.clone()), true)
-    );
-}
-
-#[test]
-fn foreign_animations_are_left_alone() {
-    let (mut assets, sequencer) = test_sequencer();
-    let scripted = assets.add(AnimationData::default());
-
-    // Animations the sequencer does not own (e.g. scripted actions) have
-    // no kind; update_locomotion leaves their controller alone
-    assert_eq!(animation_kind(&sequencer, &scripted), None);
 }
 
 /// Builds a two-frame animation so it passes the `frames_num > 1` guard

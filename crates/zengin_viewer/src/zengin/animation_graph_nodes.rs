@@ -12,14 +12,10 @@ use std::path::Path;
 use bevy::prelude::*;
 
 /// Distinct index of one animation inside an [`AnimationGraph`].
-// Used by tests and the upcoming sequencer integration.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AnimationIndex(u32);
 
 /// Animation transition graph with index keys.
-// Used by tests and the upcoming sequencer integration.
-#[allow(dead_code)]
 #[derive(Resource, Default)]
 pub struct AnimationGraph {
     /// Index -> animation name.
@@ -29,8 +25,6 @@ pub struct AnimationGraph {
     next: Vec<Vec<AnimationIndex>>,
 }
 
-// Used by tests and the upcoming sequencer integration.
-#[allow(dead_code)]
 impl AnimationGraph {
     /// Loads the graph from the exported RON file:
     /// `[(animation, [successor animations])]`.

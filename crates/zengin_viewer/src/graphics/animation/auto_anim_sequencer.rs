@@ -30,7 +30,6 @@ use crate::zengin::{
 use super::components::AnimationEnds;
 use super::controller::AnimationController;
 use super::data::AnimationData;
-use super::human_sequencer::RootMotionMovement;
 
 /// Yaw turn speed of the model while following the movement intent, radians
 /// per second.
@@ -119,22 +118,19 @@ impl Plugin for AutoAnimSequencerPlugin {
     }
 }
 
-/// Adds the sequencer to the player animation model and marks its physics
-/// body as root motion driven. Survives visual respawns.
+/// Adds the sequencer to the player animation model and enables root motion
+/// driven movement. Survives visual respawns.
 fn add_auto_anim_sequencer(
     mut commands: Commands,
     mut players: Query<
-        (Entity, &mut AnimationController, Option<&ChildOf>),
+        (Entity, &mut AnimationController),
         (Added<AnimationController>, With<PlayerCharacter>),
     >,
 ) {
-    for (entity, mut controller, parent) in &mut players {
+    for (entity, mut controller) in &mut players {
         // The sequencer drives the player by root motion
         controller.set_root_motion(true);
         commands.entity(entity).insert(AutoAnimSequencer::default());
-        if let Some(parent) = parent {
-            commands.entity(parent.parent()).insert(RootMotionMovement);
-        }
     }
 }
 

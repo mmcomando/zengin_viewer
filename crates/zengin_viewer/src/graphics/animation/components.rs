@@ -54,8 +54,6 @@ pub struct AnimationState {
 /// Sent when an animation enters its `last_frame-2` window — the receiver has
 /// two frames to schedule the next animation before the current one ends.
 /// Fires on every loop wrap of looping animations.
-// Consumers come with the sequencer phase.
-#[allow(dead_code)]
 #[derive(Message, Debug, Clone)]
 pub struct AnimationEnds {
     /// Skeleton entity playing the animation
@@ -65,28 +63,13 @@ pub struct AnimationEnds {
 
 /// Sent when the currently played animation crosses a trigger frame declared
 /// in the model script (e.g. the arrow release event).
-// Consumers come with the sequencer phase.
-#[allow(dead_code)]
 #[derive(Message, Debug, Clone)]
 pub struct AnimationTrigger {
     /// Skeleton entity playing the animation
+    // No consumer yet: the sequencer phase reading triggers was removed;
+    // emission and the `HUMANS.MDS` parsing behind it are kept for it.
+    #[allow(dead_code)]
     pub who: Entity,
+    #[allow(dead_code)]
     pub trigger_name: String,
-}
-
-/// Movement animation set driving the `AnimationController` of moving entities.
-///
-/// A system watches entity movement and writes `next` and `interrupt_current`
-/// of the controller. Entities without movement animations don't have this
-/// component and simply loop their controller's `current` animation.
-#[derive(Component, Debug)]
-pub struct LocomotionSequencer {
-    /// Played while the entity does not move
-    pub idle: Handle<AnimationData>,
-    /// Played once when the entity starts moving
-    pub move_start: Option<Handle<AnimationData>>,
-    /// Played while the entity moves
-    pub move_loop: Handle<AnimationData>,
-    /// Played once when the entity stops moving
-    pub move_stop: Option<Handle<AnimationData>>,
 }

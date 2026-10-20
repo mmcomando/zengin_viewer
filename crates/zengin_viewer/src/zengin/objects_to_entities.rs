@@ -5,7 +5,7 @@ use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::gameplay::objects::NpcModel;
 use crate::graphics::animation::{
     AnimatedJoint, AnimationController, AnimationData, AnimationState, BoneAnimationData,
-    FrameState, LocomotionSequencer, NpcAnimations,
+    FrameState, NpcAnimations,
 };
 use crate::gui_debug::toggle_visibility::NpcVisibility;
 use crate::warn_once;
@@ -52,19 +52,9 @@ struct NpcSpawnState {
     body_handle: Handle<ZenGinModel>,
     armor_handle: Option<Handle<ZenGinModel>>,
     animation_handle: Option<Handle<AnimationData>>,
-    movement_handles: Option<MovementHandles>,
     body_spawned: bool,
     head_spawned: bool,
     armor_spawned: bool,
-}
-
-/// Loaded [`MovementAnimations`]
-#[derive(Clone)]
-struct MovementHandles {
-    idle: Handle<AnimationData>,
-    move_start: Option<Handle<AnimationData>>,
-    move_loop: Handle<AnimationData>,
-    move_stop: Option<Handle<AnimationData>>,
 }
 
 pub(crate) fn create_skinned_mesh_data(
@@ -178,30 +168,11 @@ fn spawn_npcs(
 ) {
     for (entity_id, game_npc, npc_model, npc_animations, spawn_state) in &mut query {
         let Some(mut spawn_state) = spawn_state else {
-            let movement_handles =
-                npc_animations
-                    .movement_animations
-                    .as_ref()
-                    .map(|el| MovementHandles {
-                        idle: handles_map.get_animation_handle(&asset_server, &el.idle),
-                        move_start: el
-                            .move_start
-                            .as_ref()
-                            .map(|path| handles_map.get_animation_handle(&asset_server, path)),
-                        move_loop: handles_map.get_animation_handle(&asset_server, &el.move_loop),
-                        move_stop: el
-                            .move_stop
-                            .as_ref()
-                            .map(|path| handles_map.get_animation_handle(&asset_server, path)),
-                    });
-            // Entities with movement animations start in their idle animation, the
-            // rest plays the configured animation, otherwise the standing animation
+            // Plays the configured animation, otherwise the standing animation
             // of the model scheme (e.g. a wolf stands in `WOLF-S_FISTRUN`)
             let animation_path = npc_animations
-                .movement_animations
-                .as_ref()
-                .map(|el| el.idle.clone())
-                .or_else(|| npc_animations.animation.clone())
+                .animation
+                .clone()
                 .or_else(|| {
                     let scheme = npc_model.animation_scheme.as_deref()?;
                     let stand = npc_model.stand_animation.as_deref()?;
@@ -227,7 +198,6 @@ fn spawn_npcs(
                 animation_handle: Some(
                     handles_map.get_animation_handle(&asset_server, &animation_path),
                 ),
-                movement_handles,
                 body_spawned: npc_model.armor_model.is_some(),
                 head_spawned: npc_model.head_model.is_none(),
                 armor_spawned: npc_model.armor_model.is_none(),
@@ -320,16 +290,6 @@ fn spawn_npcs(
             commands
                 .entity(entity_id)
                 .insert(AnimationController::new(animation_handle));
-            // Entities with movement animations get a locomotion sequencer
-            // driving their controller, the rest just loops its single animation
-            if let Some(movement) = spawn_state.movement_handles.clone() {
-                commands.entity(entity_id).insert(LocomotionSequencer {
-                    idle: movement.idle,
-                    move_start: movement.move_start,
-                    move_loop: movement.move_loop,
-                    move_stop: movement.move_stop,
-                });
-            }
         }
         let head_node_index = model_data
             .node_names

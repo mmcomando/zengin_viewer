@@ -4,7 +4,6 @@ use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
-use crate::graphics::animation::RootMotionMovement;
 use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
 use crate::zengin::NPC_BODY;
 
@@ -232,7 +231,6 @@ fn movement(
         &mut LinearVelocity,
         &Transform,
         Has<Grounded>,
-        Has<RootMotionMovement>,
     )>,
 ) {
     let delta_secs = time.delta_secs_f64().adjust_precision();
@@ -245,19 +243,16 @@ fn movement(
     let jump_pressed = action_state.just_pressed(&GameplayAction::Jump);
     let accelerating = action_state.pressed(&GameplayAction::Accelerate);
 
-    for (entity, movement, mut linear_velocity, tr, is_grounded, root_motion) in &mut controllers {
-        // Root motion driven characters are moved by the animation itself;
-        // accelerate scales the animation's delta movement instead (read by
-        // the animation system via [`AcceleratingRootMotion`]).
-        if root_motion {
-            if accelerating {
-                commands.entity(entity).insert(AcceleratingRootMotion);
-            } else {
-                commands.entity(entity).remove::<AcceleratingRootMotion>();
-            }
+    for (entity, movement, mut linear_velocity, tr, is_grounded) in &mut controllers {
+        // Accelerate scales the animation's root motion delta movement (read
+        // by the animation system via [`AcceleratingRootMotion`]).
+        if accelerating {
+            commands.entity(entity).insert(AcceleratingRootMotion);
+        } else {
+            commands.entity(entity).remove::<AcceleratingRootMotion>();
         }
 
-        if is_moving && !root_motion {
+        if is_moving {
             let rot = tr.rotation.to_euler(EulerRot::YXZ);
             let dir = Vec3 {
                 x: -direction.x,

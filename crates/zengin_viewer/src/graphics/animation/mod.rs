@@ -2,8 +2,6 @@ mod auto_anim_sequencer;
 mod components;
 mod controller;
 mod data;
-mod human;
-mod human_sequencer;
 mod locomotion;
 mod npc;
 mod plugin;
@@ -13,13 +11,10 @@ mod tests;
 
 use bevy::prelude::*;
 
-pub use components::{
-    AnimatedJoint, AnimationState, BoneAnimationData, FrameState, LocomotionSequencer,
-};
+pub use components::{AnimatedJoint, AnimationState, BoneAnimationData, FrameState};
 pub use controller::AnimationController;
 pub use data::{AnimationData, AnimationSample};
-pub use human_sequencer::RootMotionMovement;
-pub use npc::{MovementAnimations, NpcAnimations};
+pub use npc::NpcAnimations;
 pub use plugin::SkeletalAnimations;
 
 /// System set for scripted animation sequences (e.g. the bow attack). Systems

@@ -6,9 +6,7 @@ use crate::gui_debug::toggle_visibility::show_gizmos;
 use super::ScriptedAnimations;
 use super::auto_anim_sequencer::AutoAnimSequencerPlugin;
 use super::components::{AnimatedJoint, AnimationEnds, AnimationTrigger};
-#[allow(unused_imports)] // plugin disabled in favour of the auto anim sequencer
-use super::human_sequencer::HumanSequencerPlugin;
-use super::locomotion::{compute_animations, update_animations, update_locomotion};
+use super::locomotion::{compute_animations, update_animations};
 
 #[derive(Default)]
 pub struct SkeletalAnimations;
@@ -18,28 +16,17 @@ impl Plugin for SkeletalAnimations {
         app.add_message::<AnimationEnds>();
         app.add_message::<AnimationTrigger>();
         // Disabled in favour of the graph driven auto anim sequencer
-        // app.add_plugins(HumanSequencerPlugin);
         app.add_plugins(AutoAnimSequencerPlugin);
         app.add_systems(Update, draw_bones.run_if(show_gizmos));
 
         // Root movement has to be applied before the character controller,
         // so move-and-slide starts from the new position and can react to it.
-        // Scripted animation sequences run between locomotion and the
-        // animation advance, see [`ScriptedAnimations`].
-        app.configure_sets(
-            Update,
-            ScriptedAnimations
-                .after(update_locomotion)
-                .before(update_animations),
-        );
+        // Scripted animation sequences run before the animation advance,
+        // see [`ScriptedAnimations`].
+        app.configure_sets(Update, ScriptedAnimations.before(update_animations));
         app.add_systems(
             Update,
-            (
-                update_locomotion,
-                update_animations.before(move_and_slide),
-                compute_animations,
-            )
-                .chain(),
+            (update_animations.before(move_and_slide), compute_animations).chain(),
         );
     }
 }

@@ -5,7 +5,7 @@ use crate::gameplay::character::{
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
-use crate::graphics::animation::{MovementAnimations, NpcAnimations};
+use crate::graphics::animation::NpcAnimations;
 use crate::gui_debug::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::common::get_full_texture_path;
@@ -204,20 +204,7 @@ fn spawn_world(
             model_fatness: None,
             armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_LESTER.MDM".to_string()),
         },
-        NpcAnimations {
-            animation: None,
-            movement_animations: None,
-            // movement_animations: Some(MovementAnimations {
-            //     idle: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUN.MAN".to_string(),
-            //     move_start: Some(
-            //         "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-T_RUN_2_RUNL.MAN".to_string(),
-            //     ),
-            //     move_loop: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_RUNL.MAN".to_string(),
-            //     move_stop: Some(
-            //         "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-T_RUNL_2_RUN.MAN".to_string(),
-            //     ),
-            // }),
-        },
+        NpcAnimations { animation: None },
     ));
 }
 
@@ -383,7 +370,7 @@ fn spawn_npc_entities(
                 stand_animation,
                 model_fatness: script.model_fatness,
             },
-            // NpcAnimations::default(),
+            NpcAnimations::default(),
             transform,
             NpcVisibility::default(),
         ));
