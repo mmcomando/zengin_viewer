@@ -109,7 +109,7 @@ impl MaterialHandles {
 
     pub fn get_animation_handle(
         &mut self,
-        asset_server: &Res<AssetServer>,
+        asset_server: &AssetServer,
         path: &str,
     ) -> Handle<AnimationData> {
         if let Some(handle) = self.animations.get(path) {

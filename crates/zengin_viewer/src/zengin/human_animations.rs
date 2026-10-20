@@ -1,5 +1,5 @@
-//! Animation triggers read from the human model script and preloaded
-//! animation handles for the human animation sequencer.
+//! Animation triggers read from the human model script, plus preloading of
+//! the human animation assets.
 //!
 //! Compiled `.MAN` animations carry no events — the events (sound effects,
 //! item place/remove tags, ...) live in the compiled model script
@@ -15,9 +15,6 @@ use bevy::prelude::*;
 use zen_kit_rs::model_scripts::ModelScript;
 use zen_kit_rs::stream::Read;
 
-use crate::graphics::animation::AnimationData;
-use crate::graphics::animation::{ArmedState, HUMAN_ANIMATIONS, HumanAnimationSequence};
-use crate::zengin::common::get_animation_path;
 use crate::zengin::loaders::vdf_reader::{ZenginVfs, get_zengin_asset_bytes};
 use crate::zengin::zengin_resources::MaterialHandles;
 
@@ -52,32 +49,6 @@ impl AnimationTriggers {
         self.animations
             .get(&animation.to_uppercase())
             .map_or(&[], |triggers| triggers)
-    }
-}
-
-/// Preloaded [`AnimationData`] handles for all animations the human sequencer
-/// uses. Created at startup so the handles are stable and already loading
-/// before any sequencer asks for them (queued animations are dropped while an
-/// asset is still loading, preloading avoids that race).
-#[allow(dead_code)]
-#[derive(Resource, Clone, Default)]
-pub struct HumanAnimationLibrary {
-    pub(crate) animations: HashMap<&'static str, Handle<AnimationData>>,
-}
-
-impl HumanAnimationLibrary {
-    #[allow(dead_code)]
-    pub fn handle(
-        &self,
-        sequence: HumanAnimationSequence,
-        armed: ArmedState,
-    ) -> Option<&Handle<AnimationData>> {
-        self.animation_handle(sequence.animation_name(armed))
-    }
-
-    #[allow(dead_code)]
-    pub fn animation_handle(&self, animation: &str) -> Option<&Handle<AnimationData>> {
-        self.animations.get(animation)
     }
 }
 
@@ -168,19 +139,9 @@ fn load_human_animation_data(
         debug!("Triggers({animation}): {animation_triggers:?}");
     }
 
-    let mut library = HumanAnimationLibrary::default();
-    for animation in HUMAN_ANIMATIONS {
-        let path = get_animation_path("HUMANS", animation);
-        library.animations.insert(
-            animation,
-            handles.get_animation_handle(&asset_server, &path),
-        );
-    }
-
     commands.insert_resource(AnimationTriggers {
         animations: triggers,
     });
-    commands.insert_resource(library);
 }
 
 /// Parses the compiled model script into per-animation triggers. Sound

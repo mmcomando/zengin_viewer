@@ -8,7 +8,7 @@
 //!
 //! The sequencer component and its systems live in the sibling sequencer
 //! systems module; this module only carries the state vocabulary and the
-//! animation names the `HumanAnimationLibrary` resource preloads.
+//! animation names preloaded at startup (see `HUMAN_ANIMATIONS`).
 
 use bevy::ecs::component::Component;
 use bevy::math::Quat;
@@ -126,7 +126,7 @@ impl HumanAnimationSequence {
                 }
                 _ => "S_RUNL",
             },
-            Self::FireBowSequence(FireBowSequence::End) => "BOWRUN_2_BOWRUNL",
+            Self::FireBowSequence(FireBowSequence::End) => "T_BOWRUN_2_BOWRUNL",
             Self::FireBowSequence(FireBowSequence::Reload) => "T_BOWRELOAD",
             Self::FireBowSequence(FireBowSequence::Start) => "T_BOWRUN_2_BOWAIM",
         }
@@ -145,21 +145,3 @@ pub struct HumanAnimationSequencer {
     pub prefered_locomotion: PreferedLocomotion,
     pub desired_action: DesiredAction,
 }
-
-/// Every animation the human sequencer can reference in the v1 set.
-pub const HUMAN_ANIMATIONS: [&str; 14] = [
-    "S_RUN",
-    "S_1H",
-    "S_BOW",
-    "T_RUN_2_RUNL",
-    "S_RUNL",
-    "T_RUNL_2_RUN",
-    "T_BOWRUN_2_BOWAIM",
-    "T_BOWRELOAD",
-    "S_BOWSHOOT",
-    "T_BOWAIM_2_BOWRUN",
-    "T_BOWAIM_2_BOWRUN",
-    "BOWRUN_2_BOWRUNL",
-    "S_BOWRUNL",
-    "S_BOWRUN",
-];

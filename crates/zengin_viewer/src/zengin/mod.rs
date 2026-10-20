@@ -28,6 +28,7 @@ use bevy::prelude::*;
 
 // Expose only what is needed for outside modules
 pub use crate::zengin::common::face_direction_quat;
+pub use crate::zengin::common::get_animation_path;
 pub use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };
@@ -42,6 +43,7 @@ pub use crate::zengin::selection::{Selection, SelectionKind};
 pub use crate::zengin::sounds::SpeechSounds;
 pub use crate::zengin::statistics::StatisticsZengin;
 pub use crate::zengin::waypoint_graph::WaypointDebugPlugin;
+pub use crate::zengin::zengin_resources::MaterialHandles;
 pub use crate::zengin::zengin_resources::NPC_BODY;
 
 /// Plugin which provides Zengin related functionality

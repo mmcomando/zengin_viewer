@@ -16,7 +16,6 @@ pub use components::{
     LocomotionSequencer,
 };
 pub use data::{AnimationData, AnimationSample};
-pub use human::{ArmedState, HUMAN_ANIMATIONS, HumanAnimationSequence};
 pub use human_sequencer::RootMotionMovement;
 pub use npc::{MovementAnimations, NpcAnimations};
 pub use plugin::SkeletalAnimations;

@@ -8,8 +8,8 @@
 //! arrives as [`AnimationEnds`]/[`AnimationTrigger`] messages from the
 //! playback. Every frame the system computes `desired_state` from the desired
 //! action and walks the transition graph between the current and the desired
-//! sequence family (see `HumanAnimationSequence`), queueing animations from
-//! the preloaded [`HumanAnimationLibrary`].
+//! sequence family (see `HumanAnimationSequence`), queueing animations via
+//! path-derived handles ([`human_animation_handle`]).
 //!
 //! With the sequencer active the player moves by root motion: the horizontal
 //! velocity of the physics body is zeroed and the playback moves the entity
@@ -24,7 +24,8 @@ use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::input::actions::{GameplayAction, GameplayInputMarker};
 use crate::zengin::{
-    ArrowShot, NpcWeaponMode, Selection, WayPoints, WeaponMode, face_direction_quat,
+    ArrowShot, MaterialHandles, NpcWeaponMode, Selection, WayPoints, WeaponMode,
+    face_direction_quat, get_animation_path,
 };
 
 use super::components::{AnimationController, AnimationEnds};
@@ -33,7 +34,6 @@ use super::human::{
     ArmedState, DesiredAction, FireBowSequence, HumanAnimationSequence, HumanAnimationSequencer,
     PreferedLocomotion, RunSequence, SequenceFamily, WalkSequence,
 };
-use crate::zengin::human_animations::HumanAnimationLibrary;
 
 /// Yaw turn speed of the model while following the movement intent, radians
 /// per second.
@@ -138,7 +138,6 @@ fn send_desired_actions(
         }
     };
 
-    let (cam_yaw, _, _) = camera.rotation.to_euler(EulerRot::YXZ);
     writer.write(ChangeDesiredAction {
         who: entity,
         action,
@@ -182,7 +181,8 @@ fn desired_state(sequencer: &HumanAnimationSequencer) -> HumanAnimationSequence 
 #[allow(clippy::type_complexity)]
 fn run_sequencer(
     time: Res<Time>,
-    library: Option<Res<HumanAnimationLibrary>>,
+    asset_server: Res<AssetServer>,
+    mut handles: ResMut<MaterialHandles>,
     way_points: Res<WayPoints>,
     mut actions: MessageReader<ChangeDesiredAction>,
     mut ends: MessageReader<AnimationEnds>,
@@ -204,9 +204,6 @@ fn run_sequencer(
         ),
     >,
 ) {
-    let Some(library) = library else {
-        return;
-    };
     // Read all messages once; per-entity filtering below needs repeated access
     let actions: Vec<_> = actions.read().cloned().collect();
     let ends: Vec<_> = ends.read().cloned().collect();
@@ -242,7 +239,8 @@ fn run_sequencer(
                 entity,
                 &mut seq,
                 &mut controller,
-                &library,
+                &mut handles,
+                &asset_server,
                 armed,
                 &mut arrows,
             );
@@ -254,13 +252,28 @@ fn run_sequencer(
         if seq.current_state.family() != seq.desired_state.family() {
             match seq.current_state {
                 HumanAnimationSequence::Stand => {
-                    transition_to_desired(&mut seq, &mut controller, &library, armed, true);
+                    transition_to_desired(
+                        &mut seq,
+                        &mut controller,
+                        &mut handles,
+                        &asset_server,
+                        armed,
+                        true,
+                    );
                 }
                 // Loops can be left right away; when the animation is about to
                 // wrap anyway, leave at the clean cycle boundary instead.
                 HumanAnimationSequence::RunSequence(RunSequence::Loop)
-                | HumanAnimationSequence::WalkSequence(WalkSequence::Loop) => {
-                    leave_loop(&mut seq, &mut controller, &library, armed, ends_now);
+                | HumanAnimationSequence::WalkSequence(WalkSequence::Loop)
+                | HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload) => {
+                    leave_loop(
+                        &mut seq,
+                        &mut controller,
+                        &mut handles,
+                        &asset_server,
+                        armed,
+                        ends_now,
+                    );
                 }
 
                 // One-shot transitions wait for their AnimationEnds.
@@ -317,7 +330,8 @@ fn run_sequencer(
 fn leave_loop(
     seq: &mut HumanAnimationSequencer,
     controller: &mut AnimationController,
-    library: &HumanAnimationLibrary,
+    handles: &mut MaterialHandles,
+    asset_server: &AssetServer,
     armed: ArmedState,
     ends_now: bool,
 ) {
@@ -328,36 +342,40 @@ fn leave_loop(
         HumanAnimationSequence::WalkSequence(_) => {
             HumanAnimationSequence::WalkSequence(WalkSequence::End)
         }
+        HumanAnimationSequence::FireBowSequence(_) => {
+            HumanAnimationSequence::FireBowSequence(FireBowSequence::End)
+        }
         _ => return,
     };
     seq.current_state = end_state;
-    queue_animation(seq, controller, library, armed, !ends_now);
+    queue_animation(seq, controller, handles, asset_server, armed, !ends_now);
 }
 
 /// Queues the entry animation of the desired sequence family.
 fn transition_to_desired(
     seq: &mut HumanAnimationSequencer,
     controller: &mut AnimationController,
-    library: &HumanAnimationLibrary,
+    handles: &mut MaterialHandles,
+    asset_server: &AssetServer,
     armed: ArmedState,
     interrupt: bool,
 ) {
     match seq.desired_state.family() {
         SequenceFamily::Stand => {
             seq.current_state = seq.desired_state;
-            queue_animation(seq, controller, library, armed, interrupt);
+            queue_animation(seq, controller, handles, asset_server, armed, interrupt);
         }
         SequenceFamily::Run => {
             seq.current_state = HumanAnimationSequence::RunSequence(RunSequence::Start);
-            queue_animation(seq, controller, library, armed, interrupt);
+            queue_animation(seq, controller, handles, asset_server, armed, interrupt);
         }
         SequenceFamily::Walk => {
             seq.current_state = HumanAnimationSequence::WalkSequence(WalkSequence::Start);
-            queue_animation(seq, controller, library, armed, interrupt);
+            queue_animation(seq, controller, handles, asset_server, armed, interrupt);
         }
         SequenceFamily::FireBow => {
             seq.current_state = HumanAnimationSequence::FireBowSequence(FireBowSequence::Start);
-            queue_animation(seq, controller, library, armed, interrupt);
+            queue_animation(seq, controller, handles, asset_server, armed, interrupt);
         }
     }
 }
@@ -368,7 +386,8 @@ fn on_animation_ends(
     entity: Entity,
     seq: &mut HumanAnimationSequencer,
     controller: &mut AnimationController,
-    library: &HumanAnimationLibrary,
+    handles: &mut MaterialHandles,
+    asset_server: &AssetServer,
     armed: ArmedState,
     arrows: &mut MessageWriter<ArrowShot>,
 ) {
@@ -380,22 +399,12 @@ fn on_animation_ends(
             seq.current_state,
             HumanAnimationSequence::RunSequence(RunSequence::Loop)
                 | HumanAnimationSequence::WalkSequence(WalkSequence::Loop)
+                | HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload)
         ) {
-            leave_loop(seq, controller, library, armed, true);
-        } else if seq.current_state
-            == HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload)
-        {
-            // A release while loading the arrow still lowers the bow via the
-            // aim-out instead of snapping to the idle.
-            seq.current_state = HumanAnimationSequence::FireBowSequence(FireBowSequence::End);
-            queue_animation(seq, controller, library, armed, false);
+            leave_loop(seq, controller, handles, asset_server, armed, true);
         } else {
-            transition_to_desired(seq, controller, library, armed, false);
+            transition_to_desired(seq, controller, handles, asset_server, armed, false);
         }
-        println!(
-            "on_animation_ends current_state({:?}) desired_state({:?})",
-            seq.current_state, seq.desired_state
-        );
         return;
     }
 
@@ -403,14 +412,14 @@ fn on_animation_ends(
         // The start transition finished: run
         HumanAnimationSequence::RunSequence(RunSequence::Start)
         | HumanAnimationSequence::WalkSequence(WalkSequence::Start) => {
-            enter_loop(seq, controller, library, armed);
+            enter_loop(seq, controller, handles, asset_server, armed);
         }
         // The stop transition finished: stand or start the next sequence
         HumanAnimationSequence::RunSequence(RunSequence::End)
         | HumanAnimationSequence::WalkSequence(WalkSequence::End) => {
-            transition_to_desired(seq, controller, library, armed, false);
+            transition_to_desired(seq, controller, handles, asset_server, armed, false);
         }
-        // The aim in transition finished: load the next arrow
+        // The aim in transition finished: loop loading and firing arrows
         HumanAnimationSequence::FireBowSequence(FireBowSequence::Start) => {
             if seq.desired_state.family() == SequenceFamily::FireBow {
                 seq.current_state =
@@ -418,27 +427,22 @@ fn on_animation_ends(
             } else {
                 seq.current_state = HumanAnimationSequence::FireBowSequence(FireBowSequence::End);
             }
-            queue_animation(seq, controller, library, armed, false);
+            queue_animation(seq, controller, handles, asset_server, armed, false);
         }
-        // The arrow loaded: hold the aim and fire
+        // The reload loop wrapped: the arrow leaves the bow
         HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload) => {
             if seq.desired_state.family() == SequenceFamily::FireBow {
-                seq.current_state =
-                    HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload);
-                queue_animation(seq, controller, library, armed, false);
+                // The current animation keeps looping; queueing is a no-op
+                // while it is already the current one.
+                queue_animation(seq, controller, handles, asset_server, armed, false);
                 arrows.write(ArrowShot { shooter: entity });
             } else {
-                seq.current_state = HumanAnimationSequence::FireBowSequence(FireBowSequence::End);
-                queue_animation(seq, controller, library, armed, false);
+                leave_loop(seq, controller, handles, asset_server, armed, true);
             }
         }
         // Loops and standing stay as they are
         _ => {}
     }
-    println!(
-        "on_animation_ends current_state({:?}) desired_state({:?})",
-        seq.current_state, seq.desired_state
-    );
 }
 
 /// Enters the loop state of the current sequence family; the loop animation
@@ -446,7 +450,8 @@ fn on_animation_ends(
 fn enter_loop(
     seq: &mut HumanAnimationSequencer,
     controller: &mut AnimationController,
-    library: &HumanAnimationLibrary,
+    handles: &mut MaterialHandles,
+    asset_server: &AssetServer,
     armed: ArmedState,
 ) {
     match seq.current_state {
@@ -458,42 +463,27 @@ fn enter_loop(
         }
         _ => return,
     }
-    queue_animation(seq, controller, library, armed, false);
+    queue_animation(seq, controller, handles, asset_server, armed, false);
 }
 
-/// Queues the animation of `seq.current_state` from the library.
+/// Queues the animation of `seq.current_state`. The handle comes from the
+/// shared [`MaterialHandles`] cache (same mechanism the npc animations use);
+/// the sequencer animations are preloaded at startup.
 fn queue_animation(
     seq: &mut HumanAnimationSequencer,
     controller: &mut AnimationController,
-    library: &HumanAnimationLibrary,
+    handles: &mut MaterialHandles,
+    asset_server: &AssetServer,
     armed: ArmedState,
     interrupt: bool,
 ) {
     let name = seq.current_state.animation_name(armed);
-    println!("queue_animation({name})");
-    let Some(handle) = library.animation_handle(name) else {
-        warn!("Sequencer animation({name}) is missing from the human animation library");
-        return;
-    };
-    if controller.current == *handle {
+    let handle = handles.get_animation_handle(asset_server, &get_animation_path("HUMANS", name));
+    if controller.current == handle {
         return;
     }
-    controller.next = Some(handle.clone());
+    controller.next = Some(handle);
     controller.interrupt_current = interrupt;
-}
-
-/// Materializes the sequencer handles for tests.
-#[cfg(test)]
-impl HumanAnimationLibrary {
-    pub(crate) fn test_library(assets: &mut Assets<AnimationData>) -> Self {
-        let mut library = Self::default();
-        for name in super::human::HUMAN_ANIMATIONS {
-            library
-                .animations
-                .insert(name, assets.add(AnimationData::default()));
-        }
-        library
-    }
 }
 
 #[cfg(test)]
@@ -503,9 +493,24 @@ mod tests {
     use super::*;
     use crate::gameplay::distance::DistanceNear;
 
-    fn run_sequencer_world(
-        sequencer: HumanAnimationSequencer,
-    ) -> (World, Entity, HumanAnimationLibrary) {
+    /// A minimal asset server for the sequencer tests; assets are never
+    /// actually loaded, only handles are compared.
+    fn test_asset_server() -> AssetServer {
+        let mut app = App::new();
+        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+        app.init_asset::<AnimationData>();
+        app.world().resource::<AssetServer>().clone()
+    }
+
+    fn animation_handle(world: &mut World, name: &str) -> Handle<AnimationData> {
+        let server = world.resource::<AssetServer>().clone();
+        let path = get_animation_path("HUMANS", name);
+        world
+            .resource_mut::<MaterialHandles>()
+            .get_animation_handle(&server, &path)
+    }
+
+    fn run_sequencer_world(sequencer: HumanAnimationSequencer) -> (World, Entity) {
         let mut world = World::new();
         world.insert_resource(Time::<()>::default());
         world.init_resource::<Messages<AnimationEnds>>();
@@ -513,20 +518,16 @@ mod tests {
         world.init_resource::<Messages<ArrowShot>>();
         world.insert_resource(Selection::default());
         world.insert_resource(WayPoints::default());
-        let mut assets = Assets::<AnimationData>::default();
-        let library = HumanAnimationLibrary::test_library(&mut assets);
-        world.insert_resource(assets);
-        world.insert_resource(library.clone());
+        world.insert_resource(test_asset_server());
+        world.insert_resource(MaterialHandles::default());
+        let idle = animation_handle(&mut world, "S_RUN");
         let model = world
             .spawn((
                 DistanceNear::default(),
                 GlobalTransform::default(),
                 Transform::default(),
                 AnimationController {
-                    current: library
-                        .animation_handle("S_RUN")
-                        .expect("idle in library")
-                        .clone(),
+                    current: idle,
                     next: None,
                     interrupt_current: false,
                     should_move_entity: false,
@@ -535,14 +536,7 @@ mod tests {
                 PlayerCharacter,
             ))
             .id();
-        (world, model, library)
-    }
-
-    fn handle_of(library: &HumanAnimationLibrary, name: &str) -> Handle<AnimationData> {
-        library
-            .animation_handle(name)
-            .expect("animation in test library")
-            .clone()
+        (world, model)
     }
 
     fn send_action(world: &mut World, who: Entity, action: DesiredAction) {
@@ -577,8 +571,8 @@ mod tests {
 
     #[test]
     fn standing_starts_running_on_go_dir() {
-        let (mut world, model, library) = run_sequencer_world(HumanAnimationSequencer::default());
-        let run_start = handle_of(&library, "T_RUN_2_RUNL");
+        let (mut world, model) = run_sequencer_world(HumanAnimationSequencer::default());
+        let run_start = animation_handle(&mut world, "T_RUN_2_RUNL");
 
         send_action(&mut world, model, DesiredAction::GoDir(Quat::IDENTITY));
         world.run_system_once(run_sequencer).unwrap();
@@ -592,14 +586,14 @@ mod tests {
 
     #[test]
     fn run_start_advances_to_loop_on_animation_end() {
-        let (mut world, model, library) = run_sequencer_world(HumanAnimationSequencer {
+        let (mut world, model) = run_sequencer_world(HumanAnimationSequencer {
             current_state: HumanAnimationSequence::RunSequence(RunSequence::Start),
             desired_state: HumanAnimationSequence::RunSequence(RunSequence::Loop),
             desired_action: DesiredAction::GoDir(Quat::IDENTITY),
             ..HumanAnimationSequencer::default()
         });
-        let run_start = handle_of(&library, "T_RUN_2_RUNL");
-        let run_loop = handle_of(&library, "S_RUNL");
+        let run_start = animation_handle(&mut world, "T_RUN_2_RUNL");
+        let run_loop = animation_handle(&mut world, "S_RUNL");
         world.get_mut::<AnimationController>(model).unwrap().current = run_start.clone();
 
         send_ends(&mut world, model, run_start);
@@ -614,14 +608,14 @@ mod tests {
 
     #[test]
     fn run_loop_stops_via_end_on_stand() {
-        let (mut world, model, library) = run_sequencer_world(HumanAnimationSequencer {
+        let (mut world, model) = run_sequencer_world(HumanAnimationSequencer {
             current_state: HumanAnimationSequence::RunSequence(RunSequence::Loop),
             desired_state: HumanAnimationSequence::RunSequence(RunSequence::Loop),
             desired_action: DesiredAction::GoDir(Quat::IDENTITY),
             ..HumanAnimationSequencer::default()
         });
-        let run_loop = handle_of(&library, "S_RUNL");
-        let run_end = handle_of(&library, "T_RUNL_2_RUN");
+        let run_loop = animation_handle(&mut world, "S_RUNL");
+        let run_end = animation_handle(&mut world, "T_RUNL_2_RUN");
         world.get_mut::<AnimationController>(model).unwrap().current = run_loop.clone();
 
         // Loop wrap while still running: stay in the loop
@@ -642,14 +636,14 @@ mod tests {
 
     #[test]
     fn run_end_returns_to_stand_on_animation_end() {
-        let (mut world, model, library) = run_sequencer_world(HumanAnimationSequencer {
+        let (mut world, model) = run_sequencer_world(HumanAnimationSequencer {
             current_state: HumanAnimationSequence::RunSequence(RunSequence::End),
             desired_state: HumanAnimationSequence::RunSequence(RunSequence::Loop),
             desired_action: DesiredAction::GoDir(Quat::IDENTITY),
             ..HumanAnimationSequencer::default()
         });
-        let run_end = handle_of(&library, "T_RUNL_2_RUN");
-        let idle = handle_of(&library, "S_RUN");
+        let run_end = animation_handle(&mut world, "T_RUNL_2_RUN");
+        let idle = animation_handle(&mut world, "S_RUN");
         world.get_mut::<AnimationController>(model).unwrap().current = run_end.clone();
 
         // Desired stand while ending: the end animation hands over to stand
@@ -662,11 +656,10 @@ mod tests {
     }
 
     #[test]
-    fn firing_starts_then_loads_then_shoots_on_aim_entry() {
-        let (mut world, model, library) = run_sequencer_world(HumanAnimationSequencer::default());
-        let aim_in = handle_of(&library, "T_BOWRUN_2_BOWAIM");
-        let reload = handle_of(&library, "T_BOWRELOAD");
-        let aim_hold = handle_of(&library, "S_BOWSHOOT");
+    fn firing_starts_then_shoots_on_reload_end() {
+        let (mut world, model) = run_sequencer_world(HumanAnimationSequencer::default());
+        let aim_in = animation_handle(&mut world, "T_BOWRUN_2_BOWAIM");
+        let reload = animation_handle(&mut world, "T_BOWRELOAD");
 
         send_action(
             &mut world,
@@ -680,7 +673,7 @@ mod tests {
         );
         assert_eq!(queued_next(&world, model), Some(aim_in.clone()));
 
-        // Aim in finished: load the next arrow, no shot yet
+        // Aim in finished: the reload loop starts, no shot yet
         world.get_mut::<AnimationController>(model).unwrap().current = aim_in.clone();
         send_ends(&mut world, model, aim_in);
         world.run_system_once(run_sequencer).unwrap();
@@ -697,15 +690,14 @@ mod tests {
             0
         );
 
-        // Reload finished: hold the aim and fire the arrow
+        // The reload loop wrapped: the arrow fires and the loop continues
         world.get_mut::<AnimationController>(model).unwrap().current = reload.clone();
         send_ends(&mut world, model, reload);
         world.run_system_once(run_sequencer).unwrap();
         assert_eq!(
             current_state(&world, model),
-            HumanAnimationSequence::FireBowSequence(FireBowSequence::Aim)
+            HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload)
         );
-        assert_eq!(queued_next(&world, model), Some(aim_hold));
         assert_eq!(
             world
                 .resource::<Messages<ArrowShot>>()
@@ -717,14 +709,15 @@ mod tests {
 
     #[test]
     fn firing_stops_via_aim_out() {
-        let (mut world, model, library) = run_sequencer_world(HumanAnimationSequencer {
-            current_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Aim),
-            desired_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Aim),
+        let (mut world, model) = run_sequencer_world(HumanAnimationSequencer {
+            current_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload),
+            desired_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload),
             desired_action: DesiredAction::RangedFireLocation(Vec3::ONE),
             ..HumanAnimationSequencer::default()
         });
-        let aim_out = handle_of(&library, "T_BOWAIM_2_BOWRUN");
+        let aim_out = animation_handle(&mut world, "BOWRUN_2_BOWRUNL");
 
+        // Released mid cycle: leave the loop right away
         send_action(&mut world, model, DesiredAction::Stand);
         world.run_system_once(run_sequencer).unwrap();
 
@@ -736,25 +729,19 @@ mod tests {
     }
 
     #[test]
-    fn firing_stops_during_reload_via_aim_out() {
-        let (mut world, model, library) = run_sequencer_world(HumanAnimationSequencer {
+    fn firing_stops_at_reload_boundary_via_aim_out() {
+        let (mut world, model) = run_sequencer_world(HumanAnimationSequencer {
             current_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload),
             desired_state: HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload),
             desired_action: DesiredAction::RangedFireLocation(Vec3::ONE),
             ..HumanAnimationSequencer::default()
         });
-        let reload = handle_of(&library, "T_BOWRELOAD");
-        let aim_out = handle_of(&library, "T_BOWAIM_2_BOWRUN");
+        let reload = animation_handle(&mut world, "T_BOWRELOAD");
+        let aim_out = animation_handle(&mut world, "T_BOWRUN_2_BOWRUNL");
 
-        // Release while loading: the reload one-shot plays out first
+        // Release and the loop wrap in the same step: leave at the boundary,
+        // no arrow for the released shot
         send_action(&mut world, model, DesiredAction::Stand);
-        world.run_system_once(run_sequencer).unwrap();
-        assert_eq!(
-            current_state(&world, model),
-            HumanAnimationSequence::FireBowSequence(FireBowSequence::Reload)
-        );
-
-        // The reload finished: lower the bow instead of firing
         world.get_mut::<AnimationController>(model).unwrap().current = reload.clone();
         send_ends(&mut world, model, reload);
         world.run_system_once(run_sequencer).unwrap();
