@@ -291,7 +291,7 @@ fn convert_zengin_model_to_entities(
                     ColliderConstructor::TrimeshFromMesh,
                     CollisionLayers::from_bits(STATIC_OBJECT, DYNAMIC_OBJECT),
                 ));
-            } else if model_component.trimesh_collider {
+            } else if model_component.trimesh_collider && sub_mesh.collides {
                 sub_entity.insert((
                     RigidBody::Static,
                     ColliderConstructor::TrimeshFromMesh,
