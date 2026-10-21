@@ -51,6 +51,7 @@ pub use crate::zengin::statistics::StatisticsZengin;
 pub use crate::zengin::waypoint_graph::WaypointGraph;
 pub use crate::zengin::zengin_resources::MaterialHandles;
 pub use crate::zengin::zengin_resources::NPC_BODY;
+pub use crate::zengin::zengin_resources::STATIC_OBJECT;
 
 /// Plugin which provides Zengin related functionality
 pub struct ZenginPlugin;
