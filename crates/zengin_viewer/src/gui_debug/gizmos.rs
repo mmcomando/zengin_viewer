@@ -10,6 +10,7 @@ use crate::zengin::WaypointGraph;
 #[derive(Resource, Default)]
 pub struct GizmosOptions {
     pub convex_colliders: bool,
+    pub trimesh_colliders: bool,
     pub characters_colliders: bool,
     pub bones: bool,
     pub lights: bool,
@@ -29,6 +30,10 @@ impl Plugin for GizmosPlugin {
         app.add_systems(
             Update,
             draw_bones.run_if(|options: Res<GizmosOptions>| options.bones),
+        );
+        app.add_systems(
+            Update,
+            draw_trimesh_gizmos.run_if(|options: Res<GizmosOptions>| options.trimesh_colliders),
         );
         app.add_systems(
             Update,
@@ -69,6 +74,29 @@ fn draw_convex_hull_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &Glo
                 let a = points[vertices_adj_to_face[first + i] as usize];
                 let b = points[vertices_adj_to_face[first + (i + 1) % count] as usize];
                 gizmos.line(isometry * a, isometry * b, tailwind::GREEN_400);
+            }
+        }
+    }
+}
+
+/// Draws wireframe gizmos around trimesh colliders, e.g. ones created from
+/// `ColliderConstructor::TrimeshFromMesh`. Every triangle edge is drawn, so
+/// shared edges are drawn up to six times and large meshes produce a lot of
+/// lines.
+fn draw_trimesh_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &GlobalTransform)>) {
+    for (collider, transform) in &colliders {
+        let TypedShape::TriMesh(trimesh) = collider.shape().as_typed_shape() else {
+            continue;
+        };
+        let isometry = Isometry3d::new(transform.translation(), transform.rotation());
+        for triangle in trimesh.triangles() {
+            let vertices = [triangle.a, triangle.b, triangle.c];
+            for i in 0..3 {
+                gizmos.line(
+                    isometry * vertices[i],
+                    isometry * vertices[(i + 1) % 3],
+                    tailwind::CYAN_400,
+                );
             }
         }
     }

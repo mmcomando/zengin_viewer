@@ -195,6 +195,12 @@ fn ui_info_system(
                         );
                         add_checkbox(
                             ui,
+                            "Trimesh Colliders",
+                            &mut gizmos_options.trimesh_colliders,
+                            &mut gizmos_settings_changed,
+                        );
+                        add_checkbox(
+                            ui,
                             "Characters Colliders",
                             &mut gizmos_options.characters_colliders,
                             &mut gizmos_settings_changed,

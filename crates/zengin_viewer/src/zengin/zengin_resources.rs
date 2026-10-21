@@ -286,7 +286,9 @@ fn convert_zengin_model_to_entities(
             if model_component.convex_colider && sub_mesh.collides {
                 sub_entity.insert((
                     RigidBody::Static,
-                    ColliderConstructor::ConvexHullFromMesh,
+                    // If it is good for perf we can set it for small meshes
+                    // ColliderConstructor::ConvexHullFromMesh,
+                    ColliderConstructor::TrimeshFromMesh,
                     CollisionLayers::from_bits(STATIC_OBJECT, DYNAMIC_OBJECT),
                 ));
             } else if model_component.trimesh_collider {
