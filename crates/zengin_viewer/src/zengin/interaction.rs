@@ -200,7 +200,9 @@ fn play_hit_reaction(
     let path = get_animation_path(scheme, "T_GOTHIT");
     let resume = controller.current().clone();
     controller.queue_next(handles.get_animation_handle(asset_server, &path), true);
-    commands.entity(npc).insert(NpcHitReaction { resume });
+    // The npc can be despawned before this applies (killed by another hit the
+    // same frame), a reaction on a corpse is pointless
+    commands.entity(npc).try_insert(NpcHitReaction { resume });
 }
 
 /// Restores the interrupted animation when the `T_GOTHIT` hit reaction of an
@@ -217,7 +219,13 @@ fn npc_hit_reaction_end(
             continue;
         };
         controller.queue_next(reaction.resume.clone(), true);
-        commands.entity(entity).remove::<NpcHitReaction>();
+        // Silenced: the npc can be despawned before this applies (died the
+        // same frame), removing the reaction from a corpse is pointless
+        commands.queue_silenced(move |world: &mut World| {
+            if let Ok(mut entity) = world.get_entity_mut(entity) {
+                entity.remove::<NpcHitReaction>();
+            }
+        });
     }
 }
 
