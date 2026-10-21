@@ -201,6 +201,9 @@ pub struct ZenGinModel {
 pub struct ZenGinInstance {
     pub tr: Transform,
     pub archetype: String,
+    /// From the vob `cdStatic` flag: whether static geometry collision applies
+    /// to this instance at all (vegetation like grass groups has it off).
+    pub collides: bool,
 }
 
 #[derive(Debug, Default)]

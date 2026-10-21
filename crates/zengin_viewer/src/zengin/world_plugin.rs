@@ -111,7 +111,7 @@ fn spawn_world(
             ClassifyDistance::default(),
             ZenGinModelComponent {
                 model_handle: model_handle.clone(),
-                convex_colider: true,
+                convex_colider: instance.collides,
                 ..default()
             },
             Visibility::default(),

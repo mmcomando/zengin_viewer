@@ -326,6 +326,7 @@ fn load_objects(
             data.static_models.push(ZenGinInstance {
                 tr,
                 archetype: asset_path,
+                collides: obj.cd_dynamic(),
             });
         }
     } else {
