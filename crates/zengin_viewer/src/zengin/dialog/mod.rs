@@ -216,12 +216,16 @@ fn handle_dialog_requests(
     mut requests: MessageReader<DialogRequest>,
     mut dialog_ui: ResMut<DialogUiState>,
     gothic_script: Res<ScriptResource>,
-    mut npcs: Query<&mut Transform, (Without<PlayerPhysicsBodyMarker>, Without<PlayerCharacter>)>,
-    player: Query<&Transform, (With<PlayerPhysicsBodyMarker>, Without<PlayerCharacter>)>,
+    mut npcs: Query<
+        (&mut Transform, &GlobalTransform),
+        (Without<PlayerPhysicsBodyMarker>, Without<PlayerCharacter>),
+    >,
     mut player_visual: Query<
-        (Entity, &mut Transform),
+        (Entity, &mut Transform, &GlobalTransform),
         (With<PlayerCharacter>, Without<PlayerPhysicsBodyMarker>),
     >,
+    parents: Query<&ChildOf>,
+    global_transforms: Query<&GlobalTransform>,
 ) {
     for request in requests.read() {
         match request {
@@ -240,10 +244,8 @@ fn handle_dialog_requests(
                     dialog_ui.close();
                     continue;
                 };
-                let Ok(player_tr) = player.single() else {
-                    continue;
-                };
-                let Ok((player_visual_entity, mut player_visual_tr)) = player_visual.single_mut()
+                let Ok((player_visual_entity, mut player_visual_tr, player_visual_global)) =
+                    player_visual.single_mut()
                 else {
                     continue;
                 };
@@ -261,10 +263,33 @@ fn handle_dialog_requests(
                 // the root motion direction from the model's global rotation,
                 // a stale body yaw would skew post-dialog movement off the
                 // camera direction.
-                if let Ok(mut npc_tr) = npcs.get_mut(*npc_entity) {
-                    face_towards(&mut npc_tr, player_tr.translation);
-                    face_towards(&mut player_visual_tr, npc_tr.translation);
-                }
+                // Facing is computed from global positions and rotations: the
+                // visual is a child of the physics body, whose initial rotation
+                // must not leak into the model's world facing.
+                let Ok((mut npc_tr, npc_global)) = npcs.get_mut(*npc_entity) else {
+                    warn!("Dialog npc({npc_entity}) not found, cannot face dialog characters");
+                    continue;
+                };
+                face_towards(
+                    &mut npc_tr,
+                    npc_global.translation(),
+                    player_visual_global.translation(),
+                );
+                let Ok(parent_global) = parents
+                    .get(player_visual_entity)
+                    .and_then(|parent| global_transforms.get(parent.0))
+                else {
+                    warn!(
+                        "Player visual({player_visual_entity}) body has no global transform, cannot face dialog npc"
+                    );
+                    continue;
+                };
+                face_towards_world(
+                    &mut player_visual_tr,
+                    parent_global,
+                    player_visual_global.translation(),
+                    npc_global.translation(),
+                );
             }
             DialogRequest::RefreshRoots {
                 npc_from,
@@ -417,12 +442,38 @@ fn build_line_views(
 }
 
 /// Horizontally rotates the transform so its facing axis (+Z) points at `target`
-fn face_towards(tr: &mut Transform, target: Vec3) {
-    let delta = target - tr.translation;
+/// Positions are in the transform's own coordinate space, i.e. its translation
+/// for a root entity or the global positions for world-space facing.
+fn face_towards(tr: &mut Transform, position: Vec3, target: Vec3) {
+    let Some(rotation) = horizontal_facing_rotation(position, target) else {
+        return;
+    };
+    tr.rotation = rotation;
+}
+
+/// Like [`face_towards`] for a transform nested under a parent: the desired
+/// world facing is converted into a local rotation so the parent's own
+/// (possibly stale or initial) rotation does not influence the result.
+fn face_towards_world(
+    tr: &mut Transform,
+    parent_global: &GlobalTransform,
+    global_position: Vec3,
+    target: Vec3,
+) {
+    let Some(world_rotation) = horizontal_facing_rotation(global_position, target) else {
+        return;
+    };
+    tr.rotation = parent_global.rotation().inverse() * world_rotation;
+}
+
+/// Yaw rotation (+Z facing) pointing from `position` horizontally at `target`,
+/// `None` when the two positions coincide horizontally.
+fn horizontal_facing_rotation(position: Vec3, target: Vec3) -> Option<Quat> {
+    let delta = target - position;
     let dir = Vec3::new(delta.x, 0.0, delta.z);
     if dir.length_squared() < f32::EPSILON {
-        return;
+        return None;
     }
     let dir = dir.normalize();
-    tr.rotation = Quat::from_rotation_y(dir.x.atan2(dir.z));
+    Some(Quat::from_rotation_y(dir.x.atan2(dir.z)))
 }
