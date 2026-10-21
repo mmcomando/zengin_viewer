@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use avian3d::{math::*, prelude::*};
 use bevy::{ecs::query::Has, prelude::*};
 use leafwing_input_manager::plugin::InputManagerSystem;
@@ -51,12 +53,7 @@ fn use_character_camera(info: Res<CameraResource>) -> bool {
 /// to prevent Avian from automatically applying the character's velocity to its position,
 /// since the character controller will handle movement manually using move-and-slide.
 #[derive(Component)]
-#[require(
-    RigidBody::Kinematic,
-    CustomPositionIntegration,
-    // We don't want to impart speculative collision impulses in this case
-    SpeculativeMargin(0.0)
-)]
+#[require(RigidBody::Kinematic, CustomPositionIntegration)]
 pub struct CharacterController;
 
 /// Collision layer bit for colliders that exist only to be found by explicit
@@ -74,16 +71,16 @@ pub struct PlayerPhysicsBodyMarker;
 #[derive(Component)]
 pub struct CharacterMovementSettings {
     /// The acceleration used for character movement.
-    pub acceleration: Scalar,
+    pub acceleration: f32,
     /// The damping coefficient used for slowing down movement.
-    pub damping: Scalar,
+    pub damping: f32,
     /// The strength of a jump.
-    pub jump_impulse: Scalar,
+    pub jump_impulse: f32,
     /// The gravitational acceleration used for the character.
-    pub gravity: Vector,
+    pub gravity: Vec3,
     /// The maximum speed that gravity can accelerate the character to.
     /// This prevents the character from accelerating indefinitely while falling.
-    pub terminal_velocity: Scalar,
+    pub terminal_velocity: f32,
 }
 
 impl Default for CharacterMovementSettings {
@@ -92,7 +89,7 @@ impl Default for CharacterMovementSettings {
             acceleration: 35.0,
             damping: 10.0,
             jump_impulse: 7.0,
-            gravity: Vector::new(0.0, -9.81 * 2.0, 0.0),
+            gravity: Vec3::new(0.0, -9.81 * 2.0, 0.0),
             terminal_velocity: 100.0,
         }
     }
@@ -105,9 +102,9 @@ pub struct GroundDetection {
     /// relative to the up-direction. Outside of this angle, surfaces are considered walls.
     ///
     /// **Default**: 30 degrees (π / 6 radians)
-    pub max_angle: Scalar,
+    pub max_angle: f32,
     /// The maximum distance for ground detection.
-    pub max_distance: Scalar,
+    pub max_distance: f32,
     /// The shape cast collider used for ground detection.
     pub cast_shape: Option<Collider>,
 }
@@ -141,11 +138,11 @@ pub struct CharacterCollision {
     /// The collider that was hit by the character.
     pub collider: Entity,
     /// The point of contact in world space.
-    pub point: Vector,
+    pub point: Vec3,
     /// The normal of the contact surface, pointing away from the character.
     pub normal: Dir3,
     /// The velocity of the character at the point of contact.
-    pub character_velocity: Vector,
+    pub character_velocity: Vec3,
 }
 
 /// Toggles between the free camera and the character camera.
@@ -202,8 +199,8 @@ fn update_grounded(
             continue;
         };
 
-        let translation = global_transform.translation().adjust_precision();
-        let rotation = global_transform.rotation().adjust_precision();
+        let translation = global_transform.translation();
+        let rotation = global_transform.rotation();
 
         // Cast the shape downward to check for ground
         let hit = spatial_query.cast_shape(
@@ -218,8 +215,8 @@ fn update_grounded(
 
         // The character is grounded if we hit a surface that isn't too steep
         let is_grounded = hit.is_some_and(|hit| {
-            let up = global_transform.up().adjust_precision();
-            (rotation * hit.normal1).angle_between(up) <= ground_detection.max_angle
+            let up = global_transform.up();
+            (rotation * hit.normal1).angle_between(*up) <= ground_detection.max_angle
         });
 
         // Update grounded state
@@ -232,7 +229,7 @@ fn update_grounded(
 }
 
 /// Acceleration multiplier while the `Accelerate` action is held.
-pub(crate) const ACCELERATION_MULTIPLIER: Scalar = 5.0;
+pub(crate) const ACCELERATION_MULTIPLIER: f32 = 5.0;
 
 /// Marks a root motion driven physics body whose animation movement is
 /// currently accelerated (the player holds the `Accelerate` action). Read by
@@ -253,7 +250,7 @@ fn movement(
         Has<Grounded>,
     )>,
 ) {
-    let delta_secs = time.delta_secs_f64().adjust_precision();
+    let delta_secs = time.delta_secs();
 
     // Keyboard D-pads and the gamepad stick are summed, so clamp to unit length.
     let direction = action_state
@@ -300,7 +297,7 @@ fn apply_gravity(
     time: Res<Time>,
     mut controllers: Query<(&CharacterMovementSettings, &mut LinearVelocity)>,
 ) {
-    let delta_secs = time.delta_secs_f64().adjust_precision();
+    let delta_secs = time.delta_secs();
 
     for (movement, mut linear_velocity) in &mut controllers {
         let gravity_direction = movement.gravity.normalize_or_zero();
@@ -329,7 +326,7 @@ fn apply_movement_damping(
     mut query: Query<(&CharacterMovementSettings, &mut LinearVelocity)>,
     time: Res<Time>,
 ) {
-    let delta_secs = time.delta_secs_f64().adjust_precision();
+    let delta_secs = time.delta_secs();
 
     for (movement, mut linear_velocity) in &mut query {
         // Approximate exponential decay. We could use `LinearDamping` for this,
@@ -370,7 +367,7 @@ pub fn move_and_slide(
             collisions.0.clear();
         }
 
-        let up = transform.up().adjust_precision();
+        let up = *transform.up();
 
         // Perform move-and-slide
         let MoveAndSlideOutput {
@@ -378,8 +375,8 @@ pub fn move_and_slide(
             projected_velocity,
         } = move_and_slide.move_and_slide(
             collider,
-            transform.translation.adjust_precision(),
-            transform.rotation.adjust_precision(),
+            transform.translation,
+            transform.rotation,
             lin_vel.0,
             time.delta(),
             &MoveAndSlideConfig::default(),
@@ -399,9 +396,9 @@ pub fn move_and_slide(
                 };
 
                 // Determine if the surface is ground based on the angle between the up-vector and the hit normal.
-                let angle = up.angle_between(hit.normal.adjust_precision());
+                let angle = up.angle_between(**hit.normal);
                 let is_ground = angle <= ground_detection.max_angle;
-                let is_ceiling = is_ground && up.dot(hit.normal.adjust_precision()) < 0.0;
+                let is_ceiling = is_ground && up.dot(**hit.normal) < 0.0;
 
                 // Decompose the original input velocity into components relative to the hit normal and the up direction,
                 // to determine how much of the velocity is contributing to climbing, slipping, and unconstrained movement.
@@ -471,7 +468,6 @@ pub fn move_and_slide(
         // to prevent accumulating velocity along the ground normal when hitting slopes,
         // and to prevent sticking to ceilings when jumping.
         if hit_ground_or_ceiling {
-            let up = up.adjust_precision();
             let velocity_along_up = lin_vel.dot(up);
             let new_velocity_along_up = projected_velocity.dot(up);
             lin_vel.0 += (new_velocity_along_up - velocity_along_up) * up;
@@ -479,22 +475,21 @@ pub fn move_and_slide(
     }
 }
 
-/// The decomposition of a velocity vector into parts relative to a collision normal and an up-direction.
+/// The decomposition of a velocity Vec3 into parts relative to a collision normal and an up-direction.
 ///
 /// This is used for determining how much of the velocity is contributing to climbing, slipping, and unconstrained movement.
 #[derive(Debug)]
 struct VelocityDecomposition {
     /// The part of the velocity that is directly against the collision normal.
-    normal_part: Vector,
+    normal_part: Vec3,
     /// The part of the velocity that is tangent to the collision surface and perpendicular to the up-direction.
-    horizontal_tangent: Vector,
+    horizontal_tangent: Vec3,
     /// The part of the velocity that is tangent to the collision surface and parallel to the up-direction.
-    vertical_tangent: Vector,
+    vertical_tangent: Vec3,
 }
 
-/// Decomposes a velocity vector into parts relative to a collision `normal` and an `up` direction.
-fn decompose_hit_velocity(velocity: Vector, normal: Dir, up: Vector) -> VelocityDecomposition {
-    let normal = normal.adjust_precision();
+/// Decomposes a velocity Vec3 into parts relative to a collision `normal` and an `up` direction.
+fn decompose_hit_velocity(velocity: Vec3, normal: Dir3, up: Vec3) -> VelocityDecomposition {
     let normal_part = normal * normal.dot(velocity);
     let tangent_part = velocity - normal_part;
 
@@ -509,8 +504,8 @@ fn decompose_hit_velocity(velocity: Vector, normal: Dir, up: Vector) -> Velocity
     }
 }
 
-/// Splits a vector into horizontal and vertical components relative to a given `up` direction.
-fn split_into_components(v: Vector, up: Vector) -> [Vector; 2] {
+/// Splits a Vec3 into horizontal and vertical components relative to a given `up` direction.
+fn split_into_components(v: Vec3, up: Vec3) -> [Vec3; 2] {
     let vertical_component = up * v.dot(up);
     let horizontal_component = v - vertical_component;
     [horizontal_component, vertical_component]
@@ -535,7 +530,7 @@ fn apply_forces_to_dynamic_bodies(
                 continue;
             }
 
-            let touch_dir = -collision.normal.adjust_precision();
+            let touch_dir = -collision.normal;
             let relative_velocity = collision.character_velocity - forces.linear_velocity();
             let touch_velocity = touch_dir.dot(relative_velocity) * touch_dir;
             let impulse = touch_velocity * mass;

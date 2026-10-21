@@ -35,6 +35,8 @@ const ITEM_LABEL_HEIGHT: f32 = 0.6;
 const LABEL_FONT_SIZE: f32 = 64.0;
 const LABEL_WORLD_SCALE: f32 = 0.25;
 
+const AABB_MARGIN: f32 = 0.1;
+
 /// Kind of the currently selected world object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectionKind {
@@ -113,7 +115,7 @@ pub fn spawn_npc_selection_collider(commands: &mut Commands, npc: Entity) {
 /// Item colliders sit on the item entity itself, so they survive the far-away
 /// visual despawn and never need respawning. Npc colliders are spawned with
 /// the visual in [`spawn_npc_selection_collider`] instead.
-fn on_selectable_added(trigger: On<Add, GameItem>, mut commands: Commands) {
+fn on_selectable_added(trigger: On<Add<GameItem>>, mut commands: Commands) {
     commands.entity(trigger.entity).insert((
         Collider::cuboid(0.5, 0.5, 0.5),
         CollisionLayers::from_bits(SELECTABLE, 0),
@@ -205,7 +207,7 @@ fn update_selection(
     let forward = Vec3::new(forward.x, 0.0, forward.z).normalize_or_zero();
 
     // `aabb_intersections_with_aabb` takes no filter, hits are filtered below.
-    let query_aabb = Collider::sphere(range).aabb(player_pos, Quat::IDENTITY);
+    let query_aabb = Collider::sphere(range).aabb(player_pos, Quat::IDENTITY, AABB_MARGIN);
     // Direction matters more than distance: the raw distance is multiplied by
     // `(2 - dot)`, so a target 90 deg off the aim direction counts twice as
     // far and one directly behind three times as far.

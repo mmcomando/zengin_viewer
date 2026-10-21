@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use crate::gameplay::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
     PlayerPhysicsBodyMarker,
@@ -24,7 +26,6 @@ use crate::zengin::zengin_resources::{
     DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
 };
 use crate::zengin::{GameItem, GameNpc, ZenginVfs};
-use avian3d::math::PI;
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 

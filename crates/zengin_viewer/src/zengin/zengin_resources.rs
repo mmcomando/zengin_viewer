@@ -247,7 +247,7 @@ fn convert_zengin_model_to_entities(
 
         let mut aabb = Aabb::from_min_max(Vec3::ONE * -1.0, Vec3::ONE);
         for (sub_mesh_index, sub_mesh) in model.sub_meshes.iter().enumerate() {
-            if let Some(sub_aabb) = sub_mesh.mesh.compute_aabb() {
+            if let Some(sub_aabb) = sub_mesh.mesh.get_aabb() {
                 aabb = Aabb::from_min_max(
                     sub_aabb.min().min(aabb.min()).into(),
                     sub_aabb.max().max(aabb.max()).into(),
