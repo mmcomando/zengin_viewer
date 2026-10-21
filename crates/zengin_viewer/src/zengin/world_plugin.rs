@@ -12,6 +12,7 @@ use crate::zengin::common::get_full_texture_path;
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::{SpawnItem, SpawnNpc};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::waypoint_graph::Spots;
@@ -152,8 +153,13 @@ fn spawn_world(
         }
     }
 
-    // Player collider. The player is the `PC_HERO` instance, the `hero`
-    // instance global has no data of its own (its stats come from `PC_HERO`)
+    spawn_player(&mut commands, &mut gothic_script);
+}
+
+/// Spawns the player entity: a physics collider with the `PC_HERO` visual as a
+/// child. The player is the `PC_HERO` instance, the `hero` instance global has
+/// no data of its own (its stats come from `PC_HERO`).
+fn spawn_player(commands: &mut Commands, gothic_script: &mut ScriptManager) {
     let player_instance = gothic_script
         .symbol_instance("pc_hero")
         .expect("player instance pc_hero should be a valid instance symbol");
