@@ -42,6 +42,7 @@ pub use crate::zengin::npc_routines::NpcHealth;
 pub use crate::zengin::npc_routines::NpcWeaponMode;
 pub use crate::zengin::ranged::ArrowShot;
 pub use crate::zengin::script::component::ScriptResource;
+pub use crate::zengin::script::manager::ItemDisplayData;
 pub use crate::zengin::script::state::WeaponKind;
 pub use crate::zengin::script::state::WeaponMode;
 pub use crate::zengin::script::symbol_id::InstanceId;

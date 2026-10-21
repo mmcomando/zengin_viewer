@@ -9,13 +9,12 @@
 
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
-use std::collections::HashMap;
 
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::game_log::GameLog;
 use crate::input::actions::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::dialog::DialogUiState;
-use crate::zengin::{GameNpc, InstanceId, ScriptResource, WeaponKind};
+use crate::zengin::{GameNpc, InstanceId, ItemDisplayData, ScriptResource, WeaponKind};
 
 /// Visual style of the inventory UI, single place to tweak the look
 struct InventoryStyle;
@@ -53,6 +52,8 @@ struct InventoryEntry {
     instance_id: InstanceId,
     count: i32,
     name: String,
+    /// Stats shown in the info panel, `None` when the item has no script data.
+    stats: Option<ItemDisplayData>,
     /// Whether the item is a gold stack, based on the script symbol name so
     /// localized display names do not break the gold sum.
     is_gold: bool,
@@ -165,6 +166,10 @@ struct InventorySlotEquippedOverlay;
 #[derive(Component)]
 struct InventoryInfoText;
 
+/// Right-aligned value column of the item info panel
+#[derive(Component)]
+struct InventoryInfoValues;
+
 pub struct InventoryUiPlugin;
 
 impl Plugin for InventoryUiPlugin {
@@ -221,7 +226,9 @@ fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         &textures,
     );
 
-    // Info panel at the bottom left, like the original item description box
+    // Info panel at the bottom left, like the original item description box:
+    // label column on the left, right-aligned values on the right. Both texts
+    // have one line per row so the rows line up.
     commands
         .spawn((
             ChildOf(root),
@@ -230,7 +237,7 @@ fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 left: Val::Px(24.0),
                 bottom: Val::Px(24.0),
                 display: Display::Flex,
-                flex_direction: FlexDirection::Column,
+                flex_direction: FlexDirection::Row,
                 width: Val::Px(560.0),
                 padding: UiRect::all(Val::Px(16.0)),
                 ..default()
@@ -240,6 +247,10 @@ fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|info_panel| {
             info_panel.spawn((
                 InventoryInfoText,
+                Node {
+                    flex_grow: 1.0,
+                    ..default()
+                },
                 Text::new(String::new()),
                 TextFont {
                     font_size: InventoryStyle::INFO_FONT_SIZE.into(),
@@ -247,6 +258,22 @@ fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 TextColor(InventoryStyle::TEXT_COLOR),
                 TextLayout::default().with_justify(Justify::Left),
+                InventoryStyle::TEXT_SHADOW,
+            ));
+            info_panel.spawn((
+                InventoryInfoText,
+                InventoryInfoValues,
+                Node {
+                    width: Val::Px(120.0),
+                    ..default()
+                },
+                Text::new(String::new()),
+                TextFont {
+                    font_size: InventoryStyle::INFO_FONT_SIZE.into(),
+                    ..default()
+                },
+                TextColor(InventoryStyle::TEXT_COLOR),
+                TextLayout::default().with_justify(Justify::Right),
                 InventoryStyle::TEXT_SHADOW,
             ));
         });
@@ -479,10 +506,12 @@ fn toggle_inventory(
             let name = script
                 .item_display_name(instance_id)
                 .unwrap_or_else(|| display_item_name(&symbol_name));
+            let stats = script.item_display_data(instance_id);
             InventoryEntry {
                 instance_id,
                 count,
                 name,
+                stats: Some(stats),
                 is_gold,
                 sort_group,
             }
@@ -491,27 +520,16 @@ fn toggle_inventory(
     // Melee weapons first, then ranged, then the rest; within a group by
     // damage descending (0 for items without damage data), ties broken by
     // instance id for a deterministic order (the script inventory is a hash
-    // map). Item values are not available in the script data yet.
-    let damages: HashMap<InstanceId, i32> = items
-        .iter()
-        .map(|entry| {
-            (
-                entry.instance_id,
-                script
-                    .item_damage_total(entry.instance_id)
-                    .unwrap_or_default(),
-            )
-        })
-        .collect();
+    // map).
     items.sort_unstable_by(|a, b| {
         a.sort_group
             .cmp(&b.sort_group)
             .then_with(|| {
-                damages
-                    .get(&b.instance_id)
-                    .copied()
+                b.stats
+                    .as_ref()
+                    .map(|s| s.damage_total)
                     .unwrap_or_default()
-                    .cmp(&damages.get(&a.instance_id).copied().unwrap_or_default())
+                    .cmp(&a.stats.as_ref().map(|s| s.damage_total).unwrap_or_default())
             })
             .then_with(|| a.instance_id.cmp(&b.instance_id))
     });
@@ -693,7 +711,7 @@ fn sync_inventory_ui(
         ),
     >,
     mut info_text: Query<
-        &mut Text,
+        (&mut Text, Has<InventoryInfoValues>),
         (
             With<InventoryInfoText>,
             Without<InventorySlotTextOrCount>,
@@ -795,15 +813,54 @@ fn sync_inventory_ui(
         }
     }
 
-    if let Ok(mut text) = info_text.single_mut() {
-        let info = state
-            .windows
-            .first()
-            .and_then(|window| window.items.get(window.selected))
-            .map(|entry| format!("{}\ncount: {}", entry.name, entry.count))
-            .unwrap_or_default();
+    let (labels, values) = state
+        .windows
+        .first()
+        .and_then(|window| window.items.get(window.selected))
+        .map(item_info_text)
+        .unwrap_or_default();
+    for (mut text, is_values) in info_text.iter_mut() {
+        let info = if is_values {
+            values.clone()
+        } else {
+            labels.clone()
+        };
         if text.0 != info {
             text.0 = info;
         }
     }
+}
+
+/// Item info panel content like the original: item name, flavor description
+/// and the generic script info-box lines (in G2 these carry the damage,
+/// requirements, value etc.). Returns (labels, values) with one line per row
+/// so the two text columns line up.
+fn item_info_text(entry: &InventoryEntry) -> (String, String) {
+    let mut label_lines: Vec<String> = vec![entry.name.clone(), String::new()];
+    let mut value_lines: Vec<String> = vec![String::new(), String::new()];
+    if let Some(stats) = &entry.stats {
+        // The description often just repeats the name, skip it in that case
+        if let Some(description) = &stats.description {
+            if !description.eq_ignore_ascii_case(&entry.name) {
+                label_lines.push(description.clone());
+                value_lines.push(String::new());
+            }
+        }
+        for (name, value) in &stats.requirements {
+            label_lines.push(format!("Required {name}:"));
+            value_lines.push(value.to_string());
+        }
+        for (text, count) in &stats.info_lines {
+            // Label-only script lines have a count of 0 and show no value
+            label_lines.push(text.clone());
+            value_lines.push(if *count == 0 {
+                String::new()
+            } else {
+                count.to_string()
+            });
+        }
+    }
+    // Joined without a trailing newline so the last row sits at the bottom of
+    // the panel and the two columns line up row by row
+    (label_lines.join("\n"), value_lines.join("\n"))
 }

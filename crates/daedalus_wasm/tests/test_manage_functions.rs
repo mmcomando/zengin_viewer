@@ -113,14 +113,29 @@ fn test_get_npc_info() {
 #[test]
 fn test_get_item_info() {
     // Class member data words: C_ITEM damagetotal @ word 90 (offset 360),
-    // name @ word 73 (offset 292)
+    // name @ word 73 (offset 292), value @ 88, weight @ 87, cond_atr @ 112,
+    // cond_value @ 115, description @ 157, text @ 162, count @ 192
     let damage_total_word = 360 / 4;
     let name_word = 292 / 4;
+    let weight_word = 348 / 4;
+    let value_word = 352 / 4;
+    let cond_atr_word = 448 / 4;
+    let cond_value_word = 460 / 4;
+    let description_word = 628 / 4;
+    let text_word = 648 / 4;
+    let count_word = 768 / 4;
 
     let mut values = vec![0; 200];
     values[damage_total_word] = 65;
     // Daedalus string id of the item name
     values[name_word] = 3;
+    values[weight_word] = 10;
+    values[value_word] = 400;
+    values[cond_atr_word] = 4; // ATR_STRENGTH
+    values[cond_value_word] = 40;
+    values[description_word] = 4;
+    values[text_word] = 5;
+    values[count_word] = 2;
 
     let symbols = &mut [
         Symbol::new(0, false, 1, None),
@@ -134,12 +149,26 @@ fn test_get_item_info() {
     let info = executor.get_item_info(2);
     assert_eq!(info.damage_total, 65);
     assert_eq!(info.name, Some(3));
+    assert_eq!(info.value, 400);
+    assert_eq!(info.weight, 10);
+    assert_eq!(info.cond_attribute, vec![4, 0, 0]);
+    assert_eq!(info.cond_value, vec![40, 0, 0]);
+    assert_eq!(info.description, Some(4));
+    assert_eq!(info.text, vec![5, 0, 0, 0, 0, 0]);
+    assert_eq!(info.count, vec![2, 0, 0, 0, 0, 0]);
 
     symbols[2].set_default_values(vec![0; 200]);
     let mut executor = WasmExecutor::prepare_test(instructions, symbols);
     let info = executor.get_item_info(2);
     assert_eq!(info.damage_total, 0);
     assert_eq!(info.name, None);
+    assert_eq!(info.value, 0);
+    assert_eq!(info.weight, 0);
+    assert_eq!(info.cond_attribute, vec![0, 0, 0]);
+    assert_eq!(info.cond_value, vec![0, 0, 0]);
+    assert_eq!(info.description, None);
+    assert_eq!(info.text, vec![0, 0, 0, 0, 0, 0]);
+    assert_eq!(info.count, vec![0, 0, 0, 0, 0, 0]);
 }
 
 #[test]

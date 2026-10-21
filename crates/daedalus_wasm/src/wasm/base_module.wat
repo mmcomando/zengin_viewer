@@ -550,16 +550,16 @@
     local.get $mem_start
   )
 
-  ;; Returns pointer to an item-info record with the total damage and name of
-  ;; an item instance (C_ITEM damagetotal and name member offsets). The name
-  ;; is the raw daedalus string id, None when the member value is not set (0).
+  ;; Returns pointer to an item-info record with the stats of an item instance
+  ;; (C_ITEM member offsets). String members are raw daedalus string ids, None
+  ;; when the member value is not set (0).
   (func $get_item_info (param $symbol_id i32) (result i32)
-    (local $mem_start i32) (local $name_value i32)
+    (local $mem_start i32) (local $name_value i32) (local $buffer i32)
 
-    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0))
+    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 60))
     local.set $mem_start
 
-    ;; damage-total @0
+    ;; damage-total @0 (C_ITEM damagetotal)
     local.get $mem_start
     (call $get_class_member (local.get $symbol_id) (i32.const 360))
     i32.store $main offset=0
@@ -578,6 +578,130 @@
     local.get $mem_start
     local.get $name_value
     i32.store $main offset=8
+
+    ;; value @12 (C_ITEM value)
+    local.get $mem_start
+    (call $get_class_member (local.get $symbol_id) (i32.const 352))
+    i32.store $main offset=12
+
+    ;; weight @16 (C_ITEM weight)
+    local.get $mem_start
+    (call $get_class_member (local.get $symbol_id) (i32.const 348))
+    i32.store $main offset=16
+
+    ;; cond-attribute @20: list of 3 ints (ptr @20, len @24) from
+    ;; C_ITEM cond_atr
+    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 12))
+    local.set $buffer
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 448))
+    i32.store $main
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 452))
+    i32.store $main offset=4
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 456))
+    i32.store $main offset=8
+
+    local.get $mem_start
+    local.get $buffer
+    i32.store $main offset=20
+    local.get $mem_start
+    (i32.const 3)
+    i32.store $main offset=24
+
+    ;; cond-value @28: list of 3 ints (ptr @28, len @32) from C_ITEM cond_value
+    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 12))
+    local.set $buffer
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 460))
+    i32.store $main
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 464))
+    i32.store $main offset=4
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 468))
+    i32.store $main offset=8
+
+    local.get $mem_start
+    local.get $buffer
+    i32.store $main offset=28
+    local.get $mem_start
+    (i32.const 3)
+    i32.store $main offset=32
+
+    ;; description @36: option<s32> lowers to a discriminant byte @36 and the
+    ;; value @40, C_ITEM description member offset
+    (call $get_class_member (local.get $symbol_id) (i32.const 628))
+    local.set $name_value
+
+    local.get $mem_start
+    local.get $name_value
+    i32.const 0
+    i32.ne
+    i32.store8 $main offset=36
+
+    local.get $mem_start
+    local.get $name_value
+    i32.store $main offset=40
+
+    ;; text @44: list of 6 ints (ptr @44, len @48) from C_ITEM text
+    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 24))
+    local.set $buffer
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 648))
+    i32.store $main
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 652))
+    i32.store $main offset=4
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 656))
+    i32.store $main offset=8
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 660))
+    i32.store $main offset=12
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 664))
+    i32.store $main offset=16
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 668))
+    i32.store $main offset=20
+
+    local.get $mem_start
+    local.get $buffer
+    i32.store $main offset=44
+    local.get $mem_start
+    (i32.const 6)
+    i32.store $main offset=48
+
+    ;; count @52: list of 6 ints (ptr @52, len @56) from C_ITEM count
+    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 24))
+    local.set $buffer
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 768))
+    i32.store $main
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 772))
+    i32.store $main offset=4
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 776))
+    i32.store $main offset=8
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 780))
+    i32.store $main offset=12
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 784))
+    i32.store $main offset=16
+    local.get $buffer
+    (call $get_class_member (local.get $symbol_id) (i32.const 788))
+    i32.store $main offset=20
+
+    local.get $mem_start
+    local.get $buffer
+    i32.store $main offset=52
+    local.get $mem_start
+    (i32.const 6)
+    i32.store $main offset=56
 
     local.get $mem_start
   )

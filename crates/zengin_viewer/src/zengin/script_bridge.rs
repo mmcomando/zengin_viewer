@@ -157,9 +157,7 @@ fn log_inventory_gains(
     }
     let mut script = gothic_script.lock();
     for gain in gains.read() {
-        let name = script
-            .get_name_by_id(gain.item.value())
-            .unwrap_or_else(|| gain.item.value().to_string());
+        let name = script.item_log_name(gain.item);
         game_log.write(GameLogEntry {
             text: format!("{name} x{}", gain.count),
         });

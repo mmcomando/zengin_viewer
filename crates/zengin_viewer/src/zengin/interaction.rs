@@ -131,9 +131,7 @@ fn handle_transfer_items(
             request.instance_to_id
         );
         for (item, count) in moved {
-            let name = script
-                .get_name_by_id(item.value())
-                .unwrap_or_else(|| item.value().to_string());
+            let name = script.item_log_name(item);
             game_log.write(GameLogEntry {
                 text: format!("{name} x{count}"),
             });
@@ -510,9 +508,7 @@ fn pickup_selected_item(
 
     let item_id = item.item_instance_id;
     let mut script = gothic_script.lock();
-    let name = script
-        .get_name_by_id(item_id.value())
-        .unwrap_or_else(|| item_id.value().to_string());
+    let name = script.item_log_name(item_id);
     script.add_inventory(player_npc.npc_instance_id, item_id, 1);
     drop(script);
     game_log.add(format!("{name} x1"));

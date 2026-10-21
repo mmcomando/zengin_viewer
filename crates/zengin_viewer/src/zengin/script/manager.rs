@@ -31,6 +31,31 @@ pub struct ScriptManager {
     routine_loop_functions: HashMap<FunctionId, Option<FunctionId>>,
 }
 
+/// Display stats of an item instance for the inventory info panel, string
+/// members resolved from the string table. The `get-item-info` record also
+/// carries `value`/`weight`, currently not shown (the G2 script info lines
+/// cover them).
+#[derive(Debug, Default)]
+pub struct ItemDisplayData {
+    pub damage_total: i32,
+    /// `C_Item.description` flavor text, `None` when unset.
+    pub description: Option<String>,
+    /// Equip requirements as (attribute display name, value) pairs.
+    pub requirements: Vec<(&'static str, i32)>,
+    /// Generic info-box lines as (text, value) pairs, unset lines skipped.
+    pub info_lines: Vec<(String, i32)>,
+}
+
+/// Display names of the daedalus attribute indices items can require.
+fn attribute_display_name(index: i32) -> Option<&'static str> {
+    match index {
+        // G2 script constants: ATR_STRENGTH = 4, ATR_DEXTERITY = 5
+        4 => Some("Strength"),
+        5 => Some("Dexterity"),
+        _ => None,
+    }
+}
+
 pub(crate) struct ScriptImports;
 
 impl HasData for ScriptImports {
@@ -497,6 +522,17 @@ impl ScriptManager {
         self.string_by_id(name)
     }
 
+    /// Name of an item for the game log: localized `C_ITEM.name`, falling back
+    /// to the cleaned-up script symbol name and finally the raw instance id.
+    pub fn item_log_name(&mut self, item: InstanceId) -> String {
+        if let Some(name) = self.item_display_name(item) {
+            return name;
+        }
+        self.get_name_by_id(item.value())
+            .map(|symbol| crate::gui::inventory::display_item_name(&symbol))
+            .unwrap_or_else(|| item.value().to_string())
+    }
+
     /// Raw npc-info record of an npc instance, read from the instance data.
     fn npc_info(&mut self, npc: InstanceId) -> NpcInfo {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
@@ -556,9 +592,39 @@ impl ScriptManager {
 
     /// Total damage of an item instance (`C_Item.damagetotal`), `None` when
     /// the item instance has no data.
-    #[allow(dead_code)] // used by the damage systems (next step)
     pub fn item_damage_total(&mut self, item: InstanceId) -> Option<i32> {
         Some(self.item_info(item).damage_total)
+    }
+
+    /// Display stats of an item instance for the inventory info panel.
+    pub fn item_display_data(&mut self, item: InstanceId) -> ItemDisplayData {
+        let info = self.item_info(item);
+        let requirements = info
+            .cond_attribute
+            .into_iter()
+            .zip(info.cond_value)
+            .filter_map(|(attribute, value)| {
+                let name = attribute_display_name(attribute)?;
+                Some((name, value))
+            })
+            .collect();
+        let info_lines = info
+            .text
+            .into_iter()
+            .zip(info.count)
+            .filter_map(|(text, count)| {
+                // Text string id 0 means the line is unset; string id 0 itself
+                // resolves to an unrelated table entry, so skip it explicitly
+                let text = self.string_by_id((text != 0).then_some(text))?;
+                Some((text, count))
+            })
+            .collect();
+        ItemDisplayData {
+            damage_total: info.damage_total,
+            description: self.string_by_id(info.description),
+            requirements,
+            info_lines,
+        }
     }
 
     pub fn get_symbol_id(&mut self, symbol_name: &str) -> SymbolId {
