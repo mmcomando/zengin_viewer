@@ -7,7 +7,6 @@ use bevy_rich_text3d::{Text3d, Text3dPlugin, Text3dStyling, TextAnchor, TextAtla
 
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::gui_debug::toggle_visibility::show_gizmos;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
@@ -70,7 +69,6 @@ impl Plugin for SelectionPlugin {
         app.add_observer(on_selectable_added::<GameItem>);
         app.add_systems(Startup, spawn_selection_label);
         app.add_systems(Update, (update_selection, update_selection_label).chain());
-        app.add_systems(Update, draw_characters_collider.run_if(show_gizmos));
     }
 }
 
@@ -356,22 +354,4 @@ fn update_selection_label(
         label_text.0.clone_from(&selection.name);
     }
     *visibility = Visibility::Inherited;
-}
-
-/// Draws a wireframe around characters collider
-fn draw_characters_collider(mut gizmos: Gizmos, entities: Query<(&Collider, &GlobalTransform)>) {
-    for (collider, transform) in &entities {
-        // let Some((collider, transform)) = player.iter().next() else {
-        //     return;
-        // };
-        let Some(capsule) = collider.shape().as_capsule() else {
-            return;
-        };
-        let isometry = Isometry3d::new(transform.translation(), transform.rotation());
-        gizmos.primitive_3d(
-            &Capsule3d::new(capsule.radius, capsule.half_height()),
-            isometry,
-            bevy::color::palettes::tailwind::RED_500,
-        );
-    }
 }

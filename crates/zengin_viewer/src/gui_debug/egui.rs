@@ -6,7 +6,7 @@ use bevy_egui::{
 
 use crate::gameplay::game_time::GameTime;
 use crate::graphics::render_options::RenderOptions;
-use crate::gui_debug::colliders_gizmos::ShowConvexColliderGizmos;
+use crate::gui_debug::gizmos::GizmosOptions;
 use crate::gui_debug::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
@@ -99,7 +99,7 @@ fn ui_info_system(
     statistics_zengin: Res<StatisticsZengin>,
     mut game_time: ResMut<GameTime>,
     mut render_options: ResMut<RenderOptions>,
-    mut convex_collider_gizmos: ResMut<ShowConvexColliderGizmos>,
+    mut gizmos_options: ResMut<GizmosOptions>,
     camera_query: Query<&GlobalTransform, With<Camera3d>>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
@@ -164,12 +164,6 @@ fn ui_info_system(
                     &mut toggle_info.show_npcs,
                     &mut visibility_settings_changed,
                 );
-                add_checkbox(
-                    ui,
-                    "Show Gizmos",
-                    &mut toggle_info.show_gizmos,
-                    &mut visibility_settings_changed,
-                );
                 // Render options apply immediately, no message needed.
                 add_checkbox(
                     ui,
@@ -183,13 +177,47 @@ fn ui_info_system(
                     &mut render_options.disco_shadow_maps,
                     &mut visibility_settings_changed,
                 );
-                // Render options apply immediately, no message needed.
-                add_checkbox(
-                    ui,
-                    "Convex Collider Gizmos",
-                    &mut convex_collider_gizmos.0,
-                    &mut visibility_settings_changed,
-                );
+            });
+
+            // Gizmo options apply immediately, no message needed. Toggles inside
+            // the group use their own changed flag instead of the visibility one.
+            ui.group(|ui| {
+                ui.label("Gizmos");
+                let mut gizmos_settings_changed = false;
+                egui::Grid::new("Grid Gizmos")
+                    .num_columns(2)
+                    .show(ui, |ui| {
+                        add_checkbox(
+                            ui,
+                            "Convex Colliders",
+                            &mut gizmos_options.convex_colliders,
+                            &mut gizmos_settings_changed,
+                        );
+                        add_checkbox(
+                            ui,
+                            "Characters Colliders",
+                            &mut gizmos_options.characters_colliders,
+                            &mut gizmos_settings_changed,
+                        );
+                        add_checkbox(
+                            ui,
+                            "Bones",
+                            &mut gizmos_options.bones,
+                            &mut gizmos_settings_changed,
+                        );
+                        add_checkbox(
+                            ui,
+                            "Lights",
+                            &mut gizmos_options.lights,
+                            &mut gizmos_settings_changed,
+                        );
+                        add_checkbox(
+                            ui,
+                            "Waypoints",
+                            &mut gizmos_options.way_points,
+                            &mut gizmos_settings_changed,
+                        );
+                    });
             });
 
             if visibility_settings_changed {

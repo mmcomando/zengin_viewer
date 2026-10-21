@@ -31,7 +31,6 @@ pub struct ShowOptions {
     pub show_world_mesh: bool,
     pub show_static_meshes: bool,
     pub show_npcs: bool,
-    pub show_gizmos: bool,
 }
 
 impl Default for ShowOptions {
@@ -40,7 +39,6 @@ impl Default for ShowOptions {
             show_world_mesh: true,
             show_static_meshes: true,
             show_npcs: true,
-            show_gizmos: false,
         }
     }
 }
@@ -92,8 +90,4 @@ fn on_show_options_changed(
             *visibility = npc_vis;
         }
     }
-}
-
-pub fn show_gizmos(info: Res<ShowOptions>) -> bool {
-    info.show_gizmos
 }

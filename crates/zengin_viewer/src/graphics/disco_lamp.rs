@@ -12,7 +12,6 @@ impl Plugin for DiscoLamp {
         app.add_systems(Startup, spawn_disco);
 
         app.add_systems(Update, entity_rotate);
-        app.add_systems(Update, draw_lights);
         app.add_systems(Update, sync_disco_shadows);
     }
 }
@@ -22,7 +21,7 @@ pub struct EntityRotate {}
 
 #[derive(Component, Default)]
 pub struct DrawGizmo {
-    color: Color,
+    pub color: Color,
 }
 
 /// Marks the disco lamp point lights controlled by [`sync_disco_shadows`].
@@ -102,12 +101,6 @@ fn entity_rotate(time: Res<Time>, query: Query<&mut Transform, With<EntityRotate
     let delta = time.delta_secs();
     for mut tr in query {
         tr.rotate_local_y(PI * delta * 0.05);
-    }
-}
-
-fn draw_lights(mut gizmos: Gizmos, query: Query<(&GlobalTransform, &DrawGizmo)>) {
-    for (tr, draw_gizmo) in query {
-        gizmos.sphere(tr.translation(), 0.1, draw_gizmo.color);
     }
 }
 

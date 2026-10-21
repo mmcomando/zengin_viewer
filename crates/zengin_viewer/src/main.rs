@@ -34,6 +34,7 @@ use crate::graphics::render_options::RenderOptionsPlugin;
 use crate::graphics::skybox::SkyBoxPlugin;
 use crate::gui::game_log::GameLogPlugin;
 use crate::gui_debug::egui::GameDebugUI;
+use crate::gui_debug::gizmos::GizmosPlugin;
 use crate::gui_debug::statistics::StatisticsPlugin;
 use crate::gui_debug::toggle_visibility::ToggleVisibility;
 use crate::input::actions::ActionsPlugin;
@@ -41,9 +42,7 @@ use crate::input::options::{Options, RegisterShaderAsset};
 use crate::xr::{XrPlugin, is_xr_enabled};
 use crate::zengin::SpeechSounds;
 use crate::zengin::ZenginPlugin;
-use crate::zengin::{
-    WaypointDebugPlugin, ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
-};
+use crate::zengin::{ZenginVfs, create_zengin_asset_loader, create_zengin_vfs};
 use avian3d::prelude::*;
 
 use bevy::prelude::*;
@@ -132,7 +131,6 @@ fn main() {
         if !replay_enabled {
             // Scenario replays must not show debug overlays in screenshots.
             app.add_plugins(get_overlay_plugin());
-            app.add_plugins(WaypointDebugPlugin);
         }
     }
 
@@ -150,7 +148,7 @@ fn main() {
     // The egui debug UI (Info window, camera overlay) is skipped for scenario
     // replays so screenshots contain no debug overlays.
     if !replay_enabled {
-        app.add_plugins(GameDebugUI);
+        app.add_plugins(GameDebugUI).add_plugins(GizmosPlugin);
     }
     app.add_plugins(StatisticsPlugin)
         .add_plugins(GameAudioPlugin)

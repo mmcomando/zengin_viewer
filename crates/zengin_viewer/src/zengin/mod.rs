@@ -48,7 +48,7 @@ pub use crate::zengin::script::symbol_id::InstanceId;
 pub use crate::zengin::selection::{Selection, SelectionKind};
 pub use crate::zengin::sounds::SpeechSounds;
 pub use crate::zengin::statistics::StatisticsZengin;
-pub use crate::zengin::waypoint_graph::WaypointDebugPlugin;
+pub use crate::zengin::waypoint_graph::WaypointGraph;
 pub use crate::zengin::zengin_resources::MaterialHandles;
 pub use crate::zengin::zengin_resources::NPC_BODY;
 

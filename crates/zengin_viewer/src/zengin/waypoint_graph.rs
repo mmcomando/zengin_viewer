@@ -5,8 +5,6 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use pathfinding::prelude::astar;
 
-use crate::gui_debug::toggle_visibility::show_gizmos;
-
 /// Waypoint navigation graph built from the world way net (points + edges).
 #[derive(Resource, Debug, Default)]
 pub struct WaypointGraph {
@@ -68,43 +66,6 @@ impl WaypointGraph {
             |&node| node == to,
         )
         .map(|(path, _)| path)
-    }
-}
-
-/// Draws the waypoint graph as debug gizmos when the "Show Gizmos" toggle is on.
-pub struct WaypointDebugPlugin;
-
-impl Plugin for WaypointDebugPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Update, draw_waypoints.run_if(show_gizmos));
-    }
-}
-
-fn draw_waypoints(mut gizmos: Gizmos, graph: Option<Res<WaypointGraph>>) {
-    let Some(graph) = graph else {
-        return;
-    };
-    for node in &graph.nodes {
-        let color = if node.free {
-            Color::srgb(1.0, 0.6, 0.0)
-        } else {
-            Color::srgb(0.2, 0.7, 1.0)
-        };
-        gizmos.sphere(node.position, 0.3, color);
-    }
-    let edge_color = Color::srgb(0.4, 0.4, 0.4);
-    for (index, neighbors) in graph.adjacency.iter().enumerate() {
-        for &(neighbor, _) in neighbors {
-            // Draw each undirected edge once
-            if neighbor <= index {
-                continue;
-            }
-            gizmos.line(
-                graph.nodes[index].position,
-                graph.nodes[neighbor].position,
-                edge_color,
-            );
-        }
     }
 }
 
