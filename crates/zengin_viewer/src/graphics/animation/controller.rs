@@ -86,7 +86,7 @@ impl AnimationController {
     /// [`AnimationController::queue_next`] — all other systems must request
     /// animation changes through `queue_next` only.
     pub(crate) fn switch_to(&mut self, handle: Handle<AnimationData>) {
-        info!("Animation switch_to({:?})", handle.path());
+        // info!("Animation switch_to({:?})", handle.path());
         self.current = handle;
         self.next = None;
         self.interrupt_current = false;

@@ -12,6 +12,7 @@ use crate::warn_once;
 use crate::zengin::GameNpc;
 use crate::zengin::common::{ZenGinModel, get_animation_path};
 use crate::zengin::npc_routines::NpcWeaponSlots;
+use crate::zengin::selection::spawn_npc_selection_collider;
 use crate::zengin::zengin_resources::{
     MaterialHandles, ZenGinModelComponent, despawn_visual_when_far_resource,
 };
@@ -214,6 +215,7 @@ fn spawn_npcs(
             let mut entity = commands.entity(entity_id);
             entity.insert(ObjectEntitiesSpawned::default());
             // entity.insert(ClassifyDistance::default());
+            spawn_npc_selection_collider(&mut commands, entity_id);
             continue;
         }
 
@@ -240,6 +242,7 @@ fn spawn_npcs(
             let mut entity = commands.entity(entity_id);
             entity.remove::<NpcSpawnState>();
             entity.insert(ObjectEntitiesSpawned::default());
+            spawn_npc_selection_collider(&mut commands, entity_id);
         }
 
         let bones_data = create_skinned_mesh_data(

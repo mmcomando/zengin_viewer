@@ -262,10 +262,10 @@ fn run_auto_anim_sequencer(
     for (entity, mut seq, mut controller, mut tr, parent) in &mut sequencers {
         for message in desired.iter().filter(|message| message.who == entity) {
             if seq.desired != Some(message.animation) {
-                info!(
-                    "AutoAnimSequencer({entity}) desired -> {:?}",
-                    message.animation
-                );
+                // info!(
+                //     "AutoAnimSequencer({entity}) desired -> {:?}",
+                //     message.animation
+                // );
                 seq.desired = Some(message.animation);
                 seq.force_change = message.force_change;
                 // Let a started melee swing finish: interrupting the queued

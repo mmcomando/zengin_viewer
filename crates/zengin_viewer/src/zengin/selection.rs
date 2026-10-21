@@ -65,8 +65,7 @@ impl Plugin for SelectionPlugin {
             load_system_fonts: true,
             ..default()
         });
-        app.add_observer(on_selectable_added::<GameNpc>);
-        app.add_observer(on_selectable_added::<GameItem>);
+        app.add_observer(on_selectable_added);
         app.add_systems(Startup, spawn_selection_label);
         app.add_systems(Update, (update_selection, update_selection_label).chain());
     }
@@ -89,65 +88,36 @@ pub struct NpcHitCollider {
     pub owner: Entity,
 }
 
-/// Selection collider shape of a selectable world object.
-trait SelectionCollider {
-    fn selection_collider() -> Collider;
-    /// Whether the kind is an npc (`GameNpc`), used for collision layers and
-    /// gizmo rendering of the collider.
-    fn is_npc() -> bool;
+/// Selection collider of an npc: a capsule roughly matching a human npc
+/// volume, used both for selection and as the hit target of flying arrows
+/// (they collide with `NPC_BODY`).
+fn npc_selection_collider() -> Collider {
+    Collider::capsule(NPC_COLLIDER_RADIUS, NPC_COLLIDER_LENGTH)
 }
 
-impl SelectionCollider for GameNpc {
-    fn selection_collider() -> Collider {
-        // Capsule roughly matching a human npc volume, used both for selection
-        // and as the hit target of flying arrows (they collide with `NPC_BODY`).
-        Collider::capsule(NPC_COLLIDER_RADIUS, NPC_COLLIDER_LENGTH)
-    }
-
-    fn is_npc() -> bool {
-        true
-    }
+/// Spawns the npc selection collider as a child of the npc entity, offset
+/// upwards from the npc origin which sits at the feet, see [`NpcHitCollider`].
+/// Called when the npc visual spawns, covering both the first spawn and the
+/// respawn after the visual was despawned far away (the collider is a child,
+/// so it despawns together with the visual).
+pub fn spawn_npc_selection_collider(commands: &mut Commands, npc: Entity) {
+    commands.entity(npc).with_child((
+        npc_selection_collider(),
+        CollisionLayers::from_bits(SELECTABLE | NPC_BODY, ARROW),
+        NpcHitCollider { owner: npc },
+        Transform::from_xyz(0.0, NPC_COLLIDER_OFFSET, 0.0),
+    ));
 }
 
-impl SelectionCollider for GameItem {
-    fn selection_collider() -> Collider {
-        Collider::cuboid(0.5, 0.5, 0.5)
-    }
-
-    fn is_npc() -> bool {
-        false
-    }
-}
-
-/// Gives every npc/item a collider so avian indexes it for the spatial query.
-/// Npc colliders also carry `NPC_BODY` and accept contacts from the `ARROW`
-/// layer so arrows can hit them; items remain query-only (they collide with
-/// nothing). The npc collider is a child entity offset upwards from the feet
-/// origin, see [`NpcHitCollider`]; the item collider stays on the item entity.
-fn on_selectable_added<C: Component + SelectionCollider>(
-    trigger: On<Add, C>,
-    mut commands: Commands,
-) {
-    let (layers, filters) = if C::is_npc() {
-        (SELECTABLE | NPC_BODY, ARROW)
-    } else {
-        (SELECTABLE, 0)
-    };
-    let collider = (
-        C::selection_collider(),
-        CollisionLayers::from_bits(layers, filters),
-    );
-    if C::is_npc() {
-        commands.entity(trigger.entity).with_child((
-            collider,
-            NpcHitCollider {
-                owner: trigger.entity,
-            },
-            Transform::from_xyz(0.0, NPC_COLLIDER_OFFSET, 0.0),
-        ));
-    } else {
-        commands.entity(trigger.entity).insert(collider);
-    }
+/// Gives every item a collider so avian indexes it for the spatial query.
+/// Item colliders sit on the item entity itself, so they survive the far-away
+/// visual despawn and never need respawning. Npc colliders are spawned with
+/// the visual in [`spawn_npc_selection_collider`] instead.
+fn on_selectable_added(trigger: On<Add, GameItem>, mut commands: Commands) {
+    commands.entity(trigger.entity).insert((
+        Collider::cuboid(0.5, 0.5, 0.5),
+        CollisionLayers::from_bits(SELECTABLE, 0),
+    ));
 }
 
 /// Spawns the 3d text label, it is moved above the selected object every
