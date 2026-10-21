@@ -151,7 +151,7 @@ pub struct CharacterCollision {
 fn camera_toggle_input(
     mut info: ResMut<CameraResource>,
     action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
-    camera_query: Query<&Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
+    camera_query: Query<&GlobalTransform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
     mut player_query: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
     mut player_visual: Query<
         &mut Transform,
@@ -173,7 +173,7 @@ fn camera_toggle_input(
             if let (Ok(camera_transform), Ok(mut player_transform)) =
                 (camera_query.single(), player_query.single_mut())
             {
-                player_transform.translation = camera_transform.translation;
+                player_transform.translation = camera_transform.translation();
                 // The camera looks along its forward; make the character face
                 // that direction (the model carries the facing, not the body).
                 if let Ok(mut visual_transform) = player_visual.single_mut() {
