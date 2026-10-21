@@ -32,7 +32,7 @@ use super::data::AnimationData;
 
 /// Yaw turn speed of the model while following the movement intent, radians
 /// per second.
-const TURN_SPEED: f32 = 3.0;
+const TURN_SPEED: f32 = 6.0;
 
 /// Animation graph asset with the human scheme transition graph, generated
 /// from the anims archives (see the export tool). Resolved against the crate
