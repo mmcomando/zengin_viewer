@@ -6,6 +6,7 @@ use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::animation::NpcAnimations;
+use crate::gui_debug::colliders_gizmos::CollidersGizmos;
 use crate::gui_debug::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::common::get_full_texture_path;
@@ -35,6 +36,7 @@ impl Plugin for ZenGinWorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ZenGinInsertResources);
         app.add_plugins(GameObjectSpawnEntities);
+        app.add_plugins(CollidersGizmos);
 
         app.add_systems(Startup, spawn_world);
         app.add_systems(Update, (spawn_npc_entities, spawn_item_entities).chain());

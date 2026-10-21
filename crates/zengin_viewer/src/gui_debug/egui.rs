@@ -6,6 +6,7 @@ use bevy_egui::{
 
 use crate::gameplay::game_time::GameTime;
 use crate::graphics::render_options::RenderOptions;
+use crate::gui_debug::colliders_gizmos::ShowConvexColliderGizmos;
 use crate::gui_debug::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
@@ -98,6 +99,7 @@ fn ui_info_system(
     statistics_zengin: Res<StatisticsZengin>,
     mut game_time: ResMut<GameTime>,
     mut render_options: ResMut<RenderOptions>,
+    mut convex_collider_gizmos: ResMut<ShowConvexColliderGizmos>,
     camera_query: Query<&GlobalTransform, With<Camera3d>>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
@@ -179,6 +181,13 @@ fn ui_info_system(
                     ui,
                     "Disco Shadow Maps",
                     &mut render_options.disco_shadow_maps,
+                    &mut visibility_settings_changed,
+                );
+                // Render options apply immediately, no message needed.
+                add_checkbox(
+                    ui,
+                    "Convex Collider Gizmos",
+                    &mut convex_collider_gizmos.0,
                     &mut visibility_settings_changed,
                 );
             });
