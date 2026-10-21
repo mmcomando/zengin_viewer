@@ -162,12 +162,15 @@ fn spawn_npcs(
             &NpcModel,
             &NpcAnimations,
             Option<&mut NpcSpawnState>,
+            Option<&AnimationController>,
         ),
         (With<DistanceNear>, Without<ObjectEntitiesSpawned>),
     >,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
-    for (entity_id, game_npc, npc_model, npc_animations, spawn_state) in &mut query {
+    for (entity_id, game_npc, npc_model, npc_animations, spawn_state, existing_controller) in
+        &mut query
+    {
         let Some(mut spawn_state) = spawn_state else {
             // Plays the configured animation, otherwise the standing animation
             // of the model scheme (e.g. a wolf stands in `WOLF-S_FISTRUN`)
@@ -290,9 +293,22 @@ fn spawn_npcs(
         }
 
         if let Some(animation_handle) = spawn_state.animation_handle.clone() {
-            commands
-                .entity(entity_id)
-                .insert(AnimationController::new(animation_handle));
+            // A re-spawned visual (e.g. after the far-distance despawn) must
+            // not reset playback state: re-inserting over an existing
+            // component does not fire `Added`, so the player's sequencer
+            // would never re-enable root motion and the character would stop
+            // being moved by animations. Preserve the controller state.
+            let controller = if let Some(existing) = existing_controller {
+                let mut controller = AnimationController::new(existing.current().clone());
+                if let Some(next) = existing.next() {
+                    controller.queue_next(next.clone(), existing.interrupt_current());
+                }
+                controller.set_root_motion(existing.root_motion());
+                controller
+            } else {
+                AnimationController::new(animation_handle)
+            };
+            commands.entity(entity_id).insert(controller);
         }
         let head_node_index = model_data
             .node_names
