@@ -11,6 +11,7 @@ leafwing-input-manager = "0.22.0"
 avian3d = "0.8.0"
 bevy_rich_text3d = "0.8"
 bevy_egui = "0.43.1"
+# Upstream is slow to update
 bevy_mod_openxr = { git = "https://github.com/MaximilianHausen/bevy_oxr.git", branch = "bevy_0.20" }
 bevy_mod_xr = { git = "https://github.com/MaximilianHausen/bevy_oxr.git", branch = "bevy_0.20" }
 bevy_xr_utils = { git = "https://github.com/MaximilianHausen/bevy_oxr.git", branch = "bevy_0.20" }

@@ -25,7 +25,7 @@ impl Plugin for CameraPlugin {
                 sync_free_camera_enabled,
                 sync_third_person_cursor,
                 (rotate_third_person_camera, rotate_third_person_camera_mouse)
-                    .before(crate::gameplay::character::camera_movement_system),
+                    .before(crate::gameplay::character_camera::camera_movement_system),
             ),
         );
         app.add_systems(Update, update_dialog_camera.run_if(use_dialog_camera));
@@ -169,7 +169,7 @@ const THIRD_PERSON_PITCH_LIMIT: f32 = 1.4;
 
 /// Rotates the third person camera with the `RotateCamera` action (arrow keys
 /// or right gamepad stick). The camera position follows from its rotation in
-/// [`crate::gameplay::character::camera_movement_system`].
+/// [`crate::gameplay::character_camera::camera_movement_system`].
 fn rotate_third_person_camera(
     info: Res<CameraResource>,
     time: Res<Time>,
