@@ -24,6 +24,30 @@ use crate::zengin::waypoint_graph::WaypointGraph;
 use crate::zengin::world::item_model_path;
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 
+/// Periodically teleports npcs to the waypoints of their active routine entries.
+pub struct NpcRoutinesPlugin;
+
+impl Plugin for NpcRoutinesPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<NpcRoutineCheckState>();
+        app.add_systems(
+            Update,
+            (
+                (update_npc_routine_entries, update_npc_routines).chain(),
+                resolve_goto_paths,
+                update_npc_routine_animations.after(update_npc_routines),
+                apply_look_at.after(update_npc_routines),
+                apply_align_to_wp.after(apply_look_at),
+                apply_weapon_mode.after(update_npc_routine_animations),
+                update_npc_weapon,
+                move_along_path.after(update_npc_routines),
+            )
+                .after(advance_game_time)
+                .after(ScriptChangesApplied),
+        );
+    }
+}
+
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.
 #[derive(Resource, Default)]
@@ -50,30 +74,6 @@ struct NpcRoutineAnimation {
 #[derive(Resource, Default)]
 struct NpcRoutineCheckState {
     last_checked_minute: Option<u32>,
-}
-
-/// Periodically teleports npcs to the waypoints of their active routine entries.
-pub struct NpcRoutinesPlugin;
-
-impl Plugin for NpcRoutinesPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<NpcRoutineCheckState>();
-        app.add_systems(
-            Update,
-            (
-                (update_npc_routine_entries, update_npc_routines).chain(),
-                resolve_goto_paths,
-                update_npc_routine_animations.after(update_npc_routines),
-                apply_look_at.after(update_npc_routines),
-                apply_align_to_wp.after(apply_look_at),
-                apply_weapon_mode.after(update_npc_routine_animations),
-                update_npc_weapon,
-                move_along_path.after(update_npc_routines),
-            )
-                .after(advance_game_time)
-                .after(ScriptChangesApplied),
-        );
-    }
 }
 
 /// Refreshes the active routine entry of already activated npcs on every in-game

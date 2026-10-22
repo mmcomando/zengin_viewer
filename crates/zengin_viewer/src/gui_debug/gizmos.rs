@@ -6,17 +6,6 @@ use crate::graphics::animation::AnimatedJoint;
 use crate::graphics::disco_lamp::DrawGizmo;
 use crate::zengin::WaypointGraph;
 
-/// Which gizmos are currently rendered, toggled from the debug UI.
-#[derive(Resource, Default)]
-pub struct GizmosOptions {
-    pub convex_colliders: bool,
-    pub trimesh_colliders: bool,
-    pub characters_colliders: bool,
-    pub bones: bool,
-    pub lights: bool,
-    pub way_points: bool,
-}
-
 pub struct GizmosPlugin;
 
 impl Plugin for GizmosPlugin {
@@ -49,6 +38,17 @@ impl Plugin for GizmosPlugin {
             draw_waypoints.run_if(|options: Res<GizmosOptions>| options.way_points),
         );
     }
+}
+
+/// Which gizmos are currently rendered, toggled from the debug UI.
+#[derive(Resource, Default)]
+pub struct GizmosOptions {
+    pub convex_colliders: bool,
+    pub trimesh_colliders: bool,
+    pub characters_colliders: bool,
+    pub bones: bool,
+    pub lights: bool,
+    pub way_points: bool,
 }
 
 fn draw_convex_hull_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &GlobalTransform)>) {

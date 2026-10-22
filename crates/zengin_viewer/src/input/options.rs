@@ -3,6 +3,36 @@ use std::path::PathBuf;
 use bevy::prelude::*;
 use clap::Parser;
 
+pub struct OptionsPlugin;
+
+impl Plugin for OptionsPlugin {
+    fn build(&self, app: &mut App) {
+        let options = Options::parse();
+        info!("Command line options: {options:?}");
+        app.insert_resource(options);
+    }
+}
+
+/// Registers the Shader asset type in headless mode, normally done by RenderPlugin.
+pub struct RegisterShaderAsset;
+
+impl Plugin for RegisterShaderAsset {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<bevy::shader::Shader>();
+        app.init_asset_loader::<bevy::shader::ShaderLoader>();
+    }
+}
+
+/// Exits the application after running a fixed number of Update frames.
+pub struct FrameLimitPlugin(pub u64);
+
+impl Plugin for FrameLimitPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(FrameLimit(self.0));
+        app.add_systems(Update, frame_limit);
+    }
+}
+
 /// Command line options of the application.
 #[derive(Parser, Resource, Debug)]
 pub struct Options {
@@ -50,26 +80,6 @@ impl Options {
 /// numbers map to the same simulated time across runs.
 pub const SCENARIO_FRAME_DELTA: std::time::Duration = std::time::Duration::from_millis(20);
 
-/// Registers the Shader asset type in headless mode, normally done by RenderPlugin.
-pub struct RegisterShaderAsset;
-
-impl Plugin for RegisterShaderAsset {
-    fn build(&self, app: &mut App) {
-        app.init_asset::<bevy::shader::Shader>();
-        app.init_asset_loader::<bevy::shader::ShaderLoader>();
-    }
-}
-
-/// Exits the application after running a fixed number of Update frames.
-pub struct FrameLimitPlugin(pub u64);
-
-impl Plugin for FrameLimitPlugin {
-    fn build(&self, app: &mut App) {
-        app.insert_resource(FrameLimit(self.0));
-        app.add_systems(Update, frame_limit);
-    }
-}
-
 #[derive(Resource)]
 struct FrameLimit(u64);
 
@@ -83,15 +93,4 @@ fn frame_limit(mut frames: Option<ResMut<FrameLimit>>, mut exit: MessageWriter<A
     }
     info!("Frame limit reached, exiting.");
     exit.write(AppExit::Success);
-}
-
-// TODO Plugin type at the top
-pub struct OptionsPlugin;
-
-impl Plugin for OptionsPlugin {
-    fn build(&self, app: &mut App) {
-        let options = Options::parse();
-        info!("Command line options: {options:?}");
-        app.insert_resource(options);
-    }
 }

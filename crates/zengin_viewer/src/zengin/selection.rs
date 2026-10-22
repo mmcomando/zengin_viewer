@@ -38,6 +38,21 @@ const LABEL_WORLD_SCALE: f32 = 0.25;
 
 const AABB_MARGIN: f32 = 0.1;
 
+pub struct SelectionPlugin;
+
+impl Plugin for SelectionPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Selection>();
+        app.add_plugins(Text3dPlugin {
+            load_system_fonts: true,
+            ..default()
+        });
+        app.add_observer(on_selectable_added);
+        app.add_systems(Startup, spawn_selection_label);
+        app.add_systems(Update, (update_selection, update_selection_label).chain());
+    }
+}
+
 /// Kind of the currently selected world object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectionKind {
@@ -55,21 +70,6 @@ pub struct Selection {
     pub kind: Option<SelectionKind>,
     /// Display name drawn above the selected entity.
     pub name: String,
-}
-
-pub struct SelectionPlugin;
-
-impl Plugin for SelectionPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<Selection>();
-        app.add_plugins(Text3dPlugin {
-            load_system_fonts: true,
-            ..default()
-        });
-        app.add_observer(on_selectable_added);
-        app.add_systems(Startup, spawn_selection_label);
-        app.add_systems(Update, (update_selection, update_selection_label).chain());
-    }
 }
 
 /// Marker of the 3d text label showing the selected name.

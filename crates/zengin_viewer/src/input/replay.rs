@@ -24,6 +24,24 @@ use crate::input::options::Options;
 use crate::input::record::{RecordedAction, ReplayCommand};
 use crate::zengin::{GameNpc, ScriptResource, WeaponKind};
 
+/// Replays the actions recorded with `--save-actions`.
+pub struct ActionReplayPlugin;
+
+impl Plugin for ActionReplayPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, load_replay_file);
+        // Synthetic actions must be applied in the `ManualControl` set, after
+        // the input manager recomputed the action states from raw device
+        // input, otherwise they are overridden before consumers read them.
+        app.add_systems(
+            PreUpdate,
+            replay_actions
+                .in_set(InputManagerSystem::ManualControl)
+                .after(update_input_mode),
+        );
+    }
+}
+
 /// Root directory of all scenario workdirs.
 const SCENARIO_DIR: &str = "misc/scenario_output";
 
@@ -48,24 +66,6 @@ pub fn apply_scenario_window_settings(window: &mut Window, replay_enabled: bool)
     }
     window.visible = false;
     window.resolution = SCENARIO_WINDOW_RESOLUTION.into();
-}
-// type order plugin at top
-/// Replays the actions recorded with `--save-actions`.
-pub struct ActionReplayPlugin;
-
-impl Plugin for ActionReplayPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, load_replay_file);
-        // Synthetic actions must be applied in the `ManualControl` set, after
-        // the input manager recomputed the action states from raw device
-        // input, otherwise they are overridden before consumers read them.
-        app.add_systems(
-            PreUpdate,
-            replay_actions
-                .in_set(InputManagerSystem::ManualControl)
-                .after(update_input_mode),
-        );
-    }
 }
 
 /// Replay schedule loaded from the scenario file plus the replay state.

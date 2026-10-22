@@ -13,31 +13,6 @@ use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::animation_triggers::{AnimationTriggerDef, crossed_triggers};
 
-/// Root movement dumped from the real `HUMANS-S_RUNL.MAN` (20 frames, 25 fps).
-fn runl_movement() -> Vec<f32> {
-    vec![
-        0.0, 0.13519135, 0.27853653, 0.41702682, 0.5482346, 0.6780731, 0.8079115, 0.9398663,
-        1.072817, 1.2036511, 1.3291327, 1.4368128, 1.5380194, 1.655036, 1.8134439, 1.9851096,
-        2.1610076, 2.3322375, 2.4898987, 2.6249032,
-    ]
-}
-
-fn runl_state(movement: Option<Vec<f32>>) -> AnimationState {
-    AnimationState {
-        frame_state: Arc::new(FrameState {
-            start_frame: AtomicU32::new(0),
-            end_frame: AtomicU32::new(1),
-            mul_1000: AtomicU32::new(0),
-            needs_update: AtomicBool::new(true),
-        }),
-        fps: 25.0,
-        frames_num: 20,
-        time_us: AtomicU32::new(0),
-        movement,
-        base_pos_node_index: 0,
-    }
-}
-
 #[test]
 fn plays_half_frame_at_natural_pace() {
     let state = runl_state(Some(runl_movement()));
@@ -116,49 +91,6 @@ fn invalid_animation_data_is_skipped() {
         ..state
     };
     assert!(advance_animation(&state, 0.02).is_none());
-}
-
-// TODO helper functions between tests, move it to start or end, this might be question after analyzing all changes, helpers should be before or after (probably after)
-/// Builds a two-frame animation so it passes the `frames_num > 1` guard
-/// in `update_animations`.
-fn test_animation() -> AnimationData {
-    AnimationData::new(
-        vec![
-            AnimationSample::default(),
-            AnimationSample::default(),
-            AnimationSample::default(),
-            AnimationSample::default(),
-        ],
-        vec![0],
-        2,
-        25.0,
-    )
-}
-
-/// Builds a world with a single near skeleton for `update_animations`.
-/// Time does not advance; the animation progress is pre-loaded via the
-/// state's `time_us`.
-fn run_update_animations(
-    assets: Assets<AnimationData>,
-    state: AnimationState,
-    controller: AnimationController,
-) -> (World, Entity) {
-    let mut world = World::new();
-    world.insert_resource(assets);
-    // `update_animations` reads the generic `Time`, which TimePlugin
-    // normally inserts alongside the specialized ones
-    world.insert_resource(Time::<()>::default());
-    world.init_resource::<Messages<AnimationEnds>>();
-    world.init_resource::<Messages<AnimationTrigger>>();
-    let model = world
-        .spawn((
-            DistanceNear::default(),
-            state,
-            controller,
-            GlobalTransform::default(),
-        ))
-        .id();
-    (world, model)
 }
 
 #[test]
@@ -314,4 +246,71 @@ fn triggers_fire_on_frame_crossing() {
         .map(|t| t.name.as_str())
         .collect();
     assert!(crossed.is_empty());
+}
+
+/// Root movement dumped from the real `HUMANS-S_RUNL.MAN` (20 frames, 25 fps).
+fn runl_movement() -> Vec<f32> {
+    vec![
+        0.0, 0.13519135, 0.27853653, 0.41702682, 0.5482346, 0.6780731, 0.8079115, 0.9398663,
+        1.072817, 1.2036511, 1.3291327, 1.4368128, 1.5380194, 1.655036, 1.8134439, 1.9851096,
+        2.1610076, 2.3322375, 2.4898987, 2.6249032,
+    ]
+}
+
+fn runl_state(movement: Option<Vec<f32>>) -> AnimationState {
+    AnimationState {
+        frame_state: Arc::new(FrameState {
+            start_frame: AtomicU32::new(0),
+            end_frame: AtomicU32::new(1),
+            mul_1000: AtomicU32::new(0),
+            needs_update: AtomicBool::new(true),
+        }),
+        fps: 25.0,
+        frames_num: 20,
+        time_us: AtomicU32::new(0),
+        movement,
+        base_pos_node_index: 0,
+    }
+}
+
+/// Builds a two-frame animation so it passes the `frames_num > 1` guard
+/// in `update_animations`.
+fn test_animation() -> AnimationData {
+    AnimationData::new(
+        vec![
+            AnimationSample::default(),
+            AnimationSample::default(),
+            AnimationSample::default(),
+            AnimationSample::default(),
+        ],
+        vec![0],
+        2,
+        25.0,
+    )
+}
+
+/// Builds a world with a single near skeleton for `update_animations`.
+/// Time does not advance; the animation progress is pre-loaded via the
+/// state's `time_us`.
+fn run_update_animations(
+    assets: Assets<AnimationData>,
+    state: AnimationState,
+    controller: AnimationController,
+) -> (World, Entity) {
+    let mut world = World::new();
+    world.insert_resource(assets);
+    // `update_animations` reads the generic `Time`, which TimePlugin
+    // normally inserts alongside the specialized ones
+    world.insert_resource(Time::<()>::default());
+    world.init_resource::<Messages<AnimationEnds>>();
+    world.init_resource::<Messages<AnimationTrigger>>();
+    let model = world
+        .spawn((
+            DistanceNear::default(),
+            state,
+            controller,
+            GlobalTransform::default(),
+        ))
+        .id();
+    (world, model)
 }

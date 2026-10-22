@@ -23,11 +23,6 @@ use crate::zengin::script::state::{
     RoutineEntryChange, SpawnItem, SpawnNpc, WeaponMode, WeaponModeChange,
 };
 
-/// Marks systems that have applied script produced changes to the ECS. Systems
-/// reacting to those changes run after this set.
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ScriptChangesApplied;
-
 pub struct ScriptBridgePlugin;
 
 impl Plugin for ScriptBridgePlugin {
@@ -68,6 +63,11 @@ impl Plugin for ScriptBridgePlugin {
         );
     }
 }
+
+/// Marks systems that have applied script produced changes to the ECS. Systems
+/// reacting to those changes run after this set.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ScriptChangesApplied;
 
 /// Drains all the changes the script recorded and forwards them as messages.
 fn send_script_changes(

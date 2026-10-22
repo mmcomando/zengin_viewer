@@ -29,6 +29,31 @@ use super::components::AnimationEnds;
 use super::controller::AnimationController;
 use super::data::AnimationData;
 
+pub struct AutoAnimSequencerPlugin;
+
+impl Plugin for AutoAnimSequencerPlugin {
+    fn build(&self, app: &mut App) {
+        match AnimationGraph::load_from_ron(Path::new(GRAPH_ASSET)) {
+            Some(mut graph) => {
+                graph.load_additional_edges(Path::new(MANUAL_EDGES_ASSET));
+                app.insert_resource(graph);
+                app.add_systems(Startup, preload_graph_animations);
+            }
+            None => warn!("AutoAnimSequencerPlugin without an animation graph({GRAPH_ASSET})"),
+        }
+        app.add_message::<SetDesiredAnimation>();
+        app.add_systems(
+            Update,
+            (
+                add_auto_anim_sequencer,
+                send_desired_animations,
+                run_auto_anim_sequencer.before(super::locomotion::update_animations),
+            )
+                .chain(),
+        );
+    }
+}
+
 /// Yaw turn speed of the model while following the movement intent, radians
 /// per second.
 const TURN_SPEED: f32 = 6.0;
@@ -93,32 +118,6 @@ pub struct AutoAnimSequencer {
     /// Desired animation in the graph; `None` keeps the current one.
     pub desired: Option<DesiredAnimation>,
     pub force_change: bool,
-}
-
-// TODO order of types, private types are before this, and Plugin should be at the top
-pub struct AutoAnimSequencerPlugin;
-
-impl Plugin for AutoAnimSequencerPlugin {
-    fn build(&self, app: &mut App) {
-        match AnimationGraph::load_from_ron(Path::new(GRAPH_ASSET)) {
-            Some(mut graph) => {
-                graph.load_additional_edges(Path::new(MANUAL_EDGES_ASSET));
-                app.insert_resource(graph);
-                app.add_systems(Startup, preload_graph_animations);
-            }
-            None => warn!("AutoAnimSequencerPlugin without an animation graph({GRAPH_ASSET})"),
-        }
-        app.add_message::<SetDesiredAnimation>();
-        app.add_systems(
-            Update,
-            (
-                add_auto_anim_sequencer,
-                send_desired_animations,
-                run_auto_anim_sequencer.before(super::locomotion::update_animations),
-            )
-                .chain(),
-        );
-    }
 }
 
 /// Adds the sequencer to the player animation model and enables root motion

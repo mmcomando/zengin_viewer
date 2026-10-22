@@ -65,6 +65,23 @@ pub enum CurrentCamera {
     Dialog,
 }
 
+/// Rotation speed of the third person camera, radians per second.
+const THIRD_PERSON_ROTATE_SPEED: f32 = 2.0;
+/// Pitch limits of the third person camera, keeps the camera from flipping.
+const THIRD_PERSON_PITCH_LIMIT: f32 = 1.4;
+/// Rotation speed of the third person camera mouse movement, radians per
+/// pixel of mouse movement.
+const THIRD_PERSON_MOUSE_SENSITIVITY: f32 = 0.003;
+
+struct DialogCameraStyle;
+impl DialogCameraStyle {
+    /// Minimum distance kept from the viewed character, even when the two talking
+    /// characters stand very close to each other
+    const MIN_DISTANCE: f32 = 2.0;
+    const CAMERA_HEIGHT: f32 = 3.0;
+    const LOOK_AT_HEIGHT: f32 = 1.45;
+}
+
 fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Smaa::default(),
@@ -162,13 +179,6 @@ fn sync_third_person_cursor(
     }
 }
 
-/// TODO move constant up the file
-/// Rotation speed of the third person camera, radians per second.
-const THIRD_PERSON_ROTATE_SPEED: f32 = 2.0;
-/// TODO move constant up the file
-/// Pitch limits of the third person camera, keeps the camera from flipping.
-const THIRD_PERSON_PITCH_LIMIT: f32 = 1.4;
-
 /// Rotates the third person camera with the `RotateCamera` action. The
 /// camera position follows from its rotation in
 /// [`crate::gameplay::character_camera::camera_movement_system`].
@@ -192,11 +202,6 @@ fn rotate_third_person_camera(
     rotate_camera_transform(&mut transform, direction * delta);
     Ok(())
 }
-
-/// Rotation speed of the third person camera mouse movement, radians per
-/// pixel of mouse movement.
-/// TODO move constant up the file
-const THIRD_PERSON_MOUSE_SENSITIVITY: f32 = 0.003;
 
 /// Rotates the third person camera with mouse movement.
 fn rotate_third_person_camera_mouse(
@@ -231,16 +236,6 @@ fn rotate_camera_transform(transform: &mut Transform, delta: Vec2) {
     // Positive pitch looks up.
     let pitch = (pitch + delta.y).clamp(-THIRD_PERSON_PITCH_LIMIT, THIRD_PERSON_PITCH_LIMIT);
     transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
-}
-
-// TODO order of types in a file, to decide but more like (pub plugins, pub types, constants, components, resources, systems, helper functions)
-struct DialogCameraStyle;
-impl DialogCameraStyle {
-    /// Minimum distance kept from the viewed character, even when the two talking
-    /// characters stand very close to each other
-    const MIN_DISTANCE: f32 = 2.0;
-    const CAMERA_HEIGHT: f32 = 3.0;
-    const LOOK_AT_HEIGHT: f32 = 1.45;
 }
 
 pub(super) fn update_dialog_camera(

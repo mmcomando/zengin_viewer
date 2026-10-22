@@ -45,7 +45,15 @@ pub struct DistanceNear {}
 #[derive(Component, Default)]
 pub struct EntityDistanceState {}
 
-// TODO ordering of types, private functions are defined before private constants
+const DIST_MAKE_FAR: f32 = 200.0;
+const DIST_MAKE_FAR_SQUARED: f32 = DIST_MAKE_FAR * DIST_MAKE_FAR;
+
+/// Create hysteresis between transitions from far to near
+/// It is needed for two reasons:
+/// - Make objects popping less visible
+/// - Prevent constant loading/unloading of objects at the edge of visibility
+const FAR_OVERSHOOT: f32 = 1.1;
+
 fn on_classify_added(mut world: DeferredWorld, context: HookContext) {
     world
         .commands()
@@ -59,16 +67,6 @@ fn get_camera_pos(mut state: ResMut<MainCameraPos>, query: Query<&Transform, Wit
         state.tr = *tr;
     }
 }
-
-// TODO ordering of types, private constants are defined before private functions
-const DIST_MAKE_FAR: f32 = 200.0;
-const DIST_MAKE_FAR_SQUARED: f32 = DIST_MAKE_FAR * DIST_MAKE_FAR;
-
-/// Create hysteresis between transitions from far to near
-/// It is needed for two reasons:
-/// - Make objects popping less visible
-/// - Prevent constant loading/unloading of objects at the edge of visibility
-const FAR_OVERSHOOT: f32 = 1.1;
 
 // Larger objects are hidden later
 fn obj_is_visible(camera_tr: &Transform, gl_tr: &GlobalTransform, overshoot: f32) -> bool {

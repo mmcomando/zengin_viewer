@@ -1,6 +1,14 @@
 // TODO Quite small file maybe move it to mod.rs
 use bevy::prelude::*;
 
+pub struct RenderOptionsPlugin;
+
+impl Plugin for RenderOptionsPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(RenderOptions::default());
+    }
+}
+
 /// Runtime-toggleable rendering quality options, edited in the debug UI.
 #[derive(Resource)]
 pub struct RenderOptions {
@@ -16,14 +24,5 @@ impl Default for RenderOptions {
             sun_shadow_maps: true,
             disco_shadow_maps: false,
         }
-    }
-}
-
-// TODO Plugin definition should be at the top
-pub struct RenderOptionsPlugin;
-
-impl Plugin for RenderOptionsPlugin {
-    fn build(&self, app: &mut App) {
-        app.insert_resource(RenderOptions::default());
     }
 }

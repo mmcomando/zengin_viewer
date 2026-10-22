@@ -5,6 +5,25 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
+/// What happened to a journal topic, recorded for the game log.
+#[derive(Debug, Clone)]
+pub enum JournalAction {
+    /// `Log_CreateTopic` created the topic.
+    Created { section: JournalSection },
+    /// `Log_SetTopicStatus` set the given status.
+    Status(JournalStatus),
+    /// `Log_AddEntry` added the given entry text.
+    Entry(String),
+}
+
+/// A journal change produced by the script, drained to the ECS by the script
+/// bridge for the game log. Topic and entry texts are already resolved.
+#[derive(Debug, Message)]
+pub struct JournalChange {
+    pub topic: String,
+    pub action: JournalAction,
+}
+
 /// Section of a journal topic (`Log_CreateTopic` argument).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JournalSection {
@@ -103,24 +122,4 @@ impl JournalManager {
         topic.entries.push(entry);
         true
     }
-}
-
-/// What happened to a journal topic, recorded for the game log.
-#[derive(Debug, Clone)]
-pub enum JournalAction {
-    /// `Log_CreateTopic` created the topic.
-    Created { section: JournalSection },
-    /// `Log_SetTopicStatus` set the given status.
-    Status(JournalStatus),
-    /// `Log_AddEntry` added the given entry text.
-    Entry(String),
-}
-
-// TODO type ordering messages at the top
-/// A journal change produced by the script, drained to the ECS by the script
-/// bridge for the game log. Topic and entry texts are already resolved.
-#[derive(Debug, Message)]
-pub struct JournalChange {
-    pub topic: String,
-    pub action: JournalAction,
 }

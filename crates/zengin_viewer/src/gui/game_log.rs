@@ -2,6 +2,17 @@
 
 use bevy::prelude::*;
 
+pub struct GameLogPlugin;
+
+impl Plugin for GameLogPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<GameLog>();
+        app.add_message::<GameLogEntry>();
+        app.add_systems(Startup, spawn_game_log);
+        app.add_systems(Update, (handle_game_log_messages, update_game_log).chain());
+    }
+}
+
 /// How long a single entry stays visible.
 const ENTRY_LIFETIME: f32 = 5.0;
 /// Maximum number of entries kept, oldest are dropped first.
@@ -38,18 +49,6 @@ impl GameLog {
 #[derive(Message)]
 pub struct GameLogEntry {
     pub text: String,
-}
-
-// TODO Plugin at the top
-pub struct GameLogPlugin;
-
-impl Plugin for GameLogPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<GameLog>();
-        app.add_message::<GameLogEntry>();
-        app.add_systems(Startup, spawn_game_log);
-        app.add_systems(Update, (handle_game_log_messages, update_game_log).chain());
-    }
 }
 
 fn handle_game_log_messages(mut messages: MessageReader<GameLogEntry>, mut log: ResMut<GameLog>) {

@@ -19,23 +19,6 @@ use std::sync::OnceLock;
 
 use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
 
-pub fn is_xr_enabled() -> bool {
-    static XR_ENABLED_STATIC: OnceLock<bool> = OnceLock::new();
-    if let Some(xr_enabled) = XR_ENABLED_STATIC.get() {
-        return *xr_enabled;
-    }
-
-    if let Ok(var) = std::env::var("ENABLE_XR")
-        && ["1", "y", "yes"].contains(&var.to_ascii_lowercase().as_str())
-    {
-        info!("-- Bevy XR plugin enabled --");
-        let _ = XR_ENABLED_STATIC.set(true);
-        return true;
-    }
-    let _ = XR_ENABLED_STATIC.set(false);
-    return false;
-}
-
 /// Experiment with VR
 /// Worked with Pico 4 and SteamVR on Linux but very laggy (in the past I know it worked better)
 /// With Pico 4 and WiVRn performance was smooth
@@ -84,6 +67,23 @@ impl Plugin for XrPlugin {
             (teleport, move_camera).run_if(openxr_session_running),
         );
     }
+}
+
+pub fn is_xr_enabled() -> bool {
+    static XR_ENABLED_STATIC: OnceLock<bool> = OnceLock::new();
+    if let Some(xr_enabled) = XR_ENABLED_STATIC.get() {
+        return *xr_enabled;
+    }
+
+    if let Ok(var) = std::env::var("ENABLE_XR")
+        && ["1", "y", "yes"].contains(&var.to_ascii_lowercase().as_str())
+    {
+        info!("-- Bevy XR plugin enabled --");
+        let _ = XR_ENABLED_STATIC.set(true);
+        return true;
+    }
+    let _ = XR_ENABLED_STATIC.set(false);
+    return false;
 }
 
 /// Smooth locomotion speed in m/s.

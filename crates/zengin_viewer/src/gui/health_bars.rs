@@ -6,6 +6,15 @@ use bevy::prelude::*;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::{NpcHealth, Selection, SelectionKind};
 
+pub struct HealthBarsPlugin;
+
+impl Plugin for HealthBarsPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, spawn_health_bars);
+        app.add_systems(Update, (update_player_bar, update_target_bar).chain());
+    }
+}
+
 /// Size and look of the bars.
 const BAR_WIDTH: f32 = 200.0;
 const BAR_HEIGHT: f32 = 16.0;
@@ -41,15 +50,6 @@ type ContainerFilter = (
     Without<HealthBarText>,
     Without<HealthBarTextContainer>,
 );
-
-pub struct HealthBarsPlugin;
-
-impl Plugin for HealthBarsPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_health_bars);
-        app.add_systems(Update, (update_player_bar, update_target_bar).chain());
-    }
-}
 
 fn spawn_health_bars(mut commands: Commands) {
     // Player bar, bottom left corner; the game log sits above it

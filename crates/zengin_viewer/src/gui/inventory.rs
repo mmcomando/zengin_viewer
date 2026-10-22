@@ -16,6 +16,19 @@ use crate::input::actions::{GuiAction, GuiInputMarker, SharedAction, SharedInput
 use crate::zengin::dialog::DialogUiState;
 use crate::zengin::{GameNpc, InstanceId, ItemDisplayData, ScriptResource, WeaponKind};
 
+pub struct InventoryUiPlugin;
+
+impl Plugin for InventoryUiPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<InventoryUiState>();
+        app.add_systems(Startup, spawn_inventory_ui);
+        app.add_systems(
+            Update,
+            (toggle_inventory, handle_inventory_input, sync_inventory_ui).chain(),
+        );
+    }
+}
+
 /// Visual style of the inventory UI, single place to tweak the look
 struct InventoryStyle;
 
@@ -172,20 +185,6 @@ struct InventoryInfoText;
 /// Right-aligned value column of the item info panel
 #[derive(Component)]
 struct InventoryInfoValues;
-
-// TODO Ordering of types plugin to top
-pub struct InventoryUiPlugin;
-
-impl Plugin for InventoryUiPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<InventoryUiState>();
-        app.add_systems(Startup, spawn_inventory_ui);
-        app.add_systems(
-            Update,
-            (toggle_inventory, handle_inventory_input, sync_inventory_ui).chain(),
-        );
-    }
-}
 
 /// Textures shared by all inventory windows
 #[derive(Resource)]

@@ -1,5 +1,15 @@
 use bevy::prelude::*;
 
+/// Advances the running game time every frame.
+pub struct GameTimePlugin;
+
+impl Plugin for GameTimePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<GameTime>();
+        app.add_systems(Update, advance_game_time);
+    }
+}
+
 /// 24 in-game hours pass in 5 minutes of real time.
 const HOURS_PER_SECOND: f32 = 24.0 / (5.0 * 60.0);
 
@@ -35,15 +45,4 @@ impl GameTime {
 pub(crate) fn advance_game_time(time: Res<Time>, mut game_time: ResMut<GameTime>) {
     game_time.total_hours += time.delta_secs() * HOURS_PER_SECOND * game_time.speed;
     game_time.total_hours %= 24.0;
-}
-
-// TODO move pub plugin definition to the top of the file
-/// Advances the running game time every frame.
-pub struct GameTimePlugin;
-
-impl Plugin for GameTimePlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<GameTime>();
-        app.add_systems(Update, advance_game_time);
-    }
 }

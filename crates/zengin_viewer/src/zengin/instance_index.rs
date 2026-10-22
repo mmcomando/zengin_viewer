@@ -9,6 +9,18 @@ use bevy::prelude::*;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc};
 
+pub struct InstanceIndexPlugin;
+
+impl Plugin for InstanceIndexPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<InstanceIndex>();
+        app.add_systems(
+            Update,
+            (track_npcs, track_items).in_set(InstanceIndexUpdated),
+        );
+    }
+}
+
 /// Two-way mapping between instance ids and the entities carrying them. One
 /// instance id can be carried by several entities (e.g. duplicated items), so
 /// the forward side holds a list. Only the small per-instance list is scanned on
@@ -70,18 +82,6 @@ impl InstanceIndex {
 /// entities through the index should run after this set.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct InstanceIndexUpdated;
-
-pub struct InstanceIndexPlugin;
-
-impl Plugin for InstanceIndexPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<InstanceIndex>();
-        app.add_systems(
-            Update,
-            (track_npcs, track_items).in_set(InstanceIndexUpdated),
-        );
-    }
-}
 
 /// Inserts, updates and removes npc instance mappings. `Changed` also reports
 /// newly added components, so it covers both add and change.

@@ -17,6 +17,14 @@ use zen_kit_rs::stream::Read;
 
 use crate::zengin::loaders::vdf_reader::{ZenginVfs, get_zengin_asset_bytes};
 
+pub struct AnimationTriggersPlugin;
+
+impl Plugin for AnimationTriggersPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, load_human_animation_data);
+    }
+}
+
 /// Compiled model script of the human visual scheme. In Gothic 2 compiled
 /// `.MDS` scripts are stored with the `.MSB` extension (see OpenGothic's
 /// `Resources::implLoadAnimation`).
@@ -71,15 +79,6 @@ pub fn crossed_triggers<'a>(
             target > old_progress || target <= new_progress
         }
     })
-}
-
-// type ordering should be at the top
-pub struct AnimationTriggersPlugin;
-
-impl Plugin for AnimationTriggersPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, load_human_animation_data);
-    }
 }
 
 /// Loads the model script triggers. Best effort: without the script no
