@@ -14,7 +14,7 @@ use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::loaders::vfs::item_model_path;
-use crate::zengin::resources::{ARROW, MaterialHandles, NPC_BODY, ZenGinModelComponent};
+use crate::zengin::resources::{ARROW, CachedAssetHandles, NPC_BODY, ZenGinModelComponent};
 use crate::zengin::{GameNpc, ZenginVfs};
 use avian3d::prelude::*;
 
@@ -66,7 +66,7 @@ fn spawn_arrows(
     npcs: Query<&GameNpc>,
     gothic_script: Res<ScriptResource>,
     vfs: Res<ZenginVfs>,
-    mut handles: ResMut<MaterialHandles>,
+    mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -217,7 +217,7 @@ fn arrow_hits(
     >,
     gothic_script: Res<ScriptResource>,
     files: Res<AnimationFiles>,
-    mut handles: ResMut<MaterialHandles>,
+    mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut game_log: ResMut<GameLog>,
     mut npc_died: MessageWriter<NpcDied>,

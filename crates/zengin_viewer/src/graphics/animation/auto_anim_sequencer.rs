@@ -22,7 +22,7 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::graphics::{AnimationGraph, AnimationIndex, animation_name_from_path};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::{
-    ArrowShot, MaterialHandles, MeleeHit, NpcWeaponMode, Selection, WeaponMode,
+    ArrowShot, CachedAssetHandles, MeleeHit, NpcWeaponMode, Selection, WeaponMode,
     face_direction_quat, get_animation_path,
 };
 
@@ -254,7 +254,7 @@ fn horizontal(direction: Vec3) -> Vec3 {
 fn run_auto_anim_sequencer(
     time: Res<Time>,
     asset_server: Res<AssetServer>,
-    mut handles: ResMut<MaterialHandles>,
+    mut handles: ResMut<CachedAssetHandles>,
     graph: Option<Res<AnimationGraph>>,
     mut desired: MessageReader<SetDesiredAnimation>,
     mut ends: MessageReader<AnimationEnds>,
@@ -393,7 +393,7 @@ fn run_auto_anim_sequencer(
 
 fn preload_graph_animations(
     graph: Res<AnimationGraph>,
-    mut handles: ResMut<MaterialHandles>,
+    mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
 ) {
     for name in graph.animation_names() {
@@ -428,7 +428,7 @@ fn animation_index(
 /// scheme prefix (`HUMANS-T_RUN_2_RUNL`), the asset path adds it itself.
 fn queue_animation(
     controller: &mut AnimationController,
-    handles: &mut MaterialHandles,
+    handles: &mut CachedAssetHandles,
     asset_server: &AssetServer,
     name: &str,
     interrupt_current: bool,
@@ -457,7 +457,7 @@ mod tests {
         let server = world.resource::<AssetServer>().clone();
         let path = get_animation_path(SCHEME, name);
         world
-            .resource_mut::<MaterialHandles>()
+            .resource_mut::<CachedAssetHandles>()
             .get_animation_handle(&server, &path)
     }
 
@@ -469,7 +469,7 @@ mod tests {
         world.init_resource::<Messages<ArrowShot>>();
         world.init_resource::<Messages<MeleeHit>>();
         world.insert_resource(test_asset_server());
-        world.insert_resource(MaterialHandles::default());
+        world.insert_resource(CachedAssetHandles::default());
         let mut graph =
             AnimationGraph::load_from_ron(Path::new(GRAPH_ASSET)).expect("animation graph ron");
         graph.load_additional_edges(Path::new(MANUAL_EDGES_ASSET));

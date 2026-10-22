@@ -33,7 +33,7 @@ pub use crate::zengin::loaders::vdf_reader::{
 };
 pub use crate::zengin::npc_routines::NpcHealth;
 pub use crate::zengin::npc_routines::NpcWeaponMode;
-pub use crate::zengin::resources::MaterialHandles;
+pub use crate::zengin::resources::CachedAssetHandles;
 pub use crate::zengin::resources::NPC_BODY;
 pub use crate::zengin::resources::STATIC_OBJECT;
 pub use crate::zengin::script::component::ScriptResource;

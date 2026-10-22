@@ -19,7 +19,7 @@ use crate::zengin::script::state::{AlignToWpChange, GotoChange, RoutineEntry};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::FunctionId;
 use crate::zengin::waypoint_graph::WaypointGraph;
-use crate::zengin::resources::MaterialHandles;
+use crate::zengin::resources::CachedAssetHandles;
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.
@@ -166,7 +166,7 @@ pub(crate) fn update_npc_routines(
 pub(crate) fn update_npc_routine_animations(
     gothic_script: Res<ScriptResource>,
     files: Res<AnimationFiles>,
-    mut handles: ResMut<MaterialHandles>,
+    mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
     mut npcs: Query<
@@ -394,7 +394,7 @@ pub(crate) fn move_along_path(
     time: Res<Time>,
     graph: Res<WaypointGraph>,
     files: Res<AnimationFiles>,
-    mut handles: ResMut<MaterialHandles>,
+    mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
     mut npcs: Query<(

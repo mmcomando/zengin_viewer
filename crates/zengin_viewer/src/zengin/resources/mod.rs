@@ -12,7 +12,7 @@ use crate::zengin::loaders::model::ZenGinModelLoader;
 use crate::zengin::loaders::texture::ZenGinTextureLoader;
 use crate::zengin::visual::model::ZenGinModel;
 
-pub use handles::MaterialHandles;
+pub use handles::CachedAssetHandles;
 pub use model_spawn::{
     ARROW, DYNAMIC_OBJECT, NPC_BODY, SELECTABLE, STATIC_OBJECT, ZenGinModelComponent,
     despawn_visual_when_far_resource,
@@ -23,7 +23,7 @@ pub struct ZenGinInsertResources;
 
 impl Plugin for ZenGinInsertResources {
     fn build(&self, app: &mut App) {
-        app.insert_resource(MaterialHandles::default());
+        app.insert_resource(CachedAssetHandles::default());
         app.init_asset::<ZenGinModel>();
         app.init_asset::<AnimationData>();
 

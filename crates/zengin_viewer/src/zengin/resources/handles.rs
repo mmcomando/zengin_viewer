@@ -18,9 +18,8 @@ pub struct ModelMeshKey {
     pub mesh_index: usize,
 }
 
-// TODO rename to CachedAssetHandles
 #[derive(Resource, Default)]
-pub struct MaterialHandles {
+pub struct CachedAssetHandles {
     pub materials: HashMap<MaterialHashed, Handle<StandardMaterial>>,
     pub images: HashMap<String, Handle<Image>>,
     pub models: HashMap<String, Handle<ZenGinModel>>,
@@ -29,7 +28,7 @@ pub struct MaterialHandles {
     pub inverse_bindposes: HashMap<AssetId<ZenGinModel>, Handle<SkinnedMeshInverseBindposes>>,
 }
 
-impl MaterialHandles {
+impl CachedAssetHandles {
     pub fn get_material_handle(
         &mut self,
         materials: &mut ResMut<Assets<StandardMaterial>>,

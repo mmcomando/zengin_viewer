@@ -15,7 +15,7 @@ use crate::zengin::interaction::selection::spawn_npc_selection_collider;
 use crate::zengin::npc_routines::NpcWeaponSlots;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::resources::{
-    MaterialHandles, ZenGinModelComponent, despawn_visual_when_far_resource,
+    CachedAssetHandles, ZenGinModelComponent, despawn_visual_when_far_resource,
 };
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
@@ -61,7 +61,7 @@ struct NpcSpawnState {
 
 pub(crate) fn create_skinned_mesh_data(
     commands: &mut Commands,
-    material_handles: &mut MaterialHandles,
+    material_handles: &mut CachedAssetHandles,
     skinned_mesh_inverse_bindposes_assets: &mut Assets<SkinnedMeshInverseBindposes>,
     model_handle: &Handle<ZenGinModel>,
     skeleton_parent: Entity,
@@ -155,7 +155,7 @@ fn spawn_npcs(
     animations: ResMut<Assets<AnimationData>>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    mut handles_map: ResMut<MaterialHandles>,
+    mut handles_map: ResMut<CachedAssetHandles>,
     mut query: Query<
         (
             Entity,

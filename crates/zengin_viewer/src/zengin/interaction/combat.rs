@@ -11,7 +11,7 @@ use crate::graphics::{NpcHitReaction, play_hit_reaction};
 use crate::gui::GameLog;
 use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::npc_routines::{AnimationFiles, NpcEquippedWeapon, NpcOverlay, NpcWeaponMode};
-use crate::zengin::resources::{MaterialHandles, ZenGinModelComponent};
+use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
@@ -63,7 +63,7 @@ pub(super) fn melee_swing_hit(
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     gothic_script: Res<ScriptResource>,
     files: Res<AnimationFiles>,
-    mut handles: ResMut<MaterialHandles>,
+    mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut game_log: ResMut<GameLog>,
     mut npc_died: MessageWriter<NpcDied>,
@@ -148,7 +148,7 @@ pub(crate) fn damage_npc(
     shooter_id: InstanceId,
     gothic_script: &Res<ScriptResource>,
     files: &AnimationFiles,
-    handles: &mut MaterialHandles,
+    handles: &mut CachedAssetHandles,
     asset_server: &AssetServer,
     game_log: &mut GameLog,
     npc_died: &mut MessageWriter<NpcDied>,
@@ -208,7 +208,7 @@ pub(super) fn handle_npc_death(
     mut transfer_items: MessageWriter<TransferItems>,
     gothic_scripts: Res<ScriptResource>,
     vfs: Res<ZenginVfs>,
-    mut handles: ResMut<MaterialHandles>,
+    mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
     npcs: Query<

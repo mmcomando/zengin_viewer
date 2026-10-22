@@ -12,7 +12,7 @@ use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{WeaponKind, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::resources::{MaterialHandles, ZenGinModelComponent};
+use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 
 /// Weapon mode of the npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI),
 /// maintained by the script bridge.
@@ -26,7 +26,7 @@ pub struct NpcWeaponMode(pub WeaponMode);
 #[allow(clippy::type_complexity)]
 pub(crate) fn apply_weapon_mode(
     files: Res<AnimationFiles>,
-    mut handles: ResMut<MaterialHandles>,
+    mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut npcs: Query<
         (
@@ -125,7 +125,7 @@ pub struct NpcEquippedWeapon {
 pub(crate) fn update_npc_weapon(
     gothic_scripts: Res<ScriptResource>,
     vfs: Res<ZenginVfs>,
-    mut handles: ResMut<MaterialHandles>,
+    mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
     entities: &Entities,
@@ -206,7 +206,7 @@ fn update_weapon_mesh(
     target_slot: Option<Entity>,
     gothic_scripts: &Res<ScriptResource>,
     vfs: &Res<ZenginVfs>,
-    handles: &mut ResMut<MaterialHandles>,
+    handles: &mut ResMut<CachedAssetHandles>,
     asset_server: &Res<AssetServer>,
 ) {
     let path = item.and_then(|item| item_model_path(gothic_scripts, vfs, item));

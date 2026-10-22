@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
 use crate::zengin::{
-    AnimationFiles, MaterialHandles, NpcOverlay, choose_animation_scheme, get_animation_path,
+    AnimationFiles, CachedAssetHandles, NpcOverlay, choose_animation_scheme, get_animation_path,
 };
 
 use super::{AnimationController, AnimationData, AnimationEnds};
@@ -29,7 +29,7 @@ pub(crate) fn play_hit_reaction(
     controller: Option<Mut<'_, AnimationController>>,
     reaction: Option<&NpcHitReaction>,
     files: &AnimationFiles,
-    handles: &mut MaterialHandles,
+    handles: &mut CachedAssetHandles,
     asset_server: &AssetServer,
 ) {
     if reaction.is_some() {

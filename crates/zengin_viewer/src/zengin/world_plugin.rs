@@ -23,7 +23,7 @@ use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::Spots;
 use crate::zengin::resources::{
-    DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
+    DYNAMIC_OBJECT, CachedAssetHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
 };
 use crate::zengin::{GameItem, GameNpc, ZenginVfs};
 use avian3d::prelude::*;
@@ -44,7 +44,7 @@ impl Plugin for ZenGinWorldPlugin {
 
 fn spawn_world(
     mut commands: Commands,
-    mut handles_map: ResMut<MaterialHandles>,
+    mut handles_map: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     gothic_script: Res<ScriptResource>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -388,7 +388,7 @@ fn spawn_npc_entities(
 fn spawn_item_entities(
     mut spawns: MessageReader<SpawnItem>,
     mut commands: Commands,
-    mut handles_map: ResMut<MaterialHandles>,
+    mut handles_map: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     gothic_scripts: ResMut<ScriptResource>,
     way_points: Res<WayPoints>,
