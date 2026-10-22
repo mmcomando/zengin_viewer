@@ -6,6 +6,7 @@ mod controller;
 mod data;
 mod hit_reaction;
 mod locomotion;
+mod send_desired;
 
 #[cfg(test)]
 mod tests;
