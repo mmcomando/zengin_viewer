@@ -92,12 +92,11 @@ impl InventoryWindowState {
 }
 
 /// State of the inventory UI: closed by default, items snapshot on open.
-/// `windows[0]` is the player inventory, further windows are trade partners.
+/// A trade scene later adds a second window for the trade partner.
 #[derive(Resource, Default)]
 pub struct InventoryUiState {
     open: bool,
-    // TODO here will be max two windows, remove vector nad leave player_window or something like this
-    windows: Vec<InventoryWindowState>,
+    player_window: Option<InventoryWindowState>,
 }
 
 impl InventoryUiState {
@@ -112,7 +111,7 @@ impl InventoryUiState {
 
     /// Window whose grid receives the navigation input.
     fn active_window(&mut self) -> Option<&mut InventoryWindowState> {
-        self.windows.first_mut()
+        self.player_window.as_mut()
     }
 }
 
@@ -514,18 +513,17 @@ fn toggle_inventory(
         .get(&player_id)
         .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
         .unwrap_or_default();
-    state.windows = vec![InventoryWindowState {
+    let window = InventoryWindowState {
         title: "Inventory".to_string(),
         selected: 0,
         equipped_melee,
         equipped_ranged,
         items,
-    }];
+    };
+    let stacks = window.items.len();
+    state.player_window = Some(window);
     state.open = true;
-    info!(
-        "Inventory opened with {} item stack(s)",
-        state.windows[0].items.len()
-    );
+    info!("Inventory opened with {stacks} item stack(s)");
 }
 /// Grid navigation and closing while the inventory is open. Input goes to
 /// the active window. Confirm equips the selected item.
@@ -705,88 +703,93 @@ fn sync_inventory_ui(
         return;
     }
 
-    for (window_index, window) in state.windows.iter().enumerate() {
-        if let Some((_, mut text)) = window_title
-            .iter_mut()
-            .find(|(marker, _)| marker.0 == window_index)
-        {
-            if text.0 != window.title {
-                text.0 = window.title.clone();
-            }
+    let Some(window) = &state.player_window else {
+        return;
+    };
+    // The window index of the player panel, the only spawned window so far;
+    // UI markers carry it for the future trade partner window
+    let window_index = 0;
+
+    if let Some((_, mut text)) = window_title
+        .iter_mut()
+        .find(|(marker, _)| marker.0 == window_index)
+    {
+        if text.0 != window.title {
+            text.0 = window.title.clone();
         }
-        if let Some((_, mut text)) = window_gold
-            .iter_mut()
-            .find(|(marker, _)| marker.0 == window_index)
-        {
-            let gold = format!("Gold: {}", window.gold());
-            if text.0 != gold {
-                text.0 = gold;
-            }
+    }
+    if let Some((_, mut text)) = window_gold
+        .iter_mut()
+        .find(|(marker, _)| marker.0 == window_index)
+    {
+        let gold = format!("Gold: {}", window.gold());
+        if text.0 != gold {
+            text.0 = gold;
+        }
+    }
+
+    let slot_count = window
+        .items
+        .len()
+        .min(InventoryStyle::COLUMNS * InventoryStyle::ROWS);
+    for (slot, mut node, mut image, children) in slots.iter_mut() {
+        if slot.window != window_index {
+            continue;
+        }
+        let used = slot.index < slot_count;
+        node.display = if used { Display::Flex } else { Display::None };
+        if !used {
+            continue;
+        }
+        let entry = &window.items[slot.index];
+        let is_equipped = window.equipped_melee == Some(entry.instance_id)
+            || window.equipped_ranged == Some(entry.instance_id);
+        let texture = if slot.index == window.selected {
+            &textures.focus
+        } else {
+            &textures.slot
+        };
+        if image.image != *texture {
+            image.image = texture.clone();
         }
 
-        let slot_count = window
-            .items
-            .len()
-            .min(InventoryStyle::COLUMNS * InventoryStyle::ROWS);
-        for (slot, mut node, mut image, children) in slots.iter_mut() {
-            if slot.window != window_index {
-                continue;
-            }
-            let used = slot.index < slot_count;
-            node.display = if used { Display::Flex } else { Display::None };
-            if !used {
-                continue;
-            }
-            let entry = &window.items[slot.index];
-            let is_equipped = window.equipped_melee == Some(entry.instance_id)
-                || window.equipped_ranged == Some(entry.instance_id);
-            let texture = if slot.index == window.selected {
-                &textures.focus
-            } else {
-                &textures.slot
-            };
-            if image.image != *texture {
-                image.image = texture.clone();
-            }
-
-            let display_text: String = entry
-                .name
-                .chars()
-                .take(InventoryStyle::SLOT_NAME_CHARS)
-                .collect();
-            let count_text = if entry.count > 1 {
-                entry.count.to_string()
-            } else {
-                String::new()
-            };
-            for &child in children {
-                if let Ok(mut overlay) = equipped_overlays.get_mut(child) {
-                    let desired = if is_equipped {
-                        Display::Flex
-                    } else {
-                        Display::None
-                    };
-                    if overlay.display != desired {
-                        overlay.display = desired;
-                    }
-                    continue;
+        let display_text: String = entry
+            .name
+            .chars()
+            .take(InventoryStyle::SLOT_NAME_CHARS)
+            .collect();
+        let count_text = if entry.count > 1 {
+            entry.count.to_string()
+        } else {
+            String::new()
+        };
+        for &child in children {
+            if let Ok(mut overlay) = equipped_overlays.get_mut(child) {
+                let desired = if is_equipped {
+                    Display::Flex
+                } else {
+                    Display::None
+                };
+                if overlay.display != desired {
+                    overlay.display = desired;
                 }
-                if let Ok((mut text, kind)) = slot_texts.get_mut(child) {
-                    let desired = match kind {
-                        InventorySlotTextOrCount::Name => display_text.clone(),
-                        InventorySlotTextOrCount::Count => count_text.clone(),
-                    };
-                    if text.0 != desired {
-                        text.0 = desired;
-                    }
+                continue;
+            }
+            if let Ok((mut text, kind)) = slot_texts.get_mut(child) {
+                let desired = match kind {
+                    InventorySlotTextOrCount::Name => display_text.clone(),
+                    InventorySlotTextOrCount::Count => count_text.clone(),
+                };
+                if text.0 != desired {
+                    text.0 = desired;
                 }
             }
         }
     }
 
     let (labels, values) = state
-        .windows
-        .first()
+        .player_window
+        .as_ref()
         .and_then(|window| window.items.get(window.selected))
         .map(item_info_text)
         .unwrap_or_default();
