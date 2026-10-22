@@ -39,6 +39,7 @@ pub use crate::zengin::resources::NPC_BODY;
 pub use crate::zengin::resources::STATIC_OBJECT;
 pub use crate::zengin::script::component::ScriptResource;
 pub use crate::zengin::script::manager::ItemDisplayData;
+pub use crate::zengin::script::manager::ScriptManager;
 pub use crate::zengin::script::state::WeaponKind;
 pub use crate::zengin::script::state::WeaponMode;
 pub use crate::zengin::script::symbol_id::InstanceId;

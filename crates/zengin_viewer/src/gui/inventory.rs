@@ -13,6 +13,7 @@ use leafwing_input_manager::prelude::ActionState;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
+use crate::zengin::ScriptManager;
 use crate::zengin::dialog::DialogUiState;
 use crate::zengin::get_full_texture_path;
 use crate::zengin::{GameNpc, InstanceId, ItemDisplayData, ScriptResource, WeaponKind};
@@ -89,6 +90,54 @@ impl InventoryWindowState {
             .map(|entry| entry.count)
             .sum()
     }
+}
+
+/// Builds the UI entry of one inventory stack from its script data.
+fn inventory_entry(
+    script: &mut ScriptManager,
+    instance_id: InstanceId,
+    count: i32,
+) -> InventoryEntry {
+    let symbol_name = script
+        .get_name_by_id(instance_id.value())
+        .unwrap_or_default();
+    let is_gold = symbol_name.to_lowercase().contains("gold");
+    let lowered = symbol_name.to_lowercase();
+    let sort_group = if lowered.starts_with("itmw_") {
+        0
+    } else if lowered.starts_with("itrw_") {
+        1
+    } else {
+        2
+    };
+    let name = script.item_log_name(instance_id);
+    let stats = script.item_display_data(instance_id);
+    InventoryEntry {
+        instance_id,
+        count,
+        name,
+        stats: Some(stats),
+        is_gold,
+        sort_group,
+    }
+}
+
+/// Melee weapons first, then ranged, then the rest; within a group by damage
+/// descending (0 for items without damage data), ties broken by instance id
+/// for a deterministic order (the script inventory is unordered).
+fn sort_inventory_items(items: &mut [InventoryEntry]) {
+    items.sort_unstable_by(|a, b| {
+        a.sort_group
+            .cmp(&b.sort_group)
+            .then_with(|| {
+                b.stats
+                    .as_ref()
+                    .map(|s| s.damage_total)
+                    .unwrap_or_default()
+                    .cmp(&a.stats.as_ref().map(|s| s.damage_total).unwrap_or_default())
+            })
+            .then_with(|| a.instance_id.cmp(&b.instance_id))
+    });
 }
 
 /// State of the inventory UI: closed by default, items snapshot on open.
@@ -464,50 +513,11 @@ fn toggle_inventory(
     let player_id = player_npc.instance_id();
     let mut script = gothic_script.lock();
     let items = script.inventory(player_id);
-    // TODO Add helper function to get InventoryEntry prefer simple map functions if it is too big add helper function
     let mut items: Vec<_> = items
         .into_iter()
-        .map(|(instance_id, count)| {
-            let symbol_name = script
-                .get_name_by_id(instance_id.value())
-                .unwrap_or_default();
-            let is_gold = symbol_name.to_lowercase().contains("gold");
-            let lowered = symbol_name.to_lowercase();
-            let sort_group = if lowered.starts_with("itmw_") {
-                0
-            } else if lowered.starts_with("itrw_") {
-                1
-            } else {
-                2
-            };
-            let name = script.item_log_name(instance_id);
-            let stats = script.item_display_data(instance_id);
-            InventoryEntry {
-                instance_id,
-                count,
-                name,
-                stats: Some(stats),
-                is_gold,
-                sort_group,
-            }
-        })
+        .map(|(instance_id, count)| inventory_entry(&mut script, instance_id, count))
         .collect();
-    // TODO Add helper sort equipment function
-    // Melee weapons first, then ranged, then the rest; within a group by
-    // damage descending (0 for items without damage data), ties broken by
-    // instance id for a deterministic order (the script inventory is unordered).
-    items.sort_unstable_by(|a, b| {
-        a.sort_group
-            .cmp(&b.sort_group)
-            .then_with(|| {
-                b.stats
-                    .as_ref()
-                    .map(|s| s.damage_total)
-                    .unwrap_or_default()
-                    .cmp(&a.stats.as_ref().map(|s| s.damage_total).unwrap_or_default())
-            })
-            .then_with(|| a.instance_id.cmp(&b.instance_id))
-    });
+    sort_inventory_items(&mut items);
     let (equipped_melee, equipped_ranged) = script
         .npc_instances()
         .get(&player_id)
