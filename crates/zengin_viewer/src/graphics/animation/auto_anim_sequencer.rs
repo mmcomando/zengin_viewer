@@ -165,6 +165,15 @@ fn send_desired_animations(
         }
         WeaponMode::Fists => false,
     };
+
+    // Quick check first: standing still is the common case, and the attack
+    // branch below wins over it when attacking.
+    let direction = action_state.axis_pair(&GameplayAction::Move);
+    if !attacking && direction.length_squared() < 0.1 {
+        set_stand_animation(entity, &mut writer);
+        return;
+    }
+
     if attacking {
         // TODO seems like this can be separate function with well documenting name like set_attack_animation
         // Aim at the selected npc, fall back to the current facing direction.
@@ -192,27 +201,34 @@ fn send_desired_animations(
         return;
     }
 
-    // TODO This could be early as quick check and return from function
-    let direction = action_state.axis_pair(&GameplayAction::Move);
-    if direction.length_squared() < 0.1 {
-        writer.write(SetDesiredAnimation {
-            who: entity,
-            animation: DesiredAnimation::Stand,
-            direction: None,
-            force_change: false,
-        });
-        return;
-    }
+    set_run_animation(entity, &*camera, direction, &mut writer);
+}
 
-    // TODO seems like this can be separate function with well documenting name like set_stand_animation
+/// Writes the stand (idle) animation for the player.
+fn set_stand_animation(entity: Entity, writer: &mut MessageWriter<SetDesiredAnimation>) {
+    writer.write(SetDesiredAnimation {
+        who: entity,
+        animation: DesiredAnimation::Stand,
+        direction: None,
+        force_change: false,
+    });
+}
+
+/// Writes the run animation moving in `move_direction` (stick axes), resolved
+/// relative to the camera orientation.
+fn set_run_animation(
+    entity: Entity,
+    camera: &Transform,
+    move_direction: Vec2,
+    writer: &mut MessageWriter<SetDesiredAnimation>,
+) {
     let forward = horizontal(*camera.forward());
     let right = horizontal(*camera.right());
-    let dir = right * direction.x + forward * direction.y;
+    let dir = right * move_direction.x + forward * move_direction.y;
     if dir.length_squared() < 0.0001 {
         warn!("Move input above the dead zone but no horizontal camera direction");
         return;
     }
-    // println!("SetDesiredAnimation RUN  direction({:?})", direction);
     writer.write(SetDesiredAnimation {
         who: entity,
         animation: DesiredAnimation::Run,
