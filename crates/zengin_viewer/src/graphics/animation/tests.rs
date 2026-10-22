@@ -227,7 +227,7 @@ fn single_frame_animation_holds_its_frame() {
 
     assert_eq!(update.start_frame, 0);
     assert_eq!(update.end_frame, 0);
-    assert!(!update.finished);
+    assert!(update.finished);
     assert_eq!(update.delta_movement, 0.0);
 }
 

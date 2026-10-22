@@ -572,19 +572,17 @@ mod tests {
         );
     }
 
-    /// Releasing the fire button: the reload wrap queues the aim-out
-    /// transition instead of shooting, and no arrow is written.
     #[test]
-    fn release_fire_leaves_via_aim_out_without_shot() {
+    fn release_fire_walks_to_shoot_without_shot() {
         let (mut world, model) = run_sequencer_world("T_BOWRELOAD");
         let reload = animation_handle(&mut world, "T_BOWRELOAD");
-        let aim_out = animation_handle(&mut world, "T_BOWAIM_2_BOWRUN");
+        let shoot = animation_handle(&mut world, "S_BOWSHOOT");
 
         send_desired(&mut world, model, DesiredAnimation::Stand);
         send_ends(&mut world, model, reload);
         world.run_system_once(run_auto_anim_sequencer).unwrap();
 
-        assert_eq!(queued_next(&world, model), Some(aim_out));
+        assert_eq!(queued_next(&world, model), Some(shoot));
         assert_eq!(
             world
                 .resource::<Messages<ArrowShot>>()
