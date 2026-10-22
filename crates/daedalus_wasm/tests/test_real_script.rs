@@ -23,6 +23,40 @@ fn real_parse() {
 }
 
 #[test]
+fn real_call_function_discard_on_dialog_functions() {
+    let data = get_main_script_data();
+
+    // Dialog info function declared `func int`: calling it with a void
+    // signature would trap, `call_function_discard` handles both kinds
+    let int_func_address = data
+        .get_function_address("dia_addon_morgan_exit_info")
+        .unwrap();
+    let int_instructions = &[
+        InstDD::Call(int_func_address),
+        InstDD::PushInt(1),
+        InstDD::Return,
+    ];
+    let mut executor =
+        WasmExecutor::real_func_test(data, &["dia_addon_morgan_exit_info"], int_instructions);
+    let symbol_id = executor.get_symbol_id("dia_addon_morgan_exit_info");
+    executor.call_function_discard(symbol_id);
+
+    // Void dialog-related function goes through the void call path
+    let void_func_address = data.get_function_address("b_setvisuals_hammel").unwrap();
+    let void_instructions = &[
+        InstDD::PushInstance(1156),
+        InstDD::Call(void_func_address),
+        InstDD::Return,
+    ];
+    let mut executor =
+        WasmExecutor::real_func_test(data, &["b_setvisuals_hammel"], void_instructions);
+    let symbol_id = executor.get_symbol_id("b_setvisuals_hammel");
+    executor.call_function_discard(symbol_id);
+    assert_eq!(executor.call_count("mdl_setvisualbody"), 1);
+    assert_eq!(executor.call_count("mdl_setvisual"), 1);
+}
+
+#[test]
 fn real_data_content() {
     let data = get_main_script_data();
     assert_eq!(data.symbols.len(), 74651);

@@ -43,10 +43,9 @@ const DAY_SKYBOX_BRIGHTNESS: f32 = 1000.0;
 const DAY_AMBIENT_BRIGHTNESS: f32 = 200.0;
 
 // Lightning takes a LOT of resources
-// TODO performance:
+// TODO try for performance performance:
 // - Limit objects casting shadows
-// - Draw only near lights (frustum for lights takes considerable amount of time)
-// - Less demanding shadows
+// - Less demanding shadows, bevy offers some other types of shadows?
 
 fn spawn_lights(mut commands: Commands, render_options: Res<RenderOptions>) {
     // TODO add sliders in egui to change/debug those

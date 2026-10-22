@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use bevy::log::{error, warn};
+use bevy::log::warn;
 use daedalus_wasm::wasm::convert_daedalus_script;
 use wasmtime::component::{Component, HasData, Linker};
 use wasmtime::{Engine, Store};
@@ -700,6 +700,14 @@ impl ScriptManager {
         guest.call_call_function(&mut self.store, symbol_id.value())
     }
 
+    /// Calls a function ignoring its result. Dialog functions can be declared
+    /// `func int` while the dialog code expects void, so the guest picks the
+    /// indirect call type based on the symbol's return flag.
+    fn try_call_function_discard(&mut self, symbol_id: FunctionId) -> wasmtime::Result<()> {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest.call_call_function_discard(&mut self.store, symbol_id.value())
+    }
+
     /// Calls a function returning a value (`ZS_*_loop` functions do). The guest
     /// function table is typed, so such functions must use the bool call path
     /// or the call would trap on the signature mismatch.
@@ -964,16 +972,12 @@ impl ScriptManager {
 
     pub fn call_dialog_sequence_function(&mut self, sequence_function_id: FunctionId) {
         self.store.data_mut().close_dialog = false;
-        // TODO some dialog options are skipped as they cause problems
-        if [15670, 15678, 20246].contains(&sequence_function_id.value()) {
-            error!(
-                "Skip call to script function({}). It returns int where dialog_sequence_function should return void. Such a mismatch in not accepted by wasm and would panic if not skipped.",
-                sequence_function_id.value()
-            );
-            // Function has return value but should not have
-            return;
+        match self.try_call_function_discard(sequence_function_id) {
+            Ok(()) => {}
+            Err(err) => {
+                println!("call_dialog_sequence_function({sequence_function_id:?}) error: {err:?}");
+            }
         }
-        self.call_function(sequence_function_id);
     }
 
     pub fn load_npc_instances(&mut self) {

@@ -7,6 +7,10 @@ use crate::daedalus::SymbolKind;
 pub(crate) struct SymbolMemoryInfo {
     pub(crate) kind: SymbolKind,
     pub(crate) is_class_member: bool,
+    /// Whether a function symbol returns a value (daedalus `func int`).
+    /// Needed by `call_function_discard`, which must call functions returning
+    /// values with a different indirect call type than void functions.
+    pub(crate) returns_value: bool,
     pub(crate) address_or_offset: u32,
     pub(crate) func_index: u32,
     pub(crate) parent: u32,
@@ -23,6 +27,7 @@ impl SymbolMemoryInfo {
     pub(crate) const RECORD_SIZE: usize = 16;
     pub(crate) const KIND_OFFSET: usize = 0;
     pub(crate) const IS_CLASS_MEMBER_OFFSET: usize = 1;
+    pub(crate) const RETURNS_VALUE_OFFSET: usize = 2;
     pub(crate) const ADDRESS_OR_OFFSET_OFFSET: usize = 4;
     pub(crate) const FUNC_INDEX_OFFSET: usize = 8;
     pub(crate) const PARENT_OFFSET: usize = 12;
@@ -31,6 +36,7 @@ impl SymbolMemoryInfo {
         let mut bytes = [0; Self::RECORD_SIZE];
         bytes[Self::KIND_OFFSET] = self.kind.to_num();
         bytes[Self::IS_CLASS_MEMBER_OFFSET] = u8::from(self.is_class_member);
+        bytes[Self::RETURNS_VALUE_OFFSET] = u8::from(self.returns_value);
         bytes[Self::ADDRESS_OR_OFFSET_OFFSET..Self::ADDRESS_OR_OFFSET_OFFSET + 4]
             .copy_from_slice(&self.address_or_offset.to_le_bytes());
         bytes[Self::FUNC_INDEX_OFFSET..Self::FUNC_INDEX_OFFSET + 4]
@@ -63,6 +69,10 @@ impl DaedalusMemoryLayout {
         self.symbols.push(SymbolMemoryInfo {
             kind: symbol.kind,
             is_class_member,
+            returns_value: symbol
+                .function
+                .as_ref()
+                .is_some_and(|function| function.call_signature.returns),
             address_or_offset,
             func_index: internal_func_index.unwrap_or(u32::MAX),
             parent: symbol.parent.unwrap_or(u32::MAX),

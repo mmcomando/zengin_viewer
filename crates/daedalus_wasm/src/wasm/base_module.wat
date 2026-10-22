@@ -7,8 +7,8 @@
   ;; Memories, indices are significant, they match constants in DaedalusMemoryLayout (memory.rs):
   ;; 0 - main memory: allocator region, (ptr, size) pairs of symbol names and static strings
   ;; 1 - symbol info: 16-byte record per symbol:
-  ;;     kind @0 (byte), is class member @1 (byte), address or offset @4,
-  ;;     wasm function table index @8, parent @12 (u32::MAX when symbol has no parent)
+  ;;     kind @0 (byte), is class member @1 (byte), function returns value @2 (byte),
+  ;;     address or offset @4, wasm function table index @8, parent @12 (u32::MAX when symbol has no parent)
   ;; 2 - symbol default values
   ;; Minimal sizes are placeholders, they are extended with daedalus data during merge.
   (memory $main 1)
@@ -296,6 +296,33 @@
     i32.mul ;; Address of symbol info record
     i32.load $symbol_info offset=8 ;; Function index in wasm table
     call_indirect (type $void_void_func)
+  )
+
+  ;; Calls function of given symbol, discarding its result when it has one.
+  ;; Some dialog functions are declared `func int` while the dialog code calls
+  ;; them as void, so the indirect call type must match the symbol's flag.
+  (func $call_function_discard (param $symbol_id i32)
+    (local $record_base i32) (local $func_index i32)
+
+    local.get $symbol_id
+    i32.const 16
+    i32.mul
+    local.set $record_base
+
+    local.get $record_base
+    i32.load $symbol_info offset=8 ;; Function index in wasm table
+    local.set $func_index
+
+    local.get $record_base
+    i32.load8_u $symbol_info offset=2 ;; returns value flag
+    if
+      local.get $func_index
+      call_indirect (type $bool_void_func)
+      drop
+    else
+      local.get $func_index
+      call_indirect (type $void_void_func)
+    end
   )
 
   ;; Returns number of all symbols
@@ -782,6 +809,7 @@
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-name" (func $get_name))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id" (func $get_symbol_id))
   (export "mmcomando:zengine-scripts/manage@0.1.0#call-function" (func $call_function))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#call-function-discard" (func $call_function_discard))
   (export "mmcomando:zengine-scripts/manage@0.1.0#call-function-bool" (func $call_function_bool))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num" (func $get_all_symbols_num))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-strings-num" (func $get_all_strings_num))
