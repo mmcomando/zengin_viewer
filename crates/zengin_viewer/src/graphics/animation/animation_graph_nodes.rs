@@ -11,8 +11,11 @@ use std::path::Path;
 
 use bevy::prelude::*;
 
-// TODO consider using Handle<AnimationData> it would reduce conversions we later need for AnimationIndex -> Handle
-/// Distinct index of one animation inside an [`AnimationGraph`].
+/// Distinct index of one animation inside an [`AnimationGraph`]. The graph
+/// stays pure data (no asset handles): it loads before any animation assets
+/// exist and its tests run without an asset server, the index to handle
+/// conversion happens only on animation transitions through the cached
+/// handles of `CachedAssetHandles`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AnimationIndex(u32);
 
