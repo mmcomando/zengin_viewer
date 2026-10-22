@@ -12,7 +12,7 @@ use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{WeaponKind, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
+use crate::zengin::resources::{MaterialHandles, ZenGinModelComponent};
 
 /// Weapon mode of the npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI),
 /// maintained by the script bridge.

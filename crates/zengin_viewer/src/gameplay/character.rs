@@ -57,7 +57,7 @@ pub struct CharacterController;
 /// spatial queries (like npc selection), they must never block or carry the
 /// character controller: [`move_and_slide`] and [`update_grounded`] mask this
 /// layer out of their query filters.
-/// See also [`crate::zengin::zengin_resources::SELECTABLE`].
+/// See also [`crate::zengin::resources::SELECTABLE`].
 pub const QUERY_ONLY_LAYER: u32 = 1 << 3;
 
 /// Marks the player physics body entity driven by [`CharacterController`].

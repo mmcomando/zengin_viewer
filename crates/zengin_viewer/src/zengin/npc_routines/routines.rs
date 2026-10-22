@@ -19,7 +19,7 @@ use crate::zengin::script::state::{AlignToWpChange, GotoChange, RoutineEntry};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::FunctionId;
 use crate::zengin::waypoint_graph::WaypointGraph;
-use crate::zengin::zengin_resources::MaterialHandles;
+use crate::zengin::resources::MaterialHandles;
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.

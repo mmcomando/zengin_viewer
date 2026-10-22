@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::zengin::GameNpc;
-use crate::zengin::zengin_resources::ZenGinModelComponent;
+use crate::zengin::resources::ZenGinModelComponent;
 
 /// Counts zengin models and npcs for the debug UI.
 pub struct StatisticsZenginPlugin;

@@ -11,11 +11,11 @@ use crate::graphics::{NpcHitReaction, play_hit_reaction};
 use crate::gui::GameLog;
 use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::npc_routines::{AnimationFiles, NpcEquippedWeapon, NpcOverlay, NpcWeaponMode};
+use crate::zengin::resources::{MaterialHandles, ZenGinModelComponent};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 use crate::zengin::{GameItem, GameNpc, ZenginVfs};
 
 /// An npc died (hitpoints reached 0): its inventory moves to the player, the

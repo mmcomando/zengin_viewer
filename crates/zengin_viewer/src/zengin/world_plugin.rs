@@ -22,7 +22,7 @@ use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::Spots;
-use crate::zengin::zengin_resources::{
+use crate::zengin::resources::{
     DYNAMIC_OBJECT, MaterialHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
 };
 use crate::zengin::{GameItem, GameNpc, ZenginVfs};

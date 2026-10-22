@@ -8,12 +8,12 @@ pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
 pub(crate) use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
 mod npc_routines;
 mod objects_to_entities;
+mod resources;
 mod script;
 mod statistics;
 mod visual;
 mod waypoint_graph;
 mod world_plugin;
-mod zengin_resources;
 
 // Used to debug data, it is more like a tool than a test
 #[cfg(test)]
@@ -33,6 +33,9 @@ pub use crate::zengin::loaders::vdf_reader::{
 };
 pub use crate::zengin::npc_routines::NpcHealth;
 pub use crate::zengin::npc_routines::NpcWeaponMode;
+pub use crate::zengin::resources::MaterialHandles;
+pub use crate::zengin::resources::NPC_BODY;
+pub use crate::zengin::resources::STATIC_OBJECT;
 pub use crate::zengin::script::component::ScriptResource;
 pub use crate::zengin::script::manager::ItemDisplayData;
 pub use crate::zengin::script::state::WeaponKind;
@@ -40,9 +43,6 @@ pub use crate::zengin::script::state::WeaponMode;
 pub use crate::zengin::script::symbol_id::InstanceId;
 pub use crate::zengin::statistics::StatisticsZengin;
 pub use crate::zengin::waypoint_graph::WaypointGraph;
-pub use crate::zengin::zengin_resources::MaterialHandles;
-pub use crate::zengin::zengin_resources::NPC_BODY;
-pub use crate::zengin::zengin_resources::STATIC_OBJECT;
 
 /// Plugin which provides Zengin related functionality
 pub struct ZenginPlugin;

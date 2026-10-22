@@ -14,7 +14,7 @@ use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::loaders::vfs::item_model_path;
-use crate::zengin::zengin_resources::{ARROW, MaterialHandles, NPC_BODY, ZenGinModelComponent};
+use crate::zengin::resources::{ARROW, MaterialHandles, NPC_BODY, ZenGinModelComponent};
 use crate::zengin::{GameNpc, ZenginVfs};
 use avian3d::prelude::*;
 
