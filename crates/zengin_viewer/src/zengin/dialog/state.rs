@@ -1,4 +1,4 @@
-use crate::audio::sound_manager::{PlaySound, SoundManager};
+use crate::audio::{PlaySound, SoundManager};
 use crate::input::{GuiAction, GuiInputMarker};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId, StringId};
 use bevy::prelude::*;

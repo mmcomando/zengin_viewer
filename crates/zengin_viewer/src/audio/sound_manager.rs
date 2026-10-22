@@ -1,16 +1,5 @@
 use bevy::prelude::*;
 
-/// Plays sounds requested by other systems through the [`PlaySound`] message
-pub struct GameAudioPlugin;
-
-impl Plugin for GameAudioPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_message::<PlaySound>();
-        app.init_resource::<SoundManager>();
-        app.add_systems(Update, handle_play_sound_messages);
-    }
-}
-
 /// Asset path of the sound which should be played
 #[derive(Message)]
 pub struct PlaySound {
@@ -42,7 +31,7 @@ impl SoundManager {
     }
 }
 
-fn handle_play_sound_messages(
+pub(crate) fn handle_play_sound_messages(
     mut messages: MessageReader<PlaySound>,
     mut sound_manager: ResMut<SoundManager>,
     asset_server: Res<AssetServer>,

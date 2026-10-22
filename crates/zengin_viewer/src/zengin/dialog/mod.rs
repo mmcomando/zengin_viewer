@@ -3,7 +3,7 @@
 mod state;
 mod ui;
 
-use crate::audio::sound_manager::PlaySound;
+use crate::audio::PlaySound;
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;

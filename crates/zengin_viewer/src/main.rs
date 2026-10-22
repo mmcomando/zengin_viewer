@@ -22,7 +22,7 @@ mod input;
 mod xr;
 mod zengin;
 
-use crate::audio::sound_manager::GameAudioPlugin;
+use crate::audio::SoundPlugin;
 use crate::gameplay::camera::CameraPlugin;
 use crate::gameplay::character::CharacterControllerPlugin;
 use crate::gameplay::distance::DistancePlugin;
@@ -83,7 +83,7 @@ fn main() {
         .add_plugins(SkeletalAnimations)
         // Presentation and UI
         .add_plugins(RenderOptionsPlugin)
-        .add_plugins(GameAudioPlugin)
+        .add_plugins(SoundPlugin)
         .add_plugins(GameLogPlugin)
         .add_plugins(crate::gui::HealthBarsPlugin)
         .add_plugins(crate::gui::InventoryUiPlugin);
