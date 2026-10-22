@@ -46,9 +46,13 @@ impl Plugin for AutoAnimSequencerPlugin {
             (
                 add_auto_anim_sequencer,
                 send_desired_animations,
-                run_auto_anim_sequencer.before(super::locomotion::update_animations),
+                apply_desired_animations,
+                apply_forced_change,
+                advance_on_animation_ends,
+                update_model_facing,
             )
-                .chain(),
+                .chain()
+                .before(super::locomotion::update_animations),
         );
     }
 }
@@ -117,6 +121,8 @@ pub struct AutoAnimSequencer {
     /// Desired animation in the graph; `None` keeps the current one.
     pub desired: Option<DesiredAnimation>,
     pub force_change: bool,
+    /// Direction the model should face; `None` keeps the last facing.
+    pub direction: Option<Vec3>,
 }
 
 /// Adds the sequencer to the player animation model and enables root motion
@@ -135,145 +141,168 @@ fn add_auto_anim_sequencer(
     }
 }
 
-// TODO this system is too complicated, does to many things at once
-// Setting desired animation is not latency critical so might allow it to lag few frames if it will help simplify code.
-// SetDesiredAnimation should work almost only on AutoAnimSequencer, then other system on change of AutoAnimSequencer could react to change and set AnimationController.
-// Try to prefer reaction to changes or messages rather than doing loops inside of loops, this needs an refactor probably in separate step so separate commit only for this change can be done.
-/// Advances the sequencer: consumes desired animations and animation end
-/// events, walks the graph towards the desired animation, rotates the model
-/// towards the move direction and keeps the root motion driven body free of
-/// horizontal acceleration.
-fn run_auto_anim_sequencer(
-    time: Res<Time>,
-    asset_server: Res<AssetServer>,
-    mut handles: ResMut<CachedAssetHandles>,
+/// Consumes [`SetDesiredAnimation`] messages into the [`AutoAnimSequencer`]
+/// state; the [`AnimationController`] is only touched by the reaction systems
+/// ([`apply_forced_change`] and [`advance_on_animation_ends`]), so a desired
+/// animation may lag a frame behind its message.
+fn apply_desired_animations(
     graph: Option<Res<AnimationGraph>>,
     mut desired: MessageReader<SetDesiredAnimation>,
-    mut ends: MessageReader<AnimationEnds>,
-    mut arrows: MessageWriter<ArrowShot>,
-    mut hits: MessageWriter<MeleeHit>,
-    mut sequencers: Query<(
-        Entity,
-        &mut AutoAnimSequencer,
-        &mut AnimationController,
-        &mut Transform,
-        Option<&ChildOf>,
-    )>,
-    mut velocities: Query<
-        &mut LinearVelocity,
-        (With<PlayerPhysicsBodyMarker>, Without<AutoAnimSequencer>),
-    >,
+    mut sequencers: Query<(&mut AutoAnimSequencer, &AnimationController)>,
 ) {
     let Some(graph) = graph else {
         // Every decision needs the graph; without it the sequencer is inert.
         return;
     };
-    let graph = graph.into_inner();
+    let melee_swing_index = index_of(&graph, DesiredAnimation::MeleeAttack);
+    for message in desired.read() {
+        let Ok((mut seq, controller)) = sequencers.get_mut(message.who) else {
+            warn!(
+                "SetDesiredAnimation({:?}) for entity({}) without an AutoAnimSequencer, ignoring",
+                message.animation, message.who
+            );
+            continue;
+        };
+        if seq.desired == Some(message.animation) {
+            // Direction still follows every message; only the animation is
+            // deduplicated.
+            seq.direction = message.direction;
+            continue;
+        }
+        seq.desired = Some(message.animation);
+        seq.force_change = message.force_change;
+        // Let a started melee swing finish: interrupting the queued
+        // follow-up would cut it mid-way and the hit would never land
+        if animation_index(&graph, controller.current()) == Some(melee_swing_index) {
+            seq.force_change = false;
+        }
+        seq.direction = message.direction;
+    }
+}
 
-    // TODO creation of maps/vecs is a red flag, in most cases systems should not allocate dynamic memory
-    let ends: Vec<_> = ends.read().cloned().collect(); // Why collect it and clone?
-    let desired: Vec<_> = desired.read().cloned().collect();
+/// Reacts to [`AutoAnimSequencer`] changes: a forced desired animation cuts
+/// to it immediately, interrupting the currently played animation. The
+/// non-forced path waits for [`advance_on_animation_ends`].
+fn apply_forced_change(
+    graph: Option<Res<AnimationGraph>>,
+    asset_server: Res<AssetServer>,
+    mut handles: ResMut<CachedAssetHandles>,
+    mut sequencers: Query<
+        (&AutoAnimSequencer, &mut AnimationController),
+        Changed<AutoAnimSequencer>,
+    >,
+) {
+    let Some(graph) = graph else {
+        return;
+    };
+    for (seq, mut controller) in &mut sequencers {
+        let Some(desired) = seq.desired else {
+            continue;
+        };
+        if !seq.force_change {
+            continue;
+        }
+        queue_animation(
+            &mut controller,
+            &mut handles,
+            &asset_server,
+            graph.animation_name(index_of(&graph, desired)),
+            seq.force_change,
+        );
+    }
+}
+
+/// Advances the sequencer on [`AnimationEnds`]: walks the graph towards the
+/// desired animation and emits the loop wrap side effects (melee hit, arrow
+/// shot).
+fn advance_on_animation_ends(
+    graph: Option<Res<AnimationGraph>>,
+    asset_server: Res<AssetServer>,
+    mut handles: ResMut<CachedAssetHandles>,
+    mut ends: MessageReader<AnimationEnds>,
+    mut arrows: MessageWriter<ArrowShot>,
+    mut hits: MessageWriter<MeleeHit>,
+    mut sequencers: Query<(Entity, &AutoAnimSequencer, &mut AnimationController)>,
+) {
+    let Some(graph) = graph else {
+        // Every decision needs the graph; without it the sequencer is inert.
+        return;
+    };
+    let melee_swing_index = index_of(&graph, DesiredAnimation::MeleeAttack);
+    for end in ends.read() {
+        let Ok((entity, seq, mut controller)) = sequencers.get_mut(end.who) else {
+            // Most skeletons have no sequencer; their ends are not ours.
+            continue;
+        };
+        if end.what_animation != *controller.current() {
+            continue;
+        }
+        let Some(current) = animation_index(&graph, &end.what_animation) else {
+            warn!(
+                "AutoAnimSequencer({entity}) current animation missing from the graph, desired({:?}) unreachable",
+                seq.desired
+            );
+            continue;
+        };
+        if current == melee_swing_index {
+            // The swing loop wrapped: the hit lands on the selected
+            // target, even when the attack was already released
+            hits.write(MeleeHit { shooter: entity });
+        }
+        let Some(desired) = seq.desired else {
+            warn!("AutoAnimSequencer({entity}) animation end without a desired animation");
+            continue;
+        };
+        let desired_index = index_of(&graph, desired);
+        if current == desired_index {
+            if desired == DesiredAnimation::Fire {
+                // The reload loop wrapped: the arrow leaves the bow. The
+                // arrow system aims at the selected target.
+                arrows.write(ArrowShot { shooter: entity });
+            }
+            // Reached: keep the current animation looping. Held one
+            // frame poses emit ends every frame, so this is a normal
+            // state, not an anomaly.
+            controller.clear_next();
+            debug!(
+                "keep looping desired({:?}), current({:?})",
+                desired,
+                controller.current().path()
+            );
+            continue;
+        }
+        // Walk the graph; cut straight to the desired animation when the
+        // graph offers no path to it.
+        let next = graph
+            .next_animation(current, desired_index)
+            .unwrap_or(desired_index);
+        queue_animation(
+            &mut controller,
+            &mut handles,
+            &asset_server,
+            graph.animation_name(next),
+            seq.force_change,
+        );
+    }
+}
+
+/// Rotates the model towards the stored movement direction; standing keeps
+/// the last facing. Root motion drives the horizontal position of the body,
+/// so the velocity it induces on the physics body is zeroed every frame.
+fn update_model_facing(
+    time: Res<Time>,
+    mut sequencers: Query<(&AutoAnimSequencer, &mut Transform, Option<&ChildOf>)>,
+    mut velocities: Query<
+        &mut LinearVelocity,
+        (With<PlayerPhysicsBodyMarker>, Without<AutoAnimSequencer>),
+    >,
+) {
     let delta = time.delta_secs();
-    let melee_swing_index = index_of(graph, DesiredAnimation::MeleeAttack);
-
-    for (entity, mut seq, mut controller, mut tr, parent) in &mut sequencers {
-        // TODO this can't be moved to separate system? it seems independent from other part of code
-        for message in desired.iter().filter(|message| message.who == entity) {
-            if seq.desired == Some(message.animation) {
-                continue;
-            }
-            // info!(
-            //     "AutoAnimSequencer({entity}) desired -> {:?}",
-            //     message.animation
-            // );
-            seq.desired = Some(message.animation);
-            seq.force_change = message.force_change;
-            // Let a started melee swing finish: interrupting the queued
-            // follow-up would cut it mid-way and the hit would never land
-            if animation_index(graph, controller.current()) == Some(melee_swing_index) {
-                seq.force_change = false;
-            }
-            let anim_index = index_of(graph, message.animation);
-            if !seq.force_change {
-                continue;
-            }
-            queue_animation(
-                &mut controller,
-                &mut handles,
-                &asset_server,
-                graph.animation_name(anim_index),
-                seq.force_change,
-            );
-        }
-
-        // The desired animation is taken into account only after the current
-        // animation finishes (its wrap for loops).
-        let current_handle = controller.current().clone();
-        for _end in ends
-            .iter()
-            .filter(|end| end.who == entity && end.what_animation == current_handle)
-        {
-            let Some(current) = animation_index(graph, &current_handle) else {
-                warn!(
-                    "AutoAnimSequencer({entity}) current animation missing from the graph, desired({:?}) unreachable",
-                    seq.desired
-                );
-                continue;
-            };
-            if current == melee_swing_index {
-                // The swing loop wrapped: the hit lands on the selected
-                // target, even when the attack was already released
-                hits.write(MeleeHit { shooter: entity });
-            }
-            let Some(desired) = seq.desired else {
-                warn!("No desired");
-                continue;
-            };
-            let desired_index = index_of(graph, desired);
-            if current == desired_index {
-                if desired == DesiredAnimation::Fire {
-                    // The reload loop wrapped: the arrow leaves the bow. The
-                    // arrow system aims at the selected target.
-                    arrows.write(ArrowShot { shooter: entity });
-                }
-                // Reached: keep the current animation looping. Held one
-                // frame poses emit ends every frame, so this is a normal
-                // state, not an anomaly.
-                controller.clear_next();
-                debug!(
-                    "keep looping desired({:?}), current({:?})",
-                    desired,
-                    controller.current().path()
-                );
-                continue;
-            }
-            // Walk the graph; cut straight to the desired animation when the
-            // graph offers no path to it.
-            let next = graph
-                .next_animation(current, desired_index)
-                .unwrap_or(desired_index);
-            queue_animation(
-                &mut controller,
-                &mut handles,
-                &asset_server,
-                graph.animation_name(next),
-                seq.force_change,
-            );
-        }
-
-        // Rotate the model towards the movement direction; standing keeps
-        // the last facing.
-        if let Some(direction) = desired
-            .iter()
-            .rev()
-            .find(|message| message.who == entity)
-            .and_then(|message| message.direction)
-        {
+    for (seq, mut tr, parent) in &mut sequencers {
+        if let Some(direction) = seq.direction {
             let target = face_direction_quat(direction);
             tr.rotation = tr.rotation.slerp(target, (TURN_SPEED * delta).min(1.0));
         }
-
-        // Root motion drives the horizontal position of the body.
         if let Some(parent) = parent
             && let Ok(mut velocity) = velocities.get_mut(parent.parent())
         {
@@ -408,6 +437,14 @@ mod tests {
             });
     }
 
+    /// Runs the sequencer reaction systems in the plugin order; the facing
+    /// system is left out as the tests send no directions.
+    fn run_sequencer(world: &mut World) {
+        world.run_system_once(apply_desired_animations).unwrap();
+        world.run_system_once(apply_forced_change).unwrap();
+        world.run_system_once(advance_on_animation_ends).unwrap();
+    }
+
     fn queued_next(world: &World, model: Entity) -> Option<Handle<AnimationData>> {
         world
             .get::<AnimationController>(model)
@@ -424,7 +461,7 @@ mod tests {
 
         send_desired(&mut world, model, DesiredAnimation::Run);
         send_ends(&mut world, model, stand);
-        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        run_sequencer(&mut world);
 
         assert_eq!(queued_next(&world, model), Some(run_in));
     }
@@ -438,7 +475,7 @@ mod tests {
 
         send_desired(&mut world, model, DesiredAnimation::Run);
         send_ends(&mut world, model, run_in);
-        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        run_sequencer(&mut world);
 
         assert_eq!(queued_next(&world, model), Some(run_loop));
     }
@@ -451,7 +488,7 @@ mod tests {
 
         send_desired(&mut world, model, DesiredAnimation::Run);
         send_ends(&mut world, model, run_loop.clone());
-        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        run_sequencer(&mut world);
 
         assert_eq!(queued_next(&world, model), None);
     }
@@ -466,7 +503,7 @@ mod tests {
 
         send_desired(&mut world, model, DesiredAnimation::Fire);
         send_ends(&mut world, model, stand);
-        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        run_sequencer(&mut world);
         assert_eq!(queued_next(&world, model), Some(reload.clone()));
 
         // The reload loop wraps: the arrow leaves the bow.
@@ -476,7 +513,7 @@ mod tests {
             .switch_to(reload.clone());
         send_desired(&mut world, model, DesiredAnimation::Fire);
         send_ends(&mut world, model, reload.clone());
-        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        run_sequencer(&mut world);
         assert_eq!(queued_next(&world, model), None);
         assert_eq!(
             world
@@ -495,7 +532,7 @@ mod tests {
 
         send_desired(&mut world, model, DesiredAnimation::Stand);
         send_ends(&mut world, model, reload);
-        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        run_sequencer(&mut world);
 
         assert_eq!(queued_next(&world, model), Some(shoot));
         assert_eq!(
@@ -518,7 +555,7 @@ mod tests {
 
         send_desired(&mut world, model, DesiredAnimation::Stand);
         send_ends(&mut world, model, run_loop);
-        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        run_sequencer(&mut world);
         assert_eq!(queued_next(&world, model), Some(run_out.clone()));
 
         send_desired(&mut world, model, DesiredAnimation::Stand);
@@ -527,7 +564,7 @@ mod tests {
             .get_mut::<AnimationController>(model)
             .unwrap()
             .switch_to(run_out.clone());
-        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        run_sequencer(&mut world);
         assert_eq!(queued_next(&world, model), Some(stand));
     }
 
@@ -540,7 +577,7 @@ mod tests {
 
         send_desired(&mut world, model, DesiredAnimation::MeleeAttack);
         send_ends(&mut world, model, swing);
-        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        run_sequencer(&mut world);
         // Reached: the swing keeps looping, no animation queued
         assert_eq!(queued_next(&world, model), None);
         // The wrap landed the melee hit
@@ -566,7 +603,7 @@ mod tests {
         // Released before the swing wrapped
         send_desired(&mut world, model, DesiredAnimation::Stand);
         send_ends(&mut world, model, swing);
-        world.run_system_once(run_auto_anim_sequencer).unwrap();
+        run_sequencer(&mut world);
         // The swing wrap landed the hit...
         assert_eq!(
             world
