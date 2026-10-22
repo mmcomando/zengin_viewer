@@ -50,33 +50,53 @@ pub(super) fn send_desired_animations(
     }
 
     if attacking {
-        // TODO seems like this can be separate function with well documenting name like set_attack_animation
-        // Aim at the selected npc, fall back to the current facing direction.
-        let target = selection
-            .target
-            .and_then(|target| transforms.get(target).ok())
-            .map(|target| target.translation())
-            .unwrap_or_else(|| player_tr.translation() + (player_tr.rotation() * Vec3::Z) * 20.0);
-        let direction = horizontal(target - player_tr.translation());
-        let direction = if direction.length_squared() < 0.0001 {
-            None
-        } else {
-            Some(direction)
-        };
-        let animation = match mode {
-            WeaponMode::Ranged => DesiredAnimation::Fire,
-            _ => DesiredAnimation::MeleeAttack,
-        };
-        writer.write(SetDesiredAnimation {
-            who: entity,
-            animation,
-            direction,
-            force_change: true,
-        });
+        set_attack_animation(
+            entity,
+            mode,
+            &player_tr,
+            &selection,
+            &transforms,
+            &mut writer,
+        );
         return;
     }
 
     set_run_animation(entity, &*camera, direction, &mut writer);
+}
+
+/// Writes the attack animation: melee swing or bow fire depending on the
+/// drawn weapon. The model aims at the selected npc, falling back to the
+/// current facing direction when nothing is selected.
+fn set_attack_animation(
+    entity: Entity,
+    mode: WeaponMode,
+    player_tr: &GlobalTransform,
+    selection: &Selection,
+    transforms: &Query<&GlobalTransform>,
+    writer: &mut MessageWriter<SetDesiredAnimation>,
+) {
+    // Aim at the selected npc, fall back to the current facing direction.
+    let target = selection
+        .target
+        .and_then(|target| transforms.get(target).ok())
+        .map(|target| target.translation())
+        .unwrap_or_else(|| player_tr.translation() + (player_tr.rotation() * Vec3::Z) * 20.0);
+    let direction = horizontal(target - player_tr.translation());
+    let direction = if direction.length_squared() < 0.0001 {
+        None
+    } else {
+        Some(direction)
+    };
+    let animation = match mode {
+        WeaponMode::Ranged => DesiredAnimation::Fire,
+        _ => DesiredAnimation::MeleeAttack,
+    };
+    writer.write(SetDesiredAnimation {
+        who: entity,
+        animation,
+        direction,
+        force_change: true,
+    });
 }
 
 /// Writes the stand (idle) animation for the player.
