@@ -24,6 +24,7 @@ pub struct GuiDebugPlugin;
 
 impl Plugin for GuiDebugPlugin {
     fn build(&self, app: &mut App) {
+        // TODO Add option in options.rs to completely disable this plugin
         let overlays_hidden = app.world().resource::<Options>().replay_actions().is_some();
         let renderless = app.world().resource::<Options>().renderless();
 
