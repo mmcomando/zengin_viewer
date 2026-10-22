@@ -61,18 +61,18 @@ pub fn animation_name_from_path(path: &Path) -> Option<&str> {
 }
 
 /// Triggers whose frame the animation crossed between `old_progress` and
-/// `new_progress` (in frames). A step that wrapped through full loops covers
+/// `new_progress` (in frames). A step that wrapped around the loop covers
 /// everything from `old_progress` around to `new_progress`, so a trigger may
-/// lie in either part; triggers inside fully skipped loops fire once.
+/// lie in either part.
 pub fn crossed_triggers<'a>(
     triggers: &'a [AnimationTriggerDef],
     old_progress: f32,
     new_progress: f32,
-    loops: u32,
+    crossed: bool,
 ) -> impl Iterator<Item = &'a AnimationTriggerDef> + 'a {
     triggers.iter().filter(move |trigger| {
         let target = trigger.frame as f32;
-        if loops == 0 {
+        if !crossed {
             target > old_progress && target <= new_progress
         } else {
             target > old_progress || target <= new_progress

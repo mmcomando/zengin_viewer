@@ -224,25 +224,25 @@ fn triggers_fire_on_frame_crossing() {
         name: "BOWSHOOT".to_string(),
     }];
 
-    let crossed: Vec<&str> = crossed_triggers(&triggers, 10.0, 13.0, 0)
+    let crossed: Vec<&str> = crossed_triggers(&triggers, 10.0, 13.0, false)
         .map(|t| t.name.as_str())
         .collect();
     assert_eq!(crossed, ["BOWSHOOT"]);
 
-    let crossed: Vec<&str> = crossed_triggers(&triggers, 13.0, 14.0, 0)
+    let crossed: Vec<&str> = crossed_triggers(&triggers, 13.0, 14.0, false)
         .map(|t| t.name.as_str())
         .collect();
     assert!(crossed.is_empty());
 
     // A step that wrapped fires the trigger when it lies in the covered span
     // (from after `old_progress` around to `new_progress`)
-    let crossed: Vec<&str> = crossed_triggers(&triggers, 1.0, 2.0, 1)
+    let crossed: Vec<&str> = crossed_triggers(&triggers, 1.0, 2.0, true)
         .map(|t| t.name.as_str())
         .collect();
     assert_eq!(crossed, ["BOWSHOOT"]);
 
     // ... but not when the wrap skipped over it in both directions
-    let crossed: Vec<&str> = crossed_triggers(&triggers, 13.0, 2.0, 1)
+    let crossed: Vec<&str> = crossed_triggers(&triggers, 13.0, 2.0, true)
         .map(|t| t.name.as_str())
         .collect();
     assert!(crossed.is_empty());

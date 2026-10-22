@@ -28,14 +28,12 @@ pub(crate) struct FrameUpdate {
     pub(crate) time_us: u32,
     /// How much root movement the entity should be moved by this step.
     pub(crate) delta_movement: f32,
-    /// Whether the animation completed at least one loop this step
+    /// Whether the animation completed at least one loop this step.
+    /// Consumers only distinguish "wrapped" from "not wrapped", the loop
+    /// count itself is internal to the root movement computation.
     pub(crate) finished: bool,
-    /// How many full loops this step wrapped through
-    pub(crate) loops: u32, // TODO This seems redundant and no place checks for loops > 1, so in all places finished can be used instead, remove it that is true
-    // TODO seems that below two fields can be replaced with one "crosse_frame: bool", I think this field would be more intuitive
-    /// Animation progress in frames before this step
+
     pub(crate) old_progress: f32,
-    /// Animation progress in frames after this step
     pub(crate) new_progress: f32,
 }
 
@@ -62,7 +60,6 @@ pub(crate) fn advance_animation(data: &AnimationState, delta: f32) -> Option<Fra
             time_us: 0,
             delta_movement: 0.0,
             finished: true,
-            loops: 0,
             old_progress: 0.0,
             new_progress: 0.0,
         });
@@ -100,7 +97,6 @@ pub(crate) fn advance_animation(data: &AnimationState, delta: f32) -> Option<Fra
         time_us: (new_time * TIME_SCALE) as u32,
         delta_movement,
         finished: loops > 0,
-        loops,
         old_progress: old_time * data.fps,
         new_progress: progress,
     })
@@ -229,7 +225,7 @@ pub(crate) fn update_animations(
         // sequencer can leave them as soon as the desired animation
         // differs from the held pose.
         let crossed_end = data.frames_num == 1
-            || update.loops > 0
+            || update.finished
             || (update.old_progress < end_window && update.new_progress >= end_window);
         if crossed_end {
             ends.write(AnimationEnds {
@@ -249,7 +245,7 @@ pub(crate) fn update_animations(
                 triggers.triggers(animation),
                 update.old_progress,
                 update.new_progress,
-                update.loops,
+                update.finished,
             ) {
                 animation_triggers.write(AnimationTrigger {
                     who: entity,
