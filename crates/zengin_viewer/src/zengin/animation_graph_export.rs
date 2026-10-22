@@ -28,9 +28,8 @@ use zen_kit_rs::stream::Read;
 use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
 
 const COMPILED_ANIMS_DIR: &str = "/_WORK/DATA/ANIMS/_COMPILED";
-/// Output path relative to the working directory (the workspace root, same
-/// convention as the input profiles).
-const OUTPUT_PATH: &str = "crates/zengin_viewer/assets/humans_anim_graph.ron";
+/// File name of the exported graph inside the main assets directory.
+const OUTPUT_FILE: &str = "humans_anim_graph.ron";
 /// Model scheme prefix collected into the graph (humans only for now).
 const SCHEME_PREFIX: &str = "HUMANS";
 /// The scheme every human overlay builds upon.
@@ -390,6 +389,7 @@ fn canonical_state(
 }
 
 fn save_graphs(export: &[(String, Vec<String>)]) {
+    let output_path = format!("{}/{OUTPUT_FILE}", crate::main_assets_dir());
     let mut config = ron::ser::PrettyConfig::default();
     config.depth_limit = 4;
     let contents = match ron::ser::to_string_pretty(export, config) {
@@ -399,7 +399,7 @@ fn save_graphs(export: &[(String, Vec<String>)]) {
             return;
         }
     };
-    let result = File::create(OUTPUT_PATH).and_then(|mut file| {
+    let result = File::create(&output_path).and_then(|mut file| {
         use std::io::Write;
         file.write_all(contents.as_bytes())
     });
@@ -407,12 +407,12 @@ fn save_graphs(export: &[(String, Vec<String>)]) {
         Ok(()) => {
             let edges: usize = export.iter().map(|(_, successors)| successors.len()).sum();
             info!(
-                "Saved animation graph({OUTPUT_PATH}, animations {}, edges {edges})",
+                "Saved animation graph({output_path}, animations {}, edges {edges})",
                 export.len()
             );
         }
         Err(error) => {
-            warn!("Failed to write {OUTPUT_PATH}: {error}");
+            warn!("Failed to write {output_path}: {error}");
         }
     }
 }

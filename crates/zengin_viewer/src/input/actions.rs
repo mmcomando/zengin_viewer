@@ -38,10 +38,8 @@ impl Plugin for ActionsPlugin {
     }
 }
 
-/// Directory of the input profiles, relative to the working directory
-/// (the same `assets` folder the [`bevy::asset::AssetServer`] reads from).
-/// TODO add somewhere common function to return "main_assets_dir" directory and hardcode path there (also might use env workspace to be a bit more reliable) instead of here, use new function here
-const INPUT_PROFILE_DIR: &str = "crates/zengin_viewer/assets";
+/// Directory of the input profiles, the main crate `assets` folder the
+/// [`bevy::asset::AssetServer`] also reads from.
 
 /// Which input map is currently active.
 ///
@@ -263,12 +261,12 @@ pub(crate) fn update_input_mode(
     }
 }
 
-/// Loads an input profile from [`INPUT_PROFILE_DIR`].
+/// Loads an input profile from the main assets directory.
 fn load_input_profile<A>(file_name: &str) -> Result<InputMap<A>, String>
 where
     A: Actionlike + Serialize + DeserializeOwned,
 {
-    let path = format!("{INPUT_PROFILE_DIR}/{file_name}");
+    let path = format!("{}/{file_name}", crate::main_assets_dir());
     let contents = std::fs::read_to_string(&path)
         .map_err(|error| format!("failed to read {path}: {error}"))?;
     ron::de::from_str(&contents).map_err(|error| format!("failed to parse {path}: {error}"))

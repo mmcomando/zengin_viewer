@@ -22,6 +22,13 @@ mod input;
 mod xr;
 mod zengin;
 
+/// Directory of the main crate assets, the folder the
+/// [`bevy::asset::AssetServer`] reads from. Resolved against the crate
+/// directory so it is found regardless of the working directory.
+pub fn main_assets_dir() -> &'static str {
+    concat!(env!("CARGO_MANIFEST_DIR"), "/assets")
+}
+
 use crate::audio::SoundPlugin;
 use crate::gameplay::camera::CameraPlugin;
 use crate::gameplay::character::CharacterControllerPlugin;
