@@ -10,7 +10,7 @@ use crate::zengin::common::ZenGinModel;
 use crate::zengin::loaders::animation::ZenGinAnimationLoader;
 use crate::zengin::loaders::model::{ZenGinModelLoader, ZenGinModelLoaderSettings};
 use crate::zengin::loaders::texture::ZenGinTextureLoader;
-use crate::zengin::visual::material::MatrialHashed;
+use crate::zengin::visual::material::MaterialHashed;
 use avian3d::prelude::*;
 use bevy::camera::primitives::{Aabb, MeshAabb};
 use bevy::camera::visibility::DynamicSkinnedMeshBounds;
@@ -73,7 +73,7 @@ pub struct ModelMeshKey {
 // TODO rename to CachedAssetHandles
 #[derive(Resource, Default)]
 pub struct MaterialHandles {
-    pub materials: HashMap<MatrialHashed, Handle<StandardMaterial>>,
+    pub materials: HashMap<MaterialHashed, Handle<StandardMaterial>>,
     pub images: HashMap<String, Handle<Image>>,
     pub models: HashMap<String, Handle<ZenGinModel>>,
     pub meshes: HashMap<ModelMeshKey, Handle<Mesh>>,
@@ -87,12 +87,12 @@ impl MaterialHandles {
         materials: &mut ResMut<Assets<StandardMaterial>>,
         material: &StandardMaterial,
     ) -> Handle<StandardMaterial> {
-        if let Some(handle) = self.materials.get(&MatrialHashed(material.clone())) {
+        if let Some(handle) = self.materials.get(&MaterialHashed(material.clone())) {
             return handle.clone();
         }
         let handle = materials.add(material.clone());
         self.materials
-            .insert(MatrialHashed(material.clone()), handle.clone());
+            .insert(MaterialHashed(material.clone()), handle.clone());
         handle
     }
 

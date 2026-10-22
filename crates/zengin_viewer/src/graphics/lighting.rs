@@ -17,10 +17,9 @@ impl Plugin for LightingPlugin {
     }
 }
 
-// TODO should this be pub? (private-by-default convention)
 /// Marks the directional light representing the sun/moon.
 #[derive(Component, Default)]
-pub struct SunLight;
+pub(super) struct SunLight;
 
 const LIGHT_DISTANCE: f32 = 1000.0;
 // Matches the original static light tilt (z was -10.0)

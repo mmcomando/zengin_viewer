@@ -270,31 +270,31 @@ fn run_auto_anim_sequencer(
     for (entity, mut seq, mut controller, mut tr, parent) in &mut sequencers {
         // TODO this can't be moved to separate system? it seems independent from other part of code
         for message in desired.iter().filter(|message| message.who == entity) {
-            // TODO early continue
-            if seq.desired != Some(message.animation) {
-                // info!(
-                //     "AutoAnimSequencer({entity}) desired -> {:?}",
-                //     message.animation
-                // );
-                seq.desired = Some(message.animation);
-                seq.force_change = message.force_change;
-                // Let a started melee swing finish: interrupting the queued
-                // follow-up would cut it mid-way and the hit would never land
-                if animation_index(graph, controller.current()) == Some(melee_swing_index) {
-                    seq.force_change = false;
-                }
-                let anim_index = index_of(graph, message.animation);
-                // TODO early continue
-                if seq.force_change {
-                    queue_animation(
-                        &mut controller,
-                        &mut handles,
-                        &asset_server,
-                        graph.animation_name(anim_index),
-                        seq.force_change,
-                    );
-                }
+            if seq.desired == Some(message.animation) {
+                continue;
             }
+            // info!(
+            //     "AutoAnimSequencer({entity}) desired -> {:?}",
+            //     message.animation
+            // );
+            seq.desired = Some(message.animation);
+            seq.force_change = message.force_change;
+            // Let a started melee swing finish: interrupting the queued
+            // follow-up would cut it mid-way and the hit would never land
+            if animation_index(graph, controller.current()) == Some(melee_swing_index) {
+                seq.force_change = false;
+            }
+            let anim_index = index_of(graph, message.animation);
+            if !seq.force_change {
+                continue;
+            }
+            queue_animation(
+                &mut controller,
+                &mut handles,
+                &asset_server,
+                graph.animation_name(anim_index),
+                seq.force_change,
+            );
         }
 
         // The desired animation is taken into account only after the current

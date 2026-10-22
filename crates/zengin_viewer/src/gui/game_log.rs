@@ -57,13 +57,13 @@ fn handle_game_log_messages(mut messages: MessageReader<GameLogEntry>, mut log: 
     }
 }
 
-// TODO rename to GameLogTextMarker (Marker suffix convention)
+/// Marks the game log text node which content is replaced every frame.
 #[derive(Component)]
-struct GameLogText;
+struct GameLogTextMarker;
 
 fn spawn_game_log(mut commands: Commands) {
     commands.spawn((
-        GameLogText,
+        GameLogTextMarker,
         Node {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
@@ -88,7 +88,7 @@ fn spawn_game_log(mut commands: Commands) {
 fn update_game_log(
     time: Res<Time>,
     mut log: ResMut<GameLog>,
-    mut text: Query<&mut Text, With<GameLogText>>,
+    mut text: Query<&mut Text, With<GameLogTextMarker>>,
 ) {
     let delta = time.delta_secs();
     for entry in &mut log.entries {

@@ -24,10 +24,9 @@ pub struct DrawGizmo {
     pub color: Color,
 }
 
-// TODO should this be pub? (private-by-default convention)
 /// Marks the disco lamp point lights.
 #[derive(Component, Default)]
-pub struct DiscoLight;
+struct DiscoLight;
 
 fn spawn_disco(mut commands: Commands, render_options: Res<RenderOptions>) {
     let mut entity = commands.spawn((

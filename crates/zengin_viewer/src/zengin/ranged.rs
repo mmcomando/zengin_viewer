@@ -277,8 +277,7 @@ fn arrow_cleanup(time: Res<Time>, arrows: Query<(Entity, &Arrow)>, mut commands:
     let now = time.elapsed_secs();
     for (entity, arrow) in &arrows {
         if now - arrow.spawned_at > ARROW_LIFETIME {
-            // TODO use try_despawn in most cases where we remove entities as we care only about entity being gone, not who did it
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
     }
 }

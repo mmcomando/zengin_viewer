@@ -10,20 +10,20 @@ use zen_kit_rs::{
 /// Type for checking for uniq materials
 /// Used to reduce number of bevy materials used
 #[derive(Debug)]
-// TODO fix typo in MatrialHashed
-pub struct MatrialHashed(pub StandardMaterial);
+pub struct MaterialHashed(pub StandardMaterial);
 
-impl Hash for MatrialHashed {
+impl Hash for MaterialHashed {
     fn hash<H: Hasher>(&self, state: &mut H) {
         hash_stdandard_material(state, &self.0);
     }
 }
-impl PartialEq for MatrialHashed {
-    fn eq(&self, other: &MatrialHashed) -> bool {
+
+impl PartialEq for MaterialHashed {
+    fn eq(&self, other: &MaterialHashed) -> bool {
         same_stdandard_material(&self.0, &other.0)
     }
 }
-impl Eq for MatrialHashed {}
+impl Eq for MaterialHashed {}
 
 // CAREFUL! list here all data which might change in zengin assets
 // If some data will be missed wrong materials might be used on some models

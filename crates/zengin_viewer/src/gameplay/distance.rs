@@ -62,9 +62,12 @@ fn on_classify_added(mut world: DeferredWorld, context: HookContext) {
 }
 
 fn get_camera_pos(mut state: ResMut<MainCameraPos>, query: Query<&Transform, With<Camera3d>>) {
-    // TODO assign only first camera, if there are more cameras print error log
-    for tr in query {
+    let mut transforms = query.iter();
+    if let Some(tr) = transforms.next() {
         state.tr = *tr;
+        if transforms.next().is_some() {
+            error!("More than one Camera3d found, distance classification uses an arbitrary one");
+        }
     }
 }
 
