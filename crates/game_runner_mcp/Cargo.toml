@@ -1,8 +1,0 @@
-[package]
-name = "game_runner_mcp"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-rmcp = { version = "3.5.1", features = ["server"] }
-tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread"] }
