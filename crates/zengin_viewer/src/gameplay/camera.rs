@@ -2,12 +2,14 @@ use bevy::{
     anti_alias::smaa::Smaa,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
     input::mouse::AccumulatedMouseMotion,
-    pbr::{ContactShadows, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
+    pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
 };
 
+use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::xr::is_xr_enabled;
+use crate::zengin::face_direction_quat;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use leafwing_input_manager::prelude::ActionState;
 
@@ -17,6 +19,7 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FreeCameraPlugin);
         app.insert_resource(CameraResource::default());
+        app.add_message::<TeleportToLocation>();
         app.add_systems(
             Update,
             (
@@ -32,6 +35,7 @@ impl Plugin for CameraPlugin {
             update_dialog_camera
                 .run_if(|info: Res<CameraResource>| info.current_camera == CurrentCamera::Dialog),
         );
+        app.add_systems(Update, apply_teleport_requests);
 
         if !is_xr_enabled() {
             // Disable main camera for performance
@@ -99,6 +103,44 @@ impl DialogCameraStyle {
     const LOOK_AT_HEIGHT: f32 = 1.45;
 }
 
+/// Saved location the debug UI can teleport the player and camera to.
+pub struct TeleportLocation {
+    pub name: &'static str,
+    /// Ground position the player is moved to.
+    pub player: Vec3,
+    /// Camera position at the location.
+    pub camera_position: Vec3,
+    /// Point the camera looks at.
+    pub camera_look_at: Vec3,
+}
+
+/// Saved locations, gathered from the spawn positions tried by hand.
+pub const TELEPORT_LOCATIONS: &[TeleportLocation] = &[
+    TeleportLocation {
+        name: "Xardas Tower",
+        player: Vec3::new(-297.4256, 51.482346, -159.4824),
+        camera_position: Vec3::new(-299.0, 55.0, -154.5),
+        camera_look_at: Vec3::new(-297.4256, 52.482346, -159.4824),
+    },
+    TeleportLocation {
+        name: "Khorinis",
+        player: Vec3::ZERO,
+        camera_position: Vec3::new(40.0, 20.0, -10.0),
+        camera_look_at: Vec3::ZERO,
+    },
+    TeleportLocation {
+        name: "Khorinis Port",
+        player: Vec3::new(-2.0, 0.0, -8.0),
+        camera_position: Vec3::new(-3.0, 1.0, -3.0),
+        camera_look_at: Vec3::new(-2.0, 0.0, -8.0),
+    },
+];
+
+/// Teleports the player and camera to the saved location at `index` of
+/// [`TELEPORT_LOCATIONS`], sent by the debug UI.
+#[derive(Message)]
+pub struct TeleportToLocation(pub usize);
+
 fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Smaa::default(),
@@ -110,28 +152,6 @@ fn spawn_camera(mut commands: Commands) {
             ..default()
         },
         Camera3d::default(),
-        // Contact shadows introduce visible noise on models, disable it until it improves
-        ContactShadows::default(), // TODO add checkbox to egui to enable this (add section for graphic settings)
-        // TODO add egui sections with buttons to teleport player/camera to those locations
-        // Xardas
-        // Transform::from_xyz(-297.0 - 2.0, 55.0, -159.5 + 5.0).looking_at(
-        //     Vec3 {
-        //         x: -297.4256,
-        //         y: 51.482346 + 1.0,
-        //         z: -159.4824,
-        //     },
-        //     Vec3::Y,
-        // ),
-        // Khorinis
-        // Transform::from_xyz(40.0, 20.0, -10.0).looking_at(
-        //     Vec3 {
-        //         x: 0.0,
-        //         y: 0.0,
-        //         z: 0.0,
-        //     },
-        //     Vec3::Y,
-        // ),
-        // Khorinis Port
         Transform::from_xyz(-3.0, 1.0, -3.0).looking_at(
             Vec3 {
                 x: -2.0,
@@ -152,6 +172,41 @@ fn spawn_camera(mut commands: Commands) {
             ..default()
         },
     ));
+}
+
+/// Applies the teleport requests of the debug UI to the player body and the
+/// camera.
+fn apply_teleport_requests(
+    mut teleports: MessageReader<TeleportToLocation>,
+    mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
+    mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
+) {
+    for teleport in teleports.read() {
+        let Some(location) = TELEPORT_LOCATIONS.get(teleport.0) else {
+            warn!(
+                "Teleport index {} is outside of TELEPORT_LOCATIONS, ignoring",
+                teleport.0
+            );
+            continue;
+        };
+        if let Ok(mut transform) = camera.single_mut() {
+            *transform = Transform::from_translation(location.camera_position)
+                .looking_at(location.camera_look_at, Vec3::Y);
+        } else {
+            warn!("Teleport to {} failed: no camera found", location.name);
+        }
+        if let Ok(mut transform) = player.single_mut() {
+            let direction =
+                (location.camera_look_at - location.camera_position).normalize_or_zero();
+            transform.translation = location.player;
+            transform.rotation = face_direction_quat(direction);
+        } else {
+            warn!(
+                "Teleport to {} failed: no player character found",
+                location.name
+            );
+        }
+    }
 }
 
 fn use_third_person_camera(info: Res<CameraResource>) -> bool {

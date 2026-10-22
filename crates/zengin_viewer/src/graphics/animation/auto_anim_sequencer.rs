@@ -154,6 +154,7 @@ fn apply_desired_animations(
         // Every decision needs the graph; without it the sequencer is inert.
         return;
     };
+    let graph = graph.into_inner();
     let melee_swing_index = index_of(&graph, DesiredAnimation::MeleeAttack);
     for message in desired.read() {
         let Ok((mut seq, controller)) = sequencers.get_mut(message.who) else {
@@ -195,6 +196,7 @@ fn apply_forced_change(
     let Some(graph) = graph else {
         return;
     };
+    let graph = graph.into_inner();
     for (seq, mut controller) in &mut sequencers {
         let Some(desired) = seq.desired else {
             continue;
@@ -228,6 +230,7 @@ fn advance_on_animation_ends(
         // Every decision needs the graph; without it the sequencer is inert.
         return;
     };
+    let graph = graph.into_inner();
     let melee_swing_index = index_of(&graph, DesiredAnimation::MeleeAttack);
     for end in ends.read() {
         let Ok((entity, seq, mut controller)) = sequencers.get_mut(end.who) else {

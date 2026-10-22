@@ -4,6 +4,7 @@ use bevy_egui::{
     egui::{self, Ui},
 };
 
+use crate::gameplay::camera::{TELEPORT_LOCATIONS, TeleportToLocation};
 use crate::gameplay::game_time::GameTime;
 use crate::graphics::RenderOptions;
 use crate::gui_debug::gizmos::GizmosOptions;
@@ -100,6 +101,7 @@ fn ui_info_system(
     mut game_time: ResMut<GameTime>,
     mut render_options: ResMut<RenderOptions>,
     mut gizmos_options: ResMut<GizmosOptions>,
+    mut teleports: MessageWriter<TeleportToLocation>,
     camera_query: Query<&GlobalTransform, With<Camera3d>>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
@@ -224,6 +226,18 @@ fn ui_info_system(
                             &mut gizmos_settings_changed,
                         );
                     });
+            });
+
+            // Graphics options apply immediately, no message needed.
+            ui.group(|ui| {
+                ui.label("Teleport");
+                ui.horizontal(|ui| {
+                    for (index, location) in TELEPORT_LOCATIONS.iter().enumerate() {
+                        if ui.button(location.name).clicked() {
+                            teleports.write(TeleportToLocation(index));
+                        }
+                    }
+                });
             });
 
             if visibility_settings_changed {
