@@ -23,10 +23,15 @@ impl Plugin for CameraPlugin {
                 sync_free_camera_enabled,
                 sync_third_person_cursor,
                 (rotate_third_person_camera, rotate_third_person_camera_mouse)
-                    .before(crate::gameplay::character_camera::camera_movement_system),
+                    .before(crate::gameplay::character_camera::camera_movement_system)
+                    .run_if(use_third_person_camera),
             ),
         );
-        app.add_systems(Update, update_dialog_camera.run_if(use_dialog_camera));
+        app.add_systems(
+            Update,
+            update_dialog_camera
+                .run_if(|info: Res<CameraResource>| info.current_camera == CurrentCamera::Dialog),
+        );
 
         if !is_xr_enabled() {
             // Disable main camera for performance
@@ -135,11 +140,6 @@ fn spawn_camera(mut commands: Commands) {
     ));
 }
 
-// TODO this is used only in one place and is one liner and logic is obvious, inline this
-fn use_dialog_camera(info: Res<CameraResource>) -> bool {
-    info.current_camera == CurrentCamera::Dialog
-}
-
 fn use_third_person_camera(info: Res<CameraResource>) -> bool {
     info.current_camera == CurrentCamera::ThirdPerson
 }
@@ -181,15 +181,10 @@ fn sync_third_person_cursor(
 /// camera position follows from its rotation in
 /// [`crate::gameplay::character_camera::camera_movement_system`].
 fn rotate_third_person_camera(
-    info: Res<CameraResource>,
     time: Res<Time>,
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
 ) -> Result<(), BevyError> {
-    // TODO run_if instead of this if
-    if !use_third_person_camera(info) {
-        return Ok(());
-    }
     let direction = action_state.axis_pair(&GameplayAction::RotateCamera);
     if direction.length_squared() < 0.01 {
         return Ok(());
@@ -203,14 +198,9 @@ fn rotate_third_person_camera(
 
 /// Rotates the third person camera with mouse movement.
 fn rotate_third_person_camera_mouse(
-    info: Res<CameraResource>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
 ) -> Result<(), BevyError> {
-    // TODO run_if instead of this if
-    if !use_third_person_camera(info) {
-        return Ok(());
-    }
     if mouse_motion.delta == Vec2::ZERO {
         return Ok(());
     }

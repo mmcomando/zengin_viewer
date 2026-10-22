@@ -29,34 +29,43 @@ pub(crate) fn camera_toggle_input(
         ),
     >,
 ) {
-    // TODO Make it early return !action_state {return}
-    if action_state.just_pressed(&DebugAction::ToggleCharacterCamera) {
-        let next_camera = match info.current_camera {
-            CurrentCamera::Free => CurrentCamera::ThirdPerson,
-            CurrentCamera::ThirdPerson => CurrentCamera::Free,
-            CurrentCamera::Dialog => CurrentCamera::Free,
-        };
-        if next_camera == CurrentCamera::ThirdPerson {
-            // Move this branch to separate function, it is separate self contained logic which can be documented by new function name
-            // Player starts where the free camera was looking
-            if let (Ok(camera_transform), Ok(mut player_transform)) =
-                (camera_query.single(), player_query.single_mut())
-            {
-                player_transform.translation = camera_transform.translation();
-                // The camera looks along its forward; make the character face
-                // that direction (the model carries the facing, not the body).
-                // TODO after move to new function there could be early return
-                if let Ok(mut visual_transform) = player_visual.single_mut() {
-                    let forward = camera_transform.forward();
-                    let dir = Vec3::new(forward.x, 0.0, forward.z);
-                    if dir.length_squared() > f32::EPSILON {
-                        let dir = dir.normalize();
-                        visual_transform.rotation = Quat::from_rotation_y(dir.x.atan2(dir.z));
-                    }
-                }
-            }
+    if !action_state.just_pressed(&DebugAction::ToggleCharacterCamera) {
+        return;
+    }
+    let next_camera = match info.current_camera {
+        CurrentCamera::Free => CurrentCamera::ThirdPerson,
+        CurrentCamera::ThirdPerson => CurrentCamera::Free,
+        CurrentCamera::Dialog => CurrentCamera::Free,
+    };
+    if next_camera == CurrentCamera::ThirdPerson {
+        // Player starts where the free camera was looking
+        if let (Ok(camera_transform), Ok(mut player_transform)) =
+            (camera_query.single(), player_query.single_mut())
+        {
+            let player_visual = player_visual.single_mut().ok();
+            place_player_at_free_camera(&camera_transform, &mut player_transform, player_visual);
         }
-        info.current_camera = next_camera;
+    }
+    info.current_camera = next_camera;
+}
+
+/// Moves the player to the free camera position and makes the character face
+/// the direction the free camera was looking. The visual model carries the
+/// facing, not the physics body.
+fn place_player_at_free_camera(
+    camera_transform: &GlobalTransform,
+    player_transform: &mut Transform,
+    player_visual: Option<Mut<'_, Transform>>,
+) {
+    player_transform.translation = camera_transform.translation();
+    let Some(mut visual_transform) = player_visual else {
+        return;
+    };
+    let forward = camera_transform.forward();
+    let dir = Vec3::new(forward.x, 0.0, forward.z);
+    if dir.length_squared() > f32::EPSILON {
+        let dir = dir.normalize();
+        visual_transform.rotation = Quat::from_rotation_y(dir.x.atan2(dir.z));
     }
 }
 
@@ -73,12 +82,13 @@ const CAM_PIVOT_HEIGHT: f32 = 1.3;
 
 pub fn camera_movement_system(
     player_query: Single<(&Transform, Entity), (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
-    mut camera_query: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
+    mut camera_transform: Single<
+        &mut Transform,
+        (With<Camera3d>, Without<PlayerPhysicsBodyMarker>),
+    >,
     spatial_query: SpatialQuery,
 ) {
     let (player_transform, player_entity) = *player_query;
-    // TODO use the Single system param instead of single_mut().unwrap()
-    let mut camera_transform = camera_query.single_mut().unwrap();
 
     let offset_direction = camera_transform.rotation * Vec3::Z;
     let pivot = player_transform.translation + Vec3::Y * CAM_PIVOT_HEIGHT;
