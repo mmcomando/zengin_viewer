@@ -47,14 +47,6 @@ impl<'a> VfsNode<'a> {
         VfsNode::from_raw(raw)
     }
 
-    // TODO check semantics of create function, it copies provided node or inserts it?
-    // pub fn create(&self, child: &VfsNode) -> Option<VfsNode<'a>> {
-    //     let raw = unsafe {
-    //         ZkVfsNode_create(self.node.as_ptr(), child.node.as_ptr())
-    //     };
-    //     VfsNode::from_raw(raw)
-    // }
-
     pub fn remove_child(&self, name: &str) -> bool {
         let cstr = str_to_zk(name);
         let result = unsafe { ZkVfsNode_remove(self.node.as_ptr(), cstr.as_ptr()) };
@@ -134,14 +126,6 @@ impl Vfs {
         let result = unsafe { ZkVfs_remove(self.vfs.as_ptr(), cstr.as_ptr()) };
         result.to_bool()
     }
-
-    // TODO owned VfsNode value, currently we have a type only for view of VfsNode
-    // pub fn ZkVfs_mount(
-    //     slf: *mut ZkVfs,
-    //     node: *mut ZkVfsNode,
-    //     parent: ZkString,
-    //     overwrite: ZkVfsOverwriteBehavior,
-    // );
 
     pub fn mount_host(&self, path: &str, parent: &str, overwrite: VfsOverwriteBehavior) {
         let path_cstr = str_to_zk(path);
