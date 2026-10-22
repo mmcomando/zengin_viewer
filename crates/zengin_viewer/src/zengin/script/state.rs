@@ -391,6 +391,7 @@ pub struct ImportCallState {
     pub close_dialog: bool,
     /// Kind of every symbol, used to verify typed symbol ids
     pub symbol_table: SymbolTable,
+    // TODO Move all pending_ to separate struct to cleanly distinguish them from other data, add common comment, don't have a similar comment on each entry
     /// Routine entry changes produced by the script, drained to the ECS by the
     /// script bridge.
     pub pending_routine_changes: Vec<RoutineEntryChange>,

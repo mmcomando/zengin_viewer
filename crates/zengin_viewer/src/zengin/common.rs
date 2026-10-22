@@ -9,7 +9,7 @@ use zen_kit_rs::vfs::VfsNode;
 
 use crate::zengin::waypoint_graph::WaypointGraph;
 
-// zenkit cords have mirrored X compared to bevy
+/// zenkit cords have mirrored X compared to bevy
 pub const MIRROR_X: bool = true;
 
 /// Zentg (Gothic) game units per Bevy world unit (meter). World positions are
@@ -153,6 +153,7 @@ pub fn print_nodes(node: &VfsNode, level: u8) {
     }
 }
 
+// TODO move to visual/* module
 #[derive(Debug, Default)]
 pub struct MeshData {
     pub indices: Vec<u32>,
@@ -168,13 +169,13 @@ pub struct MeshData {
     pub collides: bool,
 }
 
+// TODO move to visual/* module
 #[derive(Debug, Clone)]
 pub struct ZenGinSubMesh {
     pub texture: String,
     pub material: StandardMaterial,
     pub mesh: Mesh,
     pub transform: Transform,
-    // pub head_transform: Option<Transform>,
     pub name: String,
     pub collides: bool,
     pub is_skinned: bool,
@@ -186,6 +187,7 @@ pub struct LightInstance {
     pub rot: Quat,
 }
 
+// TODO move to visual/* module
 #[derive(Debug, Default, Clone, Asset, TypePath)]
 pub struct ZenGinModel {
     pub sub_meshes: Vec<ZenGinSubMesh>,
@@ -201,20 +203,17 @@ pub struct ZenGinModel {
 pub struct ZenGinInstance {
     pub tr: Transform,
     pub archetype: String,
-    /// From the vob `cdStatic` flag: whether static geometry collision applies
-    /// to this instance at all (vegetation like grass groups has it off).
     pub collides: bool,
 }
 
 #[derive(Debug, Default)]
 pub struct ZenGinWorldData {
-    // pub tr: Transform,
     pub world_model: ZenGinModel,
     pub static_models: Vec<ZenGinInstance>,
     pub light_instances: Vec<LightInstance>,
     pub spots: HashMap<String, Transform>,
     pub way_points: HashMap<String, Transform>,
-    /// Names of all files in the compiled anim archive (uppercased)
+    /// Names of all files in the compiled anim archive (uppercase)
     pub anim_files: HashSet<String>,
     /// Waypoint navigation graph built from the world way net
     pub waypoint_graph: WaypointGraph,

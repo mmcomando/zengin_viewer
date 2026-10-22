@@ -23,7 +23,7 @@ struct Cubemap {
     is_loaded: bool,
     image_handle: Handle<Image>,
 }
-// Step 1 Insert Resource and loada skybox texture
+// Step 1 Insert Resource and load a skybox texture
 fn spawn_skybox(mut commands: Commands, asset_server: Res<AssetServer>) {
     let skybox_handle = asset_server.load("cubemap.png");
 

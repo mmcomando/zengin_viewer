@@ -1,3 +1,4 @@
+// TODO Quite small file maybe move it to mod.rs
 use bevy::prelude::*;
 
 /// Runtime-toggleable rendering quality options, edited in the debug UI.
@@ -18,6 +19,7 @@ impl Default for RenderOptions {
     }
 }
 
+// TODO Plugin definition should be at the top
 pub struct RenderOptionsPlugin;
 
 impl Plugin for RenderOptionsPlugin {

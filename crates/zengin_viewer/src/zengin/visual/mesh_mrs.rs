@@ -7,31 +7,6 @@ use bevy::{
     prelude::*,
 };
 
-// fn is_forearm(
-//     wedges_indices: &[u16],
-//     wedges: &[MeshWedge],
-//     soft_skin_mesh: Option<&zen_kit_rs::model::SoftSkinMesh>,
-// ) -> bool {
-//     for index in wedges_indices {
-//         let wedge = &wedges[*index as usize];
-//         let vertex_index = wedge.index as u64;
-
-//         // mesh_data
-//         //     .vertices
-//         //     .push(get_world_pos(positions[vertex_index as usize]));
-
-//         if let Some(skin) = soft_skin_mesh {
-//             for weight_index in 0..skin.weight_count(vertex_index) {
-//                 let weight_entry = skin.weight(vertex_index, weight_index);
-//                 if weight_entry.weight > 0.7 && weight_entry.node_index == 14 {
-//                     return true;
-//                 }
-//             }
-//         }
-//     }
-//     return false;
-// }
-
 pub fn meshes_from_zengin_mrs_mesh(
     mesh: &zen_kit_rs::mrs_mesh::MrsMesh,
     soft_skin_mesh: Option<&zen_kit_rs::model::SoftSkinMesh>,
@@ -75,11 +50,11 @@ pub fn meshes_from_zengin_mrs_mesh(
                 let mut weights: [f32; 4] = [1.00, 0.00, 0.0, 0.0];
                 let mut indices: [u16; 4] = [0, 0, 0, 0];
                 if let Some(skin) = soft_skin_mesh {
-                    // Orginal game uses final bone matrix and
+                    // Original game uses final bone matrix and
                     //   position relative to bone to compute final vertex position
                     // We want to use bevy animation system which uses inverse bone matrix
                     //  and absolute model vertex position to compute final vertex position
-                    // To achive this we compute avarage "absolute" model vertex position
+                    // To achieve this we compute average "absolute" model vertex position
                     //   from bone matrix and position relative to bone
                     let mut dt_avg = Vec3::ZERO;
                     for weight_index in 0..skin.weight_count(vertex_index) {

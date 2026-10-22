@@ -1,3 +1,5 @@
+// TODO mod.rs files should be small and control what is inside bigger modules
+// TODO split this file
 mod state;
 mod ui;
 

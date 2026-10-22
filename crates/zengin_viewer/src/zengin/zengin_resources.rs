@@ -1,3 +1,4 @@
+// TODO split and move to resources/* submodule
 use std::collections::HashMap;
 
 use bevy::asset::AssetId;
@@ -69,6 +70,7 @@ pub struct ModelMeshKey {
     pub mesh_index: usize,
 }
 
+// TODO rename to CachedAssetHandles
 #[derive(Resource, Default)]
 pub struct MaterialHandles {
     pub materials: HashMap<MatrialHashed, Handle<StandardMaterial>>,

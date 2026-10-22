@@ -45,6 +45,7 @@ pub struct DistanceNear {}
 #[derive(Component, Default)]
 pub struct EntityDistanceState {}
 
+// TODO ordering of types, private functions are defined before private constants
 fn on_classify_added(mut world: DeferredWorld, context: HookContext) {
     world
         .commands()
@@ -53,11 +54,13 @@ fn on_classify_added(mut world: DeferredWorld, context: HookContext) {
 }
 
 fn get_camera_pos(mut state: ResMut<MainCameraPos>, query: Query<&Transform, With<Camera3d>>) {
+    // TODO assign only first camera, if there are more cameras print error log
     for tr in query {
         state.tr = *tr;
     }
 }
 
+// TODO ordering of types, private constants are defined before private functions
 const DIST_MAKE_FAR: f32 = 200.0;
 const DIST_MAKE_FAR_SQUARED: f32 = DIST_MAKE_FAR * DIST_MAKE_FAR;
 
@@ -73,6 +76,7 @@ fn obj_is_visible(camera_tr: &Transform, gl_tr: &GlobalTransform, overshoot: f32
     let distance_squared = pos_dt.length_squared();
     return distance_squared < DIST_MAKE_FAR_SQUARED * overshoot;
 }
+
 fn update_distance_state_far(
     mut commands: Commands,
     state: Res<MainCameraPos>,

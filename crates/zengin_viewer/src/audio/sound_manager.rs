@@ -9,7 +9,7 @@ pub struct PlaySound {
 /// Plays sounds requested by other systems
 #[derive(Resource, Default)]
 pub struct SoundManager {
-    /// Entity of the most recently spawned sound, so it can be stopped again
+    /// Entity of the most recently spawned sound
     active: Option<Entity>,
 }
 
@@ -22,8 +22,7 @@ impl SoundManager {
         self.active = Some(entity);
     }
 
-    /// Despawns the most recently spawned sound, stopping its playback.
-    /// Does nothing when there is no sound or it already finished
+    /// Only the most recently spawned sound can be stopped
     pub fn stop_active(&mut self, commands: &mut Commands) {
         let Some(entity) = self.active.take() else {
             return;
@@ -31,7 +30,7 @@ impl SoundManager {
         commands.entity(entity).try_despawn();
     }
 }
-
+/// Plays sounds requested by other systems through the [`PlaySound`] message
 pub struct GameAudioPlugin;
 
 impl Plugin for GameAudioPlugin {

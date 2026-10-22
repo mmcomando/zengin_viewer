@@ -33,7 +33,8 @@ pub(crate) struct FrameUpdate {
     /// Whether the animation completed at least one loop this step
     pub(crate) finished: bool,
     /// How many full loops this step wrapped through
-    pub(crate) loops: u32,
+    pub(crate) loops: u32, // TODO This seems redundant and no place checks for loops > 1, so in all places finished can be used instead, remove it that is true
+    // TODO seems that below two fields can be replaced with one "crosse_frame: bool", I think this field would be more intuitive
     /// Animation progress in frames before this step
     pub(crate) old_progress: f32,
     /// Animation progress in frames after this step
@@ -122,7 +123,7 @@ fn root_displacement(movement: &[f32], total: f32, progress: f32) -> f32 {
 /// animation moves its base pos bone, the entity itself is moved by that root
 /// motion if its controller enables it.
 /// Queued `next` animations are switched to when the current one ends or may
-/// be interrupted (queued by the auto anim sequencer).
+/// be interrupted.
 /// For entities marked as players it emits [`AnimationEnds`] when entering
 /// the `last_frame-2` window and [`AnimationTrigger`] when crossing a model
 /// script trigger frame, so the sequencer can schedule follow up animations.
@@ -177,9 +178,9 @@ pub(crate) fn update_animations(
             .needs_update
             .store(needs_update, Ordering::Release);
 
-        // if !data.frame_state.needs_update.load(Ordering::Acquire) {
-        //     continue;
-        // }
+        if !data.frame_state.needs_update.load(Ordering::Acquire) {
+            continue;
+        }
         let Some(update) = advance_animation(&data, delta) else {
             continue;
         };
@@ -267,13 +268,6 @@ pub(crate) fn update_animations(
         // Switch when the current animation ended. Interruptible animations are
         // switched immediately, otherwise e.g. the 2s idle loop would delay
         // movement start.
-        // println!(
-        //     "aaaa {} {}",
-        //     (update.finished || controller.interrupt_current()),
-        //     controller
-        //         .next()
-        //         .is_some_and(|next| next != controller.current())
-        // );
         if (update.finished || controller.interrupt_current())
             && controller
                 .next()
@@ -281,7 +275,6 @@ pub(crate) fn update_animations(
             && let Some(next) = controller.take_next()
             && let Some(next_data) = animations.get(&next)
         {
-            // println!("switch animation");
             let next_data = Arc::new(next_data.clone());
             let current_path = controller.current().path();
             let next_path = Handle::path(&next);

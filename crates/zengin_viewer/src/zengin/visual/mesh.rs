@@ -33,8 +33,7 @@ pub fn meshes_from_zengin_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
         //     println!("polygon({polygon_index}) is ShouldRelight");
         // }
         if polygon.is_outdoor() {
-            println!("polygon({polygon_index}) is Outdoor");
-            continue;
+            panic!("polygon({polygon_index}) is Outdoor");
         }
         if polygon.is_ghost_occluder() {
             panic!("polygon({polygon_index}) is GhostOccluder");

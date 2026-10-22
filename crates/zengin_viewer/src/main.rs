@@ -67,6 +67,7 @@ fn main() {
     let replay_enabled = app.world().resource::<Options>().replay_actions().is_some();
     crate::input::replay::apply_scenario_window_settings(&mut primary_window, replay_enabled);
     if replay_enabled {
+        // TODO this can't be moved into OptionsPlugin plugin?
         // Repeatable replays: fixed game time, no progression. GameTimePlugin
         // keeps this resource because init_resource does not overwrite it.
         app.insert_resource(crate::gameplay::game_time::GameTime {
@@ -82,6 +83,7 @@ fn main() {
     if is_xr_enabled() {
         app.add_plugins(XrPlugin::new(window_plugin_options));
     } else if app.world().resource::<Options>().renderless() {
+        // TODO Move this to helper function in options.rs
         // Renderless run: no window, no renderer, only application logic and logs.
         // RenderPlugin normally registers the Shader asset, plugins later in the group
         // create Shader handles during build, so it has to be registered after AssetPlugin
@@ -110,11 +112,13 @@ fn main() {
         app.add_plugins(DefaultPlugins.set(window_plugin_options));
     }
     if let Some(frames) = app.world().resource::<Options>().frames() {
+        // TODO add this in options plugin
         app.add_plugins(crate::input::options::FrameLimitPlugin(frames));
     }
     // Recording or replaying runs with a fixed frame delta, so frame numbers
     // map to the same simulated time and physics steps in every run.
     if app.world().resource::<Options>().deterministic_time() {
+        // TODO move this to options plugin
         use crate::input::options::SCENARIO_FRAME_DELTA;
         app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
             SCENARIO_FRAME_DELTA,
@@ -127,6 +131,7 @@ fn main() {
     // Plugins from crates
     app.add_plugins(PhysicsPlugins::default());
     // FPS overlay requires rendering, skip it in renderless mode.
+    // TODO move this to common "debug" plugin under gui_debug
     if !app.world().resource::<Options>().renderless() {
         if !replay_enabled {
             // Scenario replays must not show debug overlays in screenshots.

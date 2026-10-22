@@ -1,3 +1,4 @@
+// TODO Move to script submodule
 //! Bridges changes produced inside the script vm to the ECS. The script appends
 //! change records to its state, `send_script_changes` drains them into Bevy
 //! messages and the matching `apply_*` systems turn them into component changes

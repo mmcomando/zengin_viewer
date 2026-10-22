@@ -51,11 +51,6 @@ impl Plugin for GizmosPlugin {
     }
 }
 
-/// Draws wireframe gizmos around convex hull colliders, e.g. ones created
-/// from `ColliderConstructor::ConvexHullFromMesh`. Collider constructors are
-/// asynchronous: the `Collider` component (and thus the gizmo) only appears
-/// once the mesh asset has been loaded and the hull has been computed, so
-/// there is nothing special to do about the constructor itself.
 fn draw_convex_hull_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &GlobalTransform)>) {
     for (collider, transform) in &colliders {
         let TypedShape::ConvexPolyhedron(hull) = collider.shape().as_typed_shape() else {
@@ -79,10 +74,6 @@ fn draw_convex_hull_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &Glo
     }
 }
 
-/// Draws wireframe gizmos around trimesh colliders, e.g. ones created from
-/// `ColliderConstructor::TrimeshFromMesh`. Every triangle edge is drawn, so
-/// shared edges are drawn up to six times and large meshes produce a lot of
-/// lines.
 fn draw_trimesh_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &GlobalTransform)>) {
     for (collider, transform) in &colliders {
         let TypedShape::TriMesh(trimesh) = collider.shape().as_typed_shape() else {

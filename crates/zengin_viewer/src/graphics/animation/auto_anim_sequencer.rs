@@ -1,13 +1,12 @@
 //! Auto animation sequencer: data driven animation selection through the
 //! [`AnimationGraph`].
 //!
-//! The sequencer does not know about sequence families or loops. It only knows
-//! the *desired* animation (arriving as a [`SetDesiredAnimation`] message,
-//! written every frame from the move input) and walks the animation graph from
-//! the currently played animation towards it: on every [`AnimationEnds`] of
-//! the current animation it queries the graph for the next animation on the
-//! path and queues it; when the graph offers no path it cuts straight to the
-//! desired animation.
+//! Driven by the *desired* animation (arriving as a [`SetDesiredAnimation`]
+//! message; other systems may change it): walks the animation graph from the
+//! currently played animation towards the desired one. On every
+//! [`AnimationEnds`] of the current animation it queries the graph for the
+//! next animation on the path and queues it; when the graph offers no path
+//! it cuts straight to the desired animation.
 //!
 //! Movement still works through root motion (`should_move_entity`), the
 //! model is rotated smoothly towards the move direction.
@@ -75,9 +74,9 @@ impl DesiredAnimation {
     }
 }
 
-/// Sets the desired animation of a sequencer entity. Written every frame;
-/// the sequencer deduplicates. `direction` is the (horizontal) movement
-/// direction the model should face, `None` keeps the last facing.
+/// Sets the desired animation of a sequencer entity; the sequencer
+/// deduplicates. `direction` may also drive the model rotation, `None` keeps
+/// the last facing.
 #[derive(Message, Debug, Clone)]
 pub struct SetDesiredAnimation {
     /// Animation model entity carrying the [`AutoAnimSequencer`].
@@ -96,6 +95,7 @@ pub struct AutoAnimSequencer {
     pub force_change: bool,
 }
 
+// TODO order of types, private types are before this, and Plugin should be at the top
 pub struct AutoAnimSequencerPlugin;
 
 impl Plugin for AutoAnimSequencerPlugin {
@@ -141,6 +141,7 @@ fn add_auto_anim_sequencer(
 /// input, resolved camera relative (forward input moves away from the
 /// camera; holds for every camera mode). Firing (ranged weapon drawn and
 /// attack pressed) wins over movement; the model aims at the target.
+/// TODO systems related to send_desired animation should be in separate file, conceptually logic related to transition from current to desired animation is different than logic to set desired animation
 fn send_desired_animations(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     players: Query<
@@ -166,6 +167,7 @@ fn send_desired_animations(
         WeaponMode::Fists => false,
     };
     if attacking {
+        // TODO seems like this can be separate function with well documenting name like set_attack_animation
         // Aim at the selected npc, fall back to the current facing direction.
         let target = selection
             .target
@@ -191,6 +193,7 @@ fn send_desired_animations(
         return;
     }
 
+    // TODO This could be early as quick check and return from function
     let direction = action_state.axis_pair(&GameplayAction::Move);
     if direction.length_squared() < 0.1 {
         writer.write(SetDesiredAnimation {
@@ -202,6 +205,7 @@ fn send_desired_animations(
         return;
     }
 
+    // TODO seems like this can be separate function with well documenting name like set_stand_animation
     let forward = horizontal(*camera.forward());
     let right = horizontal(*camera.right());
     let dir = right * direction.x + forward * direction.y;
@@ -223,6 +227,10 @@ fn horizontal(direction: Vec3) -> Vec3 {
     Vec3::new(direction.x, 0.0, direction.z).normalize_or_zero()
 }
 
+// TODO this system is too complicated, does to many things at once
+// Setting desired animation is not latency critical so might allow it to lag few frames if it will help simplify code.
+// SetDesiredAnimation should work almost only on AutoAnimSequencer, then other system on change of AutoAnimSequencer could react to change and set AnimationController.
+// Try to prefer reaction to changes or messages rather than doing loops inside of loops, this needs an refactor probably in separate step so separate commit only for this change can be done.
 /// Advances the sequencer: consumes desired animations and animation end
 /// events, walks the graph towards the desired animation, rotates the model
 /// towards the move direction and keeps the root motion driven body free of
@@ -254,13 +262,16 @@ fn run_auto_anim_sequencer(
     };
     let graph = &*graph;
 
-    let ends: Vec<_> = ends.read().cloned().collect();
+    // TODO creation of maps/vecs is a red flag, in most cases systems should not allocate dynamic memory
+    let ends: Vec<_> = ends.read().cloned().collect(); // Why collect it and clone?
     let desired: Vec<_> = desired.read().cloned().collect();
     let delta = time.delta_secs();
     let melee_swing_index = index_of(graph, DesiredAnimation::MeleeAttack);
 
     for (entity, mut seq, mut controller, mut tr, parent) in &mut sequencers {
+        // TODO this can't be moved to separate system? it seems independent from other part of code
         for message in desired.iter().filter(|message| message.who == entity) {
+            // TODO early continue
             if seq.desired != Some(message.animation) {
                 // info!(
                 //     "AutoAnimSequencer({entity}) desired -> {:?}",
@@ -274,6 +285,7 @@ fn run_auto_anim_sequencer(
                     seq.force_change = false;
                 }
                 let anim_index = index_of(graph, message.animation);
+                // TODO early continue
                 if seq.force_change {
                     queue_animation(
                         &mut controller,
@@ -363,9 +375,6 @@ fn run_auto_anim_sequencer(
     }
 }
 
-/// Preloads every animation of the graph so sequencer switches never have to
-/// wait for the animation asset to load. Graph names carry the scheme prefix
-/// (`HUMANS-S_RUN`), which maps directly to the asset path scheme.
 fn preload_graph_animations(
     graph: Res<AnimationGraph>,
     mut handles: ResMut<MaterialHandles>,
@@ -499,8 +508,6 @@ mod tests {
             .cloned()
     }
 
-    /// Stand wrap with run desired: the graph walk queues the run-in
-    /// transition.
     #[test]
     fn stand_wrap_walks_to_run_in() {
         let (mut world, model) = run_sequencer_world("S_RUN");

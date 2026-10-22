@@ -118,6 +118,7 @@ fn invalid_animation_data_is_skipped() {
     assert!(advance_animation(&state, 0.02).is_none());
 }
 
+// TODO helper functions between tests, move it to start or end, this might be question after analyzing all changes, helpers should be before or after (probably after)
 /// Builds a two-frame animation so it passes the `frames_num > 1` guard
 /// in `update_animations`.
 fn test_animation() -> AnimationData {

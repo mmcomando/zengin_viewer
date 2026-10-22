@@ -7,9 +7,10 @@ use zen_kit_rs::{
     misc::{AlphaFunction, MaterialGroup},
 };
 
-/// Type for checking for quni materials
+/// Type for checking for uniq materials
 /// Used to reduce number of bevy materials used
 #[derive(Debug)]
+// TODO fix typo in MatrialHashed
 pub struct MatrialHashed(pub StandardMaterial);
 
 impl Hash for MatrialHashed {
@@ -88,7 +89,7 @@ pub fn get_standard_material(mat: &Material) -> StandardMaterial {
 
     match mat.alpha_function() {
         AlphaFunction::DEFAULT |
-        // NONE seems like it shouldbe Opaque but there are transparent objects with NONE
+        // NONE seems like it should be Opaque but there are transparent objects with NONE
         // AlphaFunction::NONE => material.alpha_mode = AlphaMode::Opaque
         AlphaFunction::NONE => {}
         AlphaFunction::BLEND => material.alpha_mode = AlphaMode::Blend,

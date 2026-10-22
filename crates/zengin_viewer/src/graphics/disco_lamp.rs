@@ -24,7 +24,8 @@ pub struct DrawGizmo {
     pub color: Color,
 }
 
-/// Marks the disco lamp point lights controlled by [`sync_disco_shadows`].
+// TODO should this be pub? (private-by-default convention)
+/// Marks the disco lamp point lights.
 #[derive(Component, Default)]
 pub struct DiscoLight;
 

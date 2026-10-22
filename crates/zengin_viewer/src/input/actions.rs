@@ -11,6 +11,7 @@ use crate::zengin::dialog::DialogUiState;
 
 /// Directory of the input profiles, relative to the working directory
 /// (the same `assets` folder the [`bevy::asset::AssetServer`] reads from).
+/// TODO add somewhere common function to return "main_assets_dir" directory and hardcode path there (also might use env workspace to be a bit more reliable) instead of here, use new function here
 const INPUT_PROFILE_DIR: &str = "crates/zengin_viewer/assets";
 
 /// Adds [`leafwing_input_manager`] with one input map per action group and

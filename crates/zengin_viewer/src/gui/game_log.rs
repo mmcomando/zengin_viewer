@@ -40,6 +40,7 @@ pub struct GameLogEntry {
     pub text: String,
 }
 
+// TODO Plugin at the top
 pub struct GameLogPlugin;
 
 impl Plugin for GameLogPlugin {
@@ -51,14 +52,13 @@ impl Plugin for GameLogPlugin {
     }
 }
 
-/// Appends every requested [`GameLogEntry`] to the [`GameLog`].
 fn handle_game_log_messages(mut messages: MessageReader<GameLogEntry>, mut log: ResMut<GameLog>) {
     for message in messages.read() {
         log.add(message.text.as_str());
     }
 }
 
-/// Marker for the text node showing the log.
+// TODO rename to GameLogTextMarker (Marker suffix convention)
 #[derive(Component)]
 struct GameLogText;
 
@@ -84,6 +84,8 @@ fn spawn_game_log(mut commands: Commands) {
     ));
 }
 
+// TODO Maybe it is possible to run this only on change of GameLog? and time elapse? not in every frame?
+// TODO Analyze options.
 fn update_game_log(
     time: Res<Time>,
     mut log: ResMut<GameLog>,

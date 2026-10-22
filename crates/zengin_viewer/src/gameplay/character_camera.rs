@@ -1,8 +1,4 @@
 //! Third-person camera toggle and camera movement for the player character.
-//!
-//! Split out of [`crate::gameplay::character`] (which mirrors avian's
-//! `kinematic_character_3d` example plugin) so future merges of new example
-//! versions only touch the character controller itself.
 
 use avian3d::prelude::*;
 use bevy::prelude::*;
@@ -33,6 +29,7 @@ pub(crate) fn camera_toggle_input(
         ),
     >,
 ) {
+    // TODO Make it early return !action_state {return}
     if action_state.just_pressed(&DebugAction::ToggleCharacterCamera) {
         let next_camera = match info.current_camera {
             CurrentCamera::Free => CurrentCamera::ThirdPerson,
@@ -40,6 +37,7 @@ pub(crate) fn camera_toggle_input(
             CurrentCamera::Dialog => CurrentCamera::Free,
         };
         if next_camera == CurrentCamera::ThirdPerson {
+            // Move this branch to separate function, it is separate self contained logic which can be documented by new function name
             // Player starts where the free camera was looking
             if let (Ok(camera_transform), Ok(mut player_transform)) =
                 (camera_query.single(), player_query.single_mut())
@@ -47,6 +45,7 @@ pub(crate) fn camera_toggle_input(
                 player_transform.translation = camera_transform.translation();
                 // The camera looks along its forward; make the character face
                 // that direction (the model carries the facing, not the body).
+                // TODO after move to new function there could be early return
                 if let Ok(mut visual_transform) = player_visual.single_mut() {
                     let forward = camera_transform.forward();
                     let dir = Vec3::new(forward.x, 0.0, forward.z);
@@ -78,6 +77,7 @@ pub fn camera_movement_system(
     spatial_query: SpatialQuery,
 ) {
     let (player_transform, player_entity) = *player_query;
+    // TODO use the Single system param instead of single_mut().unwrap()
     let mut camera_transform = camera_query.single_mut().unwrap();
 
     let offset_direction = camera_transform.rotation * Vec3::Z;
@@ -104,8 +104,4 @@ pub fn camera_movement_system(
     };
 
     camera_transform.translation = pivot + offset_direction * distance;
-
-    // The player rotation is owned by the human animation sequencer (model
-    // facing); the body keeps its rotation so the model's global facing and
-    // root motion direction stay camera independent.
 }

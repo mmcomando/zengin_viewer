@@ -1,3 +1,4 @@
+// TODO move this to interactions submodule
 //! Picks the world object (npc or item) the player is most likely aiming at and
 //! draws its name above it, as a 3d text label anchored to the object.
 
@@ -61,8 +62,6 @@ pub struct SelectionPlugin;
 impl Plugin for SelectionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Selection>();
-        // Text3dPlugin already registers TouchTextMaterial3dPlugin for
-        // StandardMaterial, non-standard materials need it added manually.
         app.add_plugins(Text3dPlugin {
             load_system_fonts: true,
             ..default()

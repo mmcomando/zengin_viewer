@@ -17,6 +17,7 @@ pub struct BoneAnimationData {
     /// Node index in the model hierarchy, shared by all animations of the model
     pub node_index: usize,
     pub is_base_pos_bone: bool,
+    // TODO bone-index and node_index are not the same? verify and remove one of them
     /// Local bone index in the current animation.
     /// `None` when the animation does not animate this node (joint holds its last pose).
     pub bone_index: Option<usize>,

@@ -25,7 +25,7 @@ impl Inventory {
             .collect()
     }
 
-    /// Adds `count` of `item`, no effect when `count <= 0`.
+    /// Adds `count` of `item`.
     pub fn create(&mut self, item: InstanceId, count: i32) {
         if count <= 0 {
             return;
@@ -33,14 +33,12 @@ impl Inventory {
         *self.items.entry(item).or_insert(0) += count;
     }
 
-    /// Removes the whole stack of `item`, returning its count (`0` when
-    /// absent).
+    /// Removes the whole stack of `item`.
     pub fn take(&mut self, item: InstanceId) -> i32 {
         self.items.remove(&item).unwrap_or(0)
     }
 
-    /// Removes up to `amount` of `item`, returning how many were actually
-    /// removed. No effect when `amount < 1`.
+    /// Removes up to `amount` of `item`.
     pub fn remove(&mut self, item: InstanceId, amount: i32) -> i32 {
         if amount < 1 {
             return 0;

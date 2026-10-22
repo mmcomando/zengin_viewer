@@ -17,8 +17,8 @@ impl Plugin for LightingPlugin {
     }
 }
 
-/// Marks the directional light representing the sun/moon,
-/// moved and adjusted by [`update_day_night_lighting`].
+// TODO should this be pub? (private-by-default convention)
+/// Marks the directional light representing the sun/moon.
 #[derive(Component, Default)]
 pub struct SunLight;
 
@@ -50,6 +50,7 @@ const DAY_AMBIENT_BRIGHTNESS: f32 = 200.0;
 // - Less demanding shadows
 
 fn spawn_lights(mut commands: Commands, render_options: Res<RenderOptions>) {
+    // TODO add sliders in egui to change/debug those
     let cascade_shadow_config = CascadeShadowConfigBuilder {
         // first_cascade_far_bound: 50.0, // default: 10.0
         // maximum_distance: 2000.0, // default: 150.0

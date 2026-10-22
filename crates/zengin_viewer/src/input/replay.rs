@@ -49,7 +49,7 @@ pub fn apply_scenario_window_settings(window: &mut Window, replay_enabled: bool)
     window.visible = false;
     window.resolution = SCENARIO_WINDOW_RESOLUTION.into();
 }
-
+// type order plugin at top
 /// Replays the actions recorded with `--save-actions`.
 pub struct ActionReplayPlugin;
 

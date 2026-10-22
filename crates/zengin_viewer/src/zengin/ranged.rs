@@ -1,9 +1,7 @@
+// TODO Split to submodule "interaction"
 //! Ranged combat: arrow projectiles of the player bow attack.
 //!
-//! The bow attack sequence itself is driven by the human animation sequencer
-//! (`FireBowSequence` in the animation module), which writes [`ArrowShot`]
-//! messages when an arrow releases. This module spawns the flying arrows,
-//! resolves their hits and cleans them up.
+//!  This module spawns the flying arrows, resolves their hits and cleans them up.
 
 use bevy::prelude::*;
 
@@ -236,6 +234,7 @@ fn arrow_hits(
         let Ok(arrow) = arrows.get(arrow_entity) else {
             continue;
         };
+        // TODO ignore shooter by adding minimal distance between arrow and hit.
         // The npc hit collider is a child entity, resolve it to the npc. The
         // `Without<PlayerCharacter>` filter on the owner also keeps arrows from
         // hitting the shooter itself.
@@ -278,6 +277,7 @@ fn arrow_cleanup(time: Res<Time>, arrows: Query<(Entity, &Arrow)>, mut commands:
     let now = time.elapsed_secs();
     for (entity, arrow) in &arrows {
         if now - arrow.spawned_at > ARROW_LIFETIME {
+            // TODO use try_despawn in most cases where we remove entities as we care only about entity being gone, not who did it
             commands.entity(entity).despawn();
         }
     }

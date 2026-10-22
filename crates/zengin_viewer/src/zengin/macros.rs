@@ -1,3 +1,4 @@
+// TODO move to loaders submodule
 #[macro_export]
 macro_rules! warn_once {
     ($($arg:tt)*) => {{
@@ -16,6 +17,7 @@ macro_rules! warn_unimplemented {
     }};
 }
 
+// TODO Unused?
 #[macro_export]
 macro_rules! println_vm {
     ($($arg:tt)*) => {{

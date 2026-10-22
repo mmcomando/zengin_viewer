@@ -1,6 +1,5 @@
 //! Health bars of the player (persistent, bottom left) and of the selected
-//! npc (top center, shown while an npc is selected). Plain Bevy UI nodes
-//! updated from the `NpcHealth` components.
+//! npc (top center).
 
 use bevy::prelude::*;
 

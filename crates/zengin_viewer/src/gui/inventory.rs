@@ -1,7 +1,7 @@
-//! Placeholder inventory UI: slot grid panels like the original Gothic
-//! inventory (header bar with title and gold, item slots, info panel at the
-//! bottom left). Items are shown as their (truncated) name text instead of 3D
-//! models; visuals follow the original `INV_*` menu textures.
+//! Placeholder inventory UI: item slot grid and item info panels.
+//! Items are shown as their (truncated) name text instead of 3D models.
+//!
+// TODO replace item text with 3d models and support two panels at once for trade
 //!
 //! The UI is built from reusable "inventory window" panels keyed by a window
 //! index: today only the player inventory exists, but a trade scene later adds
@@ -41,8 +41,9 @@ impl InventoryStyle {
     };
 }
 
-/// Path of an original inventory menu texture, loaded through the ZenGin
-/// compiled texture loader.
+/// Path of an inventory menu texture, loaded through the ZenGin compiled
+/// texture loader.
+// TODO use get_full_texture_path
 fn inv_texture(name: &str) -> String {
     format!("zengin://_WORK/DATA/TEXTURES/_COMPILED/{name}-C.TEX")
 }
@@ -61,6 +62,7 @@ struct InventoryEntry {
     sort_group: u8,
 }
 
+// TODO Now we have real item name so this fallback might be removed, if there is no real name add warn log and just display id
 /// Display name of an item instance symbol: strips the script item class
 /// prefix (`itar_`/`itri_`/`itam_`/`itmi_`/...) and `addon` markers, so
 /// `itri_addon_health_01` becomes `health_01`.
@@ -105,6 +107,7 @@ impl InventoryWindowState {
 #[derive(Resource, Default)]
 pub struct InventoryUiState {
     open: bool,
+    // TODO here will be max two windows, remove vector nad leave player_window or something like this
     windows: Vec<InventoryWindowState>,
 }
 
@@ -170,6 +173,7 @@ struct InventoryInfoText;
 #[derive(Component)]
 struct InventoryInfoValues;
 
+// TODO Ordering of types plugin to top
 pub struct InventoryUiPlugin;
 
 impl Plugin for InventoryUiPlugin {
@@ -191,7 +195,6 @@ struct InventoryTextures {
 }
 
 /// Spawns the whole inventory UI once at startup, hidden until opened.
-/// One window panel for the player inventory; trade adds more panels here.
 fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     let textures = InventoryTextures {
         slot: asset_server.load(inv_texture("INV_SLOT")),
@@ -211,7 +214,7 @@ fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .id();
 
-    // Player inventory window, top right like the original inventory
+    // Player inventory window, top right
     spawn_inventory_window(
         &mut commands,
         root,
@@ -465,7 +468,6 @@ fn spawn_inventory_window(
     panel
 }
 
-/// Opens the inventory on the gameplay key and closes it again (toggle).
 /// The dialog UI takes precedence: no inventory while a dialog is open.
 fn toggle_inventory(
     action_state: Single<&ActionState<SharedAction>, With<SharedInputMarker>>,
@@ -488,6 +490,7 @@ fn toggle_inventory(
     let player_id = player_npc.instance_id();
     let mut script = gothic_script.lock();
     let items = script.inventory(player_id);
+    // TODO Add helper function to get InventoryEntry prefer simple map functions if it is too big add helper function
     let mut items: Vec<_> = items
         .into_iter()
         .map(|(instance_id, count)| {
@@ -517,10 +520,10 @@ fn toggle_inventory(
             }
         })
         .collect();
+    // TODO Add helper sort equipment function
     // Melee weapons first, then ranged, then the rest; within a group by
     // damage descending (0 for items without damage data), ties broken by
-    // instance id for a deterministic order (the script inventory is a hash
-    // map).
+    // instance id for a deterministic order (the script inventory is unordered).
     items.sort_unstable_by(|a, b| {
         a.sort_group
             .cmp(&b.sort_group)
@@ -551,10 +554,8 @@ fn toggle_inventory(
         state.windows[0].items.len()
     );
 }
-
-/// Grid navigation and closing while the inventory is open. Input goes to the
-/// active window; with a single window that is always the player inventory.
-/// Confirm equips the selected item as the player's drawn weapon.
+/// Grid navigation and closing while the inventory is open. Input goes to
+/// the active window. Confirm equips the selected item.
 fn handle_inventory_input(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     mut state: ResMut<InventoryUiState>,
@@ -612,13 +613,10 @@ fn handle_inventory_input(
         window.equipped_ranged = equipped_ranged;
     }
 }
-
 /// Equips the selected item as the player's weapon of its kind on confirm, a
 /// second confirm unequips it again. A melee and a ranged weapon can be
-/// equipped at the same time, equipping again replaces the same slot. Only
-/// weapon items (`itmw_*`/`itrw_*` symbols) are accepted, everything else is
-/// reported in the game log instead. Equipping sheathes the weapon, drawing is
-/// done by the dedicated weapon inputs. Returns the items equipped afterwards.
+/// equipped at the same time, equipping again replaces the same slot. Returns
+/// the items equipped afterwards.
 fn equip_selected_item(
     entry: &InventoryEntry,
     game_log: &mut GameLog,
@@ -830,10 +828,8 @@ fn sync_inventory_ui(
         }
     }
 }
-
-/// Item info panel content like the original: item name, flavor description
-/// and the generic script info-box lines (in G2 these carry the damage,
-/// requirements, value etc.). Returns (labels, values) with one line per row
+/// Item info panel content: item name, flavor description and the generic
+/// script info-box lines. Returns (labels, values) with one line per row
 /// so the two text columns line up.
 fn item_info_text(entry: &InventoryEntry) -> (String, String) {
     let mut label_lines: Vec<String> = vec![entry.name.clone(), String::new()];

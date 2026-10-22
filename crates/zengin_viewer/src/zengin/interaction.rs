@@ -1,4 +1,5 @@
-//! Player interactions with the selected world object (currently: killing npcs).
+// TODO Split to submodule "interaction"
+//! Player interactions with the selected world object.
 
 use bevy::prelude::*;
 
@@ -46,9 +47,8 @@ impl Plugin for PlayerInteractionPlugin {
 }
 
 /// Toggles the player's equipped weapons between sheathed and drawn on
-/// `EquipMelee`/`EquipRanged` (1/2): pressing draws the respective weapon into
-/// the hand, pressing again sheathes it back to the hip/back. A warn is logged
-/// when nothing of that kind is equipped.
+/// `EquipMelee`/`EquipRanged`: pressing draws the respective weapon into
+/// the hand, pressing again sheathes it back to the hip/back.
 fn toggle_player_weapons(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
@@ -168,6 +168,7 @@ pub(crate) struct NpcHitReaction {
     resume: Handle<AnimationData>,
 }
 
+// TODO Move to animation submodule
 /// Interrupts the npc animation with the `T_GOTHIT` hit reaction one-shot,
 /// remembering the currently played animation to resume when it ends. A
 /// no-op while a reaction is already playing (no flinch stacking).
@@ -203,6 +204,7 @@ fn play_hit_reaction(
     commands.entity(npc).try_insert(NpcHitReaction { resume });
 }
 
+// TODO move to animations submodule
 /// Restores the interrupted animation when the `T_GOTHIT` hit reaction of an
 /// npc ends (see [`play_hit_reaction`]). Without a matching end (the reaction
 /// switch was dropped, e.g. the animation asset was still loading) the next

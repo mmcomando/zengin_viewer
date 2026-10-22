@@ -217,8 +217,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         });
     }
 
-    /// Returns whether the two string symbols hold equal text (Daedalus
-    /// `Hlp_StrCmp` is an equality test, not an ordering comparison).
+    /// Returns whether the two string symbols hold equal text.
     fn hlp_strcmp(&mut self, a: i32, b: i32) -> i32 {
         let Some(a) = self.symbol_table.string(a) else {
             return 0;

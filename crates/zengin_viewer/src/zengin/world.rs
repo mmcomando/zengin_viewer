@@ -1,3 +1,5 @@
+// TODO: There are few functions which work on names/paths of vfs, search nodes on vfs, move them to loaders/vfs submodule
+// TODO move the rest to visual/world submodule
 use bevy::prelude::*;
 
 use std::collections::HashMap;
@@ -102,6 +104,7 @@ pub fn load_zengin_world_data(
 ) -> ZenGinWorldData {
     let vfs = Vfs::new();
 
+    // TODO use shared vfs which is also used by zengin loader
     let vfs_override = VfsOverwriteBehavior::ALL;
     let dir = gothic2_dir();
     vfs.mount_disk_host(&format!("{}/Data/Anims.vdf", dir), vfs_override);
@@ -192,6 +195,7 @@ pub fn load_zengin_world_data(
     data
 }
 
+// TODO move to waypoint_graph without data parameter, return data so functionality will be the same
 fn load_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
     let points = way_net.points();
     let mut graph = WaypointGraph::default();

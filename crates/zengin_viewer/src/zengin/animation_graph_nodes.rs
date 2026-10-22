@@ -1,3 +1,4 @@
+// TODO Move to animation submodule
 //! Animation transition graph loaded from the exported RON file.
 //!
 //! The graph is fully data driven: nodes are animation names as in the anims
@@ -11,6 +12,7 @@ use std::path::Path;
 
 use bevy::prelude::*;
 
+// TODO consider using Handle<AnimationData> it would reduce conversions we later need for AnimationIndex -> Handle
 /// Distinct index of one animation inside an [`AnimationGraph`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AnimationIndex(u32);

@@ -37,6 +37,7 @@ pub(crate) fn advance_game_time(time: Res<Time>, mut game_time: ResMut<GameTime>
     game_time.total_hours %= 24.0;
 }
 
+// TODO move pub plugin definition to the top of the file
 /// Advances the running game time every frame.
 pub struct GameTimePlugin;
 

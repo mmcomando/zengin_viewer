@@ -1,5 +1,5 @@
 mod animation_graph_nodes;
-pub use crate::zengin::animation_graph_nodes::{AnimationGraph, AnimationIndex};
+// TODO  there should not be pub mod module here, explicit exports only
 pub mod animation_triggers;
 mod common;
 mod conversions;
@@ -31,6 +31,7 @@ mod debug_zengin_scripts;
 use bevy::prelude::*;
 
 // Expose only what is needed for outside modules
+pub use crate::zengin::animation_graph_nodes::{AnimationGraph, AnimationIndex};
 pub use crate::zengin::animation_triggers::animation_name_from_path;
 pub use crate::zengin::common::face_direction_quat;
 pub use crate::zengin::common::get_animation_path;

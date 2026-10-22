@@ -116,6 +116,7 @@ pub enum JournalAction {
     Entry(String),
 }
 
+// TODO type ordering messages at the top
 /// A journal change produced by the script, drained to the ECS by the script
 /// bridge for the game log. Topic and entry texts are already resolved.
 #[derive(Debug, Message)]

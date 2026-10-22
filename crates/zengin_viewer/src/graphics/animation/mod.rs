@@ -21,5 +21,6 @@ pub use plugin::SkeletalAnimations;
 /// in this set run after locomotion picked its animation and before the
 /// animations advance, so a queued scripted animation is not overwritten by
 /// locomotion and takes effect in the same frame.
+/// TODO there is only one place it is used so it changes ordering in any way? maybe it is leftover from old code? remove if not needed
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ScriptedAnimations;

@@ -1,3 +1,4 @@
+// Move to this to separate directory for helper binaries tests/examples or other suggest some solution, helper binaries should not be in form of tests, update justfile when moved
 //! Animation graph generation from the compiled anims archive.
 //!
 //! Every `<SCHEME>-<NAME>.MAN` in `_WORK/DATA/ANIMS/_COMPILED` is classified:
@@ -13,6 +14,7 @@
 //! loads that file; this module is only the generator, run through the
 //! ignored test below.
 
+// TODO is this needed this should be gates for with #[cfg(test)]
 // Only the ignored generator test uses this module in test builds.
 #![allow(dead_code)]
 

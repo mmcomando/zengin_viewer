@@ -9,9 +9,9 @@ use super::data::AnimationData;
 /// allows the queued `next` to replace a still playing animation immediately —
 /// otherwise one-shot animations have to play to their end first.
 ///
-/// What to play next is decided by other systems (the auto anim sequencer or
-/// scripted sequences). The only way to change the played animation is [`AnimationController::queue_next`]; the playback switch
-/// itself is performed by the animation update system.
+/// What to play next is decided by other systems. The only way to change the
+/// played animation is [`AnimationController::queue_next`]; the playback
+/// switch is performed by the animation update system.
 #[derive(Component, Debug)]
 pub struct AnimationController {
     /// Currently played animation
@@ -20,9 +20,7 @@ pub struct AnimationController {
     next: Option<Handle<AnimationData>>,
     /// Whether the queued `next` may replace `current` immediately
     interrupt_current: bool,
-    /// Whether the root movement of the current animation moves the entity
-    /// itself (Gothic-style root motion: the animation drives the position,
-    /// the character controller only handles gravity and collisions).
+    /// Whether the root movement of the current animation moves the entity itself
     should_move_entity: bool,
 }
 
@@ -36,9 +34,8 @@ impl AnimationController {
         }
     }
 
-    /// Queues the animation to play next. When the current animation ends it
-    /// replaces `current`; with `interrupt_current` it replaces it immediately.
-    /// Queuing the animation that is already playing is a no-op.
+    /// Queues the animation to play next. Queuing the animation that is
+    /// already playing is a no-op.
     pub fn queue_next(&mut self, handle: Handle<AnimationData>, interrupt_current: bool) {
         if self.current == handle {
             // debug!(
@@ -81,10 +78,7 @@ impl AnimationController {
         self.next.take()
     }
 
-    /// Switches the currently played animation to `handle`. Only for the
-    /// playback system that applies a switch prepared with
-    /// [`AnimationController::queue_next`] — all other systems must request
-    /// animation changes through `queue_next` only.
+    /// Switches the currently played animation to `handle`
     pub(crate) fn switch_to(&mut self, handle: Handle<AnimationData>) {
         // info!("Animation switch_to({:?})", handle.path());
         self.current = handle;

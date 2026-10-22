@@ -1,3 +1,4 @@
+// TODO move to scripts
 use crate::zengin::common::gothic2_dir;
 use crate::zengin::script::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use crate::zengin::script::manager::ScriptManager;

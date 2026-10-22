@@ -1,3 +1,4 @@
+// TODO Move to animation submodule
 //! Animation triggers read from the human model script, plus preloading of
 //! the human animation assets.
 //!
@@ -5,8 +6,7 @@
 //! item place/remove tags, ...) live in the compiled model script
 //! (`HUMANS.MDS` in the anims archive). [`AnimationTriggers`] exposes them
 //! keyed by animation name so the playback can emit `AnimationTrigger`
-//! messages when an animation crosses a trigger frame. Entries missing from
-//! the script are simply absent.
+//! messages when an animation crosses a trigger frame.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -73,6 +73,7 @@ pub fn crossed_triggers<'a>(
     })
 }
 
+// type ordering should be at the top
 pub struct AnimationTriggersPlugin;
 
 impl Plugin for AnimationTriggersPlugin {

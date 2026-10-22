@@ -64,21 +64,6 @@ impl InstanceIndex {
     pub fn npcs(&self, id: InstanceId) -> &[Entity] {
         self.npcs.entities(id)
     }
-
-    // /// Entities carrying the given item instance id.
-    // pub fn items(&self, id: InstanceId) -> &[Entity] {
-    //     self.items.entities(id)
-    // }
-
-    //     /// Npc instance id of the given entity.
-    //     pub fn npc_instance(&self, entity: Entity) -> Option<InstanceId> {
-    //         self.npcs.instance(entity)
-    //     }
-    //
-    //     /// Item instance id of the given entity.
-    //     pub fn item_instance(&self, entity: Entity) -> Option<InstanceId> {
-    //         self.items.instance(entity)
-    //     }
 }
 
 /// Marks systems that keep [`InstanceIndex`] up to date. Systems that resolve

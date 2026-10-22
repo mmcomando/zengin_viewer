@@ -41,18 +41,22 @@ impl Plugin for CameraPlugin {
 pub struct CameraResource {
     pub current_camera: CurrentCamera,
     pub reference_point: Transform,
-    /// Distance the dialog camera keeps from `reference_point`, set to the
-    /// distance between the two talking characters.
+    /// Distance the dialog camera keeps from the reference point.
     pub dialog_distance: f32,
 }
 
 impl CameraResource {
+    // TODO If we have set_dialog_camera, where is set_third_person_camera and set_free_camera, fields should probably be private
     pub fn set_dialog_camera(&mut self, reference_point: Transform, distance: f32) {
         self.current_camera = CurrentCamera::Dialog;
         self.reference_point = reference_point;
         self.dialog_distance = distance;
     }
 }
+/// Which controller currently owns the camera transform. The free camera
+/// controller is enabled only in `Free` mode and the cursor is locked and
+/// hidden in `ThirdPerson`; otherwise the camera modes fight over the
+/// transform.
 #[derive(Default, PartialEq)]
 pub enum CurrentCamera {
     #[default]
@@ -73,7 +77,8 @@ fn spawn_camera(mut commands: Commands) {
         },
         Camera3d::default(),
         // Contact shadows introduce visible noise on models, disable it until it improves
-        ContactShadows::default(),
+        ContactShadows::default(), // TODO add checkbox to egui to enable this (add section for graphic settings)
+        // TODO add egui sections with buttons to teleport player/camera to those locations
         // Xardas
         // Transform::from_xyz(-297.0 - 2.0, 55.0, -159.5 + 5.0).looking_at(
         //     Vec3 {
@@ -115,6 +120,7 @@ fn spawn_camera(mut commands: Commands) {
     ));
 }
 
+// TODO this is used only in one place and is one liner and logic is obvious, inline this
 fn use_dialog_camera(info: Res<CameraResource>) -> bool {
     info.current_camera == CurrentCamera::Dialog
 }
@@ -123,8 +129,6 @@ fn use_third_person_camera(info: Res<CameraResource>) -> bool {
     info.current_camera == CurrentCamera::ThirdPerson
 }
 
-/// Keeps bevy's free camera controller enabled only in the free camera mode,
-/// otherwise it fights with the other camera systems for the transform.
 fn sync_free_camera_enabled(
     info: Res<CameraResource>,
     mut query: Query<&mut FreeCameraState, With<Camera3d>>,
@@ -137,10 +141,6 @@ fn sync_free_camera_enabled(
         state.enabled = enabled;
     }
 }
-
-/// Locks and hides the cursor while the third person camera is active, so
-/// the camera can be rotated infinitely with mouse movement; releases it in
-/// every other camera mode.
 fn sync_third_person_cursor(
     info: Res<CameraResource>,
     mut windows: Query<(&mut Window, &mut CursorOptions), With<PrimaryWindow>>,
@@ -162,13 +162,15 @@ fn sync_third_person_cursor(
     }
 }
 
+/// TODO move constant up the file
 /// Rotation speed of the third person camera, radians per second.
 const THIRD_PERSON_ROTATE_SPEED: f32 = 2.0;
+/// TODO move constant up the file
 /// Pitch limits of the third person camera, keeps the camera from flipping.
 const THIRD_PERSON_PITCH_LIMIT: f32 = 1.4;
 
-/// Rotates the third person camera with the `RotateCamera` action (arrow keys
-/// or right gamepad stick). The camera position follows from its rotation in
+/// Rotates the third person camera with the `RotateCamera` action. The
+/// camera position follows from its rotation in
 /// [`crate::gameplay::character_camera::camera_movement_system`].
 fn rotate_third_person_camera(
     info: Res<CameraResource>,
@@ -176,6 +178,7 @@ fn rotate_third_person_camera(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
 ) -> Result<(), BevyError> {
+    // TODO run_if instead of this if
     if !use_third_person_camera(info) {
         return Ok(());
     }
@@ -192,6 +195,7 @@ fn rotate_third_person_camera(
 
 /// Rotation speed of the third person camera mouse movement, radians per
 /// pixel of mouse movement.
+/// TODO move constant up the file
 const THIRD_PERSON_MOUSE_SENSITIVITY: f32 = 0.003;
 
 /// Rotates the third person camera with mouse movement.
@@ -200,6 +204,7 @@ fn rotate_third_person_camera_mouse(
     mouse_motion: Res<AccumulatedMouseMotion>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
 ) -> Result<(), BevyError> {
+    // TODO run_if instead of this if
     if !use_third_person_camera(info) {
         return Ok(());
     }
@@ -208,6 +213,7 @@ fn rotate_third_person_camera_mouse(
     }
 
     let mut transform = camera_query.single_mut()?;
+    // TODO seems like y invert should be somewhere in input settings
     // Mouse y is inverted: moving the mouse up should look up. Side rotation
     // (x) keeps its direction.
     rotate_camera_transform(
@@ -227,6 +233,7 @@ fn rotate_camera_transform(transform: &mut Transform, delta: Vec2) {
     transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
 }
 
+// TODO order of types in a file, to decide but more like (pub plugins, pub types, constants, components, resources, systems, helper functions)
 struct DialogCameraStyle;
 impl DialogCameraStyle {
     /// Minimum distance kept from the viewed character, even when the two talking
@@ -260,6 +267,7 @@ pub(super) fn update_dialog_camera(
     );
 }
 
+// TODO this is for debugging so should go to gui_debug
 pub fn get_overlay_plugin() -> FpsOverlayPlugin {
     FpsOverlayPlugin {
         config: FpsOverlayConfig {
@@ -267,9 +275,7 @@ pub fn get_overlay_plugin() -> FpsOverlayPlugin {
             refresh_interval: Duration::from_millis(500),
             frame_time_graph_config: FrameTimeGraphConfig {
                 enabled: true,
-                // The minimum acceptable fps
                 min_fps: 30.0,
-                // The target fps
                 target_fps: 144.0,
             },
             ..default()

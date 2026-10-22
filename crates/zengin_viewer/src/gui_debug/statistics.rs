@@ -14,6 +14,7 @@ pub struct Statistics {
     pub meshes_visible: i64,
 }
 
+// TODO maybe bevy observer on component would be better for this, check if it produces reliable data
 fn mesh_added(mut statistics: ResMut<Statistics>, query: Query<&Visibility, With<Mesh3d>>) {
     statistics.meshes = 0;
     statistics.meshes_visible = 0;

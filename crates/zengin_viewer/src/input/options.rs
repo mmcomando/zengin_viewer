@@ -85,6 +85,7 @@ fn frame_limit(mut frames: Option<ResMut<FrameLimit>>, mut exit: MessageWriter<A
     exit.write(AppExit::Success);
 }
 
+// TODO Plugin type at the top
 pub struct OptionsPlugin;
 
 impl Plugin for OptionsPlugin {

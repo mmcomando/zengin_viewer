@@ -1,3 +1,4 @@
+// TODO too small file move to mod.rs
 use bevy::prelude::*;
 
 use crate::gameplay::character::move_and_slide;
@@ -14,7 +15,6 @@ impl Plugin for SkeletalAnimations {
     fn build(&self, app: &mut App) {
         app.add_message::<AnimationEnds>();
         app.add_message::<AnimationTrigger>();
-        // Disabled in favour of the graph driven auto anim sequencer
         app.add_plugins(AutoAnimSequencerPlugin);
 
         // Root movement has to be applied before the character controller,
