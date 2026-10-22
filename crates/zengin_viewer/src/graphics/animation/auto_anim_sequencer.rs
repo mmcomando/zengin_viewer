@@ -168,7 +168,7 @@ fn run_auto_anim_sequencer(
         // Every decision needs the graph; without it the sequencer is inert.
         return;
     };
-    let graph = &*graph;
+    let graph = graph.into_inner();
 
     // TODO creation of maps/vecs is a red flag, in most cases systems should not allocate dynamic memory
     let ends: Vec<_> = ends.read().cloned().collect(); // Why collect it and clone?
