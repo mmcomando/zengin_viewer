@@ -176,12 +176,10 @@ mod tests {
     }
 }
 
-// TODO
 // pub fn ZkWorld_getBspTree(slf: *const ZkWorld) -> *const ZkBspTree;
 // pub fn ZkWorld_getCutscenePlayer(slf: *const ZkWorld) -> *mut ZkCutscenePlayer;
 // pub fn ZkWorld_getSkyController(slf: *const ZkWorld) -> *mut ZkSkyController;
 
-// TODO owned types
 // pub fn ZkWorld_save(slf: *mut ZkWorld, write: *mut ZkWrite, version: ZkGameVersion);
 // pub fn ZkWorld_addRootObject(slf: *mut ZkWorld, val: *mut ZkVirtualObject);
 // pub fn ZkWorld_clearRootObjects(slf: *mut ZkWorld);

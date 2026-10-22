@@ -134,7 +134,6 @@ impl Drop for VirtualObject<'_> {
 //
 //
 //
-// TODO owned object
 // pub fn ZkVirtualObject_new(type_: ZkVobType) -> *mut ZkVirtualObject;
 // pub fn ZkVirtualObject_setBbox(slf: *mut ZkVirtualObject, bbox: ZkAxisAlignedBoundingBox);
 // pub fn ZkVirtualObject_setPosition(slf: *mut ZkVirtualObject, position: ZkVec3f);
@@ -185,7 +184,6 @@ impl Visual<'_> {
     }
 }
 
-// TODO owned type
 // ZKC_API ZkVisual* ZkVisual_new(ZkVisualType type);
 // ZKC_API void ZkVisual_del(ZkVisual* slf);
 // ZKC_API void ZkVisual_setName(ZkVisual* slf, ZkString name);
@@ -325,7 +323,6 @@ impl Npc<'_> {
 // pub fn ZkNpc_getNews(slf: *const ZkNpc, i: ZkSize) -> *mut ZkNpcNews;
 //
 //
-// TODO owned types
 // pub fn ZkNpc_setNpcInstance(slf: *mut ZkNpc, npcInstance: ZkString);
 // pub fn ZkNpc_setModelScale(slf: *mut ZkNpc, modelScale: ZkVec3f);
 // pub fn ZkNpc_setModelFatness(slf: *mut ZkNpc, modelFatness: f32);

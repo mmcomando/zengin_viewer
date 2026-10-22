@@ -188,7 +188,6 @@ impl Drop for Vfs {
 //     node: NonNull<ZkVfsNode>,
 // }
 
-// TODO owned nodes
 // impl OwnedVfsNode {
 //
 // pub fn ZkVfsNode_newFile(

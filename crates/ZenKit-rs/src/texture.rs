@@ -103,7 +103,6 @@ impl Drop for Texture<'_> {
     }
 }
 
-// TODO
 // ZkTexture_getPaletteItem
 // ZkTexture_enumeratePaletteItems
 // ZkTexture_getMipmapRaw(

@@ -4,7 +4,6 @@ use ZenKitCAPI_sys::*;
 use std::marker::PhantomData;
 use std::ptr::NonNull;
 
-// TODO owned type
 // pub fn ZkMaterial_load(buf: *mut ZkRead) -> *mut ZkMaterial;
 // pub fn ZkMaterial_loadPath(path: ZkString) -> *mut ZkMaterial;
 // pub fn ZkMaterial_del(slf: *mut ZkMaterial);
