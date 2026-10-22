@@ -22,11 +22,14 @@ pub struct NpcAnimations {
 pub struct BoneAnimationData {
     /// Skeleton entity owning this joint
     pub skeleton: Entity,
-    /// Node index in the model hierarchy, shared by all animations of the model
+    /// Node index in the model hierarchy, shared by all animations of the model.
+    /// Not the same as `bone_index`: a `.MAN` animates only a subset of the
+    /// hierarchy nodes (its `node_indices` can be e.g. `[7]`), so this index
+    /// is the key used to find the node in an animation's node list.
     pub node_index: usize,
     pub is_base_pos_bone: bool,
-    // TODO bone-index and node_index are not the same? verify and remove one of them
-    /// Local bone index in the current animation.
+    /// Index of this node inside the current animation's `node_indices` list,
+    /// i.e. the offset into its per-frame sample array.
     /// `None` when the animation does not animate this node (joint holds its last pose).
     pub bone_index: Option<usize>,
     pub animation_data: Arc<AnimationData>,
