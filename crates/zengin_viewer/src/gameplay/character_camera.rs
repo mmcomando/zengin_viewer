@@ -11,7 +11,7 @@ use crate::input::{DebugAction, DebugInputMarker};
 use crate::zengin::STATIC_OBJECT;
 
 pub(crate) fn use_character_camera(info: Res<CameraResource>) -> bool {
-    info.current_camera == CurrentCamera::ThirdPerson
+    info.current() == CurrentCamera::ThirdPerson
 }
 
 /// Toggles between the free camera and the character camera.
@@ -32,12 +32,11 @@ pub(crate) fn camera_toggle_input(
     if !action_state.just_pressed(&DebugAction::ToggleCharacterCamera) {
         return;
     }
-    let next_camera = match info.current_camera {
-        CurrentCamera::Free => CurrentCamera::ThirdPerson,
-        CurrentCamera::ThirdPerson => CurrentCamera::Free,
-        CurrentCamera::Dialog => CurrentCamera::Free,
-    };
-    if next_camera == CurrentCamera::ThirdPerson {
+    match info.current() {
+        CurrentCamera::Free => info.set_third_person_camera(),
+        CurrentCamera::ThirdPerson | CurrentCamera::Dialog => info.set_free_camera(),
+    }
+    if info.current() == CurrentCamera::ThirdPerson {
         // Player starts where the free camera was looking
         if let (Ok(camera_transform), Ok(mut player_transform)) =
             (camera_query.single(), player_query.single_mut())
@@ -46,7 +45,6 @@ pub(crate) fn camera_toggle_input(
             place_player_at_free_camera(&camera_transform, &mut player_transform, player_visual);
         }
     }
-    info.current_camera = next_camera;
 }
 
 /// Moves the player to the free camera position and makes the character face

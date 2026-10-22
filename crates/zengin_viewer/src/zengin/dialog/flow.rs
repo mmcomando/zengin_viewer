@@ -33,8 +33,8 @@ pub(super) fn show_closest_npc_dialog(
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
 ) {
-    if !dialog_ui.is_open() && camera_info.current_camera == CurrentCamera::Dialog {
-        camera_info.current_camera = CurrentCamera::ThirdPerson;
+    if !dialog_ui.is_open() && camera_info.current() == CurrentCamera::Dialog {
+        camera_info.set_third_person_camera();
         return;
     }
 

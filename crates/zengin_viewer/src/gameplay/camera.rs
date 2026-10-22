@@ -42,25 +42,39 @@ impl Plugin for CameraPlugin {
 
 #[derive(Resource, Default)]
 pub struct CameraResource {
-    pub current_camera: CurrentCamera,
-    pub reference_point: Transform,
+    current_camera: CurrentCamera,
+    reference_point: Transform,
     /// Distance the dialog camera keeps from the reference point.
-    pub dialog_distance: f32,
+    dialog_distance: f32,
 }
 
 impl CameraResource {
-    // TODO If we have set_dialog_camera, where is set_third_person_camera and set_free_camera, fields should probably be private
+    /// Controller that currently owns the camera transform.
+    pub fn current(&self) -> CurrentCamera {
+        self.current_camera
+    }
+
     pub fn set_dialog_camera(&mut self, reference_point: Transform, distance: f32) {
         self.current_camera = CurrentCamera::Dialog;
         self.reference_point = reference_point;
         self.dialog_distance = distance;
+    }
+
+    /// Switches to the third person camera following the player.
+    pub fn set_third_person_camera(&mut self) {
+        self.current_camera = CurrentCamera::ThirdPerson;
+    }
+
+    /// Switches to the free camera, the player stops controlling it.
+    pub fn set_free_camera(&mut self) {
+        self.current_camera = CurrentCamera::Free;
     }
 }
 /// Which controller currently owns the camera transform. The free camera
 /// controller is enabled only in `Free` mode and the cursor is locked and
 /// hidden in `ThirdPerson`; otherwise the camera modes fight over the
 /// transform.
-#[derive(Default, PartialEq)]
+#[derive(Default, PartialEq, Clone, Copy)]
 pub enum CurrentCamera {
     #[default]
     Free,
