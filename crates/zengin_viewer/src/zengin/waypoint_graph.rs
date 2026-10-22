@@ -4,6 +4,10 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 use pathfinding::prelude::astar;
+use zen_kit_rs::waynet::WayNet;
+
+use crate::zengin::common::{get_world_dir_quat, get_world_pos};
+use crate::zengin::loaders::ZenginVec3ToGlam;
 
 /// Waypoint navigation graph built from the world way net (points + edges).
 #[derive(Resource, Debug, Default)]
@@ -72,6 +76,64 @@ impl WaypointGraph {
 /// Spot - named location
 #[derive(Resource, Debug, Default)]
 pub struct Spots(pub HashMap<String, Transform>);
+
+/// Builds the waypoint graph and the waypoint transforms from the world way
+/// net. Waypoint positions are also keyed by their lowercased name for the
+/// routines and `Npc_GetDistToWP`.
+pub fn load_way_net_points(way_net: &WayNet) -> (WaypointGraph, HashMap<String, Transform>) {
+    let points = way_net.points();
+    let mut graph = WaypointGraph::default();
+    let mut way_points = HashMap::new();
+    for point in &points {
+        let name = point.name().to_lowercase();
+        let pos = get_world_pos(point.position().to_glam());
+        let direction = point.direction();
+        let dir_2d = Vec2 {
+            x: direction.x,
+            y: direction.z,
+        };
+        let rot = get_world_dir_quat(dir_2d);
+        let tr = Transform::from_translation(pos).with_rotation(rot);
+        way_points.insert(name.clone(), tr);
+
+        let index = graph.nodes.len();
+        graph.name_to_index.insert(name.clone(), index);
+        graph.nodes.push(WaypointNode {
+            // name,
+            position: pos,
+            // direction: Vec3::new(direction.x, direction.y, direction.z),
+            free: point.free_point(),
+        });
+    }
+
+    // Edge endpoints are copies of the point values, not the same objects, so
+    // match by the (unique) lowercased waypoint name
+    graph.adjacency = vec![Vec::new(); graph.nodes.len()];
+    for edge in way_net.edges() {
+        let start = graph
+            .name_to_index
+            .get(&edge.start_point().name().to_lowercase())
+            .copied();
+        let end = graph
+            .name_to_index
+            .get(&edge.end_point().name().to_lowercase())
+            .copied();
+        let (Some(start), Some(end)) = (start, end) else {
+            continue;
+        };
+        let length = (graph.nodes[start].position - graph.nodes[end].position).length();
+        graph.adjacency[start].push((end, length));
+        graph.adjacency[end].push((start, length));
+    }
+
+    let edges = graph.adjacency.iter().map(Vec::len).sum::<usize>() / 2;
+    info!(
+        "Waypoint graph: {} nodes, {} edges",
+        graph.nodes.len(),
+        edges
+    );
+    (graph, way_points)
+}
 
 #[cfg(test)]
 mod tests {

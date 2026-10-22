@@ -9,7 +9,6 @@ use zen_kit_rs::{
     misc::{GameVersion, VfsOverwriteBehavior, VisualType, VobType},
     vfs::Vfs,
     vobs::virtual_object::VirtualObject,
-    waynet::WayNet,
 };
 
 use crate::{
@@ -20,7 +19,7 @@ use crate::{
         script::state::SpawnItem,
         script::symbol_id::InstanceId,
         visual::mesh::meshes_from_zengin_mesh,
-        waypoint_graph::{WaypointGraph, WaypointNode},
+        waypoint_graph::load_way_net_points,
     },
 };
 
@@ -104,7 +103,9 @@ pub fn load_zengin_world_data(
         load_objects(&vfs, &mut data, &item_ids, &obj, spawn_item);
     }
     let way_net = world.way_net();
-    load_way_net_points(&way_net, &mut data);
+    let (waypoint_graph, way_points) = load_way_net_points(&way_net);
+    data.waypoint_graph = waypoint_graph;
+    data.way_points = way_points;
 
     if !world.npcs().is_empty() {
         warn_unimplemented!("Loading NPCs from world");
@@ -122,66 +123,6 @@ pub fn load_zengin_world_data(
     }
 
     data
-}
-
-fn load_way_net_points(way_net: &WayNet, data: &mut ZenGinWorldData) {
-    let points = way_net.points();
-    let mut graph = WaypointGraph::default();
-    for point in &points {
-        let name = point.name().to_lowercase();
-        let pos = get_world_pos(point.position().to_glam());
-        let direction = point.direction();
-        let dir_2d = Vec2 {
-            x: direction.x,
-            y: direction.z,
-        };
-        let rot = get_world_dir_quat(dir_2d);
-        let tr = Transform::from_translation(pos).with_rotation(rot);
-        data.way_points.insert(name.clone(), tr);
-
-        let index = graph.nodes.len();
-        graph.name_to_index.insert(name.clone(), index);
-        graph.nodes.push(WaypointNode {
-            // name,
-            position: pos,
-            // direction: Vec3::new(direction.x, direction.y, direction.z),
-            free: point.free_point(),
-        });
-    }
-
-    // Edge endpoints are copies of the point values, not the same objects, so
-    // match by the (unique) lowercased waypoint name
-    graph.adjacency = vec![Vec::new(); graph.nodes.len()];
-    for edge in way_net.edges() {
-        let start = graph
-            .name_to_index
-            .get(&edge.start_point().name().to_lowercase())
-            .copied();
-        let end = graph
-            .name_to_index
-            .get(&edge.end_point().name().to_lowercase())
-            .copied();
-        let (Some(start), Some(end)) = (start, end) else {
-            continue;
-        };
-        let length = (graph.nodes[start].position - graph.nodes[end].position).length();
-        graph.adjacency[start].push((end, length));
-        graph.adjacency[end].push((start, length));
-    }
-
-    data.waypoint_graph = graph;
-    let edges = data
-        .waypoint_graph
-        .adjacency
-        .iter()
-        .map(Vec::len)
-        .sum::<usize>()
-        / 2;
-    info!(
-        "Waypoint graph: {} nodes, {} edges",
-        data.waypoint_graph.nodes.len(),
-        edges
-    );
 }
 
 fn load_objects(
