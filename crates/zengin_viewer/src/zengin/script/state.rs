@@ -368,17 +368,11 @@ impl SymbolTable {
     }
 
     /// Content of the string table entry `raw` (symbol name or static string
-    /// literal), `None` when the id is out of range or the entry is empty.
-    /// TODO Empty strings should be a proper value.
-    /// Currently a lot of calls returns empty string which is probably a bug
-    /// somewhere in scripts implementation.
-    /// To prevent further "head model no found errors" return None here.
+    /// literal), `None` when the id is out of range. Empty strings are valid
+    /// values: scripts pass `""` on purpose (e.g. no head model for animals),
+    /// so callers decide whether an empty content means "absent".
     pub fn string_content(&self, raw: i32) -> Option<String> {
-        let string = self.strings.get(raw.max(0) as usize)?;
-        if string.is_empty() {
-            return None;
-        }
-        Some(string.clone())
+        self.strings.get(raw.max(0) as usize).cloned()
     }
 }
 
@@ -456,7 +450,8 @@ impl ImportCallState {
             .entry(npc)
             .or_default()
             .weapon_mode = Some(mode);
-        self.pending.weapon_mode_changes
+        self.pending
+            .weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
     }
 
@@ -513,10 +508,11 @@ impl ImportCallState {
         Some((npc, item))
     }
 
-    /// Fetches the string content of a raw string table entry, `None` when the
-    /// entry is empty (see `SymbolTable::string_content`). Resolved by a table
-    /// loaded at startup: import handlers must not call back into the guest
-    /// while a script function is running.
+    /// Fetches the string content of a raw string table entry, `None` only
+    /// when the id is out of range (empty strings are valid values, see
+    /// `SymbolTable::string_content`). Resolved by a table loaded at startup:
+    /// import handlers must not call back into the guest while a script
+    /// function is running.
     pub(crate) fn get_string_non_0(&self, raw: i32) -> Option<String> {
         self.symbol_table.string_content(raw)
     }

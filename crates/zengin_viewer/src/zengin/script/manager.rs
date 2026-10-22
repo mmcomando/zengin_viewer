@@ -473,9 +473,11 @@ impl ScriptManager {
             .unwrap()
     }
 
-    /// Fetches the content of the string table entry `raw`, `None` when it is
-    /// empty (see the todo below). Only works for static string literal ids,
-    /// resolved by a table loaded at startup instead of calling into the guest.
+    /// Fetches the content of the string table entry `raw`, `None` only when
+    /// the id is out of range. Empty strings are valid values, callers filter
+    /// them out when emptiness means "none". Only works for static string
+    /// literal ids, resolved by a table loaded at startup instead of calling
+    /// into the guest.
     fn get_string_non_0(&self, raw: i32) -> Option<String> {
         self.store.data().symbol_table.string_content(raw)
     }
@@ -1017,10 +1019,18 @@ impl ScriptManager {
                 continue;
             };
             // The armor id is an item instance symbol, its name must match
-            // the item instance names used by the `armor_visual` lookup
-            let armor_model = armor_model_id.and_then(|id| self.get_string_non_0(id.value()));
-            let hierarchy = hierarchy_id.and_then(|id| self.get_show_string(id));
-            let head_model = head_model_id.and_then(|id| self.get_show_string(id));
+            // the item instance names used by the `armor_visual` lookup.
+            // Empty strings are valid script values meaning "none" (e.g.
+            // animals pass "" as the head model), filter them out here.
+            let armor_model = armor_model_id
+                .and_then(|id| self.get_string_non_0(id.value()))
+                .filter(|armor_model| !armor_model.is_empty());
+            let hierarchy = hierarchy_id
+                .and_then(|id| self.get_show_string(id))
+                .filter(|hierarchy| !hierarchy.string().is_empty());
+            let head_model = head_model_id
+                .and_then(|id| self.get_show_string(id))
+                .filter(|head_model| !head_model.string().is_empty());
 
             // Sometimes there is model "Hum_Head_Babe." (dot at the end), engine or scripts bug?
             let head_model = head_model.map(|el| {
