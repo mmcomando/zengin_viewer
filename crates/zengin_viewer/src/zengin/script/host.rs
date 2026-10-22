@@ -39,7 +39,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         //     "NEW wld_insertnpc npc_index({npc_index}), waypoint_string_id({waypoint_string_id})"
         // );
 
-        self.pending_spawn_npcs.push(SpawnNpc {
+        self.pending.spawn_npcs.push(SpawnNpc {
             instance_id: npc_index,
             transform: None,
             location_name: Some(waypoint_string_id),
@@ -58,7 +58,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         //     "NEW wld_insertitem item_index({item_index}), item_name({item_name}), waypoint_string_id({waypoint_string_id}), waypoint_name({waypoint_name})"
         // );
 
-        self.pending_spawn_items.push(SpawnItem {
+        self.pending.spawn_items.push(SpawnItem {
             instance_id: item_index,
             transform: None,
             location_name: Some(waypoint_string_id),
@@ -104,7 +104,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .entry(npc_index)
             .or_default();
         entry.routine_entries.push(routine_entry);
-        self.pending_routine_changes.push(RoutineEntryChange {
+        self.pending.routine_changes.push(RoutineEntryChange {
             instance_id: npc_index,
         });
     }
@@ -161,7 +161,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             );
             return;
         };
-        self.pending_dialog_lines.push(DialogLine {
+        self.pending.dialog_lines.push(DialogLine {
             npc_a,
             npc_b,
             line_id,
@@ -205,8 +205,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .map(|description| description.into_string())
             .unwrap_or_default();
 
-        let order = self.pending_sub_dialog_choices.len() as i32;
-        self.pending_sub_dialog_choices.push(DialogRoot {
+        let order = self.pending.sub_dialog_choices.len() as i32;
+        self.pending.sub_dialog_choices.push(DialogRoot {
             info_instance_id: None,
             sequence_function_id: function_id,
             condition_function_id: None,
@@ -267,7 +267,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     }
 
     fn info_clearchoices(&mut self, _dialog_id: i32) {
-        self.pending_sub_dialog_choices.clear();
+        self.pending.sub_dialog_choices.clear();
     }
 
     fn mdl_setvisualbody(
@@ -415,7 +415,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .inventory
             .create(item, count);
         if self.player_instance == Some(to) {
-            self.pending_inventory_gains.push(InventoryGain {
+            self.pending.inventory_gains.push(InventoryGain {
                 npc: to,
                 item,
                 count,
@@ -436,7 +436,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .inventory
             .create(item, count);
         if self.player_instance == Some(npc) {
-            self.pending_inventory_gains
+            self.pending.inventory_gains
                 .push(InventoryGain { npc, item, count });
         }
     }
@@ -469,7 +469,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             WeaponKind::Melee => instance.equipped_melee = Some(item),
             WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = Some(item),
         }
-        self.pending_equip_item_changes
+        self.pending.equip_item_changes
             .push(EquipItemChange { instance_id: npc });
     }
     fake_impl!(npc_getinvitem(_0, _1) -> i32);
@@ -534,7 +534,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         } else {
             instance.hitpoints_max = Some(value);
         }
-        self.pending_health_changes
+        self.pending.health_changes
             .push(HealthChange { instance_id: npc });
     }
     fake_impl!(npc_getcomrades(_0) -> i32);
@@ -629,7 +629,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.pending_align_to_wp_changes
+        self.pending.align_to_wp_changes
             .push(AlignToWpChange { instance_id: npc });
     }
     fake_impl!(ai_setwalkmode(_0, _1));
@@ -796,7 +796,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .entry(npc)
             .or_default()
             .look_at = Some(target);
-        self.pending_look_at_changes
+        self.pending.look_at_changes
             .push(NpcLookAtChange { instance_id: npc });
     }
     fn ai_stoplookat(&mut self, npc: i32) {
@@ -807,7 +807,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return;
         };
         entry.look_at = None;
-        self.pending_look_at_changes
+        self.pending.look_at_changes
             .push(NpcLookAtChange { instance_id: npc });
     }
     fake_impl!(ai_pointat(_0, _1));
@@ -877,7 +877,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return;
         };
         if self.journal.create_topic(topic.clone(), section) {
-            self.pending_journal_changes.push(JournalChange {
+            self.pending.journal_changes.push(JournalChange {
                 topic,
                 action: JournalAction::Created { section },
             });
@@ -892,7 +892,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return;
         };
         if self.journal.add_entry(&topic, entry.clone()) {
-            self.pending_journal_changes.push(JournalChange {
+            self.pending.journal_changes.push(JournalChange {
                 topic,
                 action: JournalAction::Entry(entry),
             });
@@ -907,7 +907,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return;
         };
         if self.journal.set_topic_status(&topic, status) {
-            self.pending_journal_changes.push(JournalChange {
+            self.pending.journal_changes.push(JournalChange {
                 topic,
                 action: JournalAction::Status(status),
             });
@@ -1007,7 +1007,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(name) = self.get_string_non_0(routine_name.value()) else {
             return;
         };
-        self.pending_routine_exchanges.push(RoutineExchange {
+        self.pending.routine_exchanges.push(RoutineExchange {
             instance_id: npc,
             routine_name: name,
         });

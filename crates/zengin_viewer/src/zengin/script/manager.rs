@@ -17,8 +17,8 @@ use super::journal::JournalChange;
 use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, HealthChange,
     ImportCallState, InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState,
-    NpcLookAtChange, OverlayChange, RoutineEntryChange, RoutineExchange, SpawnItem, SpawnNpc,
-    SymbolTable, WeaponKind, WeaponMode, WeaponModeChange,
+    NpcLookAtChange, OverlayChange, PendingChanges, RoutineEntryChange, RoutineExchange, SpawnItem,
+    SpawnNpc, SymbolTable, WeaponKind, WeaponMode, WeaponModeChange,
 };
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
@@ -95,7 +95,7 @@ impl ScriptManager {
     /// Drains the `Npc_ExchangeRoutine` requests the script produced, for the
     /// ECS bridge.
     pub fn drain_routine_exchanges(&mut self) -> Vec<RoutineExchange> {
-        std::mem::take(&mut self.store.data_mut().pending_routine_exchanges)
+        std::mem::take(&mut self.pending_changes().routine_exchanges)
     }
 
     /// Clears the npc's routine entries and runs the `Rtn_{name}_{npcId}`
@@ -124,54 +124,54 @@ impl ScriptManager {
 
     /// Drains the routine entry changes the script produced, for the ECS bridge.
     pub fn drain_routine_changes(&mut self) -> Vec<RoutineEntryChange> {
-        std::mem::take(&mut self.store.data_mut().pending_routine_changes)
+        std::mem::take(&mut self.pending_changes().routine_changes)
     }
 
     /// Drains the look-at target changes the script produced, for the ECS bridge.
     pub fn drain_look_at_changes(&mut self) -> Vec<NpcLookAtChange> {
-        std::mem::take(&mut self.store.data_mut().pending_look_at_changes)
+        std::mem::take(&mut self.pending_changes().look_at_changes)
     }
 
     /// Drains the weapon mode changes the script produced, for the ECS bridge.
     pub fn drain_weapon_mode_changes(&mut self) -> Vec<WeaponModeChange> {
-        std::mem::take(&mut self.store.data_mut().pending_weapon_mode_changes)
+        std::mem::take(&mut self.pending_changes().weapon_mode_changes)
     }
 
     /// Drains the equipped item changes the script produced, for the ECS bridge.
     pub fn drain_equip_item_changes(&mut self) -> Vec<EquipItemChange> {
-        std::mem::take(&mut self.store.data_mut().pending_equip_item_changes)
+        std::mem::take(&mut self.pending_changes().equip_item_changes)
     }
 
     /// Drains the hitpoints changes the host produced, for the ECS bridge.
     #[allow(dead_code)] // used by the damage systems (next step)
     pub fn drain_health_changes(&mut self) -> Vec<HealthChange> {
-        std::mem::take(&mut self.store.data_mut().pending_health_changes)
+        std::mem::take(&mut self.pending_changes().health_changes)
     }
 
     /// Drains the `AI_AlignToWP` requests the script produced, for the ECS bridge.
     pub fn drain_align_to_wp_changes(&mut self) -> Vec<AlignToWpChange> {
-        std::mem::take(&mut self.store.data_mut().pending_align_to_wp_changes)
+        std::mem::take(&mut self.pending_changes().align_to_wp_changes)
     }
 
     /// Drains the overlay change requests the script produced, for the ECS bridge.
     pub fn drain_overlay_changes(&mut self) -> Vec<OverlayChange> {
-        std::mem::take(&mut self.store.data_mut().pending_overlay_changes)
+        std::mem::take(&mut self.pending_changes().overlay_changes)
     }
 
     /// Drains the `AI_GoToWP` requests the script produced, for the ECS bridge.
     pub fn drain_goto_changes(&mut self) -> Vec<GotoChange> {
-        std::mem::take(&mut self.store.data_mut().pending_goto_changes)
+        std::mem::take(&mut self.pending_changes().goto_changes)
     }
 
     /// Drains the item spawn requests queued at world load, for the ECS bridge.
     pub fn drain_spawn_items(&mut self) -> Vec<SpawnItem> {
-        std::mem::take(&mut self.store.data_mut().pending_spawn_items)
+        std::mem::take(&mut self.pending_changes().spawn_items)
     }
 
     /// Drains the npc spawn requests queued by `wld_insertnpc`, for the ECS
     /// bridge.
     pub fn drain_spawn_npcs(&mut self) -> Vec<SpawnNpc> {
-        std::mem::take(&mut self.store.data_mut().pending_spawn_npcs)
+        std::mem::take(&mut self.pending_changes().spawn_npcs)
     }
 
     /// Loaded state and the pending spawn item buffer, for the world load which
@@ -181,32 +181,37 @@ impl ScriptManager {
         &data.loaded_state
     }
 
+    /// Queued script changes and requests, drained to the ECS by the script
+    /// bridge.
+    pub fn pending_changes(&mut self) -> &mut PendingChanges {
+        &mut self.store.data_mut().pending
+    }
+
     pub fn clear_dialog_outputs(&mut self) {
-        let data = self.store.data_mut();
-        data.pending_dialog_lines.clear();
-        data.pending_sub_dialog_choices.clear();
+        self.pending_changes().dialog_lines.clear();
+        self.pending_changes().sub_dialog_choices.clear();
     }
 
     /// Drains the dialog lines output by the script, for the ECS bridge.
     pub fn drain_dialog_lines(&mut self) -> Vec<DialogLine> {
-        std::mem::take(&mut self.store.data_mut().pending_dialog_lines)
+        std::mem::take(&mut self.pending_changes().dialog_lines)
     }
 
     /// Drains the sub dialog choices added by the script, for the ECS bridge.
     pub fn drain_sub_dialog_choices(&mut self) -> Vec<DialogRoot> {
-        std::mem::take(&mut self.store.data_mut().pending_sub_dialog_choices)
+        std::mem::take(&mut self.pending_changes().sub_dialog_choices)
     }
 
     /// Drains the player inventory gains the script produced, for the ECS
     /// bridge game log.
     pub fn drain_inventory_gains(&mut self) -> Vec<InventoryGain> {
-        std::mem::take(&mut self.store.data_mut().pending_inventory_gains)
+        std::mem::take(&mut self.pending_changes().inventory_gains)
     }
 
     /// Drains the journal changes the script produced, for the ECS bridge game
     /// log.
     pub fn drain_journal_changes(&mut self) -> Vec<JournalChange> {
-        std::mem::take(&mut self.store.data_mut().pending_journal_changes)
+        std::mem::take(&mut self.pending_changes().journal_changes)
     }
 
     /// Records the instance id of the player (`PC_Hero`), used by
@@ -325,9 +330,8 @@ impl ScriptManager {
             WeaponKind::Melee => instance.equipped_melee = Some(item),
             WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = Some(item),
         }
-        self.store
-            .data_mut()
-            .pending_equip_item_changes
+        self.pending_changes()
+            .equip_item_changes
             .push(EquipItemChange { instance_id: npc });
     }
 
@@ -356,9 +360,8 @@ impl ScriptManager {
             return;
         }
         self.npc_instances_mut_or_default(npc).weapon_mode = Some(mode);
-        self.store
-            .data_mut()
-            .pending_weapon_mode_changes
+        self.pending_changes()
+            .weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
     }
 
@@ -368,9 +371,8 @@ impl ScriptManager {
     #[allow(dead_code)] // used by the draw/sheathe weapon inputs
     pub fn sheathe_weapon(&mut self, npc: InstanceId) {
         self.npc_instances_mut_or_default(npc).weapon_mode = Some(WeaponMode::Fists);
-        self.store
-            .data_mut()
-            .pending_weapon_mode_changes
+        self.pending_changes()
+            .weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
     }
 
@@ -389,14 +391,12 @@ impl ScriptManager {
         };
         if drawn_kind_matches {
             instance.weapon_mode = Some(WeaponMode::Fists);
-            self.store
-                .data_mut()
-                .pending_weapon_mode_changes
+            self.pending_changes()
+                .weapon_mode_changes
                 .push(WeaponModeChange { instance_id: npc });
         }
-        self.store
-            .data_mut()
-            .pending_equip_item_changes
+        self.pending_changes()
+            .equip_item_changes
             .push(EquipItemChange { instance_id: npc });
     }
 
@@ -409,13 +409,11 @@ impl ScriptManager {
         instance.equipped_melee = None;
         instance.equipped_ranged = None;
         instance.weapon_mode = Some(WeaponMode::Fists);
-        self.store
-            .data_mut()
-            .pending_equip_item_changes
+        self.pending_changes()
+            .equip_item_changes
             .push(EquipItemChange { instance_id: npc });
-        self.store
-            .data_mut()
-            .pending_weapon_mode_changes
+        self.pending_changes()
+            .weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
     }
 
@@ -565,9 +563,8 @@ impl ScriptManager {
             let instance = self.npc_instances_mut_or_default(npc);
             instance.hitpoints = Some(info.hitpoints);
             instance.hitpoints_max = Some(info.hitpoints_max);
-            self.store
-                .data_mut()
-                .pending_health_changes
+            self.pending_changes()
+                .health_changes
                 .push(HealthChange { instance_id: npc });
         }
         let instance = self.npc_instances().get(&npc)?;
@@ -585,9 +582,8 @@ impl ScriptManager {
         let current = instance.hitpoints.unwrap_or_default();
         let changed = (current + delta).clamp(0, max);
         instance.hitpoints = Some(changed);
-        self.store
-            .data_mut()
-            .pending_health_changes
+        self.pending_changes()
+            .health_changes
             .push(HealthChange { instance_id: npc });
         Some(changed)
     }

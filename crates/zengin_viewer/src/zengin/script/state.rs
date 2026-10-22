@@ -391,58 +391,15 @@ pub struct ImportCallState {
     pub close_dialog: bool,
     /// Kind of every symbol, used to verify typed symbol ids
     pub symbol_table: SymbolTable,
-    // TODO Move all pending_ to separate struct to cleanly distinguish them from other data, add common comment, don't have a similar comment on each entry
-    /// Routine entry changes produced by the script, drained to the ECS by the
-    /// script bridge.
-    pub pending_routine_changes: Vec<RoutineEntryChange>,
-    /// Look-at target changes produced by the script, drained to the ECS by the
-    /// script bridge.
-    pub pending_look_at_changes: Vec<NpcLookAtChange>,
-    /// Weapon mode changes produced by the script, drained to the ECS by the
-    /// script bridge.
-    pub pending_weapon_mode_changes: Vec<WeaponModeChange>,
-    /// Equipped item changes produced by the script, drained to the ECS by the
-    /// script bridge.
-    pub pending_equip_item_changes: Vec<EquipItemChange>,
-    /// Hitpoints changes produced by the host, drained to the ECS by the
-    /// script bridge.
-    pub pending_health_changes: Vec<HealthChange>,
-    /// `AI_AlignToWP` requests produced by the script, drained to the ECS by the
-    /// script bridge.
-    pub pending_align_to_wp_changes: Vec<AlignToWpChange>,
-    /// Overlay change requests produced by the script, drained to the ECS by the
-    /// script bridge.
-    pub pending_overlay_changes: Vec<OverlayChange>,
-    /// `AI_GoToWP` requests produced by the script, drained to the ECS by the
-    /// script bridge.
-    pub pending_goto_changes: Vec<GotoChange>,
-    /// `Npc_ExchangeRoutine` requests produced by the script, drained to the
-    /// ECS by the script bridge.
-    pub pending_routine_exchanges: Vec<RoutineExchange>,
-    /// Item spawn requests queued by the world load, drained to the ECS by the
-    /// script bridge.
-    pub pending_spawn_items: Vec<SpawnItem>,
-    /// Npc spawn requests queued by `wld_insertnpc`, drained to the ECS by the
-    /// script bridge.
-    pub pending_spawn_npcs: Vec<SpawnNpc>,
-    /// Dialog lines output by the script (`AI_Output`), drained to the ECS by
-    /// the script bridge.
-    pub pending_dialog_lines: Vec<DialogLine>,
-    /// Items the player's inventory gained through the script
-    /// (`CreateInvItem(s)`, `Npc_GiveItem`), drained to the ECS by the script
-    /// bridge for the game log.
-    pub pending_inventory_gains: Vec<InventoryGain>,
+    /// Changes and requests produced by the script and its host functions,
+    /// drained to the ECS by the script bridge, which turns them into messages
+    /// for the `apply_*` systems.
+    pub pending: PendingChanges,
     /// Instance id of the player (`PC_Hero`), set by the world spawn. Compared
     /// against by `Npc_IsPlayer` and the inventory-gain log.
     pub player_instance: Option<InstanceId>,
-    /// Sub dialog choices added by the script (`Info_AddChoice`), drained to
-    /// the ECS by the script bridge.
-    pub pending_sub_dialog_choices: Vec<DialogRoot>,
     /// Journal (quest log) topics, filled by the `Log_*` host functions.
     pub journal: JournalManager,
-    /// Journal changes produced by the script, drained to the ECS by the
-    /// script bridge for the game log.
-    pub pending_journal_changes: Vec<JournalChange>,
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,
     /// World position of every waypoint/freepoint by lowercased name, filled at
@@ -450,6 +407,42 @@ pub struct ImportCallState {
     pub way_points: HashMap<String, Vec3>,
     /// Generator backing `Hlp_Random`.
     pub rng: ScriptRandom,
+}
+
+/// Changes and requests queued by the script vm, see [`ImportCallState::pending`].
+#[derive(Default)]
+pub struct PendingChanges {
+    /// Routine entry changes produced by the script (`TA_Min` and friends).
+    pub routine_changes: Vec<RoutineEntryChange>,
+    /// Look-at target changes produced by the script (`AI_LookAt*`).
+    pub look_at_changes: Vec<NpcLookAtChange>,
+    /// Weapon mode changes produced by the script (`Npc_SetToFightMode`).
+    pub weapon_mode_changes: Vec<WeaponModeChange>,
+    /// Equipped item changes produced by the script (`EquipItem`).
+    pub equip_item_changes: Vec<EquipItemChange>,
+    /// Hitpoints changes produced by the host (`Npc_ChangeAttribute`).
+    pub health_changes: Vec<HealthChange>,
+    /// `AI_AlignToWP` requests produced by the script.
+    pub align_to_wp_changes: Vec<AlignToWpChange>,
+    /// Overlay change requests produced by the script.
+    pub overlay_changes: Vec<OverlayChange>,
+    /// `AI_GoToWP` requests produced by the script.
+    pub goto_changes: Vec<GotoChange>,
+    /// `Npc_ExchangeRoutine` requests produced by the script.
+    pub routine_exchanges: Vec<RoutineExchange>,
+    /// Item spawn requests queued by the world load and `wld_insertitem`.
+    pub spawn_items: Vec<SpawnItem>,
+    /// Npc spawn requests queued by `wld_insertnpc`.
+    pub spawn_npcs: Vec<SpawnNpc>,
+    /// Dialog lines output by the script (`AI_Output`).
+    pub dialog_lines: Vec<DialogLine>,
+    /// Items the player's inventory gained through the script
+    /// (`CreateInvItem(s)`, `Npc_GiveItem`).
+    pub inventory_gains: Vec<InventoryGain>,
+    /// Sub dialog choices added by the script (`Info_AddChoice`).
+    pub sub_dialog_choices: Vec<DialogRoot>,
+    /// Journal changes produced by the script (`Log_*` host functions).
+    pub journal_changes: Vec<JournalChange>,
 }
 
 impl ImportCallState {
@@ -463,7 +456,7 @@ impl ImportCallState {
             .entry(npc)
             .or_default()
             .weapon_mode = Some(mode);
-        self.pending_weapon_mode_changes
+        self.pending.weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
     }
 
@@ -472,7 +465,7 @@ impl ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.pending_overlay_changes.push(OverlayChange {
+        self.pending.overlay_changes.push(OverlayChange {
             instance_id: npc,
             request,
         });
@@ -483,7 +476,7 @@ impl ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.pending_goto_changes.push(GotoChange {
+        self.pending.goto_changes.push(GotoChange {
             instance_id: npc,
             waypoint,
         });
