@@ -69,24 +69,6 @@ struct InventoryEntry {
     sort_group: u8,
 }
 
-// TODO Now we have real item name so this fallback might be removed, if there is no real name add warn log and just display id
-/// Display name of an item instance symbol: strips the script item class
-/// prefix (`itar_`/`itri_`/`itam_`/`itmi_`/...) and `addon` markers, so
-/// `itri_addon_health_01` becomes `health_01`.
-pub fn display_item_name(symbol_name: &str) -> String {
-    let lowered = symbol_name.to_lowercase();
-    let stripped =
-        if lowered.len() >= 5 && lowered.starts_with("it") && lowered.as_bytes()[4] == b'_' {
-            &lowered[5..]
-        } else {
-            &lowered[..]
-        };
-    stripped
-        .replace("addon_", "")
-        .replace("_addon", "")
-        .replace("addon", "")
-}
-
 /// One window's state: open panels snapshot their items on open.
 struct InventoryWindowState {
     /// Header title, e.g. a category name or the trader name.
@@ -499,9 +481,7 @@ fn toggle_inventory(
             } else {
                 2
             };
-            let name = script
-                .item_display_name(instance_id)
-                .unwrap_or_else(|| display_item_name(&symbol_name));
+            let name = script.item_log_name(instance_id);
             let stats = script.item_display_data(instance_id);
             InventoryEntry {
                 instance_id,

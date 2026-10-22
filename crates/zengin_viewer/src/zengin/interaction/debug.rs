@@ -92,10 +92,7 @@ fn grant_test_item(
 
 /// Display name of an item for the game log.
 fn item_display_name(script: &mut ScriptManager, item: InstanceId) -> String {
-    script
-        .get_name_by_id(item.value())
-        .map(|symbol_name| crate::gui::display_item_name(&symbol_name))
-        .unwrap_or_else(|| item.value().to_string())
+    script.item_log_name(item)
 }
 
 /// Grants the debug equipment to the player once at the start of a game and

@@ -522,15 +522,17 @@ impl ScriptManager {
         self.string_by_id(name)
     }
 
-    /// Name of an item for the game log: localized `C_ITEM.name`, falling back
-    /// to the cleaned-up script symbol name and finally the raw instance id.
+    /// Name of an item for the game log: localized `C_ITEM.name`, warn and the
+    /// raw instance id when the item has no name data.
     pub fn item_log_name(&mut self, item: InstanceId) -> String {
         if let Some(name) = self.item_display_name(item) {
             return name;
         }
-        self.get_name_by_id(item.value())
-            .map(|symbol| crate::gui::display_item_name(&symbol))
-            .unwrap_or_else(|| item.value().to_string())
+        warn!(
+            "Item({}) has no C_ITEM.name, displaying the raw instance id",
+            item.value()
+        );
+        item.value().to_string()
     }
 
     /// Raw npc-info record of an npc instance, read from the instance data.
