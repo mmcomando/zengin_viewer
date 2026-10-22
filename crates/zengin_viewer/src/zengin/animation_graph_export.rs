@@ -10,7 +10,7 @@
 //!
 //! The result is a simple graph export — every animation with the names of
 //! the animations that can follow it — written to a RON file. The runtime
-//! [`AnimationGraph`](crate::zengin::animation_graph_nodes::AnimationGraph)
+//! [`AnimationGraph`](crate::graphics::animation::AnimationGraph)
 //! loads that file; this module is only the generator, run through the
 //! ignored test below.
 

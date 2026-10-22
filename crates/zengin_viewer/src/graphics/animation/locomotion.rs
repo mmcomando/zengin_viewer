@@ -7,10 +7,10 @@ use bevy::{
     prelude::*,
 };
 
+use super::animation_triggers::{AnimationTriggers, animation_name_from_path, crossed_triggers};
 use crate::gameplay::character::{ACCELERATION_MULTIPLIER, AcceleratingRootMotion};
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::zengin::{AnimationTriggers, animation_name_from_path, crossed_triggers};
 
 use super::components::{AnimationEnds, AnimationState, AnimationTrigger, BoneAnimationData};
 use super::controller::AnimationController;

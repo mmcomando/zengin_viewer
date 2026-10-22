@@ -1,18 +1,18 @@
-// TODO Split to submodule "interaction"
 //! Ranged combat: arrow projectiles of the player bow attack.
 //!
 //!  This module spawns the flying arrows, resolves their hits and cleans them up.
 
 use bevy::prelude::*;
 
+use super::selection::{NpcHitCollider, Selection};
+use super::{NpcDamageData, NpcDied, damage_npc};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::AnimationController;
+use crate::graphics::NpcHitReaction;
 use crate::gui::GameLog;
-use crate::zengin::interaction::{NpcDamageData, NpcDied, NpcHitReaction, damage_npc};
 use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::selection::{NpcHitCollider, Selection};
 use crate::zengin::world::item_model_path;
 use crate::zengin::zengin_resources::{ARROW, MaterialHandles, NPC_BODY, ZenGinModelComponent};
 use crate::zengin::{GameNpc, ZenginVfs};

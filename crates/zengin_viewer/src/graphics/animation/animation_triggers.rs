@@ -1,4 +1,3 @@
-// TODO Move to animation submodule
 //! Animation triggers read from the human model script, plus preloading of
 //! the human animation assets.
 //!
@@ -15,7 +14,7 @@ use bevy::prelude::*;
 use zen_kit_rs::model_scripts::ModelScript;
 use zen_kit_rs::stream::Read;
 
-use crate::zengin::loaders::vdf_reader::{ZenginVfs, get_zengin_asset_bytes};
+use crate::zengin::{ZenginVfs, get_zengin_asset_bytes};
 
 pub struct AnimationTriggersPlugin;
 

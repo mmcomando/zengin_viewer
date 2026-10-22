@@ -1,4 +1,4 @@
-use crate::zengin::{common::*, visual::mesh_mrs::meshes_from_zengin_mrs_mesh};
+use crate::zengin::visual::{mesh_mrs::meshes_from_zengin_mrs_mesh, model::*};
 
 // TODO support morph meshes
 pub fn meshes_from_zengin_morph_mesh(

@@ -1,7 +1,9 @@
 // TODO mod.rs files should be small and control what is inside bigger modules
 // TODO split this file
+mod sounds;
 mod state;
 mod ui;
+pub use sounds::SpeechSounds;
 
 use crate::audio::PlaySound;
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
@@ -10,14 +12,13 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::input::{GameplayAction, GameplayInputMarker, InputMode};
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_dialog_sound_path;
+use crate::zengin::interaction::selection::{Selection, SelectionKind};
 use crate::zengin::npc_routines::NpcWeaponMode;
+use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::{DialogTexts, ScriptResource};
 use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::{DialogClose, DialogLine, DialogRoot, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::script_bridge::ScriptChangesApplied;
-use crate::zengin::selection::{Selection, SelectionKind};
-use crate::zengin::sounds::SpeechSounds;
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;

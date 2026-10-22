@@ -6,13 +6,11 @@ use bevy::{
     reflect::TypePath,
 };
 
-use crate::zengin::{
-    common::ZenGinModel,
-    visual::{
-        mesh_model::{meshes_from_zengin_model, meshes_from_zengin_model_mesh},
-        mesh_morph::meshes_from_zengin_morph_mesh,
-        mesh_mrs::meshes_from_zengin_mrs_mesh,
-    },
+use crate::zengin::visual::{
+    mesh_model::{meshes_from_zengin_model, meshes_from_zengin_model_mesh},
+    mesh_morph::meshes_from_zengin_morph_mesh,
+    mesh_mrs::meshes_from_zengin_mrs_mesh,
+    model::ZenGinModel,
 };
 
 #[derive(Default, TypePath)]

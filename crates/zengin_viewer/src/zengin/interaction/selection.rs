@@ -1,4 +1,3 @@
-// TODO move this to interactions submodule
 //! Picks the world object (npc or item) the player is most likely aiming at and
 //! draws its name above it, as a 3d text label anchored to the object.
 

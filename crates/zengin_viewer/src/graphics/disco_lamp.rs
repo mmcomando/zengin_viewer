@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::graphics::render_options::RenderOptions;
+use crate::graphics::RenderOptions;
 
 use bevy::{color::palettes::tailwind, prelude::*};
 

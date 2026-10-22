@@ -15,7 +15,7 @@ use crate::{
     warn_unimplemented,
     zengin::{
         common::*,
-        conversions::*,
+        loaders::{ZenginMat3ToGlam, ZenginVec3ToGlam},
         script::state::SpawnItem,
         script::symbol_id::InstanceId,
         visual::mesh::meshes_from_zengin_mesh,

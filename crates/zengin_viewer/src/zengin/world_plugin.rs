@@ -9,7 +9,6 @@ use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::NpcAnimations;
 use crate::gui_debug::{NpcVisibility, StaticMesh, WorldMesh};
-use crate::zengin::common::ZenGinModel;
 use crate::zengin::common::get_full_texture_path;
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
@@ -17,6 +16,7 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::{SpawnItem, SpawnNpc};
 use crate::zengin::script::string_value::StringCanon;
+use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::waypoint_graph::Spots;
 use crate::zengin::world::{
     item_model_path, load_zengin_world_data, mesh_model_path, normalize_mesh_name,

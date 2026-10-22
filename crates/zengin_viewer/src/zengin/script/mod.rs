@@ -1,4 +1,5 @@
 pub mod bindings;
+pub mod bridge;
 pub mod component;
 pub mod host;
 pub mod inventory;
@@ -7,6 +8,9 @@ pub mod manager;
 pub mod state;
 pub mod string_value;
 pub mod symbol_id;
+
+#[cfg(test)]
+mod debug_zengin_scripts;
 
 use bevy::prelude::*;
 

@@ -7,6 +7,7 @@ use std::{
 use bevy::prelude::*;
 use zen_kit_rs::vfs::VfsNode;
 
+use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::waypoint_graph::WaypointGraph;
 
 /// zenkit cords have mirrored X compared to bevy
@@ -153,50 +154,10 @@ pub fn print_nodes(node: &VfsNode, level: u8) {
     }
 }
 
-// TODO move to visual/* module
-#[derive(Debug, Default)]
-pub struct MeshData {
-    pub indices: Vec<u32>,
-    pub vertices: Vec<Vec3>,
-    pub uvs: Vec<Vec2>,
-    pub normals: Vec<Vec3>,
-    pub colors: Vec<Vec4>,
-
-    pub weights: Vec<[f32; 4]>,
-    pub bone_indices: Vec<[u16; 4]>,
-
-    pub material: StandardMaterial,
-    pub collides: bool,
-}
-
-// TODO move to visual/* module
-#[derive(Debug, Clone)]
-pub struct ZenGinSubMesh {
-    pub texture: String,
-    pub material: StandardMaterial,
-    pub mesh: Mesh,
-    pub transform: Transform,
-    pub name: String,
-    pub collides: bool,
-    pub is_skinned: bool,
-}
-
 #[derive(Debug)]
 pub struct LightInstance {
     pub pos: Vec3,
     pub rot: Quat,
-}
-
-// TODO move to visual/* module
-#[derive(Debug, Default, Clone, Asset, TypePath)]
-pub struct ZenGinModel {
-    pub sub_meshes: Vec<ZenGinSubMesh>,
-    pub final_tr: Vec<Transform>,
-    pub node_names: Vec<String>,
-    pub nodes: Vec<Transform>,
-    pub inverse_bindposes: Vec<Mat4>,
-    pub parents: Vec<i16>,
-    pub animation_bone_index: Vec<usize>,
 }
 
 #[derive(Debug, Default)]

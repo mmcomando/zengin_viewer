@@ -5,13 +5,13 @@ use std::time::Duration;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
+use super::animation_triggers::{AnimationTriggerDef, crossed_triggers};
 use super::components::{AnimationEnds, AnimationState, AnimationTrigger, FrameState};
 use super::controller::AnimationController;
 use super::data::{AnimationData, AnimationSample};
 use super::locomotion::{ATOMIC_SCALE, TIME_SCALE, advance_animation, update_animations};
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::zengin::{AnimationTriggerDef, crossed_triggers};
 
 #[test]
 fn plays_half_frame_at_natural_pace() {

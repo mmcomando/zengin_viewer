@@ -1,4 +1,3 @@
-use crate::zengin::conversions::*;
 use std::collections::HashMap;
 
 use bevy::{
@@ -7,7 +6,11 @@ use bevy::{
     prelude::*,
 };
 
-use crate::zengin::{common::*, visual::material::get_standard_material};
+use crate::zengin::{
+    common::*,
+    loaders::{ZenginVec2ToGlam, ZenginVec3ToGlam},
+    visual::{material::get_standard_material, model::*},
+};
 
 pub fn meshes_from_zengin_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
     let mut meshes: HashMap<String, MeshData> = HashMap::new();

@@ -1,4 +1,3 @@
-// TODO Move to animation submodule
 //! Animation transition graph loaded from the exported RON file.
 //!
 //! The graph is fully data driven: nodes are animation names as in the anims

@@ -1,4 +1,4 @@
-// TODO move to loaders submodule
+// Warn macros used by the loaders and the rest of the crate.
 #[macro_export]
 macro_rules! warn_once {
     ($($arg:tt)*) => {{

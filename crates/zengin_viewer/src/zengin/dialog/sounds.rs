@@ -38,7 +38,7 @@ impl SpeechSounds {
     fn read_duration(&self, asset_path: &str) -> Option<f32> {
         let relative_path = asset_path.strip_prefix("zengin://")?;
         let vfs = self.vfs.lock().unwrap();
-        let bytes = super::loaders::vdf_reader::get_zengin_asset_bytes(&vfs, relative_path)?;
+        let bytes = crate::zengin::get_zengin_asset_bytes(&vfs, relative_path)?;
         wav_duration(&bytes)
     }
 }

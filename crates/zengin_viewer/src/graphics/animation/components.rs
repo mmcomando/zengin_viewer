@@ -8,6 +8,14 @@ use super::data::AnimationData;
 #[derive(Component)]
 pub struct AnimatedJoint;
 
+/// Animation config of an npc
+#[derive(Debug, Default, Component)]
+pub struct NpcAnimations {
+    /// Animation the entity loops; `None` falls back to the stand animation
+    /// of the model scheme
+    pub animation: Option<String>,
+}
+
 /// Data a joint needs to sample the currently played animation.
 /// Rewritten whenever the skeleton switches to another animation.
 #[derive(Component, Debug)]

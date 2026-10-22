@@ -10,9 +10,10 @@ use crate::graphics::{
 use crate::gui_debug::NpcVisibility;
 use crate::warn_once;
 use crate::zengin::GameNpc;
-use crate::zengin::common::{ZenGinModel, get_animation_path};
+use crate::zengin::common::get_animation_path;
+use crate::zengin::interaction::selection::spawn_npc_selection_collider;
 use crate::zengin::npc_routines::NpcWeaponSlots;
-use crate::zengin::selection::spawn_npc_selection_collider;
+use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::zengin_resources::{
     MaterialHandles, ZenGinModelComponent, despawn_visual_when_far_resource,
 };
