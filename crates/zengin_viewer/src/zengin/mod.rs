@@ -12,7 +12,6 @@ mod script;
 mod statistics;
 mod visual;
 mod waypoint_graph;
-mod world;
 mod world_plugin;
 mod zengin_resources;
 

@@ -7,11 +7,11 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::AnimationController;
 use crate::zengin::ZenginVfs;
 use crate::zengin::common::{choose_animation_scheme, get_animation_path};
+use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{WeaponKind, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::world::item_model_path;
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 
 /// Weapon mode of the npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI),

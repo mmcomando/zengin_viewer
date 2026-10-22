@@ -7,3 +7,4 @@ mod macros;
 pub mod model;
 pub mod texture;
 pub mod vdf_reader;
+pub mod vfs;

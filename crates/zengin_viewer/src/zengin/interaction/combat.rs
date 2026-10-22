@@ -9,12 +9,12 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::AnimationController;
 use crate::graphics::{NpcHitReaction, play_hit_reaction};
 use crate::gui::GameLog;
+use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::npc_routines::{AnimationFiles, NpcEquippedWeapon, NpcOverlay, NpcWeaponMode};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::world::item_model_path;
 use crate::zengin::zengin_resources::{MaterialHandles, ZenGinModelComponent};
 use crate::zengin::{GameItem, GameNpc, ZenginVfs};
 
