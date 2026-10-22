@@ -14,10 +14,6 @@
 //! loads that file; this module is only the generator, run through the
 //! ignored test below.
 
-// TODO is this needed this should be gates for with #[cfg(test)]
-// Only the ignored generator test uses this module in test builds.
-#![allow(dead_code)]
-
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::File;
 
