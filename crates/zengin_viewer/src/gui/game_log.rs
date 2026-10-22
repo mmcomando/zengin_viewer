@@ -84,7 +84,7 @@ fn spawn_game_log(mut commands: Commands) {
 }
 
 // TODO Maybe it is possible to run this only on change of GameLog? and time elapse? not in every frame?
-// TODO Analyze options.
+// TODO Revisit when Resources will be Components in bevy > 0.20.
 fn update_game_log(
     time: Res<Time>,
     mut log: ResMut<GameLog>,
