@@ -4,7 +4,7 @@ use leafwing_input_manager::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::gui::inventory::InventoryUiState;
+use crate::gui::InventoryUiState;
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
 use crate::zengin::dialog::DialogUiState;

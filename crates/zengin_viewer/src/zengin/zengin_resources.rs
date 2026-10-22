@@ -5,7 +5,7 @@ use bevy::asset::AssetId;
 
 use crate::gameplay::character::QUERY_ONLY_LAYER;
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
-use crate::graphics::animation::AnimationData;
+use crate::graphics::AnimationData;
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::loaders::animation::ZenGinAnimationLoader;
 use crate::zengin::loaders::model::{ZenGinModelLoader, ZenGinModelLoaderSettings};

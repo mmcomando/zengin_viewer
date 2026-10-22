@@ -529,7 +529,7 @@ impl ScriptManager {
             return name;
         }
         self.get_name_by_id(item.value())
-            .map(|symbol| crate::gui::inventory::display_item_name(&symbol))
+            .map(|symbol| crate::gui::display_item_name(&symbol))
             .unwrap_or_else(|| item.value().to_string())
     }
 

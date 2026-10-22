@@ -23,22 +23,16 @@ mod xr;
 mod zengin;
 
 use crate::audio::sound_manager::GameAudioPlugin;
-use crate::gameplay::camera::{CameraPlugin, get_overlay_plugin};
+use crate::gameplay::camera::CameraPlugin;
 use crate::gameplay::character::CharacterControllerPlugin;
 use crate::gameplay::distance::DistancePlugin;
 use crate::gameplay::game_time::GameTimePlugin;
-use crate::graphics::animation::SkeletalAnimations;
-use crate::graphics::disco_lamp::DiscoLamp;
-use crate::graphics::lighting::LightingPlugin;
-use crate::graphics::render_options::RenderOptionsPlugin;
-use crate::graphics::skybox::SkyBoxPlugin;
-use crate::gui::game_log::GameLogPlugin;
-use crate::gui_debug::egui::GameDebugUI;
-use crate::gui_debug::gizmos::GizmosPlugin;
-use crate::gui_debug::statistics::StatisticsPlugin;
-use crate::gui_debug::toggle_visibility::ToggleVisibility;
-use crate::input::actions::ActionsPlugin;
-use crate::input::options::{Options, RegisterShaderAsset};
+use crate::graphics::{
+    DiscoLamp, LightingPlugin, RenderOptionsPlugin, SkeletalAnimations, SkyBoxPlugin,
+};
+use crate::gui::GameLogPlugin;
+use crate::gui_debug::GuiDebugPlugin;
+use crate::input::{ActionsPlugin, Options, RegisterShaderAsset};
 use crate::xr::{XrPlugin, is_xr_enabled};
 use crate::zengin::SpeechSounds;
 use crate::zengin::ZenginPlugin;
@@ -51,7 +45,7 @@ use bevy::window::PresentMode;
 fn main() {
     let mut app = App::new();
     // Command line options, scenario handling has to be registered first.
-    app.add_plugins(crate::input::options::OptionsPlugin);
+    app.add_plugins(crate::input::OptionsPlugin);
     // This app custom assert source, has to be registered before default plugins.
     let vfs = create_zengin_vfs();
     app.insert_resource(ZenginVfs(vfs.clone()));
@@ -65,7 +59,7 @@ fn main() {
         ..default()
     };
     let replay_enabled = app.world().resource::<Options>().replay_actions().is_some();
-    crate::input::replay::apply_scenario_window_settings(&mut primary_window, replay_enabled);
+    crate::input::apply_scenario_window_settings(&mut primary_window, replay_enabled);
     if replay_enabled {
         // TODO this can't be moved into OptionsPlugin plugin?
         // Repeatable replays: fixed game time, no progression. GameTimePlugin
@@ -113,13 +107,13 @@ fn main() {
     }
     if let Some(frames) = app.world().resource::<Options>().frames() {
         // TODO add this in options plugin
-        app.add_plugins(crate::input::options::FrameLimitPlugin(frames));
+        app.add_plugins(crate::input::FrameLimitPlugin(frames));
     }
     // Recording or replaying runs with a fixed frame delta, so frame numbers
     // map to the same simulated time and physics steps in every run.
     if app.world().resource::<Options>().deterministic_time() {
         // TODO move this to options plugin
-        use crate::input::options::SCENARIO_FRAME_DELTA;
+        use crate::input::SCENARIO_FRAME_DELTA;
         app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
             SCENARIO_FRAME_DELTA,
         ));
@@ -130,36 +124,24 @@ fn main() {
 
     // Plugins from crates
     app.add_plugins(PhysicsPlugins::default());
-    // FPS overlay requires rendering, skip it in renderless mode.
-    // TODO move this to common "debug" plugin under gui_debug
-    if !app.world().resource::<Options>().renderless() {
-        if !replay_enabled {
-            // Scenario replays must not show debug overlays in screenshots.
-            app.add_plugins(get_overlay_plugin());
-        }
-    }
 
     // This app custom plugins
     app.add_plugins(ActionsPlugin)
         .add_plugins(ZenginPlugin)
         .add_plugins(SkyBoxPlugin)
-        .add_plugins(ToggleVisibility)
         .add_plugins(CharacterControllerPlugin)
         .add_plugins(DiscoLamp)
         .add_plugins(DistancePlugin)
         .add_plugins(GameTimePlugin)
         .add_plugins(RenderOptionsPlugin)
         .add_plugins(LightingPlugin);
-    // The egui debug UI (Info window, camera overlay) is skipped for scenario
-    // replays so screenshots contain no debug overlays.
-    if !replay_enabled {
-        app.add_plugins(GameDebugUI).add_plugins(GizmosPlugin);
-    }
-    app.add_plugins(StatisticsPlugin)
-        .add_plugins(GameAudioPlugin)
+    // The egui debug UI and gizmos are skipped for scenario replays so
+    // screenshots contain no debug overlays, GuiDebugPlugin handles that.
+    app.add_plugins(GuiDebugPlugin);
+    app.add_plugins(GameAudioPlugin)
         .add_plugins(GameLogPlugin)
-        .add_plugins(crate::gui::health_bars::HealthBarsPlugin)
-        .add_plugins(crate::gui::inventory::InventoryUiPlugin)
+        .add_plugins(crate::gui::HealthBarsPlugin)
+        .add_plugins(crate::gui::InventoryUiPlugin)
         .add_plugins(CameraPlugin)
         .add_plugins(SkeletalAnimations);
 

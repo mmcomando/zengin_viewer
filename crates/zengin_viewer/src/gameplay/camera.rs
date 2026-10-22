@@ -1,14 +1,12 @@
 use bevy::{
     anti_alias::smaa::Smaa,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
-    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin, FrameTimeGraphConfig},
     input::mouse::AccumulatedMouseMotion,
     pbr::{ContactShadows, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
 };
-use std::time::Duration;
 
-use crate::input::actions::{GameplayAction, GameplayInputMarker};
+use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::xr::is_xr_enabled;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use leafwing_input_manager::prelude::ActionState;
@@ -260,20 +258,4 @@ pub(super) fn update_dialog_camera(
         npc_position + Vec3::Y * DialogCameraStyle::LOOK_AT_HEIGHT,
         Vec3::Y,
     );
-}
-
-// TODO this is for debugging so should go to gui_debug
-pub fn get_overlay_plugin() -> FpsOverlayPlugin {
-    FpsOverlayPlugin {
-        config: FpsOverlayConfig {
-            enabled: true,
-            refresh_interval: Duration::from_millis(500),
-            frame_time_graph_config: FrameTimeGraphConfig {
-                enabled: true,
-                min_fps: 30.0,
-                target_fps: 144.0,
-            },
-            ..default()
-        },
-    }
 }

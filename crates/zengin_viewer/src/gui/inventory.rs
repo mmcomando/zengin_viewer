@@ -11,8 +11,8 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::objects::PlayerCharacter;
-use crate::gui::game_log::GameLog;
-use crate::input::actions::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
+use crate::gui::GameLog;
+use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::dialog::DialogUiState;
 use crate::zengin::{GameNpc, InstanceId, ItemDisplayData, ScriptResource, WeaponKind};
 
@@ -79,7 +79,7 @@ struct InventoryEntry {
 /// Display name of an item instance symbol: strips the script item class
 /// prefix (`itar_`/`itri_`/`itam_`/`itmi_`/...) and `addon` markers, so
 /// `itri_addon_health_01` becomes `health_01`.
-pub(crate) fn display_item_name(symbol_name: &str) -> String {
+pub fn display_item_name(symbol_name: &str) -> String {
     let lowered = symbol_name.to_lowercase();
     let stripped =
         if lowered.len() >= 5 && lowered.starts_with("it") && lowered.as_bytes()[4] == b'_' {

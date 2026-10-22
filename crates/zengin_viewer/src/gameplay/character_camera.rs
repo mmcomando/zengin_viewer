@@ -7,7 +7,7 @@ use leafwing_input_manager::prelude::ActionState;
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::input::actions::{DebugAction, DebugInputMarker};
+use crate::input::{DebugAction, DebugInputMarker};
 use crate::zengin::STATIC_OBJECT;
 
 pub(crate) fn use_character_camera(info: Res<CameraResource>) -> bool {

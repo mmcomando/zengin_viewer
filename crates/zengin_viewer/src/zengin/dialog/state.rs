@@ -1,5 +1,5 @@
 use crate::audio::sound_manager::{PlaySound, SoundManager};
-use crate::input::actions::{GuiAction, GuiInputMarker};
+use crate::input::{GuiAction, GuiInputMarker};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId, StringId};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;

@@ -7,8 +7,8 @@ use crate::gameplay::character::{
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
-use crate::graphics::animation::NpcAnimations;
-use crate::gui_debug::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
+use crate::graphics::NpcAnimations;
+use crate::gui_debug::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::ZenGinModel;
 use crate::zengin::common::get_full_texture_path;
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints};

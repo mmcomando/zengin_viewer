@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
-use crate::graphics::animation::AnimationController;
+use crate::graphics::AnimationController;
 use crate::zengin::GameNpc;
 use crate::zengin::ZenginVfs;
 use crate::zengin::common::{

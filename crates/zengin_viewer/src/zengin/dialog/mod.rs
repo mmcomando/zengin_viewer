@@ -7,7 +7,7 @@ use crate::audio::sound_manager::PlaySound;
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::input::actions::{GameplayAction, GameplayInputMarker, InputMode};
+use crate::input::{GameplayAction, GameplayInputMarker, InputMode};
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::npc_routines::NpcWeaponMode;
@@ -66,7 +66,7 @@ impl Plugin for GameDialogPlugin {
 /// otherwise gameplay.
 pub(crate) fn sync_input_mode(
     dialog_ui: Res<DialogUiState>,
-    inventory_ui: Res<crate::gui::inventory::InventoryUiState>,
+    inventory_ui: Res<crate::gui::InventoryUiState>,
     mut input_mode: ResMut<InputMode>,
 ) {
     let mode = if dialog_ui.is_open() || inventory_ui.is_open() {

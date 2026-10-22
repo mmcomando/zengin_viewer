@@ -6,8 +6,8 @@
 use bevy::prelude::*;
 
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
-use crate::graphics::animation::AnimationController;
-use crate::gui::game_log::GameLog;
+use crate::graphics::AnimationController;
+use crate::gui::GameLog;
 use crate::zengin::interaction::{NpcDamageData, NpcDied, NpcHitReaction, damage_npc};
 use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
 use crate::zengin::script::component::ScriptResource;

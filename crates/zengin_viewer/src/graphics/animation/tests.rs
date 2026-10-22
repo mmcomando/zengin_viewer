@@ -11,7 +11,7 @@ use super::data::{AnimationData, AnimationSample};
 use super::locomotion::{ATOMIC_SCALE, TIME_SCALE, advance_animation, update_animations};
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::zengin::animation_triggers::{AnimationTriggerDef, crossed_triggers};
+use crate::zengin::{AnimationTriggerDef, crossed_triggers};
 
 #[test]
 fn plays_half_frame_at_natural_pace() {

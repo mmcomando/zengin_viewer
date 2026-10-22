@@ -2,8 +2,7 @@ use avian3d::parry::shape::TypedShape;
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
-use crate::graphics::animation::AnimatedJoint;
-use crate::graphics::disco_lamp::DrawGizmo;
+use crate::graphics::{AnimatedJoint, DrawGizmo};
 use crate::zengin::WaypointGraph;
 
 pub struct GizmosPlugin;

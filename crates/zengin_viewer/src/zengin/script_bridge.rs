@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::{GameTime, advance_game_time};
-use crate::gui::game_log::GameLogEntry;
+use crate::gui::GameLogEntry;
 use crate::zengin::GameNpc;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{

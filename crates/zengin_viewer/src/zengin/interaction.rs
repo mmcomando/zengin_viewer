@@ -5,10 +5,9 @@ use bevy::prelude::*;
 
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
-use crate::graphics::animation::AnimationEnds;
-use crate::graphics::animation::{AnimationController, AnimationData};
-use crate::gui::game_log::{GameLog, GameLogEntry};
-use crate::input::actions::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
+use crate::graphics::{AnimationController, AnimationData, AnimationEnds};
+use crate::gui::{GameLog, GameLogEntry};
+use crate::input::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
 use crate::zengin::common::choose_animation_scheme;
 use crate::zengin::npc_routines::{AnimationFiles, NpcEquippedWeapon, NpcOverlay, NpcWeaponMode};
 use crate::zengin::script::TransferItems;
@@ -619,7 +618,7 @@ fn grant_test_item(
 fn item_display_name(script: &mut ScriptManager, item: InstanceId) -> String {
     script
         .get_name_by_id(item.value())
-        .map(|symbol_name| crate::gui::inventory::display_item_name(&symbol_name))
+        .map(|symbol_name| crate::gui::display_item_name(&symbol_name))
         .unwrap_or_else(|| item.value().to_string())
 }
 

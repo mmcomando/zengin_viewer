@@ -8,7 +8,7 @@ use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character_camera::{
     camera_movement_system, camera_toggle_input, use_character_camera,
 };
-use crate::input::actions::{GameplayAction, GameplayInputMarker};
+use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::NPC_BODY;
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,

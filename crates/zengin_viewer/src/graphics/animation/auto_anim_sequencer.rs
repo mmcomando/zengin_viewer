@@ -19,7 +19,7 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::input::actions::{GameplayAction, GameplayInputMarker};
+use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::{
     AnimationGraph, AnimationIndex, ArrowShot, MaterialHandles, MeleeHit, NpcWeaponMode, Selection,
     WeaponMode, animation_name_from_path, face_direction_quat, get_animation_path,
