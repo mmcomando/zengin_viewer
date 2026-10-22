@@ -1,10 +1,21 @@
 use bevy::prelude::*;
 
+use crate::input::Options;
+
 /// Advances the running game time every frame.
 pub struct GameTimePlugin;
 
 impl Plugin for GameTimePlugin {
     fn build(&self, app: &mut App) {
+        if app.world().resource::<Options>().replay_actions().is_some() {
+            // Repeatable replays: fixed game time, no progression. Inserting
+            // before init_resource keeps the preset, init_resource does not
+            // overwrite an existing resource.
+            app.insert_resource(GameTime {
+                total_hours: 12.0,
+                speed: 0.0,
+            });
+        }
         app.init_resource::<GameTime>();
         app.add_systems(Update, advance_game_time);
     }

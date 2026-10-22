@@ -9,7 +9,20 @@ impl Plugin for OptionsPlugin {
     fn build(&self, app: &mut App) {
         let options = Options::parse();
         info!("Command line options: {options:?}");
-        app.insert_resource(options);
+        app.insert_resource(options.clone());
+        if let Some(frames) = options.frames() {
+            app.add_plugins(FrameLimitPlugin(frames));
+        }
+        // Recording or replaying runs with a fixed frame delta, so frame numbers
+        // map to the same simulated time and physics steps in every run.
+        if options.deterministic_time() {
+            app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                SCENARIO_FRAME_DELTA,
+            ));
+            app.world_mut()
+                .resource_mut::<bevy::time::Time<bevy::time::Fixed>>()
+                .set_timestep(SCENARIO_FRAME_DELTA);
+        }
     }
 }
 
@@ -34,7 +47,7 @@ impl Plugin for FrameLimitPlugin {
 }
 
 /// Command line options of the application.
-#[derive(Parser, Resource, Debug)]
+#[derive(Parser, Resource, Debug, Clone)]
 pub struct Options {
     /// Run without rendering, only application logic and logs.
     #[arg(long)]
@@ -93,4 +106,32 @@ fn frame_limit(mut frames: Option<ResMut<FrameLimit>>, mut exit: MessageWriter<A
     }
     info!("Frame limit reached, exiting.");
     exit.write(AppExit::Success);
+}
+
+/// Adds Bevy default plugins configured for a renderless run: no window, no
+/// renderer, only application logic and logs.
+pub fn add_renderless_default_plugins(app: &mut App, window_plugin_options: WindowPlugin) {
+    // RenderPlugin normally registers the Shader asset, plugins later in the group
+    // create Shader handles during build, so it has to be registered after AssetPlugin
+    // (needs AssetServer) but before them.
+    app.add_plugins(
+        DefaultPlugins
+            .set(window_plugin_options)
+            .disable::<bevy::winit::WinitPlugin>()
+            .disable::<bevy::picking::input::PointerInputPlugin>()
+            .disable::<bevy::window::WindowPlugin>()
+            .disable::<bevy::render::RenderPlugin>()
+            .disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>()
+            .add_after::<bevy::asset::AssetPlugin>(RegisterShaderAsset),
+    );
+    // WindowPlugin registers the window-related messages, without it message readers fail.
+    app.add_message::<bevy::window::WindowEvent>();
+    app.add_message::<bevy::window::FileDragAndDrop>();
+    app.add_message::<bevy::window::CursorMoved>();
+    app.add_message::<bevy::window::Ime>();
+    // WinitPlugin registers the RequestRedraw message.
+    app.add_message::<bevy::window::RequestRedraw>();
+    app.add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
+        core::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
 }
