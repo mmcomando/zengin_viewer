@@ -14,6 +14,7 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::dialog::DialogUiState;
+use crate::zengin::get_full_texture_path;
 use crate::zengin::{GameNpc, InstanceId, ItemDisplayData, ScriptResource, WeaponKind};
 
 pub struct InventoryUiPlugin;
@@ -52,13 +53,6 @@ impl InventoryStyle {
         offset: Vec2::new(2.0, 2.0),
         color: Color::BLACK,
     };
-}
-
-/// Path of an inventory menu texture, loaded through the ZenGin compiled
-/// texture loader.
-// TODO use get_full_texture_path
-fn inv_texture(name: &str) -> String {
-    format!("zengin://_WORK/DATA/TEXTURES/_COMPILED/{name}-C.TEX")
 }
 
 /// One entry shown in a grid: an inventory stack with its display name.
@@ -196,8 +190,8 @@ struct InventoryTextures {
 /// Spawns the whole inventory UI once at startup, hidden until opened.
 fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     let textures = InventoryTextures {
-        slot: asset_server.load(inv_texture("INV_SLOT")),
-        focus: asset_server.load(inv_texture("INV_SLOT_FOCUS")),
+        slot: asset_server.load(get_full_texture_path("INV_SLOT")),
+        focus: asset_server.load(get_full_texture_path("INV_SLOT_FOCUS")),
     };
 
     let root = commands

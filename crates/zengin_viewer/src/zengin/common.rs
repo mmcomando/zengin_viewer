@@ -99,7 +99,14 @@ pub fn face_direction_quat(direction: Vec3) -> Quat {
 }
 
 pub fn get_full_texture_path(short_tex: &str) -> String {
-    let texture = short_tex.to_uppercase().replace(".TGA", "-C.TEX");
+    let texture = short_tex.to_uppercase();
+    // Texture references with and without the .TGA extension exist, compiled
+    // textures always end in -C.TEX
+    let texture = if texture.ends_with(".TGA") {
+        texture.replace(".TGA", "-C.TEX")
+    } else {
+        format!("{texture}-C.TEX")
+    };
     format!("zengin://_WORK/DATA/TEXTURES/_COMPILED/{texture}")
 }
 

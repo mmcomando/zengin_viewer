@@ -24,6 +24,7 @@ use bevy::prelude::*;
 // Expose only what is needed for outside modules
 pub use crate::zengin::common::face_direction_quat;
 pub use crate::zengin::common::get_animation_path;
+pub use crate::zengin::common::get_full_texture_path;
 pub use crate::zengin::dialog::SpeechSounds;
 pub use crate::zengin::interaction::MeleeHit;
 pub use crate::zengin::interaction::ranged::ArrowShot;
