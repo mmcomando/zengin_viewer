@@ -65,7 +65,6 @@
 
 
     // maybe reconsider
-    clippy::min_ident_chars,
     clippy::definition_in_module_root,
 
     // macros debug/info/warn blow up complexity without reason, which

@@ -37,7 +37,7 @@ impl Plugin for AutoAnimSequencerPlugin {
             app.insert_resource(graph);
             app.add_systems(Startup, preload_graph_animations);
         } else {
-            warn!("AutoAnimSequencerPlugin without an animation graph({GRAPH_ASSET})")
+            warn!("AutoAnimSequencerPlugin without an animation graph({GRAPH_ASSET})");
         }
         app.add_message::<SetDesiredAnimation>();
         app.add_systems(

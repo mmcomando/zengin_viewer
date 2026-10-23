@@ -218,20 +218,20 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     }
 
     /// Returns whether the two string symbols hold equal text.
-    fn hlp_strcmp(&mut self, a: i32, b: i32) -> i32 {
-        let Some(a) = self.symbol_table.string(a) else {
+    fn hlp_strcmp(&mut self, aa: i32, bb: i32) -> i32 {
+        let Some(aa) = self.symbol_table.string(aa) else {
             return 0;
         };
-        let Some(b) = self.symbol_table.string(b) else {
+        let Some(bb) = self.symbol_table.string(bb) else {
             return 0;
         };
-        let a = self.get_show_string(a);
-        let b = self.get_show_string(b);
-        match (a, b) {
+        let aa = self.get_show_string(aa);
+        let bb = self.get_show_string(bb);
+        match (aa, bb) {
             // Both empty compares equal, like the previous `Option<String>`
             // equality did
             (None, None) => 1,
-            (Some(a), Some(b)) => i32::from(a.string() == b.string()),
+            (Some(aa), Some(bb)) => i32::from(aa.string() == bb.string()),
             _ => 0,
         }
     }
@@ -552,13 +552,13 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return i32::MAX;
         };
         let instances = &self.loaded_state.npc_instances;
-        let (Some(a), Some(b)) = (
+        let (Some(aa), Some(bb)) = (
             instances.get(&npc_a).and_then(|npc| npc.position),
             instances.get(&npc_b).and_then(|npc| npc.position),
         ) else {
             return i32::MAX;
         };
-        let distance = to_zengin_units((a - b).length());
+        let distance = to_zengin_units((aa - bb).length());
         distance.min(i32::MAX as f32) as i32
     }
     fake_impl!(npc_getheighttonpc(_0, _1) -> i32);
@@ -704,10 +704,12 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(info) = self.symbol_table.instance(info) else {
             return 0;
         };
-        i32::from(self.loaded_state
-            .npc_instances
-            .get(&npc)
-            .is_some_and(|npc| npc.known_infos.contains(&info)))
+        i32::from(
+            self.loaded_state
+                .npc_instances
+                .get(&npc)
+                .is_some_and(|npc| npc.known_infos.contains(&info)),
+        )
     }
     fake_impl!(npc_checkinfo(_0, _1) -> i32);
     fake_impl!(npc_giveinfo(_0, _1) -> i32);

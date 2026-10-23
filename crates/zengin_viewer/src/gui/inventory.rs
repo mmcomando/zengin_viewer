@@ -126,17 +126,22 @@ fn inventory_entry(
 /// descending (0 for items without damage data), ties broken by instance id
 /// for a deterministic order (the script inventory is unordered).
 fn sort_inventory_items(items: &mut [InventoryEntry]) {
-    items.sort_unstable_by(|a, b| {
-        a.sort_group
-            .cmp(&b.sort_group)
+    items.sort_unstable_by(|aa, bb| {
+        aa.sort_group
+            .cmp(&bb.sort_group)
             .then_with(|| {
-                b.stats
+                bb.stats
                     .as_ref()
-                    .map(|s| s.damage_total)
+                    .map(|st| st.damage_total)
                     .unwrap_or_default()
-                    .cmp(&a.stats.as_ref().map(|s| s.damage_total).unwrap_or_default())
+                    .cmp(
+                        &aa.stats
+                            .as_ref()
+                            .map(|st| st.damage_total)
+                            .unwrap_or_default(),
+                    )
             })
-            .then_with(|| a.instance_id.cmp(&b.instance_id))
+            .then_with(|| aa.instance_id.cmp(&bb.instance_id))
     });
 }
 

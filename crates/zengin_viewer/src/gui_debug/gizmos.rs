@@ -66,9 +66,9 @@ fn draw_convex_hull_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &Glo
                 continue;
             }
             for i in 0..count {
-                let a = points[vertices_adj_to_face[first + i] as usize];
-                let b = points[vertices_adj_to_face[first + (i + 1) % count] as usize];
-                gizmos.line(isometry * a, isometry * b, tailwind::GREEN_400);
+                let aa = points[vertices_adj_to_face[first + i] as usize];
+                let bb = points[vertices_adj_to_face[first + (i + 1) % count] as usize];
+                gizmos.line(isometry * aa, isometry * bb, tailwind::GREEN_400);
             }
         }
     }

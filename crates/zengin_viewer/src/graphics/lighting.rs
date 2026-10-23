@@ -142,6 +142,6 @@ fn sun_elevation_angle(total_hours: f32) -> f32 {
 
 /// Smoothly transitions between night and day while the sun rises above the horizon.
 fn day_light_factor(sun_elevation: f32) -> f32 {
-    let t = (sun_elevation / FULL_DAY_ELEVATION).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
+    let tt = (sun_elevation / FULL_DAY_ELEVATION).clamp(0.0, 1.0);
+    tt * tt * (3.0 - 2.0 * tt)
 }

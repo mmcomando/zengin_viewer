@@ -50,10 +50,10 @@ impl WaypointGraph {
         self.nodes
             .iter()
             .enumerate()
-            .min_by(|(_, a), (_, b)| {
-                a.position
+            .min_by(|(_, aa), (_, bb)| {
+                aa.position
                     .distance_squared(position)
-                    .total_cmp(&b.position.distance_squared(position))
+                    .total_cmp(&bb.position.distance_squared(position))
             })
             .map(|(index, _)| index)
     }

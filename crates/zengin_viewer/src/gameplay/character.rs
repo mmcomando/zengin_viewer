@@ -459,9 +459,9 @@ fn decompose_hit_velocity(velocity: Vec3, normal: Dir3, up: Vec3) -> VelocityDec
 }
 
 /// Splits a Vec3 into horizontal and vertical components relative to a given `up` direction.
-fn split_into_components(v: Vec3, up: Vec3) -> [Vec3; 2] {
-    let vertical_component = up * v.dot(up);
-    let horizontal_component = v - vertical_component;
+fn split_into_components(vv: Vec3, up: Vec3) -> [Vec3; 2] {
+    let vertical_component = up * vv.dot(up);
+    let horizontal_component = vv - vertical_component;
     [horizontal_component, vertical_component]
 }
 

@@ -600,15 +600,15 @@ impl NpcTalents {
     fn slot(talent: i32, slots: &[i32; TALENTS_MAX]) -> Option<i32> {
         usize::try_from(talent)
             .ok()
-            .filter(|t| *t < TALENTS_MAX)
-            .map(|t| slots[t])
+            .filter(|tt| *tt < TALENTS_MAX)
+            .map(|tt| slots[tt])
     }
 
     fn slot_mut(talent: i32, slots: &mut [i32; TALENTS_MAX]) -> Option<&mut i32> {
         usize::try_from(talent)
             .ok()
-            .filter(|t| *t < TALENTS_MAX)
-            .map(|t| &mut slots[t])
+            .filter(|tt| *tt < TALENTS_MAX)
+            .map(|tt| &mut slots[tt])
     }
 
     pub fn skill(&self, talent: i32) -> i32 {
