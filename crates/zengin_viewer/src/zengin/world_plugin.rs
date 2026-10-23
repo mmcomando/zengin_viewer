@@ -15,16 +15,16 @@ use crate::zengin::loaders::vfs::{
 };
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
+use crate::zengin::resources::{
+    CachedAssetHandles, DYNAMIC_OBJECT, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
+};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::{SpawnItem, SpawnNpc};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
-use crate::zengin::waypoint_graph::Spots;
-use crate::zengin::resources::{
-    DYNAMIC_OBJECT, CachedAssetHandles, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
-};
+use crate::zengin::waypoint_graph::{Spots, spawn_waypoint_entities};
 use crate::zengin::{GameItem, GameNpc, ZenginVfs};
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
@@ -88,6 +88,7 @@ fn spawn_world(
     commands.insert_resource(WayPoints { points: way_points });
     commands.insert_resource(Spots(std::mem::take(&mut world_data.spots)));
     commands.insert_resource(AnimationFiles(std::mem::take(&mut world_data.anim_files)));
+    spawn_waypoint_entities(&mut commands, &world_data.waypoint_graph);
     commands.insert_resource(std::mem::take(&mut world_data.waypoint_graph));
 
     println!("\n----CREATE ENGINE ENTITIES------\n");

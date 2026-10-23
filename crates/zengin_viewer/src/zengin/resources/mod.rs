@@ -14,7 +14,7 @@ use crate::zengin::visual::model::ZenGinModel;
 
 pub use handles::CachedAssetHandles;
 pub use model_spawn::{
-    ARROW, DYNAMIC_OBJECT, NPC_BODY, SELECTABLE, STATIC_OBJECT, ZenGinModelComponent,
+    ARROW, DYNAMIC_OBJECT, NPC_BODY, SELECTABLE, STATIC_OBJECT, WAYPOINT, ZenGinModelComponent,
     despawn_visual_when_far_resource,
 };
 

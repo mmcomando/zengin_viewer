@@ -24,6 +24,9 @@ pub const SELECTABLE: u32 = QUERY_ONLY_LAYER;
 pub const NPC_BODY: u32 = 1 << 4;
 /// Collision layer of arrow sensors.
 pub const ARROW: u32 = 1 << 5;
+/// Collision layer of waypoint sphere colliders, used only by nearest-waypoint
+/// spatial queries, they collide with nothing.
+pub const WAYPOINT: u32 = 1 << 6;
 
 /// Adding this component will spawn child entities with 3d meshes contained in `model_handle`
 #[derive(Component, Default)]

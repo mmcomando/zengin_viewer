@@ -2,12 +2,14 @@
 
 use std::collections::HashMap;
 
+use avian3d::prelude::{Collider, CollisionLayers, SpatialQuery, SpatialQueryFilter};
 use bevy::prelude::*;
 use pathfinding::prelude::astar;
 use zen_kit_rs::waynet::WayNet;
 
 use crate::zengin::common::{get_world_dir_quat, get_world_pos};
 use crate::zengin::loaders::ZenginVec3ToGlam;
+use crate::zengin::resources::WAYPOINT;
 
 /// Waypoint navigation graph built from the world way net (points + edges).
 #[derive(Resource, Debug, Default)]
@@ -29,10 +31,21 @@ pub struct WaypointNode {
     pub free: bool,
 }
 
+/// Node index of a waypoint entity carrying a sphere collider, spawned at world
+/// load for nearest-waypoint spatial queries.
+#[derive(Component, Debug)]
+pub struct WaypointNodeIndex(pub usize);
+
+/// Radius of the sphere collider placed on every waypoint entity.
+pub(crate) const WAYPOINT_SPHERE_RADIUS: f32 = 0.5;
+/// Search radius of the nearest waypoint spatial query; when no waypoint is
+/// found within it the linear scan fallback is used.
+const WAYPOINT_QUERY_RADIUS: f32 = 50.0;
+
 impl WaypointGraph {
-    /// Nearest node to a world position. Linear scan, callers with many queries
-    /// should cache the result.
-    /// TODO add spatial query to get nearest node
+    /// Nearest node to a world position. Linear scan fallback of
+    /// [`nearest_waypoint_node`], callers with many queries should cache the
+    /// result.
     pub fn nearest_node(&self, position: Vec3) -> Option<usize> {
         self.nodes
             .iter()
@@ -70,6 +83,55 @@ impl WaypointGraph {
             |&node| node == to,
         )
         .map(|(path, _)| path)
+    }
+}
+
+/// Nearest node to a world position, found with the avian spatial query over
+/// the waypoint sphere colliders. Callers with many queries should cache the
+/// result. Falls back to the graph linear scan when no waypoint collider is
+/// within the query radius (e.g. before the colliders are registered).
+pub(crate) fn nearest_waypoint_node(
+    spatial_query: &SpatialQuery,
+    node_indices: &Query<&WaypointNodeIndex>,
+    graph: &WaypointGraph,
+    position: Vec3,
+) -> Option<usize> {
+    let hits = spatial_query.shape_intersections(
+        &Collider::sphere(WAYPOINT_QUERY_RADIUS),
+        position,
+        Quat::IDENTITY,
+        &SpatialQueryFilter::from_mask(WAYPOINT),
+    );
+    let mut best: Option<(f32, usize)> = None;
+    for entity in hits {
+        let Ok(&WaypointNodeIndex(index)) = node_indices.get(entity) else {
+            continue;
+        };
+        let Some(node) = graph.nodes.get(index) else {
+            continue;
+        };
+        let dist = node.position.distance_squared(position);
+        if best.is_none_or(|(best_dist, _)| dist < best_dist) {
+            best = Some((dist, index));
+        }
+    }
+    match best {
+        Some((_, index)) => Some(index),
+        None => graph.nearest_node(position),
+    }
+}
+
+/// Spawns one invisible entity per way net node: a sphere collider on the
+/// [`WAYPOINT`] collision layer, it collides with nothing and exists only for
+/// [`nearest_waypoint_node`] spatial queries.
+pub(crate) fn spawn_waypoint_entities(commands: &mut Commands, graph: &WaypointGraph) {
+    for (index, node) in graph.nodes.iter().enumerate() {
+        commands.spawn((
+            Transform::from_translation(node.position),
+            Collider::sphere(WAYPOINT_SPHERE_RADIUS),
+            CollisionLayers::from_bits(WAYPOINT, 0),
+            WaypointNodeIndex(index),
+        ));
     }
 }
 

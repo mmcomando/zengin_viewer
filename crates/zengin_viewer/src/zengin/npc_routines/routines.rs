@@ -3,6 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use avian3d::prelude::SpatialQuery;
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::GameTime;
@@ -14,12 +15,12 @@ use crate::zengin::common::{
 };
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
+use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{AlignToWpChange, GotoChange, RoutineEntry};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::FunctionId;
-use crate::zengin::waypoint_graph::WaypointGraph;
-use crate::zengin::resources::CachedAssetHandles;
+use crate::zengin::waypoint_graph::{WaypointGraph, WaypointNodeIndex, nearest_waypoint_node};
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.
@@ -87,6 +88,8 @@ pub(crate) fn update_npc_routines(
     mut commands: Commands,
     way_points: Res<WayPoints>,
     graph: Res<WaypointGraph>,
+    spatial_query: SpatialQuery,
+    waypoint_nodes: Query<&WaypointNodeIndex>,
     mut npcs: Query<
         (
             Entity,
@@ -130,7 +133,7 @@ pub(crate) fn update_npc_routines(
         // Walk to the waypoint over the graph; teleport when no path exists
         if let (Some(target), Some(start)) = (
             graph.node_by_name(entry.way_point.as_str()),
-            graph.nearest_node(tr.translation),
+            nearest_waypoint_node(&spatial_query, &waypoint_nodes, &graph, tr.translation),
         ) && let Some(path) = graph.shortest_path(start, target)
         {
             debug!(
@@ -144,7 +147,7 @@ pub(crate) fn update_npc_routines(
             continue;
         }
 
-        debug!(
+        warn!(
             "teleport npc({}) to waypoint({})",
             npc.npc_instance_id, entry.way_point
         );
@@ -322,6 +325,8 @@ pub(crate) fn resolve_goto_paths(
     index: Res<InstanceIndex>,
     gothic_script: Res<ScriptResource>,
     graph: Res<WaypointGraph>,
+    spatial_query: SpatialQuery,
+    waypoint_nodes: Query<&WaypointNodeIndex>,
     mut commands: Commands,
     npcs: Query<&Transform>,
 ) {
@@ -341,7 +346,12 @@ pub(crate) fn resolve_goto_paths(
             let Ok(transform) = npcs.get(entity) else {
                 continue;
             };
-            let Some(start) = graph.nearest_node(transform.translation) else {
+            let Some(start) = nearest_waypoint_node(
+                &spatial_query,
+                &waypoint_nodes,
+                &graph,
+                transform.translation,
+            ) else {
                 continue;
             };
             let Some(path) = graph.shortest_path(start, target) else {
