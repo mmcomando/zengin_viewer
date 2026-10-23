@@ -19,6 +19,7 @@ impl Plugin for OptionsPlugin {
             app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
                 SCENARIO_FRAME_DELTA,
             ));
+            app.init_resource::<bevy::time::Time<bevy::time::Fixed>>();
             app.world_mut()
                 .resource_mut::<bevy::time::Time<bevy::time::Fixed>>()
                 .set_timestep(SCENARIO_FRAME_DELTA);
