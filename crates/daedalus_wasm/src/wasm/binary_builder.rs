@@ -1,6 +1,6 @@
+use super::constants::BASE_FUNC_SET_INSTANCE;
 use crate::common::ToU32 as _;
 use crate::daedalus;
-use crate::wasm::BASE_FUNC_SET_INSTANCE;
 use crate::wasm::DaedalusMemoryLayout;
 use crate::wasm::create_wasm_binary;
 use crate::wasm::function::{ConvertedFunction, convert_daedalus_func};

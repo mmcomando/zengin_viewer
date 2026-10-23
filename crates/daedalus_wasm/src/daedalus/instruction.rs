@@ -206,8 +206,8 @@ impl Instruction {
             | Instruction::UnaryNot
             | Instruction::Complement
             | Instruction::LogicalOr
-            | Instruction::LogicalAnd => 1,
-            Instruction::Return
+            | Instruction::LogicalAnd
+            | Instruction::Return
             | Instruction::AssignString
             | Instruction::AssignFunc
             | Instruction::AssignFloat

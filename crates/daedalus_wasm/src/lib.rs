@@ -10,25 +10,26 @@
     clippy::blanket_clippy_restriction_lints,
     reason = "We blacklist contradicting rules"
 )]
-#![allow(clippy::missing_docs_in_private_items, reason = "to decide")]
-#![allow(clippy::as_conversions, reason = "to decide")]
-#![allow(clippy::cast_possible_truncation, reason = "to decide")]
-#![allow(clippy::if_then_some_else_none, reason = "to decide")]
-#![allow(clippy::needless_pass_by_value, reason = "to decide")]
-#![allow(clippy::std_instead_of_alloc, reason = "to decide")]
+#![allow(clippy::rest_pattern_accessible_field, reason = "arbitrary")]
+#![allow(clippy::missing_docs_in_private_items, reason = "arbitrary")]
+#![allow(clippy::as_conversions, reason = "arbitrary")]
+#![allow(clippy::cast_possible_truncation, reason = "arbitrary")]
+#![allow(clippy::if_then_some_else_none, reason = "arbitrary")]
+#![allow(clippy::needless_pass_by_value, reason = "arbitrary")]
+#![allow(clippy::std_instead_of_alloc, reason = "arbitrary")]
 // Panics
-#![allow(clippy::expect_used, reason = "to decide")]
-#![allow(clippy::indexing_slicing, reason = "to decide")]
-#![allow(clippy::panic, reason = "to decide")]
-#![allow(clippy::unwrap_used, reason = "to decide")]
-#![allow(clippy::get_unwrap, reason = "to decide")]
+#![allow(clippy::expect_used, reason = "not hardened yet")]
+#![allow(clippy::indexing_slicing, reason = "not hardened yet")]
+#![allow(clippy::panic, reason = "not hardened yet")]
+#![allow(clippy::unwrap_used, reason = "not hardened yet")]
+#![allow(clippy::get_unwrap, reason = "not hardened yet")]
 // Debug leftovers
-#![allow(clippy::print_stdout, reason = "to decide")]
-#![allow(clippy::uninlined_format_args, reason = "to decide")]
-#![allow(clippy::use_debug, reason = "to decide")]
+#![allow(clippy::print_stdout, reason = "not hardened yet")]
+#![allow(clippy::uninlined_format_args, reason = "not hardened yet")]
+#![allow(clippy::use_debug, reason = "not hardened yet")]
 // Improve documentation
-#![allow(clippy::missing_errors_doc, reason = "to decide")]
-#![allow(clippy::missing_panics_doc, reason = "to decide")]
+#![allow(clippy::missing_errors_doc, reason = "no doc effort")]
+#![allow(clippy::missing_panics_doc, reason = "no doc effort")]
 // Allowed lints
 #![allow(clippy::mod_module_files, reason = "Prefer mod files")]
 #![allow(

@@ -1,16 +1,16 @@
+use super::constants::HERO_SYMBOL_GLOBAL_INDEX;
+use super::constants::ITEM_SYMBOL_GLOBAL_INDEX;
+use super::constants::OTHER_SYMBOL_GLOBAL_INDEX;
+use super::constants::SELF_SYMBOL_GLOBAL_INDEX;
+use super::constants::STRINGS_NUM_GLOBAL_INDEX;
+use super::constants::SYMBOLS_NUM_GLOBAL_INDEX;
+use super::constants::VICTIM_SYMBOL_GLOBAL_INDEX;
 use crate::common::ToU32 as _;
 use crate::common::ToUsize as _;
 use crate::daedalus::Symbol;
 use crate::wasm::ConvertedFunction;
 use crate::wasm::DaedalusMemoryLayout;
-use crate::wasm::HERO_SYMBOL_GLOBAL_INDEX;
-use crate::wasm::ITEM_SYMBOL_GLOBAL_INDEX;
 use crate::wasm::ImportedFunction;
-use crate::wasm::OTHER_SYMBOL_GLOBAL_INDEX;
-use crate::wasm::SELF_SYMBOL_GLOBAL_INDEX;
-use crate::wasm::STRINGS_NUM_GLOBAL_INDEX;
-use crate::wasm::SYMBOLS_NUM_GLOBAL_INDEX;
-use crate::wasm::VICTIM_SYMBOL_GLOBAL_INDEX;
 use wasm_encoder::reencode::{Reencode as _, RoundtripReencoder};
 use wasm_encoder::{
     CodeSection, ConstExpr, DataSection, ElementSection, Elements, EntityType, ExportKind,
@@ -403,9 +403,9 @@ fn convert_base_function(body: &wasmparser::FunctionBody, func_index_offset: u32
                 block_depth -= 1;
                 converted.instruction(&Instruction::End);
             }
-            wasmparser::Operator::Block { blockty: _ }
-            | wasmparser::Operator::Loop { blockty: _ }
-            | wasmparser::Operator::If { blockty: _ } => {
+            wasmparser::Operator::Block { .. }
+            | wasmparser::Operator::Loop { .. }
+            | wasmparser::Operator::If { .. } => {
                 block_depth += 1;
                 converted.instruction(&convert_operator(operator, func_index_offset));
             }

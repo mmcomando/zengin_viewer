@@ -747,7 +747,7 @@ impl Block {
         }
 
         let last_block = self.blocks.last().unwrap();
-        if let ControlBlock::IfElse { if_block: _, else_block: _ } = last_block {
+        if let ControlBlock::IfElse { .. } = last_block {
             if last_block.stack_effect() != -1 {
                 // If if/else doesn't produce value anyway
                 return;

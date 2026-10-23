@@ -1,19 +1,18 @@
+use super::constants::CURRENT_CLASS_INSTANCE_MEMORY_GLOBAL_INDEX;
+use super::constants::CURRENT_INSTANCE_SYMBOL_INDEX;
 use crate::common::ToU32 as _;
 use crate::common::ToUsize as _;
+use crate::daedalus::Function as FuncDD;
+use crate::daedalus::Instruction as InstDD;
 use crate::daedalus::analyze::AnalyzedInstruction;
 use crate::daedalus::analyze::Block;
 use crate::daedalus::analyze::ControlBlock;
 use crate::daedalus::analyze::InstructionBlock;
 use crate::daedalus::analyze::ProvideValType;
-use crate::wasm::CURRENT_INSTANCE_SYMBOL_INDEX;
+use crate::wasm::BinaryBuilder;
+use crate::wasm::DaedalusMemoryLayout;
 use std::collections::HashMap;
 use wasm_encoder::{BlockType, Function, Instruction, MemArg, ValType};
-
-use crate::daedalus::Function as FuncDD;
-use crate::daedalus::Instruction as InstDD;
-use crate::wasm::BinaryBuilder;
-use crate::wasm::CURRENT_CLASS_INSTANCE_MEMORY_GLOBAL_INDEX;
-use crate::wasm::DaedalusMemoryLayout;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ConvertedFunction {
