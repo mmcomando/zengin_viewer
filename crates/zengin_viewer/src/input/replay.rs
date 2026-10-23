@@ -25,6 +25,13 @@ use crate::input::options::Options;
 use crate::input::record::{RecordedAction, ReplayCommand};
 use crate::zengin::{GameNpc, ScriptResource, WeaponKind};
 
+/// Filter of the player visual model transform query.
+type PlayerVisualFilter = (
+    With<PlayerCharacter>,
+    Without<PlayerPhysicsBodyMarker>,
+    Without<Camera3d>,
+);
+
 /// Replays the actions recorded with `--save-actions`.
 pub struct ActionReplayPlugin;
 
@@ -157,14 +164,7 @@ struct PendingLocations {
 fn apply_replay_locations(
     mut pending: ResMut<PendingLocations>,
     mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
-    mut player_visual: Query<
-        &mut Transform,
-        (
-            With<PlayerCharacter>,
-            Without<PlayerPhysicsBodyMarker>,
-            Without<Camera3d>,
-        ),
-    >,
+    mut player_visual: Query<&mut Transform, PlayerVisualFilter>,
     mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
 ) {
     for (translation, rotation) in pending.player.drain(..) {
@@ -246,9 +246,10 @@ fn replay_actions(
                     return;
                 };
                 if let Some(parent) = file_path.parent()
-                    && let Err(error) = fs::create_dir_all(parent) {
-                        warn!("Failed to create screenshot dir {parent:?}: {error}");
-                    }
+                    && let Err(error) = fs::create_dir_all(parent)
+                {
+                    warn!("Failed to create screenshot dir {parent:?}: {error}");
+                }
                 commands
                     .spawn(Screenshot::primary_window())
                     .observe(save_to_disk(file_path.to_string_lossy().into_owned()));
@@ -365,14 +366,7 @@ fn resolve_scenario_path(workdir: &Path, path: &str) -> Option<PathBuf> {
 /// stays identity.
 fn teleport_player(
     player: &mut Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
-    player_visual: &mut Query<
-        &mut Transform,
-        (
-            With<PlayerCharacter>,
-            Without<PlayerPhysicsBodyMarker>,
-            Without<Camera3d>,
-        ),
-    >,
+    player_visual: &mut Query<&mut Transform, PlayerVisualFilter>,
     translation: Vec3,
     rotation: Vec3,
 ) {

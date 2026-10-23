@@ -19,6 +19,17 @@ use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc};
 
+/// Query data of the npc state needed to apply hits and deaths.
+/// Shared with the ranged hit system in [`super::ranged`].
+pub(super) type NpcHitQueryData = (
+    &'static GameNpc,
+    &'static GlobalTransform,
+    &'static NpcModel,
+    Option<&'static NpcOverlay>,
+    Option<&'static mut AnimationController>,
+    Option<&'static NpcHitReaction>,
+);
+
 /// An npc died (hitpoints reached 0): its inventory moves to the player, the
 /// drawn weapon drops on the ground and the npc entity is despawned.
 #[derive(Message)]
@@ -49,17 +60,7 @@ pub(super) fn melee_swing_hit(
     mut commands: Commands,
     mut hits: MessageReader<MeleeHit>,
     selection: Res<Selection>,
-    mut npcs: Query<
-        (
-            &GameNpc,
-            &GlobalTransform,
-            &NpcModel,
-            Option<&NpcOverlay>,
-            Option<&mut AnimationController>,
-            Option<&NpcHitReaction>,
-        ),
-        Without<PlayerCharacter>,
-    >,
+    mut npcs: Query<NpcHitQueryData, Without<PlayerCharacter>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     gothic_script: Res<ScriptResource>,
@@ -202,7 +203,7 @@ pub(crate) struct NpcDamageData<'a> {
 /// Handles npc death: the inventory moves to the player, the drawn weapon
 /// drops on the ground (removed from the inventory first so it is not
 /// duplicated) and the npc entity is despawned.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(super) fn handle_npc_death(
     mut deaths: MessageReader<NpcDied>,
     mut selection: ResMut<Selection>,

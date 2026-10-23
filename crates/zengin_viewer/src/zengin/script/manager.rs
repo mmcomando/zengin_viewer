@@ -401,7 +401,7 @@ impl ScriptManager {
     }
 
     /// Unequips all of the npc's weapons and sheathes them (`AI_RemoveWeapon`
-    /// + clearing `EquipItem` semantics), leaving the changes queued for the
+    /// and clearing `EquipItem` semantics), leaving the changes queued for the
     /// ECS bridge.
     #[allow(dead_code)] // semantics kept for the AI_UnEquipWeapons host import
     pub fn unequip_item(&mut self, npc: InstanceId) {

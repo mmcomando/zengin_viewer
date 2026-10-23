@@ -565,22 +565,21 @@ fn handle_inventory_input(
     let selected = &mut window.selected;
 
     let columns = InventoryStyle::COLUMNS;
-    if action_state.just_pressed(&GuiAction::Left)
-        && *selected % columns > 0 {
-            *selected -= 1;
-        }
+    if action_state.just_pressed(&GuiAction::Left) && *selected % columns > 0 {
+        *selected -= 1;
+    }
     if action_state.just_pressed(&GuiAction::Right)
-        && *selected + 1 < slot_count && *selected % columns < columns - 1 {
-            *selected += 1;
-        }
-    if action_state.just_pressed(&GuiAction::Up)
-        && *selected >= columns {
-            *selected -= columns;
-        }
-    if action_state.just_pressed(&GuiAction::Down)
-        && *selected + columns < slot_count {
-            *selected += columns;
-        }
+        && *selected + 1 < slot_count
+        && *selected % columns < columns - 1
+    {
+        *selected += 1;
+    }
+    if action_state.just_pressed(&GuiAction::Up) && *selected >= columns {
+        *selected -= columns;
+    }
+    if action_state.just_pressed(&GuiAction::Down) && *selected + columns < slot_count {
+        *selected += columns;
+    }
     if action_state.just_pressed(&GuiAction::Confirm)
         && let Some(entry) = window.items.get(*selected)
     {
@@ -652,6 +651,7 @@ fn equip_selected_item(
 
 /// Updates visibility, header texts, slot contents and the info panel from
 /// the state.
+#[allow(clippy::type_complexity)]
 fn sync_inventory_ui(
     state: Res<InventoryUiState>,
     textures: Res<InventoryTextures>,
@@ -719,9 +719,10 @@ fn sync_inventory_ui(
     if let Some((_, mut text)) = window_title
         .iter_mut()
         .find(|(marker, _)| marker.0 == window_index)
-        && text.0 != window.title {
-            text.0 = window.title.clone();
-        }
+        && text.0 != window.title
+    {
+        text.0 = window.title.clone();
+    }
     if let Some((_, mut text)) = window_gold
         .iter_mut()
         .find(|(marker, _)| marker.0 == window_index)
@@ -817,10 +818,11 @@ fn item_info_text(entry: &InventoryEntry) -> (String, String) {
     if let Some(stats) = &entry.stats {
         // The description often just repeats the name, skip it in that case
         if let Some(description) = &stats.description
-            && !description.eq_ignore_ascii_case(&entry.name) {
-                label_lines.push(description.clone());
-                value_lines.push(String::new());
-            }
+            && !description.eq_ignore_ascii_case(&entry.name)
+        {
+            label_lines.push(description.clone());
+            value_lines.push(String::new());
+        }
         for (name, value) in &stats.requirements {
             label_lines.push(format!("Required {name}:"));
             value_lines.push(value.to_string());

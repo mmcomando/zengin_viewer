@@ -127,6 +127,7 @@ pub struct AutoAnimSequencer {
 
 /// Adds the sequencer to the player animation model and enables root motion
 /// driven movement. Survives visual respawns.
+#[allow(clippy::type_complexity)]
 fn add_auto_anim_sequencer(
     mut commands: Commands,
     mut players: Query<

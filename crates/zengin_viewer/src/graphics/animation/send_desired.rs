@@ -16,6 +16,7 @@ use super::auto_anim_sequencer::{AutoAnimSequencer, DesiredAnimation, SetDesired
 /// input, resolved camera relative (forward input moves away from the
 /// camera; holds for every camera mode). Firing (ranged weapon drawn and
 /// attack pressed) wins over movement; the model aims at the target.
+#[allow(clippy::type_complexity)]
 pub(super) fn send_desired_animations(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     players: Query<

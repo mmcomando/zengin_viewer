@@ -4,14 +4,12 @@
 
 use bevy::prelude::*;
 
+use super::combat::NpcHitQueryData;
 use super::selection::{NpcHitCollider, Selection};
 use super::{NpcDamageData, NpcDied, damage_npc};
-use crate::gameplay::objects::NpcModel;
-use crate::graphics::AnimationController;
-use crate::graphics::NpcHitReaction;
 use crate::gui::GameLog;
 use crate::zengin::GameNpc;
-use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
+use crate::zengin::npc_routines::AnimationFiles;
 use crate::zengin::resources::{
     ARROW, CachedAssetHandles, NPC_BODY, NamedModels, ZenGinModelComponent,
 };
@@ -198,14 +196,7 @@ fn arrow_hits(
     mut contacts: MessageReader<CollisionStart>,
     arrows: Query<(&Arrow, &GlobalTransform)>,
     hit_colliders: Query<&NpcHitCollider>,
-    mut npcs: Query<(
-        &GameNpc,
-        &GlobalTransform,
-        &NpcModel,
-        Option<&NpcOverlay>,
-        Option<&mut AnimationController>,
-        Option<&NpcHitReaction>,
-    )>,
+    mut npcs: Query<NpcHitQueryData>,
     gothic_script: Res<ScriptResource>,
     files: Res<AnimationFiles>,
     mut handles: ResMut<CachedAssetHandles>,

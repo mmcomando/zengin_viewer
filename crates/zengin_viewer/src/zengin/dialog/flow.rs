@@ -117,7 +117,7 @@ pub(super) fn handle_dialog_outputs(
     let line_views = build_line_views(&new_lines, &dialog_texts, &speech_sounds);
     // Sub choices are shown in reverse addition order, like the previous
     // script state buffer did by inserting at the front
-    new_choices.sort_by(|a, b| b.order.cmp(&a.order));
+    new_choices.sort_by_key(|choice| std::cmp::Reverse(choice.order));
     let choice_views: Vec<DialogOptionView> = new_choices.iter().map(option_view).collect();
 
     dialog_ui.accept_sub_choices(choice_views);
@@ -156,6 +156,7 @@ pub(super) fn handle_dialog_outputs(
 
 /// Applies the dialog requests: runs the dialog script functions and updates
 /// the npc/player facing.
+#[allow(clippy::type_complexity)]
 pub(super) fn handle_dialog_requests(
     mut requests: MessageReader<DialogRequest>,
     mut dialog_ui: ResMut<DialogUiState>,

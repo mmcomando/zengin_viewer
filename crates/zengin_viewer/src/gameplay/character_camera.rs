@@ -15,6 +15,7 @@ pub(crate) fn use_character_camera(info: Res<CameraResource>) -> bool {
 }
 
 /// Toggles between the free camera and the character camera.
+#[allow(clippy::type_complexity)]
 pub(crate) fn camera_toggle_input(
     mut info: ResMut<CameraResource>,
     action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
@@ -81,6 +82,7 @@ const MIN_CAM_DISTANCE: f32 = 0.5;
 /// Height of the camera pivot above the player origin.
 const CAM_PIVOT_HEIGHT: f32 = 1.3;
 
+#[allow(clippy::type_complexity)]
 pub fn camera_movement_system(
     player_query: Single<(&Transform, Entity), (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
     mut camera_transform: Single<

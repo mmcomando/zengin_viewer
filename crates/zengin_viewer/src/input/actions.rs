@@ -38,9 +38,6 @@ impl Plugin for ActionsPlugin {
     }
 }
 
-/// Directory of the input profiles, the main crate `assets` folder the
-/// [`bevy::asset::AssetServer`] also reads from.
-
 /// Which input map is currently active.
 ///
 /// [`DebugAction`] is always enabled; [`GameplayAction`] is enabled in

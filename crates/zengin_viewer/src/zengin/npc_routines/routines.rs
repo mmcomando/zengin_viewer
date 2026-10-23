@@ -84,6 +84,7 @@ pub(crate) fn update_npc_routine_entries(
 /// Reacts to the [`RoutineEntry`] component of an npc being added, changed or
 /// removed. When the active routine entry changed, the npc walks to the new
 /// waypoint (falling back to a teleport when no path is available).
+#[allow(clippy::type_complexity)]
 pub(crate) fn update_npc_routines(
     mut commands: Commands,
     way_points: Res<WayPoints>,
