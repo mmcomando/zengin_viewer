@@ -3,4 +3,5 @@
 /.zed
 /.cargo
 /misc/scenario_output
+/misc/workdir_tmp
 /zengin_viewer/misc/scenario_output

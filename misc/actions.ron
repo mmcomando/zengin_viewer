@@ -1,2 +1,0 @@
-// Recorded replay commands, replayable with --replay-actions
-[Axis(frame:1,action:Gameplay(Move),value:(0.0,0.0)),Press(frame:231,action:Debug(ToggleCharacterCamera)),Release(frame:247,action:Debug(ToggleCharacterCamera)),Axis(frame:275,action:Gameplay(Move),value:(0.0,1.0)),Axis(frame:621,action:Gameplay(Move),value:(0.0,0.0))]
