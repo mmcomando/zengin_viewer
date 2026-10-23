@@ -17,13 +17,13 @@ use crate::gameplay::character::move_and_slide;
 use components::AnimationTrigger;
 use locomotion::{compute_animations, update_animations};
 
-pub use animation_graph_nodes::{AnimationGraph, AnimationIndex};
-pub use animation_triggers::{AnimationTriggersPlugin, animation_name_from_path};
-pub use components::{
+pub(crate) use animation_graph_nodes::{AnimationGraph, AnimationIndex};
+pub(crate) use animation_triggers::{AnimationTriggersPlugin, animation_name_from_path};
+pub(crate) use components::{
     AnimatedJoint, AnimationEnds, AnimationState, BoneAnimationData, FrameState, NpcAnimations,
 };
-pub use controller::AnimationController;
-pub use data::{AnimationData, AnimationSample};
+pub(crate) use controller::AnimationController;
+pub(crate) use data::{AnimationData, AnimationSample};
 pub(crate) use hit_reaction::{NpcHitReaction, npc_hit_reaction_end, play_hit_reaction};
 
 /// Root plugin of the animation module.

@@ -2,7 +2,7 @@ mod sound_manager;
 
 use bevy::prelude::*;
 
-pub use crate::audio::sound_manager::{PlaySound, SoundManager, wav_duration};
+pub(crate) use crate::audio::sound_manager::{PlaySound, SoundManager, wav_duration};
 
 /// Plays sounds requested by other systems through the [`PlaySound`] message.
 /// Entry point of the audio module, may gather smaller private audio plugins later.

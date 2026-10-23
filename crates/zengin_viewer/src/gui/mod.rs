@@ -2,6 +2,6 @@ mod game_log;
 mod health_bars;
 mod inventory;
 
-pub use crate::gui::game_log::{GameLog, GameLogEntry, GameLogPlugin};
-pub use crate::gui::health_bars::HealthBarsPlugin;
-pub use crate::gui::inventory::{InventoryUiPlugin, InventoryUiState};
+pub(crate) use crate::gui::game_log::{GameLog, GameLogEntry, GameLogPlugin};
+pub(crate) use crate::gui::health_bars::HealthBarsPlugin;
+pub(crate) use crate::gui::inventory::{InventoryUiPlugin, InventoryUiState};

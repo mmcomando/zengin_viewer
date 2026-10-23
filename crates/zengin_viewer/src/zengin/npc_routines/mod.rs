@@ -17,11 +17,11 @@ use routines::{
 };
 use weapons::{apply_weapon_mode, update_npc_weapon};
 
-pub use health::NpcHealth;
+pub(crate) use health::NpcHealth;
 pub(crate) use overlay::overlay_scheme;
-pub use overlay::{AnimationFiles, NpcOverlay};
-pub use routines::{NpcLookAt, WayPoints};
-pub use weapons::{NpcEquippedWeapon, NpcWeaponMode, NpcWeaponSlots};
+pub(crate) use overlay::{AnimationFiles, NpcOverlay};
+pub(crate) use routines::{NpcLookAt, WayPoints};
+pub(crate) use weapons::{NpcEquippedWeapon, NpcWeaponMode, NpcWeaponSlots};
 
 /// Periodically teleports npcs to the waypoints of their active routine entries.
 pub struct NpcRoutinesPlugin;

@@ -6,14 +6,14 @@ pub(crate) use crate::graphics::animation::{
 mod lighting;
 mod skybox;
 
-pub use crate::graphics::animation::{
+pub(crate) use crate::graphics::animation::{
     AnimatedJoint, AnimationController, AnimationData, AnimationGraph, AnimationIndex,
     AnimationSample, AnimationState, AnimationTriggersPlugin, BoneAnimationData, FrameState,
     NpcAnimations, SkeletalAnimations, animation_name_from_path,
 };
-pub use crate::graphics::disco_lamp::{DiscoLamp, DrawGizmo};
-pub use crate::graphics::lighting::LightingPlugin;
-pub use crate::graphics::skybox::SkyBoxPlugin;
+pub(crate) use crate::graphics::disco_lamp::{DiscoLamp, DrawGizmo};
+pub(crate) use crate::graphics::lighting::LightingPlugin;
+pub(crate) use crate::graphics::skybox::SkyBoxPlugin;
 
 use bevy::prelude::*;
 

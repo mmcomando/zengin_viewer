@@ -14,7 +14,7 @@ use crate::gui_debug::statistics::StatisticsPlugin;
 use crate::gui_debug::toggle_visibility::ToggleVisibility;
 use crate::input::Options;
 
-pub use crate::gui_debug::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
+pub(crate) use crate::gui_debug::toggle_visibility::{NpcVisibility, StaticMesh, WorldMesh};
 
 /// Adds all debug UI plugins (visibility toggles, egui debug window, gizmos,
 /// statistics, FPS overlay). Configuration comes from the `Options` resource:

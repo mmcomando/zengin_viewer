@@ -9,7 +9,7 @@ mod debug;
 
 use bevy::prelude::*;
 
-pub use combat::{MeleeHit, NpcDied};
+pub(crate) use combat::{MeleeHit, NpcDied};
 pub(crate) use combat::{NpcDamageData, damage_npc};
 
 use crate::zengin::script::TransferItems;

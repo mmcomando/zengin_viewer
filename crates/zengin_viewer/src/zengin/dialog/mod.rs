@@ -3,13 +3,15 @@ mod flow;
 mod sounds;
 mod state;
 mod ui;
-pub use sounds::SpeechSounds;
+
+pub(crate) use sounds::SpeechSounds;
+
+pub(crate) use state::DialogUiState;
 
 use crate::input::InputMode;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use bevy::prelude::*;
 use state::DialogRequest;
-pub(crate) use state::DialogUiState;
 
 pub struct GameDialogPlugin;
 

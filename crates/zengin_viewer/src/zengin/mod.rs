@@ -22,29 +22,29 @@ mod animation_graph_export;
 use bevy::prelude::*;
 
 // Expose only what is needed for outside modules
-pub use crate::zengin::common::face_direction_quat;
-pub use crate::zengin::common::get_animation_path;
-pub use crate::zengin::common::get_full_texture_path;
-pub use crate::zengin::dialog::SpeechSounds;
-pub use crate::zengin::interaction::MeleeHit;
-pub use crate::zengin::interaction::ranged::ArrowShot;
-pub use crate::zengin::interaction::selection::{Selection, SelectionKind};
-pub use crate::zengin::loaders::vdf_reader::{
+pub(crate) use crate::zengin::common::face_direction_quat;
+pub(crate) use crate::zengin::common::get_animation_path;
+pub(crate) use crate::zengin::common::get_full_texture_path;
+pub(crate) use crate::zengin::dialog::SpeechSounds;
+pub(crate) use crate::zengin::interaction::MeleeHit;
+pub(crate) use crate::zengin::interaction::ranged::ArrowShot;
+pub(crate) use crate::zengin::interaction::selection::{Selection, SelectionKind};
+pub(crate) use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };
-pub use crate::zengin::npc_routines::NpcHealth;
-pub use crate::zengin::npc_routines::NpcWeaponMode;
-pub use crate::zengin::resources::CachedAssetHandles;
-pub use crate::zengin::resources::NPC_BODY;
-pub use crate::zengin::resources::STATIC_OBJECT;
-pub use crate::zengin::script::component::ScriptResource;
-pub use crate::zengin::script::manager::ItemDisplayData;
-pub use crate::zengin::script::manager::ScriptManager;
-pub use crate::zengin::script::state::WeaponKind;
-pub use crate::zengin::script::state::WeaponMode;
-pub use crate::zengin::script::symbol_id::InstanceId;
-pub use crate::zengin::statistics::StatisticsZengin;
-pub use crate::zengin::waypoint_graph::WaypointGraph;
+pub(crate) use crate::zengin::npc_routines::NpcHealth;
+pub(crate) use crate::zengin::npc_routines::NpcWeaponMode;
+pub(crate) use crate::zengin::resources::CachedAssetHandles;
+pub(crate) use crate::zengin::resources::NPC_BODY;
+pub(crate) use crate::zengin::resources::STATIC_OBJECT;
+pub(crate) use crate::zengin::script::component::ScriptResource;
+pub(crate) use crate::zengin::script::manager::ItemDisplayData;
+pub(crate) use crate::zengin::script::manager::ScriptManager;
+pub(crate) use crate::zengin::script::state::WeaponKind;
+pub(crate) use crate::zengin::script::state::WeaponMode;
+pub(crate) use crate::zengin::script::symbol_id::InstanceId;
+pub(crate) use crate::zengin::statistics::StatisticsZengin;
+pub(crate) use crate::zengin::waypoint_graph::WaypointGraph;
 
 /// Plugin which provides Zengin related functionality
 pub struct ZenginPlugin;
