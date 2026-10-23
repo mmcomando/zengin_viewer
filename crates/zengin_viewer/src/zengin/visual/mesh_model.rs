@@ -42,71 +42,12 @@ pub fn meshes_from_zengin_model_mesh(
     //  "weight hierarchy" to "main hierarchy"
     // Final skinned mesh should use indices of bevy joint entities from "main hierarchy" but
     //   use inverse node positions from "weight hierarchy"
-    let mut weight_to_animation_index: HashMap<usize, usize> = HashMap::new();
-    let mut animation_bone_map: HashMap<String, usize> = HashMap::new();
-
-    if model_own_hierarchy.is_some()
-        && let Some(anim_model) = model_animation_hierarchy
-    {
-        let hierarchy = anim_model.hierarchy();
-        let nodes = hierarchy.nodes();
-        for (index, node) in nodes.iter().enumerate() {
-            animation_bone_map.insert(node.name.clone(), index);
-        }
-    }
+    let animation_bone_map =
+        build_animation_bone_map(model_own_hierarchy, model_animation_hierarchy);
     let weights_hierarchy_model = model_own_hierarchy.or(model_animation_hierarchy);
 
     if let Some(weights_hierarchy_model) = weights_hierarchy_model {
-        let hierarchy = weights_hierarchy_model.hierarchy();
-        let nodes = hierarchy.nodes();
-
-        let root_pos = get_world_pos(hierarchy.root_translation().to_glam());
-        let root_tr = Transform::from_translation(root_pos);
-
-        // println!("ZenGinModel root_pos({:.2}):", root_pos);
-        // if nodes.is_empty() {
-        //     println!(" No Nodes");
-        // } else {
-        //     println!(" Nodes:");
-        //     for (index, node) in nodes.iter().enumerate() {
-        //         let tr = get_world_transform(node.transform.to_glam());
-        //         println!(
-        //             "  node({index}) name({:20}) parent_index({:3}) pos({:4.2}) rot({:.2})",
-        //             node.name, node.parent_index, tr.translation, tr.rotation
-        //         );
-        //     }
-        // }
-
-        let mut final_tr: Vec<Transform> = nodes
-            .iter()
-            .map(|node| get_world_transform(node.transform.to_glam()))
-            .collect();
-
-        model.nodes.clone_from(&final_tr);
-        model.nodes.clone_from(&final_tr);
-        model.parents = nodes.iter().map(|el| el.parent_index).collect();
-
-        for i in 0..nodes.len() {
-            weight_to_animation_index
-                .insert(i, *animation_bone_map.get(&nodes[i].name).unwrap_or(&i));
-            if nodes[i].parent_index < 0 {
-                // Engine bind pose applies the hierarchy root translation in
-                // model space (translation not rotated by the root node).
-                // Verified: BSFIRE_OC soft mesh weight locals reproduce the
-                // raw vertex positions exactly under this order, see
-                // mesh_model_bind_test.
-                final_tr[i] = root_tr * final_tr[i];
-                compute_final_tr(i, &nodes, &mut final_tr);
-            }
-        }
-        model.inverse_bindposes = final_tr.iter().map(|el| el.to_matrix().inverse()).collect();
-        model.final_tr.clone_from(&final_tr);
-        model.node_names = nodes.iter().map(|el| el.name.clone()).collect();
-        model.animation_bone_index = nodes
-            .iter()
-            .enumerate()
-            .map(|(index, el)| *animation_bone_map.get(&el.name).unwrap_or(&index))
-            .collect();
+        apply_weights_hierarchy(&mut model, weights_hierarchy_model, &animation_bone_map);
     }
 
     for (name, mrs_mesh) in &attachements {
@@ -161,4 +102,75 @@ fn compute_final_tr(node_index: usize, nodes: &[ModelHierarchyNode], final_tr: &
             compute_final_tr(child_index, nodes, final_tr);
         }
     }
+}
+
+/// Maps animation hierarchy bone names to their node indices, used to resolve
+/// the weight hierarchy bones to the animation (main) hierarchy.
+fn build_animation_bone_map(
+    model_own_hierarchy: Option<&zen_kit_rs::model::Model>,
+    model_animation_hierarchy: Option<&zen_kit_rs::model::Model>,
+) -> HashMap<String, usize> {
+    let Some(anim_model) = model_animation_hierarchy.filter(|_| model_own_hierarchy.is_some())
+    else {
+        return HashMap::new();
+    };
+    let hierarchy = anim_model.hierarchy();
+    let nodes = hierarchy.nodes();
+    nodes
+        .iter()
+        .enumerate()
+        .map(|(index, node)| (node.name.clone(), index))
+        .collect()
+}
+
+/// Fills the model node tables from the weight hierarchy: bind transforms,
+/// parents, inverse bind poses and the mapping of weight bones to animation
+/// hierarchy bone indices.
+///
+/// For some models (mostly armor) we have two hierarchies
+/// One which is used for skin weights (has only bones used by mesh)
+/// Second one used by animations (main hierarchy, has all possible bones)
+/// Even when we have two hierarchies all animations are backed for one "main" hierarchy
+/// Due to this presence of two hierarchies we have to have mapping between
+///  "weight hierarchy" to "main hierarchy"
+/// Final skinned mesh should use indices of bevy joint entities from "main hierarchy" but
+///   use inverse node positions from "weight hierarchy"
+fn apply_weights_hierarchy(
+    model: &mut ZenGinModel,
+    weights_hierarchy_model: &zen_kit_rs::model::Model,
+    animation_bone_map: &HashMap<String, usize>,
+) {
+    let hierarchy = weights_hierarchy_model.hierarchy();
+    let nodes = hierarchy.nodes();
+
+    let root_pos = get_world_pos(hierarchy.root_translation().to_glam());
+    let root_tr = Transform::from_translation(root_pos);
+
+    let mut final_tr: Vec<Transform> = nodes
+        .iter()
+        .map(|node| get_world_transform(node.transform.to_glam()))
+        .collect();
+
+    model.nodes.clone_from(&final_tr);
+    model.parents = nodes.iter().map(|el| el.parent_index).collect();
+
+    for i in 0..nodes.len() {
+        if nodes[i].parent_index < 0 {
+            // Engine bind pose applies the hierarchy root translation in
+            // model space (translation not rotated by the root node).
+            // Verified: BSFIRE_OC soft mesh weight locals reproduce the
+            // raw vertex positions exactly under this order, see
+            // mesh_model_bind_test.
+            final_tr[i] = root_tr * final_tr[i];
+            compute_final_tr(i, &nodes, &mut final_tr);
+        }
+    }
+    model.inverse_bindposes = final_tr.iter().map(|el| el.to_matrix().inverse()).collect();
+    model.final_tr.clone_from(&final_tr);
+    model.node_names = nodes.iter().map(|el| el.name.clone()).collect();
+    model.animation_bone_index = nodes
+        .iter()
+        .enumerate()
+        .map(|(index, el)| *animation_bone_map.get(&el.name).unwrap_or(&index))
+        .collect();
 }

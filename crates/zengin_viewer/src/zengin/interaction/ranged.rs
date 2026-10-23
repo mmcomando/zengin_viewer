@@ -88,79 +88,99 @@ fn spawn_arrows(
             );
             continue;
         };
-
-        let origin = shooter_tr.translation() + Vec3::Y * BOW_HEIGHT;
-        // Aim at the selected npc, fall back to the facing direction of the
-        // shooter (it faces local +Z, see the selection module).
-        let direction = selection
-            .target
-            .and_then(|target| transforms.get(target).ok())
-            .map(|target| {
-                (target.translation() + Vec3::Y * BOW_HEIGHT - origin).normalize_or_zero()
-            })
-            .filter(|direction| direction.length_squared() > 0.0)
-            .unwrap_or_else(|| {
-                let facing = shooter_tr.back();
-                Vec3::new(facing.x, 0.0, facing.z).normalize_or_zero()
-            });
-        if direction.length_squared() < 0.5 {
-            warn!(
-                "Arrow of npc({}) not spawned: no aim direction",
-                shooter.value()
-            );
-            continue;
-        }
-
-        // Damage of the currently equipped ranged weapon.
-        let damage = {
-            let mut script = gothic_script.lock();
-            script
-                .npc_instances()
-                .get(&shooter)
-                .and_then(|player| player.equipped_ranged)
-                .map(|weapon| script.item_damage_total(weapon))
-        };
-        let Some(damage) = damage else {
-            warn!(
-                "Arrow of npc({}) not spawned: no ranged weapon damage",
-                shooter.value()
-            );
-            continue;
-        };
-
-        // The arrow mesh is authored sideways (shaft along the local X axis,
-        // like weapon meshes with the grip at the origin), so align that axis
-        // with the shot direction instead of the default -Z look-at.
-        let transform = Transform::from_translation(origin)
-            .with_rotation(Quat::from_rotation_arc(ARROW_MESH_FORWARD, direction));
-        let arrow = Arrow {
-            damage,
+        spawn_shot(
+            &mut commands,
+            &transforms,
+            &gothic_script,
+            &named_models,
+            &time,
+            shooter_tr,
             shooter,
-            spawned_at: time.elapsed_secs(),
-            spawn_origin: origin,
-        };
-        let entity = spawn_arrow(&mut commands, arrow, direction, transform);
-
-        // Visual: the arrow item mesh, resolved once at world load. Without it
-        // arrows have no visual.
-        if let Some(model_handle) = named_models.item_arrow.clone() {
-            commands.entity(entity).insert((
-                ZenGinModelComponent {
-                    model_handle,
-                    ..default()
-                },
-                Visibility::default(),
-            ));
-        }
-        info!(
-            "Npc({}) shot an arrow dealing {damage} damage towards {}",
-            shooter.value(),
-            selection.target.map_or_else(
-                || "the facing direction".to_string(),
-                |target| format!("npc({target})")
-            )
+            selection.target,
         );
     }
+}
+
+/// Spawns one arrow of one [`ArrowShot`] message.
+#[allow(clippy::too_many_arguments)]
+fn spawn_shot(
+    commands: &mut Commands,
+    transforms: &Query<&GlobalTransform>,
+    gothic_script: &ScriptResource,
+    named_models: &NamedModels,
+    time: &Time,
+    shooter_tr: &GlobalTransform,
+    shooter: InstanceId,
+    target: Option<Entity>,
+) {
+    let origin = shooter_tr.translation() + Vec3::Y * BOW_HEIGHT;
+    // Aim at the selected npc, fall back to the facing direction of the
+    // shooter (it faces local +Z, see the selection module).
+    let direction = target
+        .and_then(|target| transforms.get(target).ok())
+        .map(|target| (target.translation() + Vec3::Y * BOW_HEIGHT - origin).normalize_or_zero())
+        .filter(|direction| direction.length_squared() > 0.0)
+        .unwrap_or_else(|| {
+            let facing = shooter_tr.back();
+            Vec3::new(facing.x, 0.0, facing.z).normalize_or_zero()
+        });
+    if direction.length_squared() < 0.5 {
+        warn!(
+            "Arrow of npc({}) not spawned: no aim direction",
+            shooter.value()
+        );
+        return;
+    }
+
+    // Damage of the currently equipped ranged weapon.
+    let damage = {
+        let mut script = gothic_script.lock();
+        script
+            .npc_instances()
+            .get(&shooter)
+            .and_then(|player| player.equipped_ranged)
+            .map(|weapon| script.item_damage_total(weapon))
+    };
+    let Some(damage) = damage else {
+        warn!(
+            "Arrow of npc({}) not spawned: no ranged weapon damage",
+            shooter.value()
+        );
+        return;
+    };
+
+    // The arrow mesh is authored sideways (shaft along the local X axis,
+    // like weapon meshes with the grip at the origin), so align that axis
+    // with the shot direction instead of the default -Z look-at.
+    let transform = Transform::from_translation(origin)
+        .with_rotation(Quat::from_rotation_arc(ARROW_MESH_FORWARD, direction));
+    let arrow = Arrow {
+        damage,
+        shooter,
+        spawned_at: time.elapsed_secs(),
+        spawn_origin: origin,
+    };
+    let entity = spawn_arrow(commands, arrow, direction, transform);
+
+    // Visual: the arrow item mesh, resolved once at world load. Without it
+    // arrows have no visual.
+    if let Some(model_handle) = named_models.item_arrow.clone() {
+        commands.entity(entity).insert((
+            ZenGinModelComponent {
+                model_handle,
+                ..default()
+            },
+            Visibility::default(),
+        ));
+    }
+    info!(
+        "Npc({}) shot an arrow dealing {damage} damage towards {}",
+        shooter.value(),
+        target.map_or_else(
+            || "the facing direction".to_string(),
+            |target| format!("npc({target})")
+        )
+    );
 }
 
 /// Spawns a flying arrow entity: a small sensor collider rigid body on the

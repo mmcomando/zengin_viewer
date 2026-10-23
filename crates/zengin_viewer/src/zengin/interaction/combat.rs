@@ -192,6 +192,48 @@ pub(crate) struct NpcDamageData<'a> {
     pub reaction: Option<&'a NpcHitReaction>,
 }
 
+/// Removes the drawn weapon from the dead npc's inventory and spawns it on
+/// the ground as a pickable item.
+#[allow(clippy::too_many_arguments)]
+fn drop_drawn_weapon(
+    gothic_scripts: &ScriptResource,
+    vfs: &ZenginVfs,
+    handles: &mut CachedAssetHandles,
+    asset_server: &Res<AssetServer>,
+    commands: &mut Commands,
+    npc_id: InstanceId,
+    item: InstanceId,
+    position: Vec3,
+) {
+    let mut script = gothic_scripts.lock();
+    let removed = script.remove_inventory(npc_id, item, 1);
+    if removed == 0 {
+        warn!(
+            "Dropped weapon item({}) of npc({}) was not in its inventory",
+            item.value(),
+            npc_id.value()
+        );
+    }
+    drop(script);
+    let Some(path) = item_model_path(gothic_scripts, vfs, item) else {
+        warn!("No mesh path for dropped weapon item({item})");
+        return;
+    };
+    let model_handle = handles.get_model_handle(asset_server, &path, None);
+    commands.spawn((
+        ClassifyDistance::default(),
+        ZenGinModelComponent {
+            model_handle,
+            ..default()
+        },
+        Visibility::default(),
+        Transform::from_translation(position),
+        GameItem {
+            item_instance_id: item,
+        },
+    ));
+}
+
 /// Handles npc death: the inventory moves to the player, the drawn weapon
 /// drops on the ground (removed from the inventory first so it is not
 /// duplicated) and the npc entity is despawned.
@@ -244,33 +286,16 @@ pub(super) fn handle_npc_death(
         // from the npc inventory first when present, otherwise the transfer
         // below would duplicate it.
         if let Some(item) = dropped {
-            let mut script = gothic_scripts.lock();
-            let removed = script.remove_inventory(npc_id, item, 1);
-            if removed == 0 {
-                warn!(
-                    "Dropped weapon item({}) of npc({}) was not in its inventory",
-                    item.value(),
-                    npc_id.value()
-                );
-            }
-            drop(script);
-            if let Some(path) = item_model_path(&gothic_scripts, &vfs, item) {
-                let model_handle = handles.get_model_handle(&asset_server, &path, None);
-                commands.spawn((
-                    ClassifyDistance::default(),
-                    ZenGinModelComponent {
-                        model_handle,
-                        ..default()
-                    },
-                    Visibility::default(),
-                    Transform::from_translation(position),
-                    GameItem {
-                        item_instance_id: item,
-                    },
-                ));
-            } else {
-                warn!("No mesh path for dropped weapon item({item})");
-            }
+            drop_drawn_weapon(
+                &gothic_scripts,
+                &vfs,
+                &mut handles,
+                &asset_server,
+                &mut commands,
+                npc_id,
+                item,
+                position,
+            );
         }
 
         info!("Npc({npc_id}) died, moved its inventory to player({player_id})");

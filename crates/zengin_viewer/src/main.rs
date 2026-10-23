@@ -67,7 +67,10 @@
     // maybe reconsider
     clippy::min_ident_chars,
     clippy::definition_in_module_root,
-    clippy::cognitive_complexity,
+
+    // macros debug/info/warn blow up complexity without reason, which
+    // might force us to disable cognitive_complexity, for now enable
+    // clippy::cognitive_complexity,
 
     // other clippy
     clippy::unused_async_trait_impl,

@@ -83,21 +83,7 @@ pub fn crossed_triggers(
 /// Loads the model script triggers. Best effort: without the script no
 /// triggers are registered.
 fn load_human_animation_data(mut commands: Commands, vfs: Res<ZenginVfs>) {
-    let bytes = {
-        let vfs = vfs.0.lock().unwrap();
-        get_zengin_asset_bytes(&vfs, HUMANS_MODEL_SCRIPT)
-    };
-    let (triggers, source) = if let Some(bytes) = bytes {
-        match load_script_triggers(&bytes) {
-            Some(triggers) => (triggers, "HUMANS.MDS"),
-            None => (HashMap::new(), "script parse failed"),
-        }
-    } else {
-        warn!(
-            "Model script({HUMANS_MODEL_SCRIPT}) not found in the anims archive, animation triggers are not loaded"
-        );
-        (HashMap::new(), "script missing")
-    };
+    let (triggers, source) = load_triggers_or_fallback(&vfs);
 
     let animations: usize = triggers.len();
     let trigger_count: usize = triggers.values().map(Vec::len).sum();
@@ -112,6 +98,27 @@ fn load_human_animation_data(mut commands: Commands, vfs: Res<ZenginVfs>) {
     commands.insert_resource(AnimationTriggers {
         animations: triggers,
     });
+}
+
+/// Loads the model script triggers, falling back to an empty set when the
+/// script is missing or unparsable.
+fn load_triggers_or_fallback(
+    vfs: &ZenginVfs,
+) -> (HashMap<String, Vec<AnimationTriggerDef>>, &'static str) {
+    let bytes = {
+        let vfs = vfs.0.lock().unwrap();
+        get_zengin_asset_bytes(&vfs, HUMANS_MODEL_SCRIPT)
+    };
+    let Some(bytes) = bytes else {
+        warn!(
+            "Model script({HUMANS_MODEL_SCRIPT}) not found in the anims archive, animation triggers are not loaded"
+        );
+        return (HashMap::new(), "script missing");
+    };
+    match load_script_triggers(&bytes) {
+        Some(triggers) => (triggers, "HUMANS.MDS"),
+        None => (HashMap::new(), "script parse failed"),
+    }
 }
 
 /// Parses the compiled model script into per-animation triggers. Sound

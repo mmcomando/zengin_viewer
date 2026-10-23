@@ -53,6 +53,10 @@ impl ScriptResource {
     }
 }
 
+/// Loads and initializes the compiled world script. Straight-line sequence of
+/// script calls; `#[allow]` because bevy's `info!` macros expand to branching
+/// code, which pushes clippy's cognitive complexity far above the real one.
+#[allow(clippy::cognitive_complexity)]
 fn load_gothic_script_manager() -> ScriptManager {
     let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
     let cached_wasm_path = PathBuf::from("./gothic.script.wasm");

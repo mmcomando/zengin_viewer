@@ -12,6 +12,7 @@ use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
+use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc};
 
 /// Toggles the player's equipped weapons between sheathed and drawn on
@@ -35,45 +36,68 @@ pub(super) fn toggle_player_weapons(
         if !action_state.just_pressed(&action) {
             continue;
         }
-        let mut script = gothic_script.lock();
-        let Some(instance) = script.npc_instances().get(&player_id) else {
-            warn!(
-                "No script instance for player({}) on weapon toggle",
-                player_id.value()
-            );
-            continue;
-        };
-        let equipped = if ranged {
-            instance.equipped_ranged.is_some()
-        } else {
-            instance.equipped_melee.is_some()
-        };
-        let drawn = match instance.weapon_mode {
-            Some(WeaponMode::Melee) => !ranged,
-            Some(WeaponMode::Ranged) => ranged,
-            _ => false,
-        };
-        let name = if ranged { "ranged" } else { "melee" };
-        if !equipped {
-            game_log.add(format!("No {name} weapon equipped"));
-            info!(
-                "Weapon toggle for player({}) ignored: no {name} weapon equipped",
-                player_id.value()
-            );
-            continue;
-        }
-        if drawn {
-            script.sheathe_weapon(player_id);
-        } else {
-            script.draw_weapon(player_id, ranged);
-        }
-        info!(
-            "Player({}) {} its {} weapon",
-            player_id.value(),
-            if drawn { "sheathed" } else { "drew" },
-            name
-        );
+        toggle_weapon(&gothic_script, &mut game_log, player_id, action, ranged);
     }
+}
+
+/// Applies one weapon toggle press for the player.
+fn toggle_weapon(
+    gothic_script: &ScriptResource,
+    game_log: &mut GameLog,
+    player_id: InstanceId,
+    action: GameplayAction,
+    ranged: bool,
+) {
+    let Some((equipped, drawn, name)) = weapon_state(gothic_script, player_id, ranged) else {
+        warn!(
+            "No script instance for player({}) on weapon toggle({action:?})",
+            player_id.value()
+        );
+        return;
+    };
+    let mut script = gothic_script.lock();
+    if !equipped {
+        game_log.add(format!("No {name} weapon equipped"));
+        info!(
+            "Weapon toggle for player({}) ignored: no {name} weapon equipped",
+            player_id.value()
+        );
+        return;
+    }
+    if drawn {
+        script.sheathe_weapon(player_id);
+    } else {
+        script.draw_weapon(player_id, ranged);
+    }
+    info!(
+        "Player({}) {} its {} weapon",
+        player_id.value(),
+        if drawn { "sheathed" } else { "drew" },
+        name
+    );
+}
+
+/// Equipped/drawn state of the player's `{ranged,melee}` weapon. Returns
+/// `None` when the player has no script instance.
+fn weapon_state(
+    gothic_script: &ScriptResource,
+    player_id: InstanceId,
+    ranged: bool,
+) -> Option<(bool, bool, &'static str)> {
+    let script = gothic_script.lock();
+    let instance = script.npc_instances().get(&player_id)?;
+    let equipped = if ranged {
+        instance.equipped_ranged.is_some()
+    } else {
+        instance.equipped_melee.is_some()
+    };
+    let drawn = match instance.weapon_mode {
+        Some(WeaponMode::Melee) => !ranged,
+        Some(WeaponMode::Ranged) => ranged,
+        _ => false,
+    };
+    let name = if ranged { "ranged" } else { "melee" };
+    Some((equipped, drawn, name))
 }
 
 /// Moves all items between the requested instance inventories and logs each

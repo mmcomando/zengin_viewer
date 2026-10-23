@@ -196,24 +196,16 @@ pub(crate) fn update_animations(
             continue;
         };
 
-        // Root motion: the animation drives the position of the entity (the
-        // physics body owns the model as a child, so move that one and let
-        // move-and-slide react to the new position).
-        if controller.root_motion() && update.delta_movement != 0.0 {
-            let target = match parent {
-                Some(parent) if q_vel.contains(parent.parent()) => parent.parent(),
-                _ => entity,
-            };
-            let speed = if accelerating.contains(target) {
-                ACCELERATION_MULTIPLIER
-            } else {
-                1.0
-            };
-            if let Ok(mut transform) = transforms.get_mut(target) {
-                transform.translation +=
-                    global_transform.rotation() * Vec3::Z * update.delta_movement * speed;
-            }
-        }
+        apply_root_motion(
+            entity,
+            global_transform,
+            parent,
+            &controller,
+            &update,
+            &q_vel,
+            &accelerating,
+            &mut transforms,
+        );
 
         // The end window drives the animation switch scheduling of the
         // sequencer and the hit reaction resume; consumers filter by `who`.
@@ -238,25 +230,14 @@ pub(crate) fn update_animations(
             });
         }
 
-        // Animation trigger events are emitted only for players for now; the
-        // sequencer consuming them is player-only.
-        if player.is_some()
-            && let Some(triggers) = triggers.as_ref()
-            && let Some(path) = controller.current().path()
-            && let Some(animation) = animation_name_from_path(path.path())
-        {
-            for trigger in crossed_triggers(
-                triggers.triggers(animation),
-                update.old_progress,
-                update.new_progress,
-                update.finished,
-            ) {
-                animation_triggers.write(AnimationTrigger {
-                    who: entity,
-                    trigger_name: trigger.name.clone(),
-                });
-            }
-        }
+        write_player_triggers(
+            player,
+            triggers.as_deref(),
+            &controller,
+            &update,
+            entity,
+            &mut animation_triggers,
+        );
 
         // // Uncomment to debug animations
         // if update.finished && controller.next.is_none() {
@@ -274,30 +255,14 @@ pub(crate) fn update_animations(
             && let Some(next_data) = animations.get(&next)
         {
             let next_data = Arc::new(next_data.clone());
-            let current_path = controller.current().path();
-            let next_path = Handle::path(&next);
-            if next_data.frames_num == 0 {
-                warn!(
-                    "Animation switch to {next_path:?} on entity({entity}) skipped: not playable (frames {})",
-                    next_data.frames_num,
-                );
-                continue;
-            }
-            debug!("Animation switch on entity({entity}): {current_path:?} -> {next_path:?}",);
-            data.fps = next_data.fps;
-            data.frames_num = next_data.frames_num as usize;
-            data.movement = next_data.root_movement(data.base_pos_node_index);
-            // New animation starts from its first frame
-            data.time_us.store(0, Ordering::Release);
-            data.frame_state.start_frame.store(0, Ordering::Release);
-            // Single frame poses have no second frame to interpolate to
-            data.frame_state.end_frame.store(
-                u32::from(next_data.frames_num > 1),
-                Ordering::Release,
+            switch_animation(
+                entity,
+                next,
+                next_data,
+                &mut controller,
+                &mut data,
+                &mut switches,
             );
-            data.frame_state.mul_1000.store(0, Ordering::Release);
-            controller.switch_to(next);
-            switches.push((entity, next_data));
         }
     }
 
@@ -314,6 +279,105 @@ pub(crate) fn update_animations(
             joint.bone_index = new_data.get_index_for_bone(joint.node_index);
         }
     }
+}
+
+/// Root motion: the animation drives the position of the entity (the
+/// physics body owns the model as a child, so move that one and let
+/// move-and-slide react to the new position).
+#[allow(clippy::too_many_arguments)]
+fn apply_root_motion(
+    entity: Entity,
+    global_transform: &GlobalTransform,
+    parent: Option<&ChildOf>,
+    controller: &AnimationController,
+    update: &FrameUpdate,
+    q_vel: &Query<&LinearVelocity>,
+    accelerating: &Query<(), With<AcceleratingRootMotion>>,
+    transforms: &mut Query<&mut Transform>,
+) {
+    if !controller.root_motion() || update.delta_movement == 0.0 {
+        return;
+    }
+    let target = match parent {
+        Some(parent) if q_vel.contains(parent.parent()) => parent.parent(),
+        _ => entity,
+    };
+    let speed = if accelerating.contains(target) {
+        ACCELERATION_MULTIPLIER
+    } else {
+        1.0
+    };
+    let Ok(mut transform) = transforms.get_mut(target) else {
+        return;
+    };
+    transform.translation += global_transform.rotation() * Vec3::Z * update.delta_movement * speed;
+}
+
+/// Animation trigger events are emitted only for players for now; the
+/// sequencer consuming them is player-only.
+fn write_player_triggers(
+    player: Option<&PlayerCharacter>,
+    triggers: Option<&AnimationTriggers>,
+    controller: &AnimationController,
+    update: &FrameUpdate,
+    entity: Entity,
+    animation_triggers: &mut MessageWriter<AnimationTrigger>,
+) {
+    let (Some(_), Some(triggers)) = (player, triggers) else {
+        return;
+    };
+    let Some(path) = controller.current().path() else {
+        return;
+    };
+    let Some(animation) = animation_name_from_path(path.path()) else {
+        return;
+    };
+    for trigger in crossed_triggers(
+        triggers.triggers(animation),
+        update.old_progress,
+        update.new_progress,
+        update.finished,
+    ) {
+        animation_triggers.write(AnimationTrigger {
+            who: entity,
+            trigger_name: trigger.name.clone(),
+        });
+    }
+}
+
+/// Applies a queued next animation to the state and schedules the joint
+/// resampling. A not playable next animation (`frames_num == 0`) is skipped.
+fn switch_animation(
+    entity: Entity,
+    next: Handle<AnimationData>,
+    next_data: Arc<AnimationData>,
+    controller: &mut AnimationController,
+    data: &mut AnimationState,
+    switches: &mut Vec<(Entity, Arc<AnimationData>)>,
+) {
+    let current_path = controller.current().path();
+    let next_path = Handle::path(&next);
+    if next_data.frames_num == 0 {
+        warn!(
+            "Animation switch to {next_path:?} on entity({entity}) skipped: not playable (frames {})",
+            next_data.frames_num,
+        );
+        return;
+    }
+    debug!("Animation switch on entity({entity}): {current_path:?} -> {next_path:?}",);
+    data.fps = next_data.fps;
+    data.frames_num = next_data.frames_num as usize;
+    data.movement = next_data.root_movement(data.base_pos_node_index);
+    // New animation starts from its first frame
+    data.time_us.store(0, Ordering::Release);
+    data.frame_state.start_frame.store(0, Ordering::Release);
+    // Single frame poses have no second frame to interpolate to
+    data.frame_state
+        .end_frame
+        .store(u32::from(next_data.frames_num > 1), Ordering::Release);
+    data.frame_state.mul_1000.store(0, Ordering::Release);
+    controller.switch_to(next);
+    switches.push((entity, next_data));
 }
 
 #[allow(clippy::cast_precision_loss)]

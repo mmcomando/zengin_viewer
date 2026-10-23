@@ -108,29 +108,42 @@ fn load_replay_file(options: Res<Options>, mut commands: Commands) {
     let Some(path) = options.replay_actions() else {
         return;
     };
-    let workdir = scenario_workdir(path);
-    // Start from an empty workdir so everything left in it was produced by
-    // this run, not by an earlier one.
-    match fs::remove_dir_all(&workdir) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => warn!("Failed to remove old scenario workdir {workdir:?}: {error}"),
-    }
-    if let Err(error) = fs::create_dir_all(&workdir) {
-        warn!("Failed to create scenario workdir {workdir:?}: {error}");
-    }
-    let replay = match read_replay(&workdir, path) {
-        Ok(replay) => replay,
-        Err(error) => {
-            warn!("Replaying actions disabled: {error}");
-            return;
-        }
+    let Some(replay) = prepare_replay(path) else {
+        return;
     };
     info!(
         "Replaying {} recorded replay command(s) from {path:?}",
         replay.commands.len()
     );
     commands.insert_resource(replay);
+}
+
+/// Resets the scenario workdir so everything left in it was produced by
+/// this run, not by an earlier one.
+fn reset_scenario_workdir(workdir: &Path) {
+    match fs::remove_dir_all(workdir) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => warn!("Failed to remove old scenario workdir {workdir:?}: {error}"),
+    }
+    if let Err(error) = fs::create_dir_all(workdir) {
+        warn!("Failed to create scenario workdir {workdir:?}: {error}");
+    }
+}
+
+/// Resets the scenario workdir and parses the replay file. Returns `None`
+/// (with a warning logged) when the workdir cannot be prepared or the replay
+/// file is unreadable, disabling the replay.
+fn prepare_replay(path: &Path) -> Option<ActionReplay> {
+    let workdir = scenario_workdir(path);
+    reset_scenario_workdir(&workdir);
+    match read_replay(&workdir, path) {
+        Ok(replay) => Some(replay),
+        Err(error) => {
+            warn!("Replaying actions disabled: {error}");
+            None
+        }
+    }
 }
 
 fn read_replay(workdir: &Path, path: &Path) -> Result<ActionReplay, String> {
@@ -203,57 +216,16 @@ fn replay_actions(
         let command = replay.commands[replay.next].clone();
         replay.next += 1;
         info!("Replay triggered command: {command:?}");
-        match &command {
-            ReplayCommand::Press { action, .. } => {
-                replay.started_buttons.insert(*action);
-                replay.held_buttons.insert(*action);
-            }
-            ReplayCommand::Release { action, .. } => {
-                replay.held_buttons.remove(action);
-            }
-            ReplayCommand::Axis { action, value, .. } => {
-                if *value == Vec2::ZERO {
-                    replay.held_axes.remove(action);
-                } else {
-                    replay.held_axes.insert(*action, *value);
-                }
-            }
-            ReplayCommand::TeleportPlayer {
-                translation,
-                rotation,
-                ..
-            } => {
-                pending.player.push((*translation, *rotation));
-            }
-            ReplayCommand::SetCameraLocation {
-                translation,
-                rotation,
-                ..
-            } => {
-                pending.camera.push((*translation, *rotation));
-            }
-            ReplayCommand::EquipWeapon { item, .. } => {
-                equip_player_weapon(&gothic_script, &player_npc, item);
-            }
-            ReplayCommand::Screenshot { path, .. } => {
-                let Some(file_path) = resolve_scenario_path(&replay.workdir, path) else {
-                    warn!(
-                        "Replay disabled: screenshot path {path:?} must be relative to the \
-                         scenario workdir {:?}",
-                        replay.workdir
-                    );
-                    commands.remove_resource::<ActionReplay>();
-                    return;
-                };
-                if let Some(parent) = file_path.parent()
-                    && let Err(error) = fs::create_dir_all(parent)
-                {
-                    warn!("Failed to create screenshot dir {parent:?}: {error}");
-                }
-                commands
-                    .spawn(Screenshot::primary_window())
-                    .observe(save_to_disk(file_path.to_string_lossy().into_owned()));
-            }
+        if apply_replay_command(
+            &mut replay,
+            &command,
+            &gothic_script,
+            &player_npc,
+            &mut pending,
+            &mut commands,
+        ) {
+            commands.remove_resource::<ActionReplay>();
+            return;
         }
     }
 
@@ -271,6 +243,77 @@ fn replay_actions(
     for (action, value) in &replay.held_axes {
         set_axis_pair(&mut gameplay, *action, *value);
     }
+}
+
+/// Applies one replayed command. Returns `true` when the replay must abort
+/// (an invalid screenshot path disables the replay entirely).
+fn apply_replay_command(
+    replay: &mut ActionReplay,
+    command: &ReplayCommand,
+    gothic_script: &ScriptResource,
+    player_npc: &Query<&GameNpc, With<PlayerCharacter>>,
+    pending: &mut PendingLocations,
+    commands: &mut Commands,
+) -> bool {
+    match command {
+        ReplayCommand::Press { action, .. } => {
+            replay.started_buttons.insert(*action);
+            replay.held_buttons.insert(*action);
+        }
+        ReplayCommand::Release { action, .. } => {
+            replay.held_buttons.remove(action);
+        }
+        ReplayCommand::Axis { action, value, .. } => {
+            if *value == Vec2::ZERO {
+                replay.held_axes.remove(action);
+            } else {
+                replay.held_axes.insert(*action, *value);
+            }
+        }
+        ReplayCommand::TeleportPlayer {
+            translation,
+            rotation,
+            ..
+        } => {
+            pending.player.push((*translation, *rotation));
+        }
+        ReplayCommand::SetCameraLocation {
+            translation,
+            rotation,
+            ..
+        } => {
+            pending.camera.push((*translation, *rotation));
+        }
+        ReplayCommand::EquipWeapon { item, .. } => {
+            equip_player_weapon(gothic_script, player_npc, item);
+        }
+        ReplayCommand::Screenshot { path, .. } => {
+            return apply_replay_screenshot(replay, path, commands);
+        }
+    }
+    false
+}
+
+/// Schedules a screenshot save into the scenario workdir. Returns `true` when
+/// the screenshot path is invalid and the replay must be disabled.
+fn apply_replay_screenshot(replay: &ActionReplay, path: &String, commands: &mut Commands) -> bool {
+    let Some(file_path) = resolve_scenario_path(&replay.workdir, path) else {
+        warn!(
+            "Replay disabled: screenshot path {path:?} must be relative to the \
+             scenario workdir {:?}",
+            replay.workdir
+        );
+        return true;
+    };
+    if let Some(parent) = file_path.parent()
+        && let Err(error) = fs::create_dir_all(parent)
+    {
+        warn!("Failed to create screenshot dir {parent:?}: {error}");
+    }
+    commands
+        .spawn(Screenshot::primary_window())
+        .observe(save_to_disk(file_path.to_string_lossy().into_owned()));
+    false
 }
 
 /// Presses a recorded button on its input map's action state.

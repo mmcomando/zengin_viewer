@@ -36,7 +36,9 @@ impl Plugin for AutoAnimSequencerPlugin {
             graph.load_additional_edges(Path::new(MANUAL_EDGES_ASSET));
             app.insert_resource(graph);
             app.add_systems(Startup, preload_graph_animations);
-        } else { warn!("AutoAnimSequencerPlugin without an animation graph({GRAPH_ASSET})") }
+        } else {
+            warn!("AutoAnimSequencerPlugin without an animation graph({GRAPH_ASSET})")
+        }
         app.add_message::<SetDesiredAnimation>();
         app.add_systems(
             Update,
@@ -238,53 +240,79 @@ fn advance_on_animation_ends(
         if end.what_animation != *controller.current() {
             continue;
         }
-        let Some(current) = animation_index(graph, &end.what_animation) else {
-            warn!(
-                "AutoAnimSequencer({entity}) current animation missing from the graph, desired({:?}) unreachable",
-                seq.desired
-            );
-            continue;
-        };
-        if current == melee_swing_index {
-            // The swing loop wrapped: the hit lands on the selected
-            // target, even when the attack was already released
-            hits.write(MeleeHit { shooter: entity });
-        }
-        let Some(desired) = seq.desired else {
-            warn!("AutoAnimSequencer({entity}) animation end without a desired animation");
-            continue;
-        };
-        let desired_index = index_of(graph, desired);
-        if current == desired_index {
-            if desired == DesiredAnimation::Fire {
-                // The reload loop wrapped: the arrow leaves the bow. The
-                // arrow system aims at the selected target.
-                arrows.write(ArrowShot { shooter: entity });
-            }
-            // Reached: keep the current animation looping. Held one
-            // frame poses emit ends every frame, so this is a normal
-            // state, not an anomaly.
-            controller.clear_next();
-            debug!(
-                "keep looping desired({:?}), current({:?})",
-                desired,
-                controller.current().path()
-            );
-            continue;
-        }
-        // Walk the graph; cut straight to the desired animation when the
-        // graph offers no path to it.
-        let next = graph
-            .next_animation(current, desired_index)
-            .unwrap_or(desired_index);
-        queue_animation(
+        advance_sequencer_on_end(
+            graph,
+            entity,
+            seq,
             &mut controller,
+            melee_swing_index,
+            &mut arrows,
+            &mut hits,
             &mut handles,
             &asset_server,
-            graph.animation_name(next),
-            seq.force_change,
         );
     }
+}
+
+/// Handles one [`AnimationEnds`] for a sequencer-owned skeleton.
+#[allow(clippy::too_many_arguments)]
+fn advance_sequencer_on_end(
+    graph: &AnimationGraph,
+    entity: Entity,
+    seq: &AutoAnimSequencer,
+    controller: &mut AnimationController,
+    melee_swing_index: AnimationIndex,
+    arrows: &mut MessageWriter<ArrowShot>,
+    hits: &mut MessageWriter<MeleeHit>,
+    handles: &mut CachedAssetHandles,
+    asset_server: &AssetServer,
+) {
+    let Some(current) = animation_index(graph, controller.current()) else {
+        warn!(
+            "AutoAnimSequencer({entity}) current animation missing from the graph, desired({:?}) unreachable",
+            seq.desired
+        );
+        return;
+    };
+    if current == melee_swing_index {
+        // The swing loop wrapped: the hit lands on the selected
+        // target, even when the attack was already released
+        hits.write(MeleeHit { shooter: entity });
+    }
+    let Some(desired) = seq.desired else {
+        warn!("AutoAnimSequencer({entity}) animation end without a desired animation");
+        return;
+    };
+    let desired_index = index_of(graph, desired);
+    if current == desired_index {
+        if desired == DesiredAnimation::Fire {
+            // The reload loop wrapped: the arrow leaves the bow. The
+            // arrow system aims at the selected target.
+            arrows.write(ArrowShot { shooter: entity });
+        }
+        // Reached: keep the current animation looping. Held one
+        // frame poses emit ends every frame, so this is a normal
+        // state, not an anomaly.
+        controller.clear_next();
+        debug!(
+            "keep looping desired({:?}), current({:?})",
+            desired,
+            controller.current().path()
+        );
+        return;
+    }
+    // Walk the graph; cut straight to the desired animation when the
+    // graph offers no path to it.
+    let next = graph
+        .next_animation(current, desired_index)
+        .unwrap_or(desired_index);
+    queue_animation(
+        controller,
+        handles,
+        asset_server,
+        graph.animation_name(next),
+        seq.force_change,
+    );
 }
 
 /// Rotates the model towards the stored movement direction; standing keeps
