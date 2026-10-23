@@ -390,8 +390,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .get(&npc)
             .map_or(0, |npc| npc.inventory.count(item))
     }
-    fn npc_giveitem(&mut self, from: i32, item: i32, to: i32) {
-        let Some(from) = self.symbol_table.instance(from) else {
+    fn npc_giveitem(&mut self, npc: i32, item: i32, to: i32) {
+        let Some(from) = self.symbol_table.instance(npc) else {
             return;
         };
         let Some(item) = self.symbol_table.instance(item) else {
