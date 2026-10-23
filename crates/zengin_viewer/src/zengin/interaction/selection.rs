@@ -8,9 +8,9 @@ use bevy_rich_text3d::{Text3d, Text3dPlugin, Text3dStyling, TextAnchor, TextAtla
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::npc_routines::NpcWeaponMode;
+use crate::zengin::resources::{ARROW, NPC_BODY, SELECTABLE};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
-use crate::zengin::resources::{ARROW, NPC_BODY, SELECTABLE};
 use crate::zengin::{GameItem, GameNpc};
 
 /// Distance (meters) within which a world object can be selected.

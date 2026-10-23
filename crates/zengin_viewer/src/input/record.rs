@@ -19,11 +19,20 @@ use crate::input::actions::{
 };
 use crate::input::options::Options;
 
+/// Third person camera switch, carrying the free camera transform the player
+/// and camera are placed at. Recorded as `TeleportPlayer` and
+/// `SetCameraLocation` synchronization commands and re-applied by the replay:
+/// the free camera state the placement is based on is not reproducible across
+/// runs.
+#[derive(Message)]
+pub(crate) struct CameraSwitchedToThirdPerson(pub GlobalTransform);
+
 /// Records every triggered action together with its frame number.
 pub struct ActionRecordingPlugin;
 
 impl Plugin for ActionRecordingPlugin {
     fn build(&self, app: &mut App) {
+        app.add_message::<CameraSwitchedToThirdPerson>();
         app.add_systems(Startup, open_recording_file);
         app.add_systems(Update, record_triggered_actions);
     }
@@ -136,6 +145,7 @@ fn record_triggered_actions(
     gui: Option<Single<&ActionState<GuiAction>, With<GuiInputMarker>>>,
     shared: Option<Single<&ActionState<SharedAction>, With<SharedInputMarker>>>,
     debug: Option<Single<&ActionState<DebugAction>, With<DebugInputMarker>>>,
+    mut camera_switches: MessageReader<CameraSwitchedToThirdPerson>,
 ) {
     let Some(recording) = recording.as_deref_mut() else {
         return;
@@ -213,6 +223,21 @@ fn record_triggered_actions(
         &mut commands,
         &mut recording.last_axis,
     );
+
+    // Extra commands of this frame, written from `PreUpdate` systems.
+    for switch in camera_switches.read() {
+        let (translation, player_rotation, camera_rotation) = switch_sync_transforms(&switch.0);
+        commands.push(ReplayCommand::TeleportPlayer {
+            frame,
+            translation,
+            rotation: player_rotation,
+        });
+        commands.push(ReplayCommand::SetCameraLocation {
+            frame,
+            translation,
+            rotation: camera_rotation,
+        });
+    }
 
     recording.commands = commands;
     if recording.commands.len() != before {
@@ -304,6 +329,29 @@ fn record_axis(
         action,
         value,
     });
+}
+
+/// Player teleport and camera location of a camera switch. The player is
+/// placed at the camera position facing its horizontal look direction, the
+/// camera keeps its full rotation. Rotations are axis labeled degrees
+/// `(x = pitch, y = yaw, z = roll)`.
+/// Returns `(translation, player_rotation, camera_rotation)`.
+pub(crate) fn switch_sync_transforms(camera: &GlobalTransform) -> (Vec3, Vec3, Vec3) {
+    let translation = camera.translation();
+    let (yaw, pitch, roll) = camera.rotation().to_euler(EulerRot::YXZ);
+    let camera_rotation = Vec3::new(pitch.to_degrees(), yaw.to_degrees(), roll.to_degrees());
+    let forward = camera.forward();
+    let dir = Vec3::new(forward.x, 0.0, forward.z);
+    if dir.length_squared() <= f32::EPSILON {
+        warn!(
+            "Camera switch looks straight up or down ({camera_rotation:?}), \
+             recording the player facing north"
+        );
+        return (translation, Vec3::ZERO, camera_rotation);
+    }
+    let dir = dir.normalize();
+    let player_rotation = Vec3::new(0.0, dir.x.atan2(dir.z).to_degrees(), 0.0);
+    (translation, player_rotation, camera_rotation)
 }
 
 /// Rewrites the whole recording file with the current command list.

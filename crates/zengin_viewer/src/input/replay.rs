@@ -15,13 +15,16 @@ use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::{ActionState, Actionlike};
 
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
+use crate::gameplay::character_camera::camera_toggle_input;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::input::actions::{
     DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker, GuiAction, GuiInputMarker,
     SharedAction, SharedInputMarker, update_input_mode,
 };
 use crate::input::options::Options;
-use crate::input::record::{RecordedAction, ReplayCommand};
+use crate::input::record::{
+    CameraSwitchedToThirdPerson, RecordedAction, ReplayCommand, switch_sync_transforms,
+};
 use crate::zengin::{GameNpc, ScriptResource, WeaponKind};
 
 /// Replays the actions recorded with `--save-actions`.
@@ -39,6 +42,9 @@ impl Plugin for ActionReplayPlugin {
                 .in_set(InputManagerSystem::ManualControl)
                 .after(update_input_mode),
         );
+        // The re-application must run after the camera toggle placed the
+        // player at the drifted free camera, so the recorded sync point wins.
+        app.add_systems(PreUpdate, apply_camera_switch.after(camera_toggle_input));
     }
 }
 
@@ -137,6 +143,37 @@ fn read_replay(workdir: &Path, path: &Path) -> Result<ActionReplay, String> {
     })
 }
 
+/// Re-applies the camera switch synchronization point during replay runs,
+/// after the camera toggle moved the player to the drifted free camera.
+fn apply_camera_switch(
+    options: Res<Options>,
+    mut switches: MessageReader<CameraSwitchedToThirdPerson>,
+    mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
+    mut player_visual: Query<
+        &mut Transform,
+        (
+            With<PlayerCharacter>,
+            Without<PlayerPhysicsBodyMarker>,
+            Without<Camera3d>,
+        ),
+    >,
+    mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
+) {
+    if options.replay_actions().is_none() {
+        return;
+    }
+    for switch in switches.read() {
+        let (translation, player_rotation, camera_rotation) = switch_sync_transforms(&switch.0);
+        teleport_player(
+            &mut player,
+            &mut player_visual,
+            translation,
+            player_rotation,
+        );
+        set_camera_location(&mut camera, translation, camera_rotation);
+    }
+}
+
 /// Applies the replayed actions of the current frame.
 ///
 /// Held buttons and axes are re-applied every frame, because the input
@@ -152,6 +189,14 @@ fn replay_actions(
     gothic_script: Res<ScriptResource>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
     mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
+    mut player_visual: Query<
+        &mut Transform,
+        (
+            With<PlayerCharacter>,
+            Without<PlayerPhysicsBodyMarker>,
+            Without<Camera3d>,
+        ),
+    >,
     mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
 ) {
     let Some(mut replay) = replay else {
@@ -186,7 +231,7 @@ fn replay_actions(
                 rotation,
                 ..
             } => {
-                teleport_player(&mut player, *translation, *rotation);
+                teleport_player(&mut player, &mut player_visual, *translation, *rotation);
             }
             ReplayCommand::SetCameraLocation {
                 translation,
@@ -324,9 +369,19 @@ fn resolve_scenario_path(workdir: &Path, path: &str) -> Option<PathBuf> {
 }
 
 /// Teleports the player character to `translation` with `rotation` in axis
-/// labeled degrees `(x = pitch, y = yaw, z = roll)`.
+/// labeled degrees `(x = pitch, y = yaw, z = roll)`. The rotation is applied
+/// to the visual model: the facing lives there, the physics body rotation
+/// stays identity.
 fn teleport_player(
     player: &mut Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
+    player_visual: &mut Query<
+        &mut Transform,
+        (
+            With<PlayerCharacter>,
+            Without<PlayerPhysicsBodyMarker>,
+            Without<Camera3d>,
+        ),
+    >,
     translation: Vec3,
     rotation: Vec3,
 ) {
@@ -335,7 +390,11 @@ fn teleport_player(
         return;
     };
     transform.translation = translation;
-    transform.rotation = rotation_from_degrees(rotation);
+    let Ok(mut visual_transform) = player_visual.single_mut() else {
+        warn!("Replay teleport failed: no player visual found");
+        return;
+    };
+    visual_transform.rotation = rotation_from_degrees(rotation);
 }
 
 /// Sets the camera to `translation` with `rotation` in axis labeled degrees

@@ -436,7 +436,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .inventory
             .create(item, count);
         if self.player_instance == Some(npc) {
-            self.pending.inventory_gains
+            self.pending
+                .inventory_gains
                 .push(InventoryGain { npc, item, count });
         }
     }
@@ -469,7 +470,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             WeaponKind::Melee => instance.equipped_melee = Some(item),
             WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = Some(item),
         }
-        self.pending.equip_item_changes
+        self.pending
+            .equip_item_changes
             .push(EquipItemChange { instance_id: npc });
     }
     fake_impl!(npc_getinvitem(_0, _1) -> i32);
@@ -534,7 +536,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         } else {
             instance.hitpoints_max = Some(value);
         }
-        self.pending.health_changes
+        self.pending
+            .health_changes
             .push(HealthChange { instance_id: npc });
     }
     fake_impl!(npc_getcomrades(_0) -> i32);
@@ -629,7 +632,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.pending.align_to_wp_changes
+        self.pending
+            .align_to_wp_changes
             .push(AlignToWpChange { instance_id: npc });
     }
     fake_impl!(ai_setwalkmode(_0, _1));
@@ -796,7 +800,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .entry(npc)
             .or_default()
             .look_at = Some(target);
-        self.pending.look_at_changes
+        self.pending
+            .look_at_changes
             .push(NpcLookAtChange { instance_id: npc });
     }
     fn ai_stoplookat(&mut self, npc: i32) {
@@ -807,7 +812,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return;
         };
         entry.look_at = None;
-        self.pending.look_at_changes
+        self.pending
+            .look_at_changes
             .push(NpcLookAtChange { instance_id: npc });
     }
     fake_impl!(ai_pointat(_0, _1));

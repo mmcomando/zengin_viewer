@@ -8,4 +8,5 @@ pub use crate::input::actions::{
     GuiInputMarker, InputMode, SharedAction, SharedInputMarker,
 };
 pub use crate::input::options::{Options, OptionsPlugin, add_renderless_default_plugins};
+pub(crate) use crate::input::record::CameraSwitchedToThirdPerson;
 pub use crate::input::replay::apply_scenario_window_settings;

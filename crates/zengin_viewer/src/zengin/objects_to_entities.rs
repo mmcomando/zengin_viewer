@@ -13,10 +13,10 @@ use crate::zengin::GameNpc;
 use crate::zengin::common::get_animation_path;
 use crate::zengin::interaction::selection::spawn_npc_selection_collider;
 use crate::zengin::npc_routines::NpcWeaponSlots;
-use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::resources::{
     CachedAssetHandles, ZenGinModelComponent, despawn_visual_when_far_resource,
 };
+use crate::zengin::visual::model::ZenGinModel;
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 

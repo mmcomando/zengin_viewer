@@ -7,7 +7,7 @@ use leafwing_input_manager::prelude::ActionState;
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::input::{DebugAction, DebugInputMarker};
+use crate::input::{CameraSwitchedToThirdPerson, DebugAction, DebugInputMarker};
 use crate::zengin::STATIC_OBJECT;
 
 pub(crate) fn use_character_camera(info: Res<CameraResource>) -> bool {
@@ -28,6 +28,7 @@ pub(crate) fn camera_toggle_input(
             Without<Camera3d>,
         ),
     >,
+    mut switches: MessageWriter<CameraSwitchedToThirdPerson>,
 ) {
     if !action_state.just_pressed(&DebugAction::ToggleCharacterCamera) {
         return;
@@ -36,14 +37,16 @@ pub(crate) fn camera_toggle_input(
         CurrentCamera::Free => info.set_third_person_camera(),
         CurrentCamera::ThirdPerson | CurrentCamera::Dialog => info.set_free_camera(),
     }
-    if info.current() == CurrentCamera::ThirdPerson {
-        // Player starts where the free camera was looking
-        if let (Ok(camera_transform), Ok(mut player_transform)) =
-            (camera_query.single(), player_query.single_mut())
-        {
-            let player_visual = player_visual.single_mut().ok();
-            place_player_at_free_camera(&camera_transform, &mut player_transform, player_visual);
-        }
+    if info.current() != CurrentCamera::ThirdPerson {
+        return;
+    }
+    // Player starts where the free camera was looking
+    if let (Ok(camera_transform), Ok(mut player_transform)) =
+        (camera_query.single(), player_query.single_mut())
+    {
+        let player_visual = player_visual.single_mut().ok();
+        place_player_at_free_camera(&camera_transform, &mut player_transform, player_visual);
+        switches.write(CameraSwitchedToThirdPerson(*camera_transform));
     }
 }
 
