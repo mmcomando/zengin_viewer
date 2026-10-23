@@ -1,3 +1,6 @@
+#![warn(missing_docs)]
+//! Application to view world from Gothic 2 game
+
 #![allow(
     clippy::needless_pass_by_value,
     clippy::cast_possible_truncation,
