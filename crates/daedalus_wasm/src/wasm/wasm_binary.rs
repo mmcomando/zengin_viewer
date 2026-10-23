@@ -403,9 +403,9 @@ fn convert_base_function(body: &wasmparser::FunctionBody, func_index_offset: u32
                 block_depth -= 1;
                 converted.instruction(&Instruction::End);
             }
-            wasmparser::Operator::Block { .. }
-            | wasmparser::Operator::Loop { .. }
-            | wasmparser::Operator::If { .. } => {
+            wasmparser::Operator::Block { blockty: _ }
+            | wasmparser::Operator::Loop { blockty: _ }
+            | wasmparser::Operator::If { blockty: _ } => {
                 block_depth += 1;
                 converted.instruction(&convert_operator(operator, func_index_offset));
             }

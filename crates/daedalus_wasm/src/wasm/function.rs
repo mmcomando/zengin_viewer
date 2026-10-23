@@ -219,7 +219,7 @@ impl<'a> ConversionState<'a> {
                         .map_or("<unknown>", |function| function.name.as_str());
                     panic!(
                         "Could not find function with instruction address({address} -> {missing_func_name}), while compiling({})",
-                        &self.dd_func.name
+                        self.dd_func.name
                     );
                 };
 
@@ -251,7 +251,7 @@ impl<'a> ConversionState<'a> {
                         .map_or("<unknown>", |sym| &sym.name);
                     panic!(
                         "Could not find external function under symbol({func_symbol_index} -> {missing_func_name}), while compiling({})",
-                        &self.dd_func.name
+                        self.dd_func.name
                     );
                 };
                 let func_info = symbol_info.func_info.as_ref().unwrap();

@@ -628,7 +628,7 @@ impl Function {
         }
         println!(";");
 
-        print!("RR    count_import!({}(", &self.name);
+        print!("RR    count_import!({}(", self.name);
         for index in 0..params.len() {
             print!("_{}", index);
             if index != params.len() - 1 {
