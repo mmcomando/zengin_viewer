@@ -10,12 +10,13 @@ use crate::gameplay::objects::NpcModel;
 use crate::graphics::AnimationController;
 use crate::graphics::NpcHitReaction;
 use crate::gui::GameLog;
-use crate::zengin::loaders::vfs::item_model_path;
+use crate::zengin::GameNpc;
 use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
-use crate::zengin::resources::{ARROW, CachedAssetHandles, NPC_BODY, ZenGinModelComponent};
+use crate::zengin::resources::{
+    ARROW, CachedAssetHandles, NPC_BODY, NamedModels, ZenGinModelComponent,
+};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{GameNpc, ZenginVfs};
 use avian3d::prelude::*;
 
 pub struct RangedCombatPlugin;
@@ -71,11 +72,7 @@ fn spawn_arrows(
     transforms: Query<&GlobalTransform>,
     npcs: Query<&GameNpc>,
     gothic_script: Res<ScriptResource>,
-    vfs: Res<ZenginVfs>,
-    mut handles: ResMut<CachedAssetHandles>,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    named_models: Res<NamedModels>,
     time: Res<Time>,
 ) {
     for shot in shots.read() {
@@ -144,57 +141,18 @@ fn spawn_arrows(
             spawned_at: time.elapsed_secs(),
             spawn_origin: origin,
         };
-        let entity = commands
-            .spawn((
-                arrow,
-                RigidBody::Dynamic,
-                Collider::cuboid(0.6, 0.05, 0.05),
-                // The sensor collider contributes no mass, give the arrow an
-                // explicit one so the rigid body has no NaN mass properties.
-                MassPropertiesBundle::from_shape(&Collider::cuboid(0.6, 0.05, 0.05), 1.0),
-                Sensor,
-                CollisionEventsEnabled,
-                // Fast small projectile, swept CCD avoids tunneling through
-                // the npc capsules between the physics steps.
-                SweptCcd::default(),
-                LinearVelocity(direction * ARROW_SPEED),
-                CollisionLayers::from_bits(ARROW, NPC_BODY),
-                transform,
-            ))
-            .id();
+        let entity = spawn_arrow(&mut commands, arrow, direction, transform);
 
-        // TODO add resource with handles to resources known by name in code, here it would be item_arrow: HandleZenGinModel
-        // TODO ignore fallback model just add warn if arrow model is not found
-        // Visual: the arrow item mesh when the ammo item instance exists,
-        // otherwise a small visible box.
-        let arrow_item = gothic_script
-            .lock()
-            .get_loaded_state()
-            .items_instances
-            .iter()
-            .find(|(_, instance)| instance.name.eq_ignore_ascii_case("ITRW_ARROW"))
-            .map(|(id, _)| *id);
-        let visual = arrow_item.and_then(|item| item_model_path(&gothic_script, &vfs, item));
-        match visual {
-            Some(path) => {
-                let model_handle = handles.get_model_handle(&asset_server, &path, None);
-                commands.entity(entity).insert((
-                    ZenGinModelComponent {
-                        model_handle,
-                        ..default()
-                    },
-                    Visibility::default(),
-                ));
-            }
-            None => {
-                commands.entity(entity).insert((
-                    Mesh3d(meshes.add(Cuboid::new(0.6, 0.03, 0.03))),
-                    MeshMaterial3d(materials.add(StandardMaterial {
-                        base_color: Color::srgb(0.6, 0.4, 0.2),
-                        ..default()
-                    })),
-                ));
-            }
+        // Visual: the arrow item mesh, resolved once at world load. Without it
+        // arrows have no visual.
+        if let Some(model_handle) = named_models.item_arrow.clone() {
+            commands.entity(entity).insert((
+                ZenGinModelComponent {
+                    model_handle,
+                    ..default()
+                },
+                Visibility::default(),
+            ));
         }
         info!(
             "Npc({}) shot an arrow dealing {damage} damage towards {}",
@@ -205,6 +163,33 @@ fn spawn_arrows(
                 .unwrap_or_else(|| "the facing direction".to_string())
         );
     }
+}
+
+/// Spawns a flying arrow entity: a small sensor collider rigid body on the
+/// `ARROW` collision layer, the visual is attached by the caller.
+fn spawn_arrow(
+    commands: &mut Commands,
+    arrow: Arrow,
+    direction: Vec3,
+    transform: Transform,
+) -> Entity {
+    commands
+        .spawn((
+            arrow,
+            RigidBody::Dynamic,
+            Collider::cuboid(0.6, 0.05, 0.05),
+            // The sensor collider contributes no mass, give the arrow an
+            // explicit one so the rigid body has no NaN mass properties.
+            MassPropertiesBundle::from_shape(&Collider::cuboid(0.6, 0.05, 0.05), 1.0),
+            Sensor,
+            CollisionEventsEnabled,
+            // Fast small projectile, swept CCD avoids tunneling.
+            SweptCcd::default(),
+            LinearVelocity(direction * ARROW_SPEED),
+            CollisionLayers::from_bits(ARROW, NPC_BODY),
+            transform,
+        ))
+        .id()
 }
 
 /// Applies arrow damage on contact with an npc and despawns the arrow.

@@ -16,11 +16,12 @@ use crate::zengin::loaders::vfs::{
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::resources::{
-    CachedAssetHandles, DYNAMIC_OBJECT, STATIC_OBJECT, ZenGinInsertResources, ZenGinModelComponent,
+    CachedAssetHandles, DYNAMIC_OBJECT, NamedModels, STATIC_OBJECT, ZenGinInsertResources,
+    ZenGinModelComponent,
 };
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::ScriptManager;
-use crate::zengin::script::state::{SpawnItem, SpawnNpc};
+use crate::zengin::script::state::{LoadedState, SpawnItem, SpawnNpc};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
@@ -45,7 +46,9 @@ impl Plugin for ZenGinWorldPlugin {
 fn spawn_world(
     mut commands: Commands,
     mut handles_map: ResMut<CachedAssetHandles>,
+    mut named_models: ResMut<NamedModels>,
     asset_server: Res<AssetServer>,
+    vfs: Res<ZenginVfs>,
     gothic_script: Res<ScriptResource>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -90,6 +93,16 @@ fn spawn_world(
     commands.insert_resource(AnimationFiles(std::mem::take(&mut world_data.anim_files)));
     spawn_waypoint_entities(&mut commands, &world_data.waypoint_graph);
     commands.insert_resource(std::mem::take(&mut world_data.waypoint_graph));
+
+    // Handles of models referenced by name in code, resolved once with the
+    // loaded scripts. `None` models are skipped at use time.
+    init_named_models(
+        &mut named_models,
+        gothic_script.loaded_state(),
+        &vfs,
+        &asset_server,
+        &mut handles_map,
+    );
 
     println!("\n----CREATE ENGINE ENTITIES------\n");
 
@@ -140,8 +153,8 @@ fn spawn_world(
         ));
     }
 
-    for x in -4..4 {
-        for z in -4..4 {
+    for x in -2..2 {
+        for z in -2..2 {
             commands.spawn((
                 RigidBody::Dynamic,
                 Collider::cuboid(1.0, 1.0, 1.0),
@@ -156,6 +169,26 @@ fn spawn_world(
     }
 
     spawn_player(&mut commands, &mut gothic_script);
+}
+
+/// Resolves the handles of models referenced by name in code, called at world
+/// load after the scripts are loaded. `None` models are skipped at use time.
+fn init_named_models(
+    named_models: &mut NamedModels,
+    loaded_state: &LoadedState,
+    vfs: &ZenginVfs,
+    asset_server: &Res<AssetServer>,
+    handles: &mut CachedAssetHandles,
+) {
+    named_models.item_arrow = loaded_state
+        .items_instances
+        .iter()
+        .find(|(_, instance)| instance.name.eq_ignore_ascii_case("ITRW_ARROW"))
+        .and_then(|(_, instance)| mesh_model_path(vfs, instance.chosen_visual()))
+        .map(|path| handles.get_model_handle(asset_server, &path, None));
+    if named_models.item_arrow.is_none() {
+        warn!("No ITRW_ARROW item instance found, arrows will have no visual");
+    }
 }
 
 /// Spawns the player entity: a physics collider with the `PC_HERO` visual as a

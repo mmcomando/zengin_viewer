@@ -28,6 +28,15 @@ pub struct CachedAssetHandles {
     pub inverse_bindposes: HashMap<AssetId<ZenGinModel>, Handle<SkinnedMeshInverseBindposes>>,
 }
 
+/// Handles of models referenced by name in code rather than by a spawnable
+/// world object. Initialized once after the scripts are loaded (world load);
+/// `None` means the model does not exist and the visual is skipped.
+#[derive(Resource, Default)]
+pub struct NamedModels {
+    /// Mesh of the arrow projectile, the `ITRW_ARROW` item instance.
+    pub item_arrow: Option<Handle<ZenGinModel>>,
+}
+
 impl CachedAssetHandles {
     pub fn get_material_handle(
         &mut self,
