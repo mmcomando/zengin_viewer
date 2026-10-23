@@ -1,3 +1,4 @@
+use super::constants::DYN_POOL_BASE_GLOBAL_INDEX;
 use super::constants::HERO_SYMBOL_GLOBAL_INDEX;
 use super::constants::ITEM_SYMBOL_GLOBAL_INDEX;
 use super::constants::OTHER_SYMBOL_GLOBAL_INDEX;
@@ -180,6 +181,7 @@ pub fn create_wasm_binary(
         let init = match global_index.to_u32() {
             SYMBOLS_NUM_GLOBAL_INDEX => symbols_num,
             STRINGS_NUM_GLOBAL_INDEX => strings_num,
+            DYN_POOL_BASE_GLOBAL_INDEX => memory_layout.dyn_pool_base().cast_signed(),
             SELF_SYMBOL_GLOBAL_INDEX => well_known_init("self"),
             OTHER_SYMBOL_GLOBAL_INDEX => well_known_init("other"),
             VICTIM_SYMBOL_GLOBAL_INDEX => well_known_init("victim"),

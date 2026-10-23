@@ -40,37 +40,56 @@ macro_rules! count_import {
             return 0;
         }
     };
+    ($name:ident($($arg:ident),*) -> Vec<u8>) => {
+        fn $name(&mut self, $($arg: i32),*) -> Vec<u8> {
+            self.record_call(stringify!($name));
+            return Vec::new();
+        }
+    };
 }
 
 impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
-    // fn inttostring(&mut self, v_0: i32) -> i32 {
-    //     println!("wasm debug000 ({v_0})");
-    //     v_0
-    // }
-    // fn floattostring(&mut self, v_0: i32) -> i32 {
-    //     println!("wasm debug111 ({v_0})");
-    //     v_0
-    // }
-    // fn floattoint(&mut self, v_0: i32) -> i32 {
-    //     println!("wasm debug222 ({v_0})");
-    //     v_0
-    // }
-    // fn inttofloat(&mut self, v_0: i32) -> i32 {
-    //     println!("wasm debug333 ({v_0})");
-    //     v_0
-    // }
-    count_import!(inttostring(_0) -> i32);
-    count_import!(floattostring(_0) -> i32);
+    // String-returning externals return the raw content they want the guest
+    // to copy into the DYN_STRINGS ring, the slot mirrors the guest ring cursor
+    fn concatstrings(&mut self, v_0: i32, v_1: i32) -> Vec<u8> {
+        self.record_call("concatstrings");
+        let slot = self.record_string_call("concatstrings", vec![v_0, v_1]);
+        let mut content = self.string_content(v_0);
+        content.extend(self.string_content(v_1));
+        self.store_dynamic_string(slot, content.clone());
+        content
+    }
+
+    fn inttostring(&mut self, v_0: i32) -> Vec<u8> {
+        self.record_call("inttostring");
+        let slot = self.record_string_call("inttostring", vec![v_0]);
+        let content = v_0.to_string().into_bytes();
+        self.store_dynamic_string(slot, content.clone());
+        content
+    }
+
+    fn floattostring(&mut self, v_0: i32) -> Vec<u8> {
+        self.record_call("floattostring");
+        let slot = self.record_string_call("floattostring", vec![v_0]);
+        let content = format!("{:.6}", f32::from_bits(v_0 as u32)).into_bytes();
+        self.store_dynamic_string(slot, content.clone());
+        content
+    }
+
     count_import!(floattoint(_0) -> i32);
     count_import!(inttofloat(_0) -> i32);
-    count_import!(concatstrings(_0, _1) -> i32);
     count_import!(print(_0));
     count_import!(printdebug(_0));
     count_import!(printscreen(_0, _1, _2, _3, _4) -> i32);
     count_import!(ai_printscreen(_0, _1, _2, _3, _4) -> i32);
     count_import!(printdialog(_0, _1, _2, _3, _4, _5) -> i32);
     count_import!(printdebuginst(_0));
-    count_import!(printdebuginstch(_0, _1));
+
+    fn printdebuginstch(&mut self, v_0: i32, v_1: i32) {
+        self.record_call("printdebuginstch");
+        self.print_debug_inst_ch_calls.push((v_0, v_1));
+    }
+
     count_import!(printdebugch(_0, _1));
     count_import!(printmulti(_0, _1, _2, _3, _4));
     count_import!(exitgame());
@@ -580,6 +599,35 @@ impl WasmExecutor {
     pub fn get_all_symbols_num(&mut self) -> i32 {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest.call_get_all_symbols_num(&mut self.store).unwrap()
+    }
+
+    pub fn get_all_strings_num(&mut self) -> i32 {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest.call_get_all_strings_num(&mut self.store).unwrap()
+    }
+
+    /// Loads the contents of all static string pairs into the import state, so
+    /// string-returning externals can resolve their string arguments
+    pub fn load_static_strings(&mut self) {
+        let strings_num = self.get_all_strings_num();
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        let mut static_strings = Vec::with_capacity(strings_num.max(0) as usize);
+        for raw in 0..strings_num {
+            let string = guest
+                .call_get_name(&mut self.store, raw)
+                .unwrap_or_else(|error| panic!("get_name({raw}) failed: {error}"));
+            static_strings.push(string);
+        }
+        let data = self.store.data_mut();
+        data.strings_num = strings_num;
+        data.static_strings = static_strings;
+    }
+
+    /// Reads the content of a string id through the `get-name` export, which
+    /// resolves any (ptr, len) pair including DYN_STRINGS slots
+    pub fn read_string_by_id(&mut self, id: i32) -> wasmtime::Result<String> {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest.call_get_name(&mut self.store, id)
     }
 
     pub fn get_symbol_info(

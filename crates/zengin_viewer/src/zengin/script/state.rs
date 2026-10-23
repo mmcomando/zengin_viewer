@@ -302,7 +302,8 @@ pub struct DialogLine {
 /// symbol ids ([`InstanceId`], [`FunctionId`], [`StringId`]) at conversion
 /// points instead of trusting raw ids. Also holds the contents of static
 /// string literals, loaded once at startup so import handlers never need to
-/// call back into the guest to resolve string content.
+/// call back into the guest to resolve string content, and the mirror of the
+/// guest `DYN_STRINGS` ring for dynamic string ids.
 #[derive(Debug, Default)]
 pub struct SymbolTable {
     kinds: HashMap<i32, SymbolKind>,
@@ -313,14 +314,28 @@ pub struct SymbolTable {
     /// literals. Loaded once at startup so import handlers never need to call
     /// back into the guest to resolve string content.
     strings: Vec<String>,
+    /// Raw id of the first `DYN_STRINGS` ring slot, dynamic string ids returned
+    /// by the string-returning externals start here (the guest's `strings_num`).
+    dynamic_strings_base: i32,
+    /// Mirror of the guest `DYN_STRINGS` ring: raw content the host returned
+    /// for each dynamic string slot, in call order which matches the guest ring
+    /// cursor. Slots are overwritten by later dynamic strings, so content
+    /// should be resolved through `string_content` right after the dynamic
+    /// string was created.
+    dynamic_strings: Vec<Vec<u8>>,
 }
+
+/// Number of `DYN_STRINGS` ring slots, must match the guest (`base_module.wat`)
+const DYN_STRINGS_SLOTS_NUM: usize = 64;
 
 impl SymbolTable {
     pub fn new(kinds: HashMap<i32, SymbolKind>, symbols_count: i32, strings: Vec<String>) -> Self {
         Self {
             kinds,
             symbols_count,
+            dynamic_strings_base: strings.len() as i32,
             strings,
+            dynamic_strings: Vec::new(),
         }
     }
 
@@ -358,8 +373,12 @@ impl SymbolTable {
         self.string_content(raw)
     }
 
-    /// String literals are not symbols, their ids are indices into the static
-    /// strings table placed after all symbol ids
+    /// String literals are not symbols, their ids are indices into the strings
+    /// table placed after all symbol ids. The id may also point at a
+    /// `DYN_STRINGS` ring slot (a result of `concatstrings` and friends), whose
+    /// content is overwritten by later dynamic strings — resolving content
+    /// through `string_content` right away is always correct, caching the raw
+    /// id for later is only safe for genuinely static strings.
     pub fn string(&self, raw: i32) -> Option<StringId> {
         if raw < self.symbols_count {
             return None;
@@ -367,12 +386,39 @@ impl SymbolTable {
         StringId::new(raw)
     }
 
-    /// Content of the string table entry `raw` (symbol name or static string
-    /// literal), `None` when the id is out of range. Empty strings are valid
-    /// values: scripts pass `""` on purpose (e.g. no head model for animals),
-    /// so callers decide whether an empty content means "absent".
+    /// Records the content a string-returning external returned, keeping the
+    /// mirror ring in sync with the guest ring cursor. Must be called exactly
+    /// once per string-returning external invocation, in call order.
+    pub fn record_dynamic_string(&mut self, content: Vec<u8>) {
+        if self.dynamic_strings.len() < DYN_STRINGS_SLOTS_NUM {
+            self.dynamic_strings.push(content);
+        } else {
+            let slot = self.dynamic_strings.len() % DYN_STRINGS_SLOTS_NUM;
+            self.dynamic_strings[slot] = content;
+        }
+    }
+
+    /// Raw bytes of a string id of either kind: static table entry or
+    /// `DYN_STRINGS` ring slot
+    pub fn string_bytes(&self, raw: i32) -> Option<Vec<u8>> {
+        if raw >= self.dynamic_strings_base {
+            let slot = (raw - self.dynamic_strings_base) as usize;
+            return self.dynamic_strings.get(slot).cloned();
+        }
+        self.strings
+            .get(raw.max(0) as usize)
+            .map(|el| el.as_bytes().to_vec())
+    }
+
+    /// Content of the string table entry `raw` (symbol name, static string
+    /// literal or dynamic ring slot), `None` when the id is out of range. Empty
+    /// strings are valid values: scripts pass `""` on purpose (e.g. no head
+    /// model for animals), so callers decide whether an empty content means
+    /// "absent". Dynamic content reflects the current ring slot value, so it
+    /// should be resolved right after the dynamic string was created.
     pub fn string_content(&self, raw: i32) -> Option<String> {
-        self.strings.get(raw.max(0) as usize).cloned()
+        let bytes = self.string_bytes(raw)?;
+        Some(String::from_utf8_lossy(&bytes).into_owned())
     }
 }
 
@@ -510,11 +556,24 @@ impl ImportCallState {
 
     /// Fetches the string content of a raw string table entry, `None` only
     /// when the id is out of range (empty strings are valid values, see
-    /// `SymbolTable::string_content`). Resolved by a table loaded at startup:
+    /// `SymbolTable::string_content`). Static entries are resolved by a table
+    /// loaded at startup, dynamic ids resolve from the `DYN_STRINGS` mirror:
     /// import handlers must not call back into the guest while a script
     /// function is running.
     pub(crate) fn get_string_non_0(&self, raw: i32) -> Option<String> {
         self.symbol_table.string_content(raw)
+    }
+
+    /// Raw bytes of a string id of either kind (static table entry or dynamic
+    /// ring slot), empty when the id is invalid
+    pub(crate) fn get_string_bytes(&self, raw: i32) -> Vec<u8> {
+        self.symbol_table.string_bytes(raw).unwrap_or_default()
+    }
+
+    /// Records the content a string-returning external returned into the
+    /// `DYN_STRINGS` mirror ring, see `SymbolTable::record_dynamic_string`
+    pub(crate) fn record_dynamic_string(&mut self, content: Vec<u8>) {
+        self.symbol_table.record_dynamic_string(content);
     }
 
     /// Fetches a static string literal with its original case

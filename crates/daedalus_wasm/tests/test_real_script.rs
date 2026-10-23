@@ -119,6 +119,62 @@ fn real_printdebugnpc() {
 }
 
 #[test]
+fn real_full_compile_load_strings() {
+    let data = get_main_script_data();
+    let instructions = &[InstDD::PushInt(1), InstDD::Return];
+    let mut executor = WasmExecutor::real_func_test(data, &[], instructions);
+    executor.load_static_strings();
+}
+
+#[test]
+fn real_printdebugnpc_dyn_strings() {
+    let data = get_main_script_data();
+    let func_address = data.get_function_address("printdebugnpc").unwrap();
+    let instructions = &[
+        InstDD::PushInt(1),
+        InstDD::PushInt(2),
+        InstDD::Call(func_address),
+        InstDD::PushInt(1),
+        InstDD::Return,
+    ];
+
+    let mut executor = WasmExecutor::real_func_test(data, &["printdebugnpc"], instructions);
+    executor.load_static_strings();
+    executor.call_test_func();
+
+    let string_calls = executor.store.data().string_calls.clone();
+    assert_eq!(string_calls.len(), 7); // 1 inttostring + 6 concatstrings
+    let strings_num = executor.store.data().strings_num;
+
+    // The string passed to printdebuginstch must be a dynamic string id in the
+    // ring slot matching the number of dynamic strings created so far
+    let inst_ch_calls = executor.store.data().print_debug_inst_ch_calls.clone();
+    assert_eq!(inst_ch_calls.len(), 1);
+    let text_id = inst_ch_calls[0].1;
+    assert!(text_id >= strings_num && text_id < strings_num + 64);
+    assert_eq!(text_id - strings_num, string_calls.len() as i32 - 1);
+
+    // Every dynamic string copied into the guest ring must match what the host
+    // returned, verified through guest memory contents only
+    for call in &string_calls {
+        let result = executor
+            .read_string_by_id(strings_num + call.slot as i32)
+            .unwrap();
+        match call.name {
+            "inttostring" => {
+                assert_eq!(result, call.args[0].to_string());
+            }
+            "concatstrings" => {
+                let a = executor.read_string_by_id(call.args[0]).unwrap();
+                let b = executor.read_string_by_id(call.args[1]).unwrap();
+                assert_eq!(result, format!("{a}{b}"));
+            }
+            other => panic!("unexpected string call {other}"),
+        }
+    }
+}
+
+#[test]
 fn real_printglobals() {
     let data = get_main_script_data();
     let func_address = data.get_function_address("printglobals").unwrap();

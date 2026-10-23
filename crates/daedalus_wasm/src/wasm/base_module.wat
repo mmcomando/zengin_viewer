@@ -5,7 +5,8 @@
   (type $bool_void_func (func (result i32)))
 
   ;; Memories, indices are significant, they match constants in DaedalusMemoryLayout (memory.rs):
-  ;; 0 - main memory: allocator region, (ptr, size) pairs of symbol names and static strings
+  ;; 0 - main memory: allocator region, (ptr, size) pairs of symbol names and static strings,
+  ;;     their bytes, then the DYN_STRINGS area (64 pair slots + 8192 byte pool)
   ;; 1 - symbol info: 16-byte record per symbol:
   ;;     kind @0 (byte), is class member @1 (byte), function returns value @2 (byte),
   ;;     address or offset @4, wasm function table index @8, parent @12 (u32::MAX when symbol has no parent)
@@ -21,7 +22,9 @@
   ;; Globals, indices are significant, they match constants in wasm.rs
   (global $current_class_instance_memory (mut i32) (i32.const 0))
   (global $current_instance_symbol_index (mut i32) (i32.const 0))
-  (global $allocator (mut i32) (i32.const 0))
+  ;; Bump offset of the canonical ABI allocator, starts at 16 so address 0 is
+  ;; never returned to the host
+  (global $allocator (mut i32) (i32.const 16))
   ;; Number of all symbols, patched with real value during merge with daedalus data
   (global $symbols_num (mut i32) (i32.const 0))
   ;; Symbol indices of the well known daedalus instance variables, patched with
@@ -34,6 +37,15 @@
   ;; Number of all string pairs in memory, patched with real value during merge
   ;; with daedalus data
   (global $strings_num (mut i32) (i32.const 0))
+  ;; Base of the DYN_STRINGS pool (8192 bytes appended after the static string
+  ;; bytes), patched with real value during merge with daedalus data
+  (global $dyn_pool_base (mut i32) (i32.const 0))
+  ;; Number of dynamic strings created so far, never reset, ring slot is
+  ;; `dyn_strings_next_slot % 64`
+  (global $dyn_strings_next_slot (mut i32) (i32.const 0))
+  ;; Bump offset into the DYN_STRINGS pool, wraps to 0 when the next string
+  ;; would not fit
+  (global $dyn_pool_offset (mut i32) (i32.const 0))
 
 
   ;; Compares two strings given as (ptr, size) pairs
@@ -93,20 +105,69 @@
     end
   )
 
-  ;; Dummy memory allocator, it rotates through 128 byte blocks
-  (func $cabi_realloc (param $old_ptr i32) (param $old_size i32) (param  i32) (param $new_size i32) (result i32)
-    ;; Increment allocator with rotate
+  ;; Memory allocator for the canonical ABI (host-returned strings, export
+  ;; result areas) and for guest builtin result records. Wrapping bump
+  ;; allocator over the allocator region at the start of main memory, the
+  ;; region size matches `DaedalusMemoryLayout::ALLOCATOR_MEMORY_SIZE`
+  ;; (4096 * 4). Allocations are scratch: callers consume the data before the
+  ;; next allocation, so wrapping over old data is safe. Does not support
+  ;; allocations larger than the region.
+  (func $cabi_realloc (param $old_ptr i32) (param $old_size i32) (param $align i32) (param $new_size i32) (result i32)
+    (local $offset i32)
+
+    ;; Internal callers pass 0 as alignment, their records hold i32 values so
+    ;; 4 is used, which also satisfies every host lift alignment
+    local.get $align
+    i32.const 4
+    i32.gt_u
+    if
+      ;; keep host-requested alignment, it is already >= 4
+    else
+      i32.const 4
+      local.set $align
+    end
+
+    ;; Round the bump offset up to the requested alignment, alignment is
+    ;; always a power of two, so `& -align` masks the low bits. Note the
+    ;; operand order: wasm binary ops pop the right operand from the top, so
+    ;; the negation is `0 - align`.
     global.get $allocator
-    i32.const 1
+    local.get $align
     i32.add
-    i32.const 127 ;; Rotate trick, number of blocks - 1
+    i32.const 1
+    i32.sub
+    i32.const 0
+    local.get $align
+    i32.sub
     i32.and
+    local.set $offset
+
+    ;; Wrap to the region start when the allocation would not fit. Callers
+    ;; may write more than they requested (internal zero-sized scratch records
+    ;; hold up to ~60 bytes), so keep 128 bytes of slack like the old block
+    ;; allocator did, keeping every write inside the allocator region.
+    local.get $offset
+    local.get $new_size
+    i32.add
+    i32.const 16256
+    i32.gt_u
+    if
+      i32.const 16
+      local.set $offset
+    end
+
+    ;; Advance the bump offset, zero-sized allocations still advance so
+    ;; successive scratch records do not overlap
+    local.get $offset
+    local.get $new_size
+    i32.add
+    local.get $new_size
+    i32.eqz
+    i32.add
     global.set $allocator
 
     ;; Return address
-    global.get $allocator
-    i32.const 128
-    i32.mul
+    local.get $offset
   )
 
 
@@ -795,6 +856,89 @@
     call_indirect (type $bool_void_func)
     i32.const 0
     i32.ne ;; normalize bool to 0/1
+  )
+
+  ;; Copies a host-returned string into the DYN_STRINGS ring and returns its
+  ;; string id. The ring holds 64 pair slots appended after the static string
+  ;; pairs (ids `strings_num .. strings_num+63`), contents live in a shared
+  ;; 8192 byte pool with a wrapping bump offset, so there is no per-string max
+  ;; length. A dynamic string stays valid only until the slot or the pool
+  ;; cursor overwrites it, mirroring the original engine which reuses a single
+  ;; temp symbol for all external string results.
+  (func $copy_dynamic_string (param $ptr i32) (param $len i32) (result i32)
+    (local $slot i32) (local $dest i32) (local $pair_addr i32)
+
+    ;; Truncate strings longer than the whole pool
+    local.get $len
+    i32.const 8192
+    i32.gt_u
+    if
+      i32.const 8192
+      local.set $len
+    end
+
+    ;; Wrap the pool bump offset when the string would not fit
+    global.get $dyn_pool_offset
+    local.get $len
+    i32.add
+    i32.const 8192
+    i32.gt_u
+    if
+      i32.const 0
+      global.set $dyn_pool_offset
+    end
+
+    ;; Ring slot, wraps after 64 dynamic strings
+    global.get $dyn_strings_next_slot
+    i32.const 64
+    i32.rem_u
+    local.set $slot
+
+    ;; Destination in the pool
+    global.get $dyn_pool_base
+    global.get $dyn_pool_offset
+    i32.add
+    local.set $dest
+
+    ;; Copy the string bytes
+    local.get $dest
+    local.get $ptr
+    local.get $len
+    memory.copy $main $main
+
+    ;; Write the (ptr, len) pair into the ring slot, pairs start right after
+    ;; the allocator region (16384 bytes)
+    global.get $strings_num
+    local.get $slot
+    i32.add
+    i32.const 8
+    i32.mul
+    i32.const 16384
+    i32.add
+    local.set $pair_addr
+
+    local.get $pair_addr
+    local.get $dest
+    i32.store $main offset=0
+    local.get $pair_addr
+    local.get $len
+    i32.store $main offset=4
+
+    ;; Bump both cursors
+    global.get $dyn_strings_next_slot
+    i32.const 1
+    i32.add
+    global.set $dyn_strings_next_slot
+
+    global.get $dyn_pool_offset
+    local.get $len
+    i32.add
+    global.set $dyn_pool_offset
+
+    ;; Return the string id of the ring slot
+    global.get $strings_num
+    local.get $slot
+    i32.add
   )
 
   ;; Export section

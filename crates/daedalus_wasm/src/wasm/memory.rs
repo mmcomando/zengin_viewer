@@ -23,6 +23,13 @@ pub(crate) struct DaedalusMemoryLayout {
     pub(crate) symbol_memory_size: u32,
 }
 
+/// Number of `DYN_STRINGS` ring slots, dynamic string ids are
+/// `strings_num .. strings_num + DYN_STRINGS_SLOTS_NUM`.
+pub(crate) const DYN_STRINGS_SLOTS_NUM: u32 = 64;
+/// Size in bytes of the `DYN_STRINGS` content pool shared by all ring slots,
+/// bump-allocated with wrapping so there is no per-string max length.
+pub(crate) const DYN_STRINGS_POOL_SIZE: u32 = 8192;
+
 impl SymbolMemoryInfo {
     pub(crate) const RECORD_SIZE: usize = 16;
     pub(crate) const KIND_OFFSET: usize = 0;
@@ -119,7 +126,10 @@ impl DaedalusMemoryLayout {
         let mut bytes: Vec<u8> = vec![];
 
         let ptr_size_arr_size = usize::try_from(Self::ALLOCATOR_MEMORY_SIZE).unwrap()
-            + 2 * size_of::<i32>() * self.static_strings.len();
+            + 2 * size_of::<i32>() * self.static_strings.len()
+            // DYN_STRINGS ring slots follow the static pairs, their wat
+            // addressing is `16384 + 8 * (strings_num + slot)`
+            + 2 * size_of::<i32>() * DYN_STRINGS_SLOTS_NUM.to_usize();
         bytes.reserve(ptr_size_arr_size);
         bytes.extend((0..Self::ALLOCATOR_MEMORY_SIZE).map(|_el| 0));
 
@@ -135,12 +145,35 @@ impl DaedalusMemoryLayout {
             strings_total_size += static_string.len();
         }
 
+        // DYN_STRINGS ring slots (zero-initialized, filled at runtime) sit
+        // between the static pairs and the string bytes, their wat addressing
+        // is `16384 + 8 * (strings_num + slot)`
+        bytes.extend((0..2 * size_of::<i32>() * DYN_STRINGS_SLOTS_NUM.to_usize()).map(|_el| 0));
+
         bytes.reserve(strings_total_size);
         for static_string in &self.static_strings {
             bytes.extend(static_string.as_bytes());
         }
 
+        // DYN_STRINGS content pool: zero-initialized, filled at runtime. The
+        // zero ring slots were already placed before the string bytes
+        bytes.extend((0..DYN_STRINGS_POOL_SIZE.to_usize()).map(|_el| 0));
+
         bytes
+    }
+
+    /// Base address of the `DYN_STRINGS` content pool in main memory: after
+    /// the (ptr, len) pairs of all strings including the 64 dynamic ring slots.
+    #[must_use]
+    pub(crate) fn dyn_pool_base(&self) -> u32 {
+        Self::ALLOCATOR_MEMORY_SIZE
+            + 2 * size_of::<i32>() as u32
+                * (self.static_strings.len() as u32 + DYN_STRINGS_SLOTS_NUM)
+            + self
+                .static_strings
+                .iter()
+                .map(|el| el.len().to_u32())
+                .sum::<u32>()
     }
 
     #[must_use]

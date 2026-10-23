@@ -24,6 +24,16 @@ macro_rules! fake_impl {
             0
         }
     };
+    // String-returning externals must record an entry in the DYN_STRINGS
+    // mirror even when stubbed, the mirror stays in sync with the guest ring
+    // cursor only if every string-returning call is recorded
+    ($name:ident($($arg:ident),*) -> Vec<u8>) => {
+        fn $name(&mut self, $($arg: i32),*) -> Vec<u8> {
+            warn_unimplemented!(stringify!($name));
+            self.record_dynamic_string(Vec::new());
+            Vec::new()
+        }
+    };
 
 }
 
@@ -318,10 +328,30 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fn inttofloat(&mut self, v_0: i32) -> i32 {
         (v_0 as f32).to_bits() as i32
     }
-    fake_impl!(inttostring(_0) -> i32);
-    fake_impl!(floattostring(_0) -> i32);
+    // String-building externals: the returned content is copied into the
+    // DYN_STRINGS ring by the guest and must be recorded here so the mirror
+    // ring stays in sync with the guest ring cursor
+    fn concatstrings(&mut self, v_0: i32, v_1: i32) -> Vec<u8> {
+        let mut content = self.get_string_bytes(v_0);
+        content.extend(self.get_string_bytes(v_1));
+        self.record_dynamic_string(content.clone());
+        content
+    }
+
+    fn inttostring(&mut self, v_0: i32) -> Vec<u8> {
+        let content = v_0.to_string().into_bytes();
+        self.record_dynamic_string(content.clone());
+        content
+    }
+
+    fn floattostring(&mut self, v_0: i32) -> Vec<u8> {
+        // ZenGin formats external float results like printf `%f`
+        let content = format!("{:.6}", f32::from_bits(v_0 as u32)).into_bytes();
+        self.record_dynamic_string(content.clone());
+        content
+    }
+
     fake_impl!(floattoint(_0) -> i32);
-    fake_impl!(concatstrings(_0, _1) -> i32);
     fake_impl!(print(_0));
     fake_impl!(printdebug(_0));
     fake_impl!(printscreen(_0, _1, _2, _3, _4) -> i32);

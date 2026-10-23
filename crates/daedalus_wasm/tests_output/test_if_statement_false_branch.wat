@@ -22,6 +22,9 @@
     (global (;7;) (mut i32) i32.const -1)
     (global (;8;) (mut i32) i32.const -1)
     (global (;9;) (mut i32) i32.const 1)
+    (global (;10;) (mut i32) i32.const 16905)
+    (global (;11;) (mut i32) i32.const 0)
+    (global (;12;) (mut i32) i32.const 0)
     (export "cabi_realloc" (func 1))
     (export "mmcomando:zengine-scripts/manage@0.1.0#set-instance" (func 3))
     (export "mmcomando:zengine-scripts/manage@0.1.0#set-self" (func 5))
@@ -45,8 +48,8 @@
     (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-info" (func 24))
     (export "mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info" (func 25))
     (export "memory" (memory 0))
-    (export "mmcomando:zengine-scripts/manage@0.1.0#test-func" (func 27))
-    (elem (;0;) (table 0) (i32.const 0) func 27)
+    (export "mmcomando:zengine-scripts/manage@0.1.0#test-func" (func 28))
+    (elem (;0;) (table 0) (i32.const 0) func 28)
     (func (;0;) (type 2) (param i32 i32 i32 i32) (result i32)
       (local i32 i32 i32)
       local.get 1
@@ -127,23 +130,76 @@
       ;; [i32]
     )
     (func (;1;) (type 2) (param i32 i32 i32 i32) (result i32)
-      global.get 2
+      (local i32)
+      local.get 2
       ;; [i32]
-      i32.const 1
+      i32.const 4
       ;; [i32 i32]
-      i32.add
+      i32.gt_u
       ;; [i32]
-      i32.const 127
-      ;; [i32 i32]
-      i32.and
-      ;; [i32]
-      global.set 2
+      if ;; label = @1
+        ;; []
+      else
+        ;; []
+        i32.const 4
+        ;; [i32]
+        local.set 2
+        ;; []
+      end
       ;; []
       global.get 2
       ;; [i32]
-      i32.const 128
+      local.get 2
       ;; [i32 i32]
-      i32.mul
+      i32.add
+      ;; [i32]
+      i32.const 1
+      ;; [i32 i32]
+      i32.sub
+      ;; [i32]
+      i32.const 0
+      ;; [i32 i32]
+      local.get 2
+      ;; [i32 i32 i32]
+      i32.sub
+      ;; [i32 i32]
+      i32.and
+      ;; [i32]
+      local.set 4
+      ;; []
+      local.get 4
+      ;; [i32]
+      local.get 3
+      ;; [i32 i32]
+      i32.add
+      ;; [i32]
+      i32.const 16256
+      ;; [i32 i32]
+      i32.gt_u
+      ;; [i32]
+      if ;; label = @1
+        ;; []
+        i32.const 16
+        ;; [i32]
+        local.set 4
+        ;; []
+      end
+      ;; []
+      local.get 4
+      ;; [i32]
+      local.get 3
+      ;; [i32 i32]
+      i32.add
+      ;; [i32]
+      local.get 3
+      ;; [i32 i32]
+      i32.eqz
+      ;; [i32 i32]
+      i32.add
+      ;; [i32]
+      global.set 2
+      ;; []
+      local.get 4
       ;; [i32]
     )
     (func (;2;) (type 3) (param i32) (result i32)
@@ -1288,7 +1344,116 @@
       i32.ne
       ;; [i32]
     )
-    (func (;27;) (type 7) (result i32)
+    (func (;27;) (type 6) (param i32 i32) (result i32)
+      (local i32 i32 i32)
+      local.get 1
+      ;; [i32]
+      i32.const 8192
+      ;; [i32 i32]
+      i32.gt_u
+      ;; [i32]
+      if ;; label = @1
+        ;; []
+        i32.const 8192
+        ;; [i32]
+        local.set 1
+        ;; []
+      end
+      ;; []
+      global.get 12
+      ;; [i32]
+      local.get 1
+      ;; [i32 i32]
+      i32.add
+      ;; [i32]
+      i32.const 8192
+      ;; [i32 i32]
+      i32.gt_u
+      ;; [i32]
+      if ;; label = @1
+        ;; []
+        i32.const 0
+        ;; [i32]
+        global.set 12
+        ;; []
+      end
+      ;; []
+      global.get 11
+      ;; [i32]
+      i32.const 64
+      ;; [i32 i32]
+      i32.rem_u
+      ;; [i32]
+      local.set 2
+      ;; []
+      global.get 10
+      ;; [i32]
+      global.get 12
+      ;; [i32 i32]
+      i32.add
+      ;; [i32]
+      local.set 3
+      ;; []
+      local.get 3
+      ;; [i32]
+      local.get 0
+      ;; [i32 i32]
+      local.get 1
+      ;; [i32 i32 i32]
+      memory.copy
+      ;; []
+      global.get 9
+      ;; [i32]
+      local.get 2
+      ;; [i32 i32]
+      i32.add
+      ;; [i32]
+      i32.const 8
+      ;; [i32 i32]
+      i32.mul
+      ;; [i32]
+      i32.const 16384
+      ;; [i32 i32]
+      i32.add
+      ;; [i32]
+      local.set 4
+      ;; []
+      local.get 4
+      ;; [i32]
+      local.get 3
+      ;; [i32 i32]
+      i32.store
+      ;; []
+      local.get 4
+      ;; [i32]
+      local.get 1
+      ;; [i32 i32]
+      i32.store offset=4
+      ;; []
+      global.get 11
+      ;; [i32]
+      i32.const 1
+      ;; [i32 i32]
+      i32.add
+      ;; [i32]
+      global.set 11
+      ;; []
+      global.get 12
+      ;; [i32]
+      local.get 1
+      ;; [i32 i32]
+      i32.add
+      ;; [i32]
+      global.set 12
+      ;; []
+      global.get 9
+      ;; [i32]
+      local.get 2
+      ;; [i32 i32]
+      i32.add
+      ;; [i32]
+    )
+    (func (;28;) (type 7) (result i32)
       (local i32 i32)
       i32.const 0
       ;; [i32]
@@ -1305,8 +1470,9 @@
       return
       ;; []
     )
-    (data (;0;) (i32.const 16384) "\08@\00\00\01\00\00\000")
-    (data (;1;) (memory 1) (i32.const 0) "\01\00\00\00\00\00\00\00\ff\ff\ff\ff\ff\ff\ff\ff")
+    (data (;0;) (i32.const 16384) "\08B\00\00\01\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
+    (data (;1;) (i32.const 16904) "0\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00")
+    (data (;2;) (memory 1) (i32.const 0) "\01\00\00\00\00\00\00\00\ff\ff\ff\ff\ff\ff\ff\ff")
     (@producers
       (processed-by "wit-component" "0.251.0")
     )

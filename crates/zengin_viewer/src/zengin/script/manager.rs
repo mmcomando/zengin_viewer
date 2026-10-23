@@ -676,7 +676,11 @@ impl ScriptManager {
         let strings_count = guest.call_get_all_strings_num(&mut self.store).unwrap();
         let mut strings = Vec::with_capacity(strings_count.max(0) as usize);
         for raw in 0..strings_count {
-            let string = guest.call_get_name(&mut self.store, raw).unwrap();
+            let string = guest
+                .call_get_name(&mut self.store, raw)
+                .unwrap_or_else(|error| {
+                    panic!("get_name({raw}) failed while loading the symbol table: {error}")
+                });
             strings.push(string);
         }
 

@@ -82,7 +82,7 @@ interface scripts {
     apply-options-game: func();
     apply-options-performance: func();
     apply-options-video: func();
-    concatstrings: func(v-0: s32, v-1: s32) -> s32;
+    concatstrings: func(v-0: s32, v-1: s32) -> list<u8>;
     createinvitem: func(npc: s32, item: s32);
     createinvitems: func(npc: s32, item: s32, count: s32);
     doc-create: func() -> s32;
@@ -104,7 +104,7 @@ interface scripts {
     exitgame: func();
     exitsession: func();
     floattoint: func(v-0: s32) -> s32;
-    floattostring: func(v-0: s32) -> s32;
+    floattostring: func(v-0: s32) -> list<u8>;
     game-initengintl: func() -> s32;
     game-initenglish: func() -> s32;
     game-initgerman: func() -> s32;
@@ -121,7 +121,7 @@ interface scripts {
     infomanager-hasfinished: func() -> s32;
     introducechapter: func(v-0: s32, v-1: s32, v-2: s32, v-3: s32, v-4: s32);
     inttofloat: func(v-0: s32) -> s32;
-    inttostring: func(v-0: s32) -> s32;
+    inttostring: func(v-0: s32) -> list<u8>;
     log-addentry: func(topic: s32, entry: s32);
     log-createtopic: func(topic: s32, section: s32);
     log-settopicstatus: func(topic: s32, status: s32);
