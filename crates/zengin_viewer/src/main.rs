@@ -4,6 +4,10 @@
 // #![warn(clippy::pedantic, clippy::restriction)]
 #![warn(clippy::suspicious, clippy::complexity, clippy::perf, clippy::pedantic)]
 #![allow(
+    clippy::redundant_closure_for_method_calls,
+    clippy::trivially_copy_pass_by_ref,
+    clippy::assert_is_empty,
+    clippy::cast_precision_loss,
     clippy::needless_pass_by_value,
     clippy::cast_possible_truncation,
     clippy::uninlined_format_args,
@@ -30,6 +34,7 @@ mod zengin;
 /// Directory of the main crate assets, the folder the
 /// [`bevy::asset::AssetServer`] reads from. Resolved against the crate
 /// directory so it is found regardless of the working directory.
+#[must_use]
 pub fn main_assets_dir() -> &'static str {
     concat!(env!("CARGO_MANIFEST_DIR"), "/assets")
 }

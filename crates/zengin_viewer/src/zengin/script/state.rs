@@ -497,7 +497,7 @@ impl ImportCallState {
                     instance.current_routine_state
                 }
             });
-        (recorded == Some(state)) as i32
+        i32::from(recorded == Some(state))
     }
 
     /// Resolves both ids as npc/item instance symbols, `None` when either is

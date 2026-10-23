@@ -25,7 +25,7 @@ impl Plugin for AnimationTriggersPlugin {
 }
 
 /// Compiled model script of the human visual scheme. In Gothic 2 compiled
-/// `.MDS` scripts are stored with the `.MSB` extension (see OpenGothic's
+/// `.MDS` scripts are stored with the `.MSB` extension (see `OpenGothic`'s
 /// `Resources::implLoadAnimation`).
 const HUMANS_MODEL_SCRIPT: &str = "_WORK/DATA/ANIMS/_COMPILED/HUMANS.MSB";
 
@@ -64,18 +64,18 @@ pub fn animation_name_from_path(path: &Path) -> Option<&str> {
 /// `new_progress` (in frames). A step that wrapped around the loop covers
 /// everything from `old_progress` around to `new_progress`, so a trigger may
 /// lie in either part.
-pub fn crossed_triggers<'a>(
-    triggers: &'a [AnimationTriggerDef],
+pub fn crossed_triggers(
+    triggers: &[AnimationTriggerDef],
     old_progress: f32,
     new_progress: f32,
     crossed: bool,
-) -> impl Iterator<Item = &'a AnimationTriggerDef> + 'a {
+) -> impl Iterator<Item = &AnimationTriggerDef> + '_ {
     triggers.iter().filter(move |trigger| {
         let target = trigger.frame as f32;
-        if !crossed {
-            target > old_progress && target <= new_progress
-        } else {
+        if crossed {
             target > old_progress || target <= new_progress
+        } else {
+            target > old_progress && target <= new_progress
         }
     })
 }
@@ -87,17 +87,16 @@ fn load_human_animation_data(mut commands: Commands, vfs: Res<ZenginVfs>) {
         let vfs = vfs.0.lock().unwrap();
         get_zengin_asset_bytes(&vfs, HUMANS_MODEL_SCRIPT)
     };
-    let (triggers, source) = match bytes {
-        Some(bytes) => match load_script_triggers(&bytes) {
+    let (triggers, source) = if let Some(bytes) = bytes {
+        match load_script_triggers(&bytes) {
             Some(triggers) => (triggers, "HUMANS.MDS"),
             None => (HashMap::new(), "script parse failed"),
-        },
-        None => {
-            warn!(
-                "Model script({HUMANS_MODEL_SCRIPT}) not found in the anims archive, animation triggers are not loaded"
-            );
-            (HashMap::new(), "script missing")
         }
+    } else {
+        warn!(
+            "Model script({HUMANS_MODEL_SCRIPT}) not found in the anims archive, animation triggers are not loaded"
+        );
+        (HashMap::new(), "script missing")
     };
 
     let animations: usize = triggers.len();

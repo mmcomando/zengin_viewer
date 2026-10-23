@@ -19,6 +19,6 @@ fn mesh_added(mut statistics: ResMut<Statistics>, query: Query<&Visibility, With
     statistics.meshes_visible = 0;
     for visibility in &query {
         statistics.meshes += 1;
-        statistics.meshes_visible += (*visibility != Visibility::Hidden) as i64;
+        statistics.meshes_visible += i64::from(*visibility != Visibility::Hidden);
     }
 }

@@ -156,9 +156,7 @@ fn spawn_arrows(
             "Npc({}) shot an arrow dealing {damage} damage towards {}",
             shooter.value(),
             selection
-                .target
-                .map(|target| format!("npc({target})"))
-                .unwrap_or_else(|| "the facing direction".to_string())
+                .target.map_or_else(|| "the facing direction".to_string(), |target| format!("npc({target})"))
         );
     }
 }
@@ -219,8 +217,7 @@ fn arrow_hits(
         // The npc hit collider is a child entity, resolve it to the npc.
         let hit_entity = hit_colliders
             .get(hit_entity)
-            .map(|collider| collider.owner)
-            .unwrap_or(hit_entity);
+            .map_or(hit_entity, |collider| collider.owner);
         let Ok((npc, global_tr, npc_model, overlay, controller, reaction)) =
             npcs.get_mut(hit_entity)
         else {

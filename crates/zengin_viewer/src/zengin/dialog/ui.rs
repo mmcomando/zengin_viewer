@@ -59,7 +59,7 @@ pub(super) type LineTextFilter = (
     Without<DialogNpcNameText>,
 );
 
-/// Replaces bevy's built-in default font (FiraMono subset, ASCII-only) with Fira Sans,
+/// Replaces bevy's built-in default font (`FiraMono` subset, ASCII-only) with Fira Sans,
 /// which has Latin Extended-A coverage, so Polish dialog texts render properly.
 /// Applies globally because every `TextFont { ..default() }` resolves to the default font asset id.
 pub(super) fn override_default_font(mut fonts: ResMut<Assets<Font>>) {

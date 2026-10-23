@@ -323,28 +323,25 @@ fn spawn_npc_entities(
             continue;
         };
 
-        let mut transform = match spawn.transform {
-            Some(tr) => tr,
-            None => {
-                // Routine waypoint takes precedence over the spawn location,
-                // spots take precedence over way points
-                let name = script
-                    .routine_way_point
-                    .or(script.location_name)
-                    .unwrap_or_default();
-                let tr = way_points
-                    .points
-                    .get(name.as_str())
-                    .or_else(|| spots.0.get(name.as_str()));
-                let Some(tr) = tr else {
-                    warn!(
-                        "No location found for npc({}) on({})",
-                        spawn.instance_id, name
-                    );
-                    continue;
-                };
-                *tr
-            }
+        let mut transform = if let Some(tr) = spawn.transform { tr } else {
+            // Routine waypoint takes precedence over the spawn location,
+            // spots take precedence over way points
+            let name = script
+                .routine_way_point
+                .or(script.location_name)
+                .unwrap_or_default();
+            let tr = way_points
+                .points
+                .get(name.as_str())
+                .or_else(|| spots.0.get(name.as_str()));
+            let Some(tr) = tr else {
+                warn!(
+                    "No location found for npc({}) on({})",
+                    spawn.instance_id, name
+                );
+                continue;
+            };
+            *tr
         };
         // Place the visual on the ground, matching the engine placement
         transform.translation.y -= 0.5;

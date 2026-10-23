@@ -51,7 +51,7 @@ pub fn meshes_from_zengin_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
         let polygon_indices = polygon.position_indices();
         let polygon_features_indices = polygon.feature_indices();
 
-        assert!(polygon_features_indices.len() == polygon_indices.len());
+        assert_eq!(polygon_features_indices.len(), polygon_indices.len());
 
         let material_index = polygon.material_index();
         let zengin_material = mesh.material(u64::from(material_index));

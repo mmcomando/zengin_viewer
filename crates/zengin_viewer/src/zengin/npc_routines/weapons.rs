@@ -145,7 +145,7 @@ pub(crate) fn update_npc_weapon(
     >,
 ) {
     for (entity, slots, equipped, weapon_mode, weapon) in &mut npcs {
-        let mode = weapon_mode.map(|mode| mode.0).unwrap_or(WeaponMode::Fists);
+        let mode = weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0);
         let (melee_item, ranged_item) = equipped
             .map(|equipped| (equipped.melee, equipped.ranged))
             .unwrap_or_default();

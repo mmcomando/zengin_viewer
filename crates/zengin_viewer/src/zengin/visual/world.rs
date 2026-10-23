@@ -137,7 +137,7 @@ fn load_objects(
     let visual_type = visual.get_type();
 
     if !visual_name.is_empty() && obj.show_visual() {
-        assert!(obj.get_type() != VobType::zCVobLight);
+        assert_ne!(obj.get_type(), VobType::zCVobLight);
         let asset_path = match visual_type {
             VisualType::MULTI_RESOLUTION_MESH
             | VisualType::MODEL

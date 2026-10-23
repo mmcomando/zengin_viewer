@@ -202,7 +202,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         };
         let description = self
             .get_show_string(description_text_id)
-            .map(|description| description.into_string())
+            .map(super::string_value::ShowString::into_string)
             .unwrap_or_default();
 
         let order = self.pending.sub_dialog_choices.len() as i32;
@@ -231,7 +231,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             // Both empty compares equal, like the previous `Option<String>`
             // equality did
             (None, None) => 1,
-            (Some(a), Some(b)) => (a.string() == b.string()) as i32,
+            (Some(a), Some(b)) => i32::from(a.string() == b.string()),
             _ => 0,
         }
     }
@@ -573,7 +573,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return 0;
         };
-        (self.player_instance == Some(npc)) as i32
+        i32::from(self.player_instance == Some(npc))
     }
     fake_impl!(npc_knowsplayer(_0, _1) -> i32);
     fake_impl!(npc_setknowsplayer(_0, _1));
@@ -597,7 +597,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .npc_instances
             .get(&npc)
             .is_some_and(|npc| npc.position.is_some());
-        (!alive) as i32
+        i32::from(!alive)
     }
     fake_impl!(ai_startstate(_0, _1, _2, _3));
     fake_impl!(ai_continueroutine(_0));
@@ -678,7 +678,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .npc_instances
             .get(&npc)
             .and_then(|npc| npc.look_at)
-            .map_or(0, |target| target.value())
+            .map_or(0, super::symbol_id::InstanceId::value)
     }
     fake_impl!(npc_isnexttargetavailable(_0) -> i32);
     fake_impl!(npc_settarget(_0, _1));
@@ -704,10 +704,10 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(info) = self.symbol_table.instance(info) else {
             return 0;
         };
-        self.loaded_state
+        i32::from(self.loaded_state
             .npc_instances
             .get(&npc)
-            .is_some_and(|npc| npc.known_infos.contains(&info)) as i32
+            .is_some_and(|npc| npc.known_infos.contains(&info)))
     }
     fake_impl!(npc_checkinfo(_0, _1) -> i32);
     fake_impl!(npc_giveinfo(_0, _1) -> i32);
@@ -860,7 +860,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     /// it resolves to an instance symbol (the resolution every other `npc_*` host
     /// call performs).
     fn hlp_isvalidnpc(&mut self, npc: i32) -> i32 {
-        self.symbol_table.instance(npc).is_some() as i32
+        i32::from(self.symbol_table.instance(npc).is_some())
     }
     fake_impl!(hlp_isvaliditem(_0) -> i32);
     fake_impl!(ai_snd_play(_0, _1));

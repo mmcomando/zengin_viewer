@@ -29,7 +29,7 @@ fn zengin_model_added(
     statistics.zengin_models_visible = 0;
     for visibility in &query {
         statistics.zengin_models += 1;
-        statistics.zengin_models_visible += (*visibility != Visibility::Hidden) as i64;
+        statistics.zengin_models_visible += i64::from(*visibility != Visibility::Hidden);
     }
 }
 
@@ -38,6 +38,6 @@ fn npc_added(mut statistics: ResMut<StatisticsZengin>, query: Query<&Visibility,
     statistics.npcs_visible = 0;
     for visibility in &query {
         statistics.npcs += 1;
-        statistics.npcs_visible += (*visibility != Visibility::Hidden) as i64;
+        statistics.npcs_visible += i64::from(*visibility != Visibility::Hidden);
     }
 }

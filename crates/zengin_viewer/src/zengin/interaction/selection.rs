@@ -25,7 +25,7 @@ const NPC_COLLIDER_LENGTH: f32 = 1.0;
 /// Vertical offset of the npc collider above the npc entity origin. The npc
 /// origin sits at the feet, so half of the capsule height places it exactly
 /// over the body (0..1.8 m) instead of half-buried in the ground.
-const NPC_COLLIDER_OFFSET: f32 = (NPC_COLLIDER_LENGTH + 2.0 * NPC_COLLIDER_RADIUS) * 0.5;
+const NPC_COLLIDER_OFFSET: f32 = f32::midpoint(NPC_COLLIDER_LENGTH, 2.0 * NPC_COLLIDER_RADIUS);
 /// Height of the name label above a selected npc.
 const NPC_LABEL_HEIGHT: f32 = 2.2;
 /// Height of the name label above a selected item.
@@ -188,8 +188,7 @@ fn update_selection(
     };
     let weapon_mode = player_weapon
         .single()
-        .map(|mode| mode.0)
-        .unwrap_or(WeaponMode::Fists);
+        .map_or(WeaponMode::Fists, |mode| mode.0);
     let (range, npcs_only) = match weapon_mode {
         WeaponMode::Melee => (SELECTION_RANGE, true),
         WeaponMode::Ranged => (RANGED_SELECTION_RANGE, true),
@@ -200,8 +199,7 @@ fn update_selection(
     // direction the player is aiming at.
     let forward = camera
         .single()
-        .map(|tr| *tr.forward())
-        .unwrap_or(*player_tr.back());
+        .map_or(*player_tr.back(), |tr| *tr.forward());
     let forward = Vec3::new(forward.x, 0.0, forward.z).normalize_or_zero();
 
     // `aabb_intersections_with_aabb` takes no filter, hits are filtered below.
@@ -215,8 +213,7 @@ fn update_selection(
         // Npc hit colliders are child entities, resolve them to the npc.
         let entity = hit_colliders
             .get(entity)
-            .map(|collider| collider.owner)
-            .unwrap_or(entity);
+            .map_or(entity, |collider| collider.owner);
         // The player body collider is not selectable.
         if entity == player_entity {
             continue;

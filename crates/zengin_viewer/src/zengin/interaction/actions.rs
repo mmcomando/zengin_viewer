@@ -36,15 +36,12 @@ pub(super) fn toggle_player_weapons(
             continue;
         }
         let mut script = gothic_script.lock();
-        let instance = match script.npc_instances().get(&player_id) {
-            Some(instance) => instance,
-            None => {
-                warn!(
-                    "No script instance for player({}) on weapon toggle",
-                    player_id.value()
-                );
-                continue;
-            }
+        let instance = if let Some(instance) = script.npc_instances().get(&player_id) { instance } else {
+            warn!(
+                "No script instance for player({}) on weapon toggle",
+                player_id.value()
+            );
+            continue;
         };
         let equipped = if ranged {
             instance.equipped_ranged.is_some()

@@ -72,8 +72,7 @@ pub(super) fn melee_swing_hit(
 ) {
     let weapon_mode = player_weapon
         .single()
-        .map(|mode| mode.0)
-        .unwrap_or(WeaponMode::Fists);
+        .map_or(WeaponMode::Fists, |mode| mode.0);
     for _hit in hits.read() {
         if selection.kind != Some(SelectionKind::Npc) {
             continue;
@@ -227,13 +226,11 @@ pub(super) fn handle_npc_death(
         let Ok((npc, equipped, weapon_mode)) = npcs.get(death.entity) else {
             continue;
         };
-        let npc_id = npc
-            .map(|npc| npc.npc_instance_id)
-            .unwrap_or(death.instance_id);
+        let npc_id = npc.map_or(death.instance_id, |npc| npc.npc_instance_id);
         let position = death.position;
         // Only the drawn weapon drops on the ground; sheathed weapons stay
         // part of the inventory that moves to the player
-        let dropped = match weapon_mode.map(|mode| mode.0).unwrap_or(WeaponMode::Fists) {
+        let dropped = match weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0) {
             WeaponMode::Melee => equipped.and_then(|equipped| equipped.melee),
             WeaponMode::Ranged => equipped.and_then(|equipped| equipped.ranged),
             WeaponMode::Fists => None,
@@ -264,23 +261,22 @@ pub(super) fn handle_npc_death(
                 );
             }
             drop(script);
-            match item_model_path(&gothic_scripts, &vfs, item) {
-                Some(path) => {
-                    let model_handle = handles.get_model_handle(&asset_server, &path, None);
-                    commands.spawn((
-                        ClassifyDistance::default(),
-                        ZenGinModelComponent {
-                            model_handle,
-                            ..default()
-                        },
-                        Visibility::default(),
-                        Transform::from_translation(position),
-                        GameItem {
-                            item_instance_id: item,
-                        },
-                    ));
-                }
-                None => warn!("No mesh path for dropped weapon item({item})"),
+            if let Some(path) = item_model_path(&gothic_scripts, &vfs, item) {
+                let model_handle = handles.get_model_handle(&asset_server, &path, None);
+                commands.spawn((
+                    ClassifyDistance::default(),
+                    ZenGinModelComponent {
+                        model_handle,
+                        ..default()
+                    },
+                    Visibility::default(),
+                    Transform::from_translation(position),
+                    GameItem {
+                        item_instance_id: item,
+                    },
+                ));
+            } else {
+                warn!("No mesh path for dropped weapon item({item})");
             }
         }
 

@@ -111,9 +111,9 @@ pub fn meshes_from_zengin_mrs_mesh(
     for (texture_str, mesh_data) in meshes {
         let has_skin = !mesh_data.bone_indices.is_empty();
         if has_skin {
-            assert!(!mesh_data.bone_indices.is_empty());
-            assert!(!mesh_data.weights.is_empty());
-            assert!(mesh_data.weights.len() == mesh_data.vertices.len());
+            assert_ne!(mesh_data.bone_indices, [] as [[u16; 4]; 0]);
+            assert_ne!(mesh_data.weights, [] as [[f32; 4]; 0]);
+            assert_eq!(mesh_data.weights.len(), mesh_data.vertices.len());
         }
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,

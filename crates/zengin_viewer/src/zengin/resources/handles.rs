@@ -93,7 +93,7 @@ impl CachedAssetHandles {
         let handle = asset_server
             .load_builder()
             .with_settings(move |s: &mut ZenGinModelLoaderSettings| {
-                s.hierarchy_path.clone_from(&hierarchy_path)
+                s.hierarchy_path.clone_from(&hierarchy_path);
             })
             .load(model_path.to_string());
         self.models.insert(model_path.to_string(), handle.clone());

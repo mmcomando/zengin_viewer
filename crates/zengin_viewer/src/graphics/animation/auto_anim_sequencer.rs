@@ -32,14 +32,11 @@ pub struct AutoAnimSequencerPlugin;
 
 impl Plugin for AutoAnimSequencerPlugin {
     fn build(&self, app: &mut App) {
-        match AnimationGraph::load_from_ron(Path::new(GRAPH_ASSET)) {
-            Some(mut graph) => {
-                graph.load_additional_edges(Path::new(MANUAL_EDGES_ASSET));
-                app.insert_resource(graph);
-                app.add_systems(Startup, preload_graph_animations);
-            }
-            None => warn!("AutoAnimSequencerPlugin without an animation graph({GRAPH_ASSET})"),
-        }
+        if let Some(mut graph) = AnimationGraph::load_from_ron(Path::new(GRAPH_ASSET)) {
+            graph.load_additional_edges(Path::new(MANUAL_EDGES_ASSET));
+            app.insert_resource(graph);
+            app.add_systems(Startup, preload_graph_animations);
+        } else { warn!("AutoAnimSequencerPlugin without an animation graph({GRAPH_ASSET})") }
         app.add_message::<SetDesiredAnimation>();
         app.add_systems(
             Update,

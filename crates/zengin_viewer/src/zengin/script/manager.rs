@@ -436,7 +436,7 @@ impl ScriptManager {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_set_instance(&mut self.store, instance_index.value())
-            .unwrap()
+            .unwrap();
     }
 
     /// Binds the given instance as `self` for subsequent script calls
@@ -444,7 +444,7 @@ impl ScriptManager {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_set_self(&mut self.store, instance_index.value())
-            .unwrap()
+            .unwrap();
     }
 
     /// Binds the given instance as `other` for subsequent script calls
@@ -452,14 +452,14 @@ impl ScriptManager {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_set_other(&mut self.store, instance_index.value())
-            .unwrap()
+            .unwrap();
     }
 
     pub fn call_npc_routine(&mut self, instance_index: InstanceId) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         let result = guest.call_call_npc_routine(&mut self.store, instance_index.value());
         match result {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(err) => {
                 println!("call_npc_routine({instance_index}) error: {:?}", err);
             }
@@ -776,7 +776,7 @@ impl ScriptManager {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_call_function(&mut self.store, symbol_id.value())
-            .unwrap()
+            .unwrap();
     }
 
     pub fn call_function_bool(&mut self, symbol_id: FunctionId) -> bool {
@@ -820,7 +820,7 @@ impl ScriptManager {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_initialize_all_instances(&mut self.store)
-            .unwrap()
+            .unwrap();
     }
 
     pub fn get_symbol_info(&mut self, symbol_id: SymbolId) -> SymbolInfo {
@@ -947,7 +947,7 @@ impl ScriptManager {
                 .symbol_table()
                 .string(dialog_info.description)
                 .and_then(|id| self.get_show_string(id))
-                .map(|description| description.into_string())
+                .map(super::string_value::ShowString::into_string)
                 .unwrap_or_default();
 
             let Some(npc_id) = self.symbol_table().instance(dialog_info.npc) else {
@@ -1014,11 +1014,11 @@ impl ScriptManager {
 
             let Some(body_model) = body_model_id
                 .and_then(|id| self.get_show_string(id))
-                .map(|body_model| body_model.into_string())
+                .map(super::string_value::ShowString::into_string)
             else {
                 println!(
                     "Not found body model string for npc({index}), body_model({})",
-                    body_model_id.map(|id| id.value()).unwrap_or_default()
+                    body_model_id.map(super::symbol_id::StringId::value).unwrap_or_default()
                 );
                 continue;
             };
@@ -1063,7 +1063,7 @@ impl ScriptManager {
             entry.head_model = head_model;
             entry.face_texture = face_texture;
             entry.armor_model = armor_model;
-            entry.hierarchy = hierarchy.map(|hierarchy| hierarchy.into_string());
+            entry.hierarchy = hierarchy.map(super::string_value::ShowString::into_string);
         }
     }
 }

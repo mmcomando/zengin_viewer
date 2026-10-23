@@ -45,8 +45,7 @@ pub(super) fn show_closest_npc_dialog(
     // With a weapon drawn Interact attacks instead of talking.
     let weapon_mode = player_weapon
         .single()
-        .map(|mode| mode.0)
-        .unwrap_or(WeaponMode::Fists);
+        .map_or(WeaponMode::Fists, |mode| mode.0);
     if weapon_mode != WeaponMode::Fists {
         return;
     }

@@ -292,7 +292,7 @@ pub(crate) fn update_animations(
             data.frame_state.start_frame.store(0, Ordering::Release);
             // Single frame poses have no second frame to interpolate to
             data.frame_state.end_frame.store(
-                if next_data.frames_num > 1 { 1 } else { 0 },
+                u32::from(next_data.frames_num > 1),
                 Ordering::Release,
             );
             data.frame_state.mul_1000.store(0, Ordering::Release);

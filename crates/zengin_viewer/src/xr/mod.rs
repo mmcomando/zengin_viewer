@@ -20,8 +20,8 @@ use std::sync::OnceLock;
 use crate::input::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
 
 /// Experiment with VR
-/// Worked with Pico 4 and SteamVR on Linux but very laggy (in the past I know it worked better)
-/// With Pico 4 and WiVRn performance was smooth
+/// Worked with Pico 4 and `SteamVR` on Linux but very laggy (in the past I know it worked better)
+/// With Pico 4 and `WiVRn` performance was smooth
 pub struct XrPlugin {
     window_plugin_options: Mutex<Cell<WindowPlugin>>,
 }

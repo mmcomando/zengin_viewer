@@ -27,7 +27,7 @@ impl Plugin for OptionsPlugin {
     }
 }
 
-/// Registers the Shader asset type in headless mode, normally done by RenderPlugin.
+/// Registers the Shader asset type in headless mode, normally done by `RenderPlugin`.
 pub struct RegisterShaderAsset;
 
 impl Plugin for RegisterShaderAsset {

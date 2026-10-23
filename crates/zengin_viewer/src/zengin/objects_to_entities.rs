@@ -142,7 +142,7 @@ pub(crate) fn create_skinned_mesh_data(
     );
     assert!(!model.inverse_bindposes.is_empty());
     assert!(!joint_entities.is_empty());
-    assert!(joint_entities.len() == model.inverse_bindposes.len());
+    assert_eq!(joint_entities.len(), model.inverse_bindposes.len());
     return Some(SkinnedMesh {
         inverse_bindposes,
         joints: joint_entities,
