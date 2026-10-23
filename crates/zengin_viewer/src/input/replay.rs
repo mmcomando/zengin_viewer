@@ -245,11 +245,10 @@ fn replay_actions(
                     commands.remove_resource::<ActionReplay>();
                     return;
                 };
-                if let Some(parent) = file_path.parent() {
-                    if let Err(error) = fs::create_dir_all(parent) {
+                if let Some(parent) = file_path.parent()
+                    && let Err(error) = fs::create_dir_all(parent) {
                         warn!("Failed to create screenshot dir {parent:?}: {error}");
                     }
-                }
                 commands
                     .spawn(Screenshot::primary_window())
                     .observe(save_to_disk(file_path.to_string_lossy().into_owned()));

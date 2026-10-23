@@ -45,7 +45,7 @@ pub(crate) fn camera_toggle_input(
         (camera_query.single(), player_query.single_mut())
     {
         let player_visual = player_visual.single_mut().ok();
-        place_player_at_free_camera(&camera_transform, &mut player_transform, player_visual);
+        place_player_at_free_camera(camera_transform, &mut player_transform, player_visual);
         switches.write(CameraSwitchedToThirdPerson(*camera_transform));
     }
 }

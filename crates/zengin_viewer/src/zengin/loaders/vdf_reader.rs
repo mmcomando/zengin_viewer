@@ -19,7 +19,7 @@ use zen_kit_rs::{misc::VfsOverwriteBehavior, vfs::Vfs};
 use crate::zengin::common::gothic2_dir;
 
 pub fn get_zengin_asset_bytes(vfs: &Vfs, path: &str) -> Option<Vec<u8>> {
-    let path = format!("/{}", &path);
+    let path = format!("/{}", path);
     let node = vfs.resolve_path(&path)?;
     let read_obj = node.open()?;
 

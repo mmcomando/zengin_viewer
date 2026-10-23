@@ -205,7 +205,7 @@ pub(crate) fn update_animations(
                 _ => entity,
             };
             let speed = if accelerating.contains(target) {
-                ACCELERATION_MULTIPLIER as f32
+                ACCELERATION_MULTIPLIER
             } else {
                 1.0
             };

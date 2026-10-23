@@ -53,7 +53,7 @@ pub(super) fn send_desired_animations(
         set_attack_animation(
             entity,
             mode,
-            &player_tr,
+            player_tr,
             &selection,
             &transforms,
             &mut writer,
@@ -61,7 +61,7 @@ pub(super) fn send_desired_animations(
         return;
     }
 
-    set_run_animation(entity, &*camera, direction, &mut writer);
+    set_run_animation(entity, &camera, direction, &mut writer);
 }
 
 /// Writes the attack animation: melee swing or bow fire depending on the

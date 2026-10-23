@@ -51,13 +51,13 @@ pub(super) fn give_test_items(
     let mut script = gothic_script.lock();
     let mut lines: Vec<String> = Vec::new();
     for (item_name, count) in TEST_ITEMS {
-        let Some(item) = grant_test_item(&mut *script, player_id, item_name, *count) else {
+        let Some(item) = grant_test_item(&mut script, player_id, item_name, *count) else {
             warn!("Test item {item_name} not found among the loaded instances");
             continue;
         };
         lines.push(format!(
             "{} x{count}",
-            item_display_name(&mut *script, item)
+            item_display_name(&mut script, item)
         ));
     }
     if lines.is_empty() {
@@ -122,7 +122,7 @@ pub(super) fn debug_equipment_on_start(
     let mut melee = None;
     let mut ranged = None;
     for (item_name, count) in TEST_ITEMS {
-        let Some(item) = grant_test_item(&mut *script, player_id, item_name, *count) else {
+        let Some(item) = grant_test_item(&mut script, player_id, item_name, *count) else {
             warn!("Test item {item_name} not found among the loaded instances");
             continue;
         };
@@ -138,7 +138,7 @@ pub(super) fn debug_equipment_on_start(
         }
         lines.push(format!(
             "{} x{count}",
-            item_display_name(&mut *script, item)
+            item_display_name(&mut script, item)
         ));
     }
     for (_, weapon) in [(false, melee), (true, ranged)] {

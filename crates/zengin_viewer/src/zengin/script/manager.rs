@@ -314,7 +314,7 @@ impl ScriptManager {
     pub fn equip_item(&mut self, npc: InstanceId, item: InstanceId) {
         let kind = self
             .symbol_table()
-            .symbol_name(item.value() as i32)
+            .symbol_name(item.value())
             .as_deref()
             .and_then(WeaponKind::from_symbol_name);
         let Some(kind) = kind else {
@@ -907,7 +907,7 @@ impl ScriptManager {
             let symbol_name = self.call_get_name(index.symbol());
 
             let Some(visual) = self.get_item_visual(index.symbol()) else {
-                println!("No visual for item({})", &symbol_name);
+                println!("No visual for item({})", symbol_name);
                 continue;
             };
 

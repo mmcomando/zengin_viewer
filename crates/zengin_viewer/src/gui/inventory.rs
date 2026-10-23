@@ -328,10 +328,10 @@ fn spawn_inventory_window(
             InventoryWindowPanel(window),
             Node {
                 position_type: PositionType::Absolute,
-                left: anchors.left.clone(),
-                right: anchors.right.clone(),
-                top: anchors.top.clone(),
-                bottom: anchors.bottom.clone(),
+                left: anchors.left,
+                right: anchors.right,
+                top: anchors.top,
+                bottom: anchors.bottom,
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
                 ..default()
@@ -565,26 +565,22 @@ fn handle_inventory_input(
     let selected = &mut window.selected;
 
     let columns = InventoryStyle::COLUMNS;
-    if action_state.just_pressed(&GuiAction::Left) {
-        if *selected % columns > 0 {
+    if action_state.just_pressed(&GuiAction::Left)
+        && *selected % columns > 0 {
             *selected -= 1;
         }
-    }
-    if action_state.just_pressed(&GuiAction::Right) {
-        if *selected + 1 < slot_count && *selected % columns < columns - 1 {
+    if action_state.just_pressed(&GuiAction::Right)
+        && *selected + 1 < slot_count && *selected % columns < columns - 1 {
             *selected += 1;
         }
-    }
-    if action_state.just_pressed(&GuiAction::Up) {
-        if *selected >= columns {
+    if action_state.just_pressed(&GuiAction::Up)
+        && *selected >= columns {
             *selected -= columns;
         }
-    }
-    if action_state.just_pressed(&GuiAction::Down) {
-        if *selected + columns < slot_count {
+    if action_state.just_pressed(&GuiAction::Down)
+        && *selected + columns < slot_count {
             *selected += columns;
         }
-    }
     if action_state.just_pressed(&GuiAction::Confirm)
         && let Some(entry) = window.items.get(*selected)
     {
@@ -723,11 +719,9 @@ fn sync_inventory_ui(
     if let Some((_, mut text)) = window_title
         .iter_mut()
         .find(|(marker, _)| marker.0 == window_index)
-    {
-        if text.0 != window.title {
+        && text.0 != window.title {
             text.0 = window.title.clone();
         }
-    }
     if let Some((_, mut text)) = window_gold
         .iter_mut()
         .find(|(marker, _)| marker.0 == window_index)
@@ -822,12 +816,11 @@ fn item_info_text(entry: &InventoryEntry) -> (String, String) {
     let mut value_lines: Vec<String> = vec![String::new(), String::new()];
     if let Some(stats) = &entry.stats {
         // The description often just repeats the name, skip it in that case
-        if let Some(description) = &stats.description {
-            if !description.eq_ignore_ascii_case(&entry.name) {
+        if let Some(description) = &stats.description
+            && !description.eq_ignore_ascii_case(&entry.name) {
                 label_lines.push(description.clone());
                 value_lines.push(String::new());
             }
-        }
         for (name, value) in &stats.requirements {
             label_lines.push(format!("Required {name}:"));
             value_lines.push(value.to_string());

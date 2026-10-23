@@ -155,7 +155,7 @@ fn apply_desired_animations(
         return;
     };
     let graph = graph.into_inner();
-    let melee_swing_index = index_of(&graph, DesiredAnimation::MeleeAttack);
+    let melee_swing_index = index_of(graph, DesiredAnimation::MeleeAttack);
     for message in desired.read() {
         let Ok((mut seq, controller)) = sequencers.get_mut(message.who) else {
             warn!(
@@ -174,7 +174,7 @@ fn apply_desired_animations(
         seq.force_change = message.force_change;
         // Let a started melee swing finish: interrupting the queued
         // follow-up would cut it mid-way and the hit would never land
-        if animation_index(&graph, controller.current()) == Some(melee_swing_index) {
+        if animation_index(graph, controller.current()) == Some(melee_swing_index) {
             seq.force_change = false;
         }
         seq.direction = message.direction;
@@ -208,7 +208,7 @@ fn apply_forced_change(
             &mut controller,
             &mut handles,
             &asset_server,
-            graph.animation_name(index_of(&graph, desired)),
+            graph.animation_name(index_of(graph, desired)),
             seq.force_change,
         );
     }
@@ -231,7 +231,7 @@ fn advance_on_animation_ends(
         return;
     };
     let graph = graph.into_inner();
-    let melee_swing_index = index_of(&graph, DesiredAnimation::MeleeAttack);
+    let melee_swing_index = index_of(graph, DesiredAnimation::MeleeAttack);
     for end in ends.read() {
         let Ok((entity, seq, mut controller)) = sequencers.get_mut(end.who) else {
             // Most skeletons have no sequencer; their ends are not ours.
@@ -240,7 +240,7 @@ fn advance_on_animation_ends(
         if end.what_animation != *controller.current() {
             continue;
         }
-        let Some(current) = animation_index(&graph, &end.what_animation) else {
+        let Some(current) = animation_index(graph, &end.what_animation) else {
             warn!(
                 "AutoAnimSequencer({entity}) current animation missing from the graph, desired({:?}) unreachable",
                 seq.desired
@@ -256,7 +256,7 @@ fn advance_on_animation_ends(
             warn!("AutoAnimSequencer({entity}) animation end without a desired animation");
             continue;
         };
-        let desired_index = index_of(&graph, desired);
+        let desired_index = index_of(graph, desired);
         if current == desired_index {
             if desired == DesiredAnimation::Fire {
                 // The reload loop wrapped: the arrow leaves the bow. The

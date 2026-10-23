@@ -121,11 +121,10 @@ fn open_recording_file(options: Res<Options>, mut commands: Commands) {
     let Some(path) = options.save_actions() else {
         return;
     };
-    if let Err(error) = fs::remove_file(path) {
-        if error.kind() != std::io::ErrorKind::NotFound {
+    if let Err(error) = fs::remove_file(path)
+        && error.kind() != std::io::ErrorKind::NotFound {
             warn!("Failed to remove old action recording {path:?}: {error}");
         }
-    }
     commands.insert_resource(ActionRecording {
         path: path.clone(),
         frame: 0,

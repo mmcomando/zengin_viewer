@@ -251,7 +251,7 @@ fn spawn_npcs(
 
         let bones_data = create_skinned_mesh_data(
             &mut commands,
-            &mut *handles_map,
+            &mut handles_map,
             &mut skinned_mesh_inverse_bindposes_assets,
             &spawn_state.body_handle,
             entity_id,
