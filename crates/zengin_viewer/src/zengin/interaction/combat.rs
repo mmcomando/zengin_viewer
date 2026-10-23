@@ -9,6 +9,7 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::AnimationController;
 use crate::graphics::{NpcHitReaction, play_hit_reaction};
 use crate::gui::GameLog;
+use crate::zengin::loaders::vdf_reader::ZenginVfs;
 use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::npc_routines::{AnimationFiles, NpcEquippedWeapon, NpcOverlay, NpcWeaponMode};
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
@@ -16,7 +17,7 @@ use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{GameItem, GameNpc, ZenginVfs};
+use crate::zengin::{GameItem, GameNpc};
 
 /// An npc died (hitpoints reached 0): its inventory moves to the player, the
 /// drawn weapon drops on the ground and the npc entity is despawned.

@@ -22,9 +22,7 @@ use crate::input::actions::{
     SharedAction, SharedInputMarker, update_input_mode,
 };
 use crate::input::options::Options;
-use crate::input::record::{
-    CameraSwitchedToThirdPerson, RecordedAction, ReplayCommand, switch_sync_transforms,
-};
+use crate::input::record::{RecordedAction, ReplayCommand};
 use crate::zengin::{GameNpc, ScriptResource, WeaponKind};
 
 /// Replays the actions recorded with `--save-actions`.
@@ -42,9 +40,11 @@ impl Plugin for ActionReplayPlugin {
                 .in_set(InputManagerSystem::ManualControl)
                 .after(update_input_mode),
         );
-        // The re-application must run after the camera toggle placed the
-        // player at the drifted free camera, so the recorded sync point wins.
-        app.add_systems(PreUpdate, apply_camera_switch.after(camera_toggle_input));
+        // Location commands are applied after the camera toggle, so a camera
+        // switch sync point overrides the toggle's placement at the drifted
+        // free camera.
+        app.add_systems(PreUpdate, apply_replay_locations.after(camera_toggle_input));
+        app.init_resource::<PendingLocations>();
     }
 }
 
@@ -143,11 +143,19 @@ fn read_replay(workdir: &Path, path: &Path) -> Result<ActionReplay, String> {
     })
 }
 
-/// Re-applies the camera switch synchronization point during replay runs,
-/// after the camera toggle moved the player to the drifted free camera.
-fn apply_camera_switch(
-    options: Res<Options>,
-    mut switches: MessageReader<CameraSwitchedToThirdPerson>,
+/// Teleport and camera location commands of the current frame, buffered by
+/// [`replay_actions`] and applied by [`apply_replay_locations`].
+#[derive(Resource, Default)]
+struct PendingLocations {
+    player: Vec<(Vec3, Vec3)>,
+    camera: Vec<(Vec3, Vec3)>,
+}
+
+/// Applies buffered replay location commands after the camera toggle, so a
+/// camera switch sync point overrides the toggle's placement at the drifted
+/// free camera.
+fn apply_replay_locations(
+    mut pending: ResMut<PendingLocations>,
     mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
     mut player_visual: Query<
         &mut Transform,
@@ -159,18 +167,11 @@ fn apply_camera_switch(
     >,
     mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
 ) {
-    if options.replay_actions().is_none() {
-        return;
+    for (translation, rotation) in pending.player.drain(..) {
+        teleport_player(&mut player, &mut player_visual, translation, rotation);
     }
-    for switch in switches.read() {
-        let (translation, player_rotation, camera_rotation) = switch_sync_transforms(&switch.0);
-        teleport_player(
-            &mut player,
-            &mut player_visual,
-            translation,
-            player_rotation,
-        );
-        set_camera_location(&mut camera, translation, camera_rotation);
+    for (translation, rotation) in pending.camera.drain(..) {
+        set_camera_location(&mut camera, translation, rotation);
     }
 }
 
@@ -188,16 +189,7 @@ fn replay_actions(
     mut debug: Query<&mut ActionState<DebugAction>, With<DebugInputMarker>>,
     gothic_script: Res<ScriptResource>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
-    mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
-    mut player_visual: Query<
-        &mut Transform,
-        (
-            With<PlayerCharacter>,
-            Without<PlayerPhysicsBodyMarker>,
-            Without<Camera3d>,
-        ),
-    >,
-    mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
+    mut pending: ResMut<PendingLocations>,
 ) {
     let Some(mut replay) = replay else {
         return;
@@ -231,14 +223,14 @@ fn replay_actions(
                 rotation,
                 ..
             } => {
-                teleport_player(&mut player, &mut player_visual, *translation, *rotation);
+                pending.player.push((*translation, *rotation));
             }
             ReplayCommand::SetCameraLocation {
                 translation,
                 rotation,
                 ..
             } => {
-                set_camera_location(&mut camera, *translation, *rotation);
+                pending.camera.push((*translation, *rotation));
             }
             ReplayCommand::EquipWeapon { item, .. } => {
                 equip_player_weapon(&gothic_script, &player_npc, item);

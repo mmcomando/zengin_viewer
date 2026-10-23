@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::gui::InventoryUiState;
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
-use crate::zengin::dialog::DialogUiState;
+use crate::zengin::DialogUiState;
 
 /// Adds [`leafwing_input_manager`] with one input map per action group and
 /// spawns the global input entities with the profiles loaded from the RON

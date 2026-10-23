@@ -13,8 +13,8 @@ use leafwing_input_manager::prelude::ActionState;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
+use crate::zengin::DialogUiState;
 use crate::zengin::ScriptManager;
-use crate::zengin::dialog::DialogUiState;
 use crate::zengin::get_full_texture_path;
 use crate::zengin::{GameNpc, InstanceId, ItemDisplayData, ScriptResource, WeaponKind};
 

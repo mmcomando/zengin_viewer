@@ -25,6 +25,7 @@ use bevy::prelude::*;
 pub(crate) use crate::zengin::common::face_direction_quat;
 pub(crate) use crate::zengin::common::get_animation_path;
 pub(crate) use crate::zengin::common::get_full_texture_path;
+pub(crate) use crate::zengin::dialog::DialogUiState;
 pub(crate) use crate::zengin::dialog::SpeechSounds;
 pub(crate) use crate::zengin::interaction::MeleeHit;
 pub(crate) use crate::zengin::interaction::ranged::ArrowShot;
