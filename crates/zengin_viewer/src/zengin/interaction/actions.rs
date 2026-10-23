@@ -36,7 +36,7 @@ pub(super) fn toggle_player_weapons(
             continue;
         }
         let mut script = gothic_script.lock();
-        let instance = if let Some(instance) = script.npc_instances().get(&player_id) { instance } else {
+        let Some(instance) = script.npc_instances().get(&player_id) else {
             warn!(
                 "No script instance for player({}) on weapon toggle",
                 player_id.value()

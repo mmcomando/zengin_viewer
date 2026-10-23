@@ -64,10 +64,10 @@ const SCENARIO_WINDOW_RESOLUTION: (u32, u32) = (1024, 768);
 /// Workdir of the replay named by its file: contains all outputs (screenshots)
 /// of the replay under `misc/scenario_output/<file stem>/`.
 fn scenario_workdir(replay_path: &Path) -> PathBuf {
-    let name = replay_path
-        .file_stem()
-        .map(|stem| stem.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "replay".to_string());
+    let name = replay_path.file_stem().map_or_else(
+        || "replay".to_string(),
+        |stem| stem.to_string_lossy().into_owned(),
+    );
     Path::new(SCENARIO_DIR).join(name)
 }
 
@@ -134,10 +134,10 @@ fn load_replay_file(options: Res<Options>, mut commands: Commands) {
 }
 
 fn read_replay(workdir: &Path, path: &Path) -> Result<ActionReplay, String> {
-    let contents =
-        fs::read_to_string(path).map_err(|error| format!("failed to read {path:?}: {error}"))?;
+    let contents = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     let mut commands: Vec<ReplayCommand> = ron::de::from_str(&contents)
-        .map_err(|error| format!("failed to parse {path:?}: {error}"))?;
+        .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
     commands.sort_by_key(|command| command.frame());
     Ok(ActionReplay {
         workdir: workdir.to_path_buf(),
@@ -257,7 +257,7 @@ fn replay_actions(
         }
     }
 
-    for action in replay.held_buttons.iter() {
+    for action in &replay.held_buttons {
         let started = replay.started_buttons.contains(action);
         press(
             &mut gameplay,
@@ -268,7 +268,7 @@ fn replay_actions(
             started,
         );
     }
-    for (action, value) in replay.held_axes.iter() {
+    for (action, value) in &replay.held_axes {
         set_axis_pair(&mut gameplay, *action, *value);
     }
 }

@@ -111,14 +111,7 @@ pub(super) fn melee_swing_hit(
                 );
                 continue;
             };
-            let Some(damage) = script.item_damage_total(weapon) else {
-                warn!(
-                    "Melee hit ignored: no damage data for weapon item({})",
-                    weapon.value()
-                );
-                continue;
-            };
-            damage
+            script.item_damage_total(weapon)
         };
         damage_npc(
             &mut commands,

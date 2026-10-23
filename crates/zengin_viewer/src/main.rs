@@ -4,6 +4,7 @@
 // #![warn(clippy::pedantic, clippy::restriction)]
 #![warn(clippy::suspicious, clippy::complexity, clippy::perf, clippy::pedantic)]
 #![allow(
+    clippy::unused_async_trait_impl,
     clippy::redundant_closure_for_method_calls,
     clippy::trivially_copy_pass_by_ref,
     clippy::assert_is_empty,

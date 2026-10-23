@@ -41,6 +41,7 @@ impl Plugin for GizmosPlugin {
 
 /// Which gizmos are currently rendered, toggled from the debug UI.
 #[derive(Resource, Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct GizmosOptions {
     pub convex_colliders: bool,
     pub trimesh_colliders: bool,

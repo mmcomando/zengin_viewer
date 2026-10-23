@@ -590,10 +590,9 @@ impl ScriptManager {
         Some(changed)
     }
 
-    /// Total damage of an item instance (`C_Item.damagetotal`), `None` when
-    /// the item instance has no data.
-    pub fn item_damage_total(&mut self, item: InstanceId) -> Option<i32> {
-        Some(self.item_info(item).damage_total)
+    /// Total damage of an item instance (`C_Item.damagetotal`).
+    pub fn item_damage_total(&mut self, item: InstanceId) -> i32 {
+        self.item_info(item).damage_total
     }
 
     /// Display stats of an item instance for the inventory info panel.
@@ -1018,7 +1017,9 @@ impl ScriptManager {
             else {
                 println!(
                     "Not found body model string for npc({index}), body_model({})",
-                    body_model_id.map(super::symbol_id::StringId::value).unwrap_or_default()
+                    body_model_id
+                        .map(super::symbol_id::StringId::value)
+                        .unwrap_or_default()
                 );
                 continue;
             };

@@ -118,7 +118,7 @@ fn spawn_arrows(
                 .npc_instances()
                 .get(&shooter)
                 .and_then(|player| player.equipped_ranged)
-                .and_then(|weapon| script.item_damage_total(weapon))
+                .map(|weapon| script.item_damage_total(weapon))
         };
         let Some(damage) = damage else {
             warn!(
@@ -155,8 +155,10 @@ fn spawn_arrows(
         info!(
             "Npc({}) shot an arrow dealing {damage} damage towards {}",
             shooter.value(),
-            selection
-                .target.map_or_else(|| "the facing direction".to_string(), |target| format!("npc({target})"))
+            selection.target.map_or_else(
+                || "the facing direction".to_string(),
+                |target| format!("npc({target})")
+            )
         );
     }
 }

@@ -119,7 +119,7 @@ fn ui_info_system(
                 ui.add(
                     egui::Slider::new(&mut game_time.total_hours, 0.0..=24.0)
                         .custom_formatter(|hours, _| clock_string(hours as f32))
-                        .custom_parser(|text| parse_clock_string(text).map(|hours| f64::from(hours))),
+                        .custom_parser(|text| parse_clock_string(text).map(f64::from)),
                 );
                 ui.end_row();
 

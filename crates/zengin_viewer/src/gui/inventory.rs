@@ -307,6 +307,45 @@ fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(textures);
 }
 
+/// Spawns one header box: a fixed size background node with the text as a
+/// child, centered horizontally and vertically. The text must be a separate
+/// child entity — `align_items` on the text's own node would only affect its
+/// children, leaving the glyphs top-aligned in a fixed height box.
+fn spawn_header_box(
+    commands: &mut Commands,
+    header: Entity,
+    marker: impl Component,
+    text: String,
+    width: f32,
+) {
+    let box_node = commands
+        .spawn((
+            ChildOf(header),
+            BackgroundColor(InventoryStyle::PANEL_BACKGROUND),
+            Node {
+                display: Display::Flex,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                width: Val::Px(width),
+                height: Val::Px(InventoryStyle::SLOT_SIZE * 0.6),
+                ..default()
+            },
+        ))
+        .id();
+    commands.spawn((
+        ChildOf(box_node),
+        marker,
+        Text::new(text),
+        TextFont {
+            font_size: InventoryStyle::HEADER_FONT_SIZE.into(),
+            ..default()
+        },
+        TextColor(InventoryStyle::TEXT_COLOR),
+        TextLayout::default().with_justify(Justify::Center),
+        InventoryStyle::TEXT_SHADOW,
+    ));
+}
+
 /// Spawns one inventory window panel: header bar (title + gold) above a slot
 /// grid. Returns the panel entity. `anchors` places the panel on screen; a
 /// trade scene spawns a second panel anchored to the other screen side.
@@ -366,45 +405,6 @@ fn spawn_inventory_window(
         String::new(),
         grid_width * 0.45 - InventoryStyle::SLOT_GAP,
     );
-
-    /// Spawns one header box: a fixed size background node with the text as a
-    /// child, centered horizontally and vertically. The text must be a separate
-    /// child entity — `align_items` on the text's own node would only affect its
-    /// children, leaving the glyphs top-aligned in a fixed height box.
-    fn spawn_header_box(
-        commands: &mut Commands,
-        header: Entity,
-        marker: impl Component,
-        text: String,
-        width: f32,
-    ) {
-        let box_node = commands
-            .spawn((
-                ChildOf(header),
-                BackgroundColor(InventoryStyle::PANEL_BACKGROUND),
-                Node {
-                    display: Display::Flex,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    width: Val::Px(width),
-                    height: Val::Px(InventoryStyle::SLOT_SIZE * 0.6),
-                    ..default()
-                },
-            ))
-            .id();
-        commands.spawn((
-            ChildOf(box_node),
-            marker,
-            Text::new(text),
-            TextFont {
-                font_size: InventoryStyle::HEADER_FONT_SIZE.into(),
-                ..default()
-            },
-            TextColor(InventoryStyle::TEXT_COLOR),
-            TextLayout::default().with_justify(Justify::Center),
-            InventoryStyle::TEXT_SHADOW,
-        ));
-    }
 
     // Slot grid on the plain panel background, uniform across the window
     let grid = commands
@@ -721,7 +721,7 @@ fn sync_inventory_ui(
         .find(|(marker, _)| marker.0 == window_index)
         && text.0 != window.title
     {
-        text.0 = window.title.clone();
+        text.0.clone_from(&window.title);
     }
     if let Some((_, mut text)) = window_gold
         .iter_mut()

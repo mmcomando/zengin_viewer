@@ -83,11 +83,10 @@ impl NpcWeaponSlots {
     /// has no matching node.
     fn slot_for(&self, kind: WeaponKind, drawn: bool) -> Option<Entity> {
         match (kind, drawn) {
-            (WeaponKind::Melee, true) => self.hand,
+            (WeaponKind::Melee | WeaponKind::Crossbow, true) => self.hand,
             (WeaponKind::Melee, false) => self.sword.or(self.longsword),
             (WeaponKind::Bow, true) => self.left_hand,
             (WeaponKind::Bow, false) => self.bow,
-            (WeaponKind::Crossbow, true) => self.hand,
             (WeaponKind::Crossbow, false) => self.crossbow,
         }
     }

@@ -79,9 +79,7 @@ fn set_attack_animation(
     // Aim at the selected npc, fall back to the current facing direction.
     let target = selection
         .target
-        .and_then(|target| transforms.get(target).ok())
-        .map(|target| target.translation())
-        .unwrap_or_else(|| player_tr.translation() + (player_tr.rotation() * Vec3::Z) * 20.0);
+        .and_then(|target| transforms.get(target).ok()).map_or_else(|| player_tr.translation() + (player_tr.rotation() * Vec3::Z) * 20.0, |target| target.translation());
     let direction = horizontal(target - player_tr.translation());
     let direction = if direction.length_squared() < 0.0001 {
         None

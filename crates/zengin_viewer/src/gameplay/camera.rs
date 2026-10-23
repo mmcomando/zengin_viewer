@@ -118,9 +118,9 @@ pub struct TeleportLocation {
 pub const TELEPORT_LOCATIONS: &[TeleportLocation] = &[
     TeleportLocation {
         name: "Xardas Tower",
-        player: Vec3::new(-297.4256, 51.482346, -159.4824),
+        player: Vec3::new(-297.4256, 51.482_346, -159.4824),
         camera_position: Vec3::new(-299.0, 55.0, -154.5),
-        camera_look_at: Vec3::new(-297.4256, 52.482346, -159.4824),
+        camera_look_at: Vec3::new(-297.4256, 52.482_346, -159.4824),
     },
     TeleportLocation {
         name: "Khorinis",
