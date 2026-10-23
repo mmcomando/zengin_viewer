@@ -170,7 +170,7 @@ pub(crate) fn update_npc_weapon(
         ] {
             let drawn = match kind {
                 WeaponKind::Melee => mode == WeaponMode::Melee,
-                _ => mode == WeaponMode::Ranged,
+                WeaponKind::Bow | WeaponKind::Crossbow => mode == WeaponMode::Ranged,
             };
             let target_slot = slots
                 .slot_for(kind, drawn)

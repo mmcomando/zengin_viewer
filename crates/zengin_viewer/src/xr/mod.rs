@@ -79,10 +79,10 @@ pub fn is_xr_enabled() -> bool {
         && ["1", "y", "yes"].contains(&var.to_ascii_lowercase().as_str())
     {
         info!("-- Bevy XR plugin enabled --");
-        let _ = XR_ENABLED_STATIC.set(true);
+        XR_ENABLED_STATIC.set(true).unwrap();
         return true;
     }
-    let _ = XR_ENABLED_STATIC.set(false);
+    XR_ENABLED_STATIC.set(false).unwrap();
     return false;
 }
 
