@@ -217,6 +217,10 @@ pub(crate) fn update_animations(
 
         // The end window drives the animation switch scheduling of the
         // sequencer and the hit reaction resume; consumers filter by `who`.
+        // The window crossing fires ~2 frames before the loop wrap; `finished`
+        // is only a fallback for steps that jumped over the whole window (low
+        // fps, large delta), otherwise a looping animation would emit two ends
+        // per loop (one at the window, one at the wrap).
         let frames_num = data.frames_num as f32;
         // The receiver has two frames to schedule the next animation
         let end_window = (frames_num as usize).saturating_sub(2) as f32;
@@ -225,8 +229,8 @@ pub(crate) fn update_animations(
         // sequencer can leave them as soon as the desired animation
         // differs from the held pose.
         let crossed_end = data.frames_num == 1
-            || update.finished
-            || (update.old_progress < end_window && update.new_progress >= end_window);
+            || (update.old_progress < end_window && update.new_progress >= end_window)
+            || (update.finished && update.old_progress <= end_window);
         if crossed_end {
             ends.write(AnimationEnds {
                 who: entity,

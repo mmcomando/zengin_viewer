@@ -2,12 +2,12 @@
     buttonlike_map: {
         TeleportOrigin: [
             {
-                "KeyCode": Digit1,
+                "KeyCode": Digit6,
             },
         ],
         TeleportAway: [
             {
-                "KeyCode": Digit2,
+                "KeyCode": Digit7,
             },
         ],
         ToggleCharacterCamera: [

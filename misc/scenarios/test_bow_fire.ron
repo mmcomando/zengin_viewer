@@ -1,0 +1,14 @@
+// Recorded replay commands, replayable with --replay-actions
+[
+    Axis(frame: 1, action: Gameplay(Move), value: (0.0, 0.0)),
+    Axis(frame: 1, action: Gameplay(RotateCamera), value: (0.0, 0.0)),
+    Press(frame: 78, action: Debug(ToggleCharacterCamera)),
+    Release(frame: 90, action: Debug(ToggleCharacterCamera)),
+    Press(frame: 126, action: Gameplay(EquipRanged)),
+    Release(frame: 141, action: Gameplay(EquipRanged)),
+    Axis(frame: 165, action: Gameplay(RotateCamera), value: (-1.0, 0.0)),
+    Axis(frame: 179, action: Gameplay(RotateCamera), value: (0.0, 0.0)),
+    Press(frame: 212, action: Gameplay(Interact)),
+    Release(frame: 383, action: Gameplay(Interact)),
+    Press(frame: 491, action: Debug(QuitGame)),
+]
