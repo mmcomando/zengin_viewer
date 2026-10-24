@@ -181,7 +181,7 @@ interface scripts {
     npc-getlasthitspellcat: func(v-0: s32) -> s32;
     npc-getlasthitspellid: func(v-0: s32) -> s32;
     npc-getlookattarget: func(npc: s32) -> s32;
-    npc-getnearestwp: func(v-0: s32) -> s32;
+    npc-getnearestwp: func(v-0: s32) -> list<u8>;
     npc-getnewsoffender: func(v-0: s32, v-1: s32) -> s32;
     npc-getnewsvictim: func(v-0: s32, v-1: s32) -> s32;
     npc-getnewswitness: func(v-0: s32, v-1: s32) -> s32;

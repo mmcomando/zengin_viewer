@@ -18,7 +18,12 @@ use wasm_encoder::ValType;
 /// lowered imports return the bytes through a return area, and a generated
 /// wrapper function copies them into the `DYN_STRINGS` ring so the daedalus
 /// code sees an ordinary string id.
-const STRING_RETURNING_EXTERNALS: [&str; 3] = ["concatstrings", "inttostring", "floattostring"];
+const STRING_RETURNING_EXTERNALS: [&str; 4] = [
+    "concatstrings",
+    "inttostring",
+    "floattostring",
+    "npc_getnearestwp",
+];
 
 /// Prepared specification of a string-returning external wrapper, see
 /// `BinaryBuilder::prepare_string_return_wrappers`.

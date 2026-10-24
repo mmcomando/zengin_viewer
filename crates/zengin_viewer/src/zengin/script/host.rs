@@ -792,7 +792,14 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .set_value(talent, level);
     }
     fake_impl!(tal_configure(_0, _1));
-    fake_impl!(npc_getnearestwp(_0) -> i32);
+    /// Name of the nearest waypoint by lowercased key (the names scripts use
+    /// for waypoint lookups are canonical, see `get_canon_string`), empty when
+    /// the npc has no known position or the way net has no waypoints
+    fn npc_getnearestwp(&mut self, npc: i32) -> Vec<u8> {
+        let content = self.nearest_way_point(npc).unwrap_or_default().into_bytes();
+        self.record_dynamic_string(content.clone());
+        content
+    }
     fake_impl!(npc_getnextwp(_0) -> i32);
     fake_impl!(npc_iswayblocked(_0) -> i32);
     fake_impl!(npc_getreadiedweapon(_0) -> i32);

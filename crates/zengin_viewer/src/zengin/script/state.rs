@@ -589,6 +589,25 @@ impl ImportCallState {
         self.symbol_table.record_dynamic_string(content);
     }
 
+    /// Lowercased name of the way point nearest to the npc position, `None`
+    /// when the npc has no known position or the way net has no waypoints
+    pub(crate) fn nearest_way_point(&self, npc: i32) -> Option<String> {
+        let npc = self.symbol_table.instance(npc)?;
+        let position = self
+            .loaded_state
+            .npc_instances
+            .get(&npc)
+            .and_then(|npc| npc.position)?;
+        let (name, _) = self.way_points.iter().min_by(|a, b| {
+            let (da, db) = (
+                (a.1 - position).length_squared(),
+                (b.1 - position).length_squared(),
+            );
+            da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+        })?;
+        Some(name.clone())
+    }
+
     /// Fetches a static string literal with its original case
     pub(crate) fn get_show_string(&self, id: StringId) -> Option<ShowString> {
         let string = self.get_string_non_0(id.value())?;

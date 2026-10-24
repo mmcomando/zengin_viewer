@@ -253,7 +253,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(npc_settalentskill(_0, _1, _2));
     count_import!(npc_settalentvalue(_0, _1, _2));
     count_import!(tal_configure(_0, _1));
-    count_import!(npc_getnearestwp(_0) -> i32);
+    count_import!(npc_getnearestwp(_0) -> Vec<u8>);
     count_import!(npc_getnextwp(_0) -> i32);
     count_import!(npc_iswayblocked(_0) -> i32);
     count_import!(npc_getreadiedweapon(_0) -> i32);
