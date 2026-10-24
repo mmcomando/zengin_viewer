@@ -824,6 +824,61 @@ impl ScriptManager {
         });
     }
 
+    /// Whether the npc has important roots which could still run: either not
+    /// played yet, or permanent. Cheap, it does not evaluate condition functions.
+    pub fn npc_has_pending_important_dialog(
+        &self,
+        npc_player: InstanceId,
+        npc_talk_to: InstanceId,
+    ) -> bool {
+        let Some(roots) = self
+            .npc_instances()
+            .get(&npc_talk_to)
+            .and_then(|npc| npc.dialog_roots.as_ref())
+        else {
+            return false;
+        };
+        let known_infos = self
+            .npc_instances()
+            .get(&npc_player)
+            .map(|npc| &npc.known_infos);
+
+        roots.iter().any(|root| {
+            root.important
+                && (root.permanent
+                    || root
+                        .info_instance_id
+                        .is_none_or(|info| !known_infos.is_some_and(|known| known.contains(&info))))
+        })
+    }
+
+    /// Evaluates the conditions of the important roots and returns the first
+    /// matching root in order. Played non-permanent roots are filtered out.
+    pub fn npc_ready_important_dialog(
+        &mut self,
+        npc_player: InstanceId,
+        npc_talk_to: InstanceId,
+    ) -> Option<DialogRoot> {
+        let mut roots: Vec<DialogRoot> = self
+            .npc_instances()
+            .get(&npc_talk_to)
+            .and_then(|npc| npc.dialog_roots.as_ref())
+            .map(|roots| {
+                roots
+                    .iter()
+                    .filter(|root| root.important)
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default();
+        if roots.is_empty() {
+            return None;
+        }
+
+        self.filter_dialog_roots(npc_player, npc_talk_to, &mut roots);
+        roots.into_iter().next()
+    }
+
     pub fn initialize_instances(&mut self) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest

@@ -283,6 +283,7 @@ pub struct DialogRoot {
 /// A mob state assignment scheduled by `Wld_SetMobRoutine`: the mob with
 /// `mob_name` should be switched to `state` when the game time reaches
 /// `hour`:`minute`. Stored for later consumers, mobs are not simulated yet.
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct MobRoutineEntry {
     pub hour: i32,

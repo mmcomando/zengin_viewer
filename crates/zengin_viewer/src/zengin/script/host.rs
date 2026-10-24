@@ -325,28 +325,28 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         self.close_dialog = true;
     }
 
-    fn inttofloat(&mut self, v_0: i32) -> i32 {
-        (v_0 as f32).to_bits() as i32
+    fn inttofloat(&mut self, var: i32) -> i32 {
+        (var as f32).to_bits() as i32
     }
     // String-building externals: the returned content is copied into the
     // DYN_STRINGS ring by the guest and must be recorded here so the mirror
     // ring stays in sync with the guest ring cursor
-    fn concatstrings(&mut self, v_0: i32, v_1: i32) -> Vec<u8> {
-        let mut content = self.get_string_bytes(v_0);
-        content.extend(self.get_string_bytes(v_1));
+    fn concatstrings(&mut self, aa: i32, bb: i32) -> Vec<u8> {
+        let mut content = self.get_string_bytes(aa);
+        content.extend(self.get_string_bytes(bb));
         self.record_dynamic_string(content.clone());
         content
     }
 
-    fn inttostring(&mut self, v_0: i32) -> Vec<u8> {
-        let content = v_0.to_string().into_bytes();
+    fn inttostring(&mut self, var: i32) -> Vec<u8> {
+        let content = var.to_string().into_bytes();
         self.record_dynamic_string(content.clone());
         content
     }
 
-    fn floattostring(&mut self, v_0: i32) -> Vec<u8> {
+    fn floattostring(&mut self, var: i32) -> Vec<u8> {
         // ZenGin formats external float results like printf `%f`
-        let content = format!("{:.6}", f32::from_bits(v_0 as u32)).into_bytes();
+        let content = format!("{:.6}", f32::from_bits(var as u32)).into_bytes();
         self.record_dynamic_string(content.clone());
         content
     }

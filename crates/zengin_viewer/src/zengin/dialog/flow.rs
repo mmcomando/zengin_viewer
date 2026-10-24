@@ -145,9 +145,11 @@ pub(super) fn handle_dialog_outputs(
         };
         let mut script = gothic_script.lock();
         npc_dialog_roots(&mut script, npc_from, npc_talk_to)
-            .map(|roots| roots.iter().map(option_view).collect())
+            .map(|roots| roots.iter().map(option_view).collect::<Vec<_>>())
     };
     match options {
+        // No options left, the dialog has nothing more to offer
+        Some(options) if options.is_empty() => dialog_ui.close(),
         Some(options) => dialog_ui.accept_options(options),
         None => dialog_ui.close(),
     }
@@ -155,7 +157,7 @@ pub(super) fn handle_dialog_outputs(
 
 /// Applies the dialog requests: runs the dialog script functions and updates
 /// the npc/player facing.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::cognitive_complexity)]
 pub(super) fn handle_dialog_requests(
     mut requests: MessageReader<DialogRequest>,
     mut dialog_ui: ResMut<DialogUiState>,
@@ -183,6 +185,7 @@ pub(super) fn handle_dialog_requests(
                     let mut script = gothic_script.lock();
                     npc_dialog_roots(&mut script, *npc_from, *npc_talk_to)
                 };
+
                 let Some(roots) = roots else {
                     warn!("No dialog_roots for npc({npc_talk_to}), player({npc_from})");
                     dialog_ui.close();
@@ -201,39 +204,68 @@ pub(super) fn handle_dialog_requests(
                     npc_name.clone(),
                     roots.iter().map(option_view).collect(),
                 );
-                // Turn both toward each other, the camera is aimed afterwards by
-                // `aim_dialog_camera`. The player visual model is rotated, not
-                // the physics body: the sequencer drives the model facing and
-                // the root motion direction from the model's global rotation,
-                // a stale body yaw would skew post-dialog movement off the
-                // camera direction.
-                // Facing is computed from global positions and rotations: the
-                // visual is a child of the physics body, whose initial rotation
-                // must not leak into the model's world facing.
-                let Ok((mut npc_tr, npc_global)) = npcs.get_mut(*npc_entity) else {
-                    warn!("Dialog npc({npc_entity}) not found, cannot face dialog characters");
-                    continue;
-                };
-                face_towards(
-                    &mut npc_tr,
-                    npc_global.translation(),
-                    player_visual_global.translation(),
-                );
-                let Ok(parent_global) = parents
-                    .get(player_visual_entity)
-                    .and_then(|parent| global_transforms.get(parent.0))
-                else {
-                    warn!(
-                        "Player visual({player_visual_entity}) body has no global transform, cannot face dialog npc"
-                    );
-                    continue;
-                };
-                face_towards_world(
+                face_dialog_characters(
+                    *npc_entity,
+                    player_visual_entity,
                     &mut player_visual_tr,
-                    parent_global,
-                    player_visual_global.translation(),
-                    npc_global.translation(),
+                    player_visual_global,
+                    &mut npcs,
+                    &parents,
+                    &global_transforms,
                 );
+            }
+            DialogRequest::OpenImportant {
+                npc_entity,
+                npc_from,
+                npc_talk_to,
+                sequence_function_id,
+                info_instance_id,
+            } => {
+                // A manual open processed earlier in this frame wins
+                if dialog_ui.is_open() {
+                    continue;
+                }
+                let mut script = gothic_script.lock();
+                let npc_name = script
+                    .npc_display_name(*npc_talk_to)
+                    .unwrap_or_else(|| script.call_get_name((*npc_talk_to).symbol()));
+                let roots = npc_dialog_roots(&mut script, *npc_from, *npc_talk_to);
+                let Some(roots) = roots else {
+                    warn!("No dialog_roots for npc({npc_talk_to}), player({npc_from})");
+                    continue;
+                };
+                let Ok((player_visual_entity, mut player_visual_tr, player_visual_global)) =
+                    player_visual.single_mut()
+                else {
+                    continue;
+                };
+                dialog_ui.open(
+                    *npc_entity,
+                    player_visual_entity,
+                    *npc_from,
+                    *npc_talk_to,
+                    npc_name,
+                    roots.iter().map(option_view).collect(),
+                );
+                face_dialog_characters(
+                    *npc_entity,
+                    player_visual_entity,
+                    &mut player_visual_tr,
+                    player_visual_global,
+                    &mut npcs,
+                    &parents,
+                    &global_transforms,
+                );
+                // The important info is executed right away, it is not shown
+                // as a selectable option
+                script.mark_info_known(*npc_from, *info_instance_id);
+                script.clear_dialog_outputs();
+                script.set_self(*npc_talk_to);
+                script.set_other(*npc_from);
+                script.set_instance(*npc_talk_to);
+                script.call_dialog_sequence_function(*sequence_function_id);
+                drop(script);
+                dialog_ui.begin_output_capture();
             }
             DialogRequest::RefreshRoots {
                 npc_from,
@@ -242,11 +274,12 @@ pub(super) fn handle_dialog_requests(
                 let options = {
                     let mut script = gothic_script.lock();
                     npc_dialog_roots(&mut script, *npc_from, *npc_talk_to)
-                        .map(|roots| roots.iter().map(option_view).collect())
+                        .map(|roots| roots.iter().map(option_view).collect::<Vec<_>>())
                 };
                 match options {
-                    None => dialog_ui.close(),
+                    Some(options) if options.is_empty() => dialog_ui.close(),
                     Some(options) => dialog_ui.accept_options(options),
+                    None => dialog_ui.close(),
                 }
             }
             DialogRequest::ChooseOption {
@@ -255,6 +288,13 @@ pub(super) fn handle_dialog_requests(
                 sequence_function_id,
                 info_instance_id,
             } => {
+                if dialog_ui.npc_talk_to != Some(*npc_talk_to) {
+                    warn!(
+                        "Dialog option for npc({npc_talk_to}) ignored, the open dialog belongs to {:?}",
+                        dialog_ui.npc_talk_to
+                    );
+                    continue;
+                }
                 let mut script = gothic_script.lock();
                 script.mark_info_known(*npc_from, *info_instance_id);
                 // Sub choices and lines are cleared before running a root level
@@ -271,6 +311,52 @@ pub(super) fn handle_dialog_requests(
             }
         }
     }
+}
+
+/// Turns the npc and the player visual toward each other when a dialog opens.
+/// The player visual model is rotated, not the physics body: the sequencer
+/// drives the model facing and the root motion direction from the model's
+/// global rotation, a stale body yaw would skew post-dialog movement off the
+/// camera direction. Facing is computed from global positions and rotations:
+/// the visual is a child of the physics body, whose initial rotation must not
+/// leak into the model's world facing.
+#[allow(clippy::type_complexity)]
+fn face_dialog_characters(
+    npc_entity: Entity,
+    player_visual_entity: Entity,
+    player_visual_tr: &mut Transform,
+    player_visual_global: &GlobalTransform,
+    npcs: &mut Query<
+        (&mut Transform, &GlobalTransform),
+        (Without<PlayerPhysicsBodyMarker>, Without<PlayerCharacter>),
+    >,
+    parents: &Query<&ChildOf>,
+    global_transforms: &Query<&GlobalTransform>,
+) {
+    let Ok((mut npc_tr, npc_global)) = npcs.get_mut(npc_entity) else {
+        warn!("Dialog npc({npc_entity}) not found, cannot face dialog characters");
+        return;
+    };
+    face_towards(
+        &mut npc_tr,
+        npc_global.translation(),
+        player_visual_global.translation(),
+    );
+    let Ok(parent_global) = parents
+        .get(player_visual_entity)
+        .and_then(|parent| global_transforms.get(parent.0))
+    else {
+        warn!(
+            "Player visual({player_visual_entity}) body has no global transform, cannot face dialog npc"
+        );
+        return;
+    };
+    face_towards_world(
+        player_visual_tr,
+        parent_global,
+        player_visual_global.translation(),
+        npc_global.translation(),
+    );
 }
 
 /// Fetches the npc's root dialog options from the script state, filters them
