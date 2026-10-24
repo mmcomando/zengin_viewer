@@ -67,6 +67,8 @@ pub(super) enum DialogRequest {
         npc_talk_to: InstanceId,
         sequence_function_id: FunctionId,
         info_instance_id: Option<InstanceId>,
+        /// The picked entry is a sub choice, not a root option.
+        from_sub_choices: bool,
     },
 }
 
@@ -100,6 +102,8 @@ pub(crate) struct DialogUiState {
     /// Sub dialog choices populated by the last executed option, shown instead
     /// of `dialog_roots` when not empty
     pub(super) sub_choices: Vec<DialogOptionView>,
+    /// Info whose choices are shown after the executed option's outputs arrive.
+    pending_info: Option<InstanceId>,
     /// Highlighted entry in options mode
     pub(super) selected_index: usize,
     mode: DialogUiMode,
@@ -142,6 +146,7 @@ impl DialogUiState {
         self.rows_dirty = true;
         self.pending_close = false;
         self.awaiting_outputs = false;
+        self.pending_info = None;
     }
 
     /// Pair of `(viewed, listener)` character entities for the dialog camera. The
@@ -218,13 +223,13 @@ impl DialogUiState {
     /// Asks the script to run the selected option. Closes the dialog when there
     /// is no selected option.
     pub(super) fn execute_selected(&mut self, requests: &mut MessageWriter<DialogRequest>) {
-        let Some((sequence_function_id, info_instance_id)) = self
-            .selected_choice()
-            .map(|choice| (choice.sequence_function_id, choice.info_instance_id))
-        else {
+        let Some(choice) = self.selected_choice() else {
             self.close();
             return;
         };
+        let (sequence_function_id, info_instance_id) =
+            (choice.sequence_function_id, choice.info_instance_id);
+        let from_sub_choices = !self.sub_choices.is_empty();
         let (Some(npc_from), Some(npc_talk_to)) = (self.npc_player, self.npc_talk_to) else {
             return;
         };
@@ -233,6 +238,7 @@ impl DialogUiState {
             npc_talk_to,
             sequence_function_id,
             info_instance_id,
+            from_sub_choices,
         });
     }
 
@@ -256,6 +262,7 @@ impl DialogUiState {
         self.npc_entity = None;
         self.sub_choices.clear();
         self.pending_close = false;
+        self.pending_info = None;
         self.reset_to_options();
     }
 
@@ -269,14 +276,21 @@ impl DialogUiState {
         }
     }
 
-    /// Arms the capture of the outputs produced by the option being executed
-    pub(super) fn begin_output_capture(&mut self) {
+    /// Arms the capture of the outputs produced by the option being executed.
+    pub(super) fn begin_output_capture(&mut self, info_instance_id: Option<InstanceId>) {
         self.awaiting_outputs = true;
+        self.pending_info = info_instance_id;
     }
 
     /// Returns and clears whether outputs of an executed option are awaited
     pub(super) fn take_awaiting_outputs(&mut self) -> bool {
         std::mem::take(&mut self.awaiting_outputs)
+    }
+
+    /// Returns and clears the info whose choices are shown after the executed
+    /// option's outputs are applied
+    pub(super) fn take_pending_info(&mut self) -> Option<InstanceId> {
+        self.pending_info.take()
     }
 
     /// Starts the one line at a time playback of the given lines

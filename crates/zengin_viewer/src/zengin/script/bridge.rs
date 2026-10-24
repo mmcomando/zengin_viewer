@@ -17,8 +17,8 @@ use crate::zengin::npc_routines::{
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use crate::zengin::script::state::{
-    AlignToWpChange, DialogClose, DialogLine, DialogRoot, EquipItemChange, GotoChange,
-    HealthChange, InventoryGain, NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry,
+    AlignToWpChange, DialogClose, DialogLine, EquipItemChange, GotoChange, HealthChange,
+    InventoryGain, NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry,
     RoutineEntryChange, ScreenMessage, SpawnItem, SpawnNpc, WeaponMode, WeaponModeChange,
 };
 
@@ -38,7 +38,6 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<SpawnNpc>();
         app.add_message::<DialogClose>();
         app.add_message::<DialogLine>();
-        app.add_message::<DialogRoot>();
         app.add_message::<InventoryGain>();
         app.add_message::<JournalChange>();
         app.add_message::<ScreenMessage>();
@@ -84,7 +83,6 @@ fn send_script_changes(
     mut spawn_npc: MessageWriter<SpawnNpc>,
     mut dialog_close: MessageWriter<DialogClose>,
     mut dialog_line: MessageWriter<DialogLine>,
-    mut sub_dialog_choice: MessageWriter<DialogRoot>,
     mut inventory_gain: MessageWriter<InventoryGain>,
     mut journal_change: MessageWriter<JournalChange>,
     gothic_script: Res<ScriptResource>,
@@ -125,9 +123,6 @@ fn send_script_changes(
     }
     for line in script.drain_dialog_lines() {
         dialog_line.write(line);
-    }
-    for choice in script.drain_sub_dialog_choices() {
-        sub_dialog_choice.write(choice);
     }
     for gain in script.drain_inventory_gains() {
         inventory_gain.write(gain);

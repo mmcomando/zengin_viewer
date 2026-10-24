@@ -15,7 +15,7 @@ use crate::zengin::interaction::selection::{Selection, SelectionKind};
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::component::{DialogTexts, ScriptResource};
 use crate::zengin::script::manager::ScriptManager;
-use crate::zengin::script::state::{DialogClose, DialogLine, DialogRoot, WeaponMode};
+use crate::zengin::script::state::{DialogChoice, DialogClose, DialogLine, DialogRoot, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
 use bevy::log::{info, warn};
 use bevy::prelude::*;
@@ -86,7 +86,6 @@ pub(super) fn show_closest_npc_dialog(
 /// deferred until the playback finished, like the original engine does.
 pub(super) fn handle_dialog_outputs(
     mut lines: MessageReader<DialogLine>,
-    mut choices: MessageReader<DialogRoot>,
     mut closes: MessageReader<DialogClose>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut sounds: MessageWriter<PlaySound>,
@@ -97,12 +96,12 @@ pub(super) fn handle_dialog_outputs(
     // Messages are always read, stale outputs produced outside an executed
     // option are dropped instead of leaking into the next capture
     let new_lines: Vec<DialogLine> = lines.read().cloned().collect();
-    let mut new_choices: Vec<DialogRoot> = choices.read().cloned().collect();
     let mut close_requested = false;
     for _ in closes.read() {
         close_requested = true;
     }
     let awaiting = dialog_ui.take_awaiting_outputs();
+    let executed_info = dialog_ui.take_pending_info();
 
     // A close request outside an executed option applies directly
     if close_requested && !awaiting {
@@ -114,11 +113,22 @@ pub(super) fn handle_dialog_outputs(
     }
 
     let line_views = build_line_views(&new_lines, &dialog_texts, &speech_sounds);
-    // Sub choices are shown in reverse addition order, like the previous
-    // script state buffer did by inserting at the front
-    new_choices.sort_by_key(|choice| std::cmp::Reverse(choice.order));
-    let choice_views: Vec<DialogOptionView> = new_choices.iter().map(option_view).collect();
+    // The choices after an option are its info's sub choices, owned by the
+    // script. An option that adds none leaves the previous ones shown instead of
+    // falling back to the root options.
+    let choice_views: Vec<DialogOptionView> = match executed_info {
+        Some(info) => {
+            let mut script = gothic_script.lock();
+            script
+                .sub_dialog_choices(info)
+                .iter()
+                .map(|choice| choice_view(choice, info))
+                .collect()
+        }
+        None => Vec::new(),
+    };
 
+    let has_sub_choices = !choice_views.is_empty();
     dialog_ui.accept_sub_choices(choice_views);
     if !line_views.is_empty() {
         dialog_ui.begin_line_playback(line_views, &mut sounds);
@@ -132,7 +142,7 @@ pub(super) fn handle_dialog_outputs(
         dialog_ui.close();
         return;
     }
-    if !new_choices.is_empty() {
+    if has_sub_choices {
         // Only sub choices were produced, they are shown already
         return;
     }
@@ -259,13 +269,13 @@ pub(super) fn handle_dialog_requests(
                 // The important info is executed right away, it is not shown
                 // as a selectable option
                 script.mark_info_known(*npc_from, *info_instance_id);
-                script.clear_dialog_outputs();
+                script.clear_dialog_lines();
                 script.set_self(*npc_talk_to);
                 script.set_other(*npc_from);
                 script.set_instance(*npc_talk_to);
                 script.call_dialog_sequence_function(*sequence_function_id);
                 drop(script);
-                dialog_ui.begin_output_capture();
+                dialog_ui.begin_output_capture(*info_instance_id);
             }
             DialogRequest::RefreshRoots {
                 npc_from,
@@ -287,6 +297,7 @@ pub(super) fn handle_dialog_requests(
                 npc_talk_to,
                 sequence_function_id,
                 info_instance_id,
+                from_sub_choices,
             } => {
                 if dialog_ui.npc_talk_to != Some(*npc_talk_to) {
                     warn!(
@@ -296,10 +307,15 @@ pub(super) fn handle_dialog_requests(
                     continue;
                 }
                 let mut script = gothic_script.lock();
-                script.mark_info_known(*npc_from, *info_instance_id);
-                // Sub choices and lines are cleared before running a root level
-                // option, only outputs of this option are captured
-                script.clear_dialog_outputs();
+                // Only a root option is an info being played, a sub choice is
+                // a plain function of an already known info
+                if !from_sub_choices {
+                    script.mark_info_known(*npc_from, *info_instance_id);
+                }
+                if let (true, Some(info)) = (*from_sub_choices, *info_instance_id) {
+                    script.remove_sub_dialog_choice(info, *sequence_function_id);
+                }
+                script.clear_dialog_lines();
                 // Dialog functions are executed with `self` bound to the npc the
                 // dialog is open with, like the original engine does
                 script.set_self(*npc_talk_to);
@@ -307,7 +323,7 @@ pub(super) fn handle_dialog_requests(
                 script.set_instance(*npc_talk_to);
                 script.call_dialog_sequence_function(*sequence_function_id);
                 drop(script);
-                dialog_ui.begin_output_capture();
+                dialog_ui.begin_output_capture(*info_instance_id);
             }
         }
     }
@@ -383,6 +399,16 @@ fn option_view(root: &DialogRoot) -> DialogOptionView {
         description: root.description.clone(),
         sequence_function_id: root.sequence_function_id,
         info_instance_id: root.info_instance_id,
+    }
+}
+
+/// Strips a script sub choice down to the data the UI needs, tagged with the
+/// owning info.
+fn choice_view(choice: &DialogChoice, info_instance_id: InstanceId) -> DialogOptionView {
+    DialogOptionView {
+        description: choice.description.clone(),
+        sequence_function_id: choice.sequence_function_id,
+        info_instance_id: Some(info_instance_id),
     }
 }
 

@@ -268,8 +268,7 @@ impl ItemInstanceState {
 
 #[derive(Debug, Clone, Message)]
 pub struct DialogRoot {
-    /// Symbol of the `C_INFO` instance this root was loaded from, `None` for
-    /// sub dialog choices registered via `Info_AddChoice`
+    /// Symbol of the `C_INFO` instance this root was loaded from
     pub info_instance_id: Option<InstanceId>,
     pub sequence_function_id: FunctionId,
     /// `None` when the root has no condition function
@@ -278,6 +277,14 @@ pub struct DialogRoot {
     pub description: String,
     pub important: bool,
     pub permanent: bool,
+}
+
+/// A sub dialog choice registered by `Info_AddChoice` for a `C_INFO` instance.
+#[derive(Debug, Clone)]
+pub struct DialogChoice {
+    /// Choice text shown in the menu.
+    pub description: String,
+    pub sequence_function_id: FunctionId,
 }
 
 /// A mob state assignment scheduled by `Wld_SetMobRoutine`: the mob with
@@ -311,6 +318,8 @@ pub struct LoadedState {
     pub npc_instances: HashMap<InstanceId, NpcInstanceState>,
     /// Time-of-day mob states registered by `wld_setmobroutine`.
     pub mob_routines: Vec<MobRoutineEntry>,
+    /// Sub dialog choices keyed by the owning `C_INFO` instance.
+    pub dialog_choices: HashMap<InstanceId, Vec<DialogChoice>>,
 }
 
 #[derive(Debug, Clone, Message)]
@@ -504,8 +513,6 @@ pub struct PendingChanges {
     /// Items the player's inventory gained through the script
     /// (`CreateInvItem(s)`, `Npc_GiveItem`).
     pub inventory_gains: Vec<InventoryGain>,
-    /// Sub dialog choices added by the script (`Info_AddChoice`).
-    pub sub_dialog_choices: Vec<DialogRoot>,
     /// On-screen messages requested by `PrintScreen`/`AI_PrintScreen`.
     pub screen_messages: Vec<ScreenMessage>,
     /// Journal changes produced by the script (`Log_*` host functions).

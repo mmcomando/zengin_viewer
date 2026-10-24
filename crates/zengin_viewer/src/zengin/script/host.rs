@@ -1,7 +1,7 @@
 use super::bindings::mmcomando;
 use super::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use super::state::{
-    AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, HealthChange, ImportCallState,
+    AlignToWpChange, DialogChoice, DialogLine, EquipItemChange, HealthChange, ImportCallState,
     InventoryGain, MobRoutineEntry, NpcLookAtChange, OverlayRequest, RoutineEntry,
     RoutineEntryChange, RoutineExchange, SpawnItem, SpawnNpc, WeaponKind, WeaponMode,
 };
@@ -203,7 +203,10 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         0
     }
 
-    fn info_addchoice(&mut self, _dialog_id: i32, description_text_id: i32, function_id: i32) {
+    fn info_addchoice(&mut self, dialog_id: i32, description_text_id: i32, function_id: i32) {
+        let Some(dialog_id) = self.symbol_table.instance(dialog_id) else {
+            return;
+        };
         let Some(description_text_id) = self.symbol_table.string(description_text_id) else {
             return;
         };
@@ -215,16 +218,14 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .map(super::string_value::ShowString::into_string)
             .unwrap_or_default();
 
-        let order = self.pending.sub_dialog_choices.len() as i32;
-        self.pending.sub_dialog_choices.push(DialogRoot {
-            info_instance_id: None,
-            sequence_function_id: function_id,
-            condition_function_id: None,
-            order,
-            description,
-            important: false,
-            permanent: false,
-        });
+        self.loaded_state
+            .dialog_choices
+            .entry(dialog_id)
+            .or_default()
+            .push(DialogChoice {
+                description,
+                sequence_function_id: function_id,
+            });
     }
 
     /// Returns whether the two string symbols hold equal text.
@@ -276,8 +277,11 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         distance.min(i32::MAX as f32) as i32
     }
 
-    fn info_clearchoices(&mut self, _dialog_id: i32) {
-        self.pending.sub_dialog_choices.clear();
+    fn info_clearchoices(&mut self, dialog_id: i32) {
+        let Some(dialog_id) = self.symbol_table.instance(dialog_id) else {
+            return;
+        };
+        self.loaded_state.dialog_choices.remove(&dialog_id);
     }
 
     fn mdl_setvisualbody(

@@ -15,8 +15,8 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::{
 };
 use super::journal::JournalChange;
 use super::state::{
-    AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, HealthChange,
-    ImportCallState, InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState,
+    AlignToWpChange, DialogChoice, DialogLine, DialogRoot, EquipItemChange, GotoChange,
+    HealthChange, ImportCallState, InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState,
     NpcLookAtChange, OverlayChange, PendingChanges, RoutineEntryChange, RoutineExchange,
     ScreenMessage, SpawnItem, SpawnNpc, SymbolTable, WeaponKind, WeaponMode, WeaponModeChange,
 };
@@ -187,9 +187,10 @@ impl ScriptManager {
         &mut self.store.data_mut().pending
     }
 
-    pub fn clear_dialog_outputs(&mut self) {
+    /// Lines only: sub dialog choices belong to their info and are cleared only
+    /// by `Info_ClearChoices`.
+    pub fn clear_dialog_lines(&mut self) {
         self.pending_changes().dialog_lines.clear();
-        self.pending_changes().sub_dialog_choices.clear();
     }
 
     /// Drains the dialog lines output by the script, for the ECS bridge.
@@ -197,9 +198,35 @@ impl ScriptManager {
         std::mem::take(&mut self.pending_changes().dialog_lines)
     }
 
-    /// Drains the sub dialog choices added by the script, for the ECS bridge.
-    pub fn drain_sub_dialog_choices(&mut self) -> Vec<DialogRoot> {
-        std::mem::take(&mut self.pending_changes().sub_dialog_choices)
+    /// Newest first, like the engine which inserts each new choice at the front
+    /// of the info's list.
+    pub fn sub_dialog_choices(&mut self, info_instance_id: InstanceId) -> Vec<DialogChoice> {
+        let choices = self
+            .loaded_state()
+            .dialog_choices
+            .get(&info_instance_id)
+            .cloned()
+            .unwrap_or_default();
+        choices.into_iter().rev().collect()
+    }
+
+    /// Removes every entry with the function, like the engine does for a picked
+    /// sub choice.
+    pub fn remove_sub_dialog_choice(
+        &mut self,
+        info_instance_id: InstanceId,
+        sequence_function_id: FunctionId,
+    ) {
+        let Some(choices) = self
+            .store
+            .data_mut()
+            .loaded_state
+            .dialog_choices
+            .get_mut(&info_instance_id)
+        else {
+            return;
+        };
+        choices.retain(|choice| choice.sequence_function_id != sequence_function_id);
     }
 
     /// Drains the player inventory gains the script produced, for the ECS
