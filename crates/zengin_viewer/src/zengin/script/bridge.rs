@@ -19,7 +19,7 @@ use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSectio
 use crate::zengin::script::state::{
     AlignToWpChange, DialogClose, DialogLine, DialogRoot, EquipItemChange, GotoChange,
     HealthChange, InventoryGain, NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry,
-    RoutineEntryChange, SpawnItem, SpawnNpc, WeaponMode, WeaponModeChange,
+    RoutineEntryChange, ScreenMessage, SpawnItem, SpawnNpc, WeaponMode, WeaponModeChange,
 };
 
 pub struct ScriptBridgePlugin;
@@ -41,12 +41,14 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<DialogRoot>();
         app.add_message::<InventoryGain>();
         app.add_message::<JournalChange>();
+        app.add_message::<ScreenMessage>();
         app.add_systems(
             Update,
             (
                 send_script_changes,
                 log_inventory_gains,
                 log_journal_changes,
+                forward_screen_messages,
                 apply_routine_changes,
                 apply_look_at_changes,
                 apply_weapon_mode_changes,
@@ -142,6 +144,17 @@ fn send_script_changes(
     }
     for change in script.drain_routine_changes() {
         routine.write(change);
+    }
+}
+
+/// Forwards the on-screen messages the script requested as ECS messages.
+fn forward_screen_messages(
+    mut screen_message: MessageWriter<ScreenMessage>,
+    gothic_script: Res<ScriptResource>,
+) {
+    let mut script = gothic_script.lock();
+    for message in script.drain_screen_messages() {
+        screen_message.write(message);
     }
 }
 

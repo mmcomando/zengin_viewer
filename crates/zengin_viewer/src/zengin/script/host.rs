@@ -354,8 +354,17 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(floattoint(_0) -> i32);
     fake_impl!(print(_0));
     fake_impl!(printdebug(_0));
-    fake_impl!(printscreen(_0, _1, _2, _3, _4) -> i32);
-    fake_impl!(ai_printscreen(_0, _1, _2, _3, _4) -> i32);
+    /// Shows a message on the screen for `time` seconds. The engine queues the
+    /// `ai_` variant into the npc AI queue, the viewer shows both immediately.
+    /// The font argument is ignored, the viewer uses its default UI font.
+    fn printscreen(&mut self, v_0: i32, v_1: i32, v_2: i32, _v_3: i32, v_4: i32) -> i32 {
+        self.push_screen_message(v_0, v_1, v_2, v_4);
+        0
+    }
+    fn ai_printscreen(&mut self, v_0: i32, v_1: i32, v_2: i32, _v_3: i32, v_4: i32) -> i32 {
+        self.push_screen_message(v_0, v_1, v_2, v_4);
+        0
+    }
     fake_impl!(printdialog(_0, _1, _2, _3, _4, _5) -> i32);
     fake_impl!(printdebuginst(_0));
     fake_impl!(printdebuginstch(_0, _1));
@@ -695,7 +704,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         self.loaded_state
             .npc_instances
             .get(&npc)
-            .map_or(0, |npc| npc.equipped_melee.is_some() as i32)
+            .map_or(0, |npc| i32::from(npc.equipped_melee.is_some()))
     }
     fake_impl!(npc_hasequippedrangedweapon(_0) -> i32);
     fake_impl!(npc_hasequippedarmor(_0) -> i32);
@@ -1022,6 +1031,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     /// Records the mob state assignment for later consumers, mobs are not
     /// simulated yet so nothing acts on the stored entries
     fn wld_setmobroutine(&mut self, hour: i32, minute: i32, mob_name: i32, state: i32) {
+        let (hour, minute, state) = (hour, minute, state);
         let Some(mob_name_id) = self.symbol_table.string(mob_name) else {
             warn_unimplemented!("wld_setmobroutine with non-string mob name({mob_name})");
             return;

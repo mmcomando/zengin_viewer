@@ -291,6 +291,17 @@ pub struct MobRoutineEntry {
     pub state: i32,
 }
 
+/// On-screen message requested by `PrintScreen`/`AI_PrintScreen`. Shown for
+/// `time_sec` seconds (the engine adds another second of fade-out), `x`/`y`
+/// are per cent of the screen size, negative values center the text.
+#[derive(Debug, Clone, Message)]
+pub struct ScreenMessage {
+    pub text: String,
+    pub x: i32,
+    pub y: i32,
+    pub time_sec: i32,
+}
+
 #[derive(Debug, Default)]
 pub struct LoadedState {
     /// State of every loaded item instance.
@@ -494,6 +505,8 @@ pub struct PendingChanges {
     pub inventory_gains: Vec<InventoryGain>,
     /// Sub dialog choices added by the script (`Info_AddChoice`).
     pub sub_dialog_choices: Vec<DialogRoot>,
+    /// On-screen messages requested by `PrintScreen`/`AI_PrintScreen`.
+    pub screen_messages: Vec<ScreenMessage>,
     /// Journal changes produced by the script (`Log_*` host functions).
     pub journal_changes: Vec<JournalChange>,
 }
@@ -598,14 +611,32 @@ impl ImportCallState {
             .npc_instances
             .get(&npc)
             .and_then(|npc| npc.position)?;
-        let (name, _) = self.way_points.iter().min_by(|a, b| {
+        let (name, _) = self.way_points.iter().min_by(|left, right| {
             let (da, db) = (
-                (a.1 - position).length_squared(),
-                (b.1 - position).length_squared(),
+                (left.1 - position).length_squared(),
+                (right.1 - position).length_squared(),
             );
             da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
         })?;
         Some(name.clone())
+    }
+
+    /// Queues an on-screen message for the ECS bridge, empty messages are
+    /// dropped (the engine ignores them too)
+    pub(crate) fn push_screen_message(&mut self, msg: i32, x: i32, y: i32, time: i32) {
+        let Some(msg_id) = self.symbol_table.string(msg) else {
+            crate::warn_unimplemented!("printscreen with non-string text({msg})");
+            return;
+        };
+        let Some(text) = self.get_string_non_0(msg_id.value()) else {
+            return;
+        };
+        self.pending.screen_messages.push(ScreenMessage {
+            text,
+            x,
+            y,
+            time_sec: time,
+        });
     }
 
     /// Fetches a static string literal with its original case

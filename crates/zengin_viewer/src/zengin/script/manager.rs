@@ -17,8 +17,8 @@ use super::journal::JournalChange;
 use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, GotoChange, HealthChange,
     ImportCallState, InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState,
-    NpcLookAtChange, OverlayChange, PendingChanges, RoutineEntryChange, RoutineExchange, SpawnItem,
-    SpawnNpc, SymbolTable, WeaponKind, WeaponMode, WeaponModeChange,
+    NpcLookAtChange, OverlayChange, PendingChanges, RoutineEntryChange, RoutineExchange,
+    ScreenMessage, SpawnItem, SpawnNpc, SymbolTable, WeaponKind, WeaponMode, WeaponModeChange,
 };
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
@@ -212,6 +212,11 @@ impl ScriptManager {
     /// log.
     pub fn drain_journal_changes(&mut self) -> Vec<JournalChange> {
         std::mem::take(&mut self.pending_changes().journal_changes)
+    }
+
+    /// Drains the on-screen messages the script requested, for the ECS bridge.
+    pub fn drain_screen_messages(&mut self) -> Vec<ScreenMessage> {
+        std::mem::take(&mut self.pending_changes().screen_messages)
     }
 
     /// Records the instance id of the player (`PC_Hero`), used by

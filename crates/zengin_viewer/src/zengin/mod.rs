@@ -41,6 +41,7 @@ pub(crate) use crate::zengin::resources::STATIC_OBJECT;
 pub(crate) use crate::zengin::script::component::ScriptResource;
 pub(crate) use crate::zengin::script::manager::ItemDisplayData;
 pub(crate) use crate::zengin::script::manager::ScriptManager;
+pub(crate) use crate::zengin::script::state::ScreenMessage;
 pub(crate) use crate::zengin::script::state::WeaponKind;
 pub(crate) use crate::zengin::script::state::WeaponMode;
 pub(crate) use crate::zengin::script::symbol_id::InstanceId;
