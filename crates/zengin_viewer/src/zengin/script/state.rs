@@ -280,12 +280,25 @@ pub struct DialogRoot {
     pub permanent: bool,
 }
 
+/// A mob state assignment scheduled by `Wld_SetMobRoutine`: the mob with
+/// `mob_name` should be switched to `state` when the game time reaches
+/// `hour`:`minute`. Stored for later consumers, mobs are not simulated yet.
+#[derive(Debug)]
+pub struct MobRoutineEntry {
+    pub hour: i32,
+    pub minute: i32,
+    pub mob_name: String,
+    pub state: i32,
+}
+
 #[derive(Debug, Default)]
 pub struct LoadedState {
     /// State of every loaded item instance.
     pub items_instances: HashMap<InstanceId, ItemInstanceState>,
     /// State of every loaded npc instance.
     pub npc_instances: HashMap<InstanceId, NpcInstanceState>,
+    /// Time-of-day mob states registered by `wld_setmobroutine`.
+    pub mob_routines: Vec<MobRoutineEntry>,
 }
 
 #[derive(Debug, Clone, Message)]

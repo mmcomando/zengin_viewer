@@ -2,8 +2,8 @@ use super::bindings::mmcomando;
 use super::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use super::state::{
     AlignToWpChange, DialogLine, DialogRoot, EquipItemChange, HealthChange, ImportCallState,
-    InventoryGain, NpcLookAtChange, OverlayRequest, RoutineEntry, RoutineEntryChange,
-    RoutineExchange, SpawnItem, SpawnNpc, WeaponKind, WeaponMode,
+    InventoryGain, MobRoutineEntry, NpcLookAtChange, OverlayRequest, RoutineEntry,
+    RoutineEntryChange, RoutineExchange, SpawnItem, SpawnNpc, WeaponKind, WeaponMode,
 };
 use super::string_value::StringCanon;
 use super::symbol_id::SymbolId;
@@ -1004,7 +1004,24 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(wld_removeitem(_0) -> i32);
     fake_impl!(wld_exchangeguildattitudes(_0));
     fake_impl!(wld_setobjectroutine(_0, _1, _2, _3));
-    fake_impl!(wld_setmobroutine(_0, _1, _2, _3));
+    /// Records the mob state assignment for later consumers, mobs are not
+    /// simulated yet so nothing acts on the stored entries
+    fn wld_setmobroutine(&mut self, hour: i32, minute: i32, mob_name: i32, state: i32) {
+        let Some(mob_name_id) = self.symbol_table.string(mob_name) else {
+            warn_unimplemented!("wld_setmobroutine with non-string mob name({mob_name})");
+            return;
+        };
+        let Some(mob_name) = self.get_string_non_0(mob_name_id.value()) else {
+            warn_unimplemented!("wld_setmobroutine with empty mob name");
+            return;
+        };
+        self.loaded_state.mob_routines.push(MobRoutineEntry {
+            hour,
+            minute,
+            mob_name,
+            state,
+        });
+    }
     fake_impl!(wld_sendtrigger(_0));
     fake_impl!(wld_senduntrigger(_0));
     fake_impl!(npc_ownedbynpc(_0, _1) -> i32);
