@@ -688,7 +688,15 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     }
     fake_impl!(npc_hasrangedweaponwithammo(_0) -> i32);
     fake_impl!(npc_hasequippedweapon(_0) -> i32);
-    fake_impl!(npc_hasequippedmeleeweapon(_0) -> i32);
+    fn npc_hasequippedmeleeweapon(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        self.loaded_state
+            .npc_instances
+            .get(&npc)
+            .map_or(0, |npc| npc.equipped_melee.is_some() as i32)
+    }
     fake_impl!(npc_hasequippedrangedweapon(_0) -> i32);
     fake_impl!(npc_hasequippedarmor(_0) -> i32);
     fake_impl!(npc_hasreadiedweapon(_0) -> i32);
