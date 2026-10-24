@@ -357,12 +357,19 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     /// Shows a message on the screen for `time` seconds. The engine queues the
     /// `ai_` variant into the npc AI queue, the viewer shows both immediately.
     /// The font argument is ignored, the viewer uses its default UI font.
-    fn printscreen(&mut self, v_0: i32, v_1: i32, v_2: i32, _v_3: i32, v_4: i32) -> i32 {
-        self.push_screen_message(v_0, v_1, v_2, v_4);
+    fn printscreen(&mut self, msg: i32, pos_x: i32, pos_y: i32, _font: i32, time_sec: i32) -> i32 {
+        self.push_screen_message(msg, pos_x, pos_y, time_sec);
         0
     }
-    fn ai_printscreen(&mut self, v_0: i32, v_1: i32, v_2: i32, _v_3: i32, v_4: i32) -> i32 {
-        self.push_screen_message(v_0, v_1, v_2, v_4);
+    fn ai_printscreen(
+        &mut self,
+        msg: i32,
+        pos_x: i32,
+        pos_y: i32,
+        _font: i32,
+        time_sec: i32,
+    ) -> i32 {
+        self.push_screen_message(msg, pos_x, pos_y, time_sec);
         0
     }
     fake_impl!(printdialog(_0, _1, _2, _3, _4, _5) -> i32);
