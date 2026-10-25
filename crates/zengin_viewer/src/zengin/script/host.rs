@@ -908,7 +908,12 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(ai_asktext(_0, _1, _2, _3, _4));
     fake_impl!(ai_waitforquestion(_0, _1));
     fake_impl!(hlp_isitem(_0, _1) -> i32);
-    fake_impl!(hlp_getinstanceid(_0) -> i32);
+    /// `-1` when the argument is not an instance symbol.
+    fn hlp_getinstanceid(&mut self, instance: i32) -> i32 {
+        self.symbol_table
+            .instance(instance)
+            .map_or(-1, |instance| instance.value())
+    }
     /// Random integer in `[0, bound)`, deterministic.
     fn hlp_random(&mut self, bound: i32) -> i32 {
         let bound = bound.max(1) as u32;
