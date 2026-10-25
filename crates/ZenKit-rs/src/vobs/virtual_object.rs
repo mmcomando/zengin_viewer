@@ -90,6 +90,31 @@ impl VirtualObject<'_> {
         unsafe { ZkVirtualObject_getRotation(self.ptr.as_ptr()).to_own() }
     }
 
+    /// Comma separated `itemInstance[:count]` tokens of an `oCMobContainer`.
+    pub fn container_contents(&self) -> String {
+        unsafe { ZkContainer_getContents(self.ptr.as_ptr().cast()).to_string() }
+    }
+
+    pub fn container_locked(&self) -> bool {
+        unsafe { ZkContainer_getIsLocked(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
+    /// Script instance name of the item which unlocks an `oCMobContainer`.
+    pub fn container_key(&self) -> String {
+        unsafe { ZkContainer_getKey(self.ptr.as_ptr().cast()).to_string() }
+    }
+
+    /// Lockpick combination of an `oCMobContainer`, `R`/`L` per step, empty
+    /// when the lock cannot be picked.
+    pub fn container_pick_string(&self) -> String {
+        unsafe { ZkContainer_getPickString(self.ptr.as_ptr().cast()).to_string() }
+    }
+
+    /// In-game focus name of an `oCMOB` object.
+    pub fn movable_name(&self) -> String {
+        unsafe { ZkMovableObject_getName(self.ptr.as_ptr().cast()).to_string() }
+    }
+
     pub fn visual(&self) -> Visual<'_> {
         unsafe {
             let ptr = ZkVirtualObject_getVisual(self.ptr.as_ptr());
