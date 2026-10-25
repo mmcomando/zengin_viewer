@@ -6,6 +6,7 @@ pub mod selection;
 mod actions;
 mod combat;
 mod debug;
+mod loot;
 
 use bevy::prelude::*;
 
@@ -29,6 +30,7 @@ impl Plugin for PlayerInteractionPlugin {
                 combat::handle_npc_death,
                 actions::handle_transfer_items,
                 actions::pickup_selected_item,
+                loot::open_selected_chest,
                 actions::toggle_player_weapons,
                 debug::give_test_items,
                 debug::debug_equipment_on_start,

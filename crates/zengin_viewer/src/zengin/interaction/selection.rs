@@ -1,5 +1,5 @@
-//! Picks the world object (npc or item) the player is most likely aiming at and
-//! draws its name above it, as a 3d text label anchored to the object.
+//! Picks the world object (npc, item or chest) the player is most likely aiming
+//! at and draws its name above it, as a 3d text label anchored to the object.
 
 use avian3d::prelude::*;
 use bevy::prelude::*;
@@ -11,7 +11,7 @@ use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::resources::{ARROW, NPC_BODY, SELECTABLE};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
-use crate::zengin::{GameItem, GameNpc};
+use crate::zengin::{GameChest, GameItem, GameNpc};
 
 /// Distance (meters) within which a world object can be selected.
 const SELECTION_RANGE: f32 = 5.0;
@@ -30,6 +30,8 @@ const NPC_COLLIDER_OFFSET: f32 = f32::midpoint(NPC_COLLIDER_LENGTH, 2.0 * NPC_CO
 const NPC_LABEL_HEIGHT: f32 = 2.2;
 /// Height of the name label above a selected item.
 const ITEM_LABEL_HEIGHT: f32 = 0.6;
+/// Height of the name label above a selected chest.
+const CHEST_LABEL_HEIGHT: f32 = 1.2;
 /// Base font size of the label in font units, scaled down to world units by
 /// [`LABEL_WORLD_SCALE`] so the label is a few tenths of a meter tall.
 const LABEL_FONT_SIZE: f32 = 64.0;
@@ -57,10 +59,11 @@ impl Plugin for SelectionPlugin {
 pub enum SelectionKind {
     Npc,
     Item,
+    Chest,
 }
 
-/// The world object (npc or item) the player currently has selected, if any.
-/// Objects in front of the player are preferred over closer ones behind it.
+/// The world object (npc, item or chest) the player currently has selected, if
+/// any. Objects in front of the player are preferred over closer ones behind it.
 #[derive(Resource, Default)]
 pub struct Selection {
     /// Selected entity, `None` when nothing is in range.
@@ -179,6 +182,7 @@ fn update_selection(
         Entity,
         Option<&GameNpc>,
         Option<&GameItem>,
+        Option<&GameChest>,
         Has<PlayerCharacter>,
         &GlobalTransform,
     )>,
@@ -218,14 +222,14 @@ fn update_selection(
         if entity == player_entity {
             continue;
         }
-        let Ok((_, npc, item, is_player, tr)) = candidates.get(entity) else {
+        let Ok((_, npc, item, chest, is_player, tr)) = candidates.get(entity) else {
             continue;
         };
         // The player visual carries `GameNpc` too, it is not selectable.
-        if is_player || (npc.is_none() && item.is_none()) {
+        if is_player || (npc.is_none() && item.is_none() && chest.is_none()) {
             continue;
         }
-        // With a weapon drawn items are not selectable.
+        // With a weapon drawn items and chests are not selectable.
         if npcs_only && npc.is_none() {
             continue;
         }
@@ -254,7 +258,7 @@ fn update_selection(
         return;
     }
 
-    let Ok((_, npc, item, _, _)) = candidates.get(entity) else {
+    let Ok((_, npc, item, chest, _, _)) = candidates.get(entity) else {
         return;
     };
     if let Some(item) = item {
@@ -265,6 +269,9 @@ fn update_selection(
             .item_display_name(item.item_instance_id)
             .or_else(|| gothic_script.lock().get_name_by_id(raw))
             .unwrap_or_else(|| raw.to_string());
+    } else if chest.is_some() {
+        selection.kind = Some(SelectionKind::Chest);
+        selection.name = "Chest".to_string();
     } else if let Some(npc) = npc {
         selection.kind = Some(SelectionKind::Npc);
         selection.name = gothic_script
@@ -309,6 +316,7 @@ fn update_selection_label(
 
     let height = match selection.kind {
         Some(SelectionKind::Item) => ITEM_LABEL_HEIGHT,
+        Some(SelectionKind::Chest) => CHEST_LABEL_HEIGHT,
         Some(SelectionKind::Npc) | None => NPC_LABEL_HEIGHT,
     };
     transform.translation = target.translation() + Vec3::Y * height;

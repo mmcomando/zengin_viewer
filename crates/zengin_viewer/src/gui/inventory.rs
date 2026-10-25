@@ -17,7 +17,7 @@ use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::DialogUiState;
 use crate::zengin::ScriptManager;
 use crate::zengin::get_full_texture_path;
-use crate::zengin::{GameNpc, InstanceId, ItemDisplayData, ScriptResource, WeaponKind};
+use crate::zengin::{GameChest, GameNpc, InstanceId, ItemDisplayData, ScriptResource, WeaponKind};
 
 /// Window index of the trader panel (left side).
 const TRADER_WINDOW: usize = 0;
@@ -34,11 +34,13 @@ impl Plugin for InventoryUiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InventoryUiState>();
         app.add_message::<OpenTrade>();
+        app.add_message::<OpenLoot>();
         app.add_systems(Startup, spawn_inventory_ui);
         app.add_systems(
             Update,
             (
                 open_trade,
+                open_loot,
                 toggle_inventory,
                 handle_inventory_input,
                 close_orphaned_trade,
@@ -92,8 +94,8 @@ struct InventoryEntry {
 
 /// One window's state: open panels snapshot their items on open.
 struct InventoryWindowState {
-    /// Script instance of the npc owning this inventory.
-    npc: InstanceId,
+    /// Inventory source behind this window.
+    owner: InventoryOwner,
     /// Header title, e.g. a category name or the trader name.
     title: String,
     selected: usize,
@@ -103,6 +105,22 @@ struct InventoryWindowState {
     /// Gold stacks are not always shown in the grid, the header always needs them.
     gold_count: i32,
     items: Vec<InventoryEntry>,
+}
+
+/// Source of the items shown by one inventory window.
+#[derive(Clone, Copy)]
+enum InventoryOwner {
+    Npc(InstanceId),
+    Chest(Entity),
+}
+
+/// Which panels the inventory UI currently shows and what confirm does.
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum InventoryMode {
+    #[default]
+    Player,
+    Trade,
+    Loot,
 }
 
 impl InventoryEntry {
@@ -149,39 +167,83 @@ fn inventory_entry(
     }
 }
 
-/// Snapshots one npc inventory into a window. Trade windows hide gold stacks
-/// (the header shows the sum) and equipped items, which cannot be traded.
-fn inventory_window(
+/// Snapshots one npc inventory into a window.
+fn npc_inventory_window(
     script: &mut ScriptManager,
     npc: InstanceId,
     title: String,
-    trade: bool,
+    hide_gold: bool,
+    hide_equipped: bool,
 ) -> InventoryWindowState {
     let mut items: Vec<InventoryEntry> = script
         .inventory(npc)
         .into_iter()
         .map(|(instance_id, count)| inventory_entry(script, instance_id, count))
         .collect();
-    let gold_count = items
-        .iter()
-        .filter(|entry| entry.is_gold)
-        .map(|entry| entry.count)
-        .sum();
+    let gold_count = gold_sum(&items);
     let (equipped_melee, equipped_ranged) = script
         .npc_instances()
         .get(&npc)
         .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
         .unwrap_or_default();
-    if trade {
+    if hide_gold {
+        items.retain(|entry| !entry.is_gold);
+    }
+    if hide_equipped {
         items.retain(|entry| {
-            !entry.is_gold
-                && Some(entry.instance_id) != equipped_melee
-                && Some(entry.instance_id) != equipped_ranged
+            Some(entry.instance_id) != equipped_melee && Some(entry.instance_id) != equipped_ranged
         });
     }
+    build_window(
+        InventoryOwner::Npc(npc),
+        title,
+        items,
+        equipped_melee,
+        equipped_ranged,
+        gold_count,
+    )
+}
+
+fn chest_inventory_window(
+    script: &mut ScriptManager,
+    chest: Entity,
+    title: String,
+    items: &[(InstanceId, i32)],
+) -> InventoryWindowState {
+    let items: Vec<InventoryEntry> = items
+        .iter()
+        .map(|(instance_id, count)| inventory_entry(script, *instance_id, *count))
+        .collect();
+    let gold_count = gold_sum(&items);
+    build_window(
+        InventoryOwner::Chest(chest),
+        title,
+        items,
+        None,
+        None,
+        gold_count,
+    )
+}
+
+fn gold_sum(items: &[InventoryEntry]) -> i32 {
+    items
+        .iter()
+        .filter(|entry| entry.is_gold)
+        .map(|entry| entry.count)
+        .sum()
+}
+
+fn build_window(
+    owner: InventoryOwner,
+    title: String,
+    mut items: Vec<InventoryEntry>,
+    equipped_melee: Option<InstanceId>,
+    equipped_ranged: Option<InstanceId>,
+    gold_count: i32,
+) -> InventoryWindowState {
     sort_inventory_items(&mut items);
     InventoryWindowState {
-        npc,
+        owner,
         title,
         selected: 0,
         equipped_melee,
@@ -221,11 +283,20 @@ pub struct OpenTrade {
     pub trader: InstanceId,
 }
 
+/// Request to open the loot panels for the player and a chest entity.
+#[derive(Message)]
+pub struct OpenLoot {
+    pub player: InstanceId,
+    pub chest: Entity,
+}
+
 /// State of the inventory UI: closed by default, items snapshot on open.
 #[derive(Resource, Default)]
 pub struct InventoryUiState {
     open: bool,
-    /// Windows by index: [trader, player], the trader one only exists in trade.
+    mode: InventoryMode,
+    /// Windows by index: [left, player], the left one only exists outside the
+    /// player-only mode.
     windows: [Option<InventoryWindowState>; 2],
     /// Index of the window whose grid receives the navigation input.
     active_window: usize,
@@ -241,13 +312,14 @@ impl InventoryUiState {
     /// Closes the inventory UI.
     pub(crate) fn close(&mut self) {
         self.open = false;
+        self.mode = InventoryMode::default();
         self.windows = Default::default();
         self.active_window = 0;
         self.gold_item = None;
     }
 
     pub(crate) fn is_trade(&self) -> bool {
-        self.windows[TRADER_WINDOW].is_some()
+        self.mode == InventoryMode::Trade
     }
 }
 
@@ -606,12 +678,19 @@ fn open_trade(
     let trader_title = script
         .npc_display_name(request.trader)
         .unwrap_or_else(|| script.call_get_name(request.trader.symbol()));
-    let player = inventory_window(&mut script, request.player, "Inventory".to_string(), true);
-    let trader = inventory_window(&mut script, request.trader, trader_title, true);
+    let player = npc_inventory_window(
+        &mut script,
+        request.player,
+        "Inventory".to_string(),
+        true,
+        true,
+    );
+    let trader = npc_inventory_window(&mut script, request.trader, trader_title, true, true);
     let gold_item = resolve_gold_item(&mut script, request.player, request.trader);
     let stacks = (player.items.len(), trader.items.len());
     state.windows[PLAYER_WINDOW] = Some(player);
     state.windows[TRADER_WINDOW] = Some(trader);
+    state.mode = InventoryMode::Trade;
     state.active_window = TRADER_WINDOW;
     state.gold_item = gold_item;
     state.open = true;
@@ -620,6 +699,48 @@ fn open_trade(
         request.trader.value(),
         stacks.0,
         stacks.1
+    );
+}
+
+/// Opens the loot panels: the chest and player inventories are snapshotted and
+/// the chest side is focused first.
+fn open_loot(
+    mut requests: MessageReader<OpenLoot>,
+    mut state: ResMut<InventoryUiState>,
+    gothic_script: Res<ScriptResource>,
+    chests: Query<&GameChest>,
+) {
+    let Some(request) = requests.read().last() else {
+        return;
+    };
+    let Ok(chest) = chests.get(request.chest) else {
+        warn!("Loot request for missing chest entity({})", request.chest);
+        return;
+    };
+    let mut script = gothic_script.lock();
+    let player = npc_inventory_window(
+        &mut script,
+        request.player,
+        "Inventory".to_string(),
+        false,
+        true,
+    );
+    let chest_window = chest_inventory_window(
+        &mut script,
+        request.chest,
+        "Chest".to_string(),
+        &chest.items,
+    );
+    let stacks = (player.items.len(), chest_window.items.len());
+    state.windows[PLAYER_WINDOW] = Some(player);
+    state.windows[TRADER_WINDOW] = Some(chest_window);
+    state.mode = InventoryMode::Loot;
+    state.active_window = TRADER_WINDOW;
+    state.gold_item = None;
+    state.open = true;
+    info!(
+        "Loot opened for chest({}) vob({}): player {} stack(s), chest {} stack(s)",
+        request.chest, chest.name, stacks.0, stacks.1
     );
 }
 
@@ -670,25 +791,33 @@ fn toggle_inventory(
     };
     let player_id = player_npc.instance_id();
     let mut script = gothic_script.lock();
-    let window = inventory_window(&mut script, player_id, "Inventory".to_string(), false);
+    let window = npc_inventory_window(
+        &mut script,
+        player_id,
+        "Inventory".to_string(),
+        false,
+        false,
+    );
     let stacks = window.items.len();
     state.windows[PLAYER_WINDOW] = Some(window);
     state.windows[TRADER_WINDOW] = None;
+    state.mode = InventoryMode::Player;
     state.active_window = PLAYER_WINDOW;
     state.gold_item = None;
     state.open = true;
     info!("Inventory opened with {stacks} item stack(s)");
 }
 
-/// Grid navigation and closing while the inventory is open. In trade mode
-/// moving past the left/right edge switches windows; confirm buys from the
-/// trader window and sells from the player one.
+/// Grid navigation and closing while the inventory is open. When a second
+/// window is shown, moving past the left/right edge switches windows; confirm
+/// applies the action of the focused window for the current mode.
 fn handle_inventory_input(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     mut state: ResMut<InventoryUiState>,
     mut game_log: ResMut<GameLog>,
     gothic_script: Res<ScriptResource>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+    mut chests: Query<&mut GameChest>,
 ) {
     if !state.open {
         return;
@@ -698,7 +827,7 @@ fn handle_inventory_input(
         return;
     }
 
-    let is_trade = state.is_trade();
+    let multi_window = state.mode != InventoryMode::Player;
     let active = state.active_window;
     let columns = InventoryStyle::COLUMNS;
     let selected = state.windows[active]
@@ -709,7 +838,7 @@ fn handle_inventory_input(
     });
 
     if action_state.just_pressed(&GuiAction::Left) {
-        if is_trade && active == PLAYER_WINDOW && selected.is_multiple_of(columns) {
+        if multi_window && active == PLAYER_WINDOW && selected.is_multiple_of(columns) {
             state.active_window = TRADER_WINDOW;
         } else if !selected.is_multiple_of(columns)
             && let Some(window) = state.windows[active].as_mut()
@@ -719,7 +848,7 @@ fn handle_inventory_input(
     }
     if action_state.just_pressed(&GuiAction::Right) {
         let at_right_edge = selected + 1 >= slot_count || selected % columns + 1 >= columns;
-        if is_trade && active == TRADER_WINDOW && at_right_edge {
+        if multi_window && active == TRADER_WINDOW && at_right_edge {
             state.active_window = PLAYER_WINDOW;
         } else if selected + 1 < slot_count
             && selected % columns + 1 < columns
@@ -744,17 +873,27 @@ fn handle_inventory_input(
     if !action_state.just_pressed(&GuiAction::Confirm) {
         return;
     }
-    if is_trade {
-        trade_confirm(&mut state, active, &mut game_log, &gothic_script);
-        return;
-    }
-    if let Some(window) = state.windows[active].as_mut()
-        && let Some(entry) = window.items.get(window.selected)
-    {
-        let (equipped_melee, equipped_ranged) =
-            equip_selected_item(entry, &mut game_log, &gothic_script, player_npc);
-        window.equipped_melee = equipped_melee;
-        window.equipped_ranged = equipped_ranged;
+    match state.mode {
+        InventoryMode::Trade => trade_confirm(&mut state, active, &mut game_log, &gothic_script),
+        InventoryMode::Loot => {
+            loot_confirm(
+                &mut state,
+                active,
+                &mut game_log,
+                &gothic_script,
+                &mut chests,
+            );
+        }
+        InventoryMode::Player => {
+            if let Some(window) = state.windows[active].as_mut()
+                && let Some(entry) = window.items.get(window.selected)
+            {
+                let (equipped_melee, equipped_ranged) =
+                    equip_selected_item(entry, &mut game_log, &gothic_script, player_npc);
+                window.equipped_melee = equipped_melee;
+                window.equipped_ranged = equipped_ranged;
+            }
+        }
     }
 }
 
@@ -791,10 +930,16 @@ fn trade_confirm(
     let (Some(player), Some(trader)) = (
         state.windows[PLAYER_WINDOW]
             .as_ref()
-            .map(|window| window.npc),
+            .and_then(|window| match window.owner {
+                InventoryOwner::Npc(npc) => Some(npc),
+                InventoryOwner::Chest(_) => None,
+            }),
         state.windows[TRADER_WINDOW]
             .as_ref()
-            .map(|window| window.npc),
+            .and_then(|window| match window.owner {
+                InventoryOwner::Npc(npc) => Some(npc),
+                InventoryOwner::Chest(_) => None,
+            }),
     ) else {
         return;
     };
@@ -854,15 +999,147 @@ fn trade_confirm(
         .as_ref()
         .map(|window| window.title.clone())
         .unwrap_or_default();
-    state.windows[PLAYER_WINDOW] = Some(inventory_window(
+    state.windows[PLAYER_WINDOW] = Some(npc_inventory_window(
         &mut script,
         player,
         "Inventory".to_string(),
         true,
+        true,
     ));
-    state.windows[TRADER_WINDOW] = Some(inventory_window(&mut script, trader, trader_title, true));
+    state.windows[TRADER_WINDOW] = Some(npc_inventory_window(
+        &mut script,
+        trader,
+        trader_title,
+        true,
+        true,
+    ));
     clamp_selection(&mut state.windows[PLAYER_WINDOW], player_selected);
     clamp_selection(&mut state.windows[TRADER_WINDOW], trader_selected);
+}
+
+/// Moves one item between the chest window and the player window for free, then
+/// re-snapshots both windows so counts stay current.
+#[allow(clippy::cognitive_complexity)]
+fn loot_confirm(
+    state: &mut InventoryUiState,
+    active: usize,
+    game_log: &mut GameLog,
+    gothic_script: &ScriptResource,
+    chests: &mut Query<&mut GameChest>,
+) {
+    let Some(window) = state.windows[active].as_ref() else {
+        return;
+    };
+    let Some(entry) = window.items.get(window.selected) else {
+        return;
+    };
+    let item = entry.instance_id;
+    let item_name = entry.name.clone();
+
+    let Some(player) =
+        state.windows[PLAYER_WINDOW]
+            .as_ref()
+            .and_then(|window| match window.owner {
+                InventoryOwner::Npc(npc) => Some(npc),
+                InventoryOwner::Chest(_) => None,
+            })
+    else {
+        return;
+    };
+    let Some(chest_entity) = state.windows[TRADER_WINDOW]
+        .as_ref()
+        .and_then(|window| match window.owner {
+            InventoryOwner::Chest(chest) => Some(chest),
+            InventoryOwner::Npc(_) => None,
+        })
+    else {
+        return;
+    };
+    let Ok(mut chest) = chests.get_mut(chest_entity) else {
+        warn!("Loot chest entity({chest_entity}) is missing");
+        return;
+    };
+
+    let taking = active == TRADER_WINDOW;
+    let mut script = gothic_script.lock();
+    if taking {
+        if chest_remove_item(&mut chest.items, item, 1) == 0 {
+            warn!(
+                "Loot item({}) is no longer available in chest({chest_entity})",
+                item.value()
+            );
+            return;
+        }
+        script.add_inventory(player, item, 1);
+        game_log.add(format!("Took {item_name}"));
+        info!(
+            "Player({}) took item({}) from chest({chest_entity})",
+            player.value(),
+            item.value()
+        );
+    } else {
+        if script.remove_inventory(player, item, 1) == 0 {
+            warn!(
+                "Loot item({}) is no longer available from player({})",
+                item.value(),
+                player.value()
+            );
+            return;
+        }
+        chest_add_item(&mut chest.items, item, 1);
+        game_log.add(format!("Stored {item_name}"));
+        info!(
+            "Player({}) stored item({}) in chest({chest_entity})",
+            player.value(),
+            item.value()
+        );
+    }
+
+    let player_selected = state.windows[PLAYER_WINDOW]
+        .as_ref()
+        .map_or(0, |window| window.selected);
+    let chest_selected = state.windows[TRADER_WINDOW]
+        .as_ref()
+        .map_or(0, |window| window.selected);
+    let chest_title = state.windows[TRADER_WINDOW]
+        .as_ref()
+        .map(|window| window.title.clone())
+        .unwrap_or_default();
+    state.windows[PLAYER_WINDOW] = Some(npc_inventory_window(
+        &mut script,
+        player,
+        "Inventory".to_string(),
+        false,
+        true,
+    ));
+    state.windows[TRADER_WINDOW] = Some(chest_inventory_window(
+        &mut script,
+        chest_entity,
+        chest_title,
+        &chest.items,
+    ));
+    clamp_selection(&mut state.windows[PLAYER_WINDOW], player_selected);
+    clamp_selection(&mut state.windows[TRADER_WINDOW], chest_selected);
+}
+
+fn chest_remove_item(items: &mut Vec<(InstanceId, i32)>, item: InstanceId, count: i32) -> i32 {
+    let Some(index) = items.iter().position(|(entry, _)| *entry == item) else {
+        return 0;
+    };
+    let removed = count.min(items[index].1);
+    items[index].1 -= removed;
+    if items[index].1 <= 0 {
+        items.remove(index);
+    }
+    removed
+}
+
+fn chest_add_item(items: &mut Vec<(InstanceId, i32)>, item: InstanceId, count: i32) {
+    if let Some(entry) = items.iter_mut().find(|(entry, _)| *entry == item) {
+        entry.1 += count;
+        return;
+    }
+    items.push((item, count));
 }
 
 fn clamp_selection(window: &mut Option<InventoryWindowState>, selected: usize) {

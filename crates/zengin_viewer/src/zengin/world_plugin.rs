@@ -16,8 +16,8 @@ use crate::zengin::loaders::vfs::{
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::resources::{
-    CachedAssetHandles, DYNAMIC_OBJECT, NamedModels, STATIC_OBJECT, ZenGinInsertResources,
-    ZenGinModelComponent,
+    CachedAssetHandles, DYNAMIC_OBJECT, NamedModels, SELECTABLE, STATIC_OBJECT,
+    ZenGinInsertResources, ZenGinModelComponent,
 };
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::ScriptManager;
@@ -26,7 +26,7 @@ use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, spawn_waypoint_entities};
-use crate::zengin::{GameItem, GameNpc, ZenginVfs};
+use crate::zengin::{GameChest, GameItem, GameNpc, ZenginVfs};
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
@@ -131,6 +131,32 @@ fn spawn_world(
             },
             Visibility::default(),
             instance.tr,
+            StaticMesh::default(),
+        ));
+    }
+
+    for chest in world_data.chests {
+        let model_handle = handles_map.get_model_handle(&asset_server, &chest.archetype, None);
+        commands.spawn((
+            ClassifyDistance::default(),
+            GameChest {
+                name: chest.name,
+                locked: chest.locked,
+                items: chest.items,
+            },
+            Collider::cuboid(
+                chest.collider_half_extents.x * 2.0,
+                chest.collider_half_extents.y * 2.0,
+                chest.collider_half_extents.z * 2.0,
+            ),
+            CollisionLayers::from_bits(SELECTABLE, 0),
+            Visibility::default(),
+            chest.tr,
+            ZenGinModelComponent {
+                model_handle,
+                convex_colider: chest.collides,
+                ..default()
+            },
             StaticMesh::default(),
         ));
     }
@@ -323,7 +349,9 @@ fn spawn_npc_entities(
             continue;
         };
 
-        let mut transform = if let Some(tr) = spawn.transform { tr } else {
+        let mut transform = if let Some(tr) = spawn.transform {
+            tr
+        } else {
             // Routine waypoint takes precedence over the spawn location,
             // spots take precedence over way points
             let name = script

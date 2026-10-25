@@ -7,6 +7,7 @@ use std::{
 use bevy::prelude::*;
 use zen_kit_rs::vfs::VfsNode;
 
+use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::waypoint_graph::WaypointGraph;
 
@@ -175,9 +176,23 @@ pub struct ZenGinInstance {
 }
 
 #[derive(Debug, Default)]
+pub struct ZenGinChest {
+    pub tr: Transform,
+    /// Archetype of the chest visual, `None` when the vob has no visual.
+    pub archetype: String,
+    pub collides: bool,
+    /// Half-size of the selection collider, converted to world units.
+    pub collider_half_extents: Vec3,
+    pub name: String,
+    pub items: Vec<(InstanceId, i32)>,
+    pub locked: bool,
+}
+
+#[derive(Debug, Default)]
 pub struct ZenGinWorldData {
     pub world_model: ZenGinModel,
     pub static_models: Vec<ZenGinInstance>,
+    pub chests: Vec<ZenGinChest>,
     pub light_instances: Vec<LightInstance>,
     pub spots: HashMap<String, Transform>,
     pub way_points: HashMap<String, Transform>,

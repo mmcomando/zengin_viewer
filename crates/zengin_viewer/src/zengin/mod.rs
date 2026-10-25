@@ -85,3 +85,13 @@ impl GameNpc {
 pub struct GameItem {
     item_instance_id: InstanceId,
 }
+
+/// Interactive chest vob with its remaining loot.
+#[derive(Debug, Component)]
+pub struct GameChest {
+    pub name: String,
+    /// Vob `locked` flag, reported when the chest is opened.
+    pub locked: bool,
+    /// Remaining contents as `(item, count)` pairs.
+    pub items: Vec<(InstanceId, i32)>,
+}
