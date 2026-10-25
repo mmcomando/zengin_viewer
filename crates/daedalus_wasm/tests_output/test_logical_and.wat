@@ -1327,6 +1327,20 @@
       ;; []
       local.get 1
       ;; [i32]
+      local.get 0
+      ;; [i32 i32]
+      i32.const 40
+      ;; [i32 i32 i32]
+      call 19
+      ;; [i32 i32]
+      i32.const 0
+      ;; [i32 i32 i32]
+      i32.ne
+      ;; [i32 i32]
+      i32.store8 offset=22
+      ;; []
+      local.get 1
+      ;; [i32]
     )
     (func (;26;) (type 3) (param i32) (result i32)
       local.get 0
@@ -1472,7 +1486,7 @@
     )
   )
   (type (;0;) (enum "float" "int" "str" "class" "function" "prototype" "instance" "variable-argument"))
-  (type (;1;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool)))
+  (type (;1;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool) (field "trade" bool)))
   (type (;2;) (option s32))
   (type (;3;) (record (field "kind" 0) (field "parent" 2) (field "function" 2)))
   (type (;4;) (record (field "hitpoints" s32) (field "hitpoints-max" s32) (field "name" 2)))
@@ -1576,7 +1590,7 @@
     (import "import-func-initialize-all-instances" (func (;17;) (type 16)))
     (import "import-func-get-all-symbols-num" (func (;18;) (type 0)))
     (import "import-func-get-all-strings-num" (func (;19;) (type 0)))
-    (type (;17;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool)))
+    (type (;17;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool) (field "trade" bool)))
     (import "import-type-dialog-info" (type (;18;) (eq 17)))
     (type (;19;) (func (param "symbol-id" s32) (result 18)))
     (import "import-func-get-dialog-info" (func (;20;) (type 19)))
@@ -1588,7 +1602,7 @@
     (import "import-func-get-symbol-info" (func (;21;) (type 24)))
     (type (;25;) (enum "float" "int" "str" "class" "function" "prototype" "instance" "variable-argument"))
     (export (;26;) "symbol-kind" (type 25))
-    (type (;27;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool)))
+    (type (;27;) (record (field "npc" s32) (field "order" s32) (field "condition" s32) (field "information" s32) (field "description" s32) (field "important" bool) (field "permanent" bool) (field "trade" bool)))
     (export (;28;) "dialog-info" (type 27))
     (type (;29;) (option s32))
     (type (;30;) (record (field "kind" 26) (field "parent" 29) (field "function" 29)))

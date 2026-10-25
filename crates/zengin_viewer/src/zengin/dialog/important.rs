@@ -129,6 +129,7 @@ pub(super) fn auto_start_important_dialogs(
             npc_talk_to: npc_id,
             sequence_function_id: root.sequence_function_id,
             info_instance_id: root.info_instance_id,
+            trade: root.trade,
         });
         // One initiated dialog per frame
         return;

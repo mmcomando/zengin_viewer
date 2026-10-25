@@ -520,6 +520,24 @@ fn real_test_dialog_info() {
     assert_eq!(info.information, 26936);
     assert!(!info.permanent);
     assert!(info.important);
+    assert!(!info.trade);
+}
+
+#[test]
+fn real_test_dialog_info_trade() {
+    let data = get_main_script_data();
+
+    let instructions = &[InstDD::PushInt(1), InstDD::Return];
+
+    let mut executor = WasmExecutor::real_func_test(data, &["dia_brahim_buy"], instructions);
+
+    // Initialize memory of given instance
+    executor.set_instance(26227);
+    executor.call_function(26227);
+    // Get dialog information from this instance
+    let info = executor.get_dialog_info(26227);
+    assert!(info.trade);
+    assert!(info.permanent);
 }
 
 /// Routine state functions request their animations via `AI_PlayAni(BS)`. The

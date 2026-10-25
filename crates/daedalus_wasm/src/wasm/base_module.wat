@@ -803,7 +803,8 @@
     local.set $mem_start
 
     ;; Construct WIT record dialog-info in $mem_start:
-    ;; npc @0, condition @4, information @8, important @12 (byte), permanent @13 (byte)
+    ;; npc @0, order @4, condition @8, information @12, description @16,
+    ;; important @20 (byte), permanent @21 (byte), trade @22 (byte)
 
     ;; npc
     local.get $mem_start
@@ -843,6 +844,13 @@
     i32.const 0
     i32.ne ;; normalize bool to 0/1
     i32.store8 $main offset=21
+
+    ;; trade
+    local.get $mem_start
+    (call $get_class_member (local.get $symbol_id) (i32.const 40))
+    i32.const 0
+    i32.ne ;; normalize bool to 0/1
+    i32.store8 $main offset=22
 
     local.get $mem_start
   )

@@ -8,6 +8,7 @@ use crate::audio::PlaySound;
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
+use crate::gui::OpenTrade;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_dialog_sound_path;
@@ -89,6 +90,7 @@ pub(super) fn handle_dialog_outputs(
     mut closes: MessageReader<DialogClose>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut sounds: MessageWriter<PlaySound>,
+    mut trade_requests: MessageWriter<OpenTrade>,
     dialog_texts: Res<DialogTexts>,
     speech_sounds: Res<SpeechSounds>,
     gothic_script: Res<ScriptResource>,
@@ -140,6 +142,13 @@ pub(super) fn handle_dialog_outputs(
     }
     if close_requested {
         dialog_ui.close();
+        return;
+    }
+    if dialog_ui.take_pending_trade() {
+        let (Some(player), Some(trader)) = (dialog_ui.npc_player, dialog_ui.npc_talk_to) else {
+            return;
+        };
+        trade_requests.write(OpenTrade { player, trader });
         return;
     }
     if has_sub_choices {
@@ -230,6 +239,7 @@ pub(super) fn handle_dialog_requests(
                 npc_talk_to,
                 sequence_function_id,
                 info_instance_id,
+                trade,
             } => {
                 // A manual open processed earlier in this frame wins
                 if dialog_ui.is_open() {
@@ -275,7 +285,7 @@ pub(super) fn handle_dialog_requests(
                 script.set_instance(*npc_talk_to);
                 script.call_dialog_sequence_function(*sequence_function_id);
                 drop(script);
-                dialog_ui.begin_output_capture(*info_instance_id);
+                dialog_ui.begin_output_capture(*info_instance_id, *trade);
             }
             DialogRequest::RefreshRoots {
                 npc_from,
@@ -298,6 +308,7 @@ pub(super) fn handle_dialog_requests(
                 sequence_function_id,
                 info_instance_id,
                 from_sub_choices,
+                trade,
             } => {
                 if dialog_ui.npc_talk_to != Some(*npc_talk_to) {
                     warn!(
@@ -323,7 +334,7 @@ pub(super) fn handle_dialog_requests(
                 script.set_instance(*npc_talk_to);
                 script.call_dialog_sequence_function(*sequence_function_id);
                 drop(script);
-                dialog_ui.begin_output_capture(*info_instance_id);
+                dialog_ui.begin_output_capture(*info_instance_id, *trade);
             }
         }
     }
@@ -399,6 +410,7 @@ fn option_view(root: &DialogRoot) -> DialogOptionView {
         description: root.description.clone(),
         sequence_function_id: root.sequence_function_id,
         info_instance_id: root.info_instance_id,
+        trade: root.trade,
     }
 }
 
@@ -409,6 +421,7 @@ fn choice_view(choice: &DialogChoice, info_instance_id: InstanceId) -> DialogOpt
         description: choice.description.clone(),
         sequence_function_id: choice.sequence_function_id,
         info_instance_id: Some(info_instance_id),
+        trade: false,
     }
 }
 

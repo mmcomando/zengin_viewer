@@ -346,6 +346,7 @@ interface manage {
         description: s32,
         important: bool,
         permanent: bool,
+        trade: bool,
     }
     // Generic info about symbol
     record symbol-info {

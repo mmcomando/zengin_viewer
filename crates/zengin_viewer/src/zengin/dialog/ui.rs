@@ -202,6 +202,7 @@ fn spawn_lines_panel(commands: &mut Commands, root: Entity) {
 pub(super) fn sync_dialog_ui(
     mut commands: Commands,
     mut dialog_ui: ResMut<DialogUiState>,
+    inventory_ui: Res<crate::gui::InventoryUiState>,
     mut containers: Query<(&DialogContainer, &mut Visibility)>,
     mut rows: Query<(
         Entity,
@@ -218,12 +219,13 @@ pub(super) fn sync_dialog_ui(
     mut npc_name_text: Query<&mut Text, NpcNameTextFilter>,
     mut line_text: Query<&mut Text, LineTextFilter>,
 ) {
+    let trade_open = inventory_ui.is_trade();
     if !dialog_ui.is_open() {
-        sync_container_visibility(&mut containers, &dialog_ui);
+        sync_container_visibility(&mut containers, &dialog_ui, trade_open);
         return;
     }
 
-    sync_container_visibility(&mut containers, &dialog_ui);
+    sync_container_visibility(&mut containers, &dialog_ui, trade_open);
     if dialog_ui.rows_dirty {
         sync_option_rows(
             &mut commands,
@@ -244,6 +246,7 @@ pub(super) fn sync_dialog_ui(
 fn sync_container_visibility(
     containers: &mut Query<(&DialogContainer, &mut Visibility)>,
     dialog_ui: &DialogUiState,
+    trade_open: bool,
 ) {
     let open = dialog_ui.is_open();
     for (container, mut visibility) in containers.iter_mut() {
@@ -256,7 +259,7 @@ fn sync_container_visibility(
                 }
             }
             DialogContainer::OptionsPanel => {
-                if open && dialog_ui.is_showing_options() {
+                if open && dialog_ui.is_showing_options() && !trade_open {
                     Visibility::Visible
                 } else {
                     Visibility::Hidden

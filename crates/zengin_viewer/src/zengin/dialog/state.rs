@@ -1,4 +1,5 @@
 use crate::audio::{PlaySound, SoundManager};
+use crate::gui::OpenTrade;
 use crate::input::{GuiAction, GuiInputMarker};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId, StringId};
 use bevy::prelude::*;
@@ -18,6 +19,8 @@ pub(super) struct DialogOptionView {
     pub(super) description: String,
     pub(super) sequence_function_id: FunctionId,
     pub(super) info_instance_id: Option<InstanceId>,
+    /// Picking this option opens a trade with the npc after its lines play.
+    pub(super) trade: bool,
 }
 
 /// A dialog line prepared for display, with the real text and sound resolved
@@ -55,6 +58,7 @@ pub(super) enum DialogRequest {
         npc_talk_to: InstanceId,
         sequence_function_id: FunctionId,
         info_instance_id: Option<InstanceId>,
+        trade: bool,
     },
     /// Refresh the root options, e.g. after a line finished playing
     RefreshRoots {
@@ -69,6 +73,7 @@ pub(super) enum DialogRequest {
         info_instance_id: Option<InstanceId>,
         /// The picked entry is a sub choice, not a root option.
         from_sub_choices: bool,
+        trade: bool,
     },
 }
 
@@ -90,6 +95,7 @@ enum DialogUiMode {
 
 /// State driving the dialog UI, it is shown only while `npc_entity` is present
 #[derive(Resource, Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub(crate) struct DialogUiState {
     pub(super) npc_entity: Option<Entity>,
     /// Player character (visual) entity, used to aim the dialog camera when the
@@ -117,6 +123,9 @@ pub(crate) struct DialogUiState {
     /// Set while waiting for the outputs of the option that is currently being
     /// executed, consumed by `handle_dialog_outputs` when they arrive
     awaiting_outputs: bool,
+    /// Set by a trade option, consumed once the ui is back in options mode so
+    /// the trade opens after the option's lines played.
+    pending_trade: bool,
 }
 
 impl DialogUiState {
@@ -147,6 +156,7 @@ impl DialogUiState {
         self.pending_close = false;
         self.awaiting_outputs = false;
         self.pending_info = None;
+        self.pending_trade = false;
     }
 
     /// Pair of `(viewed, listener)` character entities for the dialog camera. The
@@ -239,6 +249,7 @@ impl DialogUiState {
             sequence_function_id,
             info_instance_id,
             from_sub_choices,
+            trade: choice.trade,
         });
     }
 
@@ -263,6 +274,7 @@ impl DialogUiState {
         self.sub_choices.clear();
         self.pending_close = false;
         self.pending_info = None;
+        self.pending_trade = false;
         self.reset_to_options();
     }
 
@@ -277,9 +289,23 @@ impl DialogUiState {
     }
 
     /// Arms the capture of the outputs produced by the option being executed.
-    pub(super) fn begin_output_capture(&mut self, info_instance_id: Option<InstanceId>) {
+    pub(super) fn begin_output_capture(
+        &mut self,
+        info_instance_id: Option<InstanceId>,
+        trade: bool,
+    ) {
         self.awaiting_outputs = true;
         self.pending_info = info_instance_id;
+        self.pending_trade = trade;
+    }
+
+    /// Returns and clears a trade requested by the finished option, only once
+    /// the ui is back in options mode.
+    pub(super) fn take_pending_trade(&mut self) -> bool {
+        if !self.is_showing_options() {
+            return false;
+        }
+        std::mem::take(&mut self.pending_trade)
     }
 
     /// Returns and clears whether outputs of an executed option are awaited
@@ -378,6 +404,11 @@ impl DialogUiState {
                 self.close();
                 return;
             }
+            // A pending trade keeps the roots as they are, it opens instead of
+            // refreshing them
+            if self.pending_trade {
+                return;
+            }
             // Playback finished, show root options again
             self.refresh_root_options(requests);
             return;
@@ -395,9 +426,10 @@ pub(super) fn handle_dialog_input(
     mut requests: MessageWriter<DialogRequest>,
     mut sounds: MessageWriter<PlaySound>,
     mut sound_manager: ResMut<SoundManager>,
+    inventory_ui: Res<crate::gui::InventoryUiState>,
     mut commands: Commands,
 ) {
-    if !dialog_ui.is_open() {
+    if !dialog_ui.is_open() || inventory_ui.is_open() {
         return;
     }
 
@@ -435,9 +467,17 @@ pub(super) fn advance_dialog_playback(
     mut dialog_ui: ResMut<DialogUiState>,
     mut sounds: MessageWriter<PlaySound>,
     mut requests: MessageWriter<DialogRequest>,
+    mut trade_requests: MessageWriter<OpenTrade>,
 ) {
     if !dialog_ui.is_open() {
         return;
     }
     dialog_ui.advance_playback(time.delta(), &mut sounds, &mut requests);
+    if !dialog_ui.take_pending_trade() {
+        return;
+    }
+    let (Some(player), Some(trader)) = (dialog_ui.npc_player, dialog_ui.npc_talk_to) else {
+        return;
+    };
+    trade_requests.write(OpenTrade { player, trader });
 }

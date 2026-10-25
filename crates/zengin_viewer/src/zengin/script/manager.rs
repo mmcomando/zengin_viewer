@@ -32,12 +32,13 @@ pub struct ScriptManager {
 }
 
 /// Display stats of an item instance for the inventory info panel, string
-/// members resolved from the string table. The `get-item-info` record also
-/// carries `value`/`weight`, currently not shown (the G2 script info lines
-/// cover them).
+/// members resolved from the string table. Weight is currently not shown (the
+/// G2 script info lines cover it).
 #[derive(Debug, Default)]
 pub struct ItemDisplayData {
     pub damage_total: i32,
+    /// Base value (`C_Item.value`).
+    pub value: i32,
     /// `C_Item.description` flavor text, `None` when unset.
     pub description: Option<String>,
     /// Equip requirements as (attribute display name, value) pairs.
@@ -652,6 +653,7 @@ impl ScriptManager {
             .collect();
         ItemDisplayData {
             damage_total: info.damage_total,
+            value: info.value,
             description: self.string_by_id(info.description),
             requirements,
             info_lines,
@@ -1053,6 +1055,7 @@ impl ScriptManager {
                 permanent: dialog_info.permanent,
                 description,
                 important: dialog_info.important,
+                trade: dialog_info.trade,
                 order: dialog_info.order,
             });
 

@@ -277,6 +277,8 @@ pub struct DialogRoot {
     pub description: String,
     pub important: bool,
     pub permanent: bool,
+    /// Selecting this root starts a trade with the npc after its lines play.
+    pub trade: bool,
 }
 
 /// A sub dialog choice registered by `Info_AddChoice` for a `C_INFO` instance.

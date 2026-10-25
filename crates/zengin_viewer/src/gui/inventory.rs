@@ -1,12 +1,13 @@
-//! Placeholder inventory UI: item slot grid and item info panels.
-//! Items are shown as their (truncated) name text instead of 3D models.
+//! Placeholder inventory UI: item slot grids and item info panels. Items are
+//! shown as their (truncated) name text instead of 3D models.
 //!
-// TODO replace item text with 3d models and support two panels at once for trade
+// TODO replace item text with 3d models
 //!
-//! The UI is built from reusable "inventory window" panels keyed by a window
-//! index: today only the player inventory exists, but a trade scene later adds
-//! a second panel (trader side) reusing the same spawn and sync code.
+//! Two reusable "inventory window" panels exist: the trader side on the left
+//! and the player side on the right. A normal inventory shows only the player
+//! panel, a trade shows both and enables buying/selling.
 
+use bevy::log::{info, warn};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
@@ -18,15 +19,32 @@ use crate::zengin::ScriptManager;
 use crate::zengin::get_full_texture_path;
 use crate::zengin::{GameNpc, InstanceId, ItemDisplayData, ScriptResource, WeaponKind};
 
+/// Window index of the trader panel (left side).
+const TRADER_WINDOW: usize = 0;
+/// Window index of the player panel (right side).
+const PLAYER_WINDOW: usize = 1;
+
+/// `TRADE_VALUE_MULTIPLIER` from the Gothic 2 scripts: the share of an item's
+/// value a trader pays when buying it from the player.
+const TRADE_VALUE_MULTIPLIER: f32 = 0.15;
+
 pub struct InventoryUiPlugin;
 
 impl Plugin for InventoryUiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InventoryUiState>();
+        app.add_message::<OpenTrade>();
         app.add_systems(Startup, spawn_inventory_ui);
         app.add_systems(
             Update,
-            (toggle_inventory, handle_inventory_input, sync_inventory_ui).chain(),
+            (
+                open_trade,
+                toggle_inventory,
+                handle_inventory_input,
+                close_orphaned_trade,
+                sync_inventory_ui,
+            )
+                .chain(),
         );
     }
 }
@@ -68,27 +86,34 @@ struct InventoryEntry {
     is_gold: bool,
     /// Sort group: melee weapon, ranged weapon, everything else.
     sort_group: u8,
+    /// Base value (`C_Item.value`), the buy price.
+    value: i32,
 }
 
 /// One window's state: open panels snapshot their items on open.
 struct InventoryWindowState {
+    /// Script instance of the npc owning this inventory.
+    npc: InstanceId,
     /// Header title, e.g. a category name or the trader name.
     title: String,
     selected: usize,
     /// Currently equipped weapons of this window's npc, shown with a red slot.
     equipped_melee: Option<InstanceId>,
     equipped_ranged: Option<InstanceId>,
+    /// Gold stacks are not always shown in the grid, the header always needs them.
+    gold_count: i32,
     items: Vec<InventoryEntry>,
 }
 
-impl InventoryWindowState {
-    /// Gold shown in the header, sum of all gold item stacks.
-    fn gold(&self) -> i32 {
-        self.items
-            .iter()
-            .filter(|entry| entry.is_gold)
-            .map(|entry| entry.count)
-            .sum()
+impl InventoryEntry {
+    /// Price the player pays for this item.
+    fn buy_price(&self) -> i32 {
+        self.value.max(0)
+    }
+
+    /// Price the player receives for this item.
+    fn sell_price(&self) -> i32 {
+        (self.value.max(0) as f32 * TRADE_VALUE_MULTIPLIER).ceil() as i32
     }
 }
 
@@ -112,6 +137,7 @@ fn inventory_entry(
     };
     let name = script.item_log_name(instance_id);
     let stats = script.item_display_data(instance_id);
+    let value = stats.value;
     InventoryEntry {
         instance_id,
         count,
@@ -119,6 +145,49 @@ fn inventory_entry(
         stats: Some(stats),
         is_gold,
         sort_group,
+        value,
+    }
+}
+
+/// Snapshots one npc inventory into a window. Trade windows hide gold stacks
+/// (the header shows the sum) and equipped items, which cannot be traded.
+fn inventory_window(
+    script: &mut ScriptManager,
+    npc: InstanceId,
+    title: String,
+    trade: bool,
+) -> InventoryWindowState {
+    let mut items: Vec<InventoryEntry> = script
+        .inventory(npc)
+        .into_iter()
+        .map(|(instance_id, count)| inventory_entry(script, instance_id, count))
+        .collect();
+    let gold_count = items
+        .iter()
+        .filter(|entry| entry.is_gold)
+        .map(|entry| entry.count)
+        .sum();
+    let (equipped_melee, equipped_ranged) = script
+        .npc_instances()
+        .get(&npc)
+        .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
+        .unwrap_or_default();
+    if trade {
+        items.retain(|entry| {
+            !entry.is_gold
+                && Some(entry.instance_id) != equipped_melee
+                && Some(entry.instance_id) != equipped_ranged
+        });
+    }
+    sort_inventory_items(&mut items);
+    InventoryWindowState {
+        npc,
+        title,
+        selected: 0,
+        equipped_melee,
+        equipped_ranged,
+        gold_count,
+        items,
     }
 }
 
@@ -145,12 +214,23 @@ fn sort_inventory_items(items: &mut [InventoryEntry]) {
     });
 }
 
+/// Request to open the trade panels for the player and the trader npc.
+#[derive(Message)]
+pub struct OpenTrade {
+    pub player: InstanceId,
+    pub trader: InstanceId,
+}
+
 /// State of the inventory UI: closed by default, items snapshot on open.
-/// A trade scene later adds a second window for the trade partner.
 #[derive(Resource, Default)]
 pub struct InventoryUiState {
     open: bool,
-    player_window: Option<InventoryWindowState>,
+    /// Windows by index: [trader, player], the trader one only exists in trade.
+    windows: [Option<InventoryWindowState>; 2],
+    /// Index of the window whose grid receives the navigation input.
+    active_window: usize,
+    /// Gold item instance used for payments, resolved when a trade opens.
+    gold_item: Option<InstanceId>,
 }
 
 impl InventoryUiState {
@@ -161,11 +241,13 @@ impl InventoryUiState {
     /// Closes the inventory UI.
     pub(crate) fn close(&mut self) {
         self.open = false;
+        self.windows = Default::default();
+        self.active_window = 0;
+        self.gold_item = None;
     }
 
-    /// Window whose grid receives the navigation input.
-    fn active_window(&mut self) -> Option<&mut InventoryWindowState> {
-        self.player_window.as_mut()
+    pub(crate) fn is_trade(&self) -> bool {
+        self.windows[TRADER_WINDOW].is_some()
     }
 }
 
@@ -178,7 +260,6 @@ enum InventoryContainer {
 /// Root node of one inventory window panel, holds its index into
 /// [`InventoryUiState::windows`]
 #[derive(Component)]
-#[allow(dead_code)] // window index will be used for trade panels
 struct InventoryWindowPanel(usize);
 
 /// Single grid slot: window index + slot index in that window's items list
@@ -242,11 +323,26 @@ fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .id();
 
-    // Player inventory window, top right
+    // Trader window on the left, only shown in trade mode
     spawn_inventory_window(
         &mut commands,
         root,
-        0,
+        TRADER_WINDOW,
+        String::new(),
+        UiRect {
+            left: Val::Px(24.0),
+            right: Val::Auto,
+            top: Val::Px(24.0),
+            bottom: Val::Auto,
+        },
+        &textures,
+    );
+
+    // Player inventory window on the right
+    spawn_inventory_window(
+        &mut commands,
+        root,
+        PLAYER_WINDOW,
         "Inventory".to_string(),
         UiRect {
             left: Val::Auto,
@@ -496,6 +592,60 @@ fn spawn_inventory_window(
     panel
 }
 
+/// Opens the trade panels: both inventories are snapshotted and the trader
+/// side is focused first.
+fn open_trade(
+    mut requests: MessageReader<OpenTrade>,
+    mut state: ResMut<InventoryUiState>,
+    gothic_script: Res<ScriptResource>,
+) {
+    let Some(request) = requests.read().last() else {
+        return;
+    };
+    let mut script = gothic_script.lock();
+    let trader_title = script
+        .npc_display_name(request.trader)
+        .unwrap_or_else(|| script.call_get_name(request.trader.symbol()));
+    let player = inventory_window(&mut script, request.player, "Inventory".to_string(), true);
+    let trader = inventory_window(&mut script, request.trader, trader_title, true);
+    let gold_item = resolve_gold_item(&mut script, request.player, request.trader);
+    let stacks = (player.items.len(), trader.items.len());
+    state.windows[PLAYER_WINDOW] = Some(player);
+    state.windows[TRADER_WINDOW] = Some(trader);
+    state.active_window = TRADER_WINDOW;
+    state.gold_item = gold_item;
+    state.open = true;
+    info!(
+        "Trade opened with npc({}): player {} stack(s), trader {} stack(s)",
+        request.trader.value(),
+        stacks.0,
+        stacks.1
+    );
+}
+
+/// Gold item used for payments: the known currency instance, falling back to
+/// an inventory stack whose symbol name looks like gold.
+fn resolve_gold_item(
+    script: &mut ScriptManager,
+    player: InstanceId,
+    trader: InstanceId,
+) -> Option<InstanceId> {
+    if let Some(gold) = script.symbol_instance("itmi_gold") {
+        return Some(gold);
+    }
+    let stacks = script
+        .inventory(player)
+        .into_iter()
+        .chain(script.inventory(trader));
+    for (item, _count) in stacks {
+        let name = script.get_name_by_id(item.value()).unwrap_or_default();
+        if name.to_lowercase().contains("gold") {
+            return Some(item);
+        }
+    }
+    None
+}
+
 /// The dialog UI takes precedence: no inventory while a dialog is open.
 fn toggle_inventory(
     action_state: Single<&ActionState<SharedAction>, With<SharedInputMarker>>,
@@ -504,11 +654,14 @@ fn toggle_inventory(
     gothic_script: Res<ScriptResource>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
-    if dialog_ui.is_open() || !action_state.just_pressed(&SharedAction::Inventory) {
+    if !action_state.just_pressed(&SharedAction::Inventory) {
         return;
     }
     if state.open {
-        state.open = false;
+        state.close();
+        return;
+    }
+    if dialog_ui.is_open() {
         return;
     }
 
@@ -517,31 +670,19 @@ fn toggle_inventory(
     };
     let player_id = player_npc.instance_id();
     let mut script = gothic_script.lock();
-    let items = script.inventory(player_id);
-    let mut items: Vec<_> = items
-        .into_iter()
-        .map(|(instance_id, count)| inventory_entry(&mut script, instance_id, count))
-        .collect();
-    sort_inventory_items(&mut items);
-    let (equipped_melee, equipped_ranged) = script
-        .npc_instances()
-        .get(&player_id)
-        .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
-        .unwrap_or_default();
-    let window = InventoryWindowState {
-        title: "Inventory".to_string(),
-        selected: 0,
-        equipped_melee,
-        equipped_ranged,
-        items,
-    };
+    let window = inventory_window(&mut script, player_id, "Inventory".to_string(), false);
     let stacks = window.items.len();
-    state.player_window = Some(window);
+    state.windows[PLAYER_WINDOW] = Some(window);
+    state.windows[TRADER_WINDOW] = None;
+    state.active_window = PLAYER_WINDOW;
+    state.gold_item = None;
     state.open = true;
     info!("Inventory opened with {stacks} item stack(s)");
 }
-/// Grid navigation and closing while the inventory is open. Input goes to
-/// the active window. Confirm equips the selected item.
+
+/// Grid navigation and closing while the inventory is open. In trade mode
+/// moving past the left/right edge switches windows; confirm buys from the
+/// trader window and sells from the player one.
 fn handle_inventory_input(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     mut state: ResMut<InventoryUiState>,
@@ -553,46 +694,183 @@ fn handle_inventory_input(
         return;
     }
     if action_state.just_pressed(&GuiAction::CancelAction) {
-        state.open = false;
+        state.close();
         return;
     }
 
-    let Some(window) = state.active_window() else {
-        return;
-    };
-    let slot_count = window
-        .items
-        .len()
-        .min(InventoryStyle::COLUMNS * InventoryStyle::ROWS);
-    if slot_count == 0 {
-        return;
-    }
-    let selected = &mut window.selected;
-
+    let is_trade = state.is_trade();
+    let active = state.active_window;
     let columns = InventoryStyle::COLUMNS;
-    if action_state.just_pressed(&GuiAction::Left) && *selected % columns > 0 {
-        *selected -= 1;
+    let selected = state.windows[active]
+        .as_ref()
+        .map_or(0, |window| window.selected);
+    let slot_count = state.windows[active].as_ref().map_or(0, |window| {
+        window.items.len().min(columns * InventoryStyle::ROWS)
+    });
+
+    if action_state.just_pressed(&GuiAction::Left) {
+        if is_trade && active == PLAYER_WINDOW && selected.is_multiple_of(columns) {
+            state.active_window = TRADER_WINDOW;
+        } else if !selected.is_multiple_of(columns)
+            && let Some(window) = state.windows[active].as_mut()
+        {
+            window.selected -= 1;
+        }
     }
-    if action_state.just_pressed(&GuiAction::Right)
-        && *selected + 1 < slot_count
-        && *selected % columns < columns - 1
+    if action_state.just_pressed(&GuiAction::Right) {
+        let at_right_edge = selected + 1 >= slot_count || selected % columns + 1 >= columns;
+        if is_trade && active == TRADER_WINDOW && at_right_edge {
+            state.active_window = PLAYER_WINDOW;
+        } else if selected + 1 < slot_count
+            && selected % columns + 1 < columns
+            && let Some(window) = state.windows[active].as_mut()
+        {
+            window.selected += 1;
+        }
+    }
+    if action_state.just_pressed(&GuiAction::Up)
+        && selected >= columns
+        && let Some(window) = state.windows[active].as_mut()
     {
-        *selected += 1;
+        window.selected -= columns;
     }
-    if action_state.just_pressed(&GuiAction::Up) && *selected >= columns {
-        *selected -= columns;
+    if action_state.just_pressed(&GuiAction::Down)
+        && selected + columns < slot_count
+        && let Some(window) = state.windows[active].as_mut()
+    {
+        window.selected += columns;
     }
-    if action_state.just_pressed(&GuiAction::Down) && *selected + columns < slot_count {
-        *selected += columns;
+
+    if !action_state.just_pressed(&GuiAction::Confirm) {
+        return;
     }
-    if action_state.just_pressed(&GuiAction::Confirm)
-        && let Some(entry) = window.items.get(*selected)
+    if is_trade {
+        trade_confirm(&mut state, active, &mut game_log, &gothic_script);
+        return;
+    }
+    if let Some(window) = state.windows[active].as_mut()
+        && let Some(entry) = window.items.get(window.selected)
     {
         let (equipped_melee, equipped_ranged) =
             equip_selected_item(entry, &mut game_log, &gothic_script, player_npc);
         window.equipped_melee = equipped_melee;
         window.equipped_ranged = equipped_ranged;
     }
+}
+
+/// Trade panels belong to an open dialog, closing the dialog closes them too.
+fn close_orphaned_trade(dialog_ui: Res<DialogUiState>, mut state: ResMut<InventoryUiState>) {
+    if state.is_trade() && !dialog_ui.is_open() {
+        state.close();
+    }
+}
+
+/// Buys one item from the trader window or sells one from the player window,
+/// then re-snapshots both windows so counts and gold stay current.
+fn trade_confirm(
+    state: &mut InventoryUiState,
+    active: usize,
+    game_log: &mut GameLog,
+    gothic_script: &ScriptResource,
+) {
+    let Some(window) = state.windows[active].as_ref() else {
+        return;
+    };
+    let Some(entry) = window.items.get(window.selected) else {
+        return;
+    };
+    let item = entry.instance_id;
+    let item_name = entry.name.clone();
+    let buying = active == TRADER_WINDOW;
+    let price = if buying {
+        entry.buy_price()
+    } else {
+        entry.sell_price()
+    };
+
+    let (Some(player), Some(trader)) = (
+        state.windows[PLAYER_WINDOW]
+            .as_ref()
+            .map(|window| window.npc),
+        state.windows[TRADER_WINDOW]
+            .as_ref()
+            .map(|window| window.npc),
+    ) else {
+        return;
+    };
+    if buying {
+        let player_gold = state.windows[PLAYER_WINDOW]
+            .as_ref()
+            .map_or(0, |window| window.gold_count);
+        if player_gold < price {
+            game_log.add(format!("Not enough gold for {item_name} ({price})"));
+            return;
+        }
+    }
+    let gold_item = state.gold_item;
+    if price > 0 && gold_item.is_none() {
+        warn!("Trade has no gold item, {item_name} was not traded");
+        return;
+    }
+
+    let mut script = gothic_script.lock();
+    let (from, to) = if buying {
+        (trader, player)
+    } else {
+        (player, trader)
+    };
+    if script.remove_inventory(from, item, 1) == 0 {
+        warn!(
+            "Trade item({}) is no longer available from npc({})",
+            item.value(),
+            from.value()
+        );
+        return;
+    }
+    script.add_inventory(to, item, 1);
+    if price > 0
+        && let Some(gold_item) = gold_item
+    {
+        if buying {
+            script.remove_inventory(player, gold_item, price);
+            script.add_inventory(trader, gold_item, price);
+        } else {
+            script.add_inventory(player, gold_item, price);
+        }
+    }
+    if buying {
+        game_log.add(format!("Bought {item_name} for {price} gold"));
+    } else {
+        game_log.add(format!("Sold {item_name} for {price} gold"));
+    }
+
+    let player_selected = state.windows[PLAYER_WINDOW]
+        .as_ref()
+        .map_or(0, |window| window.selected);
+    let trader_selected = state.windows[TRADER_WINDOW]
+        .as_ref()
+        .map_or(0, |window| window.selected);
+    let trader_title = state.windows[TRADER_WINDOW]
+        .as_ref()
+        .map(|window| window.title.clone())
+        .unwrap_or_default();
+    state.windows[PLAYER_WINDOW] = Some(inventory_window(
+        &mut script,
+        player,
+        "Inventory".to_string(),
+        true,
+    ));
+    state.windows[TRADER_WINDOW] = Some(inventory_window(&mut script, trader, trader_title, true));
+    clamp_selection(&mut state.windows[PLAYER_WINDOW], player_selected);
+    clamp_selection(&mut state.windows[TRADER_WINDOW], trader_selected);
+}
+
+fn clamp_selection(window: &mut Option<InventoryWindowState>, selected: usize) {
+    let Some(window) = window else {
+        return;
+    };
+    let max = window.items.len().saturating_sub(1);
+    window.selected = selected.min(max);
 }
 /// Equips the selected item as the player's weapon of its kind on confirm, a
 /// second confirm unequips it again. A melee and a ranged weapon can be
@@ -656,16 +934,26 @@ fn equip_selected_item(
 
 /// Updates visibility, header texts, slot contents and the info panel from
 /// the state.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::cognitive_complexity)]
 fn sync_inventory_ui(
     state: Res<InventoryUiState>,
     textures: Res<InventoryTextures>,
     mut containers: Query<(&InventoryContainer, &mut Visibility)>,
+    mut panels: Query<(&InventoryWindowPanel, &mut Node)>,
     mut slots: Query<
         (&InventorySlot, &mut Node, &mut ImageNode, &Children),
-        Without<InventorySlotEquippedOverlay>,
+        (
+            Without<InventorySlotEquippedOverlay>,
+            Without<InventoryWindowPanel>,
+        ),
     >,
-    mut equipped_overlays: Query<&mut Node, With<InventorySlotEquippedOverlay>>,
+    mut equipped_overlays: Query<
+        &mut Node,
+        (
+            With<InventorySlotEquippedOverlay>,
+            Without<InventoryWindowPanel>,
+        ),
+    >,
     mut slot_texts: Query<
         (&mut Text, &InventorySlotTextOrCount),
         (
@@ -714,38 +1002,44 @@ fn sync_inventory_ui(
         return;
     }
 
-    let Some(window) = &state.player_window else {
-        return;
-    };
-    // The window index of the player panel, the only spawned window so far;
-    // UI markers carry it for the future trade partner window
-    let window_index = 0;
-
-    if let Some((_, mut text)) = window_title
-        .iter_mut()
-        .find(|(marker, _)| marker.0 == window_index)
-        && text.0 != window.title
-    {
-        text.0.clone_from(&window.title);
+    for (panel, mut node) in panels.iter_mut() {
+        let used = state
+            .windows
+            .get(panel.0)
+            .is_some_and(|window| window.is_some());
+        let desired = if used { Display::Flex } else { Display::None };
+        if node.display != desired {
+            node.display = desired;
+        }
     }
-    if let Some((_, mut text)) = window_gold
-        .iter_mut()
-        .find(|(marker, _)| marker.0 == window_index)
-    {
-        let gold = format!("Gold: {}", window.gold());
+
+    for (marker, mut text) in window_title.iter_mut() {
+        let Some(window) = state.windows.get(marker.0).and_then(Option::as_ref) else {
+            continue;
+        };
+        if text.0 != window.title {
+            text.0.clone_from(&window.title);
+        }
+    }
+    for (marker, mut text) in window_gold.iter_mut() {
+        let Some(window) = state.windows.get(marker.0).and_then(Option::as_ref) else {
+            continue;
+        };
+        let gold = format!("Gold: {}", window.gold_count);
         if text.0 != gold {
             text.0 = gold;
         }
     }
 
-    let slot_count = window
-        .items
-        .len()
-        .min(InventoryStyle::COLUMNS * InventoryStyle::ROWS);
     for (slot, mut node, mut image, children) in slots.iter_mut() {
-        if slot.window != window_index {
+        let Some(window) = state.windows.get(slot.window).and_then(Option::as_ref) else {
+            node.display = Display::None;
             continue;
-        }
+        };
+        let slot_count = window
+            .items
+            .len()
+            .min(InventoryStyle::COLUMNS * InventoryStyle::ROWS);
         let used = slot.index < slot_count;
         node.display = if used { Display::Flex } else { Display::None };
         if !used {
@@ -754,7 +1048,8 @@ fn sync_inventory_ui(
         let entry = &window.items[slot.index];
         let is_equipped = window.equipped_melee == Some(entry.instance_id)
             || window.equipped_ranged == Some(entry.instance_id);
-        let texture = if slot.index == window.selected {
+        let focused = slot.window == state.active_window && slot.index == window.selected;
+        let texture = if focused {
             &textures.focus
         } else {
             &textures.slot
@@ -797,11 +1092,10 @@ fn sync_inventory_ui(
         }
     }
 
-    let (labels, values) = state
-        .player_window
+    let (labels, values) = state.windows[state.active_window]
         .as_ref()
         .and_then(|window| window.items.get(window.selected))
-        .map(item_info_text)
+        .map(|entry| item_info_text(entry, state.is_trade()))
         .unwrap_or_default();
     for (mut text, is_values) in info_text.iter_mut() {
         let info = if is_values {
@@ -817,9 +1111,18 @@ fn sync_inventory_ui(
 /// Item info panel content: item name, flavor description and the generic
 /// script info-box lines. Returns (labels, values) with one line per row
 /// so the two text columns line up.
-fn item_info_text(entry: &InventoryEntry) -> (String, String) {
+fn item_info_text(entry: &InventoryEntry, is_trade: bool) -> (String, String) {
     let mut label_lines: Vec<String> = vec![entry.name.clone(), String::new()];
     let mut value_lines: Vec<String> = vec![String::new(), String::new()];
+    if is_trade {
+        label_lines.push("Buy:".to_string());
+        value_lines.push(entry.buy_price().to_string());
+        label_lines.push("Sell:".to_string());
+        value_lines.push(entry.sell_price().to_string());
+    } else {
+        label_lines.push("Value:".to_string());
+        value_lines.push(entry.buy_price().to_string());
+    }
     if let Some(stats) = &entry.stats {
         // The description often just repeats the name, skip it in that case
         if let Some(description) = &stats.description
