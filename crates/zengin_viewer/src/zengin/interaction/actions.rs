@@ -1,5 +1,5 @@
 //! Player interaction actions: weapon toggle, item transfer between
-//! inventories, picking up the selected item and the journal trigger.
+//! inventories and picking up the selected item.
 
 use bevy::log::{info, warn};
 use bevy::prelude::*;
@@ -170,17 +170,4 @@ pub(super) fn pickup_selected_item(
     selection.target = None;
     selection.kind = None;
     selection.name.clear();
-}
-
-/// Placeholder journal trigger: logs that the journal was requested until a
-/// real journal UI exists.
-pub(super) fn open_journal(
-    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
-    mut game_log: ResMut<GameLog>,
-) {
-    if !action_state.just_pressed(&GameplayAction::Journal) {
-        return;
-    }
-    game_log.add("Journal clicked".to_string());
-    info!("Journal action triggered");
 }

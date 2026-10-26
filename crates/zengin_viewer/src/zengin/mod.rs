@@ -39,6 +39,7 @@ pub(crate) use crate::zengin::resources::CachedAssetHandles;
 pub(crate) use crate::zengin::resources::NPC_BODY;
 pub(crate) use crate::zengin::resources::STATIC_OBJECT;
 pub(crate) use crate::zengin::script::component::ScriptResource;
+pub(crate) use crate::zengin::script::journal::{JournalSection, JournalStatus, JournalTopic};
 pub(crate) use crate::zengin::script::manager::ItemDisplayData;
 pub(crate) use crate::zengin::script::manager::ScriptManager;
 pub(crate) use crate::zengin::script::state::ScreenMessage;

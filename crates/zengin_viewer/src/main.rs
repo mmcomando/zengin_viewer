@@ -182,6 +182,7 @@ fn main() {
         .add_plugins(GameLogPlugin)
         .add_plugins(crate::gui::HealthBarsPlugin)
         .add_plugins(crate::gui::InventoryUiPlugin)
+        .add_plugins(crate::gui::JournalUiPlugin)
         .add_plugins(crate::gui::ScreenMessagesPlugin);
 
     // The egui debug UI and gizmos are skipped for scenario replays so

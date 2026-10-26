@@ -33,8 +33,8 @@ impl Plugin for PlayerInteractionPlugin {
                 loot::open_selected_chest,
                 actions::toggle_player_weapons,
                 debug::give_test_items,
+                debug::give_test_journal,
                 debug::debug_equipment_on_start,
-                actions::open_journal,
             ),
         );
     }

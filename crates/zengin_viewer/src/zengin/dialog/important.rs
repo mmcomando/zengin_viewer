@@ -8,7 +8,7 @@ use bevy::prelude::*;
 
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::gui::InventoryUiState;
+use crate::gui::{InventoryUiState, JournalUiState};
 use crate::zengin::GameNpc;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::symbol_id::InstanceId;
@@ -47,6 +47,7 @@ pub(super) fn auto_start_important_dialogs(
     gothic_script: Res<ScriptResource>,
     dialog_ui: Res<DialogUiState>,
     inventory_ui: Res<InventoryUiState>,
+    journal_ui: Res<JournalUiState>,
     mut checks: ResMut<ImportantDialogChecks>,
     player: Query<&GlobalTransform, With<PlayerPhysicsBodyMarker>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
@@ -56,7 +57,7 @@ pub(super) fn auto_start_important_dialogs(
     >,
     mut requests: MessageWriter<DialogRequest>,
 ) {
-    if dialog_ui.is_open() || inventory_ui.is_open() {
+    if dialog_ui.is_open() || inventory_ui.is_open() || journal_ui.is_open() {
         return;
     }
     let Ok(player_tr) = player.single() else {

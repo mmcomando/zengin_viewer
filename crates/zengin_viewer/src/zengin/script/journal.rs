@@ -1,8 +1,6 @@
 //! Journal (quest log) state, populated by the `Log_*` host functions. Topics
 //! are identified by their script-side name string.
 
-use std::collections::HashMap;
-
 use bevy::prelude::*;
 
 /// What happened to a journal topic, recorded for the game log.
@@ -71,55 +69,77 @@ impl JournalStatus {
 }
 
 /// One journal topic: its section, status and accumulated entries.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct JournalTopic {
-    /// Section of the topic, used by the future journal UI.
-    #[allow(dead_code)]
+    pub name: String,
     pub section: JournalSection,
-    /// `None` until `Log_SetTopicStatus` sets it.
-    pub status: Option<JournalStatus>,
+    pub status: JournalStatus,
     /// Entries in insertion order.
     pub entries: Vec<String>,
 }
 
-/// All journal topics, keyed by their name.
+/// All journal topics in creation order.
 #[derive(Debug, Default)]
 pub struct JournalManager {
-    topics: HashMap<String, JournalTopic>,
+    topics: Vec<JournalTopic>,
 }
 
 impl JournalManager {
-    /// Adds a new topic in `section`, replacing an existing one. Returns
-    /// `false` when the section is neither mission nor note.
+    /// Topics in creation order, oldest first.
+    pub fn topics(&self) -> &[JournalTopic] {
+        &self.topics
+    }
+
+    /// Adds a new topic in `section`. Returns `false` when a topic with that
+    /// name already exists.
     pub fn create_topic(&mut self, name: String, section: JournalSection) -> bool {
-        self.topics.insert(
+        if self.find(&name).is_some() {
+            return false;
+        }
+        self.topics.push(JournalTopic {
             name,
-            JournalTopic {
-                section,
-                status: None,
-                entries: Vec::new(),
-            },
-        );
+            section,
+            status: JournalStatus::Running,
+            entries: Vec::new(),
+        });
         true
     }
 
-    /// Sets the status of a topic. Returns `false` when the topic does not
-    /// exist.
+    /// Sets the status of a topic. A missing mission topic is created unless
+    /// the status is [`JournalStatus::Obsolete`]. Returns whether the topic
+    /// exists or was created.
     pub fn set_topic_status(&mut self, name: &str, status: JournalStatus) -> bool {
-        let Some(topic) = self.topics.get_mut(name) else {
+        if let Some(topic) = self.find_mut(name) {
+            topic.status = status;
+            return true;
+        }
+        if status == JournalStatus::Obsolete {
             return false;
-        };
-        topic.status = Some(status);
+        }
+        self.topics.push(JournalTopic {
+            name: name.to_string(),
+            section: JournalSection::Mission,
+            status,
+            entries: Vec::new(),
+        });
         true
     }
 
     /// Appends an entry to a topic. Returns `false` when the topic does not
     /// exist.
     pub fn add_entry(&mut self, name: &str, entry: String) -> bool {
-        let Some(topic) = self.topics.get_mut(name) else {
+        let Some(topic) = self.find_mut(name) else {
             return false;
         };
         topic.entries.push(entry);
         true
+    }
+
+    fn find(&self, name: &str) -> Option<&JournalTopic> {
+        self.topics.iter().find(|topic| topic.name == name)
+    }
+
+    fn find_mut(&mut self, name: &str) -> Option<&mut JournalTopic> {
+        self.topics.iter_mut().find(|topic| topic.name == name)
     }
 }

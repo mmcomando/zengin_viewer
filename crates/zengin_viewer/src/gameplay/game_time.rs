@@ -14,6 +14,7 @@ impl Plugin for GameTimePlugin {
             app.insert_resource(GameTime {
                 total_hours: 12.0,
                 speed: 0.0,
+                day: 1,
             });
         }
         app.init_resource::<GameTime>();
@@ -31,6 +32,8 @@ pub struct GameTime {
     pub total_hours: f32,
     /// Multiplier of the base time speed, `0.0` pauses the time.
     pub speed: f32,
+    /// In-game day, starting at 1.
+    pub day: u32,
 }
 
 impl Default for GameTime {
@@ -38,6 +41,7 @@ impl Default for GameTime {
         Self {
             total_hours: 12.0,
             speed: 1.0,
+            day: 1,
         }
     }
 }
@@ -55,5 +59,9 @@ impl GameTime {
 
 pub(crate) fn advance_game_time(time: Res<Time>, mut game_time: ResMut<GameTime>) {
     game_time.total_hours += time.delta_secs() * HOURS_PER_SECOND * game_time.speed;
+    let elapsed_days = (game_time.total_hours / 24.0).floor();
+    if elapsed_days >= 1.0 {
+        game_time.day += elapsed_days as u32;
+    }
     game_time.total_hours %= 24.0;
 }

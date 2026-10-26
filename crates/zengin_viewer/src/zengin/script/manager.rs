@@ -13,7 +13,7 @@ use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::{
     DialogInfo, ItemInfo, NpcInfo, SymbolInfo, SymbolKind,
 };
-use super::journal::JournalChange;
+use super::journal::{JournalChange, JournalManager, JournalTopic};
 use super::state::{
     AlignToWpChange, DialogChoice, DialogLine, DialogRoot, EquipItemChange, GotoChange,
     HealthChange, ImportCallState, InventoryGain, ItemInstanceState, LoadedState, NpcInstanceState,
@@ -240,6 +240,16 @@ impl ScriptManager {
     /// log.
     pub fn drain_journal_changes(&mut self) -> Vec<JournalChange> {
         std::mem::take(&mut self.pending_changes().journal_changes)
+    }
+
+    /// Snapshot of the journal topics in creation order, for the journal UI.
+    pub fn journal_topics(&self) -> Vec<JournalTopic> {
+        self.store.data().journal.topics().to_vec()
+    }
+
+    /// Mutable journal, used by the debug helpers to seed test topics.
+    pub fn journal_mut(&mut self) -> &mut JournalManager {
+        &mut self.store.data_mut().journal
     }
 
     /// Drains the on-screen messages the script requested, for the ECS bridge.

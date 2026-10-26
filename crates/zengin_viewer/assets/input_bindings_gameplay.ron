@@ -28,11 +28,6 @@
                 "KeyCode": Digit2,
             },
         ],
-        Journal: [
-            {
-                "KeyCode": KeyJ,
-            },
-        ],
         Accelerate: [
             {
                 "KeyCode": ShiftLeft,

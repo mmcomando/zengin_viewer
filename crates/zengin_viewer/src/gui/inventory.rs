@@ -13,6 +13,7 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
+use crate::gui::JournalUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::DialogUiState;
 use crate::zengin::ScriptManager;
@@ -767,10 +768,12 @@ fn resolve_gold_item(
     None
 }
 
-/// The dialog UI takes precedence: no inventory while a dialog is open.
+/// The dialog UI takes precedence: no inventory while a dialog or the journal
+/// is open.
 fn toggle_inventory(
     action_state: Single<&ActionState<SharedAction>, With<SharedInputMarker>>,
     dialog_ui: Res<DialogUiState>,
+    journal_ui: Res<JournalUiState>,
     mut state: ResMut<InventoryUiState>,
     gothic_script: Res<ScriptResource>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
@@ -782,7 +785,7 @@ fn toggle_inventory(
         state.close();
         return;
     }
-    if dialog_ui.is_open() {
+    if dialog_ui.is_open() || journal_ui.is_open() {
         return;
     }
 

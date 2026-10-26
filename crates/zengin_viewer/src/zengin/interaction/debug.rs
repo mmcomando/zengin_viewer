@@ -10,6 +10,7 @@ use crate::gui::GameLog;
 use crate::input::{DebugAction, DebugInputMarker};
 use crate::zengin::GameNpc;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::journal::{JournalSection, JournalStatus};
 use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::symbol_id::InstanceId;
 
@@ -31,6 +32,77 @@ const TEST_ITEMS: &[(&str, i32)] = &[
     ("ITRI_STR_01", 1),
     ("ITAM_HP_01", 1),
 ];
+
+/// Hardcoded journal topics seeded by [`give_test_journal`], with the sections,
+/// statuses and entries needed to exercise every journal category.
+const TEST_JOURNAL: &[(&str, JournalSection, JournalStatus, &[&str])] = &[
+    (
+        "Powrót do wieży",
+        JournalSection::Mission,
+        JournalStatus::Running,
+        &[
+            "Muszę wrócić do wieży, aby spotkać się z Xardasem.",
+            "Xardas z pewnością wie, co dzieje się na wyspie.",
+        ],
+    ),
+    (
+        "Pan smoków",
+        JournalSection::Mission,
+        JournalStatus::Success,
+        &["Pokonałem Pana smoków.", "Droga do wieży stoi otwarta."],
+    ),
+    (
+        "Łowcy smoków",
+        JournalSection::Mission,
+        JournalStatus::Failed,
+        &["Nie udało mi się przekonać łowców smoków do pomocy."],
+    ),
+    (
+        "Samotność i bezradność",
+        JournalSection::Note,
+        JournalStatus::Running,
+        &[
+            "Czuję się samotny i bezradny.",
+            "Powinienem poszukać sojuszników.",
+        ],
+    ),
+    (
+        "Bennet siedzi w więzieniu",
+        JournalSection::Note,
+        JournalStatus::Running,
+        &[
+            "Bennet został uwięziony w więzieniu w Khorinis.",
+            "Muszę znaleźć sposób, aby go uwolnić.",
+        ],
+    ),
+];
+
+/// Seeds [`TEST_JOURNAL`] into the script journal on the debug key, for testing
+/// the journal UI without progressing through the story.
+pub(super) fn give_test_journal(
+    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
+    gothic_script: Res<ScriptResource>,
+    mut game_log: ResMut<GameLog>,
+) {
+    if !action_state.just_pressed(&DebugAction::GiveTestJournal) {
+        return;
+    }
+    let mut script = gothic_script.lock();
+    let journal = script.journal_mut();
+    for (name, section, status, entries) in TEST_JOURNAL {
+        journal.create_topic((*name).to_string(), *section);
+        journal.set_topic_status(name, *status);
+        for entry in *entries {
+            journal.add_entry(name, (*entry).to_string());
+        }
+    }
+    drop(script);
+    game_log.add(format!(
+        "Seeded {} test journal topic(s)",
+        TEST_JOURNAL.len()
+    ));
+    info!("Seeded {} test journal topic(s)", TEST_JOURNAL.len());
+}
 
 /// Grants the hardcoded [`TEST_ITEMS`] to the player on the debug key, for
 /// testing combat and the inventory UI without having to pick things up first.
@@ -55,10 +127,7 @@ pub(super) fn give_test_items(
             warn!("Test item {item_name} not found among the loaded instances");
             continue;
         };
-        lines.push(format!(
-            "{} x{count}",
-            item_display_name(&mut script, item)
-        ));
+        lines.push(format!("{} x{count}", item_display_name(&mut script, item)));
     }
     if lines.is_empty() {
         warn!("No test item granted to player({})", player_id);
@@ -136,10 +205,7 @@ pub(super) fn debug_equipment_on_start(
         } else if item_name.starts_with("ITRW_") && !is_ammo {
             ranged = ranged.or(Some(item));
         }
-        lines.push(format!(
-            "{} x{count}",
-            item_display_name(&mut script, item)
-        ));
+        lines.push(format!("{} x{count}", item_display_name(&mut script, item)));
     }
     for (_, weapon) in [(false, melee), (true, ranged)] {
         let Some(weapon) = weapon else {

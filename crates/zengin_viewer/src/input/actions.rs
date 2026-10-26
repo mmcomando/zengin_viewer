@@ -4,7 +4,7 @@ use leafwing_input_manager::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::gui::InventoryUiState;
+use crate::gui::{InventoryUiState, JournalUiState};
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
 use crate::zengin::DialogUiState;
@@ -99,8 +99,6 @@ pub enum GameplayAction {
     EquipMelee,
     /// Toggle the equipped ranged weapon between sheathed and drawn.
     EquipRanged,
-    /// Open the journal UI.
-    Journal,
     /// Move faster while held.
     Accelerate,
 }
@@ -153,6 +151,8 @@ pub enum GuiAction {
 pub enum SharedAction {
     /// Toggle the player inventory UI, closes it when it is open.
     Inventory,
+    /// Toggle the journal UI, closes it when it is open.
+    Journal,
 }
 
 /// Marker for the entity holding the shared [`InputMap`] (and its required
@@ -183,13 +183,17 @@ pub enum DebugAction {
     QuitGame,
     /// Grants a few items to the player for testing the inventory UI.
     GiveTestItems,
+    /// Seeds a few journal topics for testing the journal UI.
+    GiveTestJournal,
 }
 
 /// Exits the application on the `QuitGame` debug action (Escape). While a GUI
-/// (inventory or dialog) is open, it closes that GUI instead of exiting.
+/// is open it steps back instead: the journal entry viewer returns to the topic
+/// list, the journal/inventory/dialog close.
 fn quit_game(
     action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
     mut inventory_ui: ResMut<InventoryUiState>,
+    mut journal_ui: ResMut<JournalUiState>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut exit: MessageWriter<AppExit>,
 ) {
@@ -199,6 +203,14 @@ fn quit_game(
     if inventory_ui.is_open() {
         inventory_ui.close();
         info!("QuitGame closed the open inventory");
+        return;
+    }
+    if journal_ui.is_open() {
+        if journal_ui.escape() {
+            info!("QuitGame closed the journal entry viewer");
+        } else {
+            info!("QuitGame closed the open journal");
+        }
         return;
     }
     if dialog_ui.is_open() {

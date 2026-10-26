@@ -5,6 +5,11 @@
                 "KeyCode": KeyI,
             },
         ],
+        Journal: [
+            {
+                "KeyCode": KeyJ,
+            },
+        ],
     },
     axislike_map: {},
     dual_axislike_map: {},
