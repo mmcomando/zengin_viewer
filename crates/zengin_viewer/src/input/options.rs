@@ -65,6 +65,9 @@ pub struct Options {
     /// `misc/scenario_output/<file stem>/` and must not be absolute.
     #[arg(long = "replay-actions", value_name = "PATH")]
     replay_actions: Option<PathBuf>,
+    /// Start in the main menu instead of starting a new game immediately.
+    #[arg(long)]
+    main_menu: bool,
 }
 
 impl Options {
@@ -82,6 +85,10 @@ impl Options {
 
     pub fn replay_actions(&self) -> Option<&PathBuf> {
         self.replay_actions.as_ref()
+    }
+
+    pub fn main_menu(&self) -> bool {
+        self.main_menu
     }
 
     /// Recording or replaying requires deterministic frame timing.

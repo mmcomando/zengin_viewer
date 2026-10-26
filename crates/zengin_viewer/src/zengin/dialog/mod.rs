@@ -9,6 +9,7 @@ pub(crate) use sounds::SpeechSounds;
 
 pub(crate) use state::DialogUiState;
 
+use crate::game_state::AppState;
 use crate::input::InputMode;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use bevy::prelude::*;
@@ -38,7 +39,8 @@ impl Plugin for GameDialogPlugin {
                 flow::handle_dialog_requests,
             )
                 .chain()
-                .before(ScriptChangesApplied),
+                .before(ScriptChangesApplied)
+                .run_if(in_state(AppState::InGame)),
         );
         app.add_systems(
             Update,
@@ -46,23 +48,29 @@ impl Plugin for GameDialogPlugin {
                 flow::handle_dialog_outputs,
                 camera::aim_dialog_camera,
                 ui::sync_dialog_ui,
-                sync_input_mode,
             )
                 .chain()
-                .after(ScriptChangesApplied),
+                .after(ScriptChangesApplied)
+                .run_if(in_state(AppState::InGame)),
         );
+        app.add_systems(Update, sync_input_mode.after(ScriptChangesApplied));
     }
 }
 
 /// While a dialog, the inventory or the journal is open the input mode is GUI
 /// navigation, otherwise gameplay.
 pub(crate) fn sync_input_mode(
+    state: Res<State<AppState>>,
     dialog_ui: Res<DialogUiState>,
     inventory_ui: Res<crate::gui::InventoryUiState>,
     journal_ui: Res<crate::gui::JournalUiState>,
     mut input_mode: ResMut<InputMode>,
 ) {
-    let mode = if dialog_ui.is_open() || inventory_ui.is_open() || journal_ui.is_open() {
+    let mode = if *state.get() == AppState::MainMenu
+        || dialog_ui.is_open()
+        || inventory_ui.is_open()
+        || journal_ui.is_open()
+    {
         InputMode::Gui
     } else {
         InputMode::Gameplay

@@ -28,6 +28,8 @@ use super::controller::AnimationController;
 use super::data::AnimationData;
 use super::send_desired::send_desired_animations;
 
+use crate::game_state::AppState;
+
 pub struct AutoAnimSequencerPlugin;
 
 impl Plugin for AutoAnimSequencerPlugin {
@@ -51,7 +53,8 @@ impl Plugin for AutoAnimSequencerPlugin {
                 update_model_facing,
             )
                 .chain()
-                .before(super::locomotion::update_animations),
+                .before(super::locomotion::update_animations)
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

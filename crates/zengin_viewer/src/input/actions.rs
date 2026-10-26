@@ -4,6 +4,7 @@ use leafwing_input_manager::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use crate::game_state::AppState;
 use crate::gui::{InventoryUiState, JournalUiState};
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
@@ -184,12 +185,16 @@ pub enum DebugAction {
 }
 
 fn handle_back(
+    state: Res<State<AppState>>,
     action_state: Single<&ActionState<SharedAction>, With<SharedInputMarker>>,
     mut inventory_ui: ResMut<InventoryUiState>,
     mut journal_ui: ResMut<JournalUiState>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut exit: MessageWriter<AppExit>,
 ) {
+    if *state.get() == AppState::MainMenu {
+        return;
+    }
     if !action_state.just_pressed(&SharedAction::Back) {
         return;
     }

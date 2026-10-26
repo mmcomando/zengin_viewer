@@ -4,6 +4,7 @@ use avian3d::{math::*, prelude::*};
 use bevy::{ecs::query::Has, prelude::*};
 use leafwing_input_manager::prelude::ActionState;
 
+use crate::game_state::AppState;
 use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character_camera::{
     camera_movement_system, camera_toggle_input, use_character_camera,
@@ -25,7 +26,8 @@ impl Plugin for CharacterControllerPlugin {
         app.add_systems(
             PreUpdate,
             camera_toggle_input
-                .after(leafwing_input_manager::plugin::InputManagerSystem::ManualControl),
+                .after(leafwing_input_manager::plugin::InputManagerSystem::ManualControl)
+                .run_if(in_state(AppState::InGame)),
         );
 
         app.add_systems(
@@ -39,7 +41,8 @@ impl Plugin for CharacterControllerPlugin {
                 apply_forces_to_dynamic_bodies,
                 camera_movement_system.run_if(use_character_camera),
             )
-                .chain(),
+                .chain()
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

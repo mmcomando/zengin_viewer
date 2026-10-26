@@ -14,6 +14,7 @@ use leafwing_input_manager::buttonlike::ButtonState;
 use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::{ActionState, Actionlike};
 
+use crate::game_state::AppState;
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::character_camera::camera_toggle_input;
 use crate::gameplay::objects::PlayerCharacter;
@@ -201,10 +202,11 @@ fn replay_actions(
     mut gui: Query<&mut ActionState<GuiAction>, With<GuiInputMarker>>,
     mut shared: Query<&mut ActionState<SharedAction>, With<SharedInputMarker>>,
     mut debug: Query<&mut ActionState<DebugAction>, With<DebugInputMarker>>,
-    gothic_script: Res<ScriptResource>,
+    gothic_script: Option<Res<ScriptResource>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
     mut pending: ResMut<PendingLocations>,
     mut game_log: ResMut<GameLog>,
+    mut next_state: ResMut<NextState<AppState>>,
 ) {
     let Some(mut replay) = replay else {
         return;
@@ -221,11 +223,12 @@ fn replay_actions(
         if apply_replay_command(
             &mut replay,
             &command,
-            &gothic_script,
+            gothic_script.as_deref(),
             &player_npc,
             &mut pending,
             &mut commands,
             &mut game_log,
+            &mut next_state,
         ) {
             commands.remove_resource::<ActionReplay>();
             return;
@@ -250,14 +253,16 @@ fn replay_actions(
 
 /// Applies one replayed command. Returns `true` when the replay must abort
 /// (an invalid screenshot path disables the replay entirely).
+#[allow(clippy::cognitive_complexity)]
 fn apply_replay_command(
     replay: &mut ActionReplay,
     command: &ReplayCommand,
-    gothic_script: &ScriptResource,
+    gothic_script: Option<&ScriptResource>,
     player_npc: &Query<&GameNpc, With<PlayerCharacter>>,
     pending: &mut PendingLocations,
     commands: &mut Commands,
     game_log: &mut GameLog,
+    next_state: &mut NextState<AppState>,
 ) -> bool {
     match command {
         ReplayCommand::Press { action, .. } => {
@@ -289,12 +294,20 @@ fn apply_replay_command(
             pending.camera.push((*translation, *rotation));
         }
         ReplayCommand::EquipWeapon { item, .. } => {
+            let Some(gothic_script) = gothic_script else {
+                warn!("EquipWeapon replay command: game script is not loaded");
+                return false;
+            };
             equip_player_weapon(gothic_script, player_npc, item);
         }
         ReplayCommand::Screenshot { path, .. } => {
             return apply_replay_screenshot(replay, path, commands);
         }
         ReplayCommand::GiveTestItems { .. } => {
+            let Some(gothic_script) = gothic_script else {
+                warn!("GiveTestItems replay command: game script is not loaded");
+                return false;
+            };
             let Ok(player_npc) = player_npc.single() else {
                 warn!("GiveTestItems replay command: player npc is not spawned");
                 return false;
@@ -312,10 +325,18 @@ fn apply_replay_command(
             );
         }
         ReplayCommand::GiveTestJournal { .. } => {
+            let Some(gothic_script) = gothic_script else {
+                warn!("GiveTestJournal replay command: game script is not loaded");
+                return false;
+            };
             let mut script = gothic_script.lock();
             let count = seed_test_journal(&mut script);
             game_log.add(format!("Seeded {count} test journal topic(s)"));
             info!("Replay seeded {count} test journal topic(s)");
+        }
+        ReplayCommand::OpenMainMenu { .. } => {
+            info!("Replay opened the main menu");
+            next_state.set(AppState::MainMenu);
         }
     }
     false

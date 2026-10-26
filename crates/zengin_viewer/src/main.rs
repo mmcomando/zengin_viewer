@@ -101,6 +101,7 @@
 )]
 
 mod audio;
+mod game_state;
 mod gameplay;
 mod graphics;
 mod gui;
@@ -119,6 +120,7 @@ pub fn main_assets_dir() -> &'static str {
 }
 
 use crate::audio::SoundPlugin;
+use crate::game_state::{AppState, GameStatePlugin};
 use crate::gameplay::camera::CameraPlugin;
 use crate::gameplay::character::CharacterControllerPlugin;
 use crate::gameplay::distance::DistancePlugin;
@@ -160,11 +162,19 @@ fn main() {
         app.add_plugins(DefaultPlugins.set(window_plugin_options));
     }
 
+    let initial_state = if app.world().resource::<Options>().main_menu() {
+        AppState::MainMenu
+    } else {
+        AppState::InGame
+    };
+    app.insert_state(initial_state);
+
     // Plugins from crates
     app.add_plugins(PhysicsPlugins::default());
 
     // This app custom plugins
-    app.add_plugins(ActionsPlugin)
+    app.add_plugins(GameStatePlugin)
+        .add_plugins(ActionsPlugin)
         // World and its content
         .add_plugins(ZenginPlugin)
         // Environment
@@ -184,6 +194,7 @@ fn main() {
         .add_plugins(crate::gui::HealthBarsPlugin)
         .add_plugins(crate::gui::InventoryUiPlugin)
         .add_plugins(crate::gui::JournalUiPlugin)
+        .add_plugins(crate::gui::MainMenuPlugin)
         .add_plugins(crate::gui::ScreenMessagesPlugin);
 
     // The egui debug UI and gizmos are skipped for scenario replays so

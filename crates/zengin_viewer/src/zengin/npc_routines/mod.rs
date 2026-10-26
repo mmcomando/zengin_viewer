@@ -8,6 +8,7 @@ mod weapons;
 
 use bevy::prelude::*;
 
+use crate::game_state::AppState;
 use crate::gameplay::game_time::advance_game_time;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 
@@ -42,7 +43,8 @@ impl Plugin for NpcRoutinesPlugin {
                 move_along_path.after(update_npc_routines),
             )
                 .after(advance_game_time)
-                .after(ScriptChangesApplied),
+                .after(ScriptChangesApplied)
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

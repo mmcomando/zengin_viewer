@@ -2,6 +2,7 @@ use avian3d::parry::shape::TypedShape;
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
+use crate::game_state::AppState;
 use crate::graphics::{AnimatedJoint, DrawGizmo};
 use crate::zengin::WaypointGraph;
 
@@ -13,28 +14,39 @@ impl Plugin for GizmosPlugin {
 
         app.add_systems(
             Update,
-            draw_convex_hull_gizmos.run_if(|options: Res<GizmosOptions>| options.convex_colliders),
+            draw_convex_hull_gizmos
+                .run_if(|options: Res<GizmosOptions>| options.convex_colliders)
+                .run_if(in_state(AppState::InGame)),
         );
         app.add_systems(
             Update,
-            draw_bones.run_if(|options: Res<GizmosOptions>| options.bones),
+            draw_bones
+                .run_if(|options: Res<GizmosOptions>| options.bones)
+                .run_if(in_state(AppState::InGame)),
         );
         app.add_systems(
             Update,
-            draw_trimesh_gizmos.run_if(|options: Res<GizmosOptions>| options.trimesh_colliders),
+            draw_trimesh_gizmos
+                .run_if(|options: Res<GizmosOptions>| options.trimesh_colliders)
+                .run_if(in_state(AppState::InGame)),
         );
         app.add_systems(
             Update,
             draw_characters_colliders
-                .run_if(|options: Res<GizmosOptions>| options.characters_colliders),
+                .run_if(|options: Res<GizmosOptions>| options.characters_colliders)
+                .run_if(in_state(AppState::InGame)),
         );
         app.add_systems(
             Update,
-            draw_lights.run_if(|options: Res<GizmosOptions>| options.lights),
+            draw_lights
+                .run_if(|options: Res<GizmosOptions>| options.lights)
+                .run_if(in_state(AppState::InGame)),
         );
         app.add_systems(
             Update,
-            draw_waypoints.run_if(|options: Res<GizmosOptions>| options.way_points),
+            draw_waypoints
+                .run_if(|options: Res<GizmosOptions>| options.way_points)
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

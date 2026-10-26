@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
+use crate::game_state::AppState;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::gui::GameLogEntry;
 use crate::zengin::GameNpc;
@@ -60,7 +61,8 @@ impl Plugin for ScriptBridgePlugin {
                 .chain()
                 .in_set(ScriptChangesApplied)
                 .after(advance_game_time)
-                .after(InstanceIndexUpdated),
+                .after(InstanceIndexUpdated)
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

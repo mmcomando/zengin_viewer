@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
+use crate::game_state::AppState;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc};
 
@@ -16,7 +17,9 @@ impl Plugin for InstanceIndexPlugin {
         app.init_resource::<InstanceIndex>();
         app.add_systems(
             Update,
-            (track_npcs, track_items).in_set(InstanceIndexUpdated),
+            (track_npcs, track_items)
+                .in_set(InstanceIndexUpdated)
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

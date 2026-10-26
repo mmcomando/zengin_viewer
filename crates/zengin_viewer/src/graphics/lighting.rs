@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use std::f32::consts::PI;
 
 use super::RenderOptions;
+use crate::game_state::AppState;
 use crate::gameplay::game_time::GameTime;
 
 /// Spawns the sun/moon light and adjusts day/night lighting from the game time.
@@ -13,7 +14,10 @@ pub struct LightingPlugin;
 impl Plugin for LightingPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_lights);
-        app.add_systems(Update, update_day_night_lighting);
+        app.add_systems(
+            Update,
+            update_day_night_lighting.run_if(in_state(AppState::InGame)),
+        );
     }
 }
 

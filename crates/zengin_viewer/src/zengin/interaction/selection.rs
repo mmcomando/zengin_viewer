@@ -5,6 +5,7 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_rich_text3d::{Text3d, Text3dPlugin, Text3dStyling, TextAnchor, TextAtlas};
 
+use crate::game_state::AppState;
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::npc_routines::NpcWeaponMode;
@@ -50,7 +51,12 @@ impl Plugin for SelectionPlugin {
         });
         app.add_observer(on_selectable_added);
         app.add_systems(Startup, spawn_selection_label);
-        app.add_systems(Update, (update_selection, update_selection_label).chain());
+        app.add_systems(
+            Update,
+            (update_selection, update_selection_label)
+                .chain()
+                .run_if(in_state(AppState::InGame)),
+        );
     }
 }
 

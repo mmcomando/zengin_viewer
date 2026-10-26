@@ -13,6 +13,7 @@ mod tests;
 
 use bevy::prelude::*;
 
+use crate::game_state::AppState;
 use crate::gameplay::character::move_and_slide;
 use components::AnimationTrigger;
 use locomotion::{compute_animations, update_animations};
@@ -40,7 +41,9 @@ impl Plugin for SkeletalAnimations {
         // so move-and-slide starts from the new position and can react to it.
         app.add_systems(
             Update,
-            (update_animations.before(move_and_slide), compute_animations).chain(),
+            (update_animations.before(move_and_slide), compute_animations)
+                .chain()
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

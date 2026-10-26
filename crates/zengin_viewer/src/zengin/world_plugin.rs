@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 
+use crate::game_state::AppState;
 use crate::gameplay::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
     PlayerPhysicsBodyMarker,
@@ -20,7 +21,7 @@ use crate::zengin::resources::{
     ZenGinInsertResources, ZenGinModelComponent,
 };
 use crate::zengin::script::bridge::ScriptChangesApplied;
-use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::component::{GameScriptLoaded, ScriptResource};
 use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::{LoadedState, SpawnItem, SpawnNpc};
 use crate::zengin::script::string_value::StringCanon;
@@ -45,13 +46,22 @@ impl Plugin for ZenGinWorldPlugin {
         app.init_resource::<WaypointGraph>();
 
         app.add_message::<SpawnWorld>();
-        app.add_systems(Startup, request_initial_world);
-        app.add_systems(Update, spawn_world.before(ScriptChangesApplied));
+        app.add_systems(
+            OnEnter(AppState::InGame),
+            request_initial_world.after(GameScriptLoaded),
+        );
+        app.add_systems(
+            Update,
+            spawn_world
+                .before(ScriptChangesApplied)
+                .run_if(in_state(AppState::InGame)),
+        );
         app.add_systems(
             Update,
             (spawn_npc_entities, spawn_item_entities)
                 .chain()
-                .after(ScriptChangesApplied),
+                .after(ScriptChangesApplied)
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

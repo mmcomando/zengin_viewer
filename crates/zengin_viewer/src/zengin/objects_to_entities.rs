@@ -20,17 +20,24 @@ use crate::zengin::visual::model::ZenGinModel;
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
+use crate::game_state::AppState;
+
 #[derive(Default)]
 pub struct GameObjectSpawnEntities;
 
 impl Plugin for GameObjectSpawnEntities {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, spawn_npcs);
+        app.add_systems(Update, spawn_npcs.run_if(in_state(AppState::InGame)));
 
-        app.add_systems(Update, add_classify_distance);
+        app.add_systems(
+            Update,
+            add_classify_distance.run_if(in_state(AppState::InGame)),
+        );
         app.add_systems(
             Last,
-            despawn_visual_when_far.after(despawn_visual_when_far_resource),
+            despawn_visual_when_far
+                .after(despawn_visual_when_far_resource)
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

@@ -4,16 +4,23 @@ use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
 use bevy::render::render_resource::{TextureViewDescriptor, TextureViewDimension};
 
+use crate::game_state::AppState;
+
 #[derive(Default)]
 pub struct SkyBoxPlugin;
 
 impl Plugin for SkyBoxPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_skybox);
-        app.add_systems(Update, update_skybox_texture);
         app.add_systems(
             Update,
-            add_skybox_to_camera.run_if(|res: Res<Cubemap>| res.is_loaded),
+            update_skybox_texture.run_if(in_state(AppState::InGame)),
+        );
+        app.add_systems(
+            Update,
+            add_skybox_to_camera
+                .run_if(|res: Res<Cubemap>| res.is_loaded)
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

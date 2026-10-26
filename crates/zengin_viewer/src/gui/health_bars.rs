@@ -3,6 +3,7 @@
 
 use bevy::prelude::*;
 
+use crate::game_state::AppState;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::{NpcHealth, Selection, SelectionKind};
 
@@ -11,7 +12,12 @@ pub struct HealthBarsPlugin;
 impl Plugin for HealthBarsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_health_bars);
-        app.add_systems(Update, (update_player_bar, update_target_bar).chain());
+        app.add_systems(
+            Update,
+            (update_player_bar, update_target_bar)
+                .chain()
+                .run_if(in_state(AppState::InGame)),
+        );
     }
 }
 

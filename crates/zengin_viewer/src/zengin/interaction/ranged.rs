@@ -17,12 +17,19 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::symbol_id::InstanceId;
 use avian3d::prelude::*;
 
+use crate::game_state::AppState;
+
 pub struct RangedCombatPlugin;
 
 impl Plugin for RangedCombatPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<ArrowShot>();
-        app.add_systems(Update, (spawn_arrows, arrow_hits, arrow_cleanup).chain());
+        app.add_systems(
+            Update,
+            (spawn_arrows, arrow_hits, arrow_cleanup)
+                .chain()
+                .run_if(in_state(AppState::InGame)),
+        );
     }
 }
 

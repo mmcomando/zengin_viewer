@@ -87,6 +87,8 @@ pub(crate) enum ReplayCommand {
     GiveTestItems { frame: u64 },
     /// Seeds the hardcoded test journal topics on `frame`.
     GiveTestJournal { frame: u64 },
+    /// Switches to the main menu on `frame`.
+    OpenMainMenu { frame: u64 },
 }
 
 impl ReplayCommand {
@@ -100,7 +102,8 @@ impl ReplayCommand {
             | ReplayCommand::EquipWeapon { frame, .. }
             | ReplayCommand::Screenshot { frame, .. }
             | ReplayCommand::GiveTestItems { frame }
-            | ReplayCommand::GiveTestJournal { frame } => frame,
+            | ReplayCommand::GiveTestJournal { frame }
+            | ReplayCommand::OpenMainMenu { frame } => frame,
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 
+use crate::game_state::AppState;
 use crate::graphics::RenderOptions;
 
 use bevy::{color::palettes::tailwind, prelude::*};
@@ -11,8 +12,11 @@ impl Plugin for DiscoLamp {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_disco);
 
-        app.add_systems(Update, entity_rotate);
-        app.add_systems(Update, sync_disco_shadows);
+        app.add_systems(Update, entity_rotate.run_if(in_state(AppState::InGame)));
+        app.add_systems(
+            Update,
+            sync_disco_shadows.run_if(in_state(AppState::InGame)),
+        );
     }
 }
 

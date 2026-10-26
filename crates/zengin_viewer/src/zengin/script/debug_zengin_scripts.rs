@@ -22,9 +22,13 @@ fn debug_zengin_scripts() {
     executor.load_symbol_table();
 
     executor.initialize_instances();
-    let init_function_id = executor.get_function_id("init_newworld");
+    let init_function_id = executor
+        .try_get_function_id("init_newworld")
+        .expect("init_newworld function");
     executor.call_function(init_function_id);
-    let startup_function_id = executor.get_function_id("startup_newworld");
+    let startup_function_id = executor
+        .try_get_function_id("startup_newworld")
+        .expect("startup_newworld function");
     executor.call_function(startup_function_id);
     executor.call_npc_routines();
     executor.load_item_instances();

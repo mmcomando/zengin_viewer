@@ -2,6 +2,8 @@
 
 use bevy::prelude::*;
 
+use crate::game_state::AppState;
+
 pub struct GameLogPlugin;
 
 impl Plugin for GameLogPlugin {
@@ -9,7 +11,12 @@ impl Plugin for GameLogPlugin {
         app.init_resource::<GameLog>();
         app.add_message::<GameLogEntry>();
         app.add_systems(Startup, spawn_game_log);
-        app.add_systems(Update, (handle_game_log_messages, update_game_log).chain());
+        app.add_systems(
+            Update,
+            (handle_game_log_messages, update_game_log)
+                .chain()
+                .run_if(in_state(AppState::InGame)),
+        );
     }
 }
 

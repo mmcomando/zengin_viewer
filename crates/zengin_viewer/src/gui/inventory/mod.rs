@@ -18,6 +18,8 @@ pub(crate) use state::{InventoryUiState, OpenLoot, OpenTrade};
 
 use bevy::prelude::*;
 
+use crate::game_state::AppState;
+
 pub struct InventoryUiPlugin;
 
 impl Plugin for InventoryUiPlugin {
@@ -36,7 +38,8 @@ impl Plugin for InventoryUiPlugin {
                 input::close_orphaned_trade,
                 render::sync_inventory_ui,
             )
-                .chain(),
+                .chain()
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

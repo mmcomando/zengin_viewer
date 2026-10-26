@@ -14,6 +14,8 @@ pub(crate) use state::JournalUiState;
 
 use bevy::prelude::*;
 
+use crate::game_state::AppState;
+
 pub struct JournalUiPlugin;
 
 impl Plugin for JournalUiPlugin {
@@ -27,7 +29,8 @@ impl Plugin for JournalUiPlugin {
                 input::handle_journal_input,
                 render::sync_journal_ui,
             )
-                .chain(),
+                .chain()
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

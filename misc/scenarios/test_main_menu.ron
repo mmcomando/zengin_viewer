@@ -1,0 +1,8 @@
+[
+    OpenMainMenu(frame: 1),
+    Screenshot(frame: 100, path: "main_menu.png"),
+    Press(frame: 190, action: Gui(Confirm)),
+    Release(frame: 195, action: Gui(Confirm)),
+    Screenshot(frame: 260, path: "main_menu_closed_ingame.png"),
+    Press(frame: 300, action: Shared(Back)),
+]

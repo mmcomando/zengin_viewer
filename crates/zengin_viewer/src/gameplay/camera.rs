@@ -6,6 +6,7 @@ use bevy::{
     prelude::*,
 };
 
+use crate::game_state::AppState;
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::xr::is_xr_enabled;
@@ -28,14 +29,19 @@ impl Plugin for CameraPlugin {
                 (rotate_third_person_camera, rotate_third_person_camera_mouse)
                     .before(crate::gameplay::character_camera::camera_movement_system)
                     .run_if(use_third_person_camera),
-            ),
+            )
+                .run_if(in_state(AppState::InGame)),
         );
         app.add_systems(
             Update,
             update_dialog_camera
-                .run_if(|info: Res<CameraResource>| info.current_camera == CurrentCamera::Dialog),
+                .run_if(|info: Res<CameraResource>| info.current_camera == CurrentCamera::Dialog)
+                .run_if(in_state(AppState::InGame)),
         );
-        app.add_systems(Update, apply_teleport_requests);
+        app.add_systems(
+            Update,
+            apply_teleport_requests.run_if(in_state(AppState::InGame)),
+        );
 
         if !is_xr_enabled() {
             // Disable main camera for performance

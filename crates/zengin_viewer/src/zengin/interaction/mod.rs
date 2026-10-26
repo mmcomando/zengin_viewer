@@ -14,7 +14,9 @@ pub(crate) use combat::{MeleeHit, NpcDied};
 pub(crate) use combat::{NpcDamageData, damage_npc};
 pub(crate) use debug::{grant_test_items, seed_test_journal};
 
+use crate::game_state::AppState;
 use crate::zengin::script::TransferItems;
+use crate::zengin::script::component::GameScriptLoaded;
 
 pub struct PlayerInteractionPlugin;
 
@@ -23,7 +25,10 @@ impl Plugin for PlayerInteractionPlugin {
         app.add_message::<TransferItems>();
         app.add_message::<NpcDied>();
         app.add_message::<MeleeHit>();
-        app.add_systems(Startup, debug::seed_test_journal_on_start);
+        app.add_systems(
+            OnEnter(AppState::InGame),
+            debug::seed_test_journal_on_start.after(GameScriptLoaded),
+        );
         app.add_systems(
             Update,
             (
@@ -35,7 +40,8 @@ impl Plugin for PlayerInteractionPlugin {
                 loot::open_selected_chest,
                 actions::toggle_player_weapons,
                 debug::debug_equipment_on_start,
-            ),
+            )
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

@@ -47,6 +47,11 @@ pub(crate) use crate::zengin::script::state::ScreenMessage;
 pub(crate) use crate::zengin::script::state::WeaponKind;
 pub(crate) use crate::zengin::script::state::WeaponMode;
 pub(crate) use crate::zengin::script::symbol_id::InstanceId;
+pub(crate) use crate::zengin::script::{
+    MENU_FLAG_ALIGN_CENTER, MENU_FLAG_DONT_SCALE_DIM, MENU_FLAG_SHOW_INFO, MENU_ITEM_FLAG_DISABLED,
+    MENU_ITEM_FLAG_TXT_CENTER, MENU_SCRIPT_DIV, MenuDefinition, MenuItemDefinition,
+    MenuScriptResource, SEL_ACTION_CLOSE, SEL_ACTION_START_MENU,
+};
 pub(crate) use crate::zengin::statistics::StatisticsZengin;
 pub(crate) use crate::zengin::waypoint_graph::WaypointGraph;
 

@@ -60,12 +60,12 @@ impl super::ScriptManager {
 
     /// Resolves a function symbol by name, verifying that it is a function.
     /// Panics when the symbol does not exist or is not a function.
-    pub fn get_function_id(&mut self, symbol_name: &str) -> FunctionId {
-        let symbol_id = self.get_symbol_id(symbol_name);
-        self.symbol_table()
-            .function(symbol_id.value())
-            .expect("Symbol is not a function")
-    }
+    // pub fn get_function_id(&mut self, symbol_name: &str) -> FunctionId {
+    //     let symbol_id = self.get_symbol_id(symbol_name);
+    //     self.symbol_table()
+    //         .function(symbol_id.value())
+    //         .expect("Symbol is not a function")
+    // }
 
     /// Resolves a callable symbol by name, `None` when the symbol does not
     /// exist or is not a function.

@@ -1,3 +1,4 @@
+use crate::game_state::AppState;
 use crate::zengin::GameNpc;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{common::gothic2_dir, script::manager::ScriptManager};
@@ -15,11 +16,28 @@ pub struct GothicScriptsPlugin;
 
 impl Plugin for GothicScriptsPlugin {
     fn build(&self, app: &mut App) {
-        let script = ScriptResource::new();
-        app.insert_resource(script);
-        app.insert_resource(load_dialog_texts());
-        app.add_systems(Update, update_script_npc_state);
+        app.add_systems(
+            OnEnter(AppState::InGame),
+            initialize_game_script.in_set(GameScriptLoaded),
+        );
+        app.add_systems(
+            Update,
+            update_script_npc_state.run_if(in_state(AppState::InGame)),
+        );
     }
+}
+
+/// Marks the point in `OnEnter(InGame)` after which the game script and dialog
+/// texts are available as resources.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GameScriptLoaded;
+
+/// Loads the game script and dialog texts when entering the game. This keeps
+/// the main menu from paying for GOTHIC.DAT conversion or instance setup.
+fn initialize_game_script(world: &mut World) {
+    info!("Load game script");
+    world.insert_resource(ScriptResource::new());
+    world.insert_resource(load_dialog_texts());
 }
 
 /// Keeps the npc world positions in sync with the world. Uses `GlobalTransform`

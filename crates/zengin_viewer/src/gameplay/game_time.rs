@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::game_state::AppState;
 use crate::input::Options;
 
 /// Advances the running game time every frame.
@@ -18,7 +19,7 @@ impl Plugin for GameTimePlugin {
             });
         }
         app.init_resource::<GameTime>();
-        app.add_systems(Update, advance_game_time);
+        app.add_systems(Update, advance_game_time.run_if(in_state(AppState::InGame)));
     }
 }
 
