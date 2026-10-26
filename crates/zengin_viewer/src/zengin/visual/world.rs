@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use zen_kit_rs::{
-    misc::{GameVersion, VfsOverwriteBehavior, VisualType, VobType},
+    misc::{GameVersion, VisualType, VobType},
     vfs::Vfs,
     vobs::virtual_object::{VirtualObject, Visual},
 };
@@ -26,55 +26,11 @@ use crate::{
 const PLARCEHOLDER_MESH: &str = "/_WORK/DATA/MESHES/_COMPILED/SPHERE.MRM";
 
 pub fn load_zengin_world_data(
+    vfs: &Vfs,
     world_path: &str,
     vm_state: &crate::zengin::script::state::LoadedState,
     spawn_item: &mut MessageWriter<SpawnItem>,
 ) -> ZenGinWorldData {
-    let vfs = Vfs::new();
-
-    // TODO use shared vfs which is also used by zengin loader
-    let vfs_override = VfsOverwriteBehavior::ALL;
-    let dir = gothic2_dir();
-    vfs.mount_disk_host(&format!("{}/Data/Anims.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Anims_Addon.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Meshes.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Meshes_Addon.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Sounds.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Sounds_Addon.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Sounds_bird_01.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Speech1.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Speech2.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Speech_Addon.vdf", dir), vfs_override);
-    vfs.mount_disk_host(
-        &format!("{}/Data/Speech_English_Patch_Atari.vdf", dir),
-        vfs_override,
-    );
-    vfs.mount_disk_host(
-        &format!("{}/Data/Speech_heyou_citygde_engl.vdf", dir),
-        vfs_override,
-    );
-    vfs.mount_disk_host(
-        &format!("{}/Data/Speech_Parlan_engl.vdf", dir),
-        vfs_override,
-    );
-    vfs.mount_disk_host(&format!("{}/Data/SystemPack.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Textures.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Textures_Addon.vdf", dir), vfs_override);
-    vfs.mount_disk_host(
-        &format!("{}/Data/Textures_Addon_Menu_English.vdf", dir),
-        vfs_override,
-    );
-    vfs.mount_disk_host(
-        &format!("{}/Data/Textures_Fonts_Apostroph.vdf", dir),
-        vfs_override,
-    );
-    vfs.mount_disk_host(
-        &format!("{}/Data/Textures_multilingual_Jowood.vdf", dir),
-        vfs_override,
-    );
-    vfs.mount_disk_host(&format!("{}/Data/Worlds.vdf", dir), vfs_override);
-    vfs.mount_disk_host(&format!("{}/Data/Worlds_Addon.vdf", dir), vfs_override);
-
     if false {
         print_nodes(&vfs.get_root(), 0);
     }
@@ -100,7 +56,7 @@ pub fn load_zengin_world_data(
         .collect();
 
     for obj in world.root_objects() {
-        load_objects(&vfs, &mut data, &item_ids, &obj, spawn_item);
+        load_objects(vfs, &mut data, &item_ids, &obj, spawn_item);
     }
     let way_net = world.way_net();
     let (waypoint_graph, way_points) = load_way_net_points(&way_net);

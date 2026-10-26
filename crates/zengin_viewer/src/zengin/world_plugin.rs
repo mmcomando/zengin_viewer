@@ -135,7 +135,10 @@ fn spawn_world_data(
     let loaded_state = gothic_script.loaded_state();
     println!("\n-----LOAD WORLD ZEN DATA-----\n");
     let world_path = format!("/_WORK/DATA/WORLDS/{world_name}.ZEN");
-    let mut world_data = load_zengin_world_data(&world_path, loaded_state, spawn_item);
+    let mut world_data = {
+        let vfs = vfs.0.lock().unwrap();
+        load_zengin_world_data(&vfs, &world_path, loaded_state, spawn_item)
+    };
     // Keep waypoint positions around for runtime npc routine teleporting,
     // spots take precedence over way points (same lookup order as npc placement).
     let mut way_points = world_data.way_points.clone();
