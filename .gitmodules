@@ -2,6 +2,11 @@
 	path = crates/ZenKit-sys/vendor/ZenKitCAPI
 	url = https://github.com/GothicKit/ZenKitCAPI.git
 	branch = main
+
 [submodule "crates/ZenKit-sys/vendor/ZenKitCAPI"]
 	path = crates/ZenKit-sys/vendor/ZenKitCAPI
 	url = https://github.com/GothicKit/ZenKitCAPI
+
+[submodule "crates/daedalus_wasm/tests_output"]
+	path = crates/daedalus_wasm/tests_output
+	url = https://github.com/mmcomando/daedalus_wasm_tests
