@@ -6,6 +6,7 @@ mod dialog;
 mod inventory;
 mod npc;
 mod strings;
+mod world;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -25,6 +26,8 @@ pub struct ScriptManager {
     /// Cache of resolved `_loop` function symbol ids of routine state
     /// functions, `None` when the state has no loop function.
     pub(super) routine_loop_functions: HashMap<FunctionId, Option<FunctionId>>,
+    /// `startup_global` ran, it is a one-time script entry point.
+    pub(super) global_startup_done: bool,
 }
 
 /// Display stats of an item instance for the inventory info panel, string
@@ -86,6 +89,7 @@ impl ScriptManager {
             store,
             instance: instance_arc,
             routine_loop_functions: HashMap::new(),
+            global_startup_done: false,
         }
     }
 

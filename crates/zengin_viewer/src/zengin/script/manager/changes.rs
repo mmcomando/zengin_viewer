@@ -122,6 +122,11 @@ impl super::ScriptManager {
         self.store.data_mut().player_instance = Some(player);
     }
 
+    /// Whether the player instance was set by a world spawn.
+    pub fn has_player_instance(&self) -> bool {
+        self.store.data().player_instance.is_some()
+    }
+
     pub fn take_close_dialog(&mut self) -> bool {
         std::mem::take(&mut self.store.data_mut().close_dialog)
     }

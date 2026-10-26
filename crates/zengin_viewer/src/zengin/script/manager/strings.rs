@@ -66,6 +66,13 @@ impl super::ScriptManager {
             .expect("Symbol is not a function")
     }
 
+    /// Resolves a callable symbol by name, `None` when the symbol does not
+    /// exist or is not a function.
+    pub fn try_get_function_id(&mut self, symbol_name: &str) -> Option<FunctionId> {
+        let symbol = self.try_get_symbol_id(symbol_name)?;
+        self.symbol_table().function(symbol.value())
+    }
+
     pub fn symbol_table(&self) -> &SymbolTable {
         &self.store.data().symbol_table
     }

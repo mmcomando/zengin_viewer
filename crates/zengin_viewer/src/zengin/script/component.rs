@@ -53,9 +53,8 @@ impl ScriptResource {
     }
 }
 
-/// Loads and initializes the compiled world script. Straight-line sequence of
-/// script calls; `#[allow]` because bevy's `info!` macros expand to branching
-/// code, which pushes clippy's cognitive complexity far above the real one.
+/// Loads the compiled script and its global instance data. World-specific
+/// script entry points run on world load, see [`ScriptManager::load_world`].
 #[allow(clippy::cognitive_complexity)]
 fn load_gothic_script_manager() -> ScriptManager {
     let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
@@ -69,14 +68,6 @@ fn load_gothic_script_manager() -> ScriptManager {
 
     info!("Call script initialize instances");
     script.initialize_instances();
-    let init_function_id = script.get_function_id("init_newworld");
-    info!("Call script init_newworld function");
-    script.call_function(init_function_id);
-    let startup_function_id = script.get_function_id("startup_newworld");
-    info!("Call script startup_newworld function");
-    script.call_function(startup_function_id);
-    info!("Call script npc routines");
-    script.call_npc_routines();
     info!("Call script load item instances");
     script.load_item_instances();
     info!("Call script load npc instances");

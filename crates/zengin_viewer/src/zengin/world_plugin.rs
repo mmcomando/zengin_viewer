@@ -19,13 +19,14 @@ use crate::zengin::resources::{
     CachedAssetHandles, DYNAMIC_OBJECT, NamedModels, SELECTABLE, STATIC_OBJECT,
     ZenGinInsertResources, ZenGinModelComponent,
 };
+use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::{LoadedState, SpawnItem, SpawnNpc};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
-use crate::zengin::waypoint_graph::{Spots, spawn_waypoint_entities};
+use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
 use crate::zengin::{GameChest, GameItem, GameNpc, ZenginVfs};
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
@@ -38,12 +39,41 @@ impl Plugin for ZenGinWorldPlugin {
         app.add_plugins(ZenGinInsertResources);
         app.add_plugins(GameObjectSpawnEntities);
 
-        app.add_systems(Startup, spawn_world);
-        app.add_systems(Update, (spawn_npc_entities, spawn_item_entities).chain());
+        app.init_resource::<AnimationFiles>();
+        app.init_resource::<WayPoints>();
+        app.init_resource::<Spots>();
+        app.init_resource::<WaypointGraph>();
+
+        app.add_message::<SpawnWorld>();
+        app.add_systems(Startup, request_initial_world);
+        app.add_systems(Update, spawn_world.before(ScriptChangesApplied));
+        app.add_systems(
+            Update,
+            (spawn_npc_entities, spawn_item_entities)
+                .chain()
+                .after(ScriptChangesApplied),
+        );
     }
 }
 
+/// World load request; `world_name` is the path relative to the worlds
+/// directory without the `.ZEN` extension (e.g. `NEWWORLD/NEWWORLD`).
+#[derive(Message)]
+pub struct SpawnWorld {
+    pub world_name: String,
+    /// World has no saved state, its one-time startup script entry points run.
+    pub clean_spawn: bool,
+}
+
+fn request_initial_world(mut spawn_world: MessageWriter<SpawnWorld>) {
+    spawn_world.write(SpawnWorld {
+        world_name: "NEWWORLD/NEWWORLD".to_string(),
+        clean_spawn: true,
+    });
+}
+
 fn spawn_world(
+    mut requests: MessageReader<SpawnWorld>,
     mut commands: Commands,
     mut handles_map: ResMut<CachedAssetHandles>,
     mut named_models: ResMut<NamedModels>,
@@ -54,27 +84,48 @@ fn spawn_world(
     mut meshes: ResMut<Assets<Mesh>>,
     mut spawn_item: MessageWriter<SpawnItem>,
 ) {
+    for SpawnWorld {
+        world_name,
+        clean_spawn,
+    } in requests.read()
+    {
+        spawn_world_data(
+            world_name,
+            *clean_spawn,
+            &mut commands,
+            &mut handles_map,
+            &mut named_models,
+            &asset_server,
+            &vfs,
+            &gothic_script,
+            &mut materials,
+            &mut meshes,
+            &mut spawn_item,
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_world_data(
+    world_name: &str,
+    clean_spawn: bool,
+    commands: &mut Commands,
+    handles_map: &mut CachedAssetHandles,
+    named_models: &mut NamedModels,
+    asset_server: &Res<AssetServer>,
+    vfs: &ZenginVfs,
+    gothic_script: &ScriptResource,
+    materials: &mut Assets<StandardMaterial>,
+    meshes: &mut Assets<Mesh>,
+    spawn_item: &mut MessageWriter<SpawnItem>,
+) {
     let _span = info_span!("spawn_world").entered();
     println!("\n-----SCRIPTS VM-----\n");
     let mut gothic_script = gothic_script.lock();
     let loaded_state = gothic_script.loaded_state();
     println!("\n-----LOAD WORLD ZEN DATA-----\n");
-    let mut world_data = load_zengin_world_data(
-        "/_WORK/DATA/WORLDS/NEWWORLD/NEWWORLD.ZEN",
-        loaded_state,
-        &mut spawn_item,
-    );
-    if false {
-        let world_data_oldw = load_zengin_world_data(
-            "/_WORK/DATA/WORLDS/OLDWORLD/OLDWORLD.ZEN",
-            loaded_state,
-            &mut spawn_item,
-        );
-        world_data
-            .light_instances
-            .extend(world_data_oldw.light_instances);
-    }
-
+    let world_path = format!("/_WORK/DATA/WORLDS/{world_name}.ZEN");
+    let mut world_data = load_zengin_world_data(&world_path, loaded_state, spawn_item);
     // Keep waypoint positions around for runtime npc routine teleporting,
     // spots take precedence over way points (same lookup order as npc placement).
     let mut way_points = world_data.way_points.clone();
@@ -88,20 +139,24 @@ fn spawn_world(
             .map(|(name, tr)| (name.clone(), tr.translation))
             .collect(),
     );
+
+    println!("\n-----CALL WORLD SCRIPTS-----\n");
+    gothic_script.load_world(world_name, clean_spawn);
+
     commands.insert_resource(WayPoints { points: way_points });
     commands.insert_resource(Spots(std::mem::take(&mut world_data.spots)));
     commands.insert_resource(AnimationFiles(std::mem::take(&mut world_data.anim_files)));
-    spawn_waypoint_entities(&mut commands, &world_data.waypoint_graph);
+    spawn_waypoint_entities(commands, &world_data.waypoint_graph);
     commands.insert_resource(std::mem::take(&mut world_data.waypoint_graph));
 
     // Handles of models referenced by name in code, resolved once with the
     // loaded scripts. `None` models are skipped at use time.
     init_named_models(
-        &mut named_models,
+        named_models,
         gothic_script.loaded_state(),
-        &vfs,
-        &asset_server,
-        &mut handles_map,
+        vfs,
+        asset_server,
+        handles_map,
     );
 
     println!("\n----CREATE ENGINE ENTITIES------\n");
@@ -121,7 +176,7 @@ fn spawn_world(
     ));
 
     for instance in &world_data.static_models {
-        let model_handle = handles_map.get_model_handle(&asset_server, &instance.archetype, None);
+        let model_handle = handles_map.get_model_handle(asset_server, &instance.archetype, None);
         commands.spawn((
             ClassifyDistance::default(),
             ZenGinModelComponent {
@@ -136,7 +191,7 @@ fn spawn_world(
     }
 
     for chest in world_data.chests {
-        let model_handle = handles_map.get_model_handle(&asset_server, &chest.archetype, None);
+        let model_handle = handles_map.get_model_handle(asset_server, &chest.archetype, None);
         commands.spawn((
             ClassifyDistance::default(),
             GameChest {
@@ -194,7 +249,9 @@ fn spawn_world(
         }
     }
 
-    spawn_player(&mut commands, &mut gothic_script);
+    if !gothic_script.has_player_instance() {
+        spawn_player(commands, &mut gothic_script);
+    }
 }
 
 /// Resolves the handles of models referenced by name in code, called at world
