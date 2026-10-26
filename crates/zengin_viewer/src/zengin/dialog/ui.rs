@@ -22,7 +22,6 @@ impl DialogStyle {
     pub(super) const LINE_TEXT_COLOR: Color = Color::srgb(0.9, 0.75, 0.35);
 }
 
-/// Identifies the persistent dialog UI containers, they are only toggled via [`Visibility`]
 #[derive(Component)]
 pub(super) enum DialogContainer {
     Root,
@@ -73,7 +72,6 @@ pub(super) fn override_default_font(mut fonts: ResMut<Assets<Font>>) {
         .unwrap();
 }
 
-/// Spawns the whole dialog UI once at startup, hidden until a dialog opens.
 /// Option rows are spawned lazily on demand and never removed, unused ones get `Display::None`.
 pub(super) fn spawn_dialog_ui(mut commands: Commands) {
     let root = spawn_gui_root(&mut commands, DialogContainer::Root);
@@ -100,7 +98,6 @@ fn spawn_options_panel(commands: &mut Commands, root: Entity) {
         ))
         .id();
 
-    // Scrollable rows, option rows are spawned lazily into it and never removed
     commands.spawn((
         ChildOf(options_panel),
         DialogRowsContainer,
@@ -141,7 +138,6 @@ fn spawn_lines_panel(commands: &mut Commands, root: Entity) {
             },
         ))
         .with_children(|lines_panel| {
-            // One background box behind the npc name and the dialog line
             lines_panel
                 .spawn((
                     BackgroundColor(DialogStyle::PANEL_BACKGROUND),
@@ -181,7 +177,6 @@ fn spawn_lines_panel(commands: &mut Commands, root: Entity) {
         });
 }
 
-/// Updates all dialog UI entities from [`DialogUiState`], runs after the state systems
 pub(super) fn sync_dialog_ui(
     mut commands: Commands,
     mut dialog_ui: ResMut<DialogUiState>,
@@ -225,7 +220,6 @@ pub(super) fn sync_dialog_ui(
     }
 }
 
-/// Shows/hides the containers depending on dialog state and mode
 fn sync_container_visibility(
     containers: &mut Query<(&DialogContainer, &mut Visibility)>,
     dialog_ui: &DialogUiState,
@@ -242,7 +236,6 @@ fn sync_container_visibility(
     }
 }
 
-/// Reuses, spawns or hides option rows when the dialog opened for a (new) npc
 fn sync_option_rows(
     commands: &mut Commands,
     dialog_ui: &mut DialogUiState,
@@ -305,7 +298,6 @@ fn sync_option_rows(
     scroll_position.0 = Vec2::ZERO;
 }
 
-/// Highlights the selected row
 fn sync_row_highlight(
     dialog_ui: &DialogUiState,
     rows: &mut Query<(
@@ -323,7 +315,6 @@ fn sync_row_highlight(
     }
 }
 
-/// Applies or removes the selected look of a single row
 fn apply_row_selection(
     mut text_color: Mut<TextColor>,
     mut text_font: Mut<TextFont>,
@@ -343,7 +334,6 @@ fn apply_row_selection(
     set_font_size(&mut text_font, font_size);
 }
 
-/// Keeps the selected row visible while scrolling
 fn sync_scroll_follow(
     dialog_ui: &DialogUiState,
     rows_container: &mut Query<
@@ -361,7 +351,6 @@ fn sync_scroll_follow(
     }
 }
 
-/// Shows the npc name and the currently displayed dialog line
 fn sync_line_texts(
     dialog_ui: &DialogUiState,
     npc_name_text: &mut Query<&mut Text, NpcNameTextFilter>,
@@ -377,7 +366,6 @@ fn sync_line_texts(
     }
 }
 
-/// Spawns a single option row into the rows container
 fn spawn_option_row(
     commands: &mut Commands,
     parent: Entity,

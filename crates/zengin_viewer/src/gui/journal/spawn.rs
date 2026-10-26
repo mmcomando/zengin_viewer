@@ -5,7 +5,6 @@ use crate::ui_kit::{UiText, spawn_gui_root};
 use super::state::JournalCategory;
 use super::style::JournalStyle;
 
-/// Identifies the persistent journal containers, toggled via [`Visibility`]
 #[derive(Component)]
 pub(super) enum JournalContainerMarker {
     Root,
@@ -32,7 +31,6 @@ pub(super) enum JournalTextMarker {
     DetailFooter,
 }
 
-/// Spawns the whole journal UI once at startup, hidden until opened.
 pub(super) fn spawn_journal_ui(mut commands: Commands) {
     let root = spawn_gui_root(&mut commands, JournalContainerMarker::Root);
     commands.entity(root).insert(GlobalZIndex(10));

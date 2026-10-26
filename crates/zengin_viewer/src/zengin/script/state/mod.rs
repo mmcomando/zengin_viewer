@@ -23,9 +23,10 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::journal::{JournalChange, JournalManager};
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
+
 /// A mob state assignment scheduled by `Wld_SetMobRoutine`: the mob with
 /// `mob_name` should be switched to `state` when the game time reaches
-/// `hour`:`minute`. Stored for later consumers, mobs are not simulated yet.
+/// `hour`:`minute`.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct MobRoutineEntry {
@@ -175,17 +176,11 @@ impl SymbolTable {
 pub struct ImportCallState {
     pub world: Option<Arc<MmWorld>>,
     pub loaded_state: LoadedState,
-    /// Set by `AI_StopProcessInfos`, taken by the script bridge to emit a
-    /// [`DialogClose`] message.
     pub close_dialog: bool,
     /// Kind of every symbol, used to verify typed symbol ids
     pub symbol_table: SymbolTable,
-    /// Changes and requests produced by the script and its host functions,
-    /// drained to the ECS by the script bridge, which turns them into messages
-    /// for the `apply_*` systems.
     pub pending: PendingChanges,
-    /// Instance id of the player (`PC_Hero`), set by the world spawn. Compared
-    /// against by `Npc_IsPlayer` and the inventory-gain log.
+    /// Instance id of the player (`PC_Hero`), set by the world spawn.
     pub player_instance: Option<InstanceId>,
     /// Journal (quest log) topics, filled by the `Log_*` host functions.
     pub journal: JournalManager,
@@ -392,7 +387,6 @@ impl Default for ScriptRandom {
 }
 
 impl ScriptRandom {
-    /// Advances the generator and returns the next raw value.
     pub fn next(&mut self) -> u32 {
         self.rng.next_u32()
     }

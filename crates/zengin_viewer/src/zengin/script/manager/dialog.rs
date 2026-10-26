@@ -35,8 +35,7 @@ impl super::ScriptManager {
         choices.retain(|choice| choice.sequence_function_id != sequence_function_id);
     }
 
-    /// Registers the info instance as known by the npc, used when a dialog
-    /// root is actually played
+    /// Registers the info instance as known by the npc.
     pub fn mark_info_known(
         &mut self,
         npc_instance_id: InstanceId,

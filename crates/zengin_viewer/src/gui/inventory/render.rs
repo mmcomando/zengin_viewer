@@ -10,8 +10,6 @@ use super::spawn::{
 use super::state::{InventoryEntry, InventoryUiState};
 use super::style::InventoryStyle;
 
-/// Updates visibility, header texts, slot contents and the info panel from
-/// the state.
 #[allow(clippy::type_complexity, clippy::cognitive_complexity)]
 pub(super) fn sync_inventory_ui(
     state: Res<InventoryUiState>,

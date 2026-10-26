@@ -23,7 +23,6 @@ impl super::ScriptManager {
         moved
     }
 
-    /// Adds `count` of `item` to an npc's inventory.
     pub fn add_inventory(&mut self, npc: InstanceId, item: InstanceId, count: i32) {
         self.npc_instances_mut_or_default(npc)
             .inventory

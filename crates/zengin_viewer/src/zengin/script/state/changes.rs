@@ -3,16 +3,15 @@ use bevy::prelude::{Message, Transform};
 use super::super::string_value::StringCanon;
 use super::super::symbol_id::{InstanceId, StringId};
 use super::weapons::OverlayRequest;
+
 /// Signal that an instance's routine entries changed (a `TA_Min` was recorded).
-/// Produced by the script, drained to the ECS by the script bridge.
 #[derive(Message)]
 pub struct RoutineEntryChange {
     pub instance_id: InstanceId,
 }
 
 /// Signal that an npc requested `Npc_ExchangeRoutine`: its routine entries are
-/// replaced by the ones created by the `Rtn_{name}_{npcId}` function. Produced
-/// by the script, resolved to a function call by the script manager.
+/// replaced by the ones created by the `Rtn_{name}_{npcId}` function.
 #[derive(Message)]
 pub struct RoutineExchange {
     pub instance_id: InstanceId,
@@ -21,22 +20,18 @@ pub struct RoutineExchange {
 }
 
 /// Signal that an instance's `AI_LookAtNPC`/`AI_StopLookAt` target changed.
-/// Produced by the script, drained to the ECS by the script bridge.
 #[derive(Message)]
 pub struct NpcLookAtChange {
     pub instance_id: InstanceId,
 }
 
-/// Signal that an instance's weapon mode changed (`Npc_SetToFightMode`,
-/// `Npc_SetToFistMode`, `AI_RemoveWeapon`, `AI_ReadyMeleeWeapon`). Produced by
-/// the script, drained to the ECS by the script bridge.
+/// Signal that an instance's weapon mode changed.
 #[derive(Message)]
 pub struct WeaponModeChange {
     pub instance_id: InstanceId,
 }
 
-/// Signal that an instance requested `AI_GoToWP` (walk to a waypoint). Produced
-/// by the script, drained to the ECS by the script bridge.
+/// Signal that an instance requested `AI_GoToWP` (walk to a waypoint).
 #[derive(Message)]
 pub struct GotoChange {
     pub instance_id: InstanceId,
@@ -46,37 +41,31 @@ pub struct GotoChange {
 
 /// Signal that an instance requested an overlay change
 /// (`Mdl_ApplyOverlayMds`/`Mdl_ApplyOverlayMdsTimed`/`Mdl_RemoveOverlayMds`).
-/// Produced by the script, drained to the ECS by the script bridge.
 #[derive(Message)]
 pub struct OverlayChange {
     pub instance_id: InstanceId,
     pub request: OverlayRequest,
 }
 
-/// Signal that an instance equipped an item (`EquipItem`). Produced by the
-/// script, drained to the ECS by the script bridge.
+/// Signal that an instance equipped an item (`EquipItem`).
 #[derive(Message)]
 pub struct EquipItemChange {
     pub instance_id: InstanceId,
 }
 
-/// Signal that an instance hitpoints changed. Produced by seeding the health
-/// from the npc instance data, `Npc_ChangeAttribute` and damage, drained to the
-/// ECS by the script bridge.
+/// Signal that an instance hitpoints changed.
 #[derive(Message)]
 pub struct HealthChange {
     pub instance_id: InstanceId,
 }
 
 /// Signal that an instance requested `AI_AlignToWP` (face its routine waypoint).
-/// Produced by the script, drained to the ECS by the script bridge.
 #[derive(Message)]
 pub struct AlignToWpChange {
     pub instance_id: InstanceId,
 }
 
 /// Requests an item entity to be spawned, with its resolved world placement.
-/// Produced by the world load, drained to the ECS by the script bridge.
 #[derive(Message)]
 pub struct SpawnItem {
     pub instance_id: InstanceId,
@@ -84,9 +73,7 @@ pub struct SpawnItem {
     pub transform: Option<Transform>,
 }
 
-/// Requests an npc entity to be spawned. Produced by `wld_insertnpc` (at script
-/// load and at runtime), drained to the ECS by the script bridge. The consumer
-/// resolves the visual and placement from the script state.
+/// Requests an npc entity to be spawned.
 #[derive(Message)]
 pub struct SpawnNpc {
     pub instance_id: InstanceId,
@@ -104,7 +91,6 @@ pub struct InventoryGain {
 }
 
 /// Signal that the script asked to end the dialog (`AI_StopProcessInfos`).
-/// Produced by the script, drained to the ECS by the script bridge.
 #[derive(Debug, Message)]
 pub struct DialogClose;
 

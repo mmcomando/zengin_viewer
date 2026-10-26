@@ -94,7 +94,6 @@ impl super::ScriptManager {
         item.value().to_string()
     }
 
-    /// Raw npc-info record of an npc instance, read from the instance data.
     fn npc_info(&mut self, npc: InstanceId) -> NpcInfo {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
@@ -102,7 +101,6 @@ impl super::ScriptManager {
             .unwrap()
     }
 
-    /// Raw item-info record of an item instance, read from the instance data.
     fn item_info(&mut self, item: InstanceId) -> ItemInfo {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest

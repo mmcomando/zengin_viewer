@@ -10,8 +10,7 @@ pub(crate) const TEXT_SHADOW: TextShadow = TextShadow {
     color: Color::BLACK,
 };
 
-/// Text node with a font size, color and justification; carries the shared
-/// shadow so screens do not configure it one by one.
+/// Text node with a font size, color and justification, plus the shared shadow.
 #[derive(Bundle)]
 pub(crate) struct UiText {
     text: Text,

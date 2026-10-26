@@ -28,8 +28,7 @@ pub struct ScriptManager {
 }
 
 /// Display stats of an item instance for the inventory info panel, string
-/// members resolved from the string table. Weight is currently not shown (the
-/// G2 script info lines cover it).
+/// members resolved from the string table.
 #[derive(Debug, Default)]
 pub struct ItemDisplayData {
     pub damage_total: i32,
@@ -61,10 +60,6 @@ pub(super) fn attribute_display_name(index: i32) -> Option<&'static str> {
 
 impl ScriptManager {
     pub fn from_file_cached(script_path: &Path, script_wasm_cache_path: &Path) -> Self {
-        // if script_wasm_cache_path.is_file() {
-        //     let wasm_bytes = std::fs::read(script_wasm_cache_path).unwrap();
-        //     return Self::new(&wasm_bytes);
-        // }
         let wasm_bytes = convert_daedalus_script(script_path);
         std::fs::write(script_wasm_cache_path, &wasm_bytes).unwrap();
         return Self::new(&wasm_bytes);

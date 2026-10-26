@@ -19,8 +19,6 @@ use super::state::{
 };
 use super::style::InventoryStyle;
 
-/// Opens the trade panels: both inventories are snapshotted and the trader
-/// side is focused first.
 pub(super) fn open_trade(
     mut requests: MessageReader<OpenTrade>,
     mut state: ResMut<InventoryUiState>,
@@ -57,8 +55,6 @@ pub(super) fn open_trade(
     );
 }
 
-/// Opens the loot panels: the chest and player inventories are snapshotted and
-/// the chest side is focused first.
 pub(super) fn open_loot(
     mut requests: MessageReader<OpenLoot>,
     mut state: ResMut<InventoryUiState>,

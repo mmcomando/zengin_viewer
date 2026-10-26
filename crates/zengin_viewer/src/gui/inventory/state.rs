@@ -94,7 +94,6 @@ impl InventoryUiState {
         self.open
     }
 
-    /// Closes the inventory UI.
     pub(crate) fn close(&mut self) {
         self.open = false;
         self.mode = InventoryMode::default();

@@ -6,7 +6,6 @@ use crate::zengin::get_full_texture_path;
 use super::state::{PLAYER_WINDOW, TRADER_WINDOW};
 use super::style::InventoryStyle;
 
-/// Markers for the persistent inventory UI entities, toggled via [`Visibility`]
 #[derive(Component)]
 pub(super) enum InventoryContainer {
     Root,
@@ -58,7 +57,6 @@ pub(super) struct InventoryTextures {
     pub(super) focus: Handle<Image>,
 }
 
-/// Spawns the whole inventory UI once at startup, hidden until opened.
 pub(super) fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     let textures = InventoryTextures {
         slot: asset_server.load(get_full_texture_path("INV_SLOT")),
@@ -67,7 +65,6 @@ pub(super) fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<Asset
 
     let root = spawn_gui_root(&mut commands, InventoryContainer::Root);
 
-    // Trader window on the left, only shown in trade mode
     spawn_inventory_window(
         &mut commands,
         root,
@@ -82,7 +79,6 @@ pub(super) fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<Asset
         &textures,
     );
 
-    // Player inventory window on the right
     spawn_inventory_window(
         &mut commands,
         root,
@@ -184,9 +180,6 @@ fn spawn_header_box(
     ));
 }
 
-/// Spawns one inventory window panel: header bar (title + gold) above a slot
-/// grid. Returns the panel entity. `anchors` places the panel on screen; a
-/// trade scene spawns a second panel anchored to the other screen side.
 fn spawn_inventory_window(
     commands: &mut Commands,
     root: Entity,
@@ -216,7 +209,6 @@ fn spawn_inventory_window(
         ))
         .id();
 
-    // Header bar: title box on the left, gold box on the right
     let header = commands
         .spawn((
             ChildOf(panel),
@@ -244,7 +236,6 @@ fn spawn_inventory_window(
         grid_width * 0.45 - InventoryStyle::SLOT_GAP,
     );
 
-    // Slot grid on the plain panel background, uniform across the window
     let grid = commands
         .spawn((
             ChildOf(panel),
@@ -278,8 +269,6 @@ fn spawn_inventory_window(
                 },
             ))
             .id();
-        // Equipped marker: translucent red fill over the whole slot, like the
-        // original trade inventory
         commands.spawn((
             ChildOf(slot),
             InventorySlotEquippedOverlay,
@@ -304,7 +293,6 @@ fn spawn_inventory_window(
             )
             .justify(Justify::Center),
         ));
-        // Stack count in the bottom right corner, like the original
         commands.spawn((
             ChildOf(slot),
             InventorySlotTextOrCount::Count,
