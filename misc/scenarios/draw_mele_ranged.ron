@@ -14,5 +14,5 @@
   Press(frame: 390, action: Gameplay(EquipRanged)),
   Release(frame: 400, action: Gameplay(EquipRanged)),
   Screenshot(frame: 470, path: "screen_step2_bow_drawn.png"),
-  Press(frame: 480, action: Debug(QuitGame)),
+  Press(frame: 480, action: Shared(Back)),
 ]

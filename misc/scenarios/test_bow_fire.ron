@@ -10,5 +10,5 @@
     Axis(frame: 179, action: Gameplay(RotateCamera), value: (0.0, 0.0)),
     Press(frame: 212, action: Gameplay(Interact)),
     Release(frame: 383, action: Gameplay(Interact)),
-    Press(frame: 491, action: Debug(QuitGame)),
+    Press(frame: 491, action: Shared(Back)),
 ]

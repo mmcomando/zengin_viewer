@@ -3,5 +3,5 @@
   TeleportPlayer(frame: 170, translation: (6, -0, 27), rotation: (5, -30, 0)),
   SetCameraLocation(frame: 180, translation: (2, 0, 30), rotation: (-5, -60, 0)),
   Screenshot(frame: 240, path: "screen_step1_bow.png"),
-  Press(frame: 250, action: Debug(QuitGame)),
+  Press(frame: 250, action: Shared(Back)),
 ]

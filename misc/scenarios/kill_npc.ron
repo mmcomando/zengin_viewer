@@ -22,5 +22,5 @@
     Press(frame: 500, action: Gameplay(DealDamage)),
     Release(frame: 510, action: Gameplay(DealDamage)),
     Screenshot(frame: 720, path: "screen_damage_killed.png"),
-    Press(frame: 730, action: Debug(QuitGame)),
+    Press(frame: 730, action: Shared(Back)),
 ]

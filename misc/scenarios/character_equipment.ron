@@ -6,5 +6,5 @@
   Screenshot(frame: 240, path: "screen_character_equipment.png"),
   EquipWeapon(frame: 250, item: "itmw_1h_sld_sword"),
   Screenshot(frame: 260, path: "screen_character_equipment_second.png"),
-  Press(frame: 270, action: Debug(QuitGame)),
+  Press(frame: 270, action: Shared(Back)),
 ]

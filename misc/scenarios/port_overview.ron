@@ -3,5 +3,5 @@
   TeleportPlayer(frame: 100, translation: (225.0, -63.0, -1433.0), rotation: (0.0, 180.0, 0.0)),
   SetCameraLocation(frame: 160, translation: (168.0, 78.0, 56.0), rotation: (-26.0, 65.0, 0.0)),
   Screenshot(frame: 190, path: "screen_port_view.png"),
-  Press(frame: 200, action: Debug(QuitGame)),
+  Press(frame: 200, action: Shared(Back)),
 ]

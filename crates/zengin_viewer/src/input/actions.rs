@@ -33,7 +33,7 @@ impl Plugin for ActionsPlugin {
                 .after(InputManagerSystem::Update)
                 .before(InputManagerSystem::ManualControl),
         );
-        app.add_systems(Update, quit_game);
+        app.add_systems(Update, handle_back);
         app.add_plugins((ActionRecordingPlugin, ActionReplayPlugin));
     }
 }
@@ -153,6 +153,8 @@ pub enum SharedAction {
     Inventory,
     /// Toggle the journal UI, closes it when it is open.
     Journal,
+    /// Closes the topmost open UI, otherwise exits the game.
+    Back,
 }
 
 /// Marker for the entity holding the shared [`InputMap`] (and its required
@@ -179,42 +181,37 @@ pub enum DebugAction {
     TeleportAway,
     /// Toggle between the free camera and the character camera.
     ToggleCharacterCamera,
-    /// Quit the application.
-    QuitGame,
 }
 
-/// Exits the application on the `QuitGame` debug action (Escape). While a GUI
-/// is open it steps back instead: the journal entry viewer returns to the topic
-/// list, the journal/inventory/dialog close.
-fn quit_game(
-    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
+fn handle_back(
+    action_state: Single<&ActionState<SharedAction>, With<SharedInputMarker>>,
     mut inventory_ui: ResMut<InventoryUiState>,
     mut journal_ui: ResMut<JournalUiState>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    if !action_state.just_pressed(&DebugAction::QuitGame) {
+    if !action_state.just_pressed(&SharedAction::Back) {
         return;
     }
     if inventory_ui.is_open() {
         inventory_ui.close();
-        info!("QuitGame closed the open inventory");
+        info!("Back closed the open inventory");
         return;
     }
     if journal_ui.is_open() {
         if journal_ui.escape() {
-            info!("QuitGame closed the journal entry viewer");
+            info!("Back closed the journal entry viewer");
         } else {
-            info!("QuitGame closed the open journal");
+            info!("Back closed the open journal");
         }
         return;
     }
     if dialog_ui.is_open() {
         dialog_ui.close();
-        info!("QuitGame closed the open dialog");
+        info!("Back closed the open dialog");
         return;
     }
-    info!("QuitGame action triggered, exiting");
+    info!("Back action triggered, exiting");
     exit.write(AppExit::Success);
 }
 

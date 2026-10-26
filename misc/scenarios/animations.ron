@@ -19,8 +19,8 @@
     Release(frame: 995, action: Gui(Right)),
     Press(frame: 1010, action: Gui(Confirm)),
     Release(frame: 1033, action: Gui(Confirm)),
-    Press(frame: 1180, action: Debug(QuitGame)),
-    Release(frame: 1196, action: Debug(QuitGame)),
+    Press(frame: 1180, action: Shared(Back)),
+    Release(frame: 1196, action: Shared(Back)),
     Press(frame: 1292, action: Gameplay(EquipRanged)),
     Press(frame: 1292, action: Debug(TeleportAway)),
     Release(frame: 1307, action: Gameplay(EquipRanged)),
@@ -35,5 +35,5 @@
     Axis(frame: 3419, action: Gameplay(Move), value: (0.0, 0.0)),
     Press(frame: 3570, action: Gameplay(Interact)),
     Release(frame: 3772, action: Gameplay(Interact)),
-    Press(frame: 3955, action: Debug(QuitGame)),
+    Press(frame: 3955, action: Shared(Back)),
 ]

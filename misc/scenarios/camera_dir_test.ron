@@ -2,5 +2,5 @@
 [
     Axis(frame: 1, action: Gameplay(Move), value: (0.0, 0.0)),
     Axis(frame: 1, action: Gameplay(RotateCamera), value: (0.0, 0.0)),
-    Press(frame: 984, action: Debug(QuitGame)),
+    Press(frame: 984, action: Shared(Back)),
 ]
