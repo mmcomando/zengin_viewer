@@ -3,32 +3,6 @@
 version = 4
 
 [[package]]
-name = "ZenGinViewer"
-version = "0.1.0"
-dependencies = [
- "ZenKit-rs",
- "avian3d",
- "bevy",
- "bevy_egui",
- "bevy_mod_openxr",
- "bevy_mod_xr",
- "bevy_rich_text3d",
- "bevy_xr_utils",
- "byteorder",
- "clap",
- "daedalus_wasm",
- "leafwing-input-manager",
- "openxr",
- "pathfinding",
- "rand_mt",
- "rodio",
- "ron",
- "serde",
- "strum",
- "wasmtime 46.0.3",
-]
-
-[[package]]
 name = "ZenKit-rs"
 version = "0.1.0"
 dependencies = [
@@ -9774,6 +9748,32 @@ dependencies = [
  "quote",
  "syn 3.0.9",
  "synstructure",
+]
+
+[[package]]
+name = "zengin_viewer"
+version = "0.1.0"
+dependencies = [
+ "ZenKit-rs",
+ "avian3d",
+ "bevy",
+ "bevy_egui",
+ "bevy_mod_openxr",
+ "bevy_mod_xr",
+ "bevy_rich_text3d",
+ "bevy_xr_utils",
+ "byteorder",
+ "clap",
+ "daedalus_wasm",
+ "leafwing-input-manager",
+ "openxr",
+ "pathfinding",
+ "rand_mt",
+ "rodio",
+ "ron",
+ "serde",
+ "strum",
+ "wasmtime 46.0.3",
 ]
 
 [[package]]
