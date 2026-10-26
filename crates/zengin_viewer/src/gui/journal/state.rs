@@ -19,14 +19,14 @@ pub(crate) enum JournalCategory {
 impl JournalCategory {
     pub(crate) const ALL: [Self; 4] = [Self::Current, Self::Completed, Self::Failed, Self::General];
 
-    /// Original menu labels in the Polish game data; they move into the menu
-    /// script once menu data is loaded.
+    /// Placeholder menu labels; they move into the menu script once menu data
+    /// is loaded.
     pub(crate) fn label(self) -> &'static str {
         match self {
-            Self::Current => "Obecne zadania",
-            Self::Completed => "Wykonane zadania",
-            Self::Failed => "Popsute zadania",
-            Self::General => "Informacje ogólne",
+            Self::Current => "Current missions",
+            Self::Completed => "Completed missions",
+            Self::Failed => "Failed missions",
+            Self::General => "General information",
         }
     }
 
@@ -59,6 +59,7 @@ pub(crate) enum JournalFocus {
 }
 
 /// State of the journal UI: closed by default, topics snapshot on open.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Resource, Default)]
 pub(crate) struct JournalUiState {
     pub(crate) open: bool,

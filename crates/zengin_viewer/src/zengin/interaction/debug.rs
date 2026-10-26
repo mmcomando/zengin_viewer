@@ -35,42 +35,42 @@ const TEST_ITEMS: &[(&str, i32)] = &[
 /// statuses and entries needed to exercise every journal category.
 const TEST_JOURNAL: &[(&str, JournalSection, JournalStatus, &[&str])] = &[
     (
-        "Powrót do wieży",
+        "Return to the tower",
         JournalSection::Mission,
         JournalStatus::Running,
         &[
-            "Muszę wrócić do wieży, aby spotkać się z Xardasem.",
-            "Xardas z pewnością wie, co dzieje się na wyspie.",
+            "I must return to the tower to meet Xardas.",
+            "Xardas surely knows what is happening on the island.",
         ],
     ),
     (
-        "Pan smoków",
+        "The Dragon Lord",
         JournalSection::Mission,
         JournalStatus::Success,
-        &["Pokonałem Pana smoków.", "Droga do wieży stoi otwarta."],
-    ),
-    (
-        "Łowcy smoków",
-        JournalSection::Mission,
-        JournalStatus::Failed,
-        &["Nie udało mi się przekonać łowców smoków do pomocy."],
-    ),
-    (
-        "Samotność i bezradność",
-        JournalSection::Note,
-        JournalStatus::Running,
         &[
-            "Czuję się samotny i bezradny.",
-            "Powinienem poszukać sojuszników.",
+            "I have defeated the Dragon Lord.",
+            "The road to the tower lies open.",
         ],
     ),
     (
-        "Bennet siedzi w więzieniu",
+        "Dragon Hunters",
+        JournalSection::Mission,
+        JournalStatus::Failed,
+        &["I failed to convince the Dragon Hunters to help."],
+    ),
+    (
+        "Loneliness and helplessness",
+        JournalSection::Note,
+        JournalStatus::Running,
+        &["I feel lonely and helpless.", "I should look for allies."],
+    ),
+    (
+        "Bennet is in prison",
         JournalSection::Note,
         JournalStatus::Running,
         &[
-            "Bennet został uwięziony w więzieniu w Khorinis.",
-            "Muszę znaleźć sposób, aby go uwolnić.",
+            "Bennet has been imprisoned in Khorinis.",
+            "I must find a way to free him.",
         ],
     ),
 ];

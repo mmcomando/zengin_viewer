@@ -128,9 +128,7 @@ fn reset_scenario_workdir(workdir: &Path) {
     let entries = match fs::read_dir(workdir) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            if let Err(error) = fs::create_dir_all(workdir) {
-                warn!("Failed to create scenario workdir {workdir:?}: {error}");
-            }
+            create_scenario_workdir(workdir);
             return;
         }
         Err(error) => {
@@ -139,22 +137,29 @@ fn reset_scenario_workdir(workdir: &Path) {
         }
     };
     for entry in entries {
-        let entry = match entry {
-            Ok(entry) => entry,
-            Err(error) => {
-                warn!("Failed to read entry of scenario workdir {workdir:?}: {error}");
-                continue;
-            }
-        };
-        let path = entry.path();
-        let result = if entry.file_type().is_ok_and(|file_type| file_type.is_dir()) {
-            fs::remove_dir_all(&path)
-        } else {
-            fs::remove_file(&path)
-        };
-        if let Err(error) = result {
-            warn!("Failed to remove old scenario output {path:?}: {error}");
+        match entry {
+            Ok(entry) => remove_scenario_output(&entry.path()),
+            Err(error) => warn!("Failed to read entry of scenario workdir {workdir:?}: {error}"),
         }
+    }
+}
+
+/// Creates the scenario workdir, warning when it cannot be created.
+fn create_scenario_workdir(workdir: &Path) {
+    if let Err(error) = fs::create_dir_all(workdir) {
+        warn!("Failed to create scenario workdir {workdir:?}: {error}");
+    }
+}
+
+/// Removes a single entry left from an earlier scenario run.
+fn remove_scenario_output(path: &Path) {
+    let result = if path.is_dir() {
+        fs::remove_dir_all(path)
+    } else {
+        fs::remove_file(path)
+    };
+    if let Err(error) = result {
+        warn!("Failed to remove old scenario output {path:?}: {error}");
     }
 }
 
@@ -166,7 +171,7 @@ fn reset_scenario_workdir(workdir: &Path) {
 /// invocation rather than a degraded replay.
 fn prepare_replay(path: &Path) -> Option<ActionReplay> {
     if !path.exists() {
-        panic!("Scenario file {path:?} does not exist");
+        panic!("Scenario file {} does not exist", path.display());
     }
     let workdir = scenario_workdir(path);
     reset_scenario_workdir(&workdir);

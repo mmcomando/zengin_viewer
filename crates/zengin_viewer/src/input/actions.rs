@@ -184,6 +184,7 @@ pub enum DebugAction {
     ToggleCharacterCamera,
 }
 
+#[allow(clippy::cognitive_complexity)]
 fn handle_back(
     state: Res<State<AppState>>,
     action_state: Single<&ActionState<SharedAction>, With<SharedInputMarker>>,

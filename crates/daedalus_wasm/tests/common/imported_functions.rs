@@ -28,6 +28,7 @@ pub struct ImportCallState {
 
 /// One string-returning external call, `slot` is the DYN_STRINGS ring slot the
 /// guest will copy the returned string into
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct StringCall {
     pub name: &'static str,

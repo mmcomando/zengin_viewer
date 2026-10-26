@@ -478,11 +478,7 @@ mod tests {
     }
 
     fn queued_next(world: &World, model: Entity) -> Option<Handle<AnimationData>> {
-        world
-            .get::<AnimationController>(model)
-            .unwrap()
-            .next()
-            .cloned()
+        world.get::<AnimationController>(model)?.next().cloned()
     }
 
     #[test]

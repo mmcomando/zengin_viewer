@@ -13,6 +13,7 @@ use super::spawn::{
 use super::state::{JournalCategory, JournalFocus, JournalUiState};
 use super::style::JournalStyle;
 
+#[allow(clippy::type_complexity)]
 pub(super) fn sync_journal_ui(
     mut state: ResMut<JournalUiState>,
     game_time: Res<GameTime>,
@@ -159,7 +160,10 @@ fn spawn_missing_rows(
         .iter()
         .filter_map(|(marker, ..)| match marker {
             JournalTextMarker::Row(index) => Some(*index),
-            _ => None,
+            JournalTextMarker::Category(_)
+            | JournalTextMarker::DayTime
+            | JournalTextMarker::Detail
+            | JournalTextMarker::DetailFooter => None,
         })
         .collect();
     existing.sort_unstable();
@@ -188,6 +192,7 @@ fn spawn_missing_rows(
 
 /// Applies the requested line scroll to the entry viewer and returns the
 /// page/percentage footer, clamped to the content height.
+#[allow(clippy::type_complexity)]
 fn sync_detail_scroll(
     state: &mut JournalUiState,
     scroll: Single<

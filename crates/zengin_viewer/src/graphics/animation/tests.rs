@@ -24,7 +24,7 @@ fn plays_half_frame_at_natural_pace() {
     assert!((update.mul_1000 as f32 / ATOMIC_SCALE - 0.5).abs() < 0.01);
     assert!(!update.finished);
     // Movement of half a frame: linear interpolation into the first frame step
-    assert!((update.delta_movement - 0.5 * 0.13519135).abs() < 1e-4);
+    assert!((update.delta_movement - 0.5 * 0.135_191_35).abs() < 1e-4);
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn advances_one_frame_per_frame_time() {
     assert_eq!(update.end_frame, 2);
     assert_eq!(update.mul_1000, 0);
     assert!(!update.finished);
-    assert!((update.delta_movement - 0.13519135).abs() < 1e-3);
+    assert!((update.delta_movement - 0.135_191_35).abs() < 1e-3);
     assert!((update.time_us as f32 / TIME_SCALE - 0.04).abs() < 1e-5);
 }
 
@@ -225,25 +225,25 @@ fn triggers_fire_on_frame_crossing() {
     }];
 
     let crossed: Vec<&str> = crossed_triggers(&triggers, 10.0, 13.0, false)
-        .map(|t| t.name.as_str())
+        .map(|trigger| trigger.name.as_str())
         .collect();
     assert_eq!(crossed, ["BOWSHOOT"]);
 
     let crossed: Vec<&str> = crossed_triggers(&triggers, 13.0, 14.0, false)
-        .map(|t| t.name.as_str())
+        .map(|trigger| trigger.name.as_str())
         .collect();
     assert!(crossed.is_empty());
 
     // A step that wrapped fires the trigger when it lies in the covered span
     // (from after `old_progress` around to `new_progress`)
     let crossed: Vec<&str> = crossed_triggers(&triggers, 1.0, 2.0, true)
-        .map(|t| t.name.as_str())
+        .map(|trigger| trigger.name.as_str())
         .collect();
     assert_eq!(crossed, ["BOWSHOOT"]);
 
     // ... but not when the wrap skipped over it in both directions
     let crossed: Vec<&str> = crossed_triggers(&triggers, 13.0, 2.0, true)
-        .map(|t| t.name.as_str())
+        .map(|trigger| trigger.name.as_str())
         .collect();
     assert!(crossed.is_empty());
 }
@@ -251,9 +251,26 @@ fn triggers_fire_on_frame_crossing() {
 /// Root movement dumped from the real `HUMANS-S_RUNL.MAN` (20 frames, 25 fps).
 fn runl_movement() -> Vec<f32> {
     vec![
-        0.0, 0.13519135, 0.27853653, 0.41702682, 0.5482346, 0.6780731, 0.8079115, 0.9398663,
-        1.072817, 1.2036511, 1.3291327, 1.4368128, 1.5380194, 1.655036, 1.8134439, 1.9851096,
-        2.1610076, 2.3322375, 2.4898987, 2.6249032,
+        0.0,
+        0.135_191_35,
+        0.278_536_53,
+        0.417_026_82,
+        0.548_234_6,
+        0.678_073_1,
+        0.807_911_5,
+        0.939_866_3,
+        1.072_817,
+        1.203_651_1,
+        1.329_132_7,
+        1.436_812_8,
+        1.538_019_4,
+        1.655_036,
+        1.813_443_9,
+        1.985_109_6,
+        2.161_007_6,
+        2.332_237_5,
+        2.489_898_7,
+        2.624_903_2,
     ]
 }
 

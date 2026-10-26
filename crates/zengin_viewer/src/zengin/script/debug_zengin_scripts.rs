@@ -14,7 +14,7 @@ const DEBUG_ID: u32 = 11145;
 /// Script vm debug tool: prints small info for all symbols and detailed info
 /// with the import calls for [`DEBUG_ID`]
 #[test]
-#[ignore]
+#[ignore = "manual script VM debug tool"]
 fn debug_zengin_scripts() {
     let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
     let wasm_bytes = convert_daedalus_script(&script_path);
@@ -48,7 +48,7 @@ fn debug_zengin_scripts() {
                     "{}) kind({:?}), name({name}) fn({function})",
                     index.value(),
                     info.kind
-                )
+                );
             }
             None => println!("{}) kind({:?}), name({name})", index.value(), info.kind),
         }
@@ -64,13 +64,12 @@ fn debug_zengin_scripts() {
     println!("info: {info:?}");
     println!("name: {:?}", executor.call_get_name(debug_id.symbol()));
 
-    match info.kind {
-        SymbolKind::Instance => debug_npc_routine(&mut executor, debug_id),
-        _ => {
-            println!("calling symbol as function");
-            // DEBUG_ID is verified as an instance above, instances are callable
-            executor.call_function(unsafe_wrap_instance_callable(debug_id));
-        }
+    if info.kind == SymbolKind::Instance {
+        debug_npc_routine(&mut executor, debug_id);
+    } else {
+        println!("calling symbol as function");
+        // DEBUG_ID is verified as an instance above, instances are callable
+        executor.call_function(unsafe_wrap_instance_callable(debug_id));
     }
 }
 
@@ -81,7 +80,7 @@ fn unsafe_wrap_instance_callable(instance_id: InstanceId) -> FunctionId {
 
 /// Prints the hitpoints of a npc instance, verifying the `get-npc-info` export
 #[test]
-#[ignore]
+#[ignore = "manual script VM debug tool"]
 fn debug_npc_hitpoints() {
     let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
     let wasm_bytes = convert_daedalus_script(&script_path);
@@ -138,7 +137,7 @@ fn debug_npc_routine(executor: &mut ScriptManager, npc_id: InstanceId) {
 /// global has no data of its own (hitpoints 0), the player data lives in
 /// `PC_HERO`
 #[test]
-#[ignore]
+#[ignore = "manual script VM debug tool"]
 fn debug_player_instance_hitpoints() {
     let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
     let wasm_bytes = convert_daedalus_script(&script_path);
