@@ -15,8 +15,3 @@ debug = "line-tables-only" # Speed up compilation
 # Enable a large amount of optimization in the dev profile for dependencies.
 [profile.dev.package."*"]
 opt-level = 3
-
-# [workspace.dependencies]
-# my-core     = { path = "crates/core",     version = "0.3.1" }
-# my-macros   = { path = "crates/macros",   version = "0.3.1" }
-#
