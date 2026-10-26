@@ -182,6 +182,8 @@ pub struct ImportCallState {
     pub pending: PendingChanges,
     /// Instance id of the player (`PC_Hero`), set by the world spawn.
     pub player_instance: Option<InstanceId>,
+    /// Current game day reported by `Wld_GetDay`, 0 on the first day.
+    pub game_day: u32,
     /// Journal (quest log) topics, filled by the `Log_*` host functions.
     pub journal: JournalManager,
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).

@@ -1030,7 +1030,10 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(mdl_startfaceani(_0, _1, _2, _3));
     fake_impl!(mdl_applyrandomfaceani(_0, _1, _2, _3, _4, _5, _6));
     fake_impl!(wld_istime(_0, _1, _2, _3) -> i32);
-    fake_impl!(wld_getday() -> i32);
+    /// Day counted from 0 on the first day.
+    fn wld_getday(&mut self) -> i32 {
+        self.game_day as i32
+    }
     fake_impl!(wld_israining() -> i32);
     fake_impl!(wld_settime(_0, _1));
     fake_impl!(wld_spawnnpcrange(_0, _1, _2, _3));

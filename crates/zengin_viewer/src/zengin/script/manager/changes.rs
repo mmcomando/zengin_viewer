@@ -130,4 +130,9 @@ impl super::ScriptManager {
     pub fn set_way_points(&mut self, way_points: HashMap<String, Vec3>) {
         self.store.data_mut().way_points = way_points;
     }
+
+    /// Sets the day `Wld_GetDay` reports, counted from 0 on the first day.
+    pub fn set_game_day(&mut self, day: u32) {
+        self.store.data_mut().game_day = day;
+    }
 }

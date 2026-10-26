@@ -44,6 +44,7 @@ impl Plugin for ScriptBridgePlugin {
         app.add_systems(
             Update,
             (
+                sync_game_day,
                 send_script_changes,
                 log_inventory_gains,
                 log_journal_changes,
@@ -68,6 +69,13 @@ impl Plugin for ScriptBridgePlugin {
 /// reacting to those changes run after this set.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ScriptChangesApplied;
+
+/// Exposes the running clock to the script host (`Wld_GetDay`).
+fn sync_game_day(game_time: Res<GameTime>, gothic_script: Res<ScriptResource>) {
+    gothic_script
+        .lock()
+        .set_game_day(game_time.day.saturating_sub(1));
+}
 
 /// Drains all the changes the script recorded and forwards them as messages.
 fn send_script_changes(
