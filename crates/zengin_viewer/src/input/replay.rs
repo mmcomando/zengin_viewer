@@ -121,22 +121,53 @@ fn load_replay_file(options: Res<Options>, mut commands: Commands) {
 }
 
 /// Resets the scenario workdir so everything left in it was produced by
-/// this run, not by an earlier one.
+/// this run, not by an earlier one. The workdir itself is kept in place, only
+/// its entries are removed, since editors and file watchers dislike watched
+/// directories disappearing.
 fn reset_scenario_workdir(workdir: &Path) {
-    match fs::remove_dir_all(workdir) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => warn!("Failed to remove old scenario workdir {workdir:?}: {error}"),
-    }
-    if let Err(error) = fs::create_dir_all(workdir) {
-        warn!("Failed to create scenario workdir {workdir:?}: {error}");
+    let entries = match fs::read_dir(workdir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            if let Err(error) = fs::create_dir_all(workdir) {
+                warn!("Failed to create scenario workdir {workdir:?}: {error}");
+            }
+            return;
+        }
+        Err(error) => {
+            warn!("Failed to read scenario workdir {workdir:?}: {error}");
+            return;
+        }
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                warn!("Failed to read entry of scenario workdir {workdir:?}: {error}");
+                continue;
+            }
+        };
+        let path = entry.path();
+        let result = if entry.file_type().is_ok_and(|file_type| file_type.is_dir()) {
+            fs::remove_dir_all(&path)
+        } else {
+            fs::remove_file(&path)
+        };
+        if let Err(error) = result {
+            warn!("Failed to remove old scenario output {path:?}: {error}");
+        }
     }
 }
 
 /// Resets the scenario workdir and parses the replay file. Returns `None`
 /// (with a warning logged) when the workdir cannot be prepared or the replay
 /// file is unreadable, disabling the replay.
+///
+/// Panics when the scenario file itself does not exist, since that is a broken
+/// invocation rather than a degraded replay.
 fn prepare_replay(path: &Path) -> Option<ActionReplay> {
+    if !path.exists() {
+        panic!("Scenario file {path:?} does not exist");
+    }
     let workdir = scenario_workdir(path);
     reset_scenario_workdir(&workdir);
     match read_replay(&workdir, path) {
