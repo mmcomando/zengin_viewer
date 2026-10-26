@@ -43,8 +43,9 @@ impl super::ScriptManager {
         Some(self.call_get_name(symbol))
     }
 
-    /// Content of a daedalus string id, `None` when unset or empty.
-    pub(super) fn string_by_id(&self, raw: Option<i32>) -> Option<String> {
+    /// Content of a daedalus string id, `None` when the id is unset. Empty
+    /// strings are valid values.
+    pub(crate) fn string_by_id(&self, raw: Option<i32>) -> Option<String> {
         self.get_string_non_0(raw?)
     }
 
@@ -71,6 +72,15 @@ impl super::ScriptManager {
     pub fn try_get_function_id(&mut self, symbol_name: &str) -> Option<FunctionId> {
         let symbol = self.try_get_symbol_id(symbol_name)?;
         self.symbol_table().function(symbol.value())
+    }
+
+    /// Whether the instance symbol descends from the named class.
+    pub fn is_instance_of_class(&mut self, instance: InstanceId, class_name: &str) -> bool {
+        let Some(class) = self.try_get_symbol_id(class_name) else {
+            return false;
+        };
+        let info = self.get_symbol_info(instance.symbol());
+        self.has_ancestor(&info, class)
     }
 
     pub fn symbol_table(&self) -> &SymbolTable {

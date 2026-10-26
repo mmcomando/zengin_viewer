@@ -5,6 +5,8 @@ pub mod host;
 pub mod inventory;
 pub mod journal;
 pub mod manager;
+#[allow(dead_code, reason = "wired into the main menu in a follow-up step")]
+mod menu;
 pub mod state;
 pub mod string_value;
 pub mod symbol_id;

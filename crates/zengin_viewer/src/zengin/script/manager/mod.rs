@@ -4,6 +4,7 @@
 mod changes;
 mod dialog;
 mod inventory;
+mod menu;
 mod npc;
 mod strings;
 mod world;
