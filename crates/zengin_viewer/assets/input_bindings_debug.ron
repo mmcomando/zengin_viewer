@@ -20,16 +20,6 @@
                 "KeyCode": Escape,
             },
         ],
-        GiveTestItems: [
-            {
-                "KeyCode": KeyG,
-            },
-        ],
-        GiveTestJournal: [
-            {
-                "KeyCode": KeyH,
-            },
-        ],
     },
     axislike_map: {},
     dual_axislike_map: {},

@@ -181,10 +181,6 @@ pub enum DebugAction {
     ToggleCharacterCamera,
     /// Quit the application.
     QuitGame,
-    /// Grants a few items to the player for testing the inventory UI.
-    GiveTestItems,
-    /// Seeds a few journal topics for testing the journal UI.
-    GiveTestJournal,
 }
 
 /// Exits the application on the `QuitGame` debug action (Escape). While a GUI

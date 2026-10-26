@@ -83,6 +83,10 @@ pub(crate) enum ReplayCommand {
     EquipWeapon { frame: u64, item: String },
     /// Save a screenshot of the primary window to `path` on `frame`.
     Screenshot { frame: u64, path: String },
+    /// Grants the hardcoded test items to the player on `frame`.
+    GiveTestItems { frame: u64 },
+    /// Seeds the hardcoded test journal topics on `frame`.
+    GiveTestJournal { frame: u64 },
 }
 
 impl ReplayCommand {
@@ -94,7 +98,9 @@ impl ReplayCommand {
             | ReplayCommand::TeleportPlayer { frame, .. }
             | ReplayCommand::SetCameraLocation { frame, .. }
             | ReplayCommand::EquipWeapon { frame, .. }
-            | ReplayCommand::Screenshot { frame, .. } => frame,
+            | ReplayCommand::Screenshot { frame, .. }
+            | ReplayCommand::GiveTestItems { frame }
+            | ReplayCommand::GiveTestJournal { frame } => frame,
         }
     }
 }
@@ -122,9 +128,10 @@ fn open_recording_file(options: Res<Options>, mut commands: Commands) {
         return;
     };
     if let Err(error) = fs::remove_file(path)
-        && error.kind() != std::io::ErrorKind::NotFound {
-            warn!("Failed to remove old action recording {path:?}: {error}");
-        }
+        && error.kind() != std::io::ErrorKind::NotFound
+    {
+        warn!("Failed to remove old action recording {path:?}: {error}");
+    }
     commands.insert_resource(ActionRecording {
         path: path.clone(),
         frame: 0,

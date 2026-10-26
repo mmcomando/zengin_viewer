@@ -17,13 +17,14 @@ use leafwing_input_manager::prelude::{ActionState, Actionlike};
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::character_camera::camera_toggle_input;
 use crate::gameplay::objects::PlayerCharacter;
+use crate::gui::GameLog;
 use crate::input::actions::{
     DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker, GuiAction, GuiInputMarker,
     SharedAction, SharedInputMarker, update_input_mode,
 };
 use crate::input::options::Options;
 use crate::input::record::{RecordedAction, ReplayCommand};
-use crate::zengin::{GameNpc, ScriptResource, WeaponKind};
+use crate::zengin::{GameNpc, ScriptResource, WeaponKind, grant_test_items, seed_test_journal};
 
 /// Filter of the player visual model transform query.
 type PlayerVisualFilter = (
@@ -203,6 +204,7 @@ fn replay_actions(
     gothic_script: Res<ScriptResource>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
     mut pending: ResMut<PendingLocations>,
+    mut game_log: ResMut<GameLog>,
 ) {
     let Some(mut replay) = replay else {
         return;
@@ -223,6 +225,7 @@ fn replay_actions(
             &player_npc,
             &mut pending,
             &mut commands,
+            &mut game_log,
         ) {
             commands.remove_resource::<ActionReplay>();
             return;
@@ -254,6 +257,7 @@ fn apply_replay_command(
     player_npc: &Query<&GameNpc, With<PlayerCharacter>>,
     pending: &mut PendingLocations,
     commands: &mut Commands,
+    game_log: &mut GameLog,
 ) -> bool {
     match command {
         ReplayCommand::Press { action, .. } => {
@@ -289,6 +293,29 @@ fn apply_replay_command(
         }
         ReplayCommand::Screenshot { path, .. } => {
             return apply_replay_screenshot(replay, path, commands);
+        }
+        ReplayCommand::GiveTestItems { .. } => {
+            let Ok(player_npc) = player_npc.single() else {
+                warn!("GiveTestItems replay command: player npc is not spawned");
+                return false;
+            };
+            let player_id = player_npc.instance_id();
+            let mut script = gothic_script.lock();
+            let lines = grant_test_items(&mut script, player_id);
+            if !lines.is_empty() {
+                game_log.add(lines.join("\n"));
+            }
+            info!(
+                "Replay granted {} test item stack(s) to player({})",
+                lines.len(),
+                player_id
+            );
+        }
+        ReplayCommand::GiveTestJournal { .. } => {
+            let mut script = gothic_script.lock();
+            let count = seed_test_journal(&mut script);
+            game_log.add(format!("Seeded {count} test journal topic(s)"));
+            info!("Replay seeded {count} test journal topic(s)");
         }
     }
     false

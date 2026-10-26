@@ -1,8 +1,7 @@
 [
   Axis(frame:1,action:Gameplay(Move),value:(0.0,0.0)),
   SetCameraLocation(frame: 160, translation: (5.0, 0.0, -5.0), rotation: (89.0, 0.0, 0.0)),
-  Press(frame:170,action:Debug(GiveTestJournal)),
-  Release(frame:174,action:Debug(GiveTestJournal)),
+  GiveTestJournal(frame:170),
   Press(frame:180,action:Shared(Journal)),
   Release(frame:184,action:Shared(Journal)),
   Screenshot(frame: 190, path: "screen_journal_current.png"),

@@ -3,11 +3,9 @@
 
 use bevy::log::{info, warn};
 use bevy::prelude::*;
-use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
-use crate::input::{DebugAction, DebugInputMarker};
 use crate::zengin::GameNpc;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalSection, JournalStatus};
@@ -33,7 +31,7 @@ const TEST_ITEMS: &[(&str, i32)] = &[
     ("ITAM_HP_01", 1),
 ];
 
-/// Hardcoded journal topics seeded by [`give_test_journal`], with the sections,
+/// Hardcoded journal topics seeded by [`seed_test_journal`], with the sections,
 /// statuses and entries needed to exercise every journal category.
 const TEST_JOURNAL: &[(&str, JournalSection, JournalStatus, &[&str])] = &[
     (
@@ -77,68 +75,47 @@ const TEST_JOURNAL: &[(&str, JournalSection, JournalStatus, &[&str])] = &[
     ),
 ];
 
-/// Seeds [`TEST_JOURNAL`] into the script journal on the debug key, for testing
-/// the journal UI without progressing through the story.
-pub(super) fn give_test_journal(
-    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
-    gothic_script: Res<ScriptResource>,
-    mut game_log: ResMut<GameLog>,
-) {
-    if !action_state.just_pressed(&DebugAction::GiveTestJournal) {
-        return;
-    }
+/// Seeds [`TEST_JOURNAL`] into the script journal at startup so the journal UI
+/// has content to show without progressing through the story.
+pub(crate) fn seed_test_journal_on_start(gothic_script: Res<ScriptResource>) {
     let mut script = gothic_script.lock();
+    let count = seed_test_journal(&mut script);
+    info!("Seeded {count} test journal topic(s) at startup");
+}
+
+/// Seeds [`TEST_JOURNAL`] into the journal, returning the number of topics it
+/// contains. Topics that already exist are left untouched, so seeding again
+/// does not duplicate their entries.
+pub(crate) fn seed_test_journal(script: &mut ScriptManager) -> usize {
     let journal = script.journal_mut();
     for (name, section, status, entries) in TEST_JOURNAL {
-        journal.create_topic((*name).to_string(), *section);
+        if !journal.create_topic((*name).to_string(), *section) {
+            continue;
+        }
         journal.set_topic_status(name, *status);
         for entry in *entries {
             journal.add_entry(name, (*entry).to_string());
         }
     }
-    drop(script);
-    game_log.add(format!(
-        "Seeded {} test journal topic(s)",
-        TEST_JOURNAL.len()
-    ));
-    info!("Seeded {} test journal topic(s)", TEST_JOURNAL.len());
+    TEST_JOURNAL.len()
 }
 
-/// Grants the hardcoded [`TEST_ITEMS`] to the player on the debug key, for
-/// testing combat and the inventory UI without having to pick things up first.
-pub(super) fn give_test_items(
-    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
-    mut game_log: ResMut<GameLog>,
-    gothic_script: Res<ScriptResource>,
-    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
-) {
-    if !action_state.just_pressed(&DebugAction::GiveTestItems) {
-        return;
-    }
-    let Ok(player_npc) = player_npc.single() else {
-        return;
-    };
-
-    let player_id = player_npc.instance_id();
-    let mut script = gothic_script.lock();
+/// Grants the hardcoded [`TEST_ITEMS`] to the player, for testing combat and the
+/// inventory UI without having to pick things up first. Returns one log line per
+/// granted stack.
+pub(crate) fn grant_test_items(script: &mut ScriptManager, player_id: InstanceId) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
     for (item_name, count) in TEST_ITEMS {
-        let Some(item) = grant_test_item(&mut script, player_id, item_name, *count) else {
+        let Some(item) = grant_test_item(script, player_id, item_name, *count) else {
             warn!("Test item {item_name} not found among the loaded instances");
             continue;
         };
-        lines.push(format!("{} x{count}", item_display_name(&mut script, item)));
+        lines.push(format!("{} x{count}", item_display_name(script, item)));
     }
     if lines.is_empty() {
         warn!("No test item granted to player({})", player_id);
-        return;
     }
-    game_log.add(lines.join("\n"));
-    info!(
-        "Granted {} test item stack(s) to player({})",
-        lines.len(),
-        player_id
-    );
+    lines
 }
 
 /// Resolves a hardcoded item symbol name against the loaded instances and
