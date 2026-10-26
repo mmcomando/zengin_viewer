@@ -4,7 +4,7 @@ use crate::common::{ToU32 as _, ToUsize as _};
 use crate::daedalus::Instruction;
 use byteorder::{LittleEndian, ReadBytesExt as _};
 use core::cmp::max;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::fs::File;
 use std::io::{self, BufReader, Read as _};
 use std::path::Path;
@@ -43,6 +43,15 @@ impl CallSignature {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+/// Layout of a class member variable inside its parent class.
+pub struct ClassMember {
+    /// Byte offset of the member inside its parent class instance memory.
+    pub offset: u32,
+    /// Number of elements the member occupies (1 for scalars).
+    pub elements_count: u32,
+}
+
 #[derive(Debug, Default, Clone)]
 /// Struct containing data from compiled daedalus script.
 pub struct CompiledDaedalusScript {
@@ -56,6 +65,39 @@ pub struct CompiledDaedalusScript {
 }
 
 impl CompiledDaedalusScript {
+    #[must_use]
+    /// Layout of every member variable of a class, keyed by lowercased member
+    /// name, `None` when the script has no such class.
+    pub fn class_members(&self, class_name: &str) -> Option<HashMap<String, ClassMember>> {
+        let class_index = self
+            .symbols
+            .iter()
+            .position(|symbol| symbol.kind() == SymbolKind::Class && symbol.name() == class_name)?;
+        let class_index = class_index as u32;
+        let prefix = format!("{class_name}.");
+        let members = self
+            .symbols
+            .iter()
+            .filter_map(|symbol| {
+                if symbol.parent() != Some(class_index) {
+                    return None;
+                }
+                Some((
+                    symbol
+                        .name()
+                        .strip_prefix(&prefix)
+                        .unwrap_or(symbol.name())
+                        .to_owned(),
+                    ClassMember {
+                        offset: symbol.offset()?,
+                        elements_count: symbol.elements_count(),
+                    },
+                ))
+            })
+            .collect();
+        Some(members)
+    }
+
     /// Load script from file.
     pub fn from_file(path: &Path) -> io::Result<CompiledDaedalusScript> {
         let mut dat_file = CompiledDaedalusScript::default();

@@ -5,6 +5,7 @@ mod script;
 pub use instruction::Instruction;
 
 pub use script::CallSignature;
+pub use script::ClassMember;
 pub use script::CompiledDaedalusScript;
 pub use script::ExternalFunctionInfo;
 pub use script::Function;

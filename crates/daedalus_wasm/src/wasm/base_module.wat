@@ -950,6 +950,242 @@
   )
 
   ;; Export section
+  ;; Copies a class member string id into a canonical option<s32> field at
+  ;; dest (discriminant byte @0, string id @4). A member value of 0 means the
+  ;; string is not set.
+  (func $copy_class_member_string_id
+    (param $dest i32) (param $symbol_id i32) (param $member_offset i32)
+    (local $value i32)
+
+    (call $get_class_member (local.get $symbol_id) (local.get $member_offset))
+    local.set $value
+
+    local.get $dest
+    local.get $value
+    i32.const 0
+    i32.ne
+    i32.store8 $main offset=0
+
+    local.get $dest
+    local.get $value
+    i32.store $main offset=4
+  )
+
+  ;; Builds a canonical list<s32> element array from a class member int array
+  ;; and returns the element buffer pointer.
+  (func $class_member_int_list
+    (param $symbol_id i32) (param $base_offset i32) (param $count i32) (result i32)
+    (local $buffer i32) (local $index i32)
+
+    (call $cabi_realloc
+      (i32.const 0) (i32.const 0) (i32.const 0)
+      (i32.mul (local.get $count) (i32.const 4)))
+    local.set $buffer
+
+    (block $done
+      (loop $loop
+        (br_if $done
+          (i32.ge_u (local.get $index) (local.get $count)))
+
+        (i32.store $main
+          (i32.add
+            (local.get $buffer)
+            (i32.mul (local.get $index) (i32.const 4)))
+          (call $get_class_member
+            (local.get $symbol_id)
+            (i32.add
+              (local.get $base_offset)
+              (i32.mul (local.get $index) (i32.const 4)))))
+
+        (local.set $index (i32.add (local.get $index) (i32.const 1)))
+        (br $loop)
+      )
+    )
+
+    (local.get $buffer)
+  )
+
+  ;; Returns pointer to a menu-info record with the c_menu instance data.
+  ;; Member offsets come from the compiled MENU.DAT class layout, the
+  ;; same layout the offset dump test prints for verification.
+  (func $get_menu_info (param $symbol_id i32) (result i32)
+    (local $record i32) (local $items i32)
+
+    ;; Lists are built before the record so later allocations do not move
+    ;; memory the returned record points to.
+    (call $class_member_int_list
+      (local.get $symbol_id) (i32.const 84) (i32.const 150))
+    local.set $items
+
+    (call $cabi_realloc
+      (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 68))
+    local.set $record
+
+    ;; back-pic @0 (c_menu.backpic @0)
+    (call $copy_class_member_string_id
+      (local.get $record) (local.get $symbol_id) (i32.const 0))
+    ;; back-world @8 (c_menu.backworld @20)
+    (call $copy_class_member_string_id
+      (i32.add (local.get $record) (i32.const 8))
+      (local.get $symbol_id) (i32.const 20))
+    ;; music-theme @36 (c_menu.musictheme @60)
+    (call $copy_class_member_string_id
+      (i32.add (local.get $record) (i32.const 36))
+      (local.get $symbol_id) (i32.const 60))
+
+    ;; pos-x @16, pos-y @20, dim-x @24, dim-y @28, alpha @32
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 40))
+    i32.store $main offset=16
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 44))
+    i32.store $main offset=20
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 48))
+    i32.store $main offset=24
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 52))
+    i32.store $main offset=28
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 56))
+    i32.store $main offset=32
+
+    ;; event-timer-msec @44 (c_menu.eventtimermsec @80)
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 80))
+    i32.store $main offset=44
+
+    ;; items @48: list<s32> (ptr, len)
+    local.get $record
+    local.get $items
+    i32.store $main offset=48
+    local.get $record
+    (i32.const 150)
+    i32.store $main offset=52
+
+    ;; menu-flags @56, default-out-game @60, default-in-game @64
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 3084))
+    i32.store $main offset=56
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 3088))
+    i32.store $main offset=60
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 3092))
+    i32.store $main offset=64
+
+    local.get $record
+  )
+
+  ;; Returns pointer to a menu-item-info record with the c_menu_item instance
+  ;; data. Member offsets come from the compiled MENU.DAT class layout.
+  (func $get_menu_item_info (param $symbol_id i32) (result i32)
+    (local $record i32)
+    (local $text i32) (local $actions i32)
+    (local $action_texts i32) (local $events i32)
+
+    ;; Lists are built before the record so later allocations do not move
+    ;; memory the returned record points to.
+    (call $class_member_int_list
+      (local.get $symbol_id) (i32.const 20) (i32.const 10))
+    local.set $text
+    (call $class_member_int_list
+      (local.get $symbol_id) (i32.const 268) (i32.const 5))
+    local.set $actions
+    (call $class_member_int_list
+      (local.get $symbol_id) (i32.const 288) (i32.const 5))
+    local.set $action_texts
+    (call $class_member_int_list
+      (local.get $symbol_id) (i32.const 428) (i32.const 10))
+    local.set $events
+
+    (call $cabi_realloc
+      (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 100))
+    local.set $record
+
+    ;; font-name @0 (c_menu_item.fontname @0)
+    (call $copy_class_member_string_id
+      (local.get $record) (local.get $symbol_id) (i32.const 0))
+    ;; back-pic @16 (c_menu_item.backpic @220)
+    (call $copy_class_member_string_id
+      (i32.add (local.get $record) (i32.const 16))
+      (local.get $symbol_id) (i32.const 220))
+    ;; alpha-mode @24 (c_menu_item.alphamode @240)
+    (call $copy_class_member_string_id
+      (i32.add (local.get $record) (i32.const 24))
+      (local.get $symbol_id) (i32.const 240))
+    ;; on-chg-set-option @56 (c_menu_item.onchgsetoption @388)
+    (call $copy_class_member_string_id
+      (i32.add (local.get $record) (i32.const 56))
+      (local.get $symbol_id) (i32.const 388))
+    ;; on-chg-set-option-section @64 (c_menu_item.onchgsetoptionsection @408)
+    (call $copy_class_member_string_id
+      (i32.add (local.get $record) (i32.const 64))
+      (local.get $symbol_id) (i32.const 408))
+
+    ;; text @8: list<s32> (ptr, len)
+    local.get $record
+    local.get $text
+    i32.store $main offset=8
+    local.get $record
+    (i32.const 10)
+    i32.store $main offset=12
+
+    ;; alpha @32 (c_menu_item.alpha @260)
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 260))
+    i32.store $main offset=32
+    ;; kind @36 (c_menu_item.type @264)
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 264))
+    i32.store $main offset=36
+
+    ;; on-sel-action @40: list<s32> (ptr, len)
+    local.get $record
+    local.get $actions
+    i32.store $main offset=40
+    local.get $record
+    (i32.const 5)
+    i32.store $main offset=44
+
+    ;; on-sel-action-s @48: list<s32> (ptr, len)
+    local.get $record
+    local.get $action_texts
+    i32.store $main offset=48
+    local.get $record
+    (i32.const 5)
+    i32.store $main offset=52
+
+    ;; on-event-action @72: list<s32> (ptr, len)
+    local.get $record
+    local.get $events
+    i32.store $main offset=72
+    local.get $record
+    (i32.const 10)
+    i32.store $main offset=76
+
+    ;; pos-x @80, pos-y @84, dim-x @88, dim-y @92
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 468))
+    i32.store $main offset=80
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 472))
+    i32.store $main offset=84
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 476))
+    i32.store $main offset=88
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 480))
+    i32.store $main offset=92
+
+    ;; item-flags @96 (c_menu_item.flags @488)
+    local.get $record
+    (call $get_class_member (local.get $symbol_id) (i32.const 488))
+    i32.store $main offset=96
+
+    local.get $record
+  )
+
   (export "cabi_realloc" (func $cabi_realloc))
   (export "mmcomando:zengine-scripts/manage@0.1.0#set-instance" (func $set_instance))
   (export "mmcomando:zengine-scripts/manage@0.1.0#set-self" (func $set_self))
@@ -966,6 +1202,8 @@
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num" (func $get_all_symbols_num))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-strings-num" (func $get_all_strings_num))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info" (func $get_symbol_info))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#get-menu-info" (func $get_menu_info))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#get-menu-item-info" (func $get_menu_item_info))
   (export "mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances" (func $initialize_all_instances))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual" (func $get_item_visual))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change" (func $get_item_visual_change))

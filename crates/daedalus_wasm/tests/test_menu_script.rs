@@ -40,6 +40,23 @@ fn menu_convert_and_dump_symbols() {
     println!("\n=== convert to wasm ===");
     let wasm_bytes = convert_daedalus_script(&path);
 
+    println!("\n=== class layout ===");
+    for class in ["c_menu", "c_menu_item"] {
+        let Some(members) = data.class_members(class) else {
+            println!("{class}: missing");
+            continue;
+        };
+        let mut members: Vec<_> = members.iter().collect();
+        members.sort_by_key(|(_, member)| member.offset);
+        println!("{class}:");
+        for (name, member) in members {
+            println!(
+                "  {name} offset={} elements={}",
+                member.offset, member.elements_count
+            );
+        }
+    }
+
     println!("=== component imports (host functions the menu script calls) ===");
     for payload in Parser::new(0).parse_all(&wasm_bytes) {
         if let Ok(wasmparser::Payload::ComponentImportSection(section)) = payload {

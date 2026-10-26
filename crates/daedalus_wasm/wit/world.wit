@@ -371,6 +371,41 @@ interface manage {
         text: list<s32>,
         count: list<s32>,
     }
+    // Info from c_menu daedalus class
+    record menu-info {
+        back-pic: option<s32>,
+        back-world: option<s32>,
+        pos-x: s32,
+        pos-y: s32,
+        dim-x: s32,
+        dim-y: s32,
+        alpha: s32,
+        music-theme: option<s32>,
+        event-timer-msec: s32,
+        items: list<s32>,
+        menu-flags: s32,
+        default-out-game: s32,
+        default-in-game: s32,
+    }
+    // Info from c_menu_item daedalus class
+    record menu-item-info {
+        font-name: option<s32>,
+        text: list<s32>,
+        back-pic: option<s32>,
+        alpha-mode: option<s32>,
+        alpha: s32,
+        kind: s32,
+        on-sel-action: list<s32>,
+        on-sel-action-s: list<s32>,
+        on-chg-set-option: option<s32>,
+        on-chg-set-option-section: option<s32>,
+        on-event-action: list<s32>,
+        pos-x: s32,
+        pos-y: s32,
+        dim-x: s32,
+        dim-y: s32,
+        item-flags: s32,
+    }
 
 
     test-func: func() -> s32;
@@ -386,6 +421,8 @@ interface manage {
     call-function-discard: func(symbol-id: s32);
     call-function-bool: func(symbol-id: s32) -> bool;
     get-symbol-id: func(symbol-name: string) -> option<s32>;
+    get-menu-info: func(symbol-id: s32) -> menu-info;
+    get-menu-item-info: func(symbol-id: s32) -> menu-item-info;
     get-item-visual: func(symbol-id: s32) -> option<string>;
     get-item-visual-change: func(symbol-id: s32) -> option<string>;
     get-npc-info: func(symbol-id: s32) -> npc-info;
