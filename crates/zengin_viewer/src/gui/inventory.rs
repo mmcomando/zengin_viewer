@@ -15,6 +15,7 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::gui::JournalUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
+use crate::ui_kit::{UiText, set_display, set_text, set_visibility, spawn_gui_root};
 use crate::zengin::DialogUiState;
 use crate::zengin::ScriptManager;
 use crate::zengin::get_full_texture_path;
@@ -71,10 +72,6 @@ impl InventoryStyle {
     const EQUIPPED_OVERLAY: Color = Color::srgba(0.7, 0.05, 0.05, 0.1);
     const TEXT_COLOR: Color = Color::srgb(0.9, 0.8, 0.6);
     const COUNT_TEXT_COLOR: Color = Color::srgb(0.95, 0.95, 0.9);
-    const TEXT_SHADOW: TextShadow = TextShadow {
-        offset: Vec2::new(2.0, 2.0),
-        color: Color::BLACK,
-    };
 }
 
 /// One entry shown in a grid: an inventory stack with its display name.
@@ -383,18 +380,7 @@ fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         focus: asset_server.load(get_full_texture_path("INV_SLOT_FOCUS")),
     };
 
-    let root = commands
-        .spawn((
-            InventoryContainer::Root,
-            Visibility::Hidden,
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                ..default()
-            },
-        ))
-        .id();
+    let root = spawn_gui_root(&mut commands, InventoryContainer::Root);
 
     // Trader window on the left, only shown in trade mode
     spawn_inventory_window(
@@ -451,14 +437,11 @@ fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                     flex_grow: 1.0,
                     ..default()
                 },
-                Text::new(String::new()),
-                TextFont {
-                    font_size: InventoryStyle::INFO_FONT_SIZE.into(),
-                    ..default()
-                },
-                TextColor(InventoryStyle::TEXT_COLOR),
-                TextLayout::default().with_justify(Justify::Left),
-                InventoryStyle::TEXT_SHADOW,
+                UiText::new(
+                    String::new(),
+                    InventoryStyle::INFO_FONT_SIZE,
+                    InventoryStyle::TEXT_COLOR,
+                ),
             ));
             info_panel.spawn((
                 InventoryInfoText,
@@ -467,14 +450,12 @@ fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                     width: Val::Px(120.0),
                     ..default()
                 },
-                Text::new(String::new()),
-                TextFont {
-                    font_size: InventoryStyle::INFO_FONT_SIZE.into(),
-                    ..default()
-                },
-                TextColor(InventoryStyle::TEXT_COLOR),
-                TextLayout::default().with_justify(Justify::Right),
-                InventoryStyle::TEXT_SHADOW,
+                UiText::new(
+                    String::new(),
+                    InventoryStyle::INFO_FONT_SIZE,
+                    InventoryStyle::TEXT_COLOR,
+                )
+                .justify(Justify::Right),
             ));
         });
 
@@ -509,14 +490,12 @@ fn spawn_header_box(
     commands.spawn((
         ChildOf(box_node),
         marker,
-        Text::new(text),
-        TextFont {
-            font_size: InventoryStyle::HEADER_FONT_SIZE.into(),
-            ..default()
-        },
-        TextColor(InventoryStyle::TEXT_COLOR),
-        TextLayout::default().with_justify(Justify::Center),
-        InventoryStyle::TEXT_SHADOW,
+        UiText::new(
+            text,
+            InventoryStyle::HEADER_FONT_SIZE,
+            InventoryStyle::TEXT_COLOR,
+        )
+        .justify(Justify::Center),
     ));
 }
 
@@ -633,14 +612,12 @@ fn spawn_inventory_window(
         commands.spawn((
             ChildOf(slot),
             InventorySlotTextOrCount::Name,
-            Text::new(String::new()),
-            TextFont {
-                font_size: InventoryStyle::SLOT_FONT_SIZE.into(),
-                ..default()
-            },
-            TextColor(InventoryStyle::TEXT_COLOR),
-            TextLayout::default().with_justify(Justify::Center),
-            InventoryStyle::TEXT_SHADOW,
+            UiText::new(
+                String::new(),
+                InventoryStyle::SLOT_FONT_SIZE,
+                InventoryStyle::TEXT_COLOR,
+            )
+            .justify(Justify::Center),
         ));
         // Stack count in the bottom right corner, like the original
         commands.spawn((
@@ -652,13 +629,11 @@ fn spawn_inventory_window(
                 bottom: Val::Px(6.0),
                 ..default()
             },
-            Text::new(String::new()),
-            TextFont {
-                font_size: InventoryStyle::COUNT_FONT_SIZE.into(),
-                ..default()
-            },
-            TextColor(InventoryStyle::COUNT_TEXT_COLOR),
-            InventoryStyle::TEXT_SHADOW,
+            UiText::new(
+                String::new(),
+                InventoryStyle::COUNT_FONT_SIZE,
+                InventoryStyle::COUNT_TEXT_COLOR,
+            ),
         ));
     }
 
@@ -1269,14 +1244,7 @@ fn sync_inventory_ui(
     >,
 ) {
     for (_, mut visibility) in containers.iter_mut() {
-        let desired = if state.open {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-        if *visibility != desired {
-            *visibility = desired;
-        }
+        set_visibility(&mut visibility, state.open);
     }
     if !state.open {
         return;
@@ -1287,33 +1255,26 @@ fn sync_inventory_ui(
             .windows
             .get(panel.0)
             .is_some_and(|window| window.is_some());
-        let desired = if used { Display::Flex } else { Display::None };
-        if node.display != desired {
-            node.display = desired;
-        }
+        set_display(&mut node, used);
     }
 
     for (marker, mut text) in window_title.iter_mut() {
         let Some(window) = state.windows.get(marker.0).and_then(Option::as_ref) else {
             continue;
         };
-        if text.0 != window.title {
-            text.0.clone_from(&window.title);
-        }
+        set_text(&mut text, &window.title);
     }
     for (marker, mut text) in window_gold.iter_mut() {
         let Some(window) = state.windows.get(marker.0).and_then(Option::as_ref) else {
             continue;
         };
         let gold = format!("Gold: {}", window.gold_count);
-        if text.0 != gold {
-            text.0 = gold;
-        }
+        set_text(&mut text, &gold);
     }
 
     for (slot, mut node, mut image, children) in slots.iter_mut() {
         let Some(window) = state.windows.get(slot.window).and_then(Option::as_ref) else {
-            node.display = Display::None;
+            set_display(&mut node, false);
             continue;
         };
         let slot_count = window
@@ -1321,7 +1282,7 @@ fn sync_inventory_ui(
             .len()
             .min(InventoryStyle::COLUMNS * InventoryStyle::ROWS);
         let used = slot.index < slot_count;
-        node.display = if used { Display::Flex } else { Display::None };
+        set_display(&mut node, used);
         if !used {
             continue;
         }
@@ -1350,24 +1311,15 @@ fn sync_inventory_ui(
         };
         for &child in children {
             if let Ok(mut overlay) = equipped_overlays.get_mut(child) {
-                let desired = if is_equipped {
-                    Display::Flex
-                } else {
-                    Display::None
-                };
-                if overlay.display != desired {
-                    overlay.display = desired;
-                }
+                set_display(&mut overlay, is_equipped);
                 continue;
             }
             if let Ok((mut text, kind)) = slot_texts.get_mut(child) {
                 let desired = match kind {
-                    InventorySlotTextOrCount::Name => display_text.clone(),
-                    InventorySlotTextOrCount::Count => count_text.clone(),
+                    InventorySlotTextOrCount::Name => &display_text,
+                    InventorySlotTextOrCount::Count => &count_text,
                 };
-                if text.0 != desired {
-                    text.0 = desired;
-                }
+                set_text(&mut text, desired);
             }
         }
     }
@@ -1378,14 +1330,8 @@ fn sync_inventory_ui(
         .map(|entry| item_info_text(entry, state.is_trade()))
         .unwrap_or_default();
     for (mut text, is_values) in info_text.iter_mut() {
-        let info = if is_values {
-            values.clone()
-        } else {
-            labels.clone()
-        };
-        if text.0 != info {
-            text.0 = info;
-        }
+        let info = if is_values { &values } else { &labels };
+        set_text(&mut text, info);
     }
 }
 /// Item info panel content: item name, flavor description and the generic

@@ -1,6 +1,11 @@
 use super::state::{DialogLineView, DialogOptionView, DialogUiState};
 use bevy::prelude::*;
 
+use crate::ui_kit::{
+    UiText, follow_selected_row, set_display, set_font_size, set_text, set_text_color,
+    set_visibility, spawn_gui_root,
+};
+
 /// Visual style of the dialog UI, single place to tweak the look
 pub(super) struct DialogStyle;
 
@@ -15,10 +20,6 @@ impl DialogStyle {
     pub(super) const TEXT_COLOR_NORMAL: Color = Color::srgb(0.6, 0.6, 0.6);
     pub(super) const TEXT_COLOR_SELECTED: Color = Color::srgb(0.95, 0.95, 0.95);
     pub(super) const LINE_TEXT_COLOR: Color = Color::srgb(0.9, 0.75, 0.35);
-    pub(super) const TEXT_SHADOW: TextShadow = TextShadow {
-        offset: Vec2::new(2.0, 2.0),
-        color: Color::BLACK,
-    };
 }
 
 /// Identifies the persistent dialog UI containers, they are only toggled via [`Visibility`]
@@ -75,23 +76,9 @@ pub(super) fn override_default_font(mut fonts: ResMut<Assets<Font>>) {
 /// Spawns the whole dialog UI once at startup, hidden until a dialog opens.
 /// Option rows are spawned lazily on demand and never removed, unused ones get `Display::None`.
 pub(super) fn spawn_dialog_ui(mut commands: Commands) {
-    let root = spawn_ui_root(&mut commands);
+    let root = spawn_gui_root(&mut commands, DialogContainer::Root);
     spawn_options_panel(&mut commands, root);
     spawn_lines_panel(&mut commands, root);
-}
-
-fn spawn_ui_root(commands: &mut Commands) -> Entity {
-    commands
-        .spawn((
-            DialogContainer::Root,
-            Visibility::Hidden,
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                ..default()
-            },
-        ))
-        .id()
 }
 
 fn spawn_options_panel(commands: &mut Commands, root: Entity) {
@@ -170,13 +157,11 @@ fn spawn_lines_panel(commands: &mut Commands, root: Entity) {
                 .with_children(|lines_box| {
                     lines_box.spawn((
                         DialogNpcNameText,
-                        Text::new(String::new()),
-                        TextFont {
-                            font_size: DialogStyle::FONT_SIZE.into(),
-                            ..default()
-                        },
-                        TextColor(DialogStyle::LINE_TEXT_COLOR),
-                        DialogStyle::TEXT_SHADOW,
+                        UiText::new(
+                            String::new(),
+                            DialogStyle::FONT_SIZE,
+                            DialogStyle::LINE_TEXT_COLOR,
+                        ),
                     ));
                     lines_box.spawn((
                         DialogLineText,
@@ -185,14 +170,12 @@ fn spawn_lines_panel(commands: &mut Commands, root: Entity) {
                             width: Val::Percent(100.0),
                             ..default()
                         },
-                        Text::new(String::new()),
-                        TextFont {
-                            font_size: DialogStyle::FONT_SIZE.into(),
-                            ..default()
-                        },
-                        TextLayout::justify(Justify::Center),
-                        TextColor(DialogStyle::LINE_TEXT_COLOR),
-                        DialogStyle::TEXT_SHADOW,
+                        UiText::new(
+                            String::new(),
+                            DialogStyle::FONT_SIZE,
+                            DialogStyle::LINE_TEXT_COLOR,
+                        )
+                        .justify(Justify::Center),
                     ));
                 });
         });
@@ -250,32 +233,12 @@ fn sync_container_visibility(
 ) {
     let open = dialog_ui.is_open();
     for (container, mut visibility) in containers.iter_mut() {
-        let desired = match container {
-            DialogContainer::Root => {
-                if open {
-                    Visibility::Visible
-                } else {
-                    Visibility::Hidden
-                }
-            }
-            DialogContainer::OptionsPanel => {
-                if open && dialog_ui.is_showing_options() && !trade_open {
-                    Visibility::Visible
-                } else {
-                    Visibility::Hidden
-                }
-            }
-            DialogContainer::LinesPanel => {
-                if open && dialog_ui.is_playing_lines() {
-                    Visibility::Visible
-                } else {
-                    Visibility::Hidden
-                }
-            }
+        let visible = match container {
+            DialogContainer::Root => open,
+            DialogContainer::OptionsPanel => open && dialog_ui.is_showing_options() && !trade_open,
+            DialogContainer::LinesPanel => open && dialog_ui.is_playing_lines(),
         };
-        if *visibility != desired {
-            *visibility = desired;
-        }
+        set_visibility(&mut visibility, visible);
     }
 }
 
@@ -318,8 +281,8 @@ fn sync_option_rows(
                 let Ok((_, _, mut node, mut text, _, _)) = rows.get_mut(*entity) else {
                     continue;
                 };
-                set_text_if_changed(&mut text, display_text);
-                set_row_display(&mut node, true);
+                set_text(&mut text, &display_text);
+                set_display(&mut node, true);
             }
             None => spawn_option_row(
                 commands,
@@ -336,7 +299,7 @@ fn sync_option_rows(
         let Ok((_, _, mut node, _, _, _)) = rows.get_mut(*entity) else {
             continue;
         };
-        set_row_display(&mut node, false);
+        set_display(&mut node, false);
     }
 
     scroll_position.0 = Vec2::ZERO;
@@ -371,17 +334,13 @@ fn apply_row_selection(
     } else {
         DialogStyle::TEXT_COLOR_NORMAL
     };
-    if text_color.0 != color {
-        text_color.0 = color;
-    }
+    set_text_color(&mut text_color, color);
     let font_size = if selected {
         DialogStyle::SELECTED_FONT_SIZE
     } else {
         DialogStyle::FONT_SIZE
     };
-    if text_font.font_size != font_size.into() {
-        text_font.font_size = font_size.into();
-    }
+    set_font_size(&mut text_font, font_size);
 }
 
 /// Keeps the selected row visible while scrolling
@@ -393,22 +352,12 @@ fn sync_scroll_follow(
     >,
 ) {
     if let Ok((_, mut scroll_position, computed)) = rows_container.single_mut() {
-        let viewport_height = computed.size().y;
-        let content_height = computed.content_size().y;
-        let row_height = DialogStyle::ROW_HEIGHT;
-        let selected_top = dialog_ui.selected_index as f32 * row_height;
-        let selected_bottom = selected_top + row_height;
-        let mut y = scroll_position.0.y;
-        if selected_top < y {
-            y = selected_top;
-        } else if viewport_height > 0.0 && selected_bottom > y + viewport_height {
-            y = selected_bottom - viewport_height;
-        }
-        let max_scroll = (content_height - viewport_height).max(0.0);
-        y = y.clamp(0.0, max_scroll);
-        if (scroll_position.0.y - y).abs() > f32::EPSILON {
-            scroll_position.0.y = y;
-        }
+        follow_selected_row(
+            &mut scroll_position,
+            computed,
+            dialog_ui.selected_index,
+            DialogStyle::ROW_HEIGHT,
+        );
     }
 }
 
@@ -419,12 +368,12 @@ fn sync_line_texts(
     line_text: &mut Query<&mut Text, LineTextFilter>,
 ) {
     if let Ok(mut text) = npc_name_text.single_mut() {
-        set_text_if_changed(&mut text, dialog_ui.npc_name.clone());
+        set_text(&mut text, &dialog_ui.npc_name);
     }
     if let Some(view) = dialog_ui.current_line()
         && let Ok(mut text) = line_text.single_mut()
     {
-        set_text_if_changed(&mut text, dialog_line_display_text(view));
+        set_text(&mut text, &dialog_line_display_text(view));
     }
 }
 
@@ -445,42 +394,20 @@ fn spawn_option_row(
             overflow: Overflow::clip(),
             ..default()
         },
-        Text::new(display_text),
-        TextFont {
-            font_size: (if selected {
+        UiText::new(
+            display_text,
+            if selected {
                 DialogStyle::SELECTED_FONT_SIZE
             } else {
                 DialogStyle::FONT_SIZE
-            })
-            .into(),
-            ..default()
-        },
-        TextColor(if selected {
-            DialogStyle::TEXT_COLOR_SELECTED
-        } else {
-            DialogStyle::TEXT_COLOR_NORMAL
-        }),
-        DialogStyle::TEXT_SHADOW,
+            },
+            if selected {
+                DialogStyle::TEXT_COLOR_SELECTED
+            } else {
+                DialogStyle::TEXT_COLOR_NORMAL
+            },
+        ),
     ));
-}
-
-/// Assigns the text only when it differs, keeping change detection quiet
-fn set_text_if_changed(text: &mut Text, value: String) {
-    if text.0 != value {
-        text.0 = value;
-    }
-}
-
-/// Toggles a row between the layout (`Flex`) and hidden (`None`) state
-fn set_row_display(node: &mut Node, visible: bool) {
-    let display = if visible {
-        Display::Flex
-    } else {
-        Display::None
-    };
-    if node.display != display {
-        node.display = display;
-    }
 }
 
 /// Option description, fall back to the function id when the description is empty

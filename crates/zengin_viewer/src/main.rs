@@ -106,6 +106,7 @@ mod graphics;
 mod gui;
 mod gui_debug;
 mod input;
+mod ui_kit;
 mod xr;
 mod zengin;
 

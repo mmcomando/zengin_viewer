@@ -10,6 +10,10 @@ use leafwing_input_manager::prelude::ActionState;
 use crate::gameplay::game_time::GameTime;
 use crate::gui::InventoryUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
+use crate::ui_kit::{
+    UiText, follow_selected_row, set_display, set_font_size, set_text, set_text_color,
+    set_visibility, spawn_gui_root,
+};
 use crate::zengin::{DialogUiState, JournalSection, JournalStatus, JournalTopic, ScriptResource};
 
 pub struct JournalUiPlugin;
@@ -48,10 +52,6 @@ impl JournalStyle {
     const ROW_HEIGHT: f32 = 32.0;
     const DETAIL_LINE_HEIGHT: f32 = 30.0;
     const CATEGORY_HEIGHT: f32 = 84.0;
-    const TEXT_SHADOW: TextShadow = TextShadow {
-        offset: Vec2::new(2.0, 2.0),
-        color: Color::BLACK,
-    };
 }
 
 /// Sections of the journal, matching the original category widgets.
@@ -232,19 +232,8 @@ enum JournalTextMarker {
 
 /// Spawns the whole journal UI once at startup, hidden until opened.
 fn spawn_journal_ui(mut commands: Commands) {
-    let root = commands
-        .spawn((
-            JournalContainerMarker::Root,
-            GlobalZIndex(10),
-            Visibility::Hidden,
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                ..default()
-            },
-        ))
-        .id();
+    let root = spawn_gui_root(&mut commands, JournalContainerMarker::Root);
+    commands.entity(root).insert(GlobalZIndex(10));
     spawn_main_panel(&mut commands, root);
     spawn_detail_panel(&mut commands, root);
 }
@@ -331,14 +320,12 @@ fn spawn_category_box(commands: &mut Commands, parent: Entity, category: Journal
     commands.spawn((
         ChildOf(category_box),
         JournalTextMarker::Category(category),
-        Text::new(category.label()),
-        TextFont {
-            font_size: JournalStyle::LABEL_FONT_SIZE.into(),
-            ..default()
-        },
-        TextColor(JournalStyle::LABEL_COLOR),
-        TextLayout::default().with_justify(Justify::Center),
-        JournalStyle::TEXT_SHADOW,
+        UiText::new(
+            category.label(),
+            JournalStyle::LABEL_FONT_SIZE,
+            JournalStyle::LABEL_COLOR,
+        )
+        .justify(Justify::Center),
     ));
 }
 
@@ -364,14 +351,12 @@ fn spawn_day_time_box(commands: &mut Commands, parent: Entity) {
     commands.spawn((
         ChildOf(box_entity),
         JournalTextMarker::DayTime,
-        Text::new(String::new()),
-        TextFont {
-            font_size: JournalStyle::LABEL_FONT_SIZE.into(),
-            ..default()
-        },
-        TextColor(JournalStyle::LABEL_COLOR_SELECTED),
-        TextLayout::default().with_justify(Justify::Right),
-        JournalStyle::TEXT_SHADOW,
+        UiText::new(
+            String::new(),
+            JournalStyle::LABEL_FONT_SIZE,
+            JournalStyle::LABEL_COLOR_SELECTED,
+        )
+        .justify(Justify::Right),
     ));
 }
 
@@ -420,13 +405,11 @@ fn spawn_detail_panel(commands: &mut Commands, root: Entity) {
             width: Val::Percent(100.0),
             ..default()
         },
-        Text::new(String::new()),
-        TextFont {
-            font_size: JournalStyle::DETAIL_FONT_SIZE.into(),
-            ..default()
-        },
-        TextColor(JournalStyle::DETAIL_COLOR),
-        JournalStyle::TEXT_SHADOW,
+        UiText::new(
+            String::new(),
+            JournalStyle::DETAIL_FONT_SIZE,
+            JournalStyle::DETAIL_COLOR,
+        ),
     ));
     commands.spawn((
         ChildOf(panel),
@@ -436,14 +419,12 @@ fn spawn_detail_panel(commands: &mut Commands, root: Entity) {
             margin: UiRect::top(Val::Px(12.0)),
             ..default()
         },
-        Text::new(String::new()),
-        TextFont {
-            font_size: JournalStyle::FOOTER_FONT_SIZE.into(),
-            ..default()
-        },
-        TextColor(JournalStyle::FOOTER_COLOR),
-        TextLayout::default().with_justify(Justify::Center),
-        JournalStyle::TEXT_SHADOW,
+        UiText::new(
+            String::new(),
+            JournalStyle::FOOTER_FONT_SIZE,
+            JournalStyle::FOOTER_COLOR,
+        )
+        .justify(Justify::Center),
     ));
 }
 
@@ -561,14 +542,12 @@ fn sync_journal_ui(
     >,
 ) {
     for (container, mut visibility) in containers.iter_mut() {
-        let desired = match container {
-            JournalContainerMarker::Root => visibility_for(state.open),
-            JournalContainerMarker::Main => visibility_for(state.open && !state.detail_open),
-            JournalContainerMarker::Detail => visibility_for(state.open && state.detail_open),
+        let visible = match container {
+            JournalContainerMarker::Root => state.open,
+            JournalContainerMarker::Main => state.open && !state.detail_open,
+            JournalContainerMarker::Detail => state.open && state.detail_open,
         };
-        if *visibility != desired {
-            *visibility = desired;
-        }
+        set_visibility(&mut visibility, visible);
     }
     if !state.open {
         return;
@@ -590,7 +569,12 @@ fn sync_journal_ui(
         }
     }
     if state.focus == JournalFocus::Topics && !state.active.is_empty() {
-        follow_selected_row(&state, &mut list_scroll, &list_computed);
+        follow_selected_row(
+            &mut list_scroll,
+            list_computed,
+            state.selected,
+            JournalStyle::ROW_HEIGHT,
+        );
     }
 
     let detail_text = if state.detail_dirty {
@@ -699,37 +683,12 @@ fn spawn_missing_rows(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            Text::new(String::new()),
-            TextFont {
-                font_size: JournalStyle::TOPIC_FONT_SIZE.into(),
-                ..default()
-            },
-            TextColor(JournalStyle::TOPIC_COLOR),
-            JournalStyle::TEXT_SHADOW,
+            UiText::new(
+                String::new(),
+                JournalStyle::TOPIC_FONT_SIZE,
+                JournalStyle::TOPIC_COLOR,
+            ),
         ));
-    }
-}
-
-fn follow_selected_row(
-    state: &JournalUiState,
-    scroll: &mut ScrollPosition,
-    computed: &ComputedNode,
-) {
-    let viewport_height = computed.size().y;
-    let content_height = computed.content_size().y;
-    let row_height = JournalStyle::ROW_HEIGHT;
-    let selected_top = state.selected as f32 * row_height;
-    let selected_bottom = selected_top + row_height;
-    let mut y = scroll.0.y;
-    if selected_top < y {
-        y = selected_top;
-    } else if viewport_height > 0.0 && selected_bottom > y + viewport_height {
-        y = selected_bottom - viewport_height;
-    }
-    let max_scroll = (content_height - viewport_height).max(0.0);
-    y = y.clamp(0.0, max_scroll);
-    if (scroll.0.y - y).abs() > f32::EPSILON {
-        scroll.0.y = y;
     }
 }
 
@@ -788,42 +747,4 @@ fn day_time_text(game_time: &GameTime) -> String {
     let hour = game_time.hour();
     let minute = game_time.minutes_of_day() % 60;
     format!("{}.Dzień:\nCzas: {hour:02}:{minute:02}", game_time.day)
-}
-
-fn visibility_for(visible: bool) -> Visibility {
-    if visible {
-        Visibility::Visible
-    } else {
-        Visibility::Hidden
-    }
-}
-
-fn set_text(text: &mut Text, value: &str) {
-    if text.0 != value {
-        text.0 = value.to_string();
-    }
-}
-
-fn set_text_color(color: &mut TextColor, value: Color) {
-    if color.0 != value {
-        color.0 = value;
-    }
-}
-
-fn set_font_size(font: &mut TextFont, value: f32) {
-    let size = value.into();
-    if font.font_size != size {
-        font.font_size = size;
-    }
-}
-
-fn set_display(node: &mut Node, visible: bool) {
-    let display = if visible {
-        Display::Flex
-    } else {
-        Display::None
-    };
-    if node.display != display {
-        node.display = display;
-    }
 }
