@@ -2,8 +2,8 @@
 
 use std::path::PathBuf;
 
+use crate::daedalus::{CompiledDaedalusScript, Symbol};
 use daedalus_typed::{SymbolDecl, SymbolKind, TypedRegistry};
-use daedalus_wasm::daedalus::{CompiledDaedalusScript, Symbol};
 
 fn gothic2_dir() -> Option<PathBuf> {
     if let Ok(dir) = std::env::var("GOTHIC2_DIR") {
@@ -59,8 +59,8 @@ fn decl<'a>(symbol: &'a Symbol) -> SymbolDecl<'a> {
     }
 }
 
-fn convert_symbol_kind(kind: daedalus_wasm::daedalus::SymbolKind) -> SymbolKind {
-    use daedalus_wasm::daedalus::SymbolKind as Source;
+fn convert_symbol_kind(kind: crate::daedalus::SymbolKind) -> SymbolKind {
+    use crate::daedalus::SymbolKind as Source;
     match kind {
         Source::Float => SymbolKind::Float,
         Source::Int => SymbolKind::Int,

@@ -1,9 +1,9 @@
 mod imported_functions;
 mod store;
 
-use crate::common::imported_functions::ImportCallState;
-use daedalus_wasm::daedalus;
-use daedalus_wasm::wasm::{BinaryBuilder, parse_base_module};
+use crate::daedalus;
+use crate::wasm::{BinaryBuilder, parse_base_module};
+use imported_functions::ImportCallState;
 use std::env::home_dir;
 use std::path::PathBuf;
 use std::process::Command;
@@ -779,7 +779,7 @@ impl WasmExecutor {
     pub fn get_symbol_info(
         &mut self,
         symbol_id: i32,
-    ) -> crate::common::exports::mmcomando::zengine_scripts::manage::SymbolInfo {
+    ) -> self::exports::mmcomando::zengine_scripts::manage::SymbolInfo {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_get_symbol_info(&mut self.store, symbol_id)
@@ -788,7 +788,12 @@ impl WasmExecutor {
 }
 
 fn get_test_name() -> String {
-    std::thread::current().name().unwrap().to_string()
+    // Unit tests are named `tests::<module>::<test>`; the module is kept in the
+    // file name so tests with the same name in different modules don't collide.
+    let thread = std::thread::current();
+    let name = thread.name().unwrap();
+    let name = name.strip_prefix("tests::").unwrap_or(name);
+    name.replace("::", "__")
 }
 
 fn save_test_binary(test_name: &str, wasm_bytes: &[u8]) {

@@ -3,8 +3,6 @@
 
 // We use as many lints as possible
 // It often helps learn language and reduce bugs
-// Enabled here instead of Cargo.toml so that integration tests, which are
-// separate crates, don't inherit the pedantic/restriction groups
 #![warn(clippy::pedantic, clippy::restriction)]
 #![allow(
     clippy::blanket_clippy_restriction_lints,
@@ -105,3 +103,12 @@ pub(crate) mod common;
 pub mod daedalus;
 /// Functionality to convert daedalus to wasm.
 pub mod wasm;
+
+#[cfg(test)]
+#[allow(
+    clippy::pedantic,
+    clippy::restriction,
+    missing_docs,
+    reason = "Tests favor readability over the library's lint strictness"
+)]
+mod tests;

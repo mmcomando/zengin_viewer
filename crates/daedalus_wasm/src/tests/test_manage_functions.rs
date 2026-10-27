@@ -1,7 +1,5 @@
-mod common;
-
-use crate::common::WasmExecutor;
-use daedalus_wasm::daedalus::{CallSignature, Function, Instruction as InstDD, Symbol, SymbolKind};
+use crate::daedalus::{CallSignature, Function, Instruction as InstDD, Symbol, SymbolKind};
+use crate::tests::common::WasmExecutor;
 
 #[test]
 fn test_call_npc_routine() {
@@ -222,7 +220,7 @@ fn test_all_symbols_num() {
 
 #[test]
 fn test_get_symbol_info() {
-    use crate::common::exports::mmcomando::zengine_scripts::manage::SymbolKind;
+    use crate::tests::common::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 
     let class = 0_usize;
     let class_var = 1_usize;

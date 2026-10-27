@@ -11,8 +11,8 @@
 
 use std::collections::HashMap;
 
-use daedalus_wasm::daedalus::Symbol;
-use daedalus_wasm::daedalus::SymbolKind;
+use crate::daedalus::Symbol;
+use crate::daedalus::SymbolKind;
 
 /// Metadata of one daedalus symbol, mirroring the `symbol-info` guest record.
 #[derive(Debug, Clone, Copy)]

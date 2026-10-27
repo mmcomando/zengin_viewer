@@ -1,11 +1,10 @@
 //! Throwaway tool: converts the Gothic II menu script (MENU.DAT) to wasm and
 //! dumps all symbols, to evaluate menu support in the viewer.
-//! Run: cargo test -p daedalus_wasm --test test_menu_script -- --ignored --nocapture
-mod common;
+//! Run: cargo test -p daedalus_wasm --lib tests::test_menu_script -- --ignored --nocapture
 
-use crate::common::WasmExecutor;
-use crate::common::gothic2_dir;
-use daedalus_wasm::wasm::convert_daedalus_script;
+use crate::tests::common::WasmExecutor;
+use crate::tests::common::gothic2_dir;
+use crate::wasm::convert_daedalus_script;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use wasmparser::Parser;
@@ -18,11 +17,11 @@ fn menu_main_script_path() -> PathBuf {
 #[ignore]
 fn menu_convert_and_dump_symbols() {
     let path = menu_main_script_path();
-    let data = daedalus_wasm::daedalus::CompiledDaedalusScript::from_file(&path).unwrap();
+    let data = crate::daedalus::CompiledDaedalusScript::from_file(&path).unwrap();
 
     println!("=== external functions (host imports) ===");
     let mut externals: HashMap<String, (u32, bool)> = HashMap::new();
-    for external in daedalus_wasm::daedalus::external_functions(&data.symbols) {
+    for external in crate::daedalus::external_functions(&data.symbols) {
         println!(
             "{} (params: {}, returns: {})",
             external.name, external.parameters_num, external.returns

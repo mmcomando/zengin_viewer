@@ -1,10 +1,8 @@
-mod common;
-
-use crate::common::WasmExecutor;
-use crate::common::gothic2_main_script_path;
-use daedalus_wasm::daedalus::CompiledDaedalusScript;
-use daedalus_wasm::daedalus::Instruction as InstDD;
-use daedalus_wasm::wasm::convert_daedalus_script;
+use crate::daedalus::CompiledDaedalusScript;
+use crate::daedalus::Instruction as InstDD;
+use crate::tests::common::WasmExecutor;
+use crate::tests::common::gothic2_main_script_path;
+use crate::wasm::convert_daedalus_script;
 
 use std::sync::OnceLock;
 

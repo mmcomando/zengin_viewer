@@ -1,10 +1,8 @@
-mod common;
-
-use crate::common::WasmExecutor;
-use daedalus_wasm::daedalus::CallSignature;
-use daedalus_wasm::daedalus::Function;
-use daedalus_wasm::daedalus::Instruction as InstDD;
-use daedalus_wasm::daedalus::Symbol;
+use crate::daedalus::CallSignature;
+use crate::daedalus::Function;
+use crate::daedalus::Instruction as InstDD;
+use crate::daedalus::Symbol;
+use crate::tests::common::WasmExecutor;
 
 #[test]
 fn test_assign_integer_global_memory() {

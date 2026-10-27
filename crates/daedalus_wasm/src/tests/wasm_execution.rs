@@ -1,7 +1,5 @@
-mod common;
-
-use crate::common::WasmExecutor;
-use daedalus_wasm::daedalus::Instruction as InstDD;
+use crate::daedalus::Instruction as InstDD;
+use crate::tests::common::WasmExecutor;
 
 #[test]
 fn test_add_daedalus_function_adds_set_instance_builtin() -> Result<(), Box<dyn std::error::Error>>

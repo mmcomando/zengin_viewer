@@ -2,7 +2,7 @@
 //! member offsets hardcoded in the manage exports (`base_module.wat`).
 //! Requires `GOTHIC2_DIR` pointing at the Gothic II install directory.
 
-use daedalus_wasm::daedalus::CompiledDaedalusScript;
+use crate::daedalus::CompiledDaedalusScript;
 use std::path::PathBuf;
 
 #[test]
@@ -17,7 +17,7 @@ fn print_class_member_offsets() {
     let classes: Vec<String> = script
         .symbols
         .iter()
-        .filter(|symbol| symbol.kind() == daedalus_wasm::daedalus::SymbolKind::Class)
+        .filter(|symbol| symbol.kind() == crate::daedalus::SymbolKind::Class)
         .map(|symbol| symbol.name().to_uppercase())
         .collect();
     println!("classes: {classes:?}");
