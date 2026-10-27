@@ -1,0 +1,7 @@
+[package]
+name = "daedalus_typed"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+daedalus_wasm = { path = "../daedalus_wasm" }

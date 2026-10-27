@@ -3313,6 +3313,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 
 [[package]]
+name = "daedalus_typed"
+version = "0.1.0"
+dependencies = [
+ "daedalus_wasm",
+]
+
+[[package]]
 name = "daedalus_wasm"
 version = "0.1.0"
 dependencies = [
@@ -9764,6 +9771,7 @@ dependencies = [
  "bevy_xr_utils",
  "byteorder",
  "clap",
+ "daedalus_typed",
  "daedalus_wasm",
  "leafwing-input-manager",
  "openxr",
