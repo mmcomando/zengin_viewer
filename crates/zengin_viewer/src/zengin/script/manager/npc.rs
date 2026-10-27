@@ -1,5 +1,7 @@
+use std::sync::{Arc, PoisonError, RwLock};
+
 use bevy::log::warn;
-use daedalus_wasm::symbol_store::{self, ItemInfo, NpcInfo};
+use daedalus_typed::{Item, Npc};
 
 use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::super::state::HealthChange;
@@ -77,19 +79,12 @@ impl super::ScriptManager {
 
     pub fn call_npc_routine(&mut self, instance_index: InstanceId) {
         let Some(routine) = self
-            .store
-            .data()
-            .symbol_store
-            .read_offset(instance_index.value() as u32, 608)
+            .npc_data(instance_index.value() as u32)
+            .and_then(|npc| npc.daily_routine)
         else {
             return;
         };
-        if routine <= 1 {
-            return;
-        }
-        let Some(function) = SymbolId::new(routine)
-            .and_then(|symbol| self.store.data().symbol_table.function(symbol.value()))
-        else {
+        let Some(function) = self.symbol_table().function(routine.value()) else {
             return;
         };
         if let Err(err) = self.try_call_function(function) {
@@ -100,15 +95,15 @@ impl super::ScriptManager {
     /// Display name of an npc from its `C_NPC` `name` member, `None` when the
     /// instance has no data or the name string is unset.
     pub fn npc_display_name(&mut self, npc: InstanceId) -> Option<String> {
-        let name = self.npc_info(npc).name;
-        self.string_by_id(name)
+        let name = self.npc_data(npc.value() as u32)?.name;
+        self.string_by_id(name.map(StringId::value))
     }
 
     /// Display name of an item from its `C_ITEM` `name` member, `None` when
     /// the instance has no data or the name string is unset.
     pub fn item_display_name(&mut self, item: InstanceId) -> Option<String> {
-        let name = self.item_info(item).name;
-        self.string_by_id(name)
+        let name = self.item_data(item.value() as u32)?.name;
+        self.string_by_id(name.map(StringId::value))
     }
 
     /// Name of an item for the game log: localized `C_ITEM.name`, warn and the
@@ -124,53 +119,45 @@ impl super::ScriptManager {
         item.value().to_string()
     }
 
-    fn npc_info(&mut self, npc: InstanceId) -> NpcInfo {
-        symbol_store::npc_info(
-            &self.store.data().symbol_store,
-            u32::try_from(npc.symbol().value()).unwrap_or_default(),
-        )
+    fn npc_data(&self, instance: u32) -> Option<Npc> {
+        let data = self.store.data();
+        data.typed.npc(&data.symbol_store, instance)
     }
 
-    fn item_info(&mut self, item: InstanceId) -> ItemInfo {
-        symbol_store::item_info(
-            &self.store.data().symbol_store,
-            u32::try_from(item.symbol().value()).unwrap_or_default(),
-        )
+    fn item_data(&self, instance: u32) -> Option<Item> {
+        let data = self.store.data();
+        data.typed.item(&data.symbol_store, instance)
     }
 
-    /// Hitpoints and hitpoints max of an npc, read from the npc instance data
-    /// (`ZkNpcInstance_getAttribute` semantics, attribute `ATR_HITPOINTS` and
-    /// `ATR_HITPOINTS_MAX`). Seeds the instance state on first access, `None`
-    /// when the id is not an npc instance.
+    fn npc_handle(&self, instance: u32) -> Option<Arc<RwLock<Npc>>> {
+        self.store
+            .data()
+            .typed
+            .instance(instance)
+            .and_then(daedalus_typed::TypedInstance::npc)
+            .cloned()
+    }
+
+    /// Hitpoints and hitpoints max of an npc, read from the typed `C_Npc` model
+    /// (`ATR_HITPOINTS` and `ATR_HITPOINTS_MAX`), `None` when the id is not an
+    /// npc instance.
     pub fn hitpoints(&mut self, npc: InstanceId) -> Option<(i32, i32)> {
-        let seeded = self
-            .npc_instances()
-            .get(&npc)
-            .is_some_and(|npc| npc.hitpoints.is_some());
-        if !seeded {
-            let info = self.npc_info(npc);
-            let instance = self.npc_instances_mut_or_default(npc);
-            instance.hitpoints = Some(info.hitpoints);
-            instance.hitpoints_max = Some(info.hitpoints_max);
-            self.pending_changes()
-                .health_changes
-                .push(HealthChange { instance_id: npc });
-        }
-        let instance = self.npc_instances().get(&npc)?;
-        Some((instance.hitpoints?, instance.hitpoints_max?))
+        let npc = self.npc_data(npc.value() as u32)?;
+        Some((npc.hitpoints, npc.hitpoints_max))
     }
 
     /// Changes the hitpoints of an npc by `delta` (damage is negative),
     /// clamped to `0..=hitpoints_max`. Leaves the change queued for the ECS
-    /// bridge. Returns the new hitpoints, `None` when not seeded yet.
-    #[allow(dead_code)] // used by the damage systems (next step)
+    /// bridge. Returns the new hitpoints, `None` when the npc has no typed
+    /// instance data.
     pub fn change_hitpoints(&mut self, npc: InstanceId, delta: i32) -> Option<i32> {
-        self.hitpoints(npc)?;
-        let instance = self.npc_instances_mut_or_default(npc);
-        let max = instance.hitpoints_max.unwrap_or_default();
-        let current = instance.hitpoints.unwrap_or_default();
-        let changed = (current + delta).clamp(0, max);
-        instance.hitpoints = Some(changed);
+        let handle = self.npc_handle(npc.value() as u32)?;
+        let changed = {
+            let mut data = handle.write().unwrap_or_else(PoisonError::into_inner);
+            let changed = (data.hitpoints + delta).clamp(0, data.hitpoints_max);
+            data.hitpoints = changed;
+            changed
+        };
         self.pending_changes()
             .health_changes
             .push(HealthChange { instance_id: npc });
@@ -179,14 +166,17 @@ impl super::ScriptManager {
 
     /// Total damage of an item instance (`C_Item.damagetotal`).
     pub fn item_damage_total(&mut self, item: InstanceId) -> i32 {
-        self.item_info(item).damage_total
+        self.item_data(item.value() as u32)
+            .map_or(0, |item| item.damage_total)
     }
 
     /// Display stats of an item instance for the inventory info panel.
     pub fn item_display_data(&mut self, item: InstanceId) -> ItemDisplayData {
-        let info = self.item_info(item);
+        let Some(info) = self.item_data(item.value() as u32) else {
+            return ItemDisplayData::default();
+        };
         let requirements = info
-            .cond_attribute
+            .cond_atr
             .into_iter()
             .zip(info.cond_value)
             .filter_map(|(attribute, value)| {
@@ -199,16 +189,14 @@ impl super::ScriptManager {
             .into_iter()
             .zip(info.count)
             .filter_map(|(text, count)| {
-                // Text string id 0 means the line is unset; string id 0 itself
-                // resolves to an unrelated table entry, so skip it explicitly
-                let text = self.string_by_id((text != 0).then_some(text))?;
+                let text = self.string_by_id(text.map(StringId::value))?;
                 Some((text, count))
             })
             .collect();
         ItemDisplayData {
             damage_total: info.damage_total,
             value: info.value,
-            description: self.string_by_id(info.description),
+            description: self.string_by_id(info.description.map(StringId::value)),
             requirements,
             info_lines,
         }
@@ -271,22 +259,12 @@ impl super::ScriptManager {
     }
 
     pub fn get_item_visual(&mut self, symbol_id: SymbolId) -> Option<String> {
-        let visual = self
-            .store
-            .data()
-            .symbol_store
-            .read_offset(symbol_id.value() as u32, 524)
-            .filter(|id| *id != 0)?;
-        self.string_by_id(Some(visual))
+        let visual = self.item_data(symbol_id.value() as u32)?.visual;
+        self.string_by_id(visual.map(StringId::value))
     }
     pub fn get_item_visual_change(&mut self, symbol_id: SymbolId) -> Option<String> {
-        let visual = self
-            .store
-            .data()
-            .symbol_store
-            .read_offset(symbol_id.value() as u32, 544)
-            .filter(|id| *id != 0)?;
-        self.string_by_id(Some(visual))
+        let visual = self.item_data(symbol_id.value() as u32)?.visual_change;
+        self.string_by_id(visual.map(StringId::value))
     }
 
     pub fn call_npc_routines(&mut self) {

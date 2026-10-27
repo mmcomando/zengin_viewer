@@ -9,7 +9,7 @@ use super::string_value::StringCanon;
 use super::symbol_id::SymbolId;
 use crate::warn_unimplemented;
 use crate::zengin::common::to_zengin_units;
-use bevy::log::warn;
+use bevy::log::{error, warn};
 use bevy::math::Vec3;
 
 macro_rules! fake_impl {
@@ -580,11 +580,23 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         if atr != 0 && atr != 1 {
             return;
         }
-        let instance = self.loaded_state.npc_instances.entry(npc).or_default();
-        if atr == 0 {
-            instance.hitpoints = Some(value);
-        } else {
-            instance.hitpoints_max = Some(value);
+        let Some(handle) = self
+            .typed
+            .instance(npc.value() as u32)
+            .and_then(daedalus_typed::TypedInstance::npc)
+            .cloned()
+        else {
+            return;
+        };
+        {
+            let mut data = handle
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if atr == 0 {
+                data.hitpoints = value;
+            } else {
+                data.hitpoints_max = value;
+            }
         }
         self.pending
             .health_changes
@@ -1161,40 +1173,95 @@ impl mmcomando::zengine_scripts::symbols::Host for ImportCallState {
         }
     }
 
-    fn get_member(&mut self, instance: i32, offset: i32, element: i32) -> i32 {
-        let Some(value) = u32::try_from(instance)
-            .ok()
-            .zip(u32::try_from(offset).ok())
-            .zip(u32::try_from(element).ok())
-            .and_then(|((instance, offset), element)| {
-                self.symbol_store.read_member(instance, offset, element)
-            })
-        else {
+    fn get_member(&mut self, instance: i32, member: i32, element: i32) -> i32 {
+        let (Ok(instance), Ok(member), Ok(element)) = (
+            u32::try_from(instance),
+            u32::try_from(member),
+            u32::try_from(element),
+        ) else {
             warn!(
-                "Script read of an invalid member, instance({instance}), offset({offset}), element({element})"
+                "Script read of an invalid member, instance({instance}), member({member}), element({element})"
             );
             return -1;
         };
-        value
+
+        match self
+            .typed
+            .read_member(&self.symbol_store, instance, member, element)
+        {
+            daedalus_typed::MemberAccess::Handled(value) => return value.unwrap_or(-1),
+            daedalus_typed::MemberAccess::NotModeled => {
+                self.report_unmodeled_member(instance, member, element, false);
+            }
+            daedalus_typed::MemberAccess::NotTyped => {}
+        }
+
+        self.symbol_store
+            .read_member(instance, member, element)
+            .unwrap_or_else(|| {
+                warn!(
+                    "Script read of an invalid member, instance({instance}), member({member}), element({element})"
+                );
+                -1
+            })
     }
 
-    fn set_member(&mut self, instance: i32, offset: i32, element: i32, value: i32) {
-        let written = u32::try_from(instance)
-            .ok()
-            .zip(u32::try_from(offset).ok())
-            .zip(u32::try_from(element).ok())
-            .is_some_and(|((instance, offset), element)| {
-                self.symbol_store
-                    .write_member(instance, offset, element, value)
-            });
-        if !written {
+    fn set_member(&mut self, instance: i32, member: i32, element: i32, value: i32) {
+        let (Ok(instance), Ok(member), Ok(element)) = (
+            u32::try_from(instance),
+            u32::try_from(member),
+            u32::try_from(element),
+        ) else {
             warn!(
-                "Script write of an invalid member, instance({instance}), offset({offset}), element({element}), words({}), meta({:?})",
-                self.symbol_store.word_count(),
-                u32::try_from(instance)
-                    .ok()
-                    .and_then(|instance| self.symbol_store.meta(instance))
+                "Script write of an invalid member, instance({instance}), member({member}), element({element})"
+            );
+            return;
+        };
+
+        match self
+            .typed
+            .write_member(&self.symbol_store, instance, member, element, value)
+        {
+            daedalus_typed::MemberAccess::Handled(()) => return,
+            daedalus_typed::MemberAccess::NotModeled => {
+                self.report_unmodeled_member(instance, member, element, true);
+            }
+            daedalus_typed::MemberAccess::NotTyped => {}
+        }
+
+        if !self
+            .symbol_store
+            .write_member(instance, member, element, value)
+        {
+            warn!(
+                "Script write of an invalid member, instance({instance}), member({member}), element({element})"
             );
         }
+    }
+}
+
+#[expect(
+    clippy::multiple_inherent_impl,
+    reason = "Symbols host helpers live next to the symbols Host impl"
+)]
+impl ImportCallState {
+    /// Reports an unmodeled typed field once per `(member, element, direction)`
+    /// so a single run reveals every missing field.
+    fn report_unmodeled_member(&mut self, instance: u32, member: u32, element: u32, write: bool) {
+        if !self.missing_members.insert((member, element, write)) {
+            return;
+        }
+        let class = self
+            .typed
+            .class_of(instance)
+            .map_or("<untyped>", |class| class.name());
+        let member_name = self.symbol_store.name(member).unwrap_or("<unknown>");
+        let offset = self
+            .symbol_store
+            .meta(member)
+            .map_or(0, |meta| meta.address_or_offset);
+        error!(
+            "Unmodeled script member access: class({class}), member({member_name}), offset({offset}), element({element}), write({write}); falling back to the raw store"
+        );
     }
 }

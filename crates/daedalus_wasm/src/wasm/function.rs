@@ -106,9 +106,9 @@ impl<'a> ConversionState<'a> {
                 func.instruction(&Instruction::I32Const(i32::from(element)));
                 func.instruction(&Instruction::Call(SYMBOL_IMPORT_GET_SYMBOL));
             }
-            RefTarget::Member { offset, element } => {
+            RefTarget::Member { member, element } => {
                 func.instruction(&Instruction::LocalGet(instance_local));
-                func.instruction(&Instruction::I32Const(offset.cast_signed()));
+                func.instruction(&Instruction::I32Const(member.cast_signed()));
                 func.instruction(&Instruction::I32Const(i32::from(element)));
                 func.instruction(&Instruction::Call(SYMBOL_IMPORT_GET_MEMBER));
             }
@@ -129,9 +129,9 @@ impl<'a> ConversionState<'a> {
                 func.instruction(&Instruction::LocalGet(value_local));
                 func.instruction(&Instruction::Call(SYMBOL_IMPORT_SET_SYMBOL));
             }
-            RefTarget::Member { offset, element } => {
+            RefTarget::Member { member, element } => {
                 func.instruction(&Instruction::LocalGet(instance_local));
-                func.instruction(&Instruction::I32Const(offset.cast_signed()));
+                func.instruction(&Instruction::I32Const(member.cast_signed()));
                 func.instruction(&Instruction::I32Const(i32::from(element)));
                 func.instruction(&Instruction::LocalGet(value_local));
                 func.instruction(&Instruction::Call(SYMBOL_IMPORT_SET_MEMBER));
@@ -538,9 +538,9 @@ impl<'a> ConversionState<'a> {
             return;
         }
 
-        if let Some(offset) = info.member_offset {
+        if let Some(_offset) = info.member_offset {
             func.instruction(&Instruction::GlobalGet(CURRENT_INSTANCE_SYMBOL_INDEX));
-            func.instruction(&Instruction::I32Const(offset.cast_signed()));
+            func.instruction(&Instruction::I32Const(symbol_index.cast_signed()));
             func.instruction(&Instruction::I32Const(i32::from(element_index)));
             func.instruction(&Instruction::Call(SYMBOL_IMPORT_GET_MEMBER));
             return;

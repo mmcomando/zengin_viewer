@@ -520,6 +520,11 @@ impl Symbol {
         self.function = Some(function);
     }
 
+    /// Set symbol name.
+    pub fn set_name(&mut self, name: &str) {
+        name.clone_into(&mut self.name);
+    }
+
     /// Set symbol kind.
     pub fn set_kind(&mut self, kind: SymbolKind) {
         self.kind = kind;

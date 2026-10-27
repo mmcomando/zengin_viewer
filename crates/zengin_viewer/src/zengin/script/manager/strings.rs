@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use daedalus_typed::TypedRegistry;
 use daedalus_wasm::symbol_store::{SymbolMeta, SymbolStore};
+
+use bevy::log::{error, info};
 
 use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolInfo;
 use super::super::state::{SymbolTable, WellKnownSymbols};
@@ -96,6 +99,22 @@ impl super::ScriptManager {
     pub fn load_symbol_table(&mut self) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         let symbols_count = guest.call_get_all_symbols_num(&mut self.store).unwrap();
+
+        // Load all string pair contents once at startup (symbol names for ids
+        // below `symbols_count`, static string literals above), so import
+        // handlers and host code resolve strings by table lookup instead of
+        // calling back into the guest while a script function is running
+        let strings_count = guest.call_get_all_strings_num(&mut self.store).unwrap();
+        let mut strings = Vec::with_capacity(strings_count.max(0) as usize);
+        for raw in 0..strings_count {
+            let string = guest
+                .call_get_name(&mut self.store, raw)
+                .unwrap_or_else(|error| {
+                    panic!("get_name({raw}) failed while loading the symbol table: {error}")
+                });
+            strings.push(string);
+        }
+
         let word_count =
             usize::try_from(guest.call_get_symbols_memory_size(&mut self.store).unwrap() / 4)
                 .unwrap_or_default();
@@ -104,13 +123,22 @@ impl super::ScriptManager {
         for index in 0..symbols_count {
             let info = guest.call_get_symbol_info(&mut self.store, index).unwrap();
             kinds.insert(index, info.kind);
-            symbol_store.push_meta(SymbolMeta {
-                kind: convert_symbol_kind(info.kind),
-                is_const: info.is_const,
-                is_class_member: info.is_class_member,
-                address_or_offset: info.address_or_offset,
-                has_function: info.function.is_some(),
-            });
+            let name = strings
+                .get(usize::try_from(index).unwrap_or_default())
+                .cloned()
+                .unwrap_or_default();
+            symbol_store.push_symbol(
+                SymbolMeta {
+                    kind: convert_symbol_kind(info.kind),
+                    is_const: info.is_const,
+                    is_class_member: info.is_class_member,
+                    address_or_offset: info.address_or_offset,
+                    element_count: info.element_count,
+                    has_function: info.function.is_some(),
+                },
+                name,
+                info.parent.and_then(|parent| u32::try_from(parent).ok()),
+            );
         }
 
         // Initial values of the symbols which have their own value slot. They
@@ -128,20 +156,20 @@ impl super::ScriptManager {
             symbol_store.set_defaults(index as u32, &values);
         }
 
-        // Load all string pair contents once at startup (symbol names for ids
-        // below `symbols_count`, static string literals above), so import
-        // handlers and host code resolve strings by table lookup instead of
-        // calling back into the guest while a script function is running
-        let strings_count = guest.call_get_all_strings_num(&mut self.store).unwrap();
-        let mut strings = Vec::with_capacity(strings_count.max(0) as usize);
-        for raw in 0..strings_count {
-            let string = guest
-                .call_get_name(&mut self.store, raw)
-                .unwrap_or_else(|error| {
-                    panic!("get_name({raw}) failed while loading the symbol table: {error}")
-                });
-            strings.push(string);
+        symbol_store.build_name_index();
+        let typed = TypedRegistry::build(&mut symbol_store);
+        for issue in typed.issues() {
+            error!(
+                "G2 script layout mismatch: {}.{} expected offset {} with {} elements, found offset {} with {} elements; the class is not modeled",
+                issue.class,
+                issue.member,
+                issue.expected_offset,
+                issue.expected_elements,
+                issue.found_offset,
+                issue.found_elements
+            );
         }
+        info!("Symbol store: {} typed instances", typed.typed_count());
 
         let well_known_symbols = WellKnownSymbols {
             self_symbol: guest.call_get_symbol_id(&mut self.store, "self").unwrap(),
@@ -153,6 +181,7 @@ impl super::ScriptManager {
 
         let data = self.store.data_mut();
         data.symbol_store = symbol_store;
+        data.typed = typed;
         data.well_known_symbols = well_known_symbols;
         data.symbol_table = SymbolTable::new(kinds, symbols_count, strings);
     }

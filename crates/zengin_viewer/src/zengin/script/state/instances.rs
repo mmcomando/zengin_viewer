@@ -104,13 +104,6 @@ pub struct NpcInstanceState {
 
     /// Ranged weapon equipped (`EquipItem` with an `itrw_*` item).
     pub equipped_ranged: Option<InstanceId>,
-
-    /// Current hitpoints (`attribute[ATR_HITPOINTS]`), `None` until seeded
-    /// from the npc instance data.
-    pub hitpoints: Option<i32>,
-
-    /// Maximum hitpoints (`attribute[ATR_HITPOINTS_MAX]`), `None` until seeded.
-    pub hitpoints_max: Option<i32>,
 }
 
 impl NpcInstanceState {

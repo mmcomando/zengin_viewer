@@ -95,9 +95,8 @@ pub(super) fn auto_start_important_dialogs(
             continue;
         }
         if script
-            .npc_instances()
-            .get(&npc_id)
-            .is_some_and(|npc| npc.hitpoints.is_some_and(|hitpoints| hitpoints <= 0))
+            .hitpoints(npc_id)
+            .is_some_and(|(hitpoints, _)| hitpoints <= 0)
         {
             continue;
         }

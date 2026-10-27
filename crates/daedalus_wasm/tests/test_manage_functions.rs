@@ -113,14 +113,14 @@ fn test_get_npc_info() {
 #[test]
 fn test_get_item_info() {
     // Class member data words: C_ITEM damagetotal @ word 90 (offset 360),
-    // name @ word 73 (offset 292), value @ 88, weight @ 87, cond_atr @ 112,
-    // cond_value @ 115, description @ 157, text @ 162, count @ 192
+    // name @ word 73 (offset 292), value @ 88, weight @ 87, cond_atr @ 109,
+    // cond_value @ 112, description @ 157, text @ 162, count @ 192
     let damage_total_word = 360 / 4;
     let name_word = 292 / 4;
     let weight_word = 348 / 4;
     let value_word = 352 / 4;
-    let cond_atr_word = 448 / 4;
-    let cond_value_word = 460 / 4;
+    let cond_atr_word = 436 / 4;
+    let cond_value_word = 448 / 4;
     let description_word = 628 / 4;
     let text_word = 648 / 4;
     let count_word = 768 / 4;

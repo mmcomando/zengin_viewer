@@ -13,8 +13,10 @@ pub(crate) use instances::{
 pub(crate) use weapons::{OverlayRequest, WeaponKind, WeaponMode};
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use bevy::math::Vec3;
+use daedalus_typed::TypedRegistry;
 use daedalus_wasm::symbol_store::SymbolStore;
 use rand_mt::Mt;
 
@@ -175,6 +177,11 @@ impl SymbolTable {
 pub struct ImportCallState {
     /// Host-side symbol values, the only copy of the mutable script state.
     pub symbol_store: SymbolStore,
+    /// Typed models of the G2 script classes which have one.
+    pub typed: TypedRegistry,
+    /// Script member accesses which fell back to the raw store, used to report
+    /// each missing `(member, element, write)` only once.
+    pub missing_members: HashSet<(u32, u32, bool)>,
     /// Symbol ids of the well known instance variables, resolved when the
     /// symbol table is loaded.
     pub well_known_symbols: WellKnownSymbols,

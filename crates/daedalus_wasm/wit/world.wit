@@ -347,6 +347,9 @@ interface manage {
         // Global symbols: word base of the value slot. Class members: byte
         // offset inside the instance record.
         address-or-offset: u32,
+        // Number of 32bit values the symbol value slot holds, 0 for class
+        // members and consts.
+        element-count: u32,
     }
 
     test-func: func() -> s32;
@@ -376,12 +379,12 @@ interface symbols {
     get-symbol: func(symbol: s32, element: s32) -> s32;
     /// Write element `element` of a global/variable/instance symbol.
     set-symbol: func(symbol: s32, element: s32, value: s32);
-    /// Read element `element` of the class member at byte `offset` of
+    /// Read element `element` of the class member with symbol `member` of
     /// `instance`.
-    get-member: func(instance: s32, offset: s32, element: s32) -> s32;
-    /// Write element `element` of the class member at byte `offset` of
+    get-member: func(instance: s32, member: s32, element: s32) -> s32;
+    /// Write element `element` of the class member with symbol `member` of
     /// `instance`.
-    set-member: func(instance: s32, offset: s32, element: s32, value: s32);
+    set-member: func(instance: s32, member: s32, element: s32, value: s32);
 }
 
 world mm-world {

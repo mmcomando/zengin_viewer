@@ -1,8 +1,8 @@
 //! Loading of the compiled MENU.DAT script and projection of its `C_MENU` /
-//! `C_MENU_ITEM` instance data into Rust types.
+//! `C_MENU_ITEM` instance data into UI types.
 //!
-//! The guest's `manage` interface owns the daedalus class offsets, the host
-//! only receives the projected menu records.
+//! The typed `C_Menu`/`C_MenuItem` models live in `daedalus_typed`, the UI
+//! definitions here resolve strings and item instances for rendering.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -11,9 +11,9 @@ use bevy::log::{error, info, warn};
 use bevy::prelude::Resource;
 
 use super::manager::ScriptManager;
-use super::symbol_id::{FunctionId, SymbolId};
+use super::symbol_id::{FunctionId, StringId};
 use crate::zengin::common::gothic2_dir;
-use daedalus_wasm::symbol_store::{MenuInfo, MenuItemInfo};
+use daedalus_typed::{Menu, MenuItem, ScriptConversion};
 
 /// Engine select-action command ids, see the `SEL_ACTION_*` constants of the
 /// menu script.
@@ -176,6 +176,10 @@ impl MenuScriptResource {
     }
 }
 
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "Menu loading is a single understandable projection pass"
+)]
 fn load_menu(script: &mut ScriptManager, section_name: &str) -> Option<MenuDefinition> {
     let Some(section) = script.symbol_instance(section_name) else {
         error!("Menu section {section_name} not found in MENU.DAT");
@@ -186,7 +190,7 @@ fn load_menu(script: &mut ScriptManager, section_name: &str) -> Option<MenuDefin
         return None;
     }
 
-    let MenuInfo {
+    let Some(Menu {
         back_pic,
         pos_x,
         pos_y,
@@ -194,17 +198,21 @@ fn load_menu(script: &mut ScriptManager, section_name: &str) -> Option<MenuDefin
         dim_y,
         alpha: alpha_value,
         items: item_ids,
-        menu_flags: flags,
+        flags,
         default_out_game,
         default_in_game,
         ..
-    } = script.get_menu_info(section.symbol());
+    }) = script.get_menu_info(section.symbol())
+    else {
+        error!("Menu section {section_name} has no typed c_menu data");
+        return None;
+    };
 
     let items = item_ids
-        .into_iter()
+        .iter()
         .enumerate()
         .filter_map(|(slot, name_id)| {
-            let name = script.string_by_id((name_id != 0).then_some(name_id))?;
+            let name = script.string_by_id(name_id.map(StringId::value))?;
             if name.is_empty() {
                 return None;
             }
@@ -216,13 +224,16 @@ fn load_menu(script: &mut ScriptManager, section_name: &str) -> Option<MenuDefin
                 warn!("Menu item {name} is not a c_menu_item instance");
                 return None;
             }
-            let info = script.get_menu_item_info(instance.symbol());
+            let Some(info) = script.get_menu_item_info(instance.symbol()) else {
+                warn!("Menu item {name} has no typed c_menu_item data");
+                return None;
+            };
             Some(item_definition(slot, name, info, script))
         })
         .collect();
 
     let definition = MenuDefinition {
-        back_pic: non_empty(script.string_by_id(back_pic)),
+        back_pic: non_empty(script.string_by_id(back_pic.map(StringId::value))),
         pos: (pos_x, pos_y),
         dim: (dim_x, dim_y),
         alpha: alpha(alpha_value),
@@ -241,10 +252,10 @@ fn load_menu(script: &mut ScriptManager, section_name: &str) -> Option<MenuDefin
 fn item_definition(
     slot: usize,
     name: String,
-    info: MenuItemInfo,
+    info: MenuItem,
     script: &mut ScriptManager,
 ) -> MenuItemDefinition {
-    let MenuItemInfo {
+    let MenuItem {
         font_name,
         text,
         back_pic,
@@ -275,8 +286,8 @@ fn item_definition(
         .collect();
     let on_event_action = on_event_action
         .into_iter()
-        .map(|raw| {
-            let symbol = SymbolId::new(raw)?;
+        .map(|symbol| {
+            let symbol = symbol?;
             script.symbol_table().function(symbol.value())
         })
         .collect();
@@ -284,10 +295,10 @@ fn item_definition(
     MenuItemDefinition {
         slot,
         name,
-        kind,
+        kind: kind.to_i32(),
         text: resolve_strings(script, &text),
-        back_pic: non_empty(script.string_by_id(back_pic)),
-        font_name: non_empty(script.string_by_id(font_name)),
+        back_pic: non_empty(script.string_by_id(back_pic.map(StringId::value))),
+        font_name: non_empty(script.string_by_id(font_name.map(StringId::value))),
         flags,
         pos: (pos_x, pos_y),
         dim: (dim_x, dim_y),
@@ -297,11 +308,11 @@ fn item_definition(
     }
 }
 
-fn resolve_strings(script: &ScriptManager, ids: &[i32]) -> Vec<String> {
+fn resolve_strings(script: &ScriptManager, ids: &[Option<StringId>]) -> Vec<String> {
     ids.iter()
         .map(|id| {
             script
-                .string_by_id((*id != 0).then_some(*id))
+                .string_by_id(id.map(StringId::value))
                 .unwrap_or_default()
         })
         .collect()

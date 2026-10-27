@@ -20,8 +20,8 @@ pub(crate) enum ProvideValType {
 pub(crate) enum RefTarget {
     /// Element of a global/variable symbol value slot.
     Global { symbol: u32, element: u8 },
-    /// Class member at a byte offset inside the current instance record.
-    Member { offset: u32, element: u8 },
+    /// Class member symbol.
+    Member { member: u32, element: u8 },
 }
 
 #[derive(Debug, Clone)]
@@ -379,8 +379,11 @@ impl InstructionBlock {
                 info.func_info.is_none(),
                 "Declared instance/function symbol({symbol}) can't be used as an assignment target"
             );
-            let target = if let Some(offset) = info.member_offset {
-                RefTarget::Member { offset, element }
+            let target = if info.member_offset.is_some() {
+                RefTarget::Member {
+                    member: symbol,
+                    element,
+                }
             } else if info.memory_address.is_some() {
                 RefTarget::Global { symbol, element }
             } else {

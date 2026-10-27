@@ -2,7 +2,7 @@ use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolK
 use super::super::state::{DialogChoice, DialogRoot};
 use super::super::string_value::ShowString;
 use super::super::symbol_id::{FunctionId, InstanceId, SymbolId};
-use daedalus_wasm::symbol_store::{self, DialogInfo};
+use daedalus_typed::Info;
 
 impl super::ScriptManager {
     /// Newest first, like the engine which inserts each new choice at the front
@@ -135,11 +135,10 @@ impl super::ScriptManager {
         roots.into_iter().next()
     }
 
-    pub fn get_dialog_info(&mut self, symbol_id: SymbolId) -> DialogInfo {
-        symbol_store::dialog_info(
-            &self.store.data().symbol_store,
-            u32::try_from(symbol_id.value()).unwrap_or_default(),
-        )
+    pub fn get_dialog_info(&mut self, symbol_id: SymbolId) -> Option<Info> {
+        let data = self.store.data();
+        data.typed
+            .info(&data.symbol_store, symbol_id.value() as u32)
     }
 
     pub fn load_dialogs_information(&mut self) {
@@ -161,22 +160,30 @@ impl super::ScriptManager {
                 continue;
             }
 
-            let dialog_info = self.get_dialog_info(index.symbol());
-            let Some(sequence_function_id) = self.symbol_table().function(dialog_info.information)
+            let Some(dialog_info) = self.get_dialog_info(index.symbol()) else {
+                continue;
+            };
+            let Some(sequence_function_id) = dialog_info
+                .information
+                .and_then(|id| self.symbol_table().function(id.value()))
             else {
                 continue;
             };
-            let description = self
-                .symbol_table()
-                .string(dialog_info.description)
+            let description = dialog_info
+                .description
                 .and_then(|id| self.get_show_string(id))
                 .map(ShowString::into_string)
                 .unwrap_or_default();
 
-            let Some(npc_id) = self.symbol_table().instance(dialog_info.npc) else {
+            let Some(npc_id) = dialog_info.npc else {
                 continue;
             };
-            let condition_function_id = self.symbol_table().function(dialog_info.condition);
+            if self.symbol_table().instance(npc_id.value()).is_none() {
+                continue;
+            }
+            let condition_function_id = dialog_info
+                .condition
+                .and_then(|id| self.symbol_table().function(id.value()));
             let npc = self.npc_instances_mut_or_default(npc_id);
             let roots = npc.dialog_roots.get_or_insert_with(Vec::new);
             roots.push(DialogRoot {

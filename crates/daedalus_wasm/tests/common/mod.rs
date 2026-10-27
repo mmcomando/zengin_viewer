@@ -2,7 +2,7 @@ mod imported_functions;
 
 use crate::common::imported_functions::ImportCallState;
 use daedalus_wasm::daedalus;
-use daedalus_wasm::symbol_store::{self, ItemInfo, NpcInfo, SymbolStore};
+use daedalus_wasm::symbol_store::SymbolStore;
 use daedalus_wasm::wasm::{BinaryBuilder, parse_base_module};
 use std::env::home_dir;
 use std::path::PathBuf;
@@ -14,6 +14,45 @@ use wasmtime::component::{Component, HasSelf, Linker, bindgen};
 bindgen!({
     path:"wit",
 });
+
+/// Raw test projection of `C_Npc`, keeps the store layout covered; the
+/// production typed models live in `daedalus_typed`.
+#[allow(dead_code)]
+#[derive(Debug, Default, Clone)]
+pub struct TestNpcInfo {
+    pub hitpoints: i32,
+    pub hitpoints_max: i32,
+    pub name: Option<i32>,
+}
+
+/// Raw test projection of `C_Item`.
+#[allow(dead_code)]
+#[derive(Debug, Default, Clone)]
+pub struct TestItemInfo {
+    pub damage_total: i32,
+    pub name: Option<i32>,
+    pub value: i32,
+    pub weight: i32,
+    pub cond_attribute: Vec<i32>,
+    pub cond_value: Vec<i32>,
+    pub description: Option<i32>,
+    pub text: Vec<i32>,
+    pub count: Vec<i32>,
+}
+
+/// Raw test projection of `C_Info`.
+#[allow(dead_code)]
+#[derive(Debug, Default, Clone)]
+pub struct TestDialogInfo {
+    pub npc: i32,
+    pub order: i32,
+    pub condition: i32,
+    pub information: i32,
+    pub description: i32,
+    pub important: bool,
+    pub permanent: bool,
+    pub trade: bool,
+}
 
 #[allow(dead_code)]
 pub struct WasmExecutor {
@@ -625,17 +664,48 @@ impl WasmExecutor {
             .filter(|id| *id != 0)?;
         self.read_string_by_id(id).ok()
     }
-    pub fn get_npc_info(&mut self, symbol_id: i32) -> NpcInfo {
-        symbol_store::npc_info(
-            &self.store.data().symbol_store,
-            u32::try_from(symbol_id).unwrap_or_default(),
-        )
+    pub fn get_npc_info(&mut self, symbol_id: i32) -> TestNpcInfo {
+        let instance = u32::try_from(symbol_id).unwrap_or_default();
+        let store = &self.store.data().symbol_store;
+        let read = |offset| store.read_offset(instance, offset).unwrap_or_default();
+        TestNpcInfo {
+            hitpoints: read(440),
+            hitpoints_max: read(444),
+            name: (read(292) != 0).then(|| read(292)),
+        }
     }
-    pub fn get_item_info(&mut self, symbol_id: i32) -> ItemInfo {
-        symbol_store::item_info(
-            &self.store.data().symbol_store,
-            u32::try_from(symbol_id).unwrap_or_default(),
-        )
+    pub fn get_item_info(&mut self, symbol_id: i32) -> TestItemInfo {
+        let instance = u32::try_from(symbol_id).unwrap_or_default();
+        let store = &self.store.data().symbol_store;
+        let read = |offset| store.read_offset(instance, offset).unwrap_or_default();
+        let list =
+            |base: u32, count: u32| (0..count).map(|element| read(base + element * 4)).collect();
+        TestItemInfo {
+            damage_total: read(360),
+            name: (read(292) != 0).then(|| read(292)),
+            value: read(352),
+            weight: read(348),
+            cond_attribute: list(436, 3),
+            cond_value: list(448, 3),
+            description: (read(628) != 0).then(|| read(628)),
+            text: list(648, 6),
+            count: list(768, 6),
+        }
+    }
+    pub fn get_dialog_info(&mut self, symbol_id: i32) -> TestDialogInfo {
+        let instance = u32::try_from(symbol_id).unwrap_or_default();
+        let store = &self.store.data().symbol_store;
+        let read = |offset| store.read_offset(instance, offset).unwrap_or_default();
+        TestDialogInfo {
+            npc: read(0),
+            order: read(4),
+            condition: read(12),
+            information: read(16),
+            description: read(20),
+            important: read(8) != 0,
+            permanent: read(44) != 0,
+            trade: read(40) != 0,
+        }
     }
 
     pub fn call_test_func(&mut self) -> i32 {
@@ -713,13 +783,6 @@ impl WasmExecutor {
         guest
             .call_get_symbol_info(&mut self.store, symbol_id)
             .unwrap()
-    }
-
-    pub fn get_dialog_info(&mut self, symbol_id: i32) -> symbol_store::DialogInfo {
-        symbol_store::dialog_info(
-            &self.store.data().symbol_store,
-            u32::try_from(symbol_id).unwrap_or_default(),
-        )
     }
 }
 

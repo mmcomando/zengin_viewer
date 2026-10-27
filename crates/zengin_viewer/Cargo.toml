@@ -19,6 +19,7 @@ bevy_xr_utils = { git = "https://github.com/MaximilianHausen/bevy_oxr.git", bran
 # ZenGin related
 ZenKit-rs = { path = "../ZenKit-rs" }
 daedalus_wasm = { path = "../daedalus_wasm" }
+daedalus_typed = { path = "../daedalus_typed" }
 wasmtime = "46.0.1"
 
 # Game related

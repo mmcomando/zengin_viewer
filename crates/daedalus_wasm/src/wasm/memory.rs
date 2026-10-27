@@ -95,7 +95,9 @@ impl DaedalusMemoryLayout {
             address_or_offset,
             func_index: internal_func_index.unwrap_or(u32::MAX),
             parent: symbol.parent.unwrap_or(u32::MAX),
-            elements_count: if symbol.is_class_var || symbol.is_const {
+            // Class members report their array size (their storage lives
+            // inside the instance record), consts have no slot.
+            elements_count: if symbol.is_const {
                 0
             } else {
                 symbol.elements_count

@@ -29,6 +29,12 @@ memory. Converted assign instructions carry the target from the analysis pass
 instead of a runtime address, and only push a placeholder value to keep the
 wasm stack shape unchanged.
 
+Member access passes the member symbol id. Typed class models live in the
+`daedalus_typed` crate (`C_Npc`, `C_Item`, `C_Menu`, `C_MenuItem`, `C_Info`);
+this crate only provides the generic word store and the symbol metadata/name
+index. Typed fields use hardcoded G2 offsets validated against the loaded script
+by member name, and unmodeled members/elements fall back to the flat word space.
+
 
 # TODO
 - support setting and assigning strings

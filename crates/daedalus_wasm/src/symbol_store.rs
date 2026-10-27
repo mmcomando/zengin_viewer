@@ -1,10 +1,13 @@
-//! Host-side storage of daedalus symbol values.
+//! Generic host-side storage of daedalus symbol values.
 //!
 //! Converted script functions no longer keep global variables and class members
 //! in a wasm memory. They call the `symbols` interface imports instead, so this
-//! store is the only copy of the mutable script state. It also backs the typed
-//! projections of well known classes (`C_Npc`, `C_Item`, `C_Menu`, ...) which
-//! used to be guest exports reading wasm memory.
+//! store is the only copy of the mutable script state.
+//!
+//! The store is deliberately free of game semantics: it knows symbol metadata,
+//! names and a flat word space. Typed class models live in `daedalus_typed`.
+
+use std::collections::HashMap;
 
 use crate::daedalus::Symbol;
 use crate::daedalus::SymbolKind;
@@ -22,9 +25,20 @@ pub struct SymbolMeta {
     /// Global symbols: byte base of the value slot. Class members: byte offset
     /// inside the instance record.
     pub address_or_offset: u32,
-    /// Whether the symbol has a wasm function with code (instance init code,
-    /// daedalus function bodies).
+    /// Number of 32bit values the value slot holds, `0` for consts. Class
+    /// members report their array size.
+    pub element_count: u32,
+    /// Whether the symbol has a wasm function with code.
     pub has_function: bool,
+}
+
+/// Symbol metadata plus the symbol name and parent, needed to resolve class
+/// members by name.
+#[derive(Debug, Clone)]
+struct SymbolEntry {
+    meta: SymbolMeta,
+    name: String,
+    parent: Option<u32>,
 }
 
 /// One word space holding every daedalus symbol value, laid out exactly like
@@ -33,7 +47,11 @@ pub struct SymbolMeta {
 #[derive(Debug, Default, Clone)]
 pub struct SymbolStore {
     words: Vec<i32>,
-    meta: Vec<SymbolMeta>,
+    symbols: Vec<SymbolEntry>,
+    /// Class symbol id by lowercased class name.
+    class_by_name: HashMap<String, u32>,
+    /// Member symbol id by `(parent class id, lowercased member name)`.
+    class_members: HashMap<(u32, String), u32>,
 }
 
 impl SymbolStore {
@@ -42,46 +60,55 @@ impl SymbolStore {
     pub fn new(word_count: usize) -> Self {
         Self {
             words: vec![0; word_count],
-            meta: vec![],
+            ..Self::default()
         }
     }
 
     /// Creates a store from parsed daedalus symbols, with their default values
-    /// already applied. Slot bases are assigned with the same arithmetic as the
-    /// converter's memory layout, tests use this constructor.
+    /// already applied. Tests use this constructor.
     #[must_use]
     pub fn from_symbols(symbols: &[Symbol]) -> Self {
         let mut word_count = 0_u32;
-        let mut meta = Vec::with_capacity(symbols.len());
+        let mut entries = Vec::with_capacity(symbols.len());
         for symbol in symbols {
-            let (is_class_member, address_or_offset) = if symbol.is_class_var {
-                (true, symbol.offset.unwrap_or(0))
+            let (is_class_member, address_or_offset, element_count) = if symbol.is_class_var {
+                (true, symbol.offset.unwrap_or(0), symbol.elements_count)
             } else {
                 let address = word_count * 4;
-                if !symbol.is_const {
+                let element_count = if symbol.is_const {
+                    0
+                } else {
                     word_count += symbol.elements_count;
-                }
-                (false, address)
+                    symbol.elements_count
+                };
+                (false, address, element_count)
             };
-            meta.push(SymbolMeta {
-                kind: symbol.kind,
-                is_const: symbol.is_const,
-                is_class_member,
-                address_or_offset,
-                has_function: symbol.is_function_with_code(),
+            entries.push(SymbolEntry {
+                meta: SymbolMeta {
+                    kind: symbol.kind,
+                    is_const: symbol.is_const,
+                    is_class_member,
+                    address_or_offset,
+                    element_count,
+                    has_function: symbol.is_function_with_code(),
+                },
+                name: symbol.name.clone(),
+                parent: symbol.parent,
             });
         }
 
         let mut store = Self {
             words: vec![0; usize::try_from(word_count).unwrap_or_default()],
-            meta,
+            symbols: entries,
+            ..Self::default()
         };
 
         for (index, symbol) in symbols.iter().enumerate() {
             if symbol.is_class_var || symbol.is_const {
                 continue;
             }
-            let base = usize::try_from(store.meta[index].address_or_offset / 4).unwrap_or_default();
+            let base = usize::try_from(store.symbols[index].meta.address_or_offset / 4)
+                .unwrap_or_default();
             let count = usize::try_from(symbol.elements_count).unwrap_or_default();
             for (element, value) in symbol.default_values.iter().take(count).enumerate() {
                 if let Some(word) = store.words.get_mut(base + element) {
@@ -90,13 +117,14 @@ impl SymbolStore {
             }
         }
 
+        store.build_name_index();
         store
     }
 
     /// Number of symbols the store knows about.
     #[must_use]
     pub fn symbol_count(&self) -> usize {
-        self.meta.len()
+        self.symbols.len()
     }
 
     /// Number of words in the value space.
@@ -108,18 +136,53 @@ impl SymbolStore {
     /// Metadata of a symbol, `None` when the id is out of range.
     #[must_use]
     pub fn meta(&self, symbol: u32) -> Option<&SymbolMeta> {
-        self.meta.get(usize::try_from(symbol).ok()?)
+        self.symbols
+            .get(usize::try_from(symbol).ok()?)
+            .map(|entry| &entry.meta)
     }
 
-    /// Metadata of a symbol, `None` when the id is out of range.
+    /// Name of a symbol, `None` when the id is out of range.
     #[must_use]
-    pub fn meta_mut(&mut self, symbol: u32) -> Option<&mut SymbolMeta> {
-        self.meta.get_mut(usize::try_from(symbol).ok()?)
+    pub fn name(&self, symbol: u32) -> Option<&str> {
+        self.symbols
+            .get(usize::try_from(symbol).ok()?)
+            .map(|entry| entry.name.as_str())
     }
 
-    /// Appends metadata loaded from the guest `get-symbol-info` export.
-    pub fn push_meta(&mut self, meta: SymbolMeta) {
-        self.meta.push(meta);
+    /// Parent (class or prototype) of a symbol.
+    #[must_use]
+    pub fn parent(&self, symbol: u32) -> Option<u32> {
+        self.symbols.get(usize::try_from(symbol).ok()?)?.parent
+    }
+
+    /// Appends a symbol loaded from the guest metadata. Call
+    /// [`Self::build_name_index`] after all symbols are loaded.
+    pub fn push_symbol(&mut self, meta: SymbolMeta, name: String, parent: Option<u32>) {
+        self.symbols.push(SymbolEntry { meta, name, parent });
+    }
+
+    /// Builds the class name and member name indices.
+    pub fn build_name_index(&mut self) {
+        self.class_by_name.clear();
+        self.class_members.clear();
+        for (index, entry) in self.symbols.iter().enumerate() {
+            let id = u32::try_from(index).unwrap_or(u32::MAX);
+            if entry.meta.kind == SymbolKind::Class {
+                self.class_by_name
+                    .insert(entry.name.to_ascii_lowercase(), id);
+            }
+            if entry.meta.is_class_member {
+                let Some(parent) = entry.parent else {
+                    continue;
+                };
+                let member_name = entry
+                    .name
+                    .rsplit_once('.')
+                    .map_or(entry.name.as_str(), |(_, member)| member)
+                    .to_ascii_lowercase();
+                self.class_members.insert((parent, member_name), id);
+            }
+        }
     }
 
     /// Writes the initial values of a symbol slot, values longer than the slot
@@ -154,18 +217,18 @@ impl SymbolStore {
         true
     }
 
-    /// Reads element `element` of the class member at byte `offset` of
-    /// `instance`.
+    /// Reads element `element` of the class member with symbol `member` of
+    /// `instance` from the raw word space.
     #[must_use]
-    pub fn read_member(&self, instance: u32, offset: u32, element: u32) -> Option<i32> {
-        let slot = self.member_slot(instance, offset, element)?;
+    pub fn read_member(&self, instance: u32, member: u32, element: u32) -> Option<i32> {
+        let slot = self.member_slot(instance, member, element)?;
         self.words.get(slot).copied()
     }
 
-    /// Writes element `element` of the class member at byte `offset` of
-    /// `instance`.
-    pub fn write_member(&mut self, instance: u32, offset: u32, element: u32, value: i32) -> bool {
-        let Some(slot) = self.member_slot(instance, offset, element) else {
+    /// Writes element `element` of the class member with symbol `member` of
+    /// `instance` into the raw word space.
+    pub fn write_member(&mut self, instance: u32, member: u32, element: u32, value: i32) -> bool {
+        let Some(slot) = self.member_slot(instance, member, element) else {
             return false;
         };
         let Some(word) = self.words.get_mut(slot) else {
@@ -175,11 +238,73 @@ impl SymbolStore {
         true
     }
 
-    /// Reads the class member word at byte `offset` of `instance`, used by the
-    /// typed projections which keep the offsets of the old guest exports.
+    /// Reads the class member word at byte `offset` of `instance`.
     #[must_use]
     pub fn read_offset(&self, instance: u32, offset: u32) -> Option<i32> {
-        self.read_member(instance, offset, 0)
+        let meta = self.meta(instance)?;
+        if meta.is_class_member {
+            return None;
+        }
+        let base = usize::try_from(meta.address_or_offset / 4).ok()?;
+        let offset = usize::try_from(offset / 4).ok()?;
+        self.words.get(base + offset).copied()
+    }
+
+    /// Writes the class member word at byte `offset` of `instance`.
+    pub fn write_offset(&mut self, instance: u32, offset: u32, value: i32) -> bool {
+        let Some(meta) = self.meta(instance) else {
+            return false;
+        };
+        if meta.is_class_member {
+            return false;
+        }
+        let Some(base) = usize::try_from(meta.address_or_offset / 4).ok() else {
+            return false;
+        };
+        let Some(offset) = usize::try_from(offset / 4).ok() else {
+            return false;
+        };
+        let Some(word) = self.words.get_mut(base + offset) else {
+            return false;
+        };
+        *word = value;
+        true
+    }
+
+    /// Member symbol id of a named class member.
+    #[must_use]
+    pub fn find_member(&self, class_name: &str, member_name: &str) -> Option<u32> {
+        let class_id = self
+            .class_by_name
+            .get(&class_name.to_ascii_lowercase())
+            .copied()?;
+        self.class_members
+            .get(&(class_id, member_name.to_ascii_lowercase()))
+            .copied()
+    }
+
+    /// Class symbol id by name, case-insensitive.
+    #[must_use]
+    pub fn class_symbol(&self, class_name: &str) -> Option<u32> {
+        self.class_by_name
+            .get(&class_name.to_ascii_lowercase())
+            .copied()
+    }
+
+    /// Walks the parent chain of an instance/prototype symbol until a class
+    /// symbol is found.
+    #[must_use]
+    pub fn class_of(&self, symbol: u32) -> Option<u32> {
+        let mut current = symbol;
+        // Prototypes can form a chain, the class is somewhere at its end.
+        for _ in 0..16 {
+            let entry = self.symbols.get(usize::try_from(current).ok()?)?;
+            if entry.meta.kind == SymbolKind::Class {
+                return Some(current);
+            }
+            current = entry.parent?;
+        }
+        None
     }
 
     fn value_base(&self, symbol: u32) -> Option<usize> {
@@ -196,242 +321,18 @@ impl SymbolStore {
         Some(base + element)
     }
 
-    fn member_slot(&self, instance: u32, offset: u32, element: u32) -> Option<usize> {
-        let meta = self.meta(instance)?;
-        if meta.is_class_member {
+    fn member_slot(&self, instance: u32, member: u32, element: u32) -> Option<usize> {
+        let instance_meta = self.meta(instance)?;
+        if instance_meta.is_class_member {
             return None;
         }
-        let base = usize::try_from(meta.address_or_offset / 4).ok()?;
-        let offset = usize::try_from(offset / 4).ok()?;
+        let member_meta = self.meta(member)?;
+        if !member_meta.is_class_member {
+            return None;
+        }
+        let base = usize::try_from(instance_meta.address_or_offset / 4).ok()?;
+        let offset = usize::try_from(member_meta.address_or_offset / 4).ok()?;
         let element = usize::try_from(element).ok()?;
         Some(base + offset + element)
     }
-}
-
-/// Info of an npc instance (`C_Npc` hitpoints, hitpoints max and name).
-#[derive(Debug, Default, Clone)]
-pub struct NpcInfo {
-    /// Current hitpoints (`ATR_HITPOINTS`).
-    pub hitpoints: i32,
-    /// Maximum hitpoints (`ATR_HITPOINTS_MAX`).
-    pub hitpoints_max: i32,
-    /// Raw daedalus string id of the name, `None` when unset.
-    pub name: Option<i32>,
-}
-
-/// Stats of an item instance (`C_Item`).
-#[derive(Debug, Default, Clone)]
-pub struct ItemInfo {
-    /// Total damage.
-    pub damage_total: i32,
-    /// Raw daedalus string id of the name, `None` when unset.
-    pub name: Option<i32>,
-    /// Base value.
-    pub value: i32,
-    /// Weight.
-    pub weight: i32,
-    /// Equip requirements (attribute ids).
-    pub cond_attribute: Vec<i32>,
-    /// Equip requirement values.
-    pub cond_value: Vec<i32>,
-    /// Raw daedalus string id of the description, `None` when unset.
-    pub description: Option<i32>,
-    /// Info box text string ids.
-    pub text: Vec<i32>,
-    /// Info box text counts.
-    pub count: Vec<i32>,
-}
-
-/// Dialog information (`C_Info`).
-#[derive(Debug, Default, Clone)]
-pub struct DialogInfo {
-    /// Npc the info belongs to.
-    pub npc: i32,
-    /// Order priority.
-    pub order: i32,
-    /// Condition function symbol id.
-    pub condition: i32,
-    /// Information function symbol id.
-    pub information: i32,
-    /// Description string id.
-    pub description: i32,
-    /// Whether the info is important.
-    pub important: bool,
-    /// Whether the info is permanent.
-    pub permanent: bool,
-    /// Whether the info is a trade dialog.
-    pub trade: bool,
-}
-
-/// A menu (`C_Menu`).
-#[derive(Debug, Default, Clone)]
-pub struct MenuInfo {
-    /// Background picture string id.
-    pub back_pic: Option<i32>,
-    /// Background world string id.
-    pub back_world: Option<i32>,
-    /// Position on screen.
-    pub pos_x: i32,
-    /// Position on screen.
-    pub pos_y: i32,
-    /// Size on screen.
-    pub dim_x: i32,
-    /// Size on screen.
-    pub dim_y: i32,
-    /// Alpha value.
-    pub alpha: i32,
-    /// Music theme string id.
-    pub music_theme: Option<i32>,
-    /// Event timer in milliseconds.
-    pub event_timer_msec: i32,
-    /// Item instance ids.
-    pub items: Vec<i32>,
-    /// Menu flags.
-    pub menu_flags: i32,
-    /// Default item outside the game.
-    pub default_out_game: i32,
-    /// Default item inside the game.
-    pub default_in_game: i32,
-}
-
-/// A menu item (`C_MenuItem`).
-#[derive(Debug, Default, Clone)]
-pub struct MenuItemInfo {
-    /// Font name string id.
-    pub font_name: Option<i32>,
-    /// Text string ids.
-    pub text: Vec<i32>,
-    /// Background picture string id.
-    pub back_pic: Option<i32>,
-    /// Alpha mode string id.
-    pub alpha_mode: Option<i32>,
-    /// Alpha value.
-    pub alpha: i32,
-    /// Item kind.
-    pub kind: i32,
-    /// Selection action function ids.
-    pub on_sel_action: Vec<i32>,
-    /// Selection action text string ids.
-    pub on_sel_action_s: Vec<i32>,
-    /// Set option function string id.
-    pub on_chg_set_option: Option<i32>,
-    /// Set option section function string id.
-    pub on_chg_set_option_section: Option<i32>,
-    /// Event action function ids.
-    pub on_event_action: Vec<i32>,
-    /// Position on screen.
-    pub pos_x: i32,
-    /// Position on screen.
-    pub pos_y: i32,
-    /// Size on screen.
-    pub dim_x: i32,
-    /// Size on screen.
-    pub dim_y: i32,
-    /// Item flags.
-    pub item_flags: i32,
-}
-
-/// Projects the `C_Npc` members of an npc instance.
-#[must_use]
-pub fn npc_info(store: &SymbolStore, instance: u32) -> NpcInfo {
-    NpcInfo {
-        hitpoints: read_word(store, instance, 440),
-        hitpoints_max: read_word(store, instance, 444),
-        name: read_string_id(store, instance, 292),
-    }
-}
-
-/// Projects the `C_Item` members of an item instance.
-#[must_use]
-pub fn item_info(store: &SymbolStore, instance: u32) -> ItemInfo {
-    ItemInfo {
-        damage_total: read_word(store, instance, 360),
-        name: read_string_id(store, instance, 292),
-        value: read_word(store, instance, 352),
-        weight: read_word(store, instance, 348),
-        cond_attribute: read_list(store, instance, 448, 3),
-        cond_value: read_list(store, instance, 460, 3),
-        description: read_string_id(store, instance, 628),
-        text: read_list(store, instance, 648, 6),
-        count: read_list(store, instance, 768, 6),
-    }
-}
-
-/// Projects the `C_Info` members of a dialog info instance.
-#[must_use]
-pub fn dialog_info(store: &SymbolStore, instance: u32) -> DialogInfo {
-    DialogInfo {
-        npc: read_word(store, instance, 0),
-        order: read_word(store, instance, 4),
-        condition: read_word(store, instance, 12),
-        information: read_word(store, instance, 16),
-        description: read_word(store, instance, 20),
-        important: read_word(store, instance, 8) != 0,
-        permanent: read_word(store, instance, 44) != 0,
-        trade: read_word(store, instance, 40) != 0,
-    }
-}
-
-/// Projects the `C_Menu` members of a menu instance (`MENU.DAT` layout).
-#[must_use]
-pub fn menu_info(store: &SymbolStore, instance: u32) -> MenuInfo {
-    MenuInfo {
-        back_pic: read_string_id(store, instance, 0),
-        back_world: read_string_id(store, instance, 20),
-        pos_x: read_word(store, instance, 40),
-        pos_y: read_word(store, instance, 44),
-        dim_x: read_word(store, instance, 48),
-        dim_y: read_word(store, instance, 52),
-        alpha: read_word(store, instance, 56),
-        music_theme: read_string_id(store, instance, 60),
-        event_timer_msec: read_word(store, instance, 80),
-        items: read_list(store, instance, 84, 150),
-        menu_flags: read_word(store, instance, 3084),
-        default_out_game: read_word(store, instance, 3088),
-        default_in_game: read_word(store, instance, 3092),
-    }
-}
-
-/// Projects the `C_MenuItem` members of a menu item instance (`MENU.DAT`
-/// layout).
-#[must_use]
-pub fn menu_item_info(store: &SymbolStore, instance: u32) -> MenuItemInfo {
-    MenuItemInfo {
-        font_name: read_string_id(store, instance, 0),
-        text: read_list(store, instance, 20, 10),
-        back_pic: read_string_id(store, instance, 220),
-        alpha_mode: read_string_id(store, instance, 240),
-        alpha: read_word(store, instance, 260),
-        kind: read_word(store, instance, 264),
-        on_sel_action: read_list(store, instance, 268, 5),
-        on_sel_action_s: read_list(store, instance, 288, 5),
-        on_chg_set_option: read_string_id(store, instance, 388),
-        on_chg_set_option_section: read_string_id(store, instance, 408),
-        on_event_action: read_list(store, instance, 428, 10),
-        pos_x: read_word(store, instance, 468),
-        pos_y: read_word(store, instance, 472),
-        dim_x: read_word(store, instance, 476),
-        dim_y: read_word(store, instance, 480),
-        item_flags: read_word(store, instance, 488),
-    }
-}
-
-fn read_word(store: &SymbolStore, instance: u32, offset: u32) -> i32 {
-    store.read_offset(instance, offset).unwrap_or_default()
-}
-
-fn read_string_id(store: &SymbolStore, instance: u32, offset: u32) -> Option<i32> {
-    store
-        .read_offset(instance, offset)
-        .filter(|value| *value != 0)
-}
-
-fn read_list(store: &SymbolStore, instance: u32, base_offset: u32, count: u32) -> Vec<i32> {
-    (0..count)
-        .map(|element| {
-            store
-                .read_member(instance, base_offset, element)
-                .unwrap_or_default()
-        })
-        .collect()
 }

@@ -321,12 +321,12 @@
   ;; Returns pointer to record symbol-info:
   ;; kind @0 (byte), parent option: present @4 (byte), value @8,
   ;; function option: present @12 (byte), value @16, is-const @20 (byte),
-  ;; is-class-member @21 (byte), address-or-offset @24
+  ;; is-class-member @21 (byte), address-or-offset @24, element-count @28
   (func $get_symbol_info (param $symbol_id i32) (result i32)
     (local $mem_start i32) (local $parent i32) (local $func_index i32)
 
     ;; Get memory where we will put results
-    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 28))
+    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 32))
     local.set $mem_start
 
     ;; kind,
@@ -360,6 +360,14 @@
     i32.mul
     i32.load $symbol_info offset=4
     i32.store $main offset=24
+
+    ;; element-count
+    local.get $mem_start
+    local.get $symbol_id
+    i32.const 4
+    i32.mul
+    i32.load $symbol_counts offset=0
+    i32.store $main offset=28
 
     ;; parent
     local.get $symbol_id
