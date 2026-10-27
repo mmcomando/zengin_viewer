@@ -2,6 +2,7 @@ mod imported_functions;
 
 use crate::common::imported_functions::ImportCallState;
 use daedalus_wasm::daedalus;
+use daedalus_wasm::symbol_store::{self, ItemInfo, NpcInfo, SymbolStore};
 use daedalus_wasm::wasm::{BinaryBuilder, parse_base_module};
 use std::env::home_dir;
 use std::path::PathBuf;
@@ -9,8 +10,6 @@ use std::process::Command;
 use wasmtime::{Config, Engine, Store};
 
 use wasmtime::component::{Component, HasSelf, Linker, bindgen};
-
-use self::exports::mmcomando::zengine_scripts::manage::{ItemInfo, NpcInfo};
 
 bindgen!({
     path:"wit",
@@ -414,9 +413,37 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     count_import!(game_initengintl() -> i32);
 }
 
+impl mmcomando::zengine_scripts::symbols::Host for ImportCallState {
+    fn get_symbol(&mut self, symbol: i32, element: i32) -> i32 {
+        self.symbol_store
+            .read_symbol(symbol as u32, element as u32)
+            .unwrap_or(-1)
+    }
+
+    fn set_symbol(&mut self, symbol: i32, element: i32, value: i32) {
+        self.symbol_store
+            .write_symbol(symbol as u32, element as u32, value);
+    }
+
+    fn get_member(&mut self, instance: i32, offset: i32, element: i32) -> i32 {
+        self.symbol_store
+            .read_member(instance as u32, offset as u32, element as u32)
+            .unwrap_or(-1)
+    }
+
+    fn set_member(&mut self, instance: i32, offset: i32, element: i32, value: i32) {
+        self.symbol_store
+            .write_member(instance as u32, offset as u32, element as u32, value);
+    }
+}
+
 #[allow(dead_code)]
 impl WasmExecutor {
     pub fn new(wasm_bytes: &[u8]) -> Self {
+        Self::new_with_state(wasm_bytes, ImportCallState::default())
+    }
+
+    pub fn new_with_state(wasm_bytes: &[u8], state: ImportCallState) -> Self {
         let mut config = Config::new();
         config.debug_info(true);
         config.cranelift_debug_verifier(true);
@@ -427,8 +454,7 @@ impl WasmExecutor {
         let mut linker = Linker::new(&engine);
         MmWorld::add_to_linker::<_, HasSelf<_>>(&mut linker, |state| state).unwrap();
 
-        let my_state = ImportCallState::default();
-        let mut store = Store::new(&engine, my_state);
+        let mut store = Store::new(&engine, state);
         let instance = MmWorld::instantiate(&mut store, &component, &linker).unwrap();
 
         WasmExecutor { store, instance }
@@ -479,7 +505,11 @@ impl WasmExecutor {
         let wasm_bytes = builder.finalize();
         save_test_binary(&get_test_name(), &wasm_bytes);
 
-        WasmExecutor::new(&wasm_bytes)
+        let state = ImportCallState {
+            symbol_store: SymbolStore::from_symbols(symbols),
+            ..ImportCallState::default()
+        };
+        WasmExecutor::new_with_state(&wasm_bytes, state)
     }
 
     pub fn simple_return_test(instructions: &[daedalus::Instruction]) -> i32 {
@@ -500,6 +530,13 @@ impl WasmExecutor {
 
     #[allow(dead_code)]
     pub fn set_self(&mut self, instance_index: u32) {
+        if let Some(self_symbol) = self.try_get_symbol_id("self") {
+            self.store.data_mut().symbol_store.write_symbol(
+                self_symbol as u32,
+                0,
+                instance_index as i32,
+            );
+        }
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_set_self(&mut self.store, instance_index as i32)
@@ -507,10 +544,18 @@ impl WasmExecutor {
     }
 
     pub fn call_npc_routine(&mut self, instance_index: u32) {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_call_npc_routine(&mut self.store, instance_index as i32)
-            .unwrap()
+        let Some(routine) = self
+            .store
+            .data()
+            .symbol_store
+            .read_offset(instance_index, 608)
+        else {
+            return;
+        };
+        if routine <= 1 {
+            return;
+        }
+        self.call_function(routine as u32);
     }
 
     pub fn call_function(&mut self, symbol_id: u32) {
@@ -563,26 +608,34 @@ impl WasmExecutor {
         &self.store.data().play_ani_calls
     }
     pub fn get_item_visual(&mut self, symbol_id: i32) -> Option<String> {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_get_item_visual(&mut self.store, symbol_id)
-            .unwrap()
+        let id = self
+            .store
+            .data()
+            .symbol_store
+            .read_offset(symbol_id as u32, 524)
+            .filter(|id| *id != 0)?;
+        self.read_string_by_id(id).ok()
     }
     pub fn get_item_visual_change(&mut self, symbol_id: i32) -> Option<String> {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_get_item_visual_change(&mut self.store, symbol_id)
-            .unwrap()
+        let id = self
+            .store
+            .data()
+            .symbol_store
+            .read_offset(symbol_id as u32, 544)
+            .filter(|id| *id != 0)?;
+        self.read_string_by_id(id).ok()
     }
     pub fn get_npc_info(&mut self, symbol_id: i32) -> NpcInfo {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest.call_get_npc_info(&mut self.store, symbol_id).unwrap()
+        symbol_store::npc_info(
+            &self.store.data().symbol_store,
+            u32::try_from(symbol_id).unwrap_or_default(),
+        )
     }
     pub fn get_item_info(&mut self, symbol_id: i32) -> ItemInfo {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_get_item_info(&mut self.store, symbol_id)
-            .unwrap()
+        symbol_store::item_info(
+            &self.store.data().symbol_store,
+            u32::try_from(symbol_id).unwrap_or_default(),
+        )
     }
 
     pub fn call_test_func(&mut self) -> i32 {
@@ -590,10 +643,32 @@ impl WasmExecutor {
         guest.call_test_func(&mut self.store).unwrap()
     }
     pub fn initialize_all_instances(&mut self) {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_initialize_all_instances(&mut self.store)
-            .unwrap()
+        let self_symbol = self.try_get_symbol_id("self").map(|id| id as u32);
+        let count = self.store.data().symbol_store.symbol_count();
+        for index in 0..count {
+            let Some(meta) = self.store.data().symbol_store.meta(index as u32).copied() else {
+                continue;
+            };
+            if meta.kind != daedalus::SymbolKind::Instance {
+                continue;
+            }
+            if let Some(self_symbol) = self_symbol {
+                self.store
+                    .data_mut()
+                    .symbol_store
+                    .write_symbol(self_symbol, 0, index as i32);
+            }
+            let guest = self.instance.mmcomando_zengine_scripts_manage();
+            guest
+                .call_set_instance(&mut self.store, index as i32)
+                .unwrap();
+            guest.call_set_self(&mut self.store, index as i32).unwrap();
+            if meta.has_function {
+                guest
+                    .call_call_function(&mut self.store, index as i32)
+                    .unwrap();
+            }
+        }
     }
 
     pub fn get_all_symbols_num(&mut self) -> i32 {
@@ -640,14 +715,11 @@ impl WasmExecutor {
             .unwrap()
     }
 
-    pub fn get_dialog_info(
-        &mut self,
-        symbol_id: i32,
-    ) -> crate::common::exports::mmcomando::zengine_scripts::manage::DialogInfo {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_get_dialog_info(&mut self.store, symbol_id)
-            .unwrap()
+    pub fn get_dialog_info(&mut self, symbol_id: i32) -> symbol_store::DialogInfo {
+        symbol_store::dialog_info(
+            &self.store.data().symbol_store,
+            u32::try_from(symbol_id).unwrap_or_default(),
+        )
     }
 }
 

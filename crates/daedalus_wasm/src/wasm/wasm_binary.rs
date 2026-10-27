@@ -4,6 +4,8 @@ use super::constants::ITEM_SYMBOL_GLOBAL_INDEX;
 use super::constants::OTHER_SYMBOL_GLOBAL_INDEX;
 use super::constants::SELF_SYMBOL_GLOBAL_INDEX;
 use super::constants::STRINGS_NUM_GLOBAL_INDEX;
+use super::constants::SYMBOLS_IMPORTS_NUM;
+use super::constants::SYMBOLS_MEMORY_SIZE_GLOBAL_INDEX;
 use super::constants::SYMBOLS_NUM_GLOBAL_INDEX;
 use super::constants::VICTIM_SYMBOL_GLOBAL_INDEX;
 use crate::common::ToU32 as _;
@@ -150,10 +152,12 @@ pub fn create_wasm_binary(
 
     // Memory section: extend memories to sizes required by daedalus data
     let static_strings_bytes = memory_layout.get_static_strings_bytes();
+    let symbol_counts_bytes = memory_layout.symbol_counts_bytes();
     let needed_pages = [
         memory_pages_for_layout(static_strings_bytes.len().to_u32()),
         memory_pages_for_layout(memory_layout.symbol_info_table_size()),
         memory_pages_for_layout(memory_layout.symbols_size()),
+        memory_pages_for_layout(symbol_counts_bytes.len().to_u32()),
     ];
     let mut memory = MemorySection::new();
     for (index, base_memory) in base.memories.iter().enumerate() {
@@ -182,6 +186,14 @@ pub fn create_wasm_binary(
             SYMBOLS_NUM_GLOBAL_INDEX => symbols_num,
             STRINGS_NUM_GLOBAL_INDEX => strings_num,
             DYN_POOL_BASE_GLOBAL_INDEX => memory_layout.dyn_pool_base().cast_signed(),
+            SYMBOLS_MEMORY_SIZE_GLOBAL_INDEX => {
+                // Mirror the addressable size of the old symbol memory, which
+                // was rounded up to whole wasm pages. Some instance symbols
+                // access class member offsets past their own element count and
+                // relied on the page padding.
+                let pages = memory_pages_for_layout(memory_layout.symbols_size());
+                i32::try_from(pages * 0x1_0000).unwrap_or(i32::MAX)
+            }
             SELF_SYMBOL_GLOBAL_INDEX => well_known_init("self"),
             OTHER_SYMBOL_GLOBAL_INDEX => well_known_init("other"),
             VICTIM_SYMBOL_GLOBAL_INDEX => well_known_init("victim"),
@@ -252,8 +264,14 @@ pub fn create_wasm_binary(
     let symbols_data = symbols_memory_bytes(symbols, memory_layout);
     save_non_zero_data(
         &mut data,
-        DaedalusMemoryLayout::SYMBOLS_MEMORY_INDEX,
+        DaedalusMemoryLayout::SYMBOL_DEFAULTS_MEMORY_INDEX,
         &symbols_data,
+    );
+
+    save_non_zero_data(
+        &mut data,
+        DaedalusMemoryLayout::SYMBOL_COUNTS_MEMORY_INDEX,
+        &symbol_counts_bytes,
     );
 
     module.section(&data);
@@ -268,8 +286,10 @@ pub fn create_wasm_binary(
 #[must_use]
 /// Parses the base module (see `base_module.wat`) with `wasmparser`, its
 /// function indices are adjusted to the final function index space where
-/// `imported_functions_num` daedalus imported functions come first.
-pub fn parse_base_module(imported_functions_num: u32) -> BaseModule {
+/// `daedalus_imports_num` daedalus external functions and the `symbols`
+/// interface imports come first.
+pub fn parse_base_module(daedalus_imports_num: u32) -> BaseModule {
+    let imported_functions_num = daedalus_imports_num + SYMBOLS_IMPORTS_NUM;
     let base_bytes = wat::parse_str(BASE_MODULE_WAT).expect("Base module WAT should be valid");
     let mut base = BaseModule::default();
 

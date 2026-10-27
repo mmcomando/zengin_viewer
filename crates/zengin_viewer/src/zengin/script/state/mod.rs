@@ -13,12 +13,11 @@ pub(crate) use instances::{
 pub(crate) use weapons::{OverlayRequest, WeaponKind, WeaponMode};
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use bevy::math::Vec3;
+use daedalus_wasm::symbol_store::SymbolStore;
 use rand_mt::Mt;
 
-use super::bindings::MmWorld;
 use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::journal::{JournalChange, JournalManager};
 use super::string_value::{ShowString, StringCanon};
@@ -174,7 +173,11 @@ impl SymbolTable {
 
 #[derive(Default)]
 pub struct ImportCallState {
-    pub world: Option<Arc<MmWorld>>,
+    /// Host-side symbol values, the only copy of the mutable script state.
+    pub symbol_store: SymbolStore,
+    /// Symbol ids of the well known instance variables, resolved when the
+    /// symbol table is loaded.
+    pub well_known_symbols: WellKnownSymbols,
     pub loaded_state: LoadedState,
     pub close_dialog: bool,
     /// Kind of every symbol, used to verify typed symbol ids
@@ -193,6 +196,21 @@ pub struct ImportCallState {
     pub way_points: HashMap<String, Vec3>,
     /// Generator backing `Hlp_Random`.
     pub rng: ScriptRandom,
+}
+
+/// Symbol ids of the well known daedalus instance variables, resolved once when
+/// the symbol table is loaded. `None` when the script does not declare them.
+#[derive(Debug, Default, Clone, Copy)]
+#[expect(
+    clippy::struct_field_names,
+    reason = "Fields name the well known daedalus instance variables"
+)]
+pub struct WellKnownSymbols {
+    pub self_symbol: Option<i32>,
+    pub other_symbol: Option<i32>,
+    pub victim_symbol: Option<i32>,
+    pub item_symbol: Option<i32>,
+    pub hero_symbol: Option<i32>,
 }
 
 /// Changes and requests queued by the script vm, see [`ImportCallState::pending`].

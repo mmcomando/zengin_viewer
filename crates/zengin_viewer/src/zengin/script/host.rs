@@ -1135,3 +1135,66 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
     fake_impl!(game_initenglish() -> i32);
     fake_impl!(game_initengintl() -> i32);
 }
+
+impl mmcomando::zengine_scripts::symbols::Host for ImportCallState {
+    fn get_symbol(&mut self, symbol: i32, element: i32) -> i32 {
+        let Some(value) = u32::try_from(symbol)
+            .ok()
+            .zip(u32::try_from(element).ok())
+            .and_then(|(symbol, element)| self.symbol_store.read_symbol(symbol, element))
+        else {
+            warn!("Script read of an invalid symbol({symbol}), element({element})");
+            return -1;
+        };
+        value
+    }
+
+    fn set_symbol(&mut self, symbol: i32, element: i32, value: i32) {
+        let written = u32::try_from(symbol)
+            .ok()
+            .zip(u32::try_from(element).ok())
+            .is_some_and(|(symbol, element)| {
+                self.symbol_store.write_symbol(symbol, element, value)
+            });
+        if !written {
+            warn!("Script write of an invalid symbol({symbol}), element({element})");
+        }
+    }
+
+    fn get_member(&mut self, instance: i32, offset: i32, element: i32) -> i32 {
+        let Some(value) = u32::try_from(instance)
+            .ok()
+            .zip(u32::try_from(offset).ok())
+            .zip(u32::try_from(element).ok())
+            .and_then(|((instance, offset), element)| {
+                self.symbol_store.read_member(instance, offset, element)
+            })
+        else {
+            warn!(
+                "Script read of an invalid member, instance({instance}), offset({offset}), element({element})"
+            );
+            return -1;
+        };
+        value
+    }
+
+    fn set_member(&mut self, instance: i32, offset: i32, element: i32, value: i32) {
+        let written = u32::try_from(instance)
+            .ok()
+            .zip(u32::try_from(offset).ok())
+            .zip(u32::try_from(element).ok())
+            .is_some_and(|((instance, offset), element)| {
+                self.symbol_store
+                    .write_member(instance, offset, element, value)
+            });
+        if !written {
+            warn!(
+                "Script write of an invalid member, instance({instance}), offset({offset}), element({element}), words({}), meta({:?})",
+                self.symbol_store.word_count(),
+                u32::try_from(instance)
+                    .ok()
+                    .and_then(|instance| self.symbol_store.meta(instance))
+            );
+        }
+    }
+}

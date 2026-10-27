@@ -1,8 +1,7 @@
 use bevy::log::warn;
+use daedalus_wasm::symbol_store::{self, ItemInfo, NpcInfo};
 
-use super::super::bindings::exports::mmcomando::zengine_scripts::manage::{
-    ItemInfo, NpcInfo, SymbolKind,
-};
+use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::super::state::HealthChange;
 use super::super::string_value::{ShowString, StringCanon};
 use super::super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
@@ -42,6 +41,7 @@ impl super::ScriptManager {
 
     /// Binds the given instance as `self` for subsequent script calls
     pub fn set_self(&mut self, instance_index: InstanceId) {
+        self.write_well_known("self", instance_index);
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_set_self(&mut self.store, instance_index.value())
@@ -50,20 +50,50 @@ impl super::ScriptManager {
 
     /// Binds the given instance as `other` for subsequent script calls
     pub fn set_other(&mut self, instance_index: InstanceId) {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_set_other(&mut self.store, instance_index.value())
-            .unwrap();
+        self.write_well_known("other", instance_index);
+    }
+
+    /// Writes a well known instance variable into the host symbol store, the
+    /// guest export only updates its cached instance id used by
+    /// `SetInstance(self)`.
+    fn write_well_known(&mut self, name: &str, instance_index: InstanceId) {
+        let well_known = self.store.data().well_known_symbols;
+        let symbol = match name {
+            "self" => well_known.self_symbol,
+            "other" => well_known.other_symbol,
+            "victim" => well_known.victim_symbol,
+            "item" => well_known.item_symbol,
+            "hero" => well_known.hero_symbol,
+            _ => None,
+        };
+        let Some(symbol) = symbol else {
+            return;
+        };
+        self.store
+            .data_mut()
+            .symbol_store
+            .write_symbol(symbol as u32, 0, instance_index.value());
     }
 
     pub fn call_npc_routine(&mut self, instance_index: InstanceId) {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        let result = guest.call_call_npc_routine(&mut self.store, instance_index.value());
-        match result {
-            Ok(()) => {}
-            Err(err) => {
-                println!("call_npc_routine({instance_index}) error: {:?}", err);
-            }
+        let Some(routine) = self
+            .store
+            .data()
+            .symbol_store
+            .read_offset(instance_index.value() as u32, 608)
+        else {
+            return;
+        };
+        if routine <= 1 {
+            return;
+        }
+        let Some(function) = SymbolId::new(routine)
+            .and_then(|symbol| self.store.data().symbol_table.function(symbol.value()))
+        else {
+            return;
+        };
+        if let Err(err) = self.try_call_function(function) {
+            println!("call_npc_routine({instance_index}) error: {err:?}");
         }
     }
 
@@ -95,17 +125,17 @@ impl super::ScriptManager {
     }
 
     fn npc_info(&mut self, npc: InstanceId) -> NpcInfo {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_get_npc_info(&mut self.store, npc.symbol().value())
-            .unwrap()
+        symbol_store::npc_info(
+            &self.store.data().symbol_store,
+            u32::try_from(npc.symbol().value()).unwrap_or_default(),
+        )
     }
 
     fn item_info(&mut self, item: InstanceId) -> ItemInfo {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_get_item_info(&mut self.store, item.symbol().value())
-            .unwrap()
+        symbol_store::item_info(
+            &self.store.data().symbol_store,
+            u32::try_from(item.symbol().value()).unwrap_or_default(),
+        )
     }
 
     /// Hitpoints and hitpoints max of an npc, read from the npc instance data
@@ -241,16 +271,22 @@ impl super::ScriptManager {
     }
 
     pub fn get_item_visual(&mut self, symbol_id: SymbolId) -> Option<String> {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_get_item_visual(&mut self.store, symbol_id.value())
-            .unwrap()
+        let visual = self
+            .store
+            .data()
+            .symbol_store
+            .read_offset(symbol_id.value() as u32, 524)
+            .filter(|id| *id != 0)?;
+        self.string_by_id(Some(visual))
     }
     pub fn get_item_visual_change(&mut self, symbol_id: SymbolId) -> Option<String> {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_get_item_visual_change(&mut self.store, symbol_id.value())
-            .unwrap()
+        let visual = self
+            .store
+            .data()
+            .symbol_store
+            .read_offset(symbol_id.value() as u32, 544)
+            .filter(|id| *id != 0)?;
+        self.string_by_id(Some(visual))
     }
 
     pub fn call_npc_routines(&mut self) {

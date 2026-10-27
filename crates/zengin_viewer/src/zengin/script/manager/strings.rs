@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
+use daedalus_wasm::symbol_store::{SymbolMeta, SymbolStore};
+
 use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolInfo;
-use super::super::state::SymbolTable;
+use super::super::state::{SymbolTable, WellKnownSymbols};
 use super::super::string_value::{ShowString, StringCanon};
 use super::super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 
@@ -86,23 +88,50 @@ impl super::ScriptManager {
     }
 
     /// Loads the kind of every symbol into the symbol table used to verify
-    /// typed symbol ids. Must be called before script functions are executed,
-    /// host calls made during initialization already verify ids.
+    /// typed symbol ids, and builds the host symbol store from the guest
+    /// metadata and initial values. Must be called before script functions are
+    /// executed, host calls made during initialization already verify ids and
+    /// `get-symbol-values` only reports the initial values before any script
+    /// runs.
     pub fn load_symbol_table(&mut self) {
-        let symbols_count = self.get_all_symbols_num();
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        let symbols_count = guest.call_get_all_symbols_num(&mut self.store).unwrap();
+        let word_count =
+            usize::try_from(guest.call_get_symbols_memory_size(&mut self.store).unwrap() / 4)
+                .unwrap_or_default();
+        let mut symbol_store = SymbolStore::new(word_count);
         let mut kinds = HashMap::with_capacity(symbols_count.max(0) as usize);
         for index in 0..symbols_count {
-            let Some(symbol_id) = SymbolId::new(index) else {
+            let info = guest.call_get_symbol_info(&mut self.store, index).unwrap();
+            kinds.insert(index, info.kind);
+            symbol_store.push_meta(SymbolMeta {
+                kind: convert_symbol_kind(info.kind),
+                is_const: info.is_const,
+                is_class_member: info.is_class_member,
+                address_or_offset: info.address_or_offset,
+                has_function: info.function.is_some(),
+            });
+        }
+
+        // Initial values of the symbols which have their own value slot. They
+        // are only meaningful before instance initialization runs.
+        for index in 0..symbols_count {
+            let Some(meta) = symbol_store.meta(index as u32).copied() else {
                 continue;
             };
-            kinds.insert(index, self.get_symbol_info(symbol_id).kind);
+            if meta.is_const || meta.is_class_member {
+                continue;
+            }
+            let values = guest
+                .call_get_symbol_values(&mut self.store, index)
+                .unwrap();
+            symbol_store.set_defaults(index as u32, &values);
         }
 
         // Load all string pair contents once at startup (symbol names for ids
         // below `symbols_count`, static string literals above), so import
         // handlers and host code resolve strings by table lookup instead of
         // calling back into the guest while a script function is running
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
         let strings_count = guest.call_get_all_strings_num(&mut self.store).unwrap();
         let mut strings = Vec::with_capacity(strings_count.max(0) as usize);
         for raw in 0..strings_count {
@@ -114,7 +143,18 @@ impl super::ScriptManager {
             strings.push(string);
         }
 
-        self.store.data_mut().symbol_table = SymbolTable::new(kinds, symbols_count, strings);
+        let well_known_symbols = WellKnownSymbols {
+            self_symbol: guest.call_get_symbol_id(&mut self.store, "self").unwrap(),
+            other_symbol: guest.call_get_symbol_id(&mut self.store, "other").unwrap(),
+            victim_symbol: guest.call_get_symbol_id(&mut self.store, "victim").unwrap(),
+            item_symbol: guest.call_get_symbol_id(&mut self.store, "item").unwrap(),
+            hero_symbol: guest.call_get_symbol_id(&mut self.store, "hero").unwrap(),
+        };
+
+        let data = self.store.data_mut();
+        data.symbol_store = symbol_store;
+        data.well_known_symbols = well_known_symbols;
+        data.symbol_table = SymbolTable::new(kinds, symbols_count, strings);
     }
 
     /// Resolves a symbol id by name, `None` when the symbol does not exist.
@@ -149,6 +189,25 @@ impl super::ScriptManager {
         }
         let symbol_info = self.get_symbol_info(SymbolId::new(parent).unwrap());
 
-        return self.has_ancestor(&symbol_info, ancestor_id);
+        self.has_ancestor(&symbol_info, ancestor_id)
+    }
+}
+
+/// Maps the guest `symbol-kind` enum to the converter's kind enum used by the
+/// host symbol store.
+fn convert_symbol_kind(
+    kind: super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind,
+) -> daedalus_wasm::daedalus::SymbolKind {
+    use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind as Input;
+    use daedalus_wasm::daedalus::SymbolKind as Output;
+    match kind {
+        Input::Float => Output::Float,
+        Input::Int => Output::Int,
+        Input::Str => Output::String,
+        Input::Class => Output::Class,
+        Input::Function => Output::Func,
+        Input::Prototype => Output::Prototype,
+        Input::Instance => Output::Instance,
+        Input::VariableArgument => Output::VariableArgument,
     }
 }

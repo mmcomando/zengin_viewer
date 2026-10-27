@@ -10,10 +10,10 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use bevy::log::{error, info, warn};
 use bevy::prelude::Resource;
 
-use super::bindings::exports::mmcomando::zengine_scripts::manage::{MenuInfo, MenuItemInfo};
 use super::manager::ScriptManager;
 use super::symbol_id::{FunctionId, SymbolId};
 use crate::zengin::common::gothic2_dir;
+use daedalus_wasm::symbol_store::{MenuInfo, MenuItemInfo};
 
 /// Engine select-action command ids, see the `SEL_ACTION_*` constants of the
 /// menu script.

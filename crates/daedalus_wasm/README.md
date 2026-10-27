@@ -22,6 +22,13 @@ When daedalus push instruction pushes value to the stack but also allows to get 
 Wasm when pushes to the stack only value information of variable is preserved, and later assign daedalus instructions can't be translated to wasm as we don't know where to assign.
 This requires additional analysis pass gather information if daedalus instruction has to push value or reference to a variable.
 
+## Symbol values
+Runtime symbol values (globals and class instance records) are owned by the
+host and accessed through the `symbols` component interface, not kept in wasm
+memory. Converted assign instructions carry the target from the analysis pass
+instead of a runtime address, and only push a placeholder value to keep the
+wasm stack shape unchanged.
+
 
 # TODO
 - support setting and assigning strings

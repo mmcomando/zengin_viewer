@@ -20,6 +20,7 @@ use wasmtime::{Engine, Store};
 use super::bindings::MmWorld;
 use super::state::ImportCallState;
 use super::symbol_id::FunctionId;
+use daedalus_wasm::daedalus::SymbolKind;
 
 pub struct ScriptManager {
     pub store: Store<ImportCallState>,
@@ -82,9 +83,7 @@ impl ScriptManager {
         let my_state = ImportCallState::default();
         let mut store = Store::new(&engine, my_state);
         let instance = MmWorld::instantiate(&mut store, &component, &linker).unwrap();
-        let instance2 = MmWorld::instantiate(&mut store, &component, &linker).unwrap();
         let instance_arc = Arc::new(instance);
-        store.data_mut().world = Some(Arc::new(instance2));
 
         Self {
             store,
@@ -135,10 +134,37 @@ impl ScriptManager {
             .unwrap()
     }
 
+    /// Runs every daedalus instance initializer in symbol order, binding the
+    /// instance as `self` and as the current instance context first. This used
+    /// to be a guest builtin, it lives here because the symbol values are host
+    /// owned now.
     pub fn initialize_instances(&mut self) {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_initialize_all_instances(&mut self.store)
-            .unwrap();
+        let self_symbol = self.store.data().well_known_symbols.self_symbol;
+        let count = self.store.data().symbol_store.symbol_count();
+        for index in 0..count {
+            let Some(meta) = self.store.data().symbol_store.meta(index as u32).copied() else {
+                continue;
+            };
+            if meta.kind != SymbolKind::Instance {
+                continue;
+            }
+            if let Some(self_symbol) = self_symbol {
+                self.store.data_mut().symbol_store.write_symbol(
+                    self_symbol as u32,
+                    0,
+                    index as i32,
+                );
+            }
+            let guest = self.instance.mmcomando_zengine_scripts_manage();
+            guest
+                .call_set_instance(&mut self.store, index as i32)
+                .unwrap();
+            guest.call_set_self(&mut self.store, index as i32).unwrap();
+            if meta.has_function {
+                guest
+                    .call_call_function(&mut self.store, index as i32)
+                    .unwrap();
+            }
+        }
     }
 }

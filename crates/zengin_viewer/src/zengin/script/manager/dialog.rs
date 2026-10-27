@@ -1,7 +1,8 @@
-use super::super::bindings::exports::mmcomando::zengine_scripts::manage::{DialogInfo, SymbolKind};
+use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::super::state::{DialogChoice, DialogRoot};
 use super::super::string_value::ShowString;
 use super::super::symbol_id::{FunctionId, InstanceId, SymbolId};
+use daedalus_wasm::symbol_store::{self, DialogInfo};
 
 impl super::ScriptManager {
     /// Newest first, like the engine which inserts each new choice at the front
@@ -135,10 +136,10 @@ impl super::ScriptManager {
     }
 
     pub fn get_dialog_info(&mut self, symbol_id: SymbolId) -> DialogInfo {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest
-            .call_get_dialog_info(&mut self.store, symbol_id.value())
-            .unwrap()
+        symbol_store::dialog_info(
+            &self.store.data().symbol_store,
+            u32::try_from(symbol_id.value()).unwrap_or_default(),
+        )
     }
 
     pub fn load_dialogs_information(&mut self) {

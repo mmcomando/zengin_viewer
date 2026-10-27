@@ -34,6 +34,13 @@ struct StringReturnWrapper {
     name: String,
 }
 
+#[derive(Debug, Default, Clone, Copy)]
+/// Symbol indices of the well known daedalus instance variables which need
+/// compile time special handling, `None` when the script does not declare them.
+pub(crate) struct WellKnownSymbols {
+    pub(crate) self_id: Option<u32>,
+}
+
 #[derive(Debug)]
 pub(crate) struct ImportedFunction {
     pub module: String,
@@ -90,6 +97,8 @@ pub struct BinaryBuilder {
     pub(crate) symbol_to_info: HashMap<u32, SymbolInformation>,
     // Daedalus function to wasm function mapping
     pub(crate) instr_offset_to_func_info: HashMap<u32, FunctionInformation>,
+    // Symbol indices of the well known instance variables
+    pub(crate) well_known: WellKnownSymbols,
 }
 
 impl BinaryBuilder {
@@ -152,6 +161,9 @@ impl BinaryBuilder {
         }
 
         self.symbols = symbols.to_vec();
+        self.well_known = WellKnownSymbols {
+            self_id: find_symbol(symbols, "self"),
+        };
 
         // Buildin functions are defined in the base module (base_module.wat),
         // here only their indices in the final function index space are computed.
@@ -444,7 +456,51 @@ impl BinaryBuilder {
     pub fn new(base: BaseModule) -> Self {
         Self {
             base,
+            imported_functions: symbol_imports(),
             ..Self::default()
         }
     }
+}
+
+/// Imports of the `symbols` WIT interface, the host owns all symbol values.
+/// They are placed before the daedalus external imports, so their final
+/// function indices are the first `SYMBOLS_IMPORTS_NUM` indices.
+fn symbol_imports() -> Vec<ImportedFunction> {
+    let module = "mmcomando:zengine-scripts/symbols@0.1.0".to_owned();
+    let params = |count: usize| vec![ValType::I32; count];
+    vec![
+        ImportedFunction {
+            module: module.clone(),
+            name: "get-symbol".to_owned(),
+            params: params(2),
+            results: vec![ValType::I32],
+        },
+        ImportedFunction {
+            module: module.clone(),
+            name: "set-symbol".to_owned(),
+            params: params(3),
+            results: vec![],
+        },
+        ImportedFunction {
+            module: module.clone(),
+            name: "get-member".to_owned(),
+            params: params(3),
+            results: vec![ValType::I32],
+        },
+        ImportedFunction {
+            module,
+            name: "set-member".to_owned(),
+            params: params(4),
+            results: vec![],
+        },
+    ]
+}
+
+/// Symbol index of a well known daedalus instance variable, matched by name
+/// like the globals patched in `create_wasm_binary`.
+fn find_symbol(symbols: &[daedalus::Symbol], name: &str) -> Option<u32> {
+    symbols
+        .iter()
+        .position(|symbol| symbol.name.eq_ignore_ascii_case(name))
+        .map(|index| index.to_u32())
 }

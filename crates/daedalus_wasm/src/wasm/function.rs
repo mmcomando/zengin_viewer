@@ -1,5 +1,9 @@
-use super::constants::CURRENT_CLASS_INSTANCE_MEMORY_GLOBAL_INDEX;
 use super::constants::CURRENT_INSTANCE_SYMBOL_INDEX;
+use super::constants::SELF_INSTANCE_GLOBAL_INDEX;
+use super::constants::SYMBOL_IMPORT_GET_MEMBER;
+use super::constants::SYMBOL_IMPORT_GET_SYMBOL;
+use super::constants::SYMBOL_IMPORT_SET_MEMBER;
+use super::constants::SYMBOL_IMPORT_SET_SYMBOL;
 use crate::common::ToU32 as _;
 use crate::common::ToUsize as _;
 use crate::daedalus::Function as FuncDD;
@@ -9,10 +13,10 @@ use crate::daedalus::analyze::Block;
 use crate::daedalus::analyze::ControlBlock;
 use crate::daedalus::analyze::InstructionBlock;
 use crate::daedalus::analyze::ProvideValType;
+use crate::daedalus::analyze::RefTarget;
 use crate::wasm::BinaryBuilder;
-use crate::wasm::DaedalusMemoryLayout;
 use std::collections::HashMap;
-use wasm_encoder::{BlockType, Function, Instruction, MemArg, ValType};
+use wasm_encoder::{BlockType, Function, Instruction, ValType};
 
 #[derive(Debug, Clone)]
 pub(crate) struct ConvertedFunction {
@@ -78,29 +82,70 @@ impl<'a> ConversionState<'a> {
         }
     }
 
-    fn map_compound_assign(&self, func: &mut Function, is_sub: bool) {
+    fn map_compound_assign(&self, func: &mut Function, is_sub: bool, target: RefTarget) {
         func.instruction(&Instruction::LocalSet(self.tmp_val_0));
+        func.instruction(&Instruction::LocalSet(self.tmp_val_1));
 
+        Self::emit_get_target(func, target, self.tmp_val_0);
+        func.instruction(&Instruction::LocalGet(self.tmp_val_1));
         if is_sub {
-            func.instruction(&Instruction::I32Const(-1));
-            func.instruction(&Instruction::I32Mul);
+            func.instruction(&Instruction::I32Sub);
+        } else {
+            func.instruction(&Instruction::I32Add);
         }
+        func.instruction(&Instruction::LocalSet(self.tmp_val_1));
 
-        func.instruction(&Instruction::LocalGet(self.tmp_val_0));
-        func.instruction(&Instruction::I32Load(MemArg {
-            offset: 0,
-            align: 2,
-            memory_index: DaedalusMemoryLayout::SYMBOLS_MEMORY_INDEX,
-        }));
+        Self::emit_set_target(func, target, self.tmp_val_0, self.tmp_val_1);
+    }
 
-        func.instruction(&Instruction::I32Add);
-        func.instruction(&Instruction::LocalGet(self.tmp_val_0));
-        self.swap_values_on_stack(func);
-        func.instruction(&Instruction::I32Store(MemArg {
-            offset: 0,
-            align: 2,
-            memory_index: DaedalusMemoryLayout::SYMBOLS_MEMORY_INDEX,
-        }));
+    /// Emits a read of an assignment target, the value is left on the stack.
+    fn emit_get_target(func: &mut Function, target: RefTarget, instance_local: u32) {
+        match target {
+            RefTarget::Global { symbol, element } => {
+                func.instruction(&Instruction::I32Const(symbol.cast_signed()));
+                func.instruction(&Instruction::I32Const(i32::from(element)));
+                func.instruction(&Instruction::Call(SYMBOL_IMPORT_GET_SYMBOL));
+            }
+            RefTarget::Member { offset, element } => {
+                func.instruction(&Instruction::LocalGet(instance_local));
+                func.instruction(&Instruction::I32Const(offset.cast_signed()));
+                func.instruction(&Instruction::I32Const(i32::from(element)));
+                func.instruction(&Instruction::Call(SYMBOL_IMPORT_GET_MEMBER));
+            }
+        }
+    }
+
+    /// Emits a write to an assignment target from `value_local`.
+    fn emit_set_target(
+        func: &mut Function,
+        target: RefTarget,
+        instance_local: u32,
+        value_local: u32,
+    ) {
+        match target {
+            RefTarget::Global { symbol, element } => {
+                func.instruction(&Instruction::I32Const(symbol.cast_signed()));
+                func.instruction(&Instruction::I32Const(i32::from(element)));
+                func.instruction(&Instruction::LocalGet(value_local));
+                func.instruction(&Instruction::Call(SYMBOL_IMPORT_SET_SYMBOL));
+            }
+            RefTarget::Member { offset, element } => {
+                func.instruction(&Instruction::LocalGet(instance_local));
+                func.instruction(&Instruction::I32Const(offset.cast_signed()));
+                func.instruction(&Instruction::I32Const(i32::from(element)));
+                func.instruction(&Instruction::LocalGet(value_local));
+                func.instruction(&Instruction::Call(SYMBOL_IMPORT_SET_MEMBER));
+            }
+        }
+    }
+
+    /// Stores the value on top of the stack into the annotated assignment
+    /// target. The reference value below it carries the instance id for member
+    /// targets and is ignored otherwise.
+    fn map_assign(&self, func: &mut Function, target: RefTarget) {
+        func.instruction(&Instruction::LocalSet(self.tmp_val_0));
+        func.instruction(&Instruction::LocalSet(self.tmp_val_1));
+        Self::emit_set_target(func, target, self.tmp_val_0, self.tmp_val_1);
     }
 
     #[expect(clippy::too_many_lines, reason = "Handling match")]
@@ -111,7 +156,7 @@ impl<'a> ConversionState<'a> {
         // Daedalus has concept of references which can be pushed to stack, such a reference
         //  can be interpreted as a destination address for assign instructions or as value for common operations
         // From analysis we know what push instructions should produce
-        let provide_val_type = analyzed_instruction.provide_val_type == ProvideValType::Ref;
+        let should_return_ref = analyzed_instruction.provide_val_type == ProvideValType::Ref;
 
         match dd_instr {
             InstDD::Add => {
@@ -144,21 +189,19 @@ impl<'a> ConversionState<'a> {
             }
             // Stack:
             // - Value A - Save this value
-            // - Memory address B - Save here
+            // - Reference B - Save here, the reference is not needed at runtime
             InstDD::AssignString
             | InstDD::AssignFunc
             | InstDD::AssignFloat
             | InstDD::AssignInstance
             | InstDD::AssignInteger => {
-                // Daedalus stack order: memory reference then value (in order of popping values)
-                // wasm stack order: value then address (in order of popping values)
-
-                self.swap_values_on_stack(func);
-                func.instruction(&Instruction::I32Store(MemArg {
-                    offset: 0,
-                    align: 2,
-                    memory_index: DaedalusMemoryLayout::SYMBOLS_MEMORY_INDEX,
-                }));
+                let Some(target) = analyzed_instruction.ref_target else {
+                    panic!(
+                        "Assign instruction without a reference target in function {}",
+                        self.dd_func.name
+                    );
+                };
+                self.map_assign(func, target);
             }
             // Comparisons: daedalus stack is [right operand, left operand],
             // the op means `left OP right` (`a = pop(); b = pop(); push(a > b)`
@@ -183,10 +226,22 @@ impl<'a> ConversionState<'a> {
                 func.instruction(&Instruction::I32LeS);
             }
             InstDD::AddTo => {
-                self.map_compound_assign(func, false);
+                let Some(target) = analyzed_instruction.ref_target else {
+                    panic!(
+                        "AddTo instruction without a reference target in function {}",
+                        self.dd_func.name
+                    );
+                };
+                self.map_compound_assign(func, false, target);
             }
             InstDD::SubTo => {
-                self.map_compound_assign(func, true);
+                let Some(target) = analyzed_instruction.ref_target else {
+                    panic!(
+                        "SubTo instruction without a reference target in function {}",
+                        self.dd_func.name
+                    );
+                };
+                self.map_compound_assign(func, true, target);
             }
             InstDD::UnaryPlus => {}
             InstDD::UnaryMinus => {
@@ -222,23 +277,15 @@ impl<'a> ConversionState<'a> {
                     );
                 };
 
-                // Save current instance
+                // Save current instance, a called function may change it
                 func.instruction(&Instruction::GlobalGet(CURRENT_INSTANCE_SYMBOL_INDEX));
                 func.instruction(&Instruction::LocalSet(self.tmp_val_0));
-                func.instruction(&Instruction::GlobalGet(
-                    CURRENT_CLASS_INSTANCE_MEMORY_GLOBAL_INDEX,
-                ));
-                func.instruction(&Instruction::LocalSet(self.tmp_val_1));
 
                 // Call
                 func.instruction(&Instruction::Call(func_info.wasm_function_index));
                 // Restore current Instance
                 func.instruction(&Instruction::LocalGet(self.tmp_val_0));
                 func.instruction(&Instruction::GlobalSet(CURRENT_INSTANCE_SYMBOL_INDEX));
-                func.instruction(&Instruction::LocalGet(self.tmp_val_1));
-                func.instruction(&Instruction::GlobalSet(
-                    CURRENT_CLASS_INSTANCE_MEMORY_GLOBAL_INDEX,
-                ));
             }
             InstDD::CallExternal(func_symbol_index) => {
                 let Some(symbol_info) = self.module_builder.symbol_to_info.get(&func_symbol_index)
@@ -260,16 +307,16 @@ impl<'a> ConversionState<'a> {
                 func.instruction(&Instruction::I32Const(num));
             }
             InstDD::PushVar(index) => {
-                self.push_symbol_value_and_address(func, index, 0, provide_val_type);
+                self.push_symbol_value(func, index, 0, should_return_ref);
             }
             InstDD::PushInstance(index) => {
                 // In DecDat daedalus decoder push instance instruction seems to return integer in symbol content field.
                 // No idea what this integer means. Currently we assume that instance symbol_index is an ID to instance memory and code.
                 // func.instruction(&Instruction::I32Const(index.cast_signed()));
-                self.push_symbol_value_and_address(func, index, 0, provide_val_type);
+                self.push_symbol_value(func, index, 0, should_return_ref);
             }
             InstDD::PushArrayVar(index, element_index) => {
-                self.push_symbol_value_and_address(func, index, element_index, provide_val_type);
+                self.push_symbol_value(func, index, element_index, should_return_ref);
             }
             InstDD::SetInstance(index) => {
                 // The daedalus compiler emits `SetInstance` before every member
@@ -281,18 +328,16 @@ impl<'a> ConversionState<'a> {
                 let info = self.module_builder.symbol_to_info.get(&index).unwrap();
                 if info.func_info.is_some() {
                     func.instruction(&Instruction::I32Const(index.cast_signed()));
+                } else if self.module_builder.well_known.self_id == Some(index) {
+                    // `self` is read-only, the cached instance id is always in
+                    // sync with the host store value
+                    func.instruction(&Instruction::GlobalGet(SELF_INSTANCE_GLOBAL_INDEX));
                 } else {
-                    let Some(address) = info.memory_address else {
-                        panic!(
-                            "SetInstance symbol({index}) has no memory address, it cannot hold an instance reference"
-                        );
-                    };
-                    func.instruction(&Instruction::I32Const(address.cast_signed()));
-                    func.instruction(&Instruction::I32Load(MemArg {
-                        offset: 0,
-                        align: 2,
-                        memory_index: DaedalusMemoryLayout::SYMBOLS_MEMORY_INDEX,
-                    }));
+                    // Other instance variables can be assigned by the script,
+                    // so their value is read from the host store
+                    func.instruction(&Instruction::I32Const(index.cast_signed()));
+                    func.instruction(&Instruction::I32Const(0));
+                    func.instruction(&Instruction::Call(SYMBOL_IMPORT_GET_SYMBOL));
                 }
                 func.instruction(&Instruction::Call(self.func_index_set_instance));
             }
@@ -439,15 +484,21 @@ impl<'a> ConversionState<'a> {
         }
     }
 
-    fn push_symbol_value_and_address(
+    /// Pushes the value of a symbol element, or a reference placeholder when
+    /// the value is only consumed by an assignment.
+    ///
+    /// Symbol values live in the host store, so a value read is an import call.
+    /// A reference is resolved at the assignment site from the analysis
+    /// annotation, here only one placeholder value is pushed to keep the wasm
+    /// stack shape unchanged. For class members the placeholder carries the
+    /// current instance id, captured before the assigned value is computed.
+    fn push_symbol_value(
         &self,
         func: &mut Function,
         symbol_index: u32,
         element_index: u8,
-        provide_val_type: bool,
+        provide_ref: bool,
     ) {
-        let array_delta = i32::from(element_index) * 4;
-
         let info = self
             .module_builder
             .symbol_to_info
@@ -467,42 +518,41 @@ impl<'a> ConversionState<'a> {
         }
 
         if let Some(default_values) = &info.const_values {
-            assert!(!provide_val_type, "Const var should not be used as ref");
+            assert!(!provide_ref, "Const var should not be used as ref");
             // We know final value during compilation
             let value = *default_values.get(usize::from(element_index)).unwrap();
             func.instruction(&Instruction::I32Const(value));
-        } else if let Some(address) = info.memory_address {
-            // We know the address during compilation but value might change
-            func.instruction(&Instruction::I32Const(address.cast_signed() + array_delta));
-            if !provide_val_type {
-                func.instruction(&Instruction::I32Load(MemArg {
-                    offset: 0,
-                    align: 2,
-                    memory_index: DaedalusMemoryLayout::SYMBOLS_MEMORY_INDEX,
-                }));
-            }
-        } else if let Some(offset) = info.member_offset {
-            func.instruction(&Instruction::GlobalGet(
-                CURRENT_CLASS_INSTANCE_MEMORY_GLOBAL_INDEX,
-            ));
-            // We know the member offset during compilation
-            func.instruction(&Instruction::I32Const(offset.cast_signed() + array_delta));
-            func.instruction(&Instruction::I32Add);
-
-            if !provide_val_type {
-                func.instruction(&Instruction::I32Load(MemArg {
-                    offset: 0,
-                    align: 2,
-                    memory_index: DaedalusMemoryLayout::SYMBOLS_MEMORY_INDEX,
-                }));
-            }
-        } else {
-            // This case should not happen
-            // At this point we should know final value, global address or member offset
-            panic!(
-                "Can convert PushVar instruction, not enough information for given symbol index({symbol_index})"
-            );
+            return;
         }
+
+        if provide_ref {
+            if info.member_offset.is_some() {
+                func.instruction(&Instruction::GlobalGet(CURRENT_INSTANCE_SYMBOL_INDEX));
+            } else {
+                assert!(
+                    info.memory_address.is_some(),
+                    "Symbol({symbol_index}) has no value slot, it can't be used as a reference"
+                );
+                func.instruction(&Instruction::I32Const(0));
+            }
+            return;
+        }
+
+        if let Some(offset) = info.member_offset {
+            func.instruction(&Instruction::GlobalGet(CURRENT_INSTANCE_SYMBOL_INDEX));
+            func.instruction(&Instruction::I32Const(offset.cast_signed()));
+            func.instruction(&Instruction::I32Const(i32::from(element_index)));
+            func.instruction(&Instruction::Call(SYMBOL_IMPORT_GET_MEMBER));
+            return;
+        }
+
+        assert!(
+            info.memory_address.is_some(),
+            "Can convert PushVar instruction, not enough information for given symbol index({symbol_index})"
+        );
+        func.instruction(&Instruction::I32Const(symbol_index.cast_signed()));
+        func.instruction(&Instruction::I32Const(i32::from(element_index)));
+        func.instruction(&Instruction::Call(SYMBOL_IMPORT_GET_SYMBOL));
     }
 
     /// We split instructions into blocks so we can reconstruct original scripts control flow.

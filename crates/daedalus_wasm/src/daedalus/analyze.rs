@@ -12,6 +12,18 @@ pub(crate) enum ProvideValType {
     Val,
 }
 
+#[derive(Debug, Clone, Copy)]
+/// Assignment target of a reference-producing push instruction. References are
+/// only produced for `Assign*`/`AddTo`/`SubTo`, the analysis pairs the producer
+/// with its consumer so the converter can emit the target as constants and does
+/// not need a runtime reference value.
+pub(crate) enum RefTarget {
+    /// Element of a global/variable symbol value slot.
+    Global { symbol: u32, element: u8 },
+    /// Class member at a byte offset inside the current instance record.
+    Member { offset: u32, element: u8 },
+}
+
 #[derive(Debug, Clone)]
 /// Daedalus instructions + additional info required for wasm generation.
 pub(crate) struct AnalyzedInstruction {
@@ -20,6 +32,8 @@ pub(crate) struct AnalyzedInstruction {
     pub provide_val_type: ProvideValType,
     pub value_is_used: bool,
     pub implicit_return: bool,
+    /// Assignment target, set on `Assign*`/`AddTo`/`SubTo` instructions.
+    pub ref_target: Option<RefTarget>,
 }
 
 impl AnalyzedInstruction {
@@ -29,6 +43,7 @@ impl AnalyzedInstruction {
             provide_val_type,
             value_is_used: false,
             implicit_return: false,
+            ref_target: None,
         }
     }
 }
@@ -233,7 +248,7 @@ impl InstructionBlock {
         mark_used: &mut Vec<StackProducer>,
         function_returns: bool,
     ) {
-        let mut instructions_to_produce_ref: Vec<usize> = vec![];
+        let mut instructions_to_produce_ref: Vec<(usize, usize)> = vec![];
 
         for (index, instr) in self.instructions.iter_mut().enumerate() {
             match instr.instr {
@@ -274,9 +289,10 @@ impl InstructionBlock {
                     let ref_producer = stack_values.pop().unwrap();
                     mark_used.push(ref_producer);
                     mark_used.push(stack_values.pop().unwrap());
-                    // Mark that reference is needed
+                    // Mark that reference is needed, remember both the consumer
+                    // (to annotate its target) and the producer
                     instructions_to_produce_ref
-                        .push(ref_producer.instruction_index_in_block(block_index));
+                        .push((index, ref_producer.instruction_index_in_block(block_index)));
                 }
                 Instruction::UnaryPlus
                 | Instruction::UnaryMinus
@@ -338,21 +354,43 @@ impl InstructionBlock {
             }
         }
 
-        for index in instructions_to_produce_ref {
+        for (assign_index, producer_index) in instructions_to_produce_ref {
+            let producer = self.instructions[producer_index].instr;
             #[expect(
                 clippy::wildcard_enum_match_arm,
                 reason = "We care only about selected instructions"
             )]
-            match self.instructions[index].instr {
-                Instruction::PushVar(_)
-                | Instruction::PushInstance(_)
-                | Instruction::PushArrayVar(_, _) => {
-                    self.instructions[index].provide_val_type = ProvideValType::Ref;
-                }
+            let (symbol, element) = match producer {
+                // `PushInstance` is used both for declared instances (a value)
+                // and for local instance variables (a value or a reference),
+                // the symbol info below decides which one it is.
+                Instruction::PushVar(symbol) | Instruction::PushInstance(symbol) => (symbol, 0),
+                Instruction::PushArrayVar(symbol, element) => (symbol, element),
                 _ => {
                     panic!("Non push instruction can't produce ref value");
                 }
-            }
+            };
+
+            let info = binary_builder
+                .symbol_to_info
+                .get(&symbol)
+                .unwrap_or_else(|| panic!("Missing symbol info for symbol({symbol})"));
+            assert!(
+                info.func_info.is_none(),
+                "Declared instance/function symbol({symbol}) can't be used as an assignment target"
+            );
+            let target = if let Some(offset) = info.member_offset {
+                RefTarget::Member { offset, element }
+            } else if info.memory_address.is_some() {
+                RefTarget::Global { symbol, element }
+            } else {
+                panic!(
+                    "Symbol({symbol}) has neither a value slot nor a member offset, it can't be assigned to"
+                );
+            };
+
+            self.instructions[producer_index].provide_val_type = ProvideValType::Ref;
+            self.instructions[assign_index].ref_target = Some(target);
         }
     }
 

@@ -9,18 +9,21 @@
   ;;     their bytes, then the DYN_STRINGS area (64 pair slots + 8192 byte pool)
   ;; 1 - symbol info: 16-byte record per symbol:
   ;;     kind @0 (byte), is class member @1 (byte), function returns value @2 (byte),
-  ;;     address or offset @4, wasm function table index @8, parent @12 (u32::MAX when symbol has no parent)
-  ;; 2 - symbol default values
+  ;;     is const @3 (byte), address or offset @4, wasm function table index @8,
+  ;;     parent @12 (u32::MAX when symbol has no parent)
+  ;; 2 - symbol default values, only read by `get-symbol-values` (runtime values
+  ;;     live in the host symbol store)
+  ;; 3 - one u32 element count per symbol, 0 for class members and consts
   ;; Minimal sizes are placeholders, they are extended with daedalus data during merge.
   (memory $main 1)
   (memory $symbol_info 1)
-  (memory $symbols 1)
+  (memory $symbol_defaults 1)
+  (memory $symbol_counts 1)
 
   ;; Function table with with daedalus functions, used so we can dynamically call any daedalus function from wasm
   (table $funcs 0 funcref)
 
   ;; Globals, indices are significant, they match constants in wasm.rs
-  (global $current_class_instance_memory (mut i32) (i32.const 0))
   (global $current_instance_symbol_index (mut i32) (i32.const 0))
   ;; Bump offset of the canonical ABI allocator, starts at 16 so address 0 is
   ;; never returned to the host
@@ -46,6 +49,13 @@
   ;; Bump offset into the DYN_STRINGS pool, wraps to 0 when the next string
   ;; would not fit
   (global $dyn_pool_offset (mut i32) (i32.const 0))
+  ;; Size in bytes of the symbol value word space, patched during merge with
+  ;; daedalus data, read by `get-symbols-memory-size`
+  (global $symbols_memory_size (mut i32) (i32.const 0))
+  ;; Instance id of the well known `self` variable, cached so
+  ;; `SetInstance(self)` does not need a host call. Updated by the `set_self`
+  ;; export. Other scope variables read their value from the host store.
+  (global $self_instance (mut i32) (i32.const -1))
 
 
   ;; Compares two strings given as (ptr, size) pairs
@@ -171,110 +181,22 @@
   )
 
 
-  ;; Returns address of symbol value:
-  ;; global variable address or current instance memory + class member offset
-  (func $get_memory_value_i32 (param $symbol_index i32) (result i32)
-    (local $record_base i32)
-
-    local.get $symbol_index
-    i32.const 16
-    i32.mul
-    local.set $record_base
-    local.get $record_base
-    i32.load8_u $symbol_info offset=1 ;; is class member
-    global.get $current_class_instance_memory
-    i32.mul
-
-    local.get $record_base
-    i32.load $symbol_info offset=4 ;; address or offset
-    i32.add
-  )
-
-  ;; Sets the current instance context (symbol index and its member memory
-  ;; address) used for class member access. This is what the daedalus
-  ;; `SetInstance` instruction means, converted functions call this builtin.
-  ;; If index of this function changes change BASE_FUNC_SET_INSTANCE
+  ;; Sets the current instance context (symbol index) used for class member
+  ;; access. This is what the daedalus `SetInstance` instruction means,
+  ;; converted functions call this builtin. If index of this function changes
+  ;; change BASE_FUNC_SET_INSTANCE
   (func $set_instance (param $symbol_id i32)
     local.get $symbol_id
     global.set $current_instance_symbol_index
-
-    local.get $symbol_id
-    call $get_memory_value_i32
-    global.set $current_class_instance_memory
   )
 
-  ;; Writes an instance reference into the value slot of the given symbol, the
-  ;; daedalus `symbol = instance` assignment. Does nothing when the symbol or
-  ;; the instance id is not valid.
-  (func $assign_instance (param $symbol_id i32) (param $instance_id i32)
-    local.get $symbol_id
-    i32.const 0
-    i32.ge_s
-    local.get $instance_id
-    i32.const 0
-    i32.gt_s
-    i32.and
-    if
-      local.get $symbol_id
-      call $get_memory_value_i32
-      local.get $instance_id
-      i32.store $symbols
-    end
-  )
-
-  ;; Binds one of the well known daedalus instance variables (`self`, `other`,
-  ;; `victim`, `item`, `hero`) to the given instance, like the original engine
-  ;; does before it invokes a script function for a specific npc (zenkit
-  ;; `ScopeVar` self/other bindings). Does nothing when the script does not
-  ;; declare the variable (its symbol index is patched to -1).
+  ;; Binds the well known `self` variable to the given instance. The symbol
+  ;; value itself lives in the host store, the host writes it before calling
+  ;; this export; here only the cached instance id used by `SetInstance(self)`
+  ;; is updated.
   (func $set_self (param $instance_id i32)
-    global.get $self_symbol_index
     local.get $instance_id
-    call $assign_instance
-  )
-
-  (func $set_other (param $instance_id i32)
-    global.get $other_symbol_index
-    local.get $instance_id
-    call $assign_instance
-  )
-
-  (func $set_victim (param $instance_id i32)
-    global.get $victim_symbol_index
-    local.get $instance_id
-    call $assign_instance
-  )
-
-  (func $set_item (param $instance_id i32)
-    global.get $item_symbol_index
-    local.get $instance_id
-    call $assign_instance
-  )
-
-  (func $set_hero (param $instance_id i32)
-    global.get $hero_symbol_index
-    local.get $instance_id
-    call $assign_instance
-  )
-
-  ;; Calls npc_routine function of the instance
-  (func $call_npc_routine (param $symbol_id i32)
-    (local $routine_symbol_index i32)
-
-    (call $get_class_member (local.get $symbol_id) (i32.const 608))
-    ;; If < 1 no npc_routine set, so early return
-    local.tee $routine_symbol_index
-    i32.const 1
-    i32.le_s
-    if
-      return
-    end
-
-    local.get $routine_symbol_index
-    i32.const 16
-    i32.mul ;; Address of npc_routine symbol info record
-    i32.load $symbol_info offset=8 ;; Function index in wasm table
-    call_indirect (type $void_void_func)
+    global.set $self_instance
   )
 
   ;; Returns address of (ptr, size) pair with symbol name
@@ -397,12 +319,14 @@
   )
 
   ;; Returns pointer to record symbol-info:
-  ;; kind @0 (byte), parent option: present @4 (byte), value @8, function option: present @12 (byte), value @16
+  ;; kind @0 (byte), parent option: present @4 (byte), value @8,
+  ;; function option: present @12 (byte), value @16, is-const @20 (byte),
+  ;; is-class-member @21 (byte), address-or-offset @24
   (func $get_symbol_info (param $symbol_id i32) (result i32)
     (local $mem_start i32) (local $parent i32) (local $func_index i32)
 
     ;; Get memory where we will put results
-    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0))
+    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 28))
     local.set $mem_start
 
     ;; kind,
@@ -412,6 +336,30 @@
     i32.mul
     i32.load8_s $symbol_info offset=0
     i32.store8 $main offset=0
+
+    ;; is-const
+    local.get $mem_start
+    local.get $symbol_id
+    i32.const 16
+    i32.mul
+    i32.load8_u $symbol_info offset=3
+    i32.store8 $main offset=20
+
+    ;; is-class-member
+    local.get $mem_start
+    local.get $symbol_id
+    i32.const 16
+    i32.mul
+    i32.load8_u $symbol_info offset=1
+    i32.store8 $main offset=21
+
+    ;; address-or-offset
+    local.get $mem_start
+    local.get $symbol_id
+    i32.const 16
+    i32.mul
+    i32.load $symbol_info offset=4
+    i32.store $main offset=24
 
     ;; parent
     local.get $symbol_id
@@ -450,409 +398,68 @@
     local.get $mem_start
   )
 
-  ;; Calls instance function for all instance symbols
-  (func $initialize_all_instances
-    (local $index i32) (local $func_index i32)
+  ;; Returns pointer to a (ptr, len) pair with the initial values of a symbol
+  ;; value slot. Runtime values live in the host store, this copies from the
+  ;; compile-time defaults memory and is meant to be called before instance
+  ;; initialization runs. Class members and consts have no slot, they return an
+  ;; empty list.
+  (func $get_symbol_values (param $symbol_id i32) (result i32)
+    (local $count i32) (local $address i32) (local $buffer i32) (local $pair i32)
 
-    (loop $symbol_loop
-      ;; if we iterated over all symbols exit
-      local.get $index
-      global.get $symbols_num
-      i32.ge_u
-      if
-        return
-      end
+    ;; element count, 0 when the symbol has no value slot
+    local.get $symbol_id
+    i32.const 4
+    i32.mul
+    i32.load $symbol_counts offset=0
+    local.set $count
 
-      ;; Get symbol kind, if it is not instance continue
-      local.get $index
-      i32.const 16
-      i32.mul
-      i32.load8_s $symbol_info offset=0
-      i32.const 6 ;; SymbolKind::Instance
-      i32.ne
-      if
-        local.get $index
-        i32.const 1
-        i32.add
-        local.set $index
-        br $symbol_loop
-      end
+    ;; Element buffer is allocated before the returned pair, so an allocator
+    ;; wrap cannot invalidate the pair before the host lifts it.
+    i32.const 0
+    i32.const 0
+    i32.const 0
+    local.get $count
+    i32.const 4
+    i32.mul
+    call $cabi_realloc
+    local.set $buffer
 
-      local.get $index
-      call $set_instance
-
-      ;; Instance bodies can use `self` (e.g. npc instances pass it to helper
-      ;; functions), bind it like the original engine does
-      local.get $index
-      call $set_self
-
-      local.get $index
-      i32.const 16
-      i32.mul ;; Address of instance symbol info record
-      i32.load $symbol_info offset=8 ;; Function index in wasm table
-
-      ;; If instance doesn't have code, func_index < 0
-      local.tee $func_index
-      i32.const 0
-      i32.le_s
-      if
-        local.get $index
-        i32.const 1
-        i32.add
-        local.set $index
-        br $symbol_loop
-      end
-
-      ;; Call function
-      local.get $func_index
-      call_indirect (type $void_void_func)
-
-      local.get $index
-      i32.const 1
-      i32.add
-      local.set $index
-
-      ;; Return to start of the loop
-      br $symbol_loop
-    )
-  )
-
-
-
-  ;; Returns class member variable at offset
-  (func $get_class_member (param $symbol_id i32) (param $member_offset i32) (result i32)
-    ;; Get field value
+    ;; Copy the defaults into the buffer
     local.get $symbol_id
     i32.const 16
     i32.mul
-    i32.load $symbol_info offset=4 ;; Instance address
-    local.get $member_offset
-    i32.add
-    i32.load $symbols offset=0
-  )
+    i32.load $symbol_info offset=4 ;; Address of the symbol value slot
+    local.set $address
 
-
-  ;; Returns pointer to option<string> with value of class member string
-  (func $get_class_member_string (param $symbol_id i32) (param $member_offset i32) (result i32)
-    (local $mem_start i32) (local $field_value i32) (local $str_ptr_size_addr i32)
-
-    ;; Get memory where we will put results
-    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0))
-    local.set $mem_start
-
-    ;; Get field value
-    (call $get_class_member (local.get $symbol_id) (local.get $member_offset))
-    local.tee $field_value
-
-    ;; If symbol is 0 return None
-    i32.const 0
-    i32.eq
-    if
-      local.get $mem_start
-      i32.const 0
-      i32.store $main offset=0 ;; value present or not
-      local.get $mem_start
-      i32.const 0
-      i32.store $main offset=4 ;; string ptr
-      local.get $mem_start
-      i32.const 0
-      i32.store $main offset=8 ;; string size
-      local.get $mem_start
-      return
-    end
-
-    ;; Value is present
-    local.get $mem_start
-    i32.const 1
-    i32.store $main offset=0 ;; value present or not
-
-    ;; There are already (ptr, size) pairs in memory for symbols, copy them
-    local.get $field_value
-    i32.const 8
+    local.get $buffer
+    local.get $address
+    local.get $count
+    i32.const 4
     i32.mul
-    i32.const 16384 ;; DaedalusMemoryLayout::ALLOCATOR_MEMORY_SIZE
-    i32.add
-    local.set $str_ptr_size_addr ;; Address of ptr,size tuple
+    memory.copy $main $symbol_defaults
 
-    ;; Where to store later
-    local.get $mem_start
-    local.get $mem_start
+    ;; Returned (ptr, len) pair
+    i32.const 0
+    i32.const 0
+    i32.const 0
+    i32.const 8
+    call $cabi_realloc
+    local.set $pair
 
-    local.get $str_ptr_size_addr
-    i32.load $main offset=0 ;; Get ptr
-    i32.store $main offset=4 ;; Store ptr
-
-    local.get $str_ptr_size_addr
-    i32.load $main offset=4 ;; Get size
-    i32.store $main offset=8 ;; Store size
-
-    ;; Return address
-    local.get $mem_start
-  )
-
-  ;; Returns pointer to option<string> with value of item visual member variable
-  (func $get_item_visual (param $symbol_id i32) (result i32)
-    (call $get_class_member_string (local.get $symbol_id) (i32.const 524))
-  )
-
-  ;; Returns pointer to option<string> with value of item visual change member variable
-  (func $get_item_visual_change (param $symbol_id i32) (result i32)
-    (call $get_class_member_string (local.get $symbol_id) (i32.const 544))
-  )
-
-  ;; Returns pointer to an npc-info record with the hitpoints, hitpoints max
-  ;; and name of an npc instance (C_NPC attribute ATR_HITPOINTS and
-  ;; ATR_HITPOINTS_MAX member offsets, C_NPC name member offset). The name is
-  ;; the raw daedalus string id, None when the member value is not set (0).
-  (func $get_npc_info (param $symbol_id i32) (result i32)
-    (local $mem_start i32) (local $name_value i32)
-
-    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0))
-    local.set $mem_start
-
-    ;; hitpoints @0
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 440))
+    local.get $pair
+    local.get $buffer
     i32.store $main offset=0
 
-    ;; hitpoints-max @4
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 444))
+    local.get $pair
+    local.get $count
     i32.store $main offset=4
 
-    ;; name @8: option<s32> lowers to a discriminant byte @8 and the value @12
-    ;; C_NPC name member offset, member value 0 means the string is not set
-    (call $get_class_member (local.get $symbol_id) (i32.const 292))
-    local.set $name_value
-
-    local.get $mem_start
-    local.get $name_value
-    i32.const 0
-    i32.ne ;; normalize bool to 0/1
-    i32.store8 $main offset=8
-
-    local.get $mem_start
-    local.get $name_value
-    i32.store $main offset=12
-
-    local.get $mem_start
+    local.get $pair
   )
 
-  ;; Returns pointer to an item-info record with the stats of an item instance
-  ;; (C_ITEM member offsets). String members are raw daedalus string ids, None
-  ;; when the member value is not set (0).
-  (func $get_item_info (param $symbol_id i32) (result i32)
-    (local $mem_start i32) (local $name_value i32) (local $buffer i32)
-
-    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 60))
-    local.set $mem_start
-
-    ;; damage-total @0 (C_ITEM damagetotal)
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 360))
-    i32.store $main offset=0
-
-    ;; name @4: option<s32> lowers to a discriminant byte @4 and the value @8
-    ;; C_ITEM name member offset, member value 0 means the string is not set
-    (call $get_class_member (local.get $symbol_id) (i32.const 292))
-    local.set $name_value
-
-    local.get $mem_start
-    local.get $name_value
-    i32.const 0
-    i32.ne ;; normalize bool to 0/1
-    i32.store8 $main offset=4
-
-    local.get $mem_start
-    local.get $name_value
-    i32.store $main offset=8
-
-    ;; value @12 (C_ITEM value)
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 352))
-    i32.store $main offset=12
-
-    ;; weight @16 (C_ITEM weight)
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 348))
-    i32.store $main offset=16
-
-    ;; cond-attribute @20: list of 3 ints (ptr @20, len @24) from
-    ;; C_ITEM cond_atr
-    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 12))
-    local.set $buffer
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 448))
-    i32.store $main
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 452))
-    i32.store $main offset=4
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 456))
-    i32.store $main offset=8
-
-    local.get $mem_start
-    local.get $buffer
-    i32.store $main offset=20
-    local.get $mem_start
-    (i32.const 3)
-    i32.store $main offset=24
-
-    ;; cond-value @28: list of 3 ints (ptr @28, len @32) from C_ITEM cond_value
-    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 12))
-    local.set $buffer
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 460))
-    i32.store $main
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 464))
-    i32.store $main offset=4
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 468))
-    i32.store $main offset=8
-
-    local.get $mem_start
-    local.get $buffer
-    i32.store $main offset=28
-    local.get $mem_start
-    (i32.const 3)
-    i32.store $main offset=32
-
-    ;; description @36: option<s32> lowers to a discriminant byte @36 and the
-    ;; value @40, C_ITEM description member offset
-    (call $get_class_member (local.get $symbol_id) (i32.const 628))
-    local.set $name_value
-
-    local.get $mem_start
-    local.get $name_value
-    i32.const 0
-    i32.ne
-    i32.store8 $main offset=36
-
-    local.get $mem_start
-    local.get $name_value
-    i32.store $main offset=40
-
-    ;; text @44: list of 6 ints (ptr @44, len @48) from C_ITEM text
-    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 24))
-    local.set $buffer
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 648))
-    i32.store $main
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 652))
-    i32.store $main offset=4
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 656))
-    i32.store $main offset=8
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 660))
-    i32.store $main offset=12
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 664))
-    i32.store $main offset=16
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 668))
-    i32.store $main offset=20
-
-    local.get $mem_start
-    local.get $buffer
-    i32.store $main offset=44
-    local.get $mem_start
-    (i32.const 6)
-    i32.store $main offset=48
-
-    ;; count @52: list of 6 ints (ptr @52, len @56) from C_ITEM count
-    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 24))
-    local.set $buffer
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 768))
-    i32.store $main
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 772))
-    i32.store $main offset=4
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 776))
-    i32.store $main offset=8
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 780))
-    i32.store $main offset=12
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 784))
-    i32.store $main offset=16
-    local.get $buffer
-    (call $get_class_member (local.get $symbol_id) (i32.const 788))
-    i32.store $main offset=20
-
-    local.get $mem_start
-    local.get $buffer
-    i32.store $main offset=52
-    local.get $mem_start
-    (i32.const 6)
-    i32.store $main offset=56
-
-    local.get $mem_start
-  )
-
-  ;; Return information about dialog
-  (func $get_dialog_info (param $symbol_id i32) (result i32)
-    (local $mem_start i32)
-
-    ;; Get memory where we will put results
-    (call $cabi_realloc (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0))
-    local.set $mem_start
-
-    ;; Construct WIT record dialog-info in $mem_start:
-    ;; npc @0, order @4, condition @8, information @12, description @16,
-    ;; important @20 (byte), permanent @21 (byte), trade @22 (byte)
-
-    ;; npc
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 0))
-    i32.store $main offset=0
-
-    ;; order
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 4))
-    i32.store $main offset=4
-
-    ;; condition
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 12))
-    i32.store $main offset=8
-
-    ;; information
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 16))
-    i32.store $main offset=12
-
-    ;; description
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 20))
-    i32.store $main offset=16
-
-    ;; important
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 8))
-    i32.const 0
-    i32.ne ;; normalize bool to 0/1
-    i32.store8 $main offset=20
-
-    ;; permanent
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 44))
-    i32.const 0
-    i32.ne ;; normalize bool to 0/1
-    i32.store8 $main offset=21
-
-    ;; trade
-    local.get $mem_start
-    (call $get_class_member (local.get $symbol_id) (i32.const 40))
-    i32.const 0
-    i32.ne ;; normalize bool to 0/1
-    i32.store8 $main offset=22
-
-    local.get $mem_start
+  ;; Returns size in bytes of the symbol value word space
+  (func $get_symbols_memory_size (result i32)
+    global.get $symbols_memory_size
   )
 
   ;; Calls function of given symbol, its i32 result is normalized to a bool (0 or 1)
@@ -950,250 +557,9 @@
   )
 
   ;; Export section
-  ;; Copies a class member string id into a canonical option<s32> field at
-  ;; dest (discriminant byte @0, string id @4). A member value of 0 means the
-  ;; string is not set.
-  (func $copy_class_member_string_id
-    (param $dest i32) (param $symbol_id i32) (param $member_offset i32)
-    (local $value i32)
-
-    (call $get_class_member (local.get $symbol_id) (local.get $member_offset))
-    local.set $value
-
-    local.get $dest
-    local.get $value
-    i32.const 0
-    i32.ne
-    i32.store8 $main offset=0
-
-    local.get $dest
-    local.get $value
-    i32.store $main offset=4
-  )
-
-  ;; Builds a canonical list<s32> element array from a class member int array
-  ;; and returns the element buffer pointer.
-  (func $class_member_int_list
-    (param $symbol_id i32) (param $base_offset i32) (param $count i32) (result i32)
-    (local $buffer i32) (local $index i32)
-
-    (call $cabi_realloc
-      (i32.const 0) (i32.const 0) (i32.const 0)
-      (i32.mul (local.get $count) (i32.const 4)))
-    local.set $buffer
-
-    (block $done
-      (loop $loop
-        (br_if $done
-          (i32.ge_u (local.get $index) (local.get $count)))
-
-        (i32.store $main
-          (i32.add
-            (local.get $buffer)
-            (i32.mul (local.get $index) (i32.const 4)))
-          (call $get_class_member
-            (local.get $symbol_id)
-            (i32.add
-              (local.get $base_offset)
-              (i32.mul (local.get $index) (i32.const 4)))))
-
-        (local.set $index (i32.add (local.get $index) (i32.const 1)))
-        (br $loop)
-      )
-    )
-
-    (local.get $buffer)
-  )
-
-  ;; Returns pointer to a menu-info record with the c_menu instance data.
-  ;; Member offsets come from the compiled MENU.DAT class layout, the
-  ;; same layout the offset dump test prints for verification.
-  (func $get_menu_info (param $symbol_id i32) (result i32)
-    (local $record i32) (local $items i32)
-
-    ;; Lists are built before the record so later allocations do not move
-    ;; memory the returned record points to.
-    (call $class_member_int_list
-      (local.get $symbol_id) (i32.const 84) (i32.const 150))
-    local.set $items
-
-    (call $cabi_realloc
-      (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 68))
-    local.set $record
-
-    ;; back-pic @0 (c_menu.backpic @0)
-    (call $copy_class_member_string_id
-      (local.get $record) (local.get $symbol_id) (i32.const 0))
-    ;; back-world @8 (c_menu.backworld @20)
-    (call $copy_class_member_string_id
-      (i32.add (local.get $record) (i32.const 8))
-      (local.get $symbol_id) (i32.const 20))
-    ;; music-theme @36 (c_menu.musictheme @60)
-    (call $copy_class_member_string_id
-      (i32.add (local.get $record) (i32.const 36))
-      (local.get $symbol_id) (i32.const 60))
-
-    ;; pos-x @16, pos-y @20, dim-x @24, dim-y @28, alpha @32
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 40))
-    i32.store $main offset=16
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 44))
-    i32.store $main offset=20
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 48))
-    i32.store $main offset=24
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 52))
-    i32.store $main offset=28
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 56))
-    i32.store $main offset=32
-
-    ;; event-timer-msec @44 (c_menu.eventtimermsec @80)
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 80))
-    i32.store $main offset=44
-
-    ;; items @48: list<s32> (ptr, len)
-    local.get $record
-    local.get $items
-    i32.store $main offset=48
-    local.get $record
-    (i32.const 150)
-    i32.store $main offset=52
-
-    ;; menu-flags @56, default-out-game @60, default-in-game @64
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 3084))
-    i32.store $main offset=56
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 3088))
-    i32.store $main offset=60
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 3092))
-    i32.store $main offset=64
-
-    local.get $record
-  )
-
-  ;; Returns pointer to a menu-item-info record with the c_menu_item instance
-  ;; data. Member offsets come from the compiled MENU.DAT class layout.
-  (func $get_menu_item_info (param $symbol_id i32) (result i32)
-    (local $record i32)
-    (local $text i32) (local $actions i32)
-    (local $action_texts i32) (local $events i32)
-
-    ;; Lists are built before the record so later allocations do not move
-    ;; memory the returned record points to.
-    (call $class_member_int_list
-      (local.get $symbol_id) (i32.const 20) (i32.const 10))
-    local.set $text
-    (call $class_member_int_list
-      (local.get $symbol_id) (i32.const 268) (i32.const 5))
-    local.set $actions
-    (call $class_member_int_list
-      (local.get $symbol_id) (i32.const 288) (i32.const 5))
-    local.set $action_texts
-    (call $class_member_int_list
-      (local.get $symbol_id) (i32.const 428) (i32.const 10))
-    local.set $events
-
-    (call $cabi_realloc
-      (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 100))
-    local.set $record
-
-    ;; font-name @0 (c_menu_item.fontname @0)
-    (call $copy_class_member_string_id
-      (local.get $record) (local.get $symbol_id) (i32.const 0))
-    ;; back-pic @16 (c_menu_item.backpic @220)
-    (call $copy_class_member_string_id
-      (i32.add (local.get $record) (i32.const 16))
-      (local.get $symbol_id) (i32.const 220))
-    ;; alpha-mode @24 (c_menu_item.alphamode @240)
-    (call $copy_class_member_string_id
-      (i32.add (local.get $record) (i32.const 24))
-      (local.get $symbol_id) (i32.const 240))
-    ;; on-chg-set-option @56 (c_menu_item.onchgsetoption @388)
-    (call $copy_class_member_string_id
-      (i32.add (local.get $record) (i32.const 56))
-      (local.get $symbol_id) (i32.const 388))
-    ;; on-chg-set-option-section @64 (c_menu_item.onchgsetoptionsection @408)
-    (call $copy_class_member_string_id
-      (i32.add (local.get $record) (i32.const 64))
-      (local.get $symbol_id) (i32.const 408))
-
-    ;; text @8: list<s32> (ptr, len)
-    local.get $record
-    local.get $text
-    i32.store $main offset=8
-    local.get $record
-    (i32.const 10)
-    i32.store $main offset=12
-
-    ;; alpha @32 (c_menu_item.alpha @260)
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 260))
-    i32.store $main offset=32
-    ;; kind @36 (c_menu_item.type @264)
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 264))
-    i32.store $main offset=36
-
-    ;; on-sel-action @40: list<s32> (ptr, len)
-    local.get $record
-    local.get $actions
-    i32.store $main offset=40
-    local.get $record
-    (i32.const 5)
-    i32.store $main offset=44
-
-    ;; on-sel-action-s @48: list<s32> (ptr, len)
-    local.get $record
-    local.get $action_texts
-    i32.store $main offset=48
-    local.get $record
-    (i32.const 5)
-    i32.store $main offset=52
-
-    ;; on-event-action @72: list<s32> (ptr, len)
-    local.get $record
-    local.get $events
-    i32.store $main offset=72
-    local.get $record
-    (i32.const 10)
-    i32.store $main offset=76
-
-    ;; pos-x @80, pos-y @84, dim-x @88, dim-y @92
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 468))
-    i32.store $main offset=80
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 472))
-    i32.store $main offset=84
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 476))
-    i32.store $main offset=88
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 480))
-    i32.store $main offset=92
-
-    ;; item-flags @96 (c_menu_item.flags @488)
-    local.get $record
-    (call $get_class_member (local.get $symbol_id) (i32.const 488))
-    i32.store $main offset=96
-
-    local.get $record
-  )
-
   (export "cabi_realloc" (func $cabi_realloc))
   (export "mmcomando:zengine-scripts/manage@0.1.0#set-instance" (func $set_instance))
   (export "mmcomando:zengine-scripts/manage@0.1.0#set-self" (func $set_self))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#set-other" (func $set_other))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#set-victim" (func $set_victim))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#set-item" (func $set_item))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#set-hero" (func $set_hero))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#call-npc-routine" (func $call_npc_routine))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-name" (func $get_name))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id" (func $get_symbol_id))
   (export "mmcomando:zengine-scripts/manage@0.1.0#call-function" (func $call_function))
@@ -1202,13 +568,7 @@
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num" (func $get_all_symbols_num))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-strings-num" (func $get_all_strings_num))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-info" (func $get_symbol_info))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#get-menu-info" (func $get_menu_info))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#get-menu-item-info" (func $get_menu_item_info))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#initialize-all-instances" (func $initialize_all_instances))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual" (func $get_item_visual))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-visual-change" (func $get_item_visual_change))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#get-npc-info" (func $get_npc_info))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#get-item-info" (func $get_item_info))
-  (export "mmcomando:zengine-scripts/manage@0.1.0#get-dialog-info" (func $get_dialog_info))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-values" (func $get_symbol_values))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbols-memory-size" (func $get_symbols_memory_size))
   (export "memory" (memory $main))
 )
