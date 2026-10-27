@@ -136,9 +136,7 @@ impl super::ScriptManager {
     }
 
     pub fn get_dialog_info(&mut self, symbol_id: SymbolId) -> Option<Info> {
-        let data = self.store.data();
-        data.typed
-            .info(&data.symbol_store, symbol_id.value() as u32)
+        self.store.data().typed.info(symbol_id.value() as u32)
     }
 
     pub fn load_dialogs_information(&mut self) {

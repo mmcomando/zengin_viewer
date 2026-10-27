@@ -3315,15 +3315,13 @@ checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 [[package]]
 name = "daedalus_typed"
 version = "0.1.0"
-dependencies = [
- "daedalus_wasm",
-]
 
 [[package]]
 name = "daedalus_wasm"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "daedalus_typed",
  "encoding_rs",
  "wasm-encoder 0.248.0",
  "wasmparser 0.248.0",

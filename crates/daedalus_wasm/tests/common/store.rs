@@ -1,5 +1,7 @@
 //! Generic host-side storage of daedalus symbol values.
 //!
+
+#![allow(dead_code)]
 //! Converted script functions no longer keep global variables and class members
 //! in a wasm memory. They call the `symbols` interface imports instead, so this
 //! store is the only copy of the mutable script state.
@@ -9,8 +11,8 @@
 
 use std::collections::HashMap;
 
-use crate::daedalus::Symbol;
-use crate::daedalus::SymbolKind;
+use daedalus_wasm::daedalus::Symbol;
+use daedalus_wasm::daedalus::SymbolKind;
 
 /// Metadata of one daedalus symbol, mirroring the `symbol-info` guest record.
 #[derive(Debug, Clone, Copy)]
@@ -71,29 +73,29 @@ impl SymbolStore {
         let mut word_count = 0_u32;
         let mut entries = Vec::with_capacity(symbols.len());
         for symbol in symbols {
-            let (is_class_member, address_or_offset, element_count) = if symbol.is_class_var {
-                (true, symbol.offset.unwrap_or(0), symbol.elements_count)
+            let (is_class_member, address_or_offset, element_count) = if symbol.is_class_var() {
+                (true, symbol.offset().unwrap_or(0), symbol.elements_count())
             } else {
                 let address = word_count * 4;
-                let element_count = if symbol.is_const {
+                let element_count = if symbol.is_const() {
                     0
                 } else {
-                    word_count += symbol.elements_count;
-                    symbol.elements_count
+                    word_count += symbol.elements_count();
+                    symbol.elements_count()
                 };
                 (false, address, element_count)
             };
             entries.push(SymbolEntry {
                 meta: SymbolMeta {
-                    kind: symbol.kind,
-                    is_const: symbol.is_const,
+                    kind: symbol.kind(),
+                    is_const: symbol.is_const(),
                     is_class_member,
                     address_or_offset,
                     element_count,
                     has_function: symbol.is_function_with_code(),
                 },
-                name: symbol.name.clone(),
-                parent: symbol.parent,
+                name: symbol.name().to_owned(),
+                parent: symbol.parent(),
             });
         }
 
@@ -104,13 +106,13 @@ impl SymbolStore {
         };
 
         for (index, symbol) in symbols.iter().enumerate() {
-            if symbol.is_class_var || symbol.is_const {
+            if symbol.is_class_var() || symbol.is_const() {
                 continue;
             }
             let base = usize::try_from(store.symbols[index].meta.address_or_offset / 4)
                 .unwrap_or_default();
-            let count = usize::try_from(symbol.elements_count).unwrap_or_default();
-            for (element, value) in symbol.default_values.iter().take(count).enumerate() {
+            let count = usize::try_from(symbol.elements_count()).unwrap_or_default();
+            for (element, value) in symbol.default_values().iter().take(count).enumerate() {
                 if let Some(word) = store.words.get_mut(base + element) {
                     *word = *value;
                 }

@@ -103,7 +103,5 @@ pub(crate) mod common;
 
 /// Representation of daedalus scripts data in rust types.
 pub mod daedalus;
-/// Host-side storage of daedalus symbol values and typed class projections.
-pub mod symbol_store;
 /// Functionality to convert daedalus to wasm.
 pub mod wasm;

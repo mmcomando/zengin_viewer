@@ -7,7 +7,7 @@ pub trait ScriptVmAccess {
     fn read(&self, offset: u32, element: u32) -> Option<i32>;
 
     /// Writes element `element` of the member at byte `offset`, `false` when
-    /// not modeled (the caller falls back to the raw word store).
+    /// not modeled (the registry reports the access).
     fn write(&mut self, offset: u32, element: u32, value: i32) -> bool;
 }
 

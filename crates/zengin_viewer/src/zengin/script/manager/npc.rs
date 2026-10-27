@@ -73,7 +73,7 @@ impl super::ScriptManager {
         };
         self.store
             .data_mut()
-            .symbol_store
+            .typed
             .write_symbol(symbol as u32, 0, instance_index.value());
     }
 
@@ -120,13 +120,11 @@ impl super::ScriptManager {
     }
 
     fn npc_data(&self, instance: u32) -> Option<Npc> {
-        let data = self.store.data();
-        data.typed.npc(&data.symbol_store, instance)
+        self.store.data().typed.npc(instance)
     }
 
     fn item_data(&self, instance: u32) -> Option<Item> {
-        let data = self.store.data();
-        data.typed.item(&data.symbol_store, instance)
+        self.store.data().typed.item(instance)
     }
 
     fn npc_handle(&self, instance: u32) -> Option<Arc<RwLock<Npc>>> {

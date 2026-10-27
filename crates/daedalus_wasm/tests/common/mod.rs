@@ -1,12 +1,13 @@
 mod imported_functions;
+mod store;
 
 use crate::common::imported_functions::ImportCallState;
 use daedalus_wasm::daedalus;
-use daedalus_wasm::symbol_store::SymbolStore;
 use daedalus_wasm::wasm::{BinaryBuilder, parse_base_module};
 use std::env::home_dir;
 use std::path::PathBuf;
 use std::process::Command;
+use store::SymbolStore;
 use wasmtime::{Config, Engine, Store};
 
 use wasmtime::component::{Component, HasSelf, Linker, bindgen};

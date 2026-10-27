@@ -2,17 +2,16 @@
 
 use std::sync::{Arc, PoisonError, RwLock};
 
-use daedalus_wasm::daedalus::SymbolKind;
-use daedalus_wasm::symbol_store::SymbolStore;
-
 use super::access::ScriptVmAccess;
+use super::generic::GenericVariable;
 use super::info::Info;
 use super::item::Item;
 use super::menu::Menu;
 use super::menu_item::MenuItem;
 use super::npc::Npc;
+use super::symbol::{SymbolDecl, SymbolKind};
 
-/// One modeled field slot used for load-time validation and initial seeding.
+/// One modeled field slot used for load-time validation and value routing.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct FieldSlot {
     /// Daedalus member name inside the class (without the `c_npc.` prefix).
@@ -40,7 +39,36 @@ pub enum ClassKind {
     Info,
 }
 
+const CLASS_KINDS: [ClassKind; 5] = [
+    ClassKind::Npc,
+    ClassKind::Item,
+    ClassKind::Menu,
+    ClassKind::MenuItem,
+    ClassKind::Info,
+];
+
 impl ClassKind {
+    /// Typed class matching a daedalus class name, case-insensitive.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        if name.eq_ignore_ascii_case("c_npc") {
+            return Some(Self::Npc);
+        }
+        if name.eq_ignore_ascii_case("c_item") {
+            return Some(Self::Item);
+        }
+        if name.eq_ignore_ascii_case("c_menu") {
+            return Some(Self::Menu);
+        }
+        if name.eq_ignore_ascii_case("c_menu_item") {
+            return Some(Self::MenuItem);
+        }
+        if name.eq_ignore_ascii_case("c_info") {
+            return Some(Self::Info);
+        }
+        None
+    }
+
     /// Daedalus class name.
     #[must_use]
     pub fn name(self) -> &'static str {
@@ -62,9 +90,26 @@ impl ClassKind {
             Self::Info => 4,
         }
     }
+
+    fn field_slots(self) -> &'static [FieldSlot] {
+        match self {
+            Self::Npc => super::npc::FIELD_SLOTS,
+            Self::Item => super::item::FIELD_SLOTS,
+            Self::Menu => super::menu::FIELD_SLOTS,
+            Self::MenuItem => super::menu_item::FIELD_SLOTS,
+            Self::Info => super::info::FIELD_SLOTS,
+        }
+    }
+
+    /// Whether word 0 of an instance record is the instance reference instead of
+    /// a modeled member. `C_Npc`/`C_Item` have a 288 byte object header before
+    /// their members.
+    fn uses_reference_word(self) -> bool {
+        matches!(self, Self::Npc | Self::Item)
+    }
 }
 
-/// Typed instance storage, shared with the ECS through the `Arc` handles.
+/// Value storage of one daedalus symbol.
 #[derive(Debug, Clone)]
 pub enum TypedInstance {
     /// `C_Npc` instance.
@@ -77,18 +122,21 @@ pub enum TypedInstance {
     MenuItem(Arc<RwLock<MenuItem>>),
     /// `C_Info` instance.
     Info(Arc<RwLock<Info>>),
+    /// Symbol value without a typed class model.
+    Generic(GenericVariable),
 }
 
 impl TypedInstance {
-    /// Class of the stored instance.
+    /// Typed class of the stored instance, `None` for [`Self::Generic`].
     #[must_use]
-    pub fn class(&self) -> ClassKind {
+    pub fn class(&self) -> Option<ClassKind> {
         match self {
-            Self::Npc(_) => ClassKind::Npc,
-            Self::Item(_) => ClassKind::Item,
-            Self::Menu(_) => ClassKind::Menu,
-            Self::MenuItem(_) => ClassKind::MenuItem,
-            Self::Info(_) => ClassKind::Info,
+            Self::Npc(_) => Some(ClassKind::Npc),
+            Self::Item(_) => Some(ClassKind::Item),
+            Self::Menu(_) => Some(ClassKind::Menu),
+            Self::MenuItem(_) => Some(ClassKind::MenuItem),
+            Self::Info(_) => Some(ClassKind::Info),
+            Self::Generic(_) => None,
         }
     }
 
@@ -137,6 +185,23 @@ impl TypedInstance {
         }
     }
 
+    /// Generic value storage, `None` for typed class instances.
+    #[must_use]
+    pub fn generic(&self) -> Option<&GenericVariable> {
+        match self {
+            Self::Generic(variable) => Some(variable),
+            _ => None,
+        }
+    }
+
+    /// Mutable generic value storage, `None` for typed class instances.
+    pub fn generic_mut(&mut self) -> Option<&mut GenericVariable> {
+        match self {
+            Self::Generic(variable) => Some(variable),
+            _ => None,
+        }
+    }
+
     fn read(&self, offset: u32, element: u32) -> Option<i32> {
         match self {
             Self::Npc(handle) => read_lock(handle).read(offset, element),
@@ -144,290 +209,696 @@ impl TypedInstance {
             Self::Menu(handle) => read_lock(handle).read(offset, element),
             Self::MenuItem(handle) => read_lock(handle).read(offset, element),
             Self::Info(handle) => read_lock(handle).read(offset, element),
+            Self::Generic(variable) => variable.get(offset / 4 + element),
         }
     }
 
-    fn write(&self, offset: u32, element: u32, value: i32) -> bool {
+    fn write(&mut self, offset: u32, element: u32, value: i32) -> bool {
         match self {
             Self::Npc(handle) => write_lock(handle).write(offset, element, value),
             Self::Item(handle) => write_lock(handle).write(offset, element, value),
             Self::Menu(handle) => write_lock(handle).write(offset, element, value),
             Self::MenuItem(handle) => write_lock(handle).write(offset, element, value),
             Self::Info(handle) => write_lock(handle).write(offset, element, value),
+            Self::Generic(variable) => variable.set(offset / 4 + element, value),
         }
     }
 }
 
-/// Result of a typed member access attempt.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MemberAccess<T> {
-    /// The typed class handled the access.
-    Handled(T),
-    /// The instance is typed, but the member/element is not modeled; the caller
-    /// should fall back to the raw word store and report the gap.
-    NotModeled,
-    /// The instance has no typed model (untyped class, validation disabled).
-    NotTyped,
-}
-
-/// A hardcoded class field that did not match the loaded G2 script layout.
 #[derive(Debug, Clone)]
-pub struct ValidationIssue {
-    /// Class name.
-    pub class: &'static str,
-    /// Member name.
-    pub member: &'static str,
-    /// Offset expected by the host model.
-    pub expected_offset: u32,
-    /// Member offset found in the loaded script.
-    pub found_offset: u32,
-    /// Elements expected to be available.
-    pub expected_elements: u32,
-    /// Elements available in the loaded script.
-    pub found_elements: u32,
+struct SymbolEntry {
+    name: String,
+    kind: SymbolKind,
+    is_class_member: bool,
+    address_or_offset: u32,
+    element_count: u32,
+    has_function: bool,
+    parent: Option<u32>,
 }
 
-/// Per-instance typed class storage, indexed by instance symbol id.
+/// Host-side symbol storage: metadata, generic primitive values and typed class
+/// instances, indexed by symbol id.
 #[derive(Debug, Default, Clone)]
 pub struct TypedRegistry {
-    entries: Vec<Option<TypedInstance>>,
+    symbols: Vec<SymbolEntry>,
+    instances: Vec<Option<TypedInstance>>,
+    /// Value slot word 0 of instance symbols. For classes whose members start
+    /// past offset 0 it holds the instance reference (for example `self`/`other`
+    /// values); for other classes it is unused.
+    references: Vec<i32>,
     classes: [Option<u32>; 5],
-    issues: Vec<ValidationIssue>,
+    finished: bool,
 }
 
 impl TypedRegistry {
-    /// Builds the registry from the loaded symbol store: validates the hardcoded
-    /// G2 offsets by member name, creates typed handles and moves modeled values
-    /// out of the raw word space.
+    /// Creates an empty registry.
     #[must_use]
-    pub fn build(store: &mut SymbolStore) -> Self {
-        let mut registry = Self {
-            entries: vec![None; store.symbol_count()],
-            ..Self::default()
-        };
-
-        registry.build_class::<Npc>(
-            store,
-            ClassKind::Npc,
-            super::npc::FIELD_SLOTS,
-            TypedInstance::Npc,
-        );
-        registry.build_class::<Item>(
-            store,
-            ClassKind::Item,
-            super::item::FIELD_SLOTS,
-            TypedInstance::Item,
-        );
-        registry.build_class::<Menu>(
-            store,
-            ClassKind::Menu,
-            super::menu::FIELD_SLOTS,
-            TypedInstance::Menu,
-        );
-        registry.build_class::<MenuItem>(
-            store,
-            ClassKind::MenuItem,
-            super::menu_item::FIELD_SLOTS,
-            TypedInstance::MenuItem,
-        );
-        registry.build_class::<Info>(
-            store,
-            ClassKind::Info,
-            super::info::FIELD_SLOTS,
-            TypedInstance::Info,
-        );
-
-        registry
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    fn build_class<T: ScriptVmAccess + Default>(
-        &mut self,
-        store: &mut SymbolStore,
-        class: ClassKind,
-        slots: &[FieldSlot],
-        wrap: fn(Arc<RwLock<T>>) -> TypedInstance,
-    ) {
-        let class_name = class.name();
-        let Some(class_symbol) = store.class_symbol(class_name) else {
-            return;
+    /// Adds the next symbol. Symbols must arrive in ascending symbol-id order.
+    ///
+    /// A class without a typed model is reported and its instances keep generic
+    /// storage.
+    pub fn add_symbol(&mut self, decl: SymbolDecl<'_>) -> u32 {
+        assert!(!self.finished, "add_symbol called after finish");
+        let symbol = u32::try_from(self.symbols.len()).unwrap_or(u32::MAX);
+        assert!(
+            decl.parent.is_none_or(|parent| parent < symbol),
+            "parent of symbol({symbol}) is not an earlier symbol"
+        );
+        if decl.kind == SymbolKind::Class && ClassKind::from_name(decl.name).is_none() {
+            println!(
+                "error: daedalus class '{}' has no typed model; instances use GenericVariable",
+                decl.name
+            );
+        }
+
+        let storage = if decl.is_const || decl.is_class_member {
+            None
+        } else {
+            GenericVariable::new(decl.kind, decl.element_count).map(TypedInstance::Generic)
         };
 
-        let mut valid = true;
-        for slot in slots {
-            let Some(member) = store.find_member(class_name, slot.member) else {
-                self.issues.push(ValidationIssue {
-                    class: class_name,
-                    member: slot.member,
-                    expected_offset: slot.offset,
-                    found_offset: 0,
-                    expected_elements: slot.element + slot.count,
-                    found_elements: 0,
-                });
-                valid = false;
+        self.symbols.push(SymbolEntry {
+            name: decl.name.to_owned(),
+            kind: decl.kind,
+            is_class_member: decl.is_class_member,
+            address_or_offset: decl.address_or_offset,
+            element_count: decl.element_count,
+            has_function: decl.has_function,
+            parent: decl.parent,
+        });
+        self.instances.push(storage);
+        self.references.push(0);
+        symbol
+    }
+
+    /// Builds name indices, validates modeled classes and allocates typed
+    /// instance storage. Panics when a modeled class member does not match the
+    /// hardcoded layout.
+    pub fn finish(&mut self) {
+        assert!(!self.finished, "finish called twice");
+        for class in CLASS_KINDS {
+            self.validate_class(class);
+        }
+
+        for symbol in 0..self.symbols.len() {
+            let symbol = u32::try_from(symbol).unwrap_or(u32::MAX);
+            let kind = self.symbols[symbol as usize].kind;
+            if !matches!(kind, SymbolKind::Instance | SymbolKind::Prototype) {
+                continue;
+            }
+            let Some(class_symbol) = self.class_symbol_of(symbol) else {
                 continue;
             };
-            let Some(meta) = store.meta(member) else {
-                valid = false;
+            let entry = &self.symbols[symbol as usize];
+            if kind == SymbolKind::Instance && is_instance_variable(entry) {
                 continue;
-            };
-            if meta.address_or_offset != slot.offset
-                || meta.element_count < slot.element + slot.count
+            }
+            let class = ClassKind::from_name(&self.symbols[class_symbol as usize].name);
+            let typed =
+                class.is_some_and(|class| self.classes[class.index()] == Some(class_symbol));
+            if typed && kind == SymbolKind::Instance {
+                let class = class.expect("validated class is present");
+                self.instances[symbol as usize] = Some(typed_instance(class));
+                continue;
+            }
+
+            let element_count = self.symbols[symbol as usize].element_count;
+            let words = self.record_words(class_symbol, element_count);
+            if let Some(TypedInstance::Generic(variable)) = self.instances[symbol as usize].as_mut()
             {
-                self.issues.push(ValidationIssue {
-                    class: class_name,
-                    member: slot.member,
-                    expected_offset: slot.offset,
-                    found_offset: meta.address_or_offset,
-                    expected_elements: slot.element + slot.count,
-                    found_elements: meta.element_count,
-                });
-                valid = false;
+                variable.resize(words);
             }
         }
-        if !valid {
-            return;
-        }
 
-        self.classes[class.index()] = Some(class_symbol);
-        for instance in instances_of(store, class_symbol) {
-            let handle = seed::<T>(store, instance, slots);
-            self.entries[usize::try_from(instance).unwrap_or_default()] = Some(wrap(handle));
-        }
+        self.finished = true;
     }
 
-    /// Number of instances with a typed model.
+    fn validate_class(&mut self, class: ClassKind) {
+        let Some(class_symbol) = self.class_symbol(class.name()) else {
+            return;
+        };
+        for slot in class.field_slots() {
+            let member = self
+                .find_member_id(class.name(), slot.member)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "G2 script layout mismatch: {}.{} is missing",
+                        class.name(),
+                        slot.member
+                    )
+                });
+            let entry = &self.symbols[member as usize];
+            assert_eq!(
+                entry.address_or_offset,
+                slot.offset,
+                "G2 script layout mismatch: {}.{} offset is {} instead of {}",
+                class.name(),
+                slot.member,
+                entry.address_or_offset,
+                slot.offset
+            );
+            assert!(
+                entry.element_count >= slot.element + slot.count,
+                "G2 script layout mismatch: {}.{} has {} elements, {} needed",
+                class.name(),
+                slot.member,
+                entry.element_count,
+                slot.element + slot.count
+            );
+        }
+        self.classes[class.index()] = Some(class_symbol);
+    }
+
+    fn record_words(&self, class_symbol: u32, element_count: u32) -> usize {
+        let mut words = usize::try_from(element_count).unwrap_or_default();
+        for entry in &self.symbols {
+            if !entry.is_class_member || entry.parent != Some(class_symbol) {
+                continue;
+            }
+            let offset = usize::try_from(entry.address_or_offset / 4).unwrap_or_default();
+            let count = usize::try_from(entry.element_count).unwrap_or_default();
+            words = words.max(offset + count);
+        }
+        words
+    }
+
+    fn member_covers(&self, class_symbol: u32, byte_offset: u32) -> bool {
+        self.symbols.iter().any(|entry| {
+            entry.is_class_member
+                && entry.parent == Some(class_symbol)
+                && entry.address_or_offset <= byte_offset
+                && byte_offset < entry.address_or_offset + entry.element_count * 4
+        })
+    }
+
+    /// Number of instances with a typed class model.
     #[must_use]
     pub fn typed_count(&self) -> usize {
-        self.entries.iter().filter(|entry| entry.is_some()).count()
+        self.instances
+            .iter()
+            .flatten()
+            .filter(|instance| instance.class().is_some())
+            .count()
     }
 
-    /// Typed handle of an instance, `None` when the instance has no typed model.
+    /// Value storage of a symbol, `None` when it has no value slot.
     #[must_use]
     pub fn instance(&self, instance: u32) -> Option<&TypedInstance> {
-        self.entries.get(usize::try_from(instance).ok()?)?.as_ref()
+        self.instances
+            .get(usize::try_from(instance).ok()?)?
+            .as_ref()
     }
 
-    /// Typed class of an instance, `None` when untyped.
+    /// Typed class of an instance, `None` without a typed model.
     #[must_use]
     pub fn class_of(&self, instance: u32) -> Option<ClassKind> {
-        self.instance(instance).map(TypedInstance::class)
+        self.instance(instance)?.class()
     }
 
-    /// Class fields which did not match the loaded script layout.
-    #[must_use]
-    pub fn issues(&self) -> &[ValidationIssue] {
-        &self.issues
-    }
-
-    /// Whether the class was validated and has typed instances in this store.
+    /// Whether the class was validated and has typed instances in this registry.
     #[must_use]
     pub fn is_typed_class(&self, class: ClassKind) -> bool {
         self.classes[class.index()].is_some()
     }
 
-    /// Reads a class member, falling back to the raw word store only when the
-    /// registry does not model the instance.
+    /// Number of declared symbols.
     #[must_use]
-    pub fn read_member(
+    pub fn symbol_count(&self) -> usize {
+        self.symbols.len()
+    }
+
+    /// Name of a symbol, `None` when the id is out of range.
+    #[must_use]
+    pub fn name(&self, symbol: u32) -> Option<&str> {
+        self.symbols
+            .get(usize::try_from(symbol).ok()?)
+            .map(|entry| entry.name.as_str())
+    }
+
+    /// Kind of a symbol, `None` when the id is out of range.
+    #[must_use]
+    pub fn kind(&self, symbol: u32) -> Option<SymbolKind> {
+        self.symbols
+            .get(usize::try_from(symbol).ok()?)
+            .map(|entry| entry.kind)
+    }
+
+    /// Whether a symbol has wasm function code.
+    #[must_use]
+    pub fn has_function(&self, symbol: u32) -> bool {
+        self.symbols
+            .get(usize::try_from(symbol).unwrap_or(usize::MAX))
+            .is_some_and(|entry| entry.has_function)
+    }
+
+    /// Whether a symbol has its own value slot.
+    #[must_use]
+    pub fn has_value_slot(&self, symbol: u32) -> bool {
+        self.instances
+            .get(usize::try_from(symbol).unwrap_or(usize::MAX))
+            .is_some_and(Option::is_some)
+    }
+
+    /// Symbols of kind [`SymbolKind::Instance`], in symbol order.
+    pub fn instance_symbols(&self) -> impl Iterator<Item = u32> + '_ {
+        self.symbols
+            .iter()
+            .enumerate()
+            .filter_map(|(index, entry)| {
+                (entry.kind == SymbolKind::Instance)
+                    .then(|| u32::try_from(index).ok())
+                    .flatten()
+            })
+    }
+
+    /// Generic storage of a symbol, `None` for typed classes and symbols
+    /// without a value slot.
+    #[must_use]
+    pub fn variable(&self, symbol: u32) -> Option<&GenericVariable> {
+        self.instance(symbol)?.generic()
+    }
+
+    /// Mutable generic storage of a symbol.
+    pub fn variable_mut(&mut self, symbol: u32) -> Option<&mut GenericVariable> {
+        self.instances
+            .get_mut(usize::try_from(symbol).ok()?)?
+            .as_mut()?
+            .generic_mut()
+    }
+
+    /// Reads element `element` of a global/variable symbol.
+    #[must_use]
+    pub fn read_symbol(&self, symbol: u32, element: u32) -> i32 {
+        let Some(instance) = self.instance(symbol) else {
+            println!("error: read of symbol({symbol}) without a value slot");
+            return -1;
+        };
+        if let TypedInstance::Generic(variable) = instance {
+            return variable.get(element).unwrap_or_else(|| {
+                println!(
+                    "error: read of symbol({symbol}), element({element}) outside {} words",
+                    variable.len()
+                );
+                -1
+            });
+        }
+        let Some(class) = instance.class() else {
+            return -1;
+        };
+        if element == 0 && class.uses_reference_word() {
+            return self
+                .references
+                .get(usize::try_from(symbol).unwrap_or(usize::MAX))
+                .copied()
+                .unwrap_or_default();
+        }
+        let Some(byte_offset) = element.checked_mul(4) else {
+            println!("error: read of symbol({symbol}), element({element}) overflows");
+            return -1;
+        };
+        self.read_typed_word(symbol, class, instance, byte_offset)
+    }
+
+    /// Writes element `element` of a global/variable symbol.
+    pub fn write_symbol(&mut self, symbol: u32, element: u32, value: i32) {
+        let symbol_index = usize::try_from(symbol).unwrap_or(usize::MAX);
+        let reference_class = self
+            .instances
+            .get(symbol_index)
+            .and_then(Option::as_ref)
+            .and_then(TypedInstance::class);
+        if element == 0
+            && reference_class.is_some_and(ClassKind::uses_reference_word)
+            && let Some(reference) = self.references.get_mut(symbol_index)
+        {
+            *reference = value;
+            return;
+        }
+        let Some(instance) = self
+            .instances
+            .get_mut(symbol_index)
+            .and_then(Option::as_mut)
+        else {
+            println!("error: write of symbol({symbol}) without a value slot");
+            return;
+        };
+        if let TypedInstance::Generic(variable) = instance {
+            if !variable.set(element, value) {
+                println!("error: write of symbol({symbol}), element({element}) failed");
+            }
+            return;
+        }
+        let Some(class) = instance.class() else {
+            return;
+        };
+        let Some(byte_offset) = element.checked_mul(4) else {
+            println!("error: write of symbol({symbol}), element({element}) overflows");
+            return;
+        };
+        let Some((slot, element)) = flat_word_slot(class, byte_offset) else {
+            println!(
+                "error: {}.<instance> offset({byte_offset}) is not modeled (write)",
+                class.name()
+            );
+            return;
+        };
+        if !instance.write(slot.offset, element, value) {
+            println!(
+                "error: {}.{}[{}] is not modeled (write)",
+                class.name(),
+                slot.member,
+                element
+            );
+        }
+    }
+
+    /// Writes every word of a symbol's initial values.
+    pub fn write_values(&mut self, symbol: u32, values: &[i32]) {
+        let class = self.instance(symbol).and_then(TypedInstance::class);
+        let class_symbol = self.class_symbol_of(symbol);
+        for (element, value) in values.iter().enumerate() {
+            let element = u32::try_from(element).unwrap_or(u32::MAX);
+            if let (Some(class), Some(class_symbol)) = (class, class_symbol) {
+                let byte_offset = element.saturating_mul(4);
+                let is_reference = byte_offset == 0 && class.uses_reference_word();
+                if !is_reference
+                    && flat_word_slot(class, byte_offset).is_none()
+                    && !self.member_covers(class_symbol, byte_offset)
+                {
+                    continue;
+                }
+            }
+            self.write_symbol(symbol, element, *value);
+        }
+    }
+
+    /// Reads the instance record word at `byte_offset`.
+    #[must_use]
+    pub fn read_instance_word(&self, instance: u32, byte_offset: u32) -> i32 {
+        let Some(storage) = self.instance(instance) else {
+            println!("error: read of instance({instance}) without a value slot");
+            return -1;
+        };
+        if let TypedInstance::Generic(variable) = storage {
+            return variable.get(byte_offset / 4).unwrap_or_else(|| {
+                println!(
+                    "error: read of instance({instance}), offset({byte_offset}) outside {} words",
+                    variable.len()
+                );
+                -1
+            });
+        }
+        let Some(class) = storage.class() else {
+            return -1;
+        };
+        if byte_offset == 0 && class.uses_reference_word() {
+            return self
+                .references
+                .get(usize::try_from(instance).unwrap_or(usize::MAX))
+                .copied()
+                .unwrap_or_default();
+        }
+        self.read_typed_word(instance, class, storage, byte_offset)
+    }
+
+    /// Writes the instance record word at `byte_offset`.
+    pub fn write_instance_word(&mut self, instance: u32, byte_offset: u32, value: i32) {
+        let instance_index = usize::try_from(instance).unwrap_or(usize::MAX);
+        let reference_class = self
+            .instances
+            .get(instance_index)
+            .and_then(Option::as_ref)
+            .and_then(TypedInstance::class);
+        if byte_offset == 0
+            && reference_class.is_some_and(ClassKind::uses_reference_word)
+            && let Some(reference) = self.references.get_mut(instance_index)
+        {
+            *reference = value;
+            return;
+        }
+        let Some(storage) = self
+            .instances
+            .get_mut(instance_index)
+            .and_then(Option::as_mut)
+        else {
+            println!("error: write of instance({instance}) without a value slot");
+            return;
+        };
+        if let TypedInstance::Generic(variable) = storage {
+            if !variable.set(byte_offset / 4, value) {
+                println!("error: write of instance({instance}), offset({byte_offset}) failed");
+            }
+            return;
+        }
+        let Some(class) = storage.class() else {
+            return;
+        };
+        let Some((slot, element)) = flat_word_slot(class, byte_offset) else {
+            println!(
+                "error: {}.<instance> offset({byte_offset}) is not modeled (write)",
+                class.name()
+            );
+            return;
+        };
+        if !storage.write(slot.offset, element, value) {
+            println!(
+                "error: {}.{}[{}] is not modeled (write)",
+                class.name(),
+                slot.member,
+                element
+            );
+        }
+    }
+
+    /// Reads a class member of an instance.
+    #[must_use]
+    pub fn read_member(&self, instance: u32, member: u32, element: u32) -> i32 {
+        let Some(storage) = self.instance(instance) else {
+            println!("error: read of instance({instance}) without a value slot");
+            return -1;
+        };
+        let Some(entry) = self.member(instance, member) else {
+            return -1;
+        };
+        if let TypedInstance::Generic(variable) = storage {
+            let index = entry.address_or_offset / 4 + element;
+            return variable.get(index).unwrap_or_else(|| {
+                println!(
+                    "error: read of {}.{member}[{element}] outside {} words",
+                    entry.name,
+                    variable.len()
+                );
+                -1
+            });
+        }
+        let Some(class) = storage.class() else {
+            return -1;
+        };
+        storage
+            .read(entry.address_or_offset, element)
+            .unwrap_or_else(|| {
+                println!(
+                    "error: {}.{}[{}] is not modeled (read)",
+                    class.name(),
+                    member_name(entry),
+                    element
+                );
+                -1
+            })
+    }
+
+    /// Writes a class member of an instance.
+    pub fn write_member(&mut self, instance: u32, member: u32, element: u32, value: i32) {
+        let Some(entry) = self.member(instance, member) else {
+            return;
+        };
+        let offset = entry.address_or_offset;
+        let name = member_name(entry).to_owned();
+        let Some(storage) = self
+            .instances
+            .get_mut(usize::try_from(instance).unwrap_or(usize::MAX))
+            .and_then(Option::as_mut)
+        else {
+            println!("error: write of instance({instance}) without a value slot");
+            return;
+        };
+        if let TypedInstance::Generic(variable) = storage {
+            if !variable.set(offset / 4 + element, value) {
+                println!("error: write of instance({instance}), member({member}) failed");
+            }
+            return;
+        }
+        let Some(class) = storage.class() else {
+            return;
+        };
+        if !storage.write(offset, element, value) {
+            println!(
+                "error: {}.{}[{}] is not modeled (write)",
+                class.name(),
+                name,
+                element
+            );
+        }
+    }
+
+    /// Snapshot of an npc instance.
+    #[must_use]
+    pub fn npc(&self, instance: u32) -> Option<Npc> {
+        match self.instance(instance)? {
+            TypedInstance::Npc(handle) => Some(read_lock(handle).clone()),
+            _ => None,
+        }
+    }
+
+    /// Snapshot of an item instance.
+    #[must_use]
+    pub fn item(&self, instance: u32) -> Option<Item> {
+        match self.instance(instance)? {
+            TypedInstance::Item(handle) => Some(read_lock(handle).clone()),
+            _ => None,
+        }
+    }
+
+    /// Snapshot of a menu instance.
+    #[must_use]
+    pub fn menu(&self, instance: u32) -> Option<Menu> {
+        match self.instance(instance)? {
+            TypedInstance::Menu(handle) => Some(read_lock(handle).clone()),
+            _ => None,
+        }
+    }
+
+    /// Snapshot of a menu item instance.
+    #[must_use]
+    pub fn menu_item(&self, instance: u32) -> Option<MenuItem> {
+        match self.instance(instance)? {
+            TypedInstance::MenuItem(handle) => Some(read_lock(handle).clone()),
+            _ => None,
+        }
+    }
+
+    /// Snapshot of a dialog info instance.
+    #[must_use]
+    pub fn info(&self, instance: u32) -> Option<Info> {
+        match self.instance(instance)? {
+            TypedInstance::Info(handle) => Some(read_lock(handle).clone()),
+            _ => None,
+        }
+    }
+
+    fn read_typed_word(
         &self,
-        store: &SymbolStore,
         instance: u32,
-        member: u32,
-        element: u32,
-    ) -> MemberAccess<Option<i32>> {
-        let Some(entry) = self.instance(instance) else {
-            return MemberAccess::NotTyped;
+        class: ClassKind,
+        storage: &TypedInstance,
+        byte_offset: u32,
+    ) -> i32 {
+        let Some((slot, element)) = flat_word_slot(class, byte_offset) else {
+            println!(
+                "error: {}.<instance> offset({byte_offset}) is not modeled (read)",
+                class.name()
+            );
+            return -1;
         };
-        let Some(meta) = store.meta(member) else {
-            return MemberAccess::NotModeled;
-        };
-        if !meta.is_class_member || !self.member_belongs_to(store, entry.class(), member) {
-            return MemberAccess::NotModeled;
-        }
-        match entry.read(meta.address_or_offset, element) {
-            Some(value) => MemberAccess::Handled(Some(value)),
-            None => MemberAccess::NotModeled,
-        }
+        storage.read(slot.offset, element).unwrap_or_else(|| {
+            println!(
+                "error: read of instance({instance}), {}.{}[{}] is not modeled",
+                class.name(),
+                slot.member,
+                element
+            );
+            -1
+        })
     }
 
-    /// Writes a class member, falling back to the raw word store only when the
-    /// registry does not model the instance.
-    pub fn write_member(
-        &self,
-        store: &SymbolStore,
-        instance: u32,
-        member: u32,
-        element: u32,
-        value: i32,
-    ) -> MemberAccess<()> {
-        let Some(entry) = self.instance(instance) else {
-            return MemberAccess::NotTyped;
-        };
-        let Some(meta) = store.meta(member) else {
-            return MemberAccess::NotModeled;
-        };
-        if !meta.is_class_member || !self.member_belongs_to(store, entry.class(), member) {
-            return MemberAccess::NotModeled;
+    fn member(&self, instance: u32, member: u32) -> Option<&SymbolEntry> {
+        let entry = self.symbols.get(usize::try_from(member).ok()?)?;
+        if !entry.is_class_member {
+            println!("error: symbol({member}) is not a class member");
+            return None;
         }
-        if entry.write(meta.address_or_offset, element, value) {
-            MemberAccess::Handled(())
-        } else {
-            MemberAccess::NotModeled
+        if let Some(parent) = entry.parent
+            && let Some(instance_class) = self.class_symbol_of(instance)
+            && instance_class != parent
+        {
+            println!("error: member({member}) does not belong to instance({instance})");
+            return None;
         }
+        Some(entry)
     }
 
-    /// Snapshot of an npc instance, from the typed handle or the raw store.
-    #[must_use]
-    pub fn npc(&self, store: &SymbolStore, instance: u32) -> Option<Npc> {
-        if let Some(TypedInstance::Npc(handle)) = self.instance(instance) {
-            return Some(read_lock(handle).clone());
-        }
-        project_raw::<Npc>(store, instance, ClassKind::Npc, super::npc::FIELD_SLOTS)
+    fn class_symbol(&self, class_name: &str) -> Option<u32> {
+        self.symbols.iter().enumerate().find_map(|(index, entry)| {
+            (entry.kind == SymbolKind::Class && entry.name.eq_ignore_ascii_case(class_name))
+                .then(|| u32::try_from(index).ok())
+                .flatten()
+        })
     }
 
-    /// Snapshot of an item instance, from the typed handle or the raw store.
-    #[must_use]
-    pub fn item(&self, store: &SymbolStore, instance: u32) -> Option<Item> {
-        if let Some(TypedInstance::Item(handle)) = self.instance(instance) {
-            return Some(read_lock(handle).clone());
-        }
-        project_raw::<Item>(store, instance, ClassKind::Item, super::item::FIELD_SLOTS)
+    fn find_member_id(&self, class_name: &str, member_name: &str) -> Option<u32> {
+        let class = self.class_symbol(class_name)?;
+        self.symbols.iter().enumerate().find_map(|(index, entry)| {
+            if !entry.is_class_member || entry.parent != Some(class) {
+                return None;
+            }
+            member_name_str(&entry.name)
+                .eq_ignore_ascii_case(member_name)
+                .then(|| u32::try_from(index).ok())
+                .flatten()
+        })
     }
 
-    /// Snapshot of a menu instance, from the typed handle or the raw store.
-    #[must_use]
-    pub fn menu(&self, store: &SymbolStore, instance: u32) -> Option<Menu> {
-        if let Some(TypedInstance::Menu(handle)) = self.instance(instance) {
-            return Some(read_lock(handle).clone());
+    fn class_symbol_of(&self, symbol: u32) -> Option<u32> {
+        let mut current = symbol;
+        // Prototypes can form a chain, the class is somewhere at its end.
+        for _ in 0..16 {
+            let entry = self.symbols.get(usize::try_from(current).ok()?)?;
+            if entry.kind == SymbolKind::Class {
+                return Some(current);
+            }
+            current = entry.parent?;
         }
-        project_raw::<Menu>(store, instance, ClassKind::Menu, super::menu::FIELD_SLOTS)
+        None
     }
+}
 
-    /// Snapshot of a menu item instance, from the typed handle or the raw store.
-    #[must_use]
-    pub fn menu_item(&self, store: &SymbolStore, instance: u32) -> Option<MenuItem> {
-        if let Some(TypedInstance::MenuItem(handle)) = self.instance(instance) {
-            return Some(read_lock(handle).clone());
+fn member_name(entry: &SymbolEntry) -> &str {
+    member_name_str(&entry.name)
+}
+
+fn is_instance_variable(entry: &SymbolEntry) -> bool {
+    entry.name.rsplit_once('.').is_some()
+        || ["self", "other", "victim", "item", "hero"]
+            .iter()
+            .any(|name| entry.name.eq_ignore_ascii_case(name))
+}
+
+fn member_name_str(name: &str) -> &str {
+    name.rsplit_once('.').map_or(name, |(_, member)| member)
+}
+
+fn flat_word_slot(class: ClassKind, byte_offset: u32) -> Option<(&'static FieldSlot, u32)> {
+    for slot in class.field_slots() {
+        let start = slot.offset + slot.element * 4;
+        let end = start + slot.count * 4;
+        if start <= byte_offset && byte_offset < end {
+            return Some((slot, (byte_offset - slot.offset) / 4));
         }
-        project_raw::<MenuItem>(
-            store,
-            instance,
-            ClassKind::MenuItem,
-            super::menu_item::FIELD_SLOTS,
-        )
     }
+    None
+}
 
-    /// Snapshot of a dialog info instance, from the typed handle or the raw store.
-    #[must_use]
-    pub fn info(&self, store: &SymbolStore, instance: u32) -> Option<Info> {
-        if let Some(TypedInstance::Info(handle)) = self.instance(instance) {
-            return Some(read_lock(handle).clone());
-        }
-        project_raw::<Info>(store, instance, ClassKind::Info, super::info::FIELD_SLOTS)
-    }
-
-    fn member_belongs_to(&self, store: &SymbolStore, class: ClassKind, member: u32) -> bool {
-        self.classes[class.index()].is_some_and(|class| store.parent(member) == Some(class))
+fn typed_instance(class: ClassKind) -> TypedInstance {
+    match class {
+        ClassKind::Npc => TypedInstance::Npc(Arc::new(RwLock::new(Npc::default()))),
+        ClassKind::Item => TypedInstance::Item(Arc::new(RwLock::new(Item::default()))),
+        ClassKind::Menu => TypedInstance::Menu(Arc::new(RwLock::new(Menu::default()))),
+        ClassKind::MenuItem => TypedInstance::MenuItem(Arc::new(RwLock::new(MenuItem::default()))),
+        ClassKind::Info => TypedInstance::Info(Arc::new(RwLock::new(Info::default()))),
     }
 }
 
@@ -439,256 +910,322 @@ fn write_lock<T>(lock: &RwLock<T>) -> std::sync::RwLockWriteGuard<'_, T> {
     lock.write().unwrap_or_else(PoisonError::into_inner)
 }
 
-fn instances_of(store: &SymbolStore, class_symbol: u32) -> Vec<u32> {
-    (0..store.symbol_count())
-        .filter_map(|index| u32::try_from(index).ok())
-        .filter(|instance| {
-            store
-                .meta(*instance)
-                .is_some_and(|meta| meta.kind == SymbolKind::Instance)
-        })
-        .filter(|instance| store.class_of(*instance) == Some(class_symbol))
-        .collect()
-}
-
-fn seed<T: ScriptVmAccess + Default>(
-    store: &mut SymbolStore,
-    instance: u32,
-    slots: &[FieldSlot],
-) -> Arc<RwLock<T>> {
-    let mut data = T::default();
-    for slot in slots {
-        for element in slot.element..slot.element + slot.count {
-            let byte_offset = slot.offset + element * 4;
-            let Some(raw) = store.read_offset(instance, byte_offset) else {
-                continue;
-            };
-            if data.write(slot.offset, element, raw) {
-                store.write_offset(instance, byte_offset, 0);
-            }
-        }
-    }
-    Arc::new(RwLock::new(data))
-}
-
-fn project_raw<T: ScriptVmAccess + Default>(
-    store: &SymbolStore,
-    instance: u32,
-    class: ClassKind,
-    slots: &[FieldSlot],
-) -> Option<T> {
-    let class_name = class.name();
-    let class_symbol = store.class_symbol(class_name)?;
-    if store.class_of(instance) != Some(class_symbol) {
-        return None;
-    }
-
-    let mut data = T::default();
-    for slot in slots {
-        let Some(member) = store.find_member(class_name, slot.member) else {
-            continue;
-        };
-        let Some(meta) = store.meta(member) else {
-            continue;
-        };
-        for element in slot.element..slot.element + slot.count {
-            let Some(raw) = store.read_member(instance, member, element) else {
-                continue;
-            };
-            // The field mapping uses the hardcoded offset; if the layout moved
-            // the write is rejected and the field keeps its default, the
-            // load-time validation already reported the mismatch.
-            data.write(meta.address_or_offset, element, raw);
-        }
-    }
-    Some(data)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::ids::StringId;
-    use daedalus_wasm::daedalus::{Symbol, SymbolKind};
 
-    fn class_symbol(index: u32, name: &str) -> Symbol {
-        let mut symbol = Symbol::new(index, false, 0, None);
-        symbol.set_name(name);
-        symbol.set_kind(SymbolKind::Class);
-        symbol
+    fn decl<'a>(
+        name: &'a str,
+        kind: SymbolKind,
+        is_class_member: bool,
+        offset: u32,
+        elements: u32,
+        parent: Option<u32>,
+    ) -> SymbolDecl<'a> {
+        SymbolDecl {
+            name,
+            kind,
+            is_const: false,
+            is_class_member,
+            address_or_offset: offset,
+            element_count: elements,
+            has_function: false,
+            parent,
+        }
     }
 
-    fn member_symbol(index: u32, name: &str, class: u32, offset: u32, elements: u32) -> Symbol {
-        let mut symbol = Symbol::new(index, true, elements, Some(offset));
-        symbol.set_name(name);
-        symbol.set_parent(Some(class));
-        symbol
+    fn add_npc_symbols(registry: &mut TypedRegistry) -> (u32, u32) {
+        let class = registry.add_symbol(decl("c_npc", SymbolKind::Class, false, 0, 0, None));
+        for (name, offset, elements) in [
+            ("id", 288, 1),
+            ("name", 292, 5),
+            ("slot", 392, 1),
+            ("effect", 412, 1),
+            ("npctype", 432, 1),
+            ("flags", 436, 1),
+            ("attribute", 440, 8),
+            ("hitchance", 472, 5),
+            ("protection", 492, 8),
+            ("damage", 524, 8),
+            ("damagetype", 556, 1),
+            ("guild", 560, 1),
+            ("level", 564, 1),
+            ("mission", 568, 5),
+            ("fight_tactic", 588, 1),
+            ("weapon", 592, 1),
+            ("voice", 596, 1),
+            ("voicepitch", 600, 1),
+            ("bodymass", 604, 1),
+            ("daily_routine", 608, 1),
+            ("start_aistate", 612, 1),
+            ("spawnpoint", 616, 1),
+            ("spawndelay", 636, 1),
+            ("senses", 640, 1),
+            ("senses_range", 644, 1),
+            ("aivar", 648, 100),
+            ("wp", 1048, 1),
+            ("exp", 1068, 1),
+            ("exp_next", 1072, 1),
+            ("lp", 1076, 1),
+            ("bodystateinterruptableoverride", 1080, 1),
+            ("nofocus", 1084, 1),
+        ] {
+            registry.add_symbol(decl(
+                name,
+                SymbolKind::Int,
+                true,
+                offset,
+                elements,
+                Some(class),
+            ));
+        }
+        let instance = registry.add_symbol(decl(
+            "test_npc",
+            SymbolKind::Instance,
+            false,
+            0,
+            272,
+            Some(class),
+        ));
+        (class, instance)
     }
 
-    fn instance_symbol(index: u32, name: &str, class: u32, elements: u32) -> Symbol {
-        let mut symbol = Symbol::new(index, false, elements, None);
-        symbol.set_name(name);
-        symbol.set_kind(SymbolKind::Instance);
-        symbol.set_parent(Some(class));
-        symbol
-    }
+    fn npc_registry() -> (TypedRegistry, u32) {
+        let mut registry = TypedRegistry::new();
+        let (_, instance) = add_npc_symbols(&mut registry);
+        registry.finish();
 
-    fn npc_symbols() -> Vec<Symbol> {
-        let mut instance = instance_symbol(9, "test_npc", 0, 270);
-        let mut defaults = vec![0; 270];
+        let mut defaults = vec![0; 272];
+        defaults[288 / 4] = 5;
         defaults[292 / 4] = 7;
+        defaults[296 / 4] = 9;
+        defaults[392 / 4] = 100;
+        defaults[412 / 4] = 101;
+        defaults[432 / 4] = 2;
+        defaults[436 / 4] = 4;
         defaults[440 / 4] = 100;
         defaults[440 / 4 + 1] = 200;
         defaults[440 / 4 + 2] = 55;
-        // Unmodeled element, must stay in the raw store.
         defaults[440 / 4 + 6] = 77;
+        defaults[472 / 4] = 11;
+        defaults[492 / 4 + 1] = 12;
+        defaults[524 / 4 + 2] = 13;
+        defaults[556 / 4] = 3;
+        defaults[560 / 4] = 6;
+        defaults[564 / 4] = 7;
+        defaults[568 / 4] = 8;
+        defaults[588 / 4] = 9;
+        defaults[592 / 4] = 10;
+        defaults[596 / 4] = 11;
+        defaults[600 / 4] = 12;
+        defaults[604 / 4] = 80;
+        defaults[612 / 4] = 300;
+        defaults[616 / 4] = 102;
+        defaults[636 / 4] = 5;
+        defaults[640 / 4] = 6;
+        defaults[644 / 4] = 1000;
         defaults[648 / 4 + 4] = 3;
         defaults[1068 / 4] = 1000;
-        instance.set_default_values(defaults);
-
-        vec![
-            class_symbol(0, "c_npc"),
-            member_symbol(1, "c_npc.name", 0, 292, 5),
-            member_symbol(2, "c_npc.attribute", 0, 440, 8),
-            member_symbol(3, "c_npc.daily_routine", 0, 608, 1),
-            member_symbol(4, "c_npc.aivar", 0, 648, 100),
-            member_symbol(5, "c_npc.wp", 0, 1048, 1),
-            member_symbol(6, "c_npc.exp", 0, 1068, 1),
-            member_symbol(7, "c_npc.exp_next", 0, 1072, 1),
-            member_symbol(8, "c_npc.lp", 0, 1076, 1),
-            instance,
-        ]
+        defaults[1080 / 4] = 1;
+        defaults[1084 / 4] = 1;
+        registry.write_values(instance, &defaults);
+        (registry, instance)
     }
 
     #[test]
     fn typed_npc_reads_and_writes_semantic_fields() {
-        let symbols = npc_symbols();
-        let mut store = SymbolStore::from_symbols(&symbols);
-        let registry = TypedRegistry::build(&mut store);
+        let (mut registry, instance) = npc_registry();
 
-        assert!(registry.issues().is_empty());
         assert_eq!(registry.typed_count(), 1);
-
-        let npc = registry.npc(&store, 9).expect("typed npc");
+        let npc = registry.npc(instance).expect("typed npc");
         assert_eq!(npc.name, StringId::new(7));
+        assert_eq!(npc.name_extra[0], StringId::new(9));
         assert_eq!(npc.hitpoints, 100);
         assert_eq!(npc.hitpoints_max, 200);
         assert_eq!(npc.mana, 55);
         assert_eq!(npc.exp, 1000);
         assert_eq!(npc.aivar[4], 3);
         assert_eq!(npc.daily_routine, None);
+        assert_eq!(npc.id, 5);
+        assert_eq!(npc.slot, StringId::new(100));
+        assert_eq!(npc.effect, StringId::new(101));
+        assert_eq!(npc.npctype, 2);
+        assert_eq!(npc.flags, 4);
+        assert_eq!(npc.hitchance[0], 11);
+        assert_eq!(npc.protection[1], 12);
+        assert_eq!(npc.damage[2], 13);
+        assert_eq!(npc.regenerate_hp, 77);
+        assert_eq!(npc.damagetype, 3);
+        assert_eq!(npc.guild, 6);
+        assert_eq!(npc.level, 7);
+        assert_eq!(npc.mission[0], crate::ids::FunctionId::new(8));
+        assert_eq!(npc.fight_tactic, 9);
+        assert_eq!(npc.weapon, 10);
+        assert_eq!(npc.voice, 11);
+        assert_eq!(npc.voicepitch, 12);
+        assert_eq!(npc.bodymass, 80);
+        assert_eq!(npc.start_aistate, crate::ids::FunctionId::new(300));
+        assert_eq!(npc.spawnpoint, StringId::new(102));
+        assert_eq!(npc.spawndelay, 5);
+        assert_eq!(npc.senses, 6);
+        assert_eq!(npc.senses_range, 1000);
+        assert_eq!(npc.bodystateinterruptableoverride, 1);
+        assert_eq!(npc.nofocus, 1);
 
-        // Modeled slots are moved out of the raw store, unmodeled ones stay.
-        assert_eq!(store.read_offset(9, 292), Some(0));
-        assert_eq!(store.read_offset(9, 440), Some(0));
-        assert_eq!(store.read_offset(9, 440 + 6 * 4), Some(77));
+        assert_eq!(registry.read_instance_word(instance, 292), 7);
+        assert_eq!(registry.read_instance_word(instance, 296), 9);
+        assert_eq!(registry.read_instance_word(instance, 440), 100);
+        assert_eq!(registry.read_instance_word(instance, 440 + 6 * 4), 77);
+        assert_eq!(registry.read_symbol(instance, 0), 0);
+        registry.write_symbol(instance, 0, 99);
+        assert_eq!(registry.read_symbol(instance, 0), 99);
+        assert_eq!(registry.read_instance_word(instance, 0), 99);
 
-        let attribute = store.find_member("c_npc", "attribute").expect("member");
-        assert_eq!(
-            registry.write_member(&store, 9, attribute, 0, 50),
-            MemberAccess::Handled(())
-        );
-        assert_eq!(registry.npc(&store, 9).expect("npc").hitpoints, 50);
+        let attribute = registry
+            .find_member_id("c_npc", "attribute")
+            .expect("member");
+        assert_eq!(registry.read_member(instance, attribute, 0), 100);
+        assert_eq!(registry.read_member(instance, attribute, 6), 77);
 
-        // Element 6 of `attribute` is not modeled, the caller must fall back.
-        assert_eq!(
-            registry.read_member(&store, 9, attribute, 6),
-            MemberAccess::NotModeled
-        );
+        registry.write_member(instance, attribute, 0, 50);
+        assert_eq!(registry.npc(instance).expect("npc").hitpoints, 50);
     }
 
     #[test]
-    fn offset_mismatch_disables_the_class() {
-        let mut symbols = npc_symbols();
-        // Move the attribute member, the hardcoded accessor would be wrong.
-        symbols[2] = member_symbol(2, "c_npc.attribute", 0, 444, 8);
-
-        let mut store = SymbolStore::from_symbols(&symbols);
-        let registry = TypedRegistry::build(&mut store);
-
-        assert_eq!(registry.typed_count(), 0);
-        assert!(registry.instance(9).is_none());
-        assert!(
-            registry
-                .issues()
-                .iter()
-                .any(|issue| issue.member == "attribute")
-        );
-        assert!(registry.npc(&store, 9).is_some());
+    #[should_panic(expected = "G2 script layout mismatch")]
+    fn offset_mismatch_panics() {
+        let mut registry = TypedRegistry::new();
+        let class = registry.add_symbol(decl("c_npc", SymbolKind::Class, false, 0, 0, None));
+        for (name, offset, elements) in [
+            ("name", 292, 5),
+            ("attribute", 444, 8),
+            ("daily_routine", 608, 1),
+            ("aivar", 648, 100),
+            ("wp", 1048, 1),
+            ("exp", 1068, 1),
+            ("exp_next", 1072, 1),
+            ("lp", 1076, 1),
+        ] {
+            registry.add_symbol(decl(
+                name,
+                SymbolKind::Int,
+                true,
+                offset,
+                elements,
+                Some(class),
+            ));
+        }
+        registry.add_symbol(decl(
+            "test_npc",
+            SymbolKind::Instance,
+            false,
+            0,
+            270,
+            Some(class),
+        ));
+        registry.finish();
     }
 
     #[test]
     fn member_of_another_class_is_not_modeled() {
-        let mut symbols = npc_symbols();
-        symbols.push(class_symbol(10, "c_item"));
-        symbols.push(member_symbol(11, "c_item.name", 10, 292, 1));
+        let mut registry = TypedRegistry::new();
+        let (_, instance) = add_npc_symbols(&mut registry);
+        let other = registry.add_symbol(decl("c_other", SymbolKind::Class, false, 0, 0, None));
+        let member = registry.add_symbol(decl("value", SymbolKind::Int, true, 292, 1, Some(other)));
+        registry.finish();
 
-        let mut store = SymbolStore::from_symbols(&symbols);
-        let registry = TypedRegistry::build(&mut store);
-        let item_member = store.find_member("c_item", "name").expect("member");
+        assert_eq!(registry.read_member(instance, member, 0), -1);
+        registry.write_member(instance, member, 0, 5);
+        assert_eq!(registry.read_member(instance, member, 0), -1);
+    }
 
+    #[test]
+    fn primitive_symbols_are_typed_generic_variables() {
+        let mut registry = TypedRegistry::new();
+        let int = registry.add_symbol(decl("an_int", SymbolKind::Int, false, 0, 1, None));
+        let floats = registry.add_symbol(decl("floats", SymbolKind::Float, false, 0, 3, None));
+        let string = registry.add_symbol(decl("a_string", SymbolKind::String, false, 0, 1, None));
+        registry.finish();
+
+        registry.write_symbol(int, 0, 42);
+        assert_eq!(registry.read_symbol(int, 0), 42);
+        assert_eq!(registry.variable(int).expect("int").as_int(), Some(42));
+
+        registry.write_symbol(floats, 0, f32::to_bits(1.5) as i32);
         assert_eq!(
-            registry.read_member(&store, 9, item_member, 0),
-            MemberAccess::NotModeled
+            registry
+                .variable(floats)
+                .expect("floats")
+                .as_floats()
+                .and_then(|mut values| values.next()),
+            Some(1.5)
+        );
+
+        registry.write_symbol(string, 0, 7);
+        assert_eq!(
+            registry.variable(string).expect("string").as_string(),
+            StringId::new(7)
         );
     }
-}
 
-#[cfg(test)]
-mod info_tests {
-    use super::*;
-    use daedalus_wasm::daedalus::{Symbol, SymbolKind};
+    #[test]
+    fn instance_without_typed_class_uses_generic_record() {
+        let mut registry = TypedRegistry::new();
+        let class = registry.add_symbol(decl("c_other", SymbolKind::Class, false, 0, 0, None));
+        let member = registry.add_symbol(decl("value", SymbolKind::Int, true, 4, 1, Some(class)));
+        let instance = registry.add_symbol(decl(
+            "test_other",
+            SymbolKind::Instance,
+            false,
+            0,
+            1,
+            Some(class),
+        ));
+        registry.finish();
 
-    fn symbol(index: u32, name: &str, kind: SymbolKind) -> Symbol {
-        let mut symbol = Symbol::new(index, false, 0, None);
-        symbol.set_name(name);
-        symbol.set_kind(kind);
-        symbol
-    }
-
-    fn member(index: u32, name: &str, class: u32, offset: u32) -> Symbol {
-        let mut symbol = Symbol::new(index, true, 1, Some(offset));
-        symbol.set_name(name);
-        symbol.set_parent(Some(class));
-        symbol
-    }
-
-    fn info_symbols() -> Vec<Symbol> {
-        let mut instance = Symbol::new(9, false, 12, None);
-        instance.set_name("test_info");
-        instance.set_kind(SymbolKind::Instance);
-        instance.set_parent(Some(0));
-        let mut defaults = vec![0; 12];
-        defaults[0] = 12081; // npc
-        defaults[1] = 2; // nr
-        defaults[2] = 1; // important
-        defaults[3] = 26935; // condition
-        defaults[4] = 26936; // information
-        instance.set_default_values(defaults);
-
-        vec![
-            symbol(0, "c_info", SymbolKind::Class),
-            member(1, "c_info.npc", 0, 0),
-            member(2, "c_info.nr", 0, 4),
-            member(3, "c_info.important", 0, 8),
-            member(4, "c_info.condition", 0, 12),
-            member(5, "c_info.information", 0, 16),
-            member(6, "c_info.description", 0, 20),
-            member(7, "c_info.trade", 0, 40),
-            member(8, "c_info.permanent", 0, 44),
-            instance,
-        ]
+        assert_eq!(registry.class_of(instance), None);
+        assert!(registry.npc(instance).is_none());
+        registry.write_member(instance, member, 0, 5);
+        assert_eq!(registry.read_member(instance, member, 0), 5);
     }
 
     #[test]
     fn typed_info_fields() {
-        let symbols = info_symbols();
-        let mut store = SymbolStore::from_symbols(&symbols);
-        let registry = TypedRegistry::build(&mut store);
+        let mut registry = TypedRegistry::new();
+        let class = registry.add_symbol(decl("c_info", SymbolKind::Class, false, 0, 0, None));
+        for (name, offset) in [
+            ("npc", 0),
+            ("nr", 4),
+            ("important", 8),
+            ("condition", 12),
+            ("information", 16),
+            ("description", 20),
+            ("trade", 40),
+            ("permanent", 44),
+        ] {
+            registry.add_symbol(decl(name, SymbolKind::Int, true, offset, 1, Some(class)));
+        }
+        let instance = registry.add_symbol(decl(
+            "test_info",
+            SymbolKind::Instance,
+            false,
+            0,
+            12,
+            Some(class),
+        ));
+        registry.finish();
 
-        assert!(registry.issues().is_empty());
+        let mut defaults = vec![0; 12];
+        defaults[0] = 12081;
+        defaults[1] = 2;
+        defaults[2] = 1;
+        defaults[3] = 26935;
+        defaults[4] = 26936;
+        registry.write_values(instance, &defaults);
+
         assert!(registry.is_typed_class(ClassKind::Info));
-
-        let info = registry.info(&store, 9).expect("typed info");
+        let info = registry.info(instance).expect("typed info");
         assert_eq!(info.npc, crate::ids::InstanceId::new(12081));
         assert_eq!(info.order, 2);
         assert!(info.important);
@@ -698,11 +1235,37 @@ mod info_tests {
         assert!(!info.trade);
         assert!(!info.permanent);
 
-        let nr = store.find_member("c_info", "nr").expect("member");
-        assert_eq!(
-            registry.write_member(&store, 9, nr, 0, 7),
-            MemberAccess::Handled(())
-        );
-        assert_eq!(registry.info(&store, 9).expect("info").order, 7);
+        let nr = registry.find_member_id("c_info", "nr").expect("member");
+        registry.write_member(instance, nr, 0, 7);
+        assert_eq!(registry.info(instance).expect("info").order, 7);
+    }
+
+    #[test]
+    fn instance_variables_stay_generic_reference_slots() {
+        let mut registry = TypedRegistry::new();
+        let (class, instance) = add_npc_symbols(&mut registry);
+        let self_var = registry.add_symbol(decl(
+            "self",
+            SymbolKind::Instance,
+            false,
+            0,
+            200,
+            Some(class),
+        ));
+        let local = registry.add_symbol(decl(
+            "caller.self",
+            SymbolKind::Instance,
+            false,
+            0,
+            200,
+            Some(class),
+        ));
+        registry.finish();
+
+        assert_eq!(registry.class_of(self_var), None);
+        assert_eq!(registry.class_of(local), None);
+
+        registry.write_symbol(self_var, 0, instance as i32);
+        assert_eq!(registry.read_symbol(self_var, 0), instance as i32);
     }
 }

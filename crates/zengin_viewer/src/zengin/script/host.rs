@@ -9,7 +9,7 @@ use super::string_value::StringCanon;
 use super::symbol_id::SymbolId;
 use crate::warn_unimplemented;
 use crate::zengin::common::to_zengin_units;
-use bevy::log::{error, warn};
+use bevy::log::warn;
 use bevy::math::Vec3;
 
 macro_rules! fake_impl {
@@ -1150,27 +1150,19 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
 
 impl mmcomando::zengine_scripts::symbols::Host for ImportCallState {
     fn get_symbol(&mut self, symbol: i32, element: i32) -> i32 {
-        let Some(value) = u32::try_from(symbol)
-            .ok()
-            .zip(u32::try_from(element).ok())
-            .and_then(|(symbol, element)| self.symbol_store.read_symbol(symbol, element))
-        else {
+        let (Ok(symbol), Ok(element)) = (u32::try_from(symbol), u32::try_from(element)) else {
             warn!("Script read of an invalid symbol({symbol}), element({element})");
             return -1;
         };
-        value
+        self.typed.read_symbol(symbol, element)
     }
 
     fn set_symbol(&mut self, symbol: i32, element: i32, value: i32) {
-        let written = u32::try_from(symbol)
-            .ok()
-            .zip(u32::try_from(element).ok())
-            .is_some_and(|(symbol, element)| {
-                self.symbol_store.write_symbol(symbol, element, value)
-            });
-        if !written {
+        let (Ok(symbol), Ok(element)) = (u32::try_from(symbol), u32::try_from(element)) else {
             warn!("Script write of an invalid symbol({symbol}), element({element})");
-        }
+            return;
+        };
+        self.typed.write_symbol(symbol, element, value);
     }
 
     fn get_member(&mut self, instance: i32, member: i32, element: i32) -> i32 {
@@ -1185,25 +1177,7 @@ impl mmcomando::zengine_scripts::symbols::Host for ImportCallState {
             return -1;
         };
 
-        match self
-            .typed
-            .read_member(&self.symbol_store, instance, member, element)
-        {
-            daedalus_typed::MemberAccess::Handled(value) => return value.unwrap_or(-1),
-            daedalus_typed::MemberAccess::NotModeled => {
-                self.report_unmodeled_member(instance, member, element, false);
-            }
-            daedalus_typed::MemberAccess::NotTyped => {}
-        }
-
-        self.symbol_store
-            .read_member(instance, member, element)
-            .unwrap_or_else(|| {
-                warn!(
-                    "Script read of an invalid member, instance({instance}), member({member}), element({element})"
-                );
-                -1
-            })
+        self.typed.read_member(instance, member, element)
     }
 
     fn set_member(&mut self, instance: i32, member: i32, element: i32, value: i32) {
@@ -1218,50 +1192,6 @@ impl mmcomando::zengine_scripts::symbols::Host for ImportCallState {
             return;
         };
 
-        match self
-            .typed
-            .write_member(&self.symbol_store, instance, member, element, value)
-        {
-            daedalus_typed::MemberAccess::Handled(()) => return,
-            daedalus_typed::MemberAccess::NotModeled => {
-                self.report_unmodeled_member(instance, member, element, true);
-            }
-            daedalus_typed::MemberAccess::NotTyped => {}
-        }
-
-        if !self
-            .symbol_store
-            .write_member(instance, member, element, value)
-        {
-            warn!(
-                "Script write of an invalid member, instance({instance}), member({member}), element({element})"
-            );
-        }
-    }
-}
-
-#[expect(
-    clippy::multiple_inherent_impl,
-    reason = "Symbols host helpers live next to the symbols Host impl"
-)]
-impl ImportCallState {
-    /// Reports an unmodeled typed field once per `(member, element, direction)`
-    /// so a single run reveals every missing field.
-    fn report_unmodeled_member(&mut self, instance: u32, member: u32, element: u32, write: bool) {
-        if !self.missing_members.insert((member, element, write)) {
-            return;
-        }
-        let class = self
-            .typed
-            .class_of(instance)
-            .map_or("<untyped>", |class| class.name());
-        let member_name = self.symbol_store.name(member).unwrap_or("<unknown>");
-        let offset = self
-            .symbol_store
-            .meta(member)
-            .map_or(0, |meta| meta.address_or_offset);
-        error!(
-            "Unmodeled script member access: class({class}), member({member_name}), offset({offset}), element({element}), write({write}); falling back to the raw store"
-        );
+        self.typed.write_member(instance, member, element, value);
     }
 }

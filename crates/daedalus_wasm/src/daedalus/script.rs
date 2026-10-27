@@ -565,6 +565,24 @@ impl Symbol {
     }
 
     #[must_use]
+    /// Whether the symbol is a class member variable.
+    pub fn is_class_var(&self) -> bool {
+        self.is_class_var
+    }
+
+    #[must_use]
+    /// Whether the symbol is a compile-time constant.
+    pub fn is_const(&self) -> bool {
+        self.is_const
+    }
+
+    #[must_use]
+    /// Values the symbol is initialized with.
+    pub fn default_values(&self) -> &[i32] {
+        &self.default_values
+    }
+
+    #[must_use]
     /// Kind of daedalus symbol.
     pub fn kind(&self) -> SymbolKind {
         self.kind

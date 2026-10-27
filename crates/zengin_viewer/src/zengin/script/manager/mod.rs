@@ -20,7 +20,6 @@ use wasmtime::{Engine, Store};
 use super::bindings::MmWorld;
 use super::state::ImportCallState;
 use super::symbol_id::FunctionId;
-use daedalus_wasm::daedalus::SymbolKind;
 
 pub struct ScriptManager {
     pub store: Store<ImportCallState>,
@@ -140,27 +139,26 @@ impl ScriptManager {
     /// owned now.
     pub fn initialize_instances(&mut self) {
         let self_symbol = self.store.data().well_known_symbols.self_symbol;
-        let count = self.store.data().symbol_store.symbol_count();
-        for index in 0..count {
-            let Some(meta) = self.store.data().symbol_store.meta(index as u32).copied() else {
-                continue;
-            };
-            if meta.kind != SymbolKind::Instance {
-                continue;
-            }
+        let instances = {
+            let typed = &self.store.data().typed;
+            typed
+                .instance_symbols()
+                .map(|index| (index, typed.has_function(index)))
+                .collect::<Vec<_>>()
+        };
+        for (index, has_function) in instances {
             if let Some(self_symbol) = self_symbol {
-                self.store.data_mut().symbol_store.write_symbol(
-                    self_symbol as u32,
-                    0,
-                    index as i32,
-                );
+                self.store
+                    .data_mut()
+                    .typed
+                    .write_symbol(self_symbol as u32, 0, index as i32);
             }
             let guest = self.instance.mmcomando_zengine_scripts_manage();
             guest
                 .call_set_instance(&mut self.store, index as i32)
                 .unwrap();
             guest.call_set_self(&mut self.store, index as i32).unwrap();
-            if meta.has_function {
+            if has_function {
                 guest
                     .call_call_function(&mut self.store, index as i32)
                     .unwrap();

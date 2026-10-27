@@ -14,3 +14,4 @@ wit-parser = "0.251.0"
 
 [dev-dependencies]
 wasmtime = { "version" = "44.0.0", features = ["component-model", "coredump"] }
+daedalus_typed = { path = "../daedalus_typed" }

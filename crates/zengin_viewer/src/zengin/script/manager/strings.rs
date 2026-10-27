@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-use daedalus_typed::TypedRegistry;
-use daedalus_wasm::symbol_store::{SymbolMeta, SymbolStore};
+use daedalus_typed::{SymbolDecl, SymbolKind, TypedRegistry};
 
-use bevy::log::{error, info};
+use bevy::log::info;
 
 use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolInfo;
 use super::super::state::{SymbolTable, WellKnownSymbols};
@@ -115,61 +114,45 @@ impl super::ScriptManager {
             strings.push(string);
         }
 
-        let word_count =
-            usize::try_from(guest.call_get_symbols_memory_size(&mut self.store).unwrap() / 4)
-                .unwrap_or_default();
-        let mut symbol_store = SymbolStore::new(word_count);
+        let mut typed = TypedRegistry::new();
         let mut kinds = HashMap::with_capacity(symbols_count.max(0) as usize);
         for index in 0..symbols_count {
             let info = guest.call_get_symbol_info(&mut self.store, index).unwrap();
             kinds.insert(index, info.kind);
             let name = strings
                 .get(usize::try_from(index).unwrap_or_default())
-                .cloned()
-                .unwrap_or_default();
-            symbol_store.push_symbol(
-                SymbolMeta {
-                    kind: convert_symbol_kind(info.kind),
-                    is_const: info.is_const,
-                    is_class_member: info.is_class_member,
-                    address_or_offset: info.address_or_offset,
-                    element_count: info.element_count,
-                    has_function: info.function.is_some(),
-                },
+                .map_or("", String::as_str);
+            typed.add_symbol(SymbolDecl {
                 name,
-                info.parent.and_then(|parent| u32::try_from(parent).ok()),
-            );
+                kind: convert_symbol_kind(info.kind),
+                is_const: info.is_const,
+                is_class_member: info.is_class_member,
+                address_or_offset: info.address_or_offset,
+                element_count: info.element_count,
+                has_function: info.function.is_some(),
+                parent: info.parent.and_then(|parent| u32::try_from(parent).ok()),
+            });
         }
+        typed.finish();
 
         // Initial values of the symbols which have their own value slot. They
         // are only meaningful before instance initialization runs.
         for index in 0..symbols_count {
-            let Some(meta) = symbol_store.meta(index as u32).copied() else {
-                continue;
-            };
-            if meta.is_const || meta.is_class_member {
+            let index = index as u32;
+            if !typed.has_value_slot(index) {
                 continue;
             }
             let values = guest
-                .call_get_symbol_values(&mut self.store, index)
+                .call_get_symbol_values(&mut self.store, index as i32)
                 .unwrap();
-            symbol_store.set_defaults(index as u32, &values);
+            typed.write_values(index, &values);
         }
 
-        symbol_store.build_name_index();
-        let typed = TypedRegistry::build(&mut symbol_store);
-        for issue in typed.issues() {
-            error!(
-                "G2 script layout mismatch: {}.{} expected offset {} with {} elements, found offset {} with {} elements; the class is not modeled",
-                issue.class,
-                issue.member,
-                issue.expected_offset,
-                issue.expected_elements,
-                issue.found_offset,
-                issue.found_elements
-            );
-        }
-        info!("Symbol store: {} typed instances", typed.typed_count());
+        info!(
+            "Symbol registry: {} typed instances ({} symbols)",
+            typed.typed_count(),
+            symbols_count
+        );
 
         let well_known_symbols = WellKnownSymbols {
             self_symbol: guest.call_get_symbol_id(&mut self.store, "self").unwrap(),
@@ -180,7 +163,6 @@ impl super::ScriptManager {
         };
 
         let data = self.store.data_mut();
-        data.symbol_store = symbol_store;
         data.typed = typed;
         data.well_known_symbols = well_known_symbols;
         data.symbol_table = SymbolTable::new(kinds, symbols_count, strings);
@@ -222,21 +204,19 @@ impl super::ScriptManager {
     }
 }
 
-/// Maps the guest `symbol-kind` enum to the converter's kind enum used by the
-/// host symbol store.
+/// Maps the guest `symbol-kind` enum to the host storage kind.
 fn convert_symbol_kind(
     kind: super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind,
-) -> daedalus_wasm::daedalus::SymbolKind {
+) -> SymbolKind {
     use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind as Input;
-    use daedalus_wasm::daedalus::SymbolKind as Output;
     match kind {
-        Input::Float => Output::Float,
-        Input::Int => Output::Int,
-        Input::Str => Output::String,
-        Input::Class => Output::Class,
-        Input::Function => Output::Func,
-        Input::Prototype => Output::Prototype,
-        Input::Instance => Output::Instance,
-        Input::VariableArgument => Output::VariableArgument,
+        Input::Float => SymbolKind::Float,
+        Input::Int => SymbolKind::Int,
+        Input::Str => SymbolKind::String,
+        Input::Class => SymbolKind::Class,
+        Input::Function => SymbolKind::Func,
+        Input::Prototype => SymbolKind::Prototype,
+        Input::Instance => SymbolKind::Instance,
+        Input::VariableArgument => SymbolKind::VariableArgument,
     }
 }

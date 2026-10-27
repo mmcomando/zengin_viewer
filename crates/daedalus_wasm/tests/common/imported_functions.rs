@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use daedalus_wasm::symbol_store::SymbolStore;
+use super::store::SymbolStore;
 
 #[derive(Debug, Default)]
 pub struct ImportCallState {
