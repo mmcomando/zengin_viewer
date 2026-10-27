@@ -10,6 +10,3 @@ pub(crate) use script::Function;
 pub(crate) use script::Symbol;
 pub(crate) use script::SymbolKind;
 pub(crate) use script::imported_functions_num;
-
-#[cfg(test)]
-pub(crate) use script::external_functions;

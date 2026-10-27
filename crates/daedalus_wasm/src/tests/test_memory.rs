@@ -1,8 +1,8 @@
 use crate::daedalus::CallSignature;
 use crate::daedalus::Function;
 use crate::daedalus::Instruction as InstDD;
-use crate::daedalus::Symbol;
 use crate::tests::common::WasmExecutor;
+use crate::tests::common::symbol;
 
 #[test]
 fn test_assign_integer_global_memory() {
@@ -48,7 +48,7 @@ fn test_sub_to_global_memory() {
 
 #[test]
 fn test_push_array_var_global_memory() {
-    let symbols = &[Symbol::new(0, false, 2, None)];
+    let symbols = &[symbol(0, false, 2, None)];
     let result = WasmExecutor::return_test(
         &[
             InstDD::PushInt(10),
@@ -77,12 +77,12 @@ fn test_push_array_var_class_member_memory() {
     // instance code), otherwise they are treated as instance variables holding
     // a reference to an instance
     let symbols = &mut [
-        Symbol::new(0, false, 2, None),
-        Symbol::new(1, false, 2, None),
-        Symbol::new(2, true, 2, Some(0)),
+        symbol(0, false, 2, None),
+        symbol(1, false, 2, None),
+        symbol(2, true, 2, Some(0)),
     ];
-    symbols[0].set_function(Function::new("class_a", CallSignature::new(0, false), &[]));
-    symbols[1].set_function(Function::new("class_b", CallSignature::new(0, false), &[]));
+    symbols[0].function = Some(Function::new("class_a", CallSignature::new(0, false), &[]));
+    symbols[1].function = Some(Function::new("class_b", CallSignature::new(0, false), &[]));
     let result = WasmExecutor::return_test(
         &[
             InstDD::SetInstance(class_a),
@@ -126,13 +126,13 @@ fn test_assign_integer_class_member_memory() {
     // instance code), otherwise they are treated as instance variables holding
     // a reference to an instance
     let symbols = &mut [
-        Symbol::new(0, false, 2, None),
-        Symbol::new(1, false, 2, None),
-        Symbol::new(2, true, 2, Some(0)),
-        Symbol::new(3, true, 2, Some(4)),
+        symbol(0, false, 2, None),
+        symbol(1, false, 2, None),
+        symbol(2, true, 2, Some(0)),
+        symbol(3, true, 2, Some(4)),
     ];
-    symbols[0].set_function(Function::new("class_a", CallSignature::new(0, false), &[]));
-    symbols[1].set_function(Function::new("class_b", CallSignature::new(0, false), &[]));
+    symbols[0].function = Some(Function::new("class_a", CallSignature::new(0, false), &[]));
+    symbols[1].function = Some(Function::new("class_b", CallSignature::new(0, false), &[]));
     let result = WasmExecutor::return_test(
         &[
             // Assign to class 0
@@ -185,13 +185,13 @@ fn test_set_instance_follows_variable_reference() {
     // instance code), otherwise they are treated as instance variables holding
     // a reference to an instance
     let symbols = &mut [
-        Symbol::new(0, false, 2, None),
-        Symbol::new(1, false, 2, None),
-        Symbol::new(2, true, 2, Some(0)),
-        Symbol::new(3, false, 1, None),
+        symbol(0, false, 2, None),
+        symbol(1, false, 2, None),
+        symbol(2, true, 2, Some(0)),
+        symbol(3, false, 1, None),
     ];
-    symbols[0].set_function(Function::new("class_a", CallSignature::new(0, false), &[]));
-    symbols[1].set_function(Function::new("class_b", CallSignature::new(0, false), &[]));
+    symbols[0].function = Some(Function::new("class_a", CallSignature::new(0, false), &[]));
+    symbols[1].function = Some(Function::new("class_b", CallSignature::new(0, false), &[]));
 
     let result = WasmExecutor::return_test(
         &[

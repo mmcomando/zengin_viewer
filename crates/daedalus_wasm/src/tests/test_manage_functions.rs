@@ -1,18 +1,19 @@
-use crate::daedalus::{CallSignature, Function, Instruction as InstDD, Symbol, SymbolKind};
+use crate::daedalus::{CallSignature, Function, Instruction as InstDD, SymbolKind};
 use crate::tests::common::WasmExecutor;
+use crate::tests::common::symbol;
 
 #[test]
 fn test_call_npc_routine() {
     let symbols = &mut [
-        Symbol::new(0, false, 1, None),
-        Symbol::new(1, false, 1, None),
-        Symbol::new(2, false, 200, None),
-        Symbol::new(3, false, 200, None),
+        symbol(0, false, 1, None),
+        symbol(1, false, 1, None),
+        symbol(2, false, 200, None),
+        symbol(3, false, 200, None),
     ];
 
     let instructions = vec![InstDD::Return];
     let call_signature = CallSignature::new(0, false);
-    symbols[1].set_function(Function::new("my-test", call_signature, &instructions));
+    symbols[1].function = Some(Function::new("my-test", call_signature, &instructions));
     symbols[2].default_values = vec![1; 200];
     symbols[3].default_values = vec![-1; 200]; // Invalid value for npc_routine index
 
@@ -24,10 +25,7 @@ fn test_call_npc_routine() {
 
 #[test]
 fn test_get_name() {
-    let symbols = &mut [
-        Symbol::new(0, false, 1, None),
-        Symbol::new(1, false, 1, None),
-    ];
+    let symbols = &mut [symbol(0, false, 1, None), symbol(1, false, 1, None)];
 
     let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
     assert_eq!(executor.call_get_name(0), "0");
@@ -38,9 +36,9 @@ fn test_get_name() {
 #[test]
 fn test_get_symbol_id() {
     let symbols = &mut [
-        Symbol::new(0, false, 1, None),
-        Symbol::new(1, false, 1, None),
-        Symbol::new(2, false, 1, None),
+        symbol(0, false, 1, None),
+        symbol(1, false, 1, None),
+        symbol(2, false, 1, None),
     ];
 
     let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
@@ -55,10 +53,10 @@ fn test_get_symbol_id() {
 #[test]
 fn test_get_item_visual() {
     let symbols = &mut [
-        Symbol::new(0, false, 1, None),
-        Symbol::new(1, false, 1, None),
-        Symbol::new(2, false, 200, None),
-        Symbol::new(3, false, 200, None),
+        symbol(0, false, 1, None),
+        symbol(1, false, 1, None),
+        symbol(2, false, 200, None),
+        symbol(3, false, 200, None),
     ];
     symbols[2].default_values = vec![1; 200];
     symbols[3].default_values = vec![0; 200];
@@ -86,9 +84,9 @@ fn test_get_npc_info() {
     values[name_word] = 3;
 
     let symbols = &mut [
-        Symbol::new(0, false, 1, None),
-        Symbol::new(1, false, 1, None),
-        Symbol::new(2, false, 200, None),
+        symbol(0, false, 1, None),
+        symbol(1, false, 1, None),
+        symbol(2, false, 200, None),
     ];
     symbols[2].default_values = values;
 
@@ -136,9 +134,9 @@ fn test_get_item_info() {
     values[count_word] = 2;
 
     let symbols = &mut [
-        Symbol::new(0, false, 1, None),
-        Symbol::new(1, false, 1, None),
-        Symbol::new(2, false, 200, None),
+        symbol(0, false, 1, None),
+        symbol(1, false, 1, None),
+        symbol(2, false, 200, None),
     ];
     symbols[2].default_values = values;
 
@@ -172,14 +170,14 @@ fn test_get_item_info() {
 #[test]
 fn test_call_function() {
     let symbols = &mut [
-        Symbol::new(0, false, 1, None),
-        Symbol::new(1, false, 1, None),
-        Symbol::new(2, false, 1, None),
+        symbol(0, false, 1, None),
+        symbol(1, false, 1, None),
+        symbol(2, false, 1, None),
     ];
 
     let instructions = vec![InstDD::Return];
     let call_signature = CallSignature::new(0, false);
-    symbols[1].set_function(Function::new("my-test", call_signature, &instructions));
+    symbols[1].function = Some(Function::new("my-test", call_signature, &instructions));
 
     let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
     executor.call_function(1);
@@ -188,18 +186,18 @@ fn test_call_function() {
 #[test]
 fn test_call_initialize_all_instances() {
     let symbols = &mut [
-        Symbol::new(0, false, 1, None),
-        Symbol::new(1, false, 1, None),
-        Symbol::new(2, false, 200, None),
-        Symbol::new(3, false, 200, None),
+        symbol(0, false, 1, None),
+        symbol(1, false, 1, None),
+        symbol(2, false, 200, None),
+        symbol(3, false, 200, None),
     ];
 
     let instructions = vec![InstDD::Return];
     let call_signature = CallSignature::new(0, false);
-    symbols[1].set_kind(SymbolKind::Instance);
-    symbols[1].set_function(Function::new("my-test", call_signature, &instructions));
-    symbols[2].set_kind(SymbolKind::Instance);
-    symbols[2].set_function(Function::new("my-test2", call_signature, &instructions));
+    symbols[1].kind = SymbolKind::Instance;
+    symbols[1].function = Some(Function::new("my-test", call_signature, &instructions));
+    symbols[2].kind = SymbolKind::Instance;
+    symbols[2].function = Some(Function::new("my-test2", call_signature, &instructions));
 
     let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
     executor.initialize_all_instances();
@@ -208,10 +206,10 @@ fn test_call_initialize_all_instances() {
 #[test]
 fn test_all_symbols_num() {
     let symbols = &mut [
-        Symbol::new(0, false, 1, None),
-        Symbol::new(1, false, 1, None),
-        Symbol::new(2, false, 200, None),
-        Symbol::new(3, false, 200, None),
+        symbol(0, false, 1, None),
+        symbol(1, false, 1, None),
+        symbol(2, false, 200, None),
+        symbol(3, false, 200, None),
     ];
 
     let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
@@ -228,13 +226,13 @@ fn test_get_symbol_info() {
     let plain_var = 3_usize;
 
     let symbols = &mut [
-        Symbol::new(class as u32, false, 1, None),
-        Symbol::new(class_var as u32, true, 1, Some(0)),
-        Symbol::new(func as u32, false, 1, None),
-        Symbol::new(plain_var as u32, false, 1, None),
+        symbol(class as u32, false, 1, None),
+        symbol(class_var as u32, true, 1, Some(0)),
+        symbol(func as u32, false, 1, None),
+        symbol(plain_var as u32, false, 1, None),
     ];
-    symbols[class_var].set_parent(Some(class as u32));
-    symbols[func].set_function(Function::new(
+    symbols[class_var].parent = Some(class as u32);
+    symbols[func].function = Some(Function::new(
         "my-test",
         CallSignature::new(0, false),
         &[InstDD::Return],

@@ -1,6 +1,7 @@
 use crate::daedalus::CompiledDaedalusScript;
 use crate::daedalus::Instruction as InstDD;
 use crate::tests::common::WasmExecutor;
+use crate::tests::common::function_address;
 use crate::tests::common::gothic2_main_script_path;
 use crate::wasm::convert_daedalus_script;
 
@@ -26,9 +27,7 @@ fn real_call_function_discard_on_dialog_functions() {
 
     // Dialog info function declared `func int`: calling it with a void
     // signature would trap, `call_function_discard` handles both kinds
-    let int_func_address = data
-        .get_function_address("dia_addon_morgan_exit_info")
-        .unwrap();
+    let int_func_address = function_address(data, "dia_addon_morgan_exit_info");
     let int_instructions = &[
         InstDD::Call(int_func_address),
         InstDD::PushInt(1),
@@ -40,7 +39,7 @@ fn real_call_function_discard_on_dialog_functions() {
     executor.call_function_discard(symbol_id);
 
     // Void dialog-related function goes through the void call path
-    let void_func_address = data.get_function_address("b_setvisuals_hammel").unwrap();
+    let void_func_address = function_address(data, "b_setvisuals_hammel");
     let void_instructions = &[
         InstDD::PushInstance(1156),
         InstDD::Call(void_func_address),
@@ -64,7 +63,7 @@ fn real_data_content() {
 fn test_real_ta_smalltalk() {
     let data = get_main_script_data();
 
-    let func_address = data.get_function_address("ta_smalltalk").unwrap();
+    let func_address = function_address(data, "ta_smalltalk");
     let instructions = &[
         InstDD::PushInt(1),
         InstDD::PushInt(2),
@@ -84,7 +83,7 @@ fn test_real_ta_smalltalk() {
 #[test]
 fn real_printdebugs() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("printdebugs").unwrap();
+    let func_address = function_address(data, "printdebugs");
     let instructions = &[
         InstDD::PushInt(1),
         InstDD::Call(func_address),
@@ -100,7 +99,7 @@ fn real_printdebugs() {
 #[test]
 fn real_printdebugnpc() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("printdebugnpc").unwrap();
+    let func_address = function_address(data, "printdebugnpc");
     let instructions = &[
         InstDD::PushInt(1),
         InstDD::PushInt(2),
@@ -127,7 +126,7 @@ fn real_full_compile_load_strings() {
 #[test]
 fn real_printdebugnpc_dyn_strings() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("printdebugnpc").unwrap();
+    let func_address = function_address(data, "printdebugnpc");
     let instructions = &[
         InstDD::PushInt(1),
         InstDD::PushInt(2),
@@ -175,7 +174,7 @@ fn real_printdebugnpc_dyn_strings() {
 #[test]
 fn real_printglobals() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("printglobals").unwrap();
+    let func_address = function_address(data, "printglobals");
     let instructions = &[
         InstDD::PushInt(1),
         InstDD::Call(func_address),
@@ -196,7 +195,7 @@ fn real_printglobals() {
 #[test]
 fn real_b_awake_stoneguardian() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("b_awake_stoneguardian").unwrap();
+    let func_address = function_address(data, "b_awake_stoneguardian");
     let instructions = &[
         InstDD::PushInt(1),
         InstDD::Call(func_address),
@@ -212,7 +211,7 @@ fn real_b_awake_stoneguardian() {
 #[test]
 fn test_real_b_setnpcvisual() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("b_setnpcvisual").unwrap();
+    let func_address = function_address(data, "b_setnpcvisual");
     let instructions = &[
         InstDD::PushInstance(1156),
         InstDD::PushInt(2),
@@ -235,7 +234,7 @@ fn test_real_b_setnpcvisual() {
 #[test]
 fn test_none_100_xardas() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("none_100_xardas").unwrap();
+    let func_address = function_address(data, "none_100_xardas");
     let instructions = &[
         InstDD::Call(func_address),
         InstDD::PushInt(1),
@@ -276,7 +275,7 @@ fn test_none_100_xardas() {
 #[test]
 fn real_c_isquarternearest() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("c_isquarternearest").unwrap();
+    let func_address = function_address(data, "c_isquarternearest");
     let instructions = &[
         InstDD::PushInstance(1156),
         InstDD::PushInt(1),
@@ -301,9 +300,7 @@ fn real_c_isquarternearest() {
 #[test]
 fn real_b_makerangerreadytoleavemeeting() {
     let data = get_main_script_data();
-    let func_address = data
-        .get_function_address("b_makerangerreadytoleavemeeting")
-        .unwrap();
+    let func_address = function_address(data, "b_makerangerreadytoleavemeeting");
     let instructions = &[
         InstDD::PushInstance(1156),
         InstDD::PushInt(1),
@@ -324,7 +321,7 @@ fn real_b_makerangerreadytoleavemeeting() {
 // This function ignores returned values from called functions
 fn real_b_extro_avi() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("b_extro_avi").unwrap();
+    let func_address = function_address(data, "b_extro_avi");
     let instructions = &[
         InstDD::PushInstance(1156),
         InstDD::Call(func_address),
@@ -342,7 +339,7 @@ fn real_b_extro_avi() {
 #[test]
 fn real_c_npcisinquarter() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("c_npcisinquarter").unwrap();
+    let func_address = function_address(data, "c_npcisinquarter");
     let instructions = &[
         InstDD::PushInstance(1156),
         InstDD::Call(func_address),
@@ -366,7 +363,7 @@ fn real_c_npcisinquarter() {
 #[test]
 fn real_c_diegotoofar() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("c_diegotoofar").unwrap();
+    let func_address = function_address(data, "c_diegotoofar");
     let instructions = &[
         InstDD::PushInt(100),
         InstDD::Call(func_address),
@@ -384,7 +381,7 @@ fn real_c_diegotoofar() {
 // One branch of if/else ignores value
 fn real_b_openshell() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("b_openshell").unwrap();
+    let func_address = function_address(data, "b_openshell");
     let instructions = &[
         InstDD::PushInt(100),
         InstDD::Call(func_address),
@@ -407,7 +404,7 @@ fn real_b_openshell() {
 // Last statement is if/else where both branches return
 fn real_b_mm_wispdetect() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("b_mm_wispdetect").unwrap();
+    let func_address = function_address(data, "b_mm_wispdetect");
     let instructions = &[
         InstDD::PushInstance(1156),
         InstDD::Call(func_address),
@@ -438,7 +435,7 @@ fn real_b_mm_wispdetect() {
 // Has empty else statement
 fn real_zs_talk_end() {
     let data = get_main_script_data();
-    let func_address = data.get_function_address("zs_talk_end").unwrap();
+    let func_address = function_address(data, "zs_talk_end");
     let instructions = &[
         InstDD::Call(func_address),
         InstDD::PushInt(1),
@@ -480,7 +477,7 @@ fn real_all_functions() {
 fn real_test_xardas_npc_routine() {
     let data = get_main_script_data();
 
-    let func_address = data.get_function_address("none_100_xardas").unwrap();
+    let func_address = function_address(data, "none_100_xardas");
     let instructions = &[
         InstDD::Call(func_address),
         InstDD::PushInt(1),
@@ -630,7 +627,7 @@ fn real_logical_and_of_npc_hasitems_comparisons() {
     let hasitems_symbol_index = data
         .symbols
         .iter()
-        .position(|symbol| symbol.name() == "npc_hasitems")
+        .position(|symbol| symbol.name == "npc_hasitems")
         .expect("npc_hasitems symbol should exist") as u32;
 
     // Real bytecode shape (from the herbs running condition chain): the

@@ -4,7 +4,7 @@ use crate::common::{ToU32 as _, ToUsize as _};
 use crate::daedalus::Instruction;
 use byteorder::{LittleEndian, ReadBytesExt as _};
 use core::cmp::max;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{self, BufReader, Read as _};
 use std::path::Path;
@@ -43,15 +43,6 @@ impl CallSignature {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-/// Layout of a class member variable inside its parent class.
-pub struct ClassMember {
-    /// Byte offset of the member inside its parent class instance memory.
-    pub offset: u32,
-    /// Number of elements the member occupies (1 for scalars).
-    pub elements_count: u32,
-}
-
 #[derive(Debug, Default, Clone)]
 /// Struct containing data from compiled daedalus script.
 pub struct CompiledDaedalusScript {
@@ -65,39 +56,6 @@ pub struct CompiledDaedalusScript {
 }
 
 impl CompiledDaedalusScript {
-    #[must_use]
-    /// Layout of every member variable of a class, keyed by lowercased member
-    /// name, `None` when the script has no such class.
-    pub fn class_members(&self, class_name: &str) -> Option<HashMap<String, ClassMember>> {
-        let class_index = self
-            .symbols
-            .iter()
-            .position(|symbol| symbol.kind() == SymbolKind::Class && symbol.name() == class_name)?;
-        let class_index = class_index as u32;
-        let prefix = format!("{class_name}.");
-        let members = self
-            .symbols
-            .iter()
-            .filter_map(|symbol| {
-                if symbol.parent() != Some(class_index) {
-                    return None;
-                }
-                Some((
-                    symbol
-                        .name()
-                        .strip_prefix(&prefix)
-                        .unwrap_or(symbol.name())
-                        .to_owned(),
-                    ClassMember {
-                        offset: symbol.offset()?,
-                        elements_count: symbol.elements_count(),
-                    },
-                ))
-            })
-            .collect();
-        Some(members)
-    }
-
     /// Load script from file.
     pub fn from_file(path: &Path) -> io::Result<CompiledDaedalusScript> {
         let mut dat_file = CompiledDaedalusScript::default();
@@ -155,18 +113,6 @@ impl CompiledDaedalusScript {
         }
 
         Ok(dat_file)
-    }
-
-    #[must_use]
-    /// Get daedalus instruction offset for given function.
-    pub fn get_function_address(&self, name: &str) -> Option<u32> {
-        let symbol = self.get_symbol_by_name(name)?;
-        Some(symbol.function.as_ref()?.instructions_offset)
-    }
-
-    #[must_use]
-    pub(crate) fn get_symbol_by_name(&self, name: &str) -> Option<&Symbol> {
-        self.symbols.iter().find(|el| el.name == name)
     }
 
     fn add_string(&mut self, string: String) -> u32 {
@@ -494,90 +440,8 @@ pub struct Symbol {
 
 impl Symbol {
     #[must_use]
-    /// Create new daedalus symbol.
-    pub fn new(index: u32, is_class_var: bool, elements_count: u32, offset: Option<u32>) -> Self {
-        Symbol {
-            name: index.to_string(),
-            index,
-            kind: SymbolKind::Int,
-            is_class_var,
-            is_const: false,
-            elements_count,
-            offset,
-            default_values: vec![0; elements_count as usize],
-            function: None,
-            parent: None,
-        }
-    }
-
-    /// Set symbol function.
-    pub fn set_function(&mut self, function: Function) {
-        self.function = Some(function);
-    }
-
-    /// Set symbol name.
-
-    /// Set symbol kind.
-    pub fn set_kind(&mut self, kind: SymbolKind) {
-        self.kind = kind;
-    }
-
-    /// Set symbol parent.
-    pub fn set_parent(&mut self, parent: Option<u32>) {
-        self.parent = parent;
-    }
-
-    #[must_use]
     pub(crate) fn size(&self) -> u32 {
         self.elements_count * 4
-    }
-
-    #[must_use]
-    /// Name of daedalus symbol.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    #[must_use]
-    /// Parent class symbol index for class member variables.
-    pub fn parent(&self) -> Option<u32> {
-        self.parent
-    }
-
-    #[must_use]
-    /// Byte offset of a class member variable inside its parent class.
-    pub fn offset(&self) -> Option<u32> {
-        self.offset
-    }
-
-    #[must_use]
-    /// Number of 32bit values which can be stored in this symbol.
-    pub fn elements_count(&self) -> u32 {
-        self.elements_count
-    }
-
-    #[must_use]
-    /// Whether the symbol is a class member variable.
-    pub fn is_class_var(&self) -> bool {
-        self.is_class_var
-    }
-
-    #[must_use]
-    /// Whether the symbol is a compile-time constant.
-    pub fn is_const(&self) -> bool {
-        self.is_const
-    }
-
-    #[must_use]
-    /// Values the symbol is initialized with.
-    pub fn default_values(&self) -> &[i32] {
-        &self.default_values
-    }
-
-    #[must_use]
-    /// Kind of daedalus symbol.
-    pub fn kind(&self) -> SymbolKind {
-        self.kind
     }
 
     #[must_use]
@@ -609,37 +473,6 @@ pub fn imported_functions_num(symbols: &[Symbol]) -> u32 {
 }
 
 #[derive(Debug, Clone)]
-/// External function declared by the compiled script (engine-provided).
-pub struct ExternalFunctionInfo {
-    /// Lowercased external function name.
-    pub name: String,
-    /// Number of parameters the external expects.
-    pub parameters_num: u32,
-    /// Whether the external returns a value.
-    pub returns: bool,
-}
-
-#[must_use]
-/// Information about all functions which are imported from the engine.
-/// They become imports of the created wasm module.
-pub fn external_functions(symbols: &[Symbol]) -> Vec<ExternalFunctionInfo> {
-    symbols
-        .iter()
-        .filter_map(|symbol| {
-            let func = symbol.function.as_ref()?;
-            if !func.is_external {
-                return None;
-            }
-            Some(ExternalFunctionInfo {
-                name: func.name.clone(),
-                parameters_num: func.call_signature.parameters_num,
-                returns: func.call_signature.returns,
-            })
-        })
-        .collect()
-}
-
-#[derive(Debug, Clone)]
 /// Daedalus function representation.
 pub struct Function {
     pub(crate) call_signature: CallSignature,
@@ -661,9 +494,6 @@ impl Function {
             is_external: false,
         }
     }
-
-    // #[must_use]
-    /// If symbol is external from perspective of daedalus script.
 
     #[expect(unused, reason = "Used for generation wit interface file")]
     pub(crate) fn print_wit_declaration(&self) {
@@ -729,10 +559,6 @@ impl Flags {
 }
 
 /// Kind of a daedalus symbol.
-#[expect(
-    clippy::exhaustive_enums,
-    reason = "The variants come from the fixed .DAT file format, so they are complete"
-)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum SymbolKind {
     /// Class.

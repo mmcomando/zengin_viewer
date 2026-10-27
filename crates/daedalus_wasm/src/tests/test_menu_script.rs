@@ -2,6 +2,7 @@
 //! dumps all symbols, to evaluate menu support in the viewer.
 //! Run: cargo test -p daedalus_wasm --lib tests::test_menu_script -- --ignored --nocapture
 
+use crate::daedalus::SymbolKind;
 use crate::tests::common::WasmExecutor;
 use crate::tests::common::gothic2_dir;
 use crate::wasm::convert_daedalus_script;
@@ -21,18 +22,26 @@ fn menu_convert_and_dump_symbols() {
 
     println!("=== external functions (host imports) ===");
     let mut externals: HashMap<String, (u32, bool)> = HashMap::new();
-    for external in crate::daedalus::external_functions(&data.symbols) {
+    for symbol in &data.symbols {
+        let Some(func) = &symbol.function else {
+            continue;
+        };
+        if !func.is_external {
+            continue;
+        }
+        let parameters_num = func.call_signature.parameters_num;
+        let returns = func.call_signature.returns;
         println!(
             "{} (params: {}, returns: {})",
-            external.name, external.parameters_num, external.returns
+            func.name, parameters_num, returns
         );
         externals
-            .entry(external.name)
+            .entry(func.name.clone())
             .and_modify(|entry| {
-                assert_eq!(entry.0, external.parameters_num);
-                assert_eq!(entry.1, external.returns);
+                assert_eq!(entry.0, parameters_num);
+                assert_eq!(entry.1, returns);
             })
-            .or_insert((external.parameters_num, external.returns));
+            .or_insert((parameters_num, returns));
     }
     println!("\n=== unique externals: {} ===", externals.len());
 
@@ -41,18 +50,37 @@ fn menu_convert_and_dump_symbols() {
 
     println!("\n=== class layout ===");
     for class in ["c_menu", "c_menu_item"] {
-        let Some(members) = data.class_members(class) else {
+        let Some(class_index) = data
+            .symbols
+            .iter()
+            .position(|symbol| symbol.kind == SymbolKind::Class && symbol.name == class)
+        else {
             println!("{class}: missing");
             continue;
         };
-        let mut members: Vec<_> = members.iter().collect();
-        members.sort_by_key(|(_, member)| member.offset);
+        let class_index = class_index as u32;
+        let prefix = format!("{class}.");
+        let mut members: Vec<_> = data
+            .symbols
+            .iter()
+            .filter_map(|symbol| {
+                if symbol.parent != Some(class_index) {
+                    return None;
+                }
+                Some((
+                    symbol
+                        .name
+                        .strip_prefix(&prefix)
+                        .unwrap_or(symbol.name.as_str()),
+                    symbol.offset?,
+                    symbol.elements_count,
+                ))
+            })
+            .collect();
+        members.sort_by_key(|(_, offset, _)| *offset);
         println!("{class}:");
-        for (name, member) in members {
-            println!(
-                "  {name} offset={} elements={}",
-                member.offset, member.elements_count
-            );
+        for (name, offset, elements_count) in members {
+            println!("  {name} offset={offset} elements={elements_count}");
         }
     }
 

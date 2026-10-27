@@ -17,27 +17,27 @@ fn print_class_member_offsets() {
     let classes: Vec<String> = script
         .symbols
         .iter()
-        .filter(|symbol| symbol.kind() == crate::daedalus::SymbolKind::Class)
-        .map(|symbol| symbol.name().to_uppercase())
+        .filter(|symbol| symbol.kind == crate::daedalus::SymbolKind::Class)
+        .map(|symbol| symbol.name.to_uppercase())
         .collect();
     println!("classes: {classes:?}");
     for class in classes {
         let Some(class_index) = script
             .symbols
             .iter()
-            .position(|symbol| symbol.name().to_uppercase() == class)
+            .position(|symbol| symbol.name.to_uppercase() == class)
         else {
             continue;
         };
         let class_index = class_index as u32;
         println!("=== {class} ===");
         for symbol in &script.symbols {
-            if symbol.parent() == Some(class_index) && symbol.offset().is_some() {
+            if symbol.parent == Some(class_index) && symbol.offset.is_some() {
                 println!(
                     "{:>8} {:>18} count({:>3})",
-                    symbol.offset().unwrap_or_default(),
-                    symbol.name(),
-                    symbol.elements_count()
+                    symbol.offset.unwrap_or_default(),
+                    symbol.name,
+                    symbol.elements_count
                 );
             }
         }

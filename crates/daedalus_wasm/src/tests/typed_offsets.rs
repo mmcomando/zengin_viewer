@@ -30,7 +30,7 @@ fn build(file: &str) -> Option<TypedRegistry> {
     for (index, symbol) in data.symbols.iter().enumerate() {
         let index = index as u32;
         if registry.has_value_slot(index) {
-            registry.write_values(index, symbol.default_values());
+            registry.write_values(index, &symbol.default_values);
         }
     }
     Some(registry)
@@ -48,14 +48,14 @@ fn symbol_id(registry: &TypedRegistry, name: &str) -> u32 {
 
 fn decl<'a>(symbol: &'a Symbol) -> SymbolDecl<'a> {
     SymbolDecl {
-        name: symbol.name(),
-        kind: convert_symbol_kind(symbol.kind()),
-        is_const: symbol.is_const(),
-        is_class_member: symbol.is_class_var(),
-        address_or_offset: symbol.offset().unwrap_or(0),
-        element_count: symbol.elements_count(),
+        name: symbol.name.as_str(),
+        kind: convert_symbol_kind(symbol.kind),
+        is_const: symbol.is_const,
+        is_class_member: symbol.is_class_var,
+        address_or_offset: symbol.offset.unwrap_or(0),
+        element_count: symbol.elements_count,
         has_function: symbol.is_function_with_code(),
-        parent: symbol.parent(),
+        parent: symbol.parent,
     }
 }
 

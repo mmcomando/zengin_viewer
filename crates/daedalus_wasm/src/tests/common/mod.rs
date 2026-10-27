@@ -553,7 +553,7 @@ impl WasmExecutor {
     }
 
     pub fn simple_return_test(instructions: &[daedalus::Instruction]) -> i32 {
-        Self::return_test(instructions, &[daedalus::Symbol::new(0, false, 1, None)])
+        Self::return_test(instructions, &[symbol(0, false, 1, None)])
     }
 
     pub fn call_count(&self, name: &str) -> u64 {
@@ -836,4 +836,37 @@ pub fn gothic2_dir() -> PathBuf {
 #[allow(dead_code)]
 pub fn gothic2_main_script_path() -> PathBuf {
     gothic2_dir().join("_work/Data/Scripts/_compiled/GOTHIC.DAT")
+}
+
+pub fn symbol(
+    index: u32,
+    is_class_var: bool,
+    elements_count: u32,
+    offset: Option<u32>,
+) -> daedalus::Symbol {
+    daedalus::Symbol {
+        name: index.to_string(),
+        index,
+        kind: daedalus::SymbolKind::Int,
+        is_class_var,
+        is_const: false,
+        elements_count,
+        offset,
+        default_values: vec![0; elements_count as usize],
+        function: None,
+        parent: None,
+    }
+}
+
+pub fn function_address(script: &daedalus::CompiledDaedalusScript, name: &str) -> u32 {
+    let symbol = script
+        .symbols
+        .iter()
+        .find(|symbol| symbol.name == name)
+        .unwrap_or_else(|| panic!("{name} symbol should exist"));
+    symbol
+        .function
+        .as_ref()
+        .unwrap_or_else(|| panic!("{name} should have function code"))
+        .instructions_offset
 }
