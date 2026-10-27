@@ -105,6 +105,7 @@ impl BinaryBuilder {
     /// Whitelist which daedalus function symbols to convert to wasm functions.
     /// Main purpose for this function is testing.
     /// If not called or `whitelisted_functions` is empty, all functions will be compiled.
+    #[cfg(test)]
     pub fn whitelist_functions(&mut self, whitelisted_functions: &[&str]) {
         self.whitelisted_functions = whitelisted_functions
             .iter()

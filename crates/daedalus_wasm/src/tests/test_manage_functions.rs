@@ -13,8 +13,8 @@ fn test_call_npc_routine() {
     let instructions = vec![InstDD::Return];
     let call_signature = CallSignature::new(0, false);
     symbols[1].set_function(Function::new("my-test", call_signature, &instructions));
-    symbols[2].set_default_values(vec![1; 200]);
-    symbols[3].set_default_values(vec![-1; 200]); // Invalid value for npc_routine index
+    symbols[2].default_values = vec![1; 200];
+    symbols[3].default_values = vec![-1; 200]; // Invalid value for npc_routine index
 
     let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
     executor.call_npc_routine(2);
@@ -60,8 +60,8 @@ fn test_get_item_visual() {
         Symbol::new(2, false, 200, None),
         Symbol::new(3, false, 200, None),
     ];
-    symbols[2].set_default_values(vec![1; 200]);
-    symbols[3].set_default_values(vec![0; 200]);
+    symbols[2].default_values = vec![1; 200];
+    symbols[3].default_values = vec![0; 200];
 
     let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
     assert_eq!(executor.get_item_visual(2).unwrap(), "1");
@@ -90,7 +90,7 @@ fn test_get_npc_info() {
         Symbol::new(1, false, 1, None),
         Symbol::new(2, false, 200, None),
     ];
-    symbols[2].set_default_values(values);
+    symbols[2].default_values = values;
 
     let instructions = &[InstDD::PushInt(55), InstDD::Return];
     let mut executor = WasmExecutor::prepare_test(instructions, symbols);
@@ -100,7 +100,7 @@ fn test_get_npc_info() {
     assert_eq!(info.name, Some(3));
 
     // Empty instance data reads as zeroes
-    symbols[2].set_default_values(vec![0; 200]);
+    symbols[2].default_values = vec![0; 200];
     let mut executor = WasmExecutor::prepare_test(instructions, symbols);
     let info = executor.get_npc_info(2);
     assert_eq!(info.hitpoints, 0);
@@ -140,7 +140,7 @@ fn test_get_item_info() {
         Symbol::new(1, false, 1, None),
         Symbol::new(2, false, 200, None),
     ];
-    symbols[2].set_default_values(values);
+    symbols[2].default_values = values;
 
     let instructions = &[InstDD::PushInt(55), InstDD::Return];
     let mut executor = WasmExecutor::prepare_test(instructions, symbols);
@@ -155,7 +155,7 @@ fn test_get_item_info() {
     assert_eq!(info.text, vec![5, 0, 0, 0, 0, 0]);
     assert_eq!(info.count, vec![2, 0, 0, 0, 0, 0]);
 
-    symbols[2].set_default_values(vec![0; 200]);
+    symbols[2].default_values = vec![0; 200];
     let mut executor = WasmExecutor::prepare_test(instructions, symbols);
     let info = executor.get_item_info(2);
     assert_eq!(info.damage_total, 0);

@@ -510,20 +510,12 @@ impl Symbol {
         }
     }
 
-    /// Set values symbol contains during initialization.
-    pub fn set_default_values(&mut self, default_values: Vec<i32>) {
-        self.default_values = default_values;
-    }
-
     /// Set symbol function.
     pub fn set_function(&mut self, function: Function) {
         self.function = Some(function);
     }
 
     /// Set symbol name.
-    pub fn set_name(&mut self, name: &str) {
-        name.clone_into(&mut self.name);
-    }
 
     /// Set symbol kind.
     pub fn set_kind(&mut self, kind: SymbolKind) {
@@ -670,11 +662,8 @@ impl Function {
         }
     }
 
-    #[must_use]
+    // #[must_use]
     /// If symbol is external from perspective of daedalus script.
-    pub fn is_external(&self) -> bool {
-        self.is_external
-    }
 
     #[expect(unused, reason = "Used for generation wit interface file")]
     pub(crate) fn print_wit_declaration(&self) {
