@@ -1,5 +1,7 @@
 //! Npc weapons: weapon mode idle switch and weapon mesh attachment.
 
+use std::collections::HashSet;
+
 use bevy::ecs::entity::Entities;
 use bevy::prelude::*;
 
@@ -11,7 +13,7 @@ use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{WeaponKind, WeaponMode};
+use crate::zengin::script::state::{NpcEntitiesChanged, WeaponKind, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
 
 /// Weapon mode of the npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI),
@@ -92,20 +94,36 @@ impl NpcWeaponSlots {
     }
 }
 
-/// One attached weapon mesh child of an npc, managed by [`update_npc_weapon`].
-#[derive(Default, Clone, PartialEq)]
-struct WeaponMesh {
-    entity: Option<Entity>,
-    item: Option<InstanceId>,
-    slot: Option<Entity>,
+/// One attachment slot of an npc: the managed child entity and the source
+/// values it was last built from.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct NpcAttachment {
+    pub entity: Option<Entity>,
+    pub item: Option<InstanceId>,
+    pub slot: Option<Entity>,
 }
 
-/// Weapon mesh children currently attached to an npc per weapon kind, managed
-/// by [`update_npc_weapon`].
+/// Equipped weapon (and later armor) visuals of an npc, managed by
+/// [`update_npc_attachments`].
 #[derive(Component, Default, Clone, PartialEq)]
-pub(crate) struct NpcWeapon {
-    melee: WeaponMesh,
-    ranged: WeaponMesh,
+pub struct NpcAttachments {
+    pub melee: NpcAttachment,
+    pub ranged: NpcAttachment,
+    /// Reserved for the armor replacement, currently produced by the spawn path.
+    pub armor: NpcAttachment,
+    /// Weapon mode the slots were last laid out for.
+    pub mode: Option<WeaponMode>,
+}
+
+/// Marks an attachment visual child entity.
+#[derive(Component)]
+pub struct NpcAttachmentMarker;
+
+/// Item instance rendered by an attachment child.
+#[derive(Component, Clone, Copy)]
+#[allow(dead_code)] // read by item/attachment consumers (next step)
+pub struct EquippedItem {
+    pub instance_id: InstanceId,
 }
 
 /// Weapons equipped by the npc (`EquipItem`), maintained by the script bridge.
@@ -116,120 +134,228 @@ pub struct NpcEquippedWeapon {
     pub ranged: Option<InstanceId>,
 }
 
+type NpcAttachmentQueryData = (
+    Entity,
+    &'static NpcWeaponSlots,
+    Option<&'static NpcEquippedWeapon>,
+    Option<&'static NpcWeaponMode>,
+    Option<&'static mut NpcAttachments>,
+);
+
 /// Keeps a weapon mesh on each npc that has one equipped. Melee sheathes at the
 /// hip, ranged on the back; switching to melee/ranged weapon mode moves the
-/// weapon to the hand. Reacts to the equipped items changing, the weapon mode
-/// changing, and the visual (weapon slots) appearing.
-#[allow(clippy::type_complexity)]
-pub(crate) fn update_npc_weapon(
+/// weapon to the hand. Reacts to the npc change signal, the equipped items
+/// changing, the weapon mode changing, and the visual (weapon slots) appearing.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub(crate) fn update_npc_attachments(
+    mut commands: Commands,
+    mut changes: MessageReader<NpcEntitiesChanged>,
     gothic_scripts: Res<ScriptResource>,
     vfs: Res<ZenginVfs>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
-    mut commands: Commands,
     entities: &Entities,
-    mut npcs: Query<
-        (
-            Entity,
-            &NpcWeaponSlots,
-            Option<&NpcEquippedWeapon>,
-            Option<&NpcWeaponMode>,
-            Option<&mut NpcWeapon>,
-        ),
-        Or<(
-            Changed<NpcEquippedWeapon>,
-            Changed<NpcWeaponMode>,
-            Changed<NpcWeaponSlots>,
-        )>,
-    >,
+    mut npcs: ParamSet<(
+        Query<NpcAttachmentQueryData>,
+        Query<
+            NpcAttachmentQueryData,
+            Or<(
+                Changed<NpcEquippedWeapon>,
+                Changed<NpcWeaponMode>,
+                Changed<NpcWeaponSlots>,
+            )>,
+        >,
+    )>,
 ) {
-    for (entity, slots, equipped, weapon_mode, weapon) in &mut npcs {
-        let mode = weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0);
-        let (melee_item, ranged_item) = equipped
-            .map(|equipped| (equipped.melee, equipped.ranged))
-            .unwrap_or_default();
+    {
+        let mut processed = HashSet::new();
+        {
+            let mut query = npcs.p0();
+            for change in changes.read() {
+                let (melee, ranged, mode) = {
+                    let runtime = change
+                        .handle
+                        .runtime()
+                        .read()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    (
+                        runtime.equipment.melee,
+                        runtime.equipment.ranged,
+                        runtime.equipment.weapon_mode,
+                    )
+                };
+                for &entity in &change.entities {
+                    let Ok((entity, slots, _, _, attachments)) = query.get_mut(entity) else {
+                        continue;
+                    };
+                    processed.insert(entity);
+                    sync_npc_attachments(
+                        &mut commands,
+                        entities,
+                        &gothic_scripts,
+                        &vfs,
+                        &mut handles,
+                        &asset_server,
+                        entity,
+                        slots,
+                        attachments,
+                        melee,
+                        ranged,
+                        mode,
+                    );
+                }
+            }
+        }
 
-        // Work on a plain copy, written back at the end, so the component does
-        // not need to exist yet
-        let mut tracked = weapon.as_deref().cloned().unwrap_or_default();
-        // Bow and crossbow share the equipped ranged item; both `ZS_` slots
-        // exist on humanoid models, so the kind is resolved from the item's
-        // symbol name, not from the slot the model provides
-        let ranged_kind = ranged_item
-            .and_then(|item| {
-                let mut script = gothic_scripts.lock();
-                script.get_name_by_id(item.value())
-            })
-            .map(|name| name.to_lowercase())
-            .and_then(|name| WeaponKind::from_symbol_name(&name))
-            .filter(|kind| *kind != WeaponKind::Melee)
-            .unwrap_or(WeaponKind::Bow);
-        for (kind, item, mesh) in [
-            (WeaponKind::Melee, melee_item, &mut tracked.melee),
-            (ranged_kind, ranged_item, &mut tracked.ranged),
-        ] {
-            let drawn = match kind {
-                WeaponKind::Melee => mode == WeaponMode::Melee,
-                WeaponKind::Bow | WeaponKind::Crossbow => mode == WeaponMode::Ranged,
-            };
-            let target_slot = slots
-                .slot_for(kind, drawn)
-                .filter(|slot| entities.contains(*slot));
-            update_weapon_mesh(
+        let mut query = npcs.p1();
+        for (entity, slots, equipped, mode, attachments) in &mut query {
+            if processed.contains(&entity) {
+                continue;
+            }
+            sync_npc_attachments(
                 &mut commands,
                 entities,
-                mesh,
-                item,
-                target_slot,
                 &gothic_scripts,
                 &vfs,
                 &mut handles,
                 &asset_server,
+                entity,
+                slots,
+                attachments,
+                equipped.and_then(|equipped| equipped.melee),
+                equipped.and_then(|equipped| equipped.ranged),
+                mode.map(|mode| mode.0),
             );
-        }
-        if weapon.as_deref() != Some(&tracked) {
-            commands.entity(entity).insert(tracked);
         }
     }
 }
 
-/// Syncs one weapon mesh child with its equipped item and target slot: creates
+/// Syncs the melee and ranged attachment children of one npc with the equipped
+/// items, the weapon mode and the available skeleton slots.
+#[allow(clippy::too_many_arguments)]
+fn sync_npc_attachments(
+    commands: &mut Commands,
+    entities: &Entities,
+    gothic_scripts: &ScriptResource,
+    vfs: &ZenginVfs,
+    handles: &mut CachedAssetHandles,
+    asset_server: &Res<AssetServer>,
+    entity: Entity,
+    slots: &NpcWeaponSlots,
+    attachments: Option<Mut<'_, NpcAttachments>>,
+    melee_item: Option<InstanceId>,
+    ranged_item: Option<InstanceId>,
+    mode: Option<WeaponMode>,
+) {
+    let mode = mode.unwrap_or(WeaponMode::Fists);
+    // Work on a plain copy, written back at the end, so the component does not
+    // need to exist yet
+    let mut tracked = attachments.as_deref().cloned().unwrap_or_default();
+    let child_missing = tracked
+        .melee
+        .entity
+        .is_some_and(|child| !entities.contains(child))
+        || tracked
+            .ranged
+            .entity
+            .is_some_and(|child| !entities.contains(child));
+    if tracked.melee.item == melee_item
+        && tracked.ranged.item == ranged_item
+        && tracked.mode == Some(mode)
+        && !child_missing
+    {
+        return;
+    }
+
+    // Bow and crossbow share the equipped ranged item; both `ZS_` slots exist
+    // on humanoid models, so the kind is resolved from the item's symbol name,
+    // not from the slot the model provides
+    let ranged_kind = ranged_item
+        .and_then(|item| {
+            let mut script = gothic_scripts.lock();
+            script.get_name_by_id(item.value())
+        })
+        .map(|name| name.to_lowercase())
+        .and_then(|name| WeaponKind::from_symbol_name(&name))
+        .filter(|kind| *kind != WeaponKind::Melee)
+        .unwrap_or(WeaponKind::Bow);
+
+    for (kind, item, attachment) in [
+        (WeaponKind::Melee, melee_item, &mut tracked.melee),
+        (ranged_kind, ranged_item, &mut tracked.ranged),
+    ] {
+        let drawn = match kind {
+            WeaponKind::Melee => mode == WeaponMode::Melee,
+            WeaponKind::Bow | WeaponKind::Crossbow => mode == WeaponMode::Ranged,
+        };
+        let target_slot = slots
+            .slot_for(kind, drawn)
+            .filter(|slot| entities.contains(*slot));
+        update_attachment(
+            commands,
+            entities,
+            attachment,
+            item,
+            target_slot,
+            gothic_scripts,
+            vfs,
+            handles,
+            asset_server,
+        );
+    }
+
+    tracked.mode = Some(mode);
+    if attachments.as_deref() != Some(&tracked) {
+        commands.entity(entity).try_insert(tracked);
+    }
+}
+
+/// Syncs one attachment child with its equipped item and target slot: creates
 /// the mesh child when missing or the item changed, moves it between slots and
 /// despawns it when nothing is equipped.
 #[allow(clippy::too_many_arguments)]
-fn update_weapon_mesh(
+fn update_attachment(
     commands: &mut Commands,
     entities: &Entities,
-    mesh: &mut WeaponMesh,
+    attachment: &mut NpcAttachment,
     item: Option<InstanceId>,
     target_slot: Option<Entity>,
-    gothic_scripts: &Res<ScriptResource>,
-    vfs: &Res<ZenginVfs>,
-    handles: &mut ResMut<CachedAssetHandles>,
+    gothic_scripts: &ScriptResource,
+    vfs: &ZenginVfs,
+    handles: &mut CachedAssetHandles,
     asset_server: &Res<AssetServer>,
 ) {
-    let path = item.and_then(|item| item_model_path(gothic_scripts, vfs, item));
-
-    let Some(path) = path else {
-        // Nothing equipped, or its mesh is unknown
-        detach_weapon(commands, entities, mesh);
+    let Some(item) = item else {
+        detach_attachment(commands, entities, attachment);
         return;
     };
 
-    // The weapon mesh child is despawned with the visual when the npc is far
-    let child_alive = mesh.entity.is_some_and(|child| entities.contains(child));
+    // The attachment child is despawned with the visual when the npc is far
+    let child_alive = attachment
+        .entity
+        .is_some_and(|child| entities.contains(child));
     // A different equipped item needs a different mesh child
-    let item_changed = mesh.item != item;
+    let item_changed = attachment.item != Some(item);
+    let slot_changed = attachment.slot != target_slot;
+    if child_alive && !item_changed && !slot_changed {
+        return;
+    }
+
+    let Some(path) = item_model_path(gothic_scripts, vfs, item) else {
+        // Nothing equipped, or its mesh is unknown
+        detach_attachment(commands, entities, attachment);
+        return;
+    };
 
     if !child_alive || item_changed {
-        // Replace the stale/obsolete weapon mesh child
-        if let Some(child) = mesh.entity.filter(|child| entities.contains(*child)) {
+        // Replace the stale/obsolete attachment child
+        if let Some(child) = attachment.entity.filter(|child| entities.contains(*child)) {
             commands.entity(child).despawn();
         }
         let Some(target_slot) = target_slot else {
             // No slot available, only drop the stale child reference
-            mesh.entity = None;
-            mesh.slot = None;
+            attachment.entity = None;
+            attachment.slot = None;
             return;
         };
         let handle = handles.get_model_handle(asset_server, &path, None);
@@ -242,36 +368,47 @@ fn update_weapon_mesh(
                 },
                 Transform::IDENTITY,
                 ChildOf(target_slot),
+                NpcAttachmentMarker,
+                EquippedItem { instance_id: item },
             ))
             .id();
-        *mesh = WeaponMesh {
+        debug!(
+            "attachment item({}) created as child({child:?}) of slot({target_slot:?})",
+            item.value()
+        );
+        *attachment = NpcAttachment {
             entity: Some(child),
-            item,
+            item: Some(item),
             slot: Some(target_slot),
         };
         return;
     }
 
-    mesh.item = item;
+    attachment.item = Some(item);
 
     // Move between sheathed and drawn
-    if mesh.slot != target_slot
-        && let Some(child) = mesh.entity
-        && let Some(target_slot) = target_slot
+    if let Some(target_slot) = target_slot
+        && attachment.slot != Some(target_slot)
+        && let Some(child) = attachment.entity
     {
+        debug!(
+            "attachment item({:?}) moved to slot({target_slot:?})",
+            attachment.item
+        );
         commands.entity(child).insert(ChildOf(target_slot));
-        mesh.slot = Some(target_slot);
+        attachment.slot = Some(target_slot);
     }
 }
 
-/// Despawns the weapon mesh child when it is still alive and clears the tracked
+/// Despawns the attachment child when it is still alive and clears the tracked
 /// state.
-fn detach_weapon(commands: &mut Commands, entities: &Entities, mesh: &mut WeaponMesh) {
-    if let Some(child) = mesh.entity.take()
+fn detach_attachment(commands: &mut Commands, entities: &Entities, attachment: &mut NpcAttachment) {
+    if let Some(child) = attachment.entity.take()
         && entities.contains(child)
     {
+        debug!("attachment item({:?}) detached", attachment.item);
         commands.entity(child).despawn();
     }
-    mesh.item = None;
-    mesh.slot = None;
+    attachment.item = None;
+    attachment.slot = None;
 }

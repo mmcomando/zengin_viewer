@@ -16,7 +16,7 @@ use routines::{
     NpcRoutineCheckState, apply_align_to_wp, apply_look_at, move_along_path, resolve_goto_paths,
     update_npc_routine_animations, update_npc_routine_entries, update_npc_routines,
 };
-use weapons::{apply_weapon_mode, update_npc_weapon};
+use weapons::{apply_weapon_mode, update_npc_attachments};
 
 pub(crate) use health::NpcHealth;
 pub(crate) use overlay::overlay_scheme;
@@ -39,7 +39,7 @@ impl Plugin for NpcRoutinesPlugin {
                 apply_look_at.after(update_npc_routines),
                 apply_align_to_wp.after(apply_look_at),
                 apply_weapon_mode.after(update_npc_routine_animations),
-                update_npc_weapon,
+                update_npc_attachments,
                 move_along_path.after(update_npc_routines),
             )
                 .after(advance_game_time)
