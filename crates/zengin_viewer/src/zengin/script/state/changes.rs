@@ -1,4 +1,6 @@
-use bevy::prelude::{Message, Transform};
+use bevy::prelude::{Entity, Message, Transform};
+
+use crate::zengin::NpcHandle;
 
 use super::super::string_value::StringCanon;
 use super::super::symbol_id::{InstanceId, StringId};
@@ -8,6 +10,24 @@ use super::weapons::OverlayRequest;
 #[derive(Message)]
 pub struct RoutineEntryChange {
     pub instance_id: InstanceId,
+}
+
+/// Signal that an npc's shared data changed; consumers compare the fields they
+/// mirror and update their component only when the value actually differs.
+#[derive(Debug, Message, Clone, Copy)]
+pub struct NpcChanged {
+    pub instance_id: InstanceId,
+}
+
+/// Signal that the entities carrying an npc instance need to refresh their
+/// mirrored components.
+#[derive(Debug, Message, Clone)]
+#[allow(dead_code)] // consumed by the per-field npc systems (next step)
+pub struct NpcEntitiesChanged {
+    pub instance_id: InstanceId,
+    /// Shared data of the instance, so consumers do not need a second lookup.
+    pub handle: NpcHandle,
+    pub entities: Vec<Entity>,
 }
 
 /// Signal that an npc requested `Npc_ExchangeRoutine`: its routine entries are

@@ -85,7 +85,7 @@ fn weapon_state(
     ranged: bool,
 ) -> Option<(bool, bool, &'static str)> {
     let script = gothic_script.lock();
-    let instance = script.npc_instances().get(&player_id)?;
+    let instance = script.npc_state(player_id)?;
     let equipped = if ranged {
         instance.equipped_ranged.is_some()
     } else {

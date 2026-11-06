@@ -11,30 +11,23 @@ impl super::ScriptManager {
         from: InstanceId,
         to: InstanceId,
     ) -> Vec<(InstanceId, i32)> {
-        let taken = self
-            .npc_instances_mut()
-            .get_mut(&from)
-            .map(|npc| npc.inventory.take_all());
-        let Some(taken) = taken else {
-            return Vec::new();
-        };
+        let taken = self.npc_state_mut(from).inventory.take_all();
         let moved = taken.items();
-        self.npc_instances_mut_or_default(to).inventory.merge(taken);
+        if moved.is_empty() {
+            return Vec::new();
+        }
+        self.npc_state_mut(to).inventory.merge(taken);
         moved
     }
 
     pub fn add_inventory(&mut self, npc: InstanceId, item: InstanceId, count: i32) {
-        self.npc_instances_mut_or_default(npc)
-            .inventory
-            .create(item, count);
+        self.npc_state_mut(npc).inventory.create(item, count);
     }
 
     /// Removes up to `count` of `item` from an npc's inventory, returns how
     /// many were actually removed.
     pub fn remove_inventory(&mut self, npc: InstanceId, item: InstanceId, count: i32) -> i32 {
-        self.npc_instances_mut_or_default(npc)
-            .inventory
-            .remove(item, count)
+        self.npc_state_mut(npc).inventory.remove(item, count)
     }
 
     /// Equips an item as the npc's melee or ranged weapon depending on its
@@ -54,10 +47,12 @@ impl super::ScriptManager {
             );
             return;
         };
-        let instance = self.npc_instances_mut_or_default(npc);
-        match kind {
-            WeaponKind::Melee => instance.equipped_melee = Some(item),
-            WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = Some(item),
+        {
+            let mut instance = self.npc_state_mut(npc);
+            match kind {
+                WeaponKind::Melee => instance.equipped_melee = Some(item),
+                WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = Some(item),
+            }
         }
         self.pending_changes()
             .equip_item_changes
@@ -73,7 +68,7 @@ impl super::ScriptManager {
         } else {
             WeaponMode::Melee
         };
-        let equipped = self.npc_instances().get(&npc).map(|npc| {
+        let equipped = self.npc_state(npc).map(|npc| {
             if ranged {
                 npc.equipped_ranged.is_some()
             } else {
@@ -88,7 +83,7 @@ impl super::ScriptManager {
             );
             return;
         }
-        self.npc_instances_mut_or_default(npc).weapon_mode = Some(mode);
+        self.npc_state_mut(npc).weapon_mode = Some(mode);
         self.pending_changes()
             .weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
@@ -99,7 +94,7 @@ impl super::ScriptManager {
     /// queued for the ECS bridge. The weapon stays equipped.
     #[allow(dead_code)] // used by the draw/sheathe weapon inputs
     pub fn sheathe_weapon(&mut self, npc: InstanceId) {
-        self.npc_instances_mut_or_default(npc).weapon_mode = Some(WeaponMode::Fists);
+        self.npc_state_mut(npc).weapon_mode = Some(WeaponMode::Fists);
         self.pending_changes()
             .weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
@@ -108,18 +103,20 @@ impl super::ScriptManager {
     /// Unequips the npc's weapon of the given kind, sheathing it when it was
     /// drawn. Leaves the changes queued for the ECS bridge.
     pub fn unequip_weapon_kind(&mut self, npc: InstanceId, kind: WeaponKind) {
-        let instance = self.npc_instances_mut_or_default(npc);
-        match kind {
-            WeaponKind::Melee => instance.equipped_melee = None,
-            WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = None,
-        }
-        let drawn_kind_matches = match instance.weapon_mode {
-            Some(WeaponMode::Melee) => kind == WeaponKind::Melee,
-            Some(WeaponMode::Ranged) => kind.is_ranged(),
-            _ => false,
+        let drawn_kind_matches = {
+            let mut instance = self.npc_state_mut(npc);
+            match kind {
+                WeaponKind::Melee => instance.equipped_melee = None,
+                WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = None,
+            }
+            match instance.weapon_mode {
+                Some(WeaponMode::Melee) => kind == WeaponKind::Melee,
+                Some(WeaponMode::Ranged) => kind.is_ranged(),
+                _ => false,
+            }
         };
         if drawn_kind_matches {
-            instance.weapon_mode = Some(WeaponMode::Fists);
+            self.npc_state_mut(npc).weapon_mode = Some(WeaponMode::Fists);
             self.pending_changes()
                 .weapon_mode_changes
                 .push(WeaponModeChange { instance_id: npc });
@@ -134,10 +131,12 @@ impl super::ScriptManager {
     /// ECS bridge.
     #[allow(dead_code)] // semantics kept for the AI_UnEquipWeapons host import
     pub fn unequip_item(&mut self, npc: InstanceId) {
-        let instance = self.npc_instances_mut_or_default(npc);
-        instance.equipped_melee = None;
-        instance.equipped_ranged = None;
-        instance.weapon_mode = Some(WeaponMode::Fists);
+        {
+            let mut instance = self.npc_state_mut(npc);
+            instance.equipped_melee = None;
+            instance.equipped_ranged = None;
+            instance.weapon_mode = Some(WeaponMode::Fists);
+        }
         self.pending_changes()
             .equip_item_changes
             .push(EquipItemChange { instance_id: npc });
@@ -149,8 +148,7 @@ impl super::ScriptManager {
     /// Contents of an npc's inventory as `(item, count)` pairs, empty when the
     /// npc has no inventory.
     pub fn inventory(&self, npc: InstanceId) -> Vec<(InstanceId, i32)> {
-        self.npc_instances()
-            .get(&npc)
+        self.npc_state(npc)
             .map(|npc| npc.inventory.items())
             .unwrap_or_default()
     }

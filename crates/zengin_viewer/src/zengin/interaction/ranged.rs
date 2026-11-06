@@ -142,11 +142,10 @@ fn spawn_shot(
     // Damage of the currently equipped ranged weapon.
     let damage = {
         let mut script = gothic_script.lock();
-        script
-            .npc_instances()
-            .get(&shooter)
-            .and_then(|player| player.equipped_ranged)
-            .map(|weapon| script.item_damage_total(weapon))
+        let weapon = script
+            .npc_state(shooter)
+            .and_then(|player| player.equipped_ranged);
+        weapon.map(|weapon| script.item_damage_total(weapon))
     };
     let Some(damage) = damage else {
         warn!(

@@ -1,5 +1,6 @@
 use crate::game_state::AppState;
 use crate::zengin::GameNpc;
+use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{common::gothic2_dir, script::manager::ScriptManager};
 use bevy::ecs::resource::Resource;
@@ -7,7 +8,7 @@ use bevy::log::info;
 use bevy::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use zen_kit_rs::cutscene_library::CutsceneLibrary;
 use zen_kit_rs::misc::TextEncoding;
 use zen_kit_rs::stream::Read;
@@ -36,7 +37,13 @@ pub struct GameScriptLoaded;
 /// the main menu from paying for GOTHIC.DAT conversion or instance setup.
 fn initialize_game_script(world: &mut World) {
     info!("Load game script");
-    world.insert_resource(ScriptResource::new());
+    let mut script = load_gothic_script_manager();
+    let handles = script.npc_handles();
+    world.insert_resource(ScriptResource::from_manager(script));
+    {
+        let mut index = world.resource_mut::<InstanceIndex>();
+        index.replace_npc_handles(handles);
+    }
     world.insert_resource(load_dialog_texts());
 }
 
@@ -47,11 +54,19 @@ fn initialize_game_script(world: &mut World) {
 fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, script: Res<ScriptResource>) {
     let mut script = script.lock();
     let instances = script.npc_instances_mut();
-    for instance in instances.values_mut() {
-        instance.position = None;
+    for instance in instances.values() {
+        instance
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .position = None;
     }
     for (npc, transform) in &npcs {
-        instances.entry(npc.npc_instance_id).or_default().position = Some(transform.translation());
+        // Position sync feeds the script, it is not a data change for the ECS.
+        let instance = instances.entry(npc.npc_instance_id).or_default();
+        instance
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .position = Some(transform.translation());
     }
 }
 
@@ -62,8 +77,8 @@ fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, script: Re
 pub struct ScriptResource(Arc<Mutex<ScriptManager>>);
 
 impl ScriptResource {
-    pub fn new() -> Self {
-        Self(Arc::new(Mutex::new(load_gothic_script_manager())))
+    pub fn from_manager(manager: ScriptManager) -> Self {
+        Self(Arc::new(Mutex::new(manager)))
     }
 
     pub fn lock(&self) -> MutexGuard<'_, ScriptManager> {
@@ -92,6 +107,9 @@ fn load_gothic_script_manager() -> ScriptManager {
     script.load_npc_instances();
     info!("Call script load dialog options");
     script.load_dialogs_information();
+
+    // Initial values are seeded on npc spawn, do not replay them as changes.
+    script.clear_npc_changes();
 
     script
 }

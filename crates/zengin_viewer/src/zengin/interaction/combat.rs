@@ -100,8 +100,7 @@ pub(super) fn melee_swing_hit(
         let damage = {
             let mut script = gothic_script.lock();
             let weapon = script
-                .npc_instances()
-                .get(&player_id)
+                .npc_state(player_id)
                 .and_then(|player| player.equipped_melee)
                 .filter(|_| weapon_mode == WeaponMode::Melee);
             let Some(weapon) = weapon else {

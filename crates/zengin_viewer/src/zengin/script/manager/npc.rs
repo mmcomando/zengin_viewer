@@ -1,7 +1,9 @@
-use std::sync::{Arc, PoisonError, RwLock};
+use std::sync::PoisonError;
 
 use bevy::log::warn;
 use daedalus_typed::{Item, Npc};
+
+use crate::zengin::NpcHandle;
 
 use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::super::state::HealthChange;
@@ -25,9 +27,7 @@ impl super::ScriptManager {
             );
             return;
         };
-        self.npc_instances_mut_or_default(npc)
-            .routine_entries
-            .clear();
+        self.npc_state_mut(npc).routine_entries.clear();
         self.set_self(npc);
         if let Err(error) = self.try_call_function(function) {
             warn!("Routine function({symbol_name}) failed: {error:?}");
@@ -127,13 +127,44 @@ impl super::ScriptManager {
         self.store.data().typed.item(instance)
     }
 
-    fn npc_handle(&self, instance: u32) -> Option<Arc<RwLock<Npc>>> {
-        self.store
+    /// Shared handle of an npc instance, created on demand. The typed `C_Npc`
+    /// record comes from the registry, the runtime state from the loaded state.
+    pub fn npc_handle(&mut self, instance: InstanceId) -> Option<NpcHandle> {
+        let Some(typed) = self
+            .store
             .data()
             .typed
-            .instance(instance)
+            .instance(instance.value() as u32)
             .and_then(daedalus_typed::TypedInstance::npc)
             .cloned()
+        else {
+            warn!("No typed C_Npc data for instance({})", instance.value());
+            return None;
+        };
+        let runtime = self
+            .store
+            .data_mut()
+            .loaded_state
+            .npc_instances
+            .entry(instance)
+            .or_default()
+            .clone();
+        Some(NpcHandle::new(instance, typed, runtime))
+    }
+
+    /// Handles of every npc instance currently known to the script.
+    pub fn npc_handles(&mut self) -> Vec<NpcHandle> {
+        let ids: Vec<InstanceId> = self
+            .store
+            .data()
+            .loaded_state
+            .npc_instances
+            .keys()
+            .copied()
+            .collect();
+        ids.into_iter()
+            .filter_map(|instance| self.npc_handle(instance))
+            .collect()
     }
 
     /// Hitpoints and hitpoints max of an npc, read from the typed `C_Npc` model
@@ -149,7 +180,7 @@ impl super::ScriptManager {
     /// bridge. Returns the new hitpoints, `None` when the npc has no typed
     /// instance data.
     pub fn change_hitpoints(&mut self, npc: InstanceId, delta: i32) -> Option<i32> {
-        let handle = self.npc_handle(npc.value() as u32)?;
+        let handle = self.npc_handle(npc)?.typed().clone();
         let changed = {
             let mut data = handle.write().unwrap_or_else(PoisonError::into_inner);
             let changed = (data.hitpoints + delta).clamp(0, data.hitpoints_max);
@@ -159,6 +190,7 @@ impl super::ScriptManager {
         self.pending_changes()
             .health_changes
             .push(HealthChange { instance_id: npc });
+        self.pending_changes().npc_changed.insert(npc);
         Some(changed)
     }
 
@@ -210,13 +242,13 @@ impl super::ScriptManager {
         npc_instance_id: InstanceId,
         state_fn: FunctionId,
     ) -> Vec<StringCanon> {
-        self.npc_instances_mut_or_default(npc_instance_id)
+        self.npc_state_mut(npc_instance_id)
             .routine_played_anis
             .clear();
         // Track the active state so `Npc_IsInState`/`Npc_WasInState` answer
         // while the state function runs
         {
-            let npc = self.npc_instances_mut_or_default(npc_instance_id);
+            let mut npc = self.npc_state_mut(npc_instance_id);
             if let Some(previous) = npc.current_routine_state.replace(state_fn)
                 && previous != state_fn
             {
@@ -250,10 +282,7 @@ impl super::ScriptManager {
             );
         }
 
-        self.npc_instances_mut()
-            .get_mut(&npc_instance_id)
-            .map(|npc| std::mem::take(&mut npc.routine_played_anis))
-            .unwrap_or_default()
+        std::mem::take(&mut self.npc_state_mut(npc_instance_id).routine_played_anis)
     }
 
     pub fn get_item_visual(&mut self, symbol_id: SymbolId) -> Option<String> {
@@ -269,7 +298,11 @@ impl super::ScriptManager {
         let npc_indices: Vec<_> = self
             .npc_instances()
             .iter()
-            .filter(|(_, npc)| npc.visual_initialized)
+            .filter(|(_, npc)| {
+                npc.read()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .visual_initialized
+            })
             .map(|(index, _)| *index)
             .collect();
         for index in npc_indices {
@@ -321,7 +354,11 @@ impl super::ScriptManager {
         let indices: Vec<InstanceId> = self
             .npc_instances()
             .iter()
-            .filter(|(_, npc)| npc.visual_initialized)
+            .filter(|(_, npc)| {
+                npc.read()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .visual_initialized
+            })
             .map(|(index, _)| *index)
             .collect();
 
@@ -329,6 +366,7 @@ impl super::ScriptManager {
             // Copy the raw visual body ids out before resolving them through
             // the guest (which needs `&mut self`).
             let Some(raw) = self.npc_instances().get(&index).map(|npc| {
+                let npc = npc.read().unwrap_or_else(PoisonError::into_inner);
                 (
                     npc.body_model_id,
                     npc.head_model_id,
@@ -394,7 +432,7 @@ impl super::ScriptManager {
                 None
             };
 
-            let entry = self.npc_instances_mut_or_default(index);
+            let mut entry = self.npc_state_mut(index);
             entry.body_model = body_model;
             entry.body_texture = body_texture;
             entry.head_model = head_model;

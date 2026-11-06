@@ -2,6 +2,7 @@
 //! routine state animations and `AI_GoToWP` path following.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::PoisonError;
 
 use avian3d::prelude::SpatialQuery;
 use bevy::prelude::*;
@@ -68,16 +69,19 @@ pub(crate) fn update_npc_routine_entries(
     let gothic_script = gothic_script.lock();
     let instances = gothic_script.npc_instances();
     for (npc, mut entry) in &mut npcs {
-        let Some(active) = instances
-            .get(&npc.npc_instance_id)
-            .and_then(|instance| instance.get_routine_entry(minutes))
-        else {
+        let Some(active) = instances.get(&npc.npc_instance_id).and_then(|instance| {
+            instance
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .get_routine_entry(minutes)
+                .cloned()
+        }) else {
             continue;
         };
-        if *entry == *active {
+        if *entry == active {
             continue;
         }
-        *entry = active.clone();
+        *entry = active;
     }
 }
 

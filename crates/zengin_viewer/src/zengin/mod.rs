@@ -7,6 +7,7 @@ pub(crate) use crate::zengin::common::choose_animation_scheme;
 pub(crate) use crate::zengin::interaction::{grant_test_items, seed_test_journal};
 pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
 pub(crate) use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
+mod npc_data;
 mod npc_routines;
 mod objects_to_entities;
 mod resources;
@@ -34,6 +35,7 @@ pub(crate) use crate::zengin::interaction::selection::{Selection, SelectionKind}
 pub(crate) use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };
+pub(crate) use crate::zengin::npc_data::NpcHandle;
 pub(crate) use crate::zengin::npc_routines::NpcHealth;
 pub(crate) use crate::zengin::npc_routines::NpcWeaponMode;
 pub(crate) use crate::zengin::resources::CachedAssetHandles;

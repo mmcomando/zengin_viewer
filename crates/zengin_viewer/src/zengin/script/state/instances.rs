@@ -24,7 +24,7 @@ pub struct RoutineEntry {
 
 /// Runtime state of an npc instance.
 #[derive(Debug, Default)]
-pub struct NpcInstanceState {
+pub struct NpcRuntime {
     /// Set when `Mdl_SetVisualBody`/`Mdl_SetVisual` ran during instance init.
     /// Only these instances are treated as npcs.
     pub visual_initialized: bool,
@@ -106,7 +106,7 @@ pub struct NpcInstanceState {
     pub equipped_ranged: Option<InstanceId>,
 }
 
-impl NpcInstanceState {
+impl NpcRuntime {
     /// Routine entry active at `minutes_of_day`, matching the engine semantics:
     /// entries start (inclusive) at their start time and stop (exclusive) at
     /// their stop time, entries wrapping over midnight stay active past it.

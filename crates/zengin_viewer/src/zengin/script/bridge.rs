@@ -19,8 +19,9 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use crate::zengin::script::state::{
     AlignToWpChange, DialogClose, DialogLine, EquipItemChange, GotoChange, HealthChange,
-    InventoryGain, NpcLookAtChange, OverlayChange, OverlayRequest, RoutineEntry,
-    RoutineEntryChange, ScreenMessage, SpawnItem, SpawnNpc, WeaponMode, WeaponModeChange,
+    InventoryGain, NpcChanged, NpcEntitiesChanged, NpcLookAtChange, OverlayChange, OverlayRequest,
+    RoutineEntry, RoutineEntryChange, ScreenMessage, SpawnItem, SpawnNpc, WeaponMode,
+    WeaponModeChange,
 };
 
 pub struct ScriptBridgePlugin;
@@ -28,6 +29,8 @@ pub struct ScriptBridgePlugin;
 impl Plugin for ScriptBridgePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<RoutineEntryChange>();
+        app.add_message::<NpcChanged>();
+        app.add_message::<NpcEntitiesChanged>();
         app.add_message::<NpcLookAtChange>();
         app.add_message::<WeaponModeChange>();
         app.add_message::<EquipItemChange>();
@@ -47,6 +50,8 @@ impl Plugin for ScriptBridgePlugin {
             (
                 sync_game_day,
                 send_script_changes,
+                send_npc_changes,
+                expand_npc_changes,
                 log_inventory_gains,
                 log_journal_changes,
                 forward_screen_messages,
@@ -152,6 +157,40 @@ fn send_script_changes(
     }
 }
 
+/// Drains npc data edits recorded by the script and forwards them as messages.
+fn send_npc_changes(mut changed: MessageWriter<NpcChanged>, gothic_script: Res<ScriptResource>) {
+    let changed_ids = gothic_script.lock().drain_npc_changes();
+    if changed_ids.is_empty() {
+        return;
+    }
+    debug!("Npc data changed: {} instance(s)", changed_ids.len());
+    for instance_id in changed_ids {
+        changed.write(NpcChanged { instance_id });
+    }
+}
+
+/// Resolves the entities carrying a changed npc instance.
+fn expand_npc_changes(
+    mut changes: MessageReader<NpcChanged>,
+    mut entities_changed: MessageWriter<NpcEntitiesChanged>,
+    index: Res<InstanceIndex>,
+) {
+    for change in changes.read() {
+        let Some(handle) = index.npc_handle(change.instance_id) else {
+            continue;
+        };
+        let entities = index.npcs(change.instance_id);
+        if entities.is_empty() {
+            continue;
+        }
+        entities_changed.write(NpcEntitiesChanged {
+            instance_id: change.instance_id,
+            handle: handle.clone(),
+            entities: entities.to_vec(),
+        });
+    }
+}
+
 /// Forwards the on-screen messages the script requested as ECS messages.
 fn forward_screen_messages(
     mut screen_message: MessageWriter<ScreenMessage>,
@@ -239,11 +278,14 @@ fn apply_routine_changes(
     let instances = gothic_script.npc_instances();
 
     for change in changes.read() {
-        let active = instances
-            .get(&change.instance_id)
-            .and_then(|npc| npc.get_routine_entry(minutes));
+        let active = instances.get(&change.instance_id).and_then(|npc| {
+            let npc = npc
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            npc.get_routine_entry(minutes).cloned()
+        });
         for entity in index.npcs(change.instance_id) {
-            set_routine_entry(&mut commands, *entity, active);
+            set_routine_entry(&mut commands, *entity, active.as_ref());
         }
     }
 }
@@ -282,7 +324,11 @@ fn apply_look_at_changes(
     for change in changes.read() {
         let target = instances
             .get(&change.instance_id)
-            .and_then(|npc| npc.look_at)
+            .and_then(|npc| {
+                npc.read()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .look_at
+            })
             .and_then(|id| index.npcs(id).first().copied());
         for entity in index.npcs(change.instance_id) {
             set_look_at(&mut commands, *entity, target);
@@ -320,9 +366,11 @@ fn apply_weapon_mode_changes(
     let instances = gothic_script.npc_instances();
 
     for change in changes.read() {
-        let mode = instances
-            .get(&change.instance_id)
-            .and_then(|npc| npc.weapon_mode);
+        let mode = instances.get(&change.instance_id).and_then(|npc| {
+            npc.read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .weapon_mode
+        });
         for entity in index.npcs(change.instance_id) {
             set_weapon_mode(&mut commands, *entity, mode);
         }
@@ -359,12 +407,15 @@ fn apply_equip_item_changes(
     let instances = gothic_script.npc_instances();
 
     for change in changes.read() {
-        let equipped = instances
-            .get(&change.instance_id)
-            .map(|npc| NpcEquippedWeapon {
+        let equipped = instances.get(&change.instance_id).map(|npc| {
+            let npc = npc
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            NpcEquippedWeapon {
                 melee: npc.equipped_melee,
                 ranged: npc.equipped_ranged,
-            });
+            }
+        });
         for entity in index.npcs(change.instance_id) {
             set_equipped_weapon(&mut commands, *entity, equipped.clone());
         }
@@ -482,6 +533,9 @@ fn seed_npc_components_on_add(
         let Some(instance) = instances.get(&npc.npc_instance_id) else {
             continue;
         };
+        let instance = instance
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(health) = healths.get(&npc.npc_instance_id) {
             commands.entity(entity).insert(*health);
         }

@@ -51,8 +51,7 @@ pub(super) fn npc_inventory_window(
         .collect();
     let gold_count = gold_sum(&items);
     let (equipped_melee, equipped_ranged) = script
-        .npc_instances()
-        .get(&npc)
+        .npc_state(npc)
         .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
         .unwrap_or_default();
     if hide_gold {

@@ -11,6 +11,7 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::NpcAnimations;
 use crate::gui_debug::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::zengin::common::get_full_texture_path;
+use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::loaders::vfs::{
     item_model_path, mesh_model_path, normalize_mesh_name, resolve_stand_animation,
 };
@@ -28,7 +29,7 @@ use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
-use crate::zengin::{GameChest, GameItem, GameNpc, ZenginVfs};
+use crate::zengin::{GameChest, GameItem, GameNpc, NpcHandle, ZenginVfs};
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
@@ -90,6 +91,7 @@ fn spawn_world(
     asset_server: Res<AssetServer>,
     vfs: Res<ZenginVfs>,
     gothic_script: Res<ScriptResource>,
+    mut instance_index: ResMut<InstanceIndex>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut spawn_item: MessageWriter<SpawnItem>,
@@ -108,6 +110,7 @@ fn spawn_world(
             &asset_server,
             &vfs,
             &gothic_script,
+            &mut instance_index,
             &mut materials,
             &mut meshes,
             &mut spawn_item,
@@ -125,6 +128,7 @@ fn spawn_world_data(
     asset_server: &Res<AssetServer>,
     vfs: &ZenginVfs,
     gothic_script: &ScriptResource,
+    instance_index: &mut InstanceIndex,
     materials: &mut Assets<StandardMaterial>,
     meshes: &mut Assets<Mesh>,
     spawn_item: &mut MessageWriter<SpawnItem>,
@@ -263,7 +267,7 @@ fn spawn_world_data(
     }
 
     if !gothic_script.has_player_instance() {
-        spawn_player(commands, &mut gothic_script);
+        spawn_player(commands, &mut gothic_script, instance_index);
     }
 }
 
@@ -290,11 +294,18 @@ fn init_named_models(
 /// Spawns the player entity: a physics collider with the `PC_HERO` visual as a
 /// child. The player is the `PC_HERO` instance, the `hero` instance global has
 /// no data of its own (its stats come from `PC_HERO`).
-fn spawn_player(commands: &mut Commands, gothic_script: &mut ScriptManager) {
+fn spawn_player(
+    commands: &mut Commands,
+    gothic_script: &mut ScriptManager,
+    instance_index: &mut InstanceIndex,
+) {
     let player_instance = gothic_script
         .symbol_instance("pc_hero")
         .expect("player instance pc_hero should be a valid instance symbol");
     gothic_script.set_player_instance(player_instance);
+    if let Some(handle) = gothic_script.npc_handle(player_instance) {
+        instance_index.insert_npc_handle(handle);
+    }
     let mut player_collider = commands.spawn((
         Visibility::default(),
         PlayerPhysicsBodyMarker,
@@ -348,6 +359,7 @@ fn spawn_player(commands: &mut Commands, gothic_script: &mut ScriptManager) {
 /// Data needed to spawn one npc entity, extracted from the script state in a
 /// single lock.
 struct NpcSpawnScript {
+    handle: NpcHandle,
     body_model: String,
     body_texture: Option<String>,
     head_model: Option<String>,
@@ -374,8 +386,12 @@ fn npc_spawn_script_data(
     let location_name = spawn
         .location_name
         .and_then(|id| script.get_canon_string(id));
+    let handle = script.npc_handle(spawn.instance_id)?;
     let state = script.get_loaded_state();
     let instance = state.npc_instances.get(&spawn.instance_id)?;
+    let instance = instance
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let routine_way_point = instance
         .get_routine_entry(minutes_of_day)
         .map(|entry| entry.way_point.clone());
@@ -387,6 +403,7 @@ fn npc_spawn_script_data(
             .map(|item| item.chosen_visual().to_string())
     });
     Some(NpcSpawnScript {
+        handle,
         body_model: instance.body_model.clone(),
         body_texture: instance.body_texture.clone(),
         head_model: instance.head_model.clone(),
@@ -411,6 +428,7 @@ fn spawn_npc_entities(
     way_points: Res<WayPoints>,
     spots: Res<Spots>,
     game_time: Res<GameTime>,
+    mut instance_index: ResMut<InstanceIndex>,
 ) {
     for spawn in spawns.read() {
         let Some(script) = npc_spawn_script_data(&gothic_scripts, spawn, game_time.hour() * 60)
@@ -418,6 +436,7 @@ fn spawn_npc_entities(
             warn!("No instance state for npc({}) spawn", spawn.instance_id);
             continue;
         };
+        instance_index.insert_npc_handle(script.handle.clone());
 
         let mut transform = if let Some(tr) = spawn.transform {
             tr

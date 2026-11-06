@@ -26,6 +26,8 @@ impl ScriptManager {
         self.call_optional_function(&format!("init_{script_name}"));
 
         self.call_npc_routines();
+        // Initial values are seeded on npc spawn, do not replay them as changes.
+        self.clear_npc_changes();
     }
 
     /// Drops the per-world script bookkeeping so reloading a world does not
@@ -36,8 +38,11 @@ impl ScriptManager {
         data.pending.spawn_npcs.clear();
         data.loaded_state.mob_routines.clear();
         data.guild_attitudes.clear();
-        for npc in data.loaded_state.npc_instances.values_mut() {
-            npc.routine_entries.clear();
+        for npc in data.loaded_state.npc_instances.values() {
+            npc.write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .routine_entries
+                .clear();
         }
     }
 

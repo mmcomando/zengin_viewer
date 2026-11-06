@@ -393,12 +393,15 @@ fn npc_dialog_roots(
     npc_player: InstanceId,
     npc_talk_to: InstanceId,
 ) -> Option<Vec<DialogRoot>> {
-    let mut roots = gothic_script
-        .get_loaded_state()
-        .npc_instances
-        .get(&npc_talk_to)?
-        .dialog_roots
-        .clone()?;
+    let mut roots = {
+        let state = gothic_script.get_loaded_state();
+        let instance = state.npc_instances.get(&npc_talk_to)?;
+        instance
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .dialog_roots
+            .clone()?
+    };
     gothic_script.filter_dialog_roots(npc_player, npc_talk_to, &mut roots);
     roots.retain(|root| !root.important);
     Some(roots)

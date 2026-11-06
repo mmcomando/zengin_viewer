@@ -472,8 +472,7 @@ fn equip_selected_item(
 
     let mut script = gothic_script.lock();
     let (equipped_melee, equipped_ranged) = script
-        .npc_instances()
-        .get(&player_id)
+        .npc_state(player_id)
         .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
         .unwrap_or_default();
 
@@ -509,8 +508,7 @@ fn equip_selected_item(
     }
 
     script
-        .npc_instances()
-        .get(&player_id)
+        .npc_state(player_id)
         .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
         .unwrap_or_default()
 }

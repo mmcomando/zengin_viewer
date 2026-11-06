@@ -1,13 +1,13 @@
 use std::collections::HashMap;
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use bevy::math::Vec3;
 
 use super::super::journal::{JournalChange, JournalManager, JournalTopic};
 use super::super::state::{
     AlignToWpChange, DialogLine, EquipItemChange, GotoChange, HealthChange, InventoryGain,
-    ItemInstanceState, LoadedState, NpcInstanceState, NpcLookAtChange, OverlayChange,
-    PendingChanges, RoutineEntryChange, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
-    WeaponModeChange,
+    ItemInstanceState, LoadedState, NpcLookAtChange, NpcRuntime, OverlayChange, PendingChanges,
+    RoutineEntryChange, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc, WeaponModeChange,
 };
 use super::super::symbol_id::InstanceId;
 
@@ -16,16 +16,32 @@ impl super::ScriptManager {
         &self.store.data().loaded_state
     }
 
-    pub fn npc_instances(&self) -> &HashMap<InstanceId, NpcInstanceState> {
+    pub fn npc_instances(&self) -> &HashMap<InstanceId, Arc<RwLock<NpcRuntime>>> {
         &self.store.data().loaded_state.npc_instances
     }
 
-    pub fn npc_instances_mut(&mut self) -> &mut HashMap<InstanceId, NpcInstanceState> {
+    pub fn npc_instances_mut(&mut self) -> &mut HashMap<InstanceId, Arc<RwLock<NpcRuntime>>> {
         &mut self.store.data_mut().loaded_state.npc_instances
     }
 
-    pub fn npc_instances_mut_or_default(&mut self, index: InstanceId) -> &mut NpcInstanceState {
-        self.npc_instances_mut().entry(index).or_default()
+    /// Mutable runtime state of an npc, records the instance as changed.
+    pub fn npc_state_mut(&mut self, index: InstanceId) -> RwLockWriteGuard<'_, NpcRuntime> {
+        self.store.data_mut().npc_state_mut(index)
+    }
+
+    /// Runtime state of an npc, `None` when the instance has none.
+    pub fn npc_state(&self, index: InstanceId) -> Option<RwLockReadGuard<'_, NpcRuntime>> {
+        self.store.data().npc_state(index)
+    }
+
+    pub fn drain_npc_changes(&mut self) -> Vec<InstanceId> {
+        std::mem::take(&mut self.pending_changes().npc_changed)
+            .into_iter()
+            .collect()
+    }
+
+    pub fn clear_npc_changes(&mut self) {
+        self.pending_changes().npc_changed.clear();
     }
 
     pub fn items_instances_mut(&mut self) -> &mut HashMap<InstanceId, ItemInstanceState> {

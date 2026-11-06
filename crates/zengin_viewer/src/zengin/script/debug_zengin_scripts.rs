@@ -107,6 +107,9 @@ fn debug_npc_routine(executor: &mut ScriptManager, npc_id: InstanceId) {
             println!("npc {npc_id} has NO loaded_state.npc_instances entry");
             return;
         };
+        let instance = instance
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let routine_entries = format!("{:?}", instance.routine_entries);
         let active_entry = instance
             .get_routine_entry(hour * 60)

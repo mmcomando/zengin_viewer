@@ -8,7 +8,7 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{GameItem, GameNpc};
+use crate::zengin::{GameItem, GameNpc, NpcHandle};
 
 pub struct InstanceIndexPlugin;
 
@@ -67,17 +67,46 @@ impl EntityIndex {
 }
 
 /// Two-way index of every npc and item instance entity, kept in sync from the
-/// ECS add/change/remove of [`GameNpc`] and [`GameItem`].
+/// ECS add/change/remove of [`GameNpc`] and [`GameItem`]. It also owns the shared
+/// npc handles, so an instance id resolves to both its data and its entities
+/// with one lookup.
 #[derive(Resource, Default)]
 pub struct InstanceIndex {
     npcs: EntityIndex,
     items: EntityIndex,
+    npc_handles: HashMap<InstanceId, NpcHandle>,
 }
 
 impl InstanceIndex {
     /// Entities carrying the given npc instance id.
     pub fn npcs(&self, id: InstanceId) -> &[Entity] {
         self.npcs.entities(id)
+    }
+
+    /// Shared handle of the given npc instance, `None` before the script has
+    /// created its handle.
+    pub fn npc_handle(&self, id: InstanceId) -> Option<&NpcHandle> {
+        self.npc_handles.get(&id)
+    }
+
+    /// Registers a shared npc handle, replacing an older handle of the same
+    /// instance.
+    pub fn insert_npc_handle(&mut self, handle: NpcHandle) {
+        self.npc_handles.insert(handle.instance_id(), handle);
+    }
+
+    /// Registers the handles created by a script load, replacing any handles
+    /// left over from a previous script instance.
+    pub fn replace_npc_handles(&mut self, handles: impl IntoIterator<Item = NpcHandle>) {
+        self.npc_handles.clear();
+        self.insert_npc_handles(handles);
+    }
+
+    /// Registers the handles created by a script load.
+    pub fn insert_npc_handles(&mut self, handles: impl IntoIterator<Item = NpcHandle>) {
+        for handle in handles {
+            self.insert_npc_handle(handle);
+        }
     }
 }
 

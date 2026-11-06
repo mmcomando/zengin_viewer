@@ -45,7 +45,7 @@ impl super::ScriptManager {
         let Some(info_instance_id) = info_instance_id else {
             return;
         };
-        self.npc_instances_mut_or_default(npc_instance_id)
+        self.npc_state_mut(npc_instance_id)
             .known_infos
             .insert(info_instance_id);
     }
@@ -62,14 +62,12 @@ impl super::ScriptManager {
             let Some(condition_fn) = root.condition_function_id else {
                 return true;
             };
-            if !root.permanent
-                && let Some(info_instance_id) = root.info_instance_id
-                && let Some(infos) = self
-                    .npc_instances()
-                    .get(&npc_player)
-                    .map(|npc| &npc.known_infos)
-                && infos.contains(&info_instance_id)
-            {
+            let already_known = !root.permanent
+                && root.info_instance_id.is_some_and(|info_instance_id| {
+                    self.npc_state(npc_player)
+                        .is_some_and(|npc| npc.known_infos.contains(&info_instance_id))
+                });
+            if already_known {
                 return false;
             }
 
@@ -87,24 +85,24 @@ impl super::ScriptManager {
         npc_player: InstanceId,
         npc_talk_to: InstanceId,
     ) -> bool {
-        let Some(roots) = self
-            .npc_instances()
-            .get(&npc_talk_to)
-            .and_then(|npc| npc.dialog_roots.as_ref())
-        else {
+        let roots = self
+            .npc_state(npc_talk_to)
+            .and_then(|state| state.dialog_roots.clone());
+        let Some(roots) = roots else {
             return false;
         };
         let known_infos = self
-            .npc_instances()
-            .get(&npc_player)
-            .map(|npc| &npc.known_infos);
+            .npc_state(npc_player)
+            .map(|state| state.known_infos.clone());
 
         roots.iter().any(|root| {
             root.important
                 && (root.permanent
-                    || root
-                        .info_instance_id
-                        .is_none_or(|info| !known_infos.is_some_and(|known| known.contains(&info))))
+                    || root.info_instance_id.is_none_or(|info| {
+                        !known_infos
+                            .as_ref()
+                            .is_some_and(|known| known.contains(&info))
+                    }))
         })
     }
 
@@ -115,18 +113,15 @@ impl super::ScriptManager {
         npc_player: InstanceId,
         npc_talk_to: InstanceId,
     ) -> Option<DialogRoot> {
-        let mut roots: Vec<DialogRoot> = self
-            .npc_instances()
-            .get(&npc_talk_to)
-            .and_then(|npc| npc.dialog_roots.as_ref())
-            .map(|roots| {
-                roots
-                    .iter()
-                    .filter(|root| root.important)
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default();
+        let mut roots: Vec<DialogRoot> = {
+            let state = self.npc_state(npc_talk_to)?;
+            let roots = state.dialog_roots.as_ref()?;
+            roots
+                .iter()
+                .filter(|root| root.important)
+                .cloned()
+                .collect()
+        };
         if roots.is_empty() {
             return None;
         }
@@ -182,7 +177,7 @@ impl super::ScriptManager {
             let condition_function_id = dialog_info
                 .condition
                 .and_then(|id| self.symbol_table().function(id.value()));
-            let npc = self.npc_instances_mut_or_default(npc_id);
+            let mut npc = self.npc_state_mut(npc_id);
             let roots = npc.dialog_roots.get_or_insert_with(Vec::new);
             roots.push(DialogRoot {
                 info_instance_id: Some(index),

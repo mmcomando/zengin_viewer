@@ -4,15 +4,14 @@ mod weapons;
 
 pub(crate) use changes::{
     AlignToWpChange, DialogClose, DialogLine, EquipItemChange, GotoChange, HealthChange,
-    InventoryGain, NpcLookAtChange, OverlayChange, RoutineEntryChange, RoutineExchange,
-    ScreenMessage, SpawnItem, SpawnNpc, WeaponModeChange,
+    InventoryGain, NpcChanged, NpcEntitiesChanged, NpcLookAtChange, OverlayChange,
+    RoutineEntryChange, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc, WeaponModeChange,
 };
-pub(crate) use instances::{
-    DialogChoice, DialogRoot, ItemInstanceState, NpcInstanceState, RoutineEntry,
-};
+pub(crate) use instances::{DialogChoice, DialogRoot, ItemInstanceState, NpcRuntime, RoutineEntry};
 pub(crate) use weapons::{OverlayRequest, WeaponKind, WeaponMode};
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
+use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use bevy::math::Vec3;
 use daedalus_typed::TypedRegistry;
@@ -40,7 +39,7 @@ pub struct LoadedState {
     /// State of every loaded item instance.
     pub items_instances: HashMap<InstanceId, ItemInstanceState>,
     /// State of every loaded npc instance.
-    pub npc_instances: HashMap<InstanceId, NpcInstanceState>,
+    pub npc_instances: HashMap<InstanceId, Arc<RwLock<NpcRuntime>>>,
     /// Time-of-day mob states registered by `wld_setmobroutine`.
     pub mob_routines: Vec<MobRoutineEntry>,
     /// Sub dialog choices keyed by the owning `C_INFO` instance.
@@ -247,19 +246,36 @@ pub struct PendingChanges {
     pub screen_messages: Vec<ScreenMessage>,
     /// Journal changes produced by the script (`Log_*` host functions).
     pub journal_changes: Vec<JournalChange>,
+    /// Npc instances whose data was edited since the last drain, deduplicated
+    /// so one frame produces at most one message per instance.
+    pub npc_changed: BTreeSet<InstanceId>,
 }
 
 impl ImportCallState {
+    /// Mutable runtime state of an npc, records the instance as changed.
+    pub fn npc_state_mut(&mut self, instance: InstanceId) -> RwLockWriteGuard<'_, NpcRuntime> {
+        self.pending.npc_changed.insert(instance);
+        let state = self.loaded_state.npc_instances.entry(instance).or_default();
+        state.write().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Runtime state of an npc, `None` when the instance has none.
+    pub fn npc_state(&self, instance: InstanceId) -> Option<RwLockReadGuard<'_, NpcRuntime>> {
+        Some(
+            self.loaded_state
+                .npc_instances
+                .get(&instance)?
+                .read()
+                .unwrap_or_else(PoisonError::into_inner),
+        )
+    }
+
     /// Sets the weapon mode of an npc, ignored when the id is not an npc.
     pub fn set_weapon_mode(&mut self, npc: i32, mode: WeaponMode) {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.loaded_state
-            .npc_instances
-            .entry(npc)
-            .or_default()
-            .weapon_mode = Some(mode);
+        self.npc_state_mut(npc).weapon_mode = Some(mode);
         self.pending
             .weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
@@ -296,17 +312,13 @@ impl ImportCallState {
         let Some(state) = self.symbol_table.function(state) else {
             return 0;
         };
-        let recorded = self
-            .loaded_state
-            .npc_instances
-            .get(&npc)
-            .and_then(|instance| {
-                if previous {
-                    instance.previous_routine_state
-                } else {
-                    instance.current_routine_state
-                }
-            });
+        let recorded = self.npc_state(npc).and_then(|instance| {
+            if previous {
+                instance.previous_routine_state
+            } else {
+                instance.current_routine_state
+            }
+        });
         i32::from(recorded == Some(state))
     }
 
@@ -344,11 +356,7 @@ impl ImportCallState {
     /// when the npc has no known position or the way net has no waypoints
     pub(crate) fn nearest_way_point(&self, npc: i32) -> Option<String> {
         let npc = self.symbol_table.instance(npc)?;
-        let position = self
-            .loaded_state
-            .npc_instances
-            .get(&npc)
-            .and_then(|npc| npc.position)?;
+        let position = self.npc_state(npc)?.position?;
         let (name, _) = self.way_points.iter().min_by(|left, right| {
             let (da, db) = (
                 (left.1 - position).length_squared(),

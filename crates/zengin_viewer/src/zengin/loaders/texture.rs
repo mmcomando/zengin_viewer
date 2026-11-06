@@ -30,7 +30,8 @@ impl AssetLoader for ZenGinTextureLoader {
         let zengin_data_with_mips = get_zengin_texture_data(&bytes);
         let zengin_data = zengin_data_with_mips.mips[0].clone();
         assert_eq!(
-            zengin_data.size.width * zengin_data.size.height * 4, zengin_data.data_rgba.len() as u32
+            zengin_data.size.width * zengin_data.size.height * 4,
+            zengin_data.data_rgba.len() as u32
         );
         if zengin_data.size.width == 0 || zengin_data.size.height == 0 {
             return Err(BevyError::from("Texture has 0 dimensions"));
