@@ -3,8 +3,6 @@
 //! messages and the matching `apply_*` systems turn them into component changes
 //! on the affected entities.
 
-use std::collections::HashMap;
-
 use bevy::prelude::*;
 
 use crate::game_state::AppState;
@@ -18,23 +16,17 @@ use crate::zengin::npc_routines::{
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use crate::zengin::script::state::{
-    AlignToWpChange, DialogClose, DialogLine, EquipItemChange, GotoChange, HealthChange,
-    InventoryGain, NpcChanged, NpcEntitiesChanged, NpcLookAtChange, OverlayChange, OverlayRequest,
-    RoutineEntry, RoutineEntryChange, ScreenMessage, SpawnItem, SpawnNpc, WeaponMode,
-    WeaponModeChange,
+    AlignToWpChange, DialogClose, DialogLine, GotoChange, InventoryGain, NpcChanged,
+    NpcEntitiesChanged, OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage, SpawnItem,
+    SpawnNpc, WeaponMode,
 };
 
 pub struct ScriptBridgePlugin;
 
 impl Plugin for ScriptBridgePlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<RoutineEntryChange>();
         app.add_message::<NpcChanged>();
         app.add_message::<NpcEntitiesChanged>();
-        app.add_message::<NpcLookAtChange>();
-        app.add_message::<WeaponModeChange>();
-        app.add_message::<EquipItemChange>();
-        app.add_message::<HealthChange>();
         app.add_message::<AlignToWpChange>();
         app.add_message::<OverlayChange>();
         app.add_message::<GotoChange>();
@@ -55,11 +47,11 @@ impl Plugin for ScriptBridgePlugin {
                 log_inventory_gains,
                 log_journal_changes,
                 forward_screen_messages,
-                apply_routine_changes,
-                apply_look_at_changes,
-                apply_weapon_mode_changes,
-                apply_equip_item_changes,
-                apply_health_changes,
+                sync_npc_routine_entry,
+                sync_npc_look_at,
+                sync_npc_weapon_mode,
+                sync_npc_equipped_weapon,
+                sync_npc_health,
                 apply_overlay_changes,
                 seed_npc_components_on_add,
             )
@@ -86,11 +78,6 @@ fn sync_game_day(game_time: Res<GameTime>, gothic_script: Res<ScriptResource>) {
 
 /// Drains all the changes the script recorded and forwards them as messages.
 fn send_script_changes(
-    mut routine: MessageWriter<RoutineEntryChange>,
-    mut look_at: MessageWriter<NpcLookAtChange>,
-    mut weapon_mode: MessageWriter<WeaponModeChange>,
-    mut equip_item: MessageWriter<EquipItemChange>,
-    mut health: MessageWriter<HealthChange>,
     mut align_to_wp: MessageWriter<AlignToWpChange>,
     mut overlay: MessageWriter<OverlayChange>,
     mut goto: MessageWriter<GotoChange>,
@@ -103,21 +90,6 @@ fn send_script_changes(
     gothic_script: Res<ScriptResource>,
 ) {
     let mut script = gothic_script.lock();
-    for change in script.drain_routine_changes() {
-        routine.write(change);
-    }
-    for change in script.drain_look_at_changes() {
-        look_at.write(change);
-    }
-    for change in script.drain_weapon_mode_changes() {
-        weapon_mode.write(change);
-    }
-    for change in script.drain_equip_item_changes() {
-        equip_item.write(change);
-    }
-    for change in script.drain_health_changes() {
-        health.write(change);
-    }
     for change in script.drain_align_to_wp_changes() {
         align_to_wp.write(change);
     }
@@ -152,9 +124,6 @@ fn send_script_changes(
     for exchange in script.drain_routine_exchanges() {
         script.exchange_routine(exchange.instance_id, &exchange.routine_name);
     }
-    for change in script.drain_routine_changes() {
-        routine.write(change);
-    }
 }
 
 /// Drains npc data edits recorded by the script and forwards them as messages.
@@ -184,7 +153,6 @@ fn expand_npc_changes(
             continue;
         }
         entities_changed.write(NpcEntitiesChanged {
-            instance_id: change.instance_id,
             handle: handle.clone(),
             entities: entities.to_vec(),
         });
@@ -259,33 +227,35 @@ fn log_journal_changes(
     }
 }
 
-/// Applies routine entry changes to the entities carrying the affected instance
-/// ids. An entity gets the routine entry active at the current minute, or loses
-/// the component when its instance has no routine entries.
-fn apply_routine_changes(
+/// Refreshes the active routine entry on the entities of a changed npc. The
+/// entry is derived from the current minute, the same way the minute-change
+/// seeder does it.
+fn sync_npc_routine_entry(
     mut commands: Commands,
-    mut changes: MessageReader<RoutineEntryChange>,
-    index: Res<InstanceIndex>,
+    mut changes: MessageReader<NpcEntitiesChanged>,
     game_time: Res<GameTime>,
+    npcs: Query<&RoutineEntry>,
 ) {
-    if changes.is_empty() {
-        return;
-    }
-
     let minutes = game_time.minutes_of_day();
-
     for change in changes.read() {
-        let Some(handle) = index.npc_handle(change.instance_id) else {
-            continue;
-        };
-        let active = handle
+        let active = change
+            .handle
             .runtime()
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .get_routine_entry(minutes)
             .cloned();
-        for entity in index.npcs(change.instance_id) {
-            set_routine_entry(&mut commands, *entity, active.as_ref());
+        for &entity in &change.entities {
+            let current = npcs.get(entity).ok();
+            let needs_update = match (&active, current) {
+                (Some(active), Some(current)) => active != current,
+                (None, None) => false,
+                _ => true,
+            };
+            if !needs_update {
+                continue;
+            }
+            set_routine_entry(&mut commands, entity, active.as_ref());
         }
     }
 }
@@ -305,34 +275,27 @@ fn set_routine_entry(commands: &mut Commands, entity: Entity, active: Option<&Ro
     }
 }
 
-/// Applies look-at target changes to the entities carrying the affected instance
-/// ids. An entity gets the target its instance currently looks at, or loses the
-/// component when it looks at nothing.
-fn apply_look_at_changes(
+/// Refreshes the look-at target of the entities of a changed npc.
+fn sync_npc_look_at(
     mut commands: Commands,
-    mut changes: MessageReader<NpcLookAtChange>,
+    mut changes: MessageReader<NpcEntitiesChanged>,
     index: Res<InstanceIndex>,
-    gothic_script: Res<ScriptResource>,
+    npcs: Query<&NpcLookAt>,
 ) {
-    if changes.is_empty() {
-        return;
-    }
-
-    let gothic_script = gothic_script.lock();
-    let instances = gothic_script.npc_instances();
-
     for change in changes.read() {
-        let target = instances
-            .get(&change.instance_id)
-            .and_then(|npc| {
-                npc.read()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .live
-                    .look_at
-            })
+        let target = change
+            .handle
+            .runtime()
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .live
+            .look_at
             .and_then(|id| index.npcs(id).first().copied());
-        for entity in index.npcs(change.instance_id) {
-            set_look_at(&mut commands, *entity, target);
+        for &entity in &change.entities {
+            if npcs.get(entity).ok().map(|look_at| look_at.0) == target {
+                continue;
+            }
+            set_look_at(&mut commands, entity, target);
         }
     }
 }
@@ -350,31 +313,25 @@ fn set_look_at(commands: &mut Commands, entity: Entity, target: Option<Entity>) 
     }
 }
 
-/// Applies weapon mode changes to the entities carrying the affected instance
-/// ids. An entity gets the mode its instance currently has, or loses the
-/// component when it has none.
-fn apply_weapon_mode_changes(
+/// Refreshes the weapon mode component of the entities of a changed npc.
+fn sync_npc_weapon_mode(
     mut commands: Commands,
-    mut changes: MessageReader<WeaponModeChange>,
-    index: Res<InstanceIndex>,
-    gothic_script: Res<ScriptResource>,
+    mut changes: MessageReader<NpcEntitiesChanged>,
+    npcs: Query<&NpcWeaponMode>,
 ) {
-    if changes.is_empty() {
-        return;
-    }
-
-    let gothic_script = gothic_script.lock();
-    let instances = gothic_script.npc_instances();
-
     for change in changes.read() {
-        let mode = instances.get(&change.instance_id).and_then(|npc| {
-            npc.read()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .equipment
-                .weapon_mode
-        });
-        for entity in index.npcs(change.instance_id) {
-            set_weapon_mode(&mut commands, *entity, mode);
+        let mode = change
+            .handle
+            .runtime()
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .equipment
+            .weapon_mode;
+        for &entity in &change.entities {
+            if npcs.get(entity).ok().map(|current| current.0) == mode {
+                continue;
+            }
+            set_weapon_mode(&mut commands, entity, mode);
         }
     }
 }
@@ -392,34 +349,35 @@ fn set_weapon_mode(commands: &mut Commands, entity: Entity, mode: Option<WeaponM
     }
 }
 
-/// Applies equipped item changes to the entities carrying the affected instance
-/// ids. An entity gets the melee/ranged weapons its instance currently has
-/// equipped, or loses the component when it has none.
-fn apply_equip_item_changes(
+/// Refreshes the equipped weapons component of the entities of a changed npc.
+fn sync_npc_equipped_weapon(
     mut commands: Commands,
-    mut changes: MessageReader<EquipItemChange>,
-    index: Res<InstanceIndex>,
-    gothic_script: Res<ScriptResource>,
+    mut changes: MessageReader<NpcEntitiesChanged>,
+    npcs: Query<&NpcEquippedWeapon>,
 ) {
-    if changes.is_empty() {
-        return;
-    }
-
-    let gothic_script = gothic_script.lock();
-    let instances = gothic_script.npc_instances();
-
     for change in changes.read() {
-        let equipped = instances.get(&change.instance_id).map(|npc| {
-            let npc = npc
+        let equipped = {
+            let runtime = change
+                .handle
+                .runtime()
                 .read()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            NpcEquippedWeapon {
-                melee: npc.equipment.melee,
-                ranged: npc.equipment.ranged,
+            let melee = runtime.equipment.melee;
+            let ranged = runtime.equipment.ranged;
+            (melee.is_some() || ranged.is_some()).then_some(NpcEquippedWeapon { melee, ranged })
+        };
+        for &entity in &change.entities {
+            let needs_update = match (&equipped, npcs.get(entity).ok()) {
+                (Some(equipped), Some(current)) => {
+                    equipped.melee != current.melee || equipped.ranged != current.ranged
+                }
+                (None, None) => false,
+                _ => true,
+            };
+            if !needs_update {
+                continue;
             }
-        });
-        for entity in index.npcs(change.instance_id) {
-            set_equipped_weapon(&mut commands, *entity, equipped.clone());
+            set_equipped_weapon(&mut commands, entity, equipped.clone());
         }
     }
 }
@@ -441,28 +399,30 @@ fn set_equipped_weapon(
     }
 }
 
-/// Applies hitpoints changes to the entities carrying the affected instance
-/// ids. Seeds the instance hitpoints from the npc instance data on first
-/// access.
-fn apply_health_changes(
+/// Refreshes the hitpoints component of the entities of a changed npc.
+fn sync_npc_health(
     mut commands: Commands,
-    mut changes: MessageReader<HealthChange>,
-    index: Res<InstanceIndex>,
-    gothic_script: Res<ScriptResource>,
+    mut changes: MessageReader<NpcEntitiesChanged>,
+    npcs: Query<&NpcHealth>,
 ) {
-    if changes.is_empty() {
-        return;
-    }
-
-    let mut gothic_script = gothic_script.lock();
     for change in changes.read() {
-        let Some((hitpoints, hitpoints_max)) = gothic_script.hitpoints(change.instance_id) else {
-            continue;
+        let (hitpoints, hitpoints_max) = {
+            let typed = change
+                .handle
+                .typed()
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            (typed.hitpoints, typed.hitpoints_max)
         };
-        for entity in index.npcs(change.instance_id) {
-            // The npc may have been despawned earlier in this frame, skip it.
+        for &entity in &change.entities {
+            let needs_update = npcs.get(entity).map_or(true, |current| {
+                current.hitpoints != hitpoints || current.hitpoints_max != hitpoints_max
+            });
+            if !needs_update {
+                continue;
+            }
             commands
-                .entity(*entity)
+                .entity(entity)
                 .try_insert(NpcHealth::new(hitpoints, hitpoints_max));
         }
     }
@@ -500,44 +460,36 @@ fn apply_overlay_changes(
 
 /// Seeds all script driven npc components on newly spawned npcs. Change messages
 /// are one-shot, a runtime spawned npc never sees the messages that were
-/// produced before it existed, so it catches up from the current script state.
+/// produced before it existed, so it catches up from the current shared state.
 fn seed_npc_components_on_add(
     mut commands: Commands,
     added_npcs: Query<(Entity, &GameNpc), Added<GameNpc>>,
     index: Res<InstanceIndex>,
     game_time: Res<GameTime>,
-    gothic_script: Res<ScriptResource>,
 ) {
     if added_npcs.is_empty() {
         return;
     }
 
     let minutes = game_time.minutes_of_day();
-    let mut gothic_script = gothic_script.lock();
-    // Seed the hitpoints from the npc instance data first, this needs `&mut`
-    let mut healths = HashMap::new();
-    for (_, npc) in &added_npcs {
-        if let Some((hitpoints, hitpoints_max)) = gothic_script.hitpoints(npc.instance_id()) {
-            healths.insert(npc.instance_id(), NpcHealth::new(hitpoints, hitpoints_max));
-        } else {
-            warn!(
-                "No hitpoints data for npc({}) on spawn",
-                npc.instance_id().value()
-            );
-        }
-    }
-    let instances = gothic_script.npc_instances();
-
     for (entity, npc) in &added_npcs {
-        let Some(instance) = instances.get(&npc.instance_id()) else {
-            continue;
+        let (hitpoints, hitpoints_max) = {
+            let typed = npc
+                .handle()
+                .typed()
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            (typed.hitpoints, typed.hitpoints_max)
         };
-        let instance = instance
+        commands
+            .entity(entity)
+            .try_insert(NpcHealth::new(hitpoints, hitpoints_max));
+
+        let instance = npc
+            .handle()
+            .runtime()
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if let Some(health) = healths.get(&npc.instance_id()) {
-            commands.entity(entity).insert(*health);
-        }
         set_routine_entry(&mut commands, entity, instance.get_routine_entry(minutes));
         let target = instance
             .live

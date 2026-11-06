@@ -6,10 +6,13 @@ use super::super::string_value::StringCanon;
 use super::super::symbol_id::{InstanceId, StringId};
 use super::weapons::OverlayRequest;
 
-/// Signal that an instance's routine entries changed (a `TA_Min` was recorded).
+/// Signal that an npc requested `Npc_ExchangeRoutine`: its routine entries are
+/// replaced by the ones created by the `Rtn_{name}_{npcId}` function.
 #[derive(Message)]
-pub struct RoutineEntryChange {
+pub struct RoutineExchange {
     pub instance_id: InstanceId,
+    /// Routine name with its original case (symbol names compare exactly).
+    pub routine_name: String,
 }
 
 /// Signal that an npc's shared data changed; consumers compare the fields they
@@ -22,33 +25,10 @@ pub struct NpcChanged {
 /// Signal that the entities carrying an npc instance need to refresh their
 /// mirrored components.
 #[derive(Debug, Message, Clone)]
-#[allow(dead_code)] // consumed by the per-field npc systems (next step)
 pub struct NpcEntitiesChanged {
-    pub instance_id: InstanceId,
     /// Shared data of the instance, so consumers do not need a second lookup.
     pub handle: NpcHandle,
     pub entities: Vec<Entity>,
-}
-
-/// Signal that an npc requested `Npc_ExchangeRoutine`: its routine entries are
-/// replaced by the ones created by the `Rtn_{name}_{npcId}` function.
-#[derive(Message)]
-pub struct RoutineExchange {
-    pub instance_id: InstanceId,
-    /// Routine name with its original case (symbol names compare exactly).
-    pub routine_name: String,
-}
-
-/// Signal that an instance's `AI_LookAtNPC`/`AI_StopLookAt` target changed.
-#[derive(Message)]
-pub struct NpcLookAtChange {
-    pub instance_id: InstanceId,
-}
-
-/// Signal that an instance's weapon mode changed.
-#[derive(Message)]
-pub struct WeaponModeChange {
-    pub instance_id: InstanceId,
 }
 
 /// Signal that an instance requested `AI_GoToWP` (walk to a waypoint).
@@ -65,18 +45,6 @@ pub struct GotoChange {
 pub struct OverlayChange {
     pub instance_id: InstanceId,
     pub request: OverlayRequest,
-}
-
-/// Signal that an instance equipped an item (`EquipItem`).
-#[derive(Message)]
-pub struct EquipItemChange {
-    pub instance_id: InstanceId,
-}
-
-/// Signal that an instance hitpoints changed.
-#[derive(Message)]
-pub struct HealthChange {
-    pub instance_id: InstanceId,
 }
 
 /// Signal that an instance requested `AI_AlignToWP` (face its routine waypoint).

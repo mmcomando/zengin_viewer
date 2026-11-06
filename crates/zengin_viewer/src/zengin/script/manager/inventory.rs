@@ -1,6 +1,6 @@
 use bevy::log::warn;
 
-use super::super::state::{EquipItemChange, WeaponKind, WeaponMode, WeaponModeChange};
+use super::super::state::{WeaponKind, WeaponMode};
 use super::super::symbol_id::InstanceId;
 
 impl super::ScriptManager {
@@ -31,8 +31,8 @@ impl super::ScriptManager {
     }
 
     /// Equips an item as the npc's melee or ranged weapon depending on its
-    /// instance symbol name (`EquipItem` semantics), leaving the change queued
-    /// for the ECS bridge. Equipping the same slot again replaces the weapon.
+    /// instance symbol name (`EquipItem` semantics). Equipping the same slot
+    /// again replaces the weapon.
     pub fn equip_item(&mut self, npc: InstanceId, item: InstanceId) {
         let kind = self
             .symbol_table()
@@ -54,14 +54,10 @@ impl super::ScriptManager {
                 WeaponKind::Bow | WeaponKind::Crossbow => instance.equipment.ranged = Some(item),
             }
         }
-        self.pending_changes()
-            .equip_item_changes
-            .push(EquipItemChange { instance_id: npc });
     }
 
-    /// Draws the npc's weapon into the hand (`Npc_SetToFightMode` semantics),
-    /// leaving the change queued for the ECS bridge. `ranged` selects the
-    /// ranged weapon, otherwise the melee one is drawn.
+    /// Draws the npc's weapon into the hand (`Npc_SetToFightMode` semantics).
+    /// `ranged` selects the ranged weapon, otherwise the melee one is drawn.
     pub fn draw_weapon(&mut self, npc: InstanceId, ranged: bool) {
         let mode = if ranged {
             WeaponMode::Ranged
@@ -84,24 +80,18 @@ impl super::ScriptManager {
             return;
         }
         self.npc_state_mut(npc).equipment.weapon_mode = Some(mode);
-        self.pending_changes()
-            .weapon_mode_changes
-            .push(WeaponModeChange { instance_id: npc });
     }
 
     /// Sheathes the drawn weapon back to its stowed position
-    /// (`Npc_SetToFistMode`/`AI_RemoveWeapon` semantics), leaving the change
-    /// queued for the ECS bridge. The weapon stays equipped.
+    /// (`Npc_SetToFistMode`/`AI_RemoveWeapon` semantics). The weapon stays
+    /// equipped.
     #[allow(dead_code)] // used by the draw/sheathe weapon inputs
     pub fn sheathe_weapon(&mut self, npc: InstanceId) {
         self.npc_state_mut(npc).equipment.weapon_mode = Some(WeaponMode::Fists);
-        self.pending_changes()
-            .weapon_mode_changes
-            .push(WeaponModeChange { instance_id: npc });
     }
 
     /// Unequips the npc's weapon of the given kind, sheathing it when it was
-    /// drawn. Leaves the changes queued for the ECS bridge.
+    /// drawn.
     pub fn unequip_weapon_kind(&mut self, npc: InstanceId, kind: WeaponKind) {
         let drawn_kind_matches = {
             let mut instance = self.npc_state_mut(npc);
@@ -117,18 +107,11 @@ impl super::ScriptManager {
         };
         if drawn_kind_matches {
             self.npc_state_mut(npc).equipment.weapon_mode = Some(WeaponMode::Fists);
-            self.pending_changes()
-                .weapon_mode_changes
-                .push(WeaponModeChange { instance_id: npc });
         }
-        self.pending_changes()
-            .equip_item_changes
-            .push(EquipItemChange { instance_id: npc });
     }
 
     /// Unequips all of the npc's weapons and sheathes them (`AI_RemoveWeapon`
-    /// and clearing `EquipItem` semantics), leaving the changes queued for the
-    /// ECS bridge.
+    /// and clearing `EquipItem` semantics).
     #[allow(dead_code)] // semantics kept for the AI_UnEquipWeapons host import
     pub fn unequip_item(&mut self, npc: InstanceId) {
         {
@@ -137,12 +120,6 @@ impl super::ScriptManager {
             instance.equipment.ranged = None;
             instance.equipment.weapon_mode = Some(WeaponMode::Fists);
         }
-        self.pending_changes()
-            .equip_item_changes
-            .push(EquipItemChange { instance_id: npc });
-        self.pending_changes()
-            .weapon_mode_changes
-            .push(WeaponModeChange { instance_id: npc });
     }
 
     /// Contents of an npc's inventory as `(item, count)` pairs, empty when the

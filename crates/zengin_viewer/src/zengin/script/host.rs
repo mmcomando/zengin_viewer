@@ -1,9 +1,8 @@
 use super::bindings::mmcomando;
 use super::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use super::state::{
-    AlignToWpChange, DialogChoice, DialogLine, EquipItemChange, HealthChange, ImportCallState,
-    InventoryGain, MobRoutineEntry, NpcLookAtChange, OverlayRequest, RoutineEntry,
-    RoutineEntryChange, RoutineExchange, SpawnItem, SpawnNpc, WeaponKind, WeaponMode,
+    AlignToWpChange, DialogChoice, DialogLine, ImportCallState, InventoryGain, MobRoutineEntry,
+    OverlayRequest, RoutineEntry, RoutineExchange, SpawnItem, SpawnNpc, WeaponKind, WeaponMode,
 };
 use super::string_value::StringCanon;
 use super::symbol_id::{InstanceId, SymbolId};
@@ -112,9 +111,6 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             .routine
             .entries
             .push(routine_entry);
-        self.pending.routine_changes.push(RoutineEntryChange {
-            instance_id: npc_index,
-        });
     }
 
     fn ai_playani(&mut self, npc_index: i32, ani_id: i32) {
@@ -488,9 +484,6 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
                 WeaponKind::Bow | WeaponKind::Crossbow => instance.equipment.ranged = Some(item),
             }
         }
-        self.pending
-            .equip_item_changes
-            .push(EquipItemChange { instance_id: npc });
     }
     fake_impl!(npc_getinvitem(_0, _1) -> i32);
     fake_impl!(npc_getinvitembyslot(_0, _1, _2) -> i32);
@@ -555,9 +548,6 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
                 data.hitpoints_max = value;
             }
         }
-        self.pending
-            .health_changes
-            .push(HealthChange { instance_id: npc });
         self.pending.npc_changed.insert(npc);
     }
     fake_impl!(npc_getcomrades(_0) -> i32);
@@ -802,9 +792,6 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return;
         };
         self.npc_state_mut(npc).live.look_at = Some(target);
-        self.pending
-            .look_at_changes
-            .push(NpcLookAtChange { instance_id: npc });
     }
     fn ai_stoplookat(&mut self, npc: i32) {
         let Some(npc) = self.symbol_table.instance(npc) else {
@@ -814,9 +801,6 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return;
         }
         self.npc_state_mut(npc).live.look_at = None;
-        self.pending
-            .look_at_changes
-            .push(NpcLookAtChange { instance_id: npc });
     }
     fake_impl!(ai_pointat(_0, _1));
     fake_impl!(ai_pointatnpc(_0, _1));

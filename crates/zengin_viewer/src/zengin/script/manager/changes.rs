@@ -5,9 +5,8 @@ use bevy::math::Vec3;
 
 use super::super::journal::{JournalChange, JournalManager, JournalTopic};
 use super::super::state::{
-    AlignToWpChange, DialogLine, EquipItemChange, GotoChange, HealthChange, InventoryGain,
-    ItemInstanceState, LoadedState, NpcLookAtChange, NpcRuntime, OverlayChange, PendingChanges,
-    RoutineEntryChange, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc, WeaponModeChange,
+    AlignToWpChange, DialogLine, GotoChange, InventoryGain, ItemInstanceState, LoadedState,
+    NpcRuntime, OverlayChange, PendingChanges, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
 };
 use super::super::symbol_id::InstanceId;
 
@@ -50,27 +49,6 @@ impl super::ScriptManager {
 
     pub fn drain_routine_exchanges(&mut self) -> Vec<RoutineExchange> {
         std::mem::take(&mut self.pending_changes().routine_exchanges)
-    }
-
-    pub fn drain_routine_changes(&mut self) -> Vec<RoutineEntryChange> {
-        std::mem::take(&mut self.pending_changes().routine_changes)
-    }
-
-    pub fn drain_look_at_changes(&mut self) -> Vec<NpcLookAtChange> {
-        std::mem::take(&mut self.pending_changes().look_at_changes)
-    }
-
-    pub fn drain_weapon_mode_changes(&mut self) -> Vec<WeaponModeChange> {
-        std::mem::take(&mut self.pending_changes().weapon_mode_changes)
-    }
-
-    pub fn drain_equip_item_changes(&mut self) -> Vec<EquipItemChange> {
-        std::mem::take(&mut self.pending_changes().equip_item_changes)
-    }
-
-    #[allow(dead_code)] // used by the damage systems (next step)
-    pub fn drain_health_changes(&mut self) -> Vec<HealthChange> {
-        std::mem::take(&mut self.pending_changes().health_changes)
     }
 
     pub fn drain_align_to_wp_changes(&mut self) -> Vec<AlignToWpChange> {

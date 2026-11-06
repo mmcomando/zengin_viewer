@@ -6,7 +6,6 @@ use daedalus_typed::{Item, Npc};
 use crate::zengin::NpcHandle;
 
 use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
-use super::super::state::HealthChange;
 use super::super::string_value::{ShowString, StringCanon};
 use super::super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 use super::{ItemDisplayData, attribute_display_name};
@@ -187,9 +186,6 @@ impl super::ScriptManager {
             data.hitpoints = changed;
             changed
         };
-        self.pending_changes()
-            .health_changes
-            .push(HealthChange { instance_id: npc });
         self.pending_changes().npc_changed.insert(npc);
         Some(changed)
     }

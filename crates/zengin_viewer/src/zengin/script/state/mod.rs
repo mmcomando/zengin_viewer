@@ -3,9 +3,8 @@ mod instances;
 mod weapons;
 
 pub(crate) use changes::{
-    AlignToWpChange, DialogClose, DialogLine, EquipItemChange, GotoChange, HealthChange,
-    InventoryGain, NpcChanged, NpcEntitiesChanged, NpcLookAtChange, OverlayChange,
-    RoutineEntryChange, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc, WeaponModeChange,
+    AlignToWpChange, DialogClose, DialogLine, GotoChange, InventoryGain, NpcChanged,
+    NpcEntitiesChanged, OverlayChange, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
 };
 pub(crate) use instances::{DialogChoice, DialogRoot, ItemInstanceState, NpcRuntime, RoutineEntry};
 pub(crate) use weapons::{OverlayRequest, WeaponKind, WeaponMode};
@@ -215,16 +214,6 @@ pub struct WellKnownSymbols {
 /// Changes and requests queued by the script vm, see [`ImportCallState::pending`].
 #[derive(Default)]
 pub struct PendingChanges {
-    /// Routine entry changes produced by the script (`TA_Min` and friends).
-    pub routine_changes: Vec<RoutineEntryChange>,
-    /// Look-at target changes produced by the script (`AI_LookAt*`).
-    pub look_at_changes: Vec<NpcLookAtChange>,
-    /// Weapon mode changes produced by the script (`Npc_SetToFightMode`).
-    pub weapon_mode_changes: Vec<WeaponModeChange>,
-    /// Equipped item changes produced by the script (`EquipItem`).
-    pub equip_item_changes: Vec<EquipItemChange>,
-    /// Hitpoints changes produced by the host (`Npc_ChangeAttribute`).
-    pub health_changes: Vec<HealthChange>,
     /// `AI_AlignToWP` requests produced by the script.
     pub align_to_wp_changes: Vec<AlignToWpChange>,
     /// Overlay change requests produced by the script.
@@ -276,9 +265,6 @@ impl ImportCallState {
             return;
         };
         self.npc_state_mut(npc).equipment.weapon_mode = Some(mode);
-        self.pending
-            .weapon_mode_changes
-            .push(WeaponModeChange { instance_id: npc });
     }
 
     /// Queues an overlay apply or remove for an npc.
