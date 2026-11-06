@@ -152,7 +152,7 @@ impl NpcRuntime {
 /// Runtime state of an item instance, keyed by instance id in
 /// [`LoadedState::items_instances`].
 #[derive(Debug, Default)]
-pub struct ItemInstanceState {
+pub struct ItemRuntime {
     /// Instance (symbol) name.
     pub name: String,
     /// Visual set on the item instance.
@@ -161,7 +161,7 @@ pub struct ItemInstanceState {
     pub visual_change: Option<String>,
 }
 
-impl ItemInstanceState {
+impl ItemRuntime {
     /// Visual used for rendering, the override when set.
     pub fn chosen_visual(&self) -> &str {
         self.visual_change.as_deref().unwrap_or(&self.visual)

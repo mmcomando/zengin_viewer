@@ -69,7 +69,13 @@ pub fn item_model_path(
             .get_loaded_state()
             .items_instances
             .get(&item)
-            .map(|instance| instance.chosen_visual().to_string())
+            .map(|instance| {
+                instance
+                    .read()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .chosen_visual()
+                    .to_string()
+            })
     }?;
     let vfs = vfs.0.lock().unwrap();
     resolve_mesh_path_quiet(&vfs, &visual)

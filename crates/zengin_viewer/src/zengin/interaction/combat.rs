@@ -9,6 +9,7 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::AnimationController;
 use crate::graphics::{NpcHitReaction, play_hit_reaction};
 use crate::gui::GameLog;
+use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::loaders::vdf_reader::ZenginVfs;
 use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::npc_routines::{AnimationFiles, NpcEquippedWeapon, NpcOverlay, NpcWeaponMode};
@@ -200,6 +201,7 @@ fn drop_drawn_weapon(
     handles: &mut CachedAssetHandles,
     asset_server: &Res<AssetServer>,
     commands: &mut Commands,
+    instance_index: &mut InstanceIndex,
     npc_id: InstanceId,
     item: InstanceId,
     position: Vec3,
@@ -213,7 +215,12 @@ fn drop_drawn_weapon(
             npc_id.value()
         );
     }
+    let Some(handle) = script.item_handle(item) else {
+        warn!("No item handle for dropped weapon item({})", item.value());
+        return;
+    };
     drop(script);
+    instance_index.insert_item_handle(handle.clone());
     let Some(path) = item_model_path(gothic_scripts, vfs, item) else {
         warn!("No mesh path for dropped weapon item({item})");
         return;
@@ -227,9 +234,7 @@ fn drop_drawn_weapon(
         },
         Visibility::default(),
         Transform::from_translation(position),
-        GameItem {
-            item_instance_id: item,
-        },
+        GameItem::new(handle),
     ));
 }
 
@@ -245,6 +250,7 @@ pub(super) fn handle_npc_death(
     vfs: Res<ZenginVfs>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
+    mut instance_index: ResMut<InstanceIndex>,
     mut commands: Commands,
     npcs: Query<
         (
@@ -291,6 +297,7 @@ pub(super) fn handle_npc_death(
                 &mut handles,
                 &asset_server,
                 &mut commands,
+                &mut instance_index,
                 npc_id,
                 item,
                 position,

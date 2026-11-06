@@ -8,7 +8,7 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{GameItem, GameNpc, NpcHandle};
+use crate::zengin::{GameItem, GameNpc, ItemHandle, NpcHandle};
 
 pub struct InstanceIndexPlugin;
 
@@ -75,12 +75,18 @@ pub struct InstanceIndex {
     npcs: EntityIndex,
     items: EntityIndex,
     npc_handles: HashMap<InstanceId, NpcHandle>,
+    item_handles: HashMap<InstanceId, ItemHandle>,
 }
 
 impl InstanceIndex {
     /// Entities carrying the given npc instance id.
     pub fn npcs(&self, id: InstanceId) -> &[Entity] {
         self.npcs.entities(id)
+    }
+
+    /// Entities carrying the given item instance id.
+    pub fn items(&self, id: InstanceId) -> &[Entity] {
+        self.items.entities(id)
     }
 
     /// Shared handle of the given npc instance, `None` before the script has
@@ -106,6 +112,27 @@ impl InstanceIndex {
     pub fn insert_npc_handles(&mut self, handles: impl IntoIterator<Item = NpcHandle>) {
         for handle in handles {
             self.insert_npc_handle(handle);
+        }
+    }
+
+    /// Shared handle of the given item instance, `None` before the script has
+    /// created its handle.
+    pub fn item_handle(&self, id: InstanceId) -> Option<&ItemHandle> {
+        self.item_handles.get(&id)
+    }
+
+    /// Registers a shared item handle, replacing an older handle of the same
+    /// instance.
+    pub fn insert_item_handle(&mut self, handle: ItemHandle) {
+        self.item_handles.insert(handle.instance_id(), handle);
+    }
+
+    /// Registers the item handles created by a script load, replacing any
+    /// handles left over from a previous script instance.
+    pub fn replace_item_handles(&mut self, handles: impl IntoIterator<Item = ItemHandle>) {
+        self.item_handles.clear();
+        for handle in handles {
+            self.insert_item_handle(handle);
         }
     }
 }
@@ -142,7 +169,7 @@ fn track_items(
     for (entity, item) in &items {
         // Drop any previous mapping first, the instance id may have changed
         index.items.remove(entity);
-        index.items.insert(entity, item.item_instance_id);
+        index.items.insert(entity, item.instance_id());
     }
     for entity in removed.read() {
         index.items.remove(entity);

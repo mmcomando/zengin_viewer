@@ -155,7 +155,7 @@ pub(super) fn pickup_selected_item(
         return;
     };
 
-    let item_id = item.item_instance_id;
+    let item_id = item.instance_id();
     let mut script = gothic_script.lock();
     let name = script.item_log_name(item_id);
     script.add_inventory(player_npc.instance_id(), item_id, 1);

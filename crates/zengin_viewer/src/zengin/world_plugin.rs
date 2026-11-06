@@ -283,8 +283,19 @@ fn init_named_models(
     named_models.item_arrow = loaded_state
         .items_instances
         .iter()
-        .find(|(_, instance)| instance.name.eq_ignore_ascii_case("ITRW_ARROW"))
-        .and_then(|(_, instance)| mesh_model_path(vfs, instance.chosen_visual()))
+        .find(|(_, instance)| {
+            instance
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .name
+                .eq_ignore_ascii_case("ITRW_ARROW")
+        })
+        .and_then(|(_, instance)| {
+            let instance = instance
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            mesh_model_path(vfs, instance.chosen_visual())
+        })
         .map(|path| handles.get_model_handle(asset_server, &path, None));
     if named_models.item_arrow.is_none() {
         warn!("No ITRW_ARROW item instance found, arrows will have no visual");
@@ -399,11 +410,12 @@ fn npc_spawn_script_data(
         .get_routine_entry(minutes_of_day)
         .map(|entry| entry.way_point.clone());
     let armor_visual = instance.visual.armor_model.as_ref().and_then(|name| {
-        state
-            .items_instances
-            .values()
-            .find(|item| &item.name == name)
-            .map(|item| item.chosen_visual().to_string())
+        state.items_instances.values().find_map(|item| {
+            let item = item
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            (&item.name == name).then(|| item.chosen_visual().to_string())
+        })
     });
     Some(NpcSpawnScript {
         handle,
@@ -534,6 +546,7 @@ fn spawn_npc_entities(
 }
 
 /// Spawns an item entity, resolving its model from the script item instance.
+#[allow(clippy::cognitive_complexity)]
 fn spawn_item_entities(
     mut spawns: MessageReader<SpawnItem>,
     mut commands: Commands,
@@ -542,10 +555,18 @@ fn spawn_item_entities(
     gothic_scripts: ResMut<ScriptResource>,
     way_points: Res<WayPoints>,
     spots: Res<Spots>,
-
     vfs: Res<ZenginVfs>,
+    mut instance_index: ResMut<InstanceIndex>,
 ) {
     for spawn in spawns.read() {
+        let Some(handle) = gothic_scripts.lock().item_handle(spawn.instance_id) else {
+            warn!(
+                "No item handle for item({}) spawn",
+                spawn.instance_id.value()
+            );
+            continue;
+        };
+        instance_index.insert_item_handle(handle.clone());
         let Some(model) = item_model_path(&gothic_scripts, &vfs, spawn.instance_id) else {
             crate::warn_once!("No mesh path for item({})", spawn.instance_id);
             continue;
@@ -592,9 +613,7 @@ fn spawn_item_entities(
             },
             Visibility::default(),
             waypoint_tr,
-            GameItem {
-                item_instance_id: spawn.instance_id,
-            },
+            GameItem::new(handle),
         ));
     }
 }

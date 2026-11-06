@@ -543,7 +543,14 @@ fn equip_player_weapon(
         .get_loaded_state()
         .items_instances
         .iter()
-        .find(|(_, instance)| instance.name.to_lowercase() == lowered)
+        .find(|(_, instance)| {
+            instance
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .name
+                .to_lowercase()
+                == lowered
+        })
         .map(|(id, _)| *id)
     else {
         warn!("Replay equip failed: no item instance named {item}");

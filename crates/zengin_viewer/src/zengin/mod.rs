@@ -7,6 +7,7 @@ pub(crate) use crate::zengin::common::choose_animation_scheme;
 pub(crate) use crate::zengin::interaction::{grant_test_items, seed_test_journal};
 pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
 pub(crate) use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
+mod item_data;
 mod npc_data;
 mod npc_routines;
 mod objects_to_entities;
@@ -32,6 +33,7 @@ pub(crate) use crate::zengin::dialog::SpeechSounds;
 pub(crate) use crate::zengin::interaction::MeleeHit;
 pub(crate) use crate::zengin::interaction::ranged::ArrowShot;
 pub(crate) use crate::zengin::interaction::selection::{Selection, SelectionKind};
+pub(crate) use crate::zengin::item_data::ItemHandle;
 pub(crate) use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };
@@ -98,10 +100,27 @@ impl GameNpc {
     }
 }
 
-/// Identifies Entity with a Zengin script item instance id
-#[derive(Debug, Component)]
+/// Identifies Entity with the shared data of a Zengin script item instance.
+#[derive(Debug, Component, Clone)]
 pub struct GameItem {
-    item_instance_id: InstanceId,
+    handle: ItemHandle,
+}
+
+impl GameItem {
+    pub fn new(handle: ItemHandle) -> Self {
+        Self { handle }
+    }
+
+    /// Script instance id of this item.
+    pub fn instance_id(&self) -> InstanceId {
+        self.handle.instance_id()
+    }
+
+    /// Shared typed and runtime data of this item.
+    #[allow(dead_code)] // read by item consumers (next step)
+    pub fn handle(&self) -> &ItemHandle {
+        &self.handle
+    }
 }
 
 /// Interactive chest vob with its remaining loot.

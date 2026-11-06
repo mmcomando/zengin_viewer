@@ -5,8 +5,8 @@ use bevy::math::Vec3;
 
 use super::super::journal::{JournalChange, JournalManager, JournalTopic};
 use super::super::state::{
-    AlignToWpChange, DialogLine, GotoChange, InventoryGain, ItemInstanceState, LoadedState,
-    NpcRuntime, OverlayChange, PendingChanges, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
+    AlignToWpChange, DialogLine, GotoChange, InventoryGain, ItemRuntime, LoadedState, NpcRuntime,
+    OverlayChange, PendingChanges, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
 };
 use super::super::symbol_id::InstanceId;
 
@@ -43,8 +43,25 @@ impl super::ScriptManager {
         self.pending_changes().npc_changed.clear();
     }
 
-    pub fn items_instances_mut(&mut self) -> &mut HashMap<InstanceId, ItemInstanceState> {
-        &mut self.store.data_mut().loaded_state.items_instances
+    pub fn drain_item_changes(&mut self) -> Vec<InstanceId> {
+        std::mem::take(&mut self.pending_changes().item_changed)
+            .into_iter()
+            .collect()
+    }
+
+    pub fn clear_item_changes(&mut self) {
+        self.pending_changes().item_changed.clear();
+    }
+
+    /// Mutable runtime state of an item, records the instance as changed.
+    pub fn item_state_mut(&mut self, index: InstanceId) -> RwLockWriteGuard<'_, ItemRuntime> {
+        self.store.data_mut().item_state_mut(index)
+    }
+
+    /// Runtime state of an item, `None` when the instance has none.
+    #[allow(dead_code)] // used by item consumers (next step)
+    pub fn item_state(&self, index: InstanceId) -> Option<RwLockReadGuard<'_, ItemRuntime>> {
+        self.store.data().item_state(index)
     }
 
     pub fn drain_routine_exchanges(&mut self) -> Vec<RoutineExchange> {

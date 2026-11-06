@@ -3,10 +3,11 @@ mod instances;
 mod weapons;
 
 pub(crate) use changes::{
-    AlignToWpChange, DialogClose, DialogLine, GotoChange, InventoryGain, NpcChanged,
-    NpcEntitiesChanged, OverlayChange, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
+    AlignToWpChange, DialogClose, DialogLine, GotoChange, InventoryGain, ItemChanged,
+    ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, RoutineExchange,
+    ScreenMessage, SpawnItem, SpawnNpc,
 };
-pub(crate) use instances::{DialogChoice, DialogRoot, ItemInstanceState, NpcRuntime, RoutineEntry};
+pub(crate) use instances::{DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry};
 pub(crate) use weapons::{OverlayRequest, WeaponKind, WeaponMode};
 
 use std::collections::{BTreeSet, HashMap};
@@ -36,7 +37,7 @@ pub struct MobRoutineEntry {
 #[derive(Debug, Default)]
 pub struct LoadedState {
     /// State of every loaded item instance.
-    pub items_instances: HashMap<InstanceId, ItemInstanceState>,
+    pub items_instances: HashMap<InstanceId, Arc<RwLock<ItemRuntime>>>,
     /// State of every loaded npc instance.
     pub npc_instances: HashMap<InstanceId, Arc<RwLock<NpcRuntime>>>,
     /// Time-of-day mob states registered by `wld_setmobroutine`.
@@ -238,6 +239,8 @@ pub struct PendingChanges {
     /// Npc instances whose data was edited since the last drain, deduplicated
     /// so one frame produces at most one message per instance.
     pub npc_changed: BTreeSet<InstanceId>,
+    /// Item instances whose data was edited since the last drain.
+    pub item_changed: BTreeSet<InstanceId>,
 }
 
 impl ImportCallState {
@@ -253,6 +256,29 @@ impl ImportCallState {
         Some(
             self.loaded_state
                 .npc_instances
+                .get(&instance)?
+                .read()
+                .unwrap_or_else(PoisonError::into_inner),
+        )
+    }
+
+    /// Mutable runtime state of an item, records the instance as changed.
+    pub fn item_state_mut(&mut self, instance: InstanceId) -> RwLockWriteGuard<'_, ItemRuntime> {
+        self.pending.item_changed.insert(instance);
+        let state = self
+            .loaded_state
+            .items_instances
+            .entry(instance)
+            .or_default();
+        state.write().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Runtime state of an item, `None` when the instance has none.
+    #[allow(dead_code)] // used by item consumers (next step)
+    pub fn item_state(&self, instance: InstanceId) -> Option<RwLockReadGuard<'_, ItemRuntime>> {
+        Some(
+            self.loaded_state
+                .items_instances
                 .get(&instance)?
                 .read()
                 .unwrap_or_else(PoisonError::into_inner),

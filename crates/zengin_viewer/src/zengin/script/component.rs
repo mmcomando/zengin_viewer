@@ -38,11 +38,13 @@ pub struct GameScriptLoaded;
 fn initialize_game_script(world: &mut World) {
     info!("Load game script");
     let mut script = load_gothic_script_manager();
-    let handles = script.npc_handles();
+    let npc_handles = script.npc_handles();
+    let item_handles = script.item_handles();
     world.insert_resource(ScriptResource::from_manager(script));
     {
         let mut index = world.resource_mut::<InstanceIndex>();
-        index.replace_npc_handles(handles);
+        index.replace_npc_handles(npc_handles);
+        index.replace_item_handles(item_handles);
     }
     world.insert_resource(load_dialog_texts());
 }
@@ -112,6 +114,7 @@ fn load_gothic_script_manager() -> ScriptManager {
 
     // Initial values are seeded on npc spawn, do not replay them as changes.
     script.clear_npc_changes();
+    script.clear_item_changes();
 
     script
 }

@@ -3,7 +3,7 @@ use std::sync::PoisonError;
 use bevy::log::warn;
 use daedalus_typed::{Item, Npc};
 
-use crate::zengin::NpcHandle;
+use crate::zengin::{ItemHandle, NpcHandle};
 
 use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::super::string_value::{ShowString, StringCanon};
@@ -163,6 +163,45 @@ impl super::ScriptManager {
             .collect();
         ids.into_iter()
             .filter_map(|instance| self.npc_handle(instance))
+            .collect()
+    }
+
+    /// Shared handle of an item instance, created on demand.
+    pub fn item_handle(&mut self, instance: InstanceId) -> Option<ItemHandle> {
+        let Some(typed) = self
+            .store
+            .data()
+            .typed
+            .instance(instance.value() as u32)
+            .and_then(daedalus_typed::TypedInstance::item)
+            .cloned()
+        else {
+            warn!("No typed C_Item data for instance({})", instance.value());
+            return None;
+        };
+        let runtime = self
+            .store
+            .data_mut()
+            .loaded_state
+            .items_instances
+            .entry(instance)
+            .or_default()
+            .clone();
+        Some(ItemHandle::new(instance, typed, runtime))
+    }
+
+    /// Handles of every item instance currently known to the script.
+    pub fn item_handles(&mut self) -> Vec<ItemHandle> {
+        let ids: Vec<InstanceId> = self
+            .store
+            .data()
+            .loaded_state
+            .items_instances
+            .keys()
+            .copied()
+            .collect();
+        ids.into_iter()
+            .filter_map(|instance| self.item_handle(instance))
             .collect()
     }
 
@@ -341,7 +380,7 @@ impl super::ScriptManager {
             };
 
             let visual_change = self.get_item_visual_change(index.symbol());
-            let entry = self.items_instances_mut().entry(index).or_default();
+            let mut entry = self.item_state_mut(index);
             entry.name = symbol_name;
             entry.visual = visual;
             entry.visual_change = visual_change;

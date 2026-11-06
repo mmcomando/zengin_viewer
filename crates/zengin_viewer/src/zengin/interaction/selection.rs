@@ -269,10 +269,10 @@ fn update_selection(
     };
     if let Some(item) = item {
         selection.kind = Some(SelectionKind::Item);
-        let raw = item.item_instance_id.value();
+        let raw = item.instance_id().value();
         selection.name = gothic_script
             .lock()
-            .item_display_name(item.item_instance_id)
+            .item_display_name(item.instance_id())
             .or_else(|| gothic_script.lock().get_name_by_id(raw))
             .unwrap_or_else(|| raw.to_string());
     } else if chest.is_some() {

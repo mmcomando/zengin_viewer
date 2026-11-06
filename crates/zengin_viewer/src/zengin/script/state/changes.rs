@@ -1,6 +1,6 @@
 use bevy::prelude::{Entity, Message, Transform};
 
-use crate::zengin::NpcHandle;
+use crate::zengin::{ItemHandle, NpcHandle};
 
 use super::super::string_value::StringCanon;
 use super::super::symbol_id::{InstanceId, StringId};
@@ -13,6 +13,22 @@ pub struct RoutineExchange {
     pub instance_id: InstanceId,
     /// Routine name with its original case (symbol names compare exactly).
     pub routine_name: String,
+}
+
+/// Signal that an item's shared data changed.
+#[derive(Debug, Message, Clone, Copy)]
+pub struct ItemChanged {
+    pub instance_id: InstanceId,
+}
+
+/// Signal that the entities carrying an item instance need to refresh their
+/// mirrored components.
+#[derive(Debug, Message, Clone)]
+#[allow(dead_code)] // no item consumers yet
+pub struct ItemEntitiesChanged {
+    /// Shared data of the instance, so consumers do not need a second lookup.
+    pub handle: ItemHandle,
+    pub entities: Vec<Entity>,
 }
 
 /// Signal that an npc's shared data changed; consumers compare the fields they

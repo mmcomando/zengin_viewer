@@ -130,7 +130,13 @@ fn grant_test_item(
         .get_loaded_state()
         .items_instances
         .iter()
-        .find(|(_, instance)| instance.name.eq_ignore_ascii_case(item_name))
+        .find(|(_, instance)| {
+            instance
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .name
+                .eq_ignore_ascii_case(item_name)
+        })
         .map(|(id, _)| *id)?;
     script.add_inventory(player_id, item, count);
     Some(item)

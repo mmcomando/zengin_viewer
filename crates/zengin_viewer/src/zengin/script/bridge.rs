@@ -16,9 +16,9 @@ use crate::zengin::npc_routines::{
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use crate::zengin::script::state::{
-    AlignToWpChange, DialogClose, DialogLine, GotoChange, InventoryGain, NpcChanged,
-    NpcEntitiesChanged, OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage, SpawnItem,
-    SpawnNpc, WeaponMode,
+    AlignToWpChange, DialogClose, DialogLine, GotoChange, InventoryGain, ItemChanged,
+    ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest,
+    RoutineEntry, ScreenMessage, SpawnItem, SpawnNpc, WeaponMode,
 };
 
 pub struct ScriptBridgePlugin;
@@ -27,6 +27,8 @@ impl Plugin for ScriptBridgePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<NpcChanged>();
         app.add_message::<NpcEntitiesChanged>();
+        app.add_message::<ItemChanged>();
+        app.add_message::<ItemEntitiesChanged>();
         app.add_message::<AlignToWpChange>();
         app.add_message::<OverlayChange>();
         app.add_message::<GotoChange>();
@@ -44,6 +46,8 @@ impl Plugin for ScriptBridgePlugin {
                 send_script_changes,
                 send_npc_changes,
                 expand_npc_changes,
+                send_item_changes,
+                expand_item_changes,
                 log_inventory_gains,
                 log_journal_changes,
                 forward_screen_messages,
@@ -153,6 +157,39 @@ fn expand_npc_changes(
             continue;
         }
         entities_changed.write(NpcEntitiesChanged {
+            handle: handle.clone(),
+            entities: entities.to_vec(),
+        });
+    }
+}
+
+/// Drains item data edits recorded by the script and forwards them as messages.
+fn send_item_changes(mut changed: MessageWriter<ItemChanged>, gothic_script: Res<ScriptResource>) {
+    let changed_ids = gothic_script.lock().drain_item_changes();
+    if changed_ids.is_empty() {
+        return;
+    }
+    debug!("Item data changed: {} instance(s)", changed_ids.len());
+    for instance_id in changed_ids {
+        changed.write(ItemChanged { instance_id });
+    }
+}
+
+/// Resolves the entities carrying a changed item instance.
+fn expand_item_changes(
+    mut changes: MessageReader<ItemChanged>,
+    mut entities_changed: MessageWriter<ItemEntitiesChanged>,
+    index: Res<InstanceIndex>,
+) {
+    for change in changes.read() {
+        let Some(handle) = index.item_handle(change.instance_id) else {
+            continue;
+        };
+        let entities = index.items(change.instance_id);
+        if entities.is_empty() {
+            continue;
+        }
+        entities_changed.write(ItemEntitiesChanged {
             handle: handle.clone(),
             entities: entities.to_vec(),
         });

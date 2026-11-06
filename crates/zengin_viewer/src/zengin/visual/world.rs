@@ -52,7 +52,12 @@ pub fn load_zengin_world_data(
     let item_ids: HashMap<String, InstanceId> = vm_state
         .items_instances
         .iter()
-        .map(|(id, item)| (item.name.to_lowercase(), *id))
+        .map(|(id, item)| {
+            let item = item
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            (item.name.to_lowercase(), *id)
+        })
         .collect();
 
     for obj in world.root_objects() {
