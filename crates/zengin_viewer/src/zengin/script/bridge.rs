@@ -267,23 +267,23 @@ fn apply_routine_changes(
     mut changes: MessageReader<RoutineEntryChange>,
     index: Res<InstanceIndex>,
     game_time: Res<GameTime>,
-    gothic_script: Res<ScriptResource>,
 ) {
     if changes.is_empty() {
         return;
     }
 
     let minutes = game_time.minutes_of_day();
-    let gothic_script = gothic_script.lock();
-    let instances = gothic_script.npc_instances();
 
     for change in changes.read() {
-        let active = instances.get(&change.instance_id).and_then(|npc| {
-            let npc = npc
-                .read()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            npc.get_routine_entry(minutes).cloned()
-        });
+        let Some(handle) = index.npc_handle(change.instance_id) else {
+            continue;
+        };
+        let active = handle
+            .runtime()
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get_routine_entry(minutes)
+            .cloned();
         for entity in index.npcs(change.instance_id) {
             set_routine_entry(&mut commands, *entity, active.as_ref());
         }

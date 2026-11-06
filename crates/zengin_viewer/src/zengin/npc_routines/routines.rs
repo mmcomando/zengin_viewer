@@ -57,7 +57,7 @@ pub(crate) struct NpcRoutineCheckState {
 pub(crate) fn update_npc_routine_entries(
     mut check_state: ResMut<NpcRoutineCheckState>,
     game_time: Res<GameTime>,
-    gothic_script: Res<ScriptResource>,
+    index: Res<InstanceIndex>,
     mut npcs: Query<(&GameNpc, &mut RoutineEntry), Without<ChildOf>>,
 ) {
     let minutes = game_time.minutes_of_day();
@@ -66,16 +66,17 @@ pub(crate) fn update_npc_routine_entries(
     }
     check_state.last_checked_minute = Some(minutes);
 
-    let gothic_script = gothic_script.lock();
-    let instances = gothic_script.npc_instances();
     for (npc, mut entry) in &mut npcs {
-        let Some(active) = instances.get(&npc.npc_instance_id).and_then(|instance| {
-            instance
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .get_routine_entry(minutes)
-                .cloned()
-        }) else {
+        let Some(handle) = index.npc_handle(npc.npc_instance_id) else {
+            continue;
+        };
+        let Some(active) = handle
+            .runtime()
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get_routine_entry(minutes)
+            .cloned()
+        else {
             continue;
         };
         if *entry == active {
