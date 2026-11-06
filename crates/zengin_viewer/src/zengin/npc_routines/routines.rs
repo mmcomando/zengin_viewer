@@ -168,8 +168,8 @@ pub(crate) fn update_npc_routines(
 /// routine state function (`ZS_*`) is executed in the script vm, animation
 /// names it requests via `AI_PlayAni(BS)` are collected and the resulting
 /// animation is switched to on the npc visual. The state function is only
-/// re-executed when the active routine entry state changes, so the per frame
-/// cost for already applied npcs is just the component lookup.
+/// re-executed when the active routine entry state changes or the visual
+/// controller appears, so unchanged npcs are not visited at all.
 #[allow(clippy::type_complexity)]
 pub(crate) fn update_npc_routine_animations(
     gothic_script: Res<ScriptResource>,
@@ -187,20 +187,12 @@ pub(crate) fn update_npc_routine_animations(
             Option<&mut NpcRoutineAnimation>,
             Option<&mut AnimationController>,
         ),
-        // Routine npcs are world root entities, this also excludes the player visual
-        // entity which is a child of the player controller and also carries `GameNpc`.
-        Without<ChildOf>,
+        (Or<(Changed<RoutineEntry>, Added<AnimationController>)>,),
     >,
 ) {
     for (entity, npc, entry, npc_model, overlay, routine_animation, controller) in &mut npcs {
-        let Some(mut routine_animation) = routine_animation else {
-            commands
-                .entity(entity)
-                .insert(NpcRoutineAnimation::default());
-            continue;
-        };
         let Some(mut controller) = controller else {
-            // Npc visual is not spawned yet, retry when it is
+            // Npc visual is not spawned yet, retry when its controller appears
             continue;
         };
         let Some(scheme) = npc_model.animation_scheme.as_deref() else {
@@ -214,11 +206,13 @@ pub(crate) fn update_npc_routine_animations(
         let Some(state_fn) = entry.state_fn else {
             continue;
         };
-        if routine_animation.applied_state_fn == Some(state_fn) {
+        let applied = routine_animation
+            .as_ref()
+            .and_then(|routine_animation| routine_animation.applied_state_fn);
+        if applied == Some(state_fn) {
             continue;
         }
 
-        routine_animation.applied_state_fn = Some(state_fn);
         // Only lock the script when a state actually has to run
         let played_anis = gothic_script
             .lock()
@@ -233,6 +227,14 @@ pub(crate) fn update_npc_routine_animations(
         // the switch. When the animation asset does not exist the switch is
         // silently dropped and the npc keeps its current animation.
         controller.queue_next(handles.get_animation_handle(&asset_server, &path), true);
+
+        if let Some(mut routine_animation) = routine_animation {
+            routine_animation.applied_state_fn = Some(state_fn);
+        } else {
+            commands.entity(entity).insert(NpcRoutineAnimation {
+                applied_state_fn: Some(state_fn),
+            });
+        }
     }
 }
 
