@@ -14,11 +14,9 @@ use crate::zengin::script::symbol_id::InstanceId;
 pub struct NpcHandle {
     instance_id: InstanceId,
     typed: Arc<RwLock<Npc>>,
-    #[allow(dead_code)] // read by the npc change consumers (next step)
     runtime: Arc<RwLock<NpcRuntime>>,
 }
 
-#[allow(dead_code)] // read by the npc change consumers (next step)
 impl NpcHandle {
     pub fn new(
         instance_id: InstanceId,

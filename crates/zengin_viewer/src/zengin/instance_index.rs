@@ -95,6 +95,11 @@ impl InstanceIndex {
         self.npc_handles.get(&id)
     }
 
+    /// All shared npc handles, including instances without a spawned entity.
+    pub fn npc_handles(&self) -> impl Iterator<Item = &NpcHandle> {
+        self.npc_handles.values()
+    }
+
     /// Registers a shared npc handle, replacing an older handle of the same
     /// instance.
     pub fn insert_npc_handle(&mut self, handle: NpcHandle) {

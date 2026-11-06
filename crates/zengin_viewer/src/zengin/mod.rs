@@ -117,7 +117,7 @@ impl GameItem {
     }
 
     /// Shared typed and runtime data of this item.
-    #[allow(dead_code)] // read by item consumers (next step)
+    #[allow(dead_code)] // no item consumers yet
     pub fn handle(&self) -> &ItemHandle {
         &self.handle
     }

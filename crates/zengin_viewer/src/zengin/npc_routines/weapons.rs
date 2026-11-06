@@ -121,7 +121,7 @@ pub struct NpcAttachmentMarker;
 
 /// Item instance rendered by an attachment child.
 #[derive(Component, Clone, Copy)]
-#[allow(dead_code)] // read by item/attachment consumers (next step)
+#[allow(dead_code)] // no item consumers yet
 pub struct EquippedItem {
     pub instance_id: InstanceId,
 }

@@ -19,10 +19,6 @@ impl super::ScriptManager {
         &self.store.data().loaded_state.npc_instances
     }
 
-    pub fn npc_instances_mut(&mut self) -> &mut HashMap<InstanceId, Arc<RwLock<NpcRuntime>>> {
-        &mut self.store.data_mut().loaded_state.npc_instances
-    }
-
     /// Mutable runtime state of an npc, records the instance as changed.
     pub fn npc_state_mut(&mut self, index: InstanceId) -> RwLockWriteGuard<'_, NpcRuntime> {
         self.store.data_mut().npc_state_mut(index)
@@ -59,7 +55,7 @@ impl super::ScriptManager {
     }
 
     /// Runtime state of an item, `None` when the instance has none.
-    #[allow(dead_code)] // used by item consumers (next step)
+    #[allow(dead_code)] // no item consumers yet
     pub fn item_state(&self, index: InstanceId) -> Option<RwLockReadGuard<'_, ItemRuntime>> {
         self.store.data().item_state(index)
     }

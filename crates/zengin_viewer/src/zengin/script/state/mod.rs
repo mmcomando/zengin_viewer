@@ -274,7 +274,7 @@ impl ImportCallState {
     }
 
     /// Runtime state of an item, `None` when the instance has none.
-    #[allow(dead_code)] // used by item consumers (next step)
+    #[allow(dead_code)] // no item consumers yet
     pub fn item_state(&self, instance: InstanceId) -> Option<RwLockReadGuard<'_, ItemRuntime>> {
         Some(
             self.loaded_state

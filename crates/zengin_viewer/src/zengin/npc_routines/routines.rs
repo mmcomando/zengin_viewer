@@ -187,7 +187,12 @@ pub(crate) fn update_npc_routine_animations(
             Option<&mut NpcRoutineAnimation>,
             Option<&mut AnimationController>,
         ),
-        (Or<(Changed<RoutineEntry>, Added<AnimationController>)>,),
+        (
+            Or<(Changed<RoutineEntry>, Added<AnimationController>)>,
+            // Routine npcs are world root entities, this also excludes the player visual
+            // entity which is a child of the player controller and also carries `GameNpc`.
+            Without<ChildOf>,
+        ),
     >,
 ) {
     for (entity, npc, entry, npc_model, overlay, routine_animation, controller) in &mut npcs {

@@ -53,11 +53,10 @@ fn initialize_game_script(world: &mut World) {
 /// so npcs that are parented to something are still tracked at their world
 /// position; the player visual is a `GameNpc` child and is included. Every npc
 /// position is cleared first, so a removed npc drops out and counts as dead.
-fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, script: Res<ScriptResource>) {
-    let mut script = script.lock();
-    let instances = script.npc_instances_mut();
-    for instance in instances.values() {
-        instance
+fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, index: Res<InstanceIndex>) {
+    for handle in index.npc_handles() {
+        handle
+            .runtime()
             .write()
             .unwrap_or_else(PoisonError::into_inner)
             .live
@@ -65,8 +64,8 @@ fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, script: Re
     }
     for (npc, transform) in &npcs {
         // Position sync feeds the script, it is not a data change for the ECS.
-        let instance = instances.entry(npc.instance_id()).or_default();
-        instance
+        npc.handle()
+            .runtime()
             .write()
             .unwrap_or_else(PoisonError::into_inner)
             .live
