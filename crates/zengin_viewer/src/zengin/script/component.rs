@@ -63,7 +63,7 @@ fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, script: Re
     }
     for (npc, transform) in &npcs {
         // Position sync feeds the script, it is not a data change for the ECS.
-        let instance = instances.entry(npc.npc_instance_id).or_default();
+        let instance = instances.entry(npc.instance_id()).or_default();
         instance
             .write()
             .unwrap_or_else(PoisonError::into_inner)

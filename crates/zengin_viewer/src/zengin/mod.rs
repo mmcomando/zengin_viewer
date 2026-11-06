@@ -76,16 +76,25 @@ impl Plugin for ZenginPlugin {
     }
 }
 
-/// Identifies Entity with given Zengin script instance id
-#[derive(Debug, Component)]
+/// Identifies Entity with the shared data of a Zengin script npc instance.
+#[derive(Debug, Component, Clone)]
 pub struct GameNpc {
-    npc_instance_id: InstanceId,
+    handle: NpcHandle,
 }
 
 impl GameNpc {
+    pub fn new(handle: NpcHandle) -> Self {
+        Self { handle }
+    }
+
     /// Script instance id of this npc.
     pub fn instance_id(&self) -> InstanceId {
-        self.npc_instance_id
+        self.handle.instance_id()
+    }
+
+    /// Shared typed and runtime data of this npc.
+    pub fn handle(&self) -> &NpcHandle {
+        &self.handle
     }
 }
 

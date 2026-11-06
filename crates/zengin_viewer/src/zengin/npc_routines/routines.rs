@@ -57,7 +57,6 @@ pub(crate) struct NpcRoutineCheckState {
 pub(crate) fn update_npc_routine_entries(
     mut check_state: ResMut<NpcRoutineCheckState>,
     game_time: Res<GameTime>,
-    index: Res<InstanceIndex>,
     mut npcs: Query<(&GameNpc, &mut RoutineEntry), Without<ChildOf>>,
 ) {
     let minutes = game_time.minutes_of_day();
@@ -67,10 +66,8 @@ pub(crate) fn update_npc_routine_entries(
     check_state.last_checked_minute = Some(minutes);
 
     for (npc, mut entry) in &mut npcs {
-        let Some(handle) = index.npc_handle(npc.npc_instance_id) else {
-            continue;
-        };
-        let Some(active) = handle
+        let Some(active) = npc
+            .handle()
             .runtime()
             .read()
             .unwrap_or_else(PoisonError::into_inner)
@@ -130,7 +127,7 @@ pub(crate) fn update_npc_routines(
         let Some(waypoint_tr) = way_points.points.get(entry.way_point.as_str()) else {
             crate::warn_once!(
                 "routine waypoint not found, npc({}), waypoint({})",
-                npc.npc_instance_id,
+                npc.instance_id(),
                 entry.way_point
             );
             continue;
@@ -144,7 +141,8 @@ pub(crate) fn update_npc_routines(
         {
             debug!(
                 "walk npc({}) to waypoint({})",
-                npc.npc_instance_id, entry.way_point
+                npc.instance_id(),
+                entry.way_point
             );
             commands.entity(entity).insert(NpcPath {
                 nodes: path,
@@ -155,7 +153,8 @@ pub(crate) fn update_npc_routines(
 
         warn!(
             "teleport npc({}) to waypoint({})",
-            npc.npc_instance_id, entry.way_point
+            npc.instance_id(),
+            entry.way_point
         );
         // Keep any model scale Mdl_SetModelScale applied
         let scale = tr.scale;
@@ -217,13 +216,13 @@ pub(crate) fn update_npc_routine_animations(
         // Only lock the script when a state actually has to run
         let played_anis = gothic_script
             .lock()
-            .call_routine_state_function(npc.npc_instance_id, state_fn);
+            .call_routine_state_function(npc.instance_id(), state_fn);
         let ani = choose_routine_animation(&played_anis, stand_animation);
 
         let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
         let scheme = choose_animation_scheme(scheme, overlay, &ani, &files.0);
         let path = get_animation_path(scheme, &ani);
-        // info!("npc({}) routine animation({})", npc.npc_instance_id, ani);
+        // info!("npc({}) routine animation({})", npc.instance_id(), ani);
         // Applied via `next` so the animation system syncs its playback state on
         // the switch. When the animation asset does not exist the switch is
         // silently dropped and the npc keeps its current animation.

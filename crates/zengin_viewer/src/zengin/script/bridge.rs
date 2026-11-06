@@ -517,28 +517,25 @@ fn seed_npc_components_on_add(
     // Seed the hitpoints from the npc instance data first, this needs `&mut`
     let mut healths = HashMap::new();
     for (_, npc) in &added_npcs {
-        if let Some((hitpoints, hitpoints_max)) = gothic_script.hitpoints(npc.npc_instance_id) {
-            healths.insert(
-                npc.npc_instance_id,
-                NpcHealth::new(hitpoints, hitpoints_max),
-            );
+        if let Some((hitpoints, hitpoints_max)) = gothic_script.hitpoints(npc.instance_id()) {
+            healths.insert(npc.instance_id(), NpcHealth::new(hitpoints, hitpoints_max));
         } else {
             warn!(
                 "No hitpoints data for npc({}) on spawn",
-                npc.npc_instance_id.value()
+                npc.instance_id().value()
             );
         }
     }
     let instances = gothic_script.npc_instances();
 
     for (entity, npc) in &added_npcs {
-        let Some(instance) = instances.get(&npc.npc_instance_id) else {
+        let Some(instance) = instances.get(&npc.instance_id()) else {
             continue;
         };
         let instance = instance
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if let Some(health) = healths.get(&npc.npc_instance_id) {
+        if let Some(health) = healths.get(&npc.instance_id()) {
             commands.entity(entity).insert(*health);
         }
         set_routine_entry(&mut commands, entity, instance.get_routine_entry(minutes));

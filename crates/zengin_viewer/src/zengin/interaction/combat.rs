@@ -95,7 +95,7 @@ pub(super) fn melee_swing_hit(
         let Ok(player_npc) = player_npc.single() else {
             continue;
         };
-        let player_id = player_npc.npc_instance_id;
+        let player_id = player_npc.instance_id();
 
         let damage = {
             let mut script = gothic_script.lock();
@@ -146,7 +146,7 @@ pub(crate) fn damage_npc(
     game_log: &mut GameLog,
     npc_died: &mut MessageWriter<NpcDied>,
 ) {
-    let npc_id = npc_data.npc.npc_instance_id;
+    let npc_id = npc_data.npc.instance_id();
     let Some(hitpoints) = gothic_script.lock().change_hitpoints(npc_id, -damage) else {
         warn!(
             "Damage ignored: no hitpoints data for npc({})",
@@ -260,7 +260,7 @@ pub(super) fn handle_npc_death(
         let Ok((npc, equipped, weapon_mode)) = npcs.get(death.entity) else {
             continue;
         };
-        let npc_id = npc.map_or(death.instance_id, |npc| npc.npc_instance_id);
+        let npc_id = npc.map_or(death.instance_id, |npc| npc.instance_id());
         let position = death.position;
         // Only the drawn weapon drops on the ground; sheathed weapons stay
         // part of the inventory that moves to the player
@@ -273,7 +273,7 @@ pub(super) fn handle_npc_death(
         let Ok(player_npc) = player_npc.single() else {
             return;
         };
-        let player_id = player_npc.npc_instance_id;
+        let player_id = player_npc.instance_id();
 
         // Move the inventory to the player, it is logged by `handle_transfer_items`.
         transfer_items.write(TransferItems {

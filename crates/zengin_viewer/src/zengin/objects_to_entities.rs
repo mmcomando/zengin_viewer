@@ -193,7 +193,7 @@ fn spawn_npcs(
                 .unwrap_or_else(|| {
                     warn_once!(
                         "NPC({}), body({}) doesn't have idle animation",
-                        game_npc.npc_instance_id,
+                        game_npc.instance_id(),
                         &npc_model.body_model
                     );
                     EXAMPLE_ANIMATION.to_string()

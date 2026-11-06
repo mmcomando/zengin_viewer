@@ -125,7 +125,7 @@ fn track_npcs(
     for (entity, npc) in &npcs {
         // Drop any previous mapping first, the instance id may have changed
         index.npcs.remove(entity);
-        index.npcs.insert(entity, npc.npc_instance_id);
+        index.npcs.insert(entity, npc.instance_id());
     }
     for entity in removed.read() {
         index.npcs.remove(entity);

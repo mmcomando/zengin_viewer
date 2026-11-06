@@ -88,7 +88,7 @@ fn spawn_arrows(
             );
             continue;
         };
-        let Some(shooter) = npcs.get(shot.shooter).ok().map(|npc| npc.npc_instance_id) else {
+        let Some(shooter) = npcs.get(shot.shooter).ok().map(|npc| npc.instance_id()) else {
             warn!(
                 "Arrow shot ignored: shooter({}) is not an npc",
                 shot.shooter

@@ -303,9 +303,14 @@ fn spawn_player(
         .symbol_instance("pc_hero")
         .expect("player instance pc_hero should be a valid instance symbol");
     gothic_script.set_player_instance(player_instance);
-    if let Some(handle) = gothic_script.npc_handle(player_instance) {
-        instance_index.insert_npc_handle(handle);
-    }
+    let Some(handle) = gothic_script.npc_handle(player_instance) else {
+        warn!(
+            "No npc handle for player instance({}), player visual skipped",
+            player_instance.value()
+        );
+        return;
+    };
+    instance_index.insert_npc_handle(handle.clone());
     let mut player_collider = commands.spawn((
         Visibility::default(),
         PlayerPhysicsBodyMarker,
@@ -331,9 +336,7 @@ fn spawn_player(
         Visibility::default(),
         Transform::from_xyz(0.0, -1.0, 0.0),
         PlayerCharacter,
-        GameNpc {
-            npc_instance_id: player_instance,
-        },
+        GameNpc::new(handle),
         NpcModel {
             hierarchy: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS.MDH".to_string()),
             body_model: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM".to_string(),
@@ -511,9 +514,7 @@ fn spawn_npc_entities(
 
         commands.spawn((
             Visibility::default(),
-            GameNpc {
-                npc_instance_id: spawn.instance_id,
-            },
+            GameNpc::new(script.handle.clone()),
             NpcModel {
                 hierarchy,
                 body_model,

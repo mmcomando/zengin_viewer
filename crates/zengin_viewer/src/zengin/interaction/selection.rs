@@ -282,11 +282,11 @@ fn update_selection(
         selection.kind = Some(SelectionKind::Npc);
         selection.name = gothic_script
             .lock()
-            .npc_display_name(npc.npc_instance_id)
+            .npc_display_name(npc.instance_id())
             .unwrap_or_else(|| {
                 gothic_script
                     .lock()
-                    .call_get_name(npc.npc_instance_id.symbol())
+                    .call_get_name(npc.instance_id().symbol())
             });
     }
     selection.target = Some(entity);

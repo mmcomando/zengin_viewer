@@ -70,12 +70,12 @@ pub(super) fn show_closest_npc_dialog(
         return;
     };
 
-    info!("Selected npc: {}", closest_npc.npc_instance_id);
+    info!("Selected npc: {}", closest_npc.instance_id());
 
     requests.write(DialogRequest::Open {
         npc_entity: closest_entity,
-        npc_from: player_npc.npc_instance_id,
-        npc_talk_to: closest_npc.npc_instance_id,
+        npc_from: player_npc.instance_id(),
+        npc_talk_to: closest_npc.instance_id(),
         // The selection system already resolved the npc name
         npc_name: selection.name.clone(),
     });
