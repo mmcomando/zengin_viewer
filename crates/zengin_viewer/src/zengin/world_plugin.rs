@@ -395,7 +395,7 @@ fn npc_spawn_script_data(
     let routine_way_point = instance
         .get_routine_entry(minutes_of_day)
         .map(|entry| entry.way_point.clone());
-    let armor_visual = instance.armor_model.as_ref().and_then(|name| {
+    let armor_visual = instance.visual.armor_model.as_ref().and_then(|name| {
         state
             .items_instances
             .values()
@@ -404,14 +404,14 @@ fn npc_spawn_script_data(
     });
     Some(NpcSpawnScript {
         handle,
-        body_model: instance.body_model.clone(),
-        body_texture: instance.body_texture.clone(),
-        head_model: instance.head_model.clone(),
-        face_texture: instance.face_texture.clone(),
+        body_model: instance.visual.body_model.clone(),
+        body_texture: instance.visual.body_texture.clone(),
+        head_model: instance.visual.head_model.clone(),
+        face_texture: instance.visual.face_texture.clone(),
         armor_visual,
-        hierarchy: instance.hierarchy.clone(),
-        model_scale: instance.model_scale,
-        model_fatness: instance.model_fatness,
+        hierarchy: instance.visual.hierarchy.clone(),
+        model_scale: instance.visual.model_scale,
+        model_fatness: instance.visual.model_fatness,
         routine_way_point,
         location_name,
     })

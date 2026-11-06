@@ -399,7 +399,8 @@ fn npc_dialog_roots(
         instance
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .dialog_roots
+            .dialog
+            .roots
             .clone()?
     };
     gothic_script.filter_dialog_roots(npc_player, npc_talk_to, &mut roots);

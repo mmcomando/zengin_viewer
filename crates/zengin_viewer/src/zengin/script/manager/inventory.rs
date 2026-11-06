@@ -50,8 +50,8 @@ impl super::ScriptManager {
         {
             let mut instance = self.npc_state_mut(npc);
             match kind {
-                WeaponKind::Melee => instance.equipped_melee = Some(item),
-                WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = Some(item),
+                WeaponKind::Melee => instance.equipment.melee = Some(item),
+                WeaponKind::Bow | WeaponKind::Crossbow => instance.equipment.ranged = Some(item),
             }
         }
         self.pending_changes()
@@ -70,9 +70,9 @@ impl super::ScriptManager {
         };
         let equipped = self.npc_state(npc).map(|npc| {
             if ranged {
-                npc.equipped_ranged.is_some()
+                npc.equipment.ranged.is_some()
             } else {
-                npc.equipped_melee.is_some()
+                npc.equipment.melee.is_some()
             }
         });
         if equipped != Some(true) {
@@ -83,7 +83,7 @@ impl super::ScriptManager {
             );
             return;
         }
-        self.npc_state_mut(npc).weapon_mode = Some(mode);
+        self.npc_state_mut(npc).equipment.weapon_mode = Some(mode);
         self.pending_changes()
             .weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
@@ -94,7 +94,7 @@ impl super::ScriptManager {
     /// queued for the ECS bridge. The weapon stays equipped.
     #[allow(dead_code)] // used by the draw/sheathe weapon inputs
     pub fn sheathe_weapon(&mut self, npc: InstanceId) {
-        self.npc_state_mut(npc).weapon_mode = Some(WeaponMode::Fists);
+        self.npc_state_mut(npc).equipment.weapon_mode = Some(WeaponMode::Fists);
         self.pending_changes()
             .weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
@@ -106,17 +106,17 @@ impl super::ScriptManager {
         let drawn_kind_matches = {
             let mut instance = self.npc_state_mut(npc);
             match kind {
-                WeaponKind::Melee => instance.equipped_melee = None,
-                WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = None,
+                WeaponKind::Melee => instance.equipment.melee = None,
+                WeaponKind::Bow | WeaponKind::Crossbow => instance.equipment.ranged = None,
             }
-            match instance.weapon_mode {
+            match instance.equipment.weapon_mode {
                 Some(WeaponMode::Melee) => kind == WeaponKind::Melee,
                 Some(WeaponMode::Ranged) => kind.is_ranged(),
                 _ => false,
             }
         };
         if drawn_kind_matches {
-            self.npc_state_mut(npc).weapon_mode = Some(WeaponMode::Fists);
+            self.npc_state_mut(npc).equipment.weapon_mode = Some(WeaponMode::Fists);
             self.pending_changes()
                 .weapon_mode_changes
                 .push(WeaponModeChange { instance_id: npc });
@@ -133,9 +133,9 @@ impl super::ScriptManager {
     pub fn unequip_item(&mut self, npc: InstanceId) {
         {
             let mut instance = self.npc_state_mut(npc);
-            instance.equipped_melee = None;
-            instance.equipped_ranged = None;
-            instance.weapon_mode = Some(WeaponMode::Fists);
+            instance.equipment.melee = None;
+            instance.equipment.ranged = None;
+            instance.equipment.weapon_mode = Some(WeaponMode::Fists);
         }
         self.pending_changes()
             .equip_item_changes

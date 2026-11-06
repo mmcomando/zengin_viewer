@@ -327,6 +327,7 @@ fn apply_look_at_changes(
             .and_then(|npc| {
                 npc.read()
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .live
                     .look_at
             })
             .and_then(|id| index.npcs(id).first().copied());
@@ -369,6 +370,7 @@ fn apply_weapon_mode_changes(
         let mode = instances.get(&change.instance_id).and_then(|npc| {
             npc.read()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .equipment
                 .weapon_mode
         });
         for entity in index.npcs(change.instance_id) {
@@ -412,8 +414,8 @@ fn apply_equip_item_changes(
                 .read()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             NpcEquippedWeapon {
-                melee: npc.equipped_melee,
-                ranged: npc.equipped_ranged,
+                melee: npc.equipment.melee,
+                ranged: npc.equipment.ranged,
             }
         });
         for entity in index.npcs(change.instance_id) {
@@ -541,14 +543,15 @@ fn seed_npc_components_on_add(
         }
         set_routine_entry(&mut commands, entity, instance.get_routine_entry(minutes));
         let target = instance
+            .live
             .look_at
             .and_then(|id| index.npcs(id).first().copied());
         set_look_at(&mut commands, entity, target);
-        set_weapon_mode(&mut commands, entity, instance.weapon_mode);
-        let equipped = (instance.equipped_melee.is_some() || instance.equipped_ranged.is_some())
+        set_weapon_mode(&mut commands, entity, instance.equipment.weapon_mode);
+        let equipped = (instance.equipment.melee.is_some() || instance.equipment.ranged.is_some())
             .then_some(NpcEquippedWeapon {
-                melee: instance.equipped_melee,
-                ranged: instance.equipped_ranged,
+                melee: instance.equipment.melee,
+                ranged: instance.equipment.ranged,
             });
         set_equipped_weapon(&mut commands, entity, equipped);
     }

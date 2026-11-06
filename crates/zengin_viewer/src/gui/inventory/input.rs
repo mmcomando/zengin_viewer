@@ -473,7 +473,7 @@ fn equip_selected_item(
     let mut script = gothic_script.lock();
     let (equipped_melee, equipped_ranged) = script
         .npc_state(player_id)
-        .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
+        .map(|npc| (npc.equipment.melee, npc.equipment.ranged))
         .unwrap_or_default();
 
     let symbol = script
@@ -509,6 +509,6 @@ fn equip_selected_item(
 
     script
         .npc_state(player_id)
-        .map(|npc| (npc.equipped_melee, npc.equipped_ranged))
+        .map(|npc| (npc.equipment.melee, npc.equipment.ranged))
         .unwrap_or_default()
 }

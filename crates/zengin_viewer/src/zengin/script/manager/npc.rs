@@ -27,7 +27,7 @@ impl super::ScriptManager {
             );
             return;
         };
-        self.npc_state_mut(npc).routine_entries.clear();
+        self.npc_state_mut(npc).routine.entries.clear();
         self.set_self(npc);
         if let Err(error) = self.try_call_function(function) {
             warn!("Routine function({symbol_name}) failed: {error:?}");
@@ -243,16 +243,17 @@ impl super::ScriptManager {
         state_fn: FunctionId,
     ) -> Vec<StringCanon> {
         self.npc_state_mut(npc_instance_id)
-            .routine_played_anis
+            .routine
+            .played_anis
             .clear();
         // Track the active state so `Npc_IsInState`/`Npc_WasInState` answer
         // while the state function runs
         {
             let mut npc = self.npc_state_mut(npc_instance_id);
-            if let Some(previous) = npc.current_routine_state.replace(state_fn)
+            if let Some(previous) = npc.routine.current_state.replace(state_fn)
                 && previous != state_fn
             {
-                npc.previous_routine_state = Some(previous);
+                npc.routine.previous_state = Some(previous);
             }
         }
         self.set_self(npc_instance_id);
@@ -282,7 +283,7 @@ impl super::ScriptManager {
             );
         }
 
-        std::mem::take(&mut self.npc_state_mut(npc_instance_id).routine_played_anis)
+        std::mem::take(&mut self.npc_state_mut(npc_instance_id).routine.played_anis)
     }
 
     pub fn get_item_visual(&mut self, symbol_id: SymbolId) -> Option<String> {
@@ -301,7 +302,8 @@ impl super::ScriptManager {
             .filter(|(_, npc)| {
                 npc.read()
                     .unwrap_or_else(PoisonError::into_inner)
-                    .visual_initialized
+                    .visual
+                    .initialized
             })
             .map(|(index, _)| *index)
             .collect();
@@ -357,7 +359,8 @@ impl super::ScriptManager {
             .filter(|(_, npc)| {
                 npc.read()
                     .unwrap_or_else(PoisonError::into_inner)
-                    .visual_initialized
+                    .visual
+                    .initialized
             })
             .map(|(index, _)| *index)
             .collect();
@@ -368,12 +371,12 @@ impl super::ScriptManager {
             let Some(raw) = self.npc_instances().get(&index).map(|npc| {
                 let npc = npc.read().unwrap_or_else(PoisonError::into_inner);
                 (
-                    npc.body_model_id,
-                    npc.head_model_id,
-                    npc.armor_model_id,
-                    npc.hierarchy_id,
-                    npc.face_texture_index,
-                    npc.body_texture_index,
+                    npc.visual.body_model_id,
+                    npc.visual.head_model_id,
+                    npc.visual.armor_model_id,
+                    npc.visual.hierarchy_id,
+                    npc.visual.face_texture_index,
+                    npc.visual.body_texture_index,
                 )
             }) else {
                 continue;
@@ -433,12 +436,12 @@ impl super::ScriptManager {
             };
 
             let mut entry = self.npc_state_mut(index);
-            entry.body_model = body_model;
-            entry.body_texture = body_texture;
-            entry.head_model = head_model;
-            entry.face_texture = face_texture;
-            entry.armor_model = armor_model;
-            entry.hierarchy = hierarchy.map(ShowString::into_string);
+            entry.visual.body_model = body_model;
+            entry.visual.body_texture = body_texture;
+            entry.visual.head_model = head_model;
+            entry.visual.face_texture = face_texture;
+            entry.visual.armor_model = armor_model;
+            entry.visual.hierarchy = hierarchy.map(ShowString::into_string);
         }
     }
 }

@@ -110,7 +110,7 @@ fn debug_npc_routine(executor: &mut ScriptManager, npc_id: InstanceId) {
         let instance = instance
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let routine_entries = format!("{:?}", instance.routine_entries);
+        let routine_entries = format!("{:?}", instance.routine.entries);
         let active_entry = instance
             .get_routine_entry(hour * 60)
             .map(|entry| (entry.state_fn, format!("{entry:?}")));

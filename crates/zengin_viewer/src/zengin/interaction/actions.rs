@@ -87,11 +87,11 @@ fn weapon_state(
     let script = gothic_script.lock();
     let instance = script.npc_state(player_id)?;
     let equipped = if ranged {
-        instance.equipped_ranged.is_some()
+        instance.equipment.ranged.is_some()
     } else {
-        instance.equipped_melee.is_some()
+        instance.equipment.melee.is_some()
     };
-    let drawn = match instance.weapon_mode {
+    let drawn = match instance.equipment.weapon_mode {
         Some(WeaponMode::Melee) => !ranged,
         Some(WeaponMode::Ranged) => ranged,
         _ => false,

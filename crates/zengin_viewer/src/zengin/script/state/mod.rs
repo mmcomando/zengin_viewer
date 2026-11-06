@@ -275,7 +275,7 @@ impl ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.npc_state_mut(npc).weapon_mode = Some(mode);
+        self.npc_state_mut(npc).equipment.weapon_mode = Some(mode);
         self.pending
             .weapon_mode_changes
             .push(WeaponModeChange { instance_id: npc });
@@ -314,9 +314,9 @@ impl ImportCallState {
         };
         let recorded = self.npc_state(npc).and_then(|instance| {
             if previous {
-                instance.previous_routine_state
+                instance.routine.previous_state
             } else {
-                instance.current_routine_state
+                instance.routine.current_state
             }
         });
         i32::from(recorded == Some(state))
@@ -356,7 +356,7 @@ impl ImportCallState {
     /// when the npc has no known position or the way net has no waypoints
     pub(crate) fn nearest_way_point(&self, npc: i32) -> Option<String> {
         let npc = self.symbol_table.instance(npc)?;
-        let position = self.npc_state(npc)?.position?;
+        let position = self.npc_state(npc)?.live.position?;
         let (name, _) = self.way_points.iter().min_by(|left, right| {
             let (da, db) = (
                 (left.1 - position).length_squared(),

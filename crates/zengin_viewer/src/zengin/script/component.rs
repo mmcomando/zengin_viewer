@@ -58,6 +58,7 @@ fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, script: Re
         instance
             .write()
             .unwrap_or_else(PoisonError::into_inner)
+            .live
             .position = None;
     }
     for (npc, transform) in &npcs {
@@ -66,6 +67,7 @@ fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, script: Re
         instance
             .write()
             .unwrap_or_else(PoisonError::into_inner)
+            .live
             .position = Some(transform.translation());
     }
 }

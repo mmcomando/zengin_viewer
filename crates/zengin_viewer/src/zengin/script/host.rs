@@ -109,7 +109,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         };
 
         self.npc_state_mut(npc_index)
-            .routine_entries
+            .routine
+            .entries
             .push(routine_entry);
         self.pending.routine_changes.push(RoutineEntryChange {
             instance_id: npc_index,
@@ -127,7 +128,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return;
         };
         self.npc_state_mut(npc_index)
-            .routine_played_anis
+            .routine
+            .played_anis
             .push(StringCanon::new(ani.string()));
     }
 
@@ -142,7 +144,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return;
         };
         self.npc_state_mut(npc_index)
-            .routine_played_anis
+            .routine
+            .played_anis
             .push(StringCanon::new(ani.string()));
     }
 
@@ -186,7 +189,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         };
         let ani = format!("S_{}_S{state}", mob.string().to_uppercase());
         self.npc_state_mut(npc_index)
-            .routine_played_anis
+            .routine
+            .played_anis
             .push(StringCanon::new(ani));
         0
     }
@@ -251,7 +255,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(target) = self.way_points.get(wp_name.as_str()).copied() else {
             return i32::MAX;
         };
-        let Some(position) = self.npc_state(npc).and_then(|npc| npc.position) else {
+        let Some(position) = self.npc_state(npc).and_then(|npc| npc.live.position) else {
             return i32::MAX;
         };
 
@@ -284,13 +288,13 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let body_model_id = self.symbol_table.string(body_model);
         let head_model_id = self.symbol_table.string(head_model);
         let mut entry = self.npc_state_mut(npc_index);
-        entry.body_model_id = body_model_id;
-        entry.head_model_id = head_model_id;
+        entry.visual.body_model_id = body_model_id;
+        entry.visual.head_model_id = head_model_id;
         // The armor argument is an item instance symbol, not a string literal
-        entry.armor_model_id = SymbolId::new(armor_model);
-        entry.face_texture_index = face_texture_index;
-        entry.body_texture_index = body_texture_index;
-        entry.visual_initialized = true;
+        entry.visual.armor_model_id = SymbolId::new(armor_model);
+        entry.visual.face_texture_index = face_texture_index;
+        entry.visual.body_texture_index = body_texture_index;
+        entry.visual.initialized = true;
     }
 
     fn mdl_setvisual(&mut self, npc_index: i32, body_model_id: i32) {
@@ -299,8 +303,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         };
         let hierarchy_id = self.symbol_table.string(body_model_id);
         let mut entry = self.npc_state_mut(npc_index);
-        entry.hierarchy_id = hierarchy_id;
-        entry.visual_initialized = true;
+        entry.visual.hierarchy_id = hierarchy_id;
+        entry.visual.initialized = true;
     }
 
     fn ai_stopprocessinfos(&mut self, _npc: i32) {
@@ -480,8 +484,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         {
             let mut instance = self.npc_state_mut(npc);
             match kind {
-                WeaponKind::Melee => instance.equipped_melee = Some(item),
-                WeaponKind::Bow | WeaponKind::Crossbow => instance.equipped_ranged = Some(item),
+                WeaponKind::Melee => instance.equipment.melee = Some(item),
+                WeaponKind::Bow | WeaponKind::Crossbow => instance.equipment.ranged = Some(item),
             }
         }
         self.pending
@@ -513,13 +517,13 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.npc_state_mut(npc).attitude = Some(attitude);
+        self.npc_state_mut(npc).social.attitude = Some(attitude);
     }
     fn npc_settempattitude(&mut self, npc: i32, attitude: i32) {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.npc_state_mut(npc).temp_attitude = Some(attitude);
+        self.npc_state_mut(npc).social.temp_attitude = Some(attitude);
     }
     fake_impl!(npc_getattitude(_0, _1) -> i32);
     fake_impl!(npc_getpermattitude(_0, _1) -> i32);
@@ -567,8 +571,8 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(npc_b) = self.symbol_table.instance(npc_b) else {
             return i32::MAX;
         };
-        let aa = self.npc_state(npc_a).and_then(|npc| npc.position);
-        let bb = self.npc_state(npc_b).and_then(|npc| npc.position);
+        let aa = self.npc_state(npc_a).and_then(|npc| npc.live.position);
+        let bb = self.npc_state(npc_b).and_then(|npc| npc.live.position);
         let (Some(aa), Some(bb)) = (aa, bb) else {
             return i32::MAX;
         };
@@ -608,7 +612,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         };
         let alive = self
             .npc_state(npc)
-            .is_some_and(|npc| npc.position.is_some());
+            .is_some_and(|npc| npc.live.position.is_some());
         i32::from(!alive)
     }
     fake_impl!(ai_startstate(_0, _1, _2, _3));
@@ -617,13 +621,13 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return 0;
         };
-        self.npc_state(npc).map_or(0, |npc| npc.state_time)
+        self.npc_state(npc).map_or(0, |npc| npc.routine.state_time)
     }
     fn npc_setstatetime(&mut self, npc: i32, seconds: i32) {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.npc_state_mut(npc).state_time = seconds;
+        self.npc_state_mut(npc).routine.state_time = seconds;
     }
     fake_impl!(ai_outputsvm(_0, _1, _2));
     fake_impl!(ai_outputsvm_overlay(_0, _1, _2));
@@ -668,7 +672,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return 0;
         };
         self.npc_state(npc)
-            .map_or(0, |npc| i32::from(npc.equipped_melee.is_some()))
+            .map_or(0, |npc| i32::from(npc.equipment.melee.is_some()))
     }
     fake_impl!(npc_hasequippedrangedweapon(_0) -> i32);
     fake_impl!(npc_hasequippedarmor(_0) -> i32);
@@ -686,7 +690,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             return 0;
         };
         self.npc_state(npc)
-            .and_then(|npc| npc.look_at)
+            .and_then(|npc| npc.live.look_at)
             .map_or(0, InstanceId::value)
     }
     fake_impl!(npc_isnexttargetavailable(_0) -> i32);
@@ -715,7 +719,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         };
         i32::from(
             self.npc_state(npc)
-                .is_some_and(|npc| npc.known_infos.contains(&info)),
+                .is_some_and(|npc| npc.dialog.known_infos.contains(&info)),
         )
     }
     fake_impl!(npc_checkinfo(_0, _1) -> i32);
@@ -797,7 +801,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(target) = self.symbol_table.instance(target) else {
             return;
         };
-        self.npc_state_mut(npc).look_at = Some(target);
+        self.npc_state_mut(npc).live.look_at = Some(target);
         self.pending
             .look_at_changes
             .push(NpcLookAtChange { instance_id: npc });
@@ -809,7 +813,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         if self.npc_state(npc).is_none() {
             return;
         }
-        self.npc_state_mut(npc).look_at = None;
+        self.npc_state_mut(npc).live.look_at = None;
         self.pending
             .look_at_changes
             .push(NpcLookAtChange { instance_id: npc });
@@ -941,14 +945,14 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
             f32::from_bits(y as u32),
             f32::from_bits(z as u32),
         );
-        self.npc_state_mut(npc_index).model_scale = Some(scale);
+        self.npc_state_mut(npc_index).visual.model_scale = Some(scale);
     }
     /// Floats are passed as their bit patterns.
     fn mdl_setmodelfatness(&mut self, npc_index: i32, fatness: i32) {
         let Some(npc_index) = self.symbol_table.instance(npc_index) else {
             return;
         };
-        self.npc_state_mut(npc_index).model_fatness = Some(f32::from_bits(fatness as u32));
+        self.npc_state_mut(npc_index).visual.model_fatness = Some(f32::from_bits(fatness as u32));
     }
     fake_impl!(mdl_startfaceani(_0, _1, _2, _3));
     fake_impl!(mdl_applyrandomfaceani(_0, _1, _2, _3, _4, _5, _6));

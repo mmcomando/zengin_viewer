@@ -41,7 +41,8 @@ impl ScriptManager {
         for npc in data.loaded_state.npc_instances.values() {
             npc.write()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .routine_entries
+                .routine
+                .entries
                 .clear();
         }
     }

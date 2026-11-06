@@ -22,12 +22,26 @@ pub struct RoutineEntry {
     pub state_fn: Option<FunctionId>,
 }
 
-/// Runtime state of an npc instance.
+/// Runtime state of an npc instance, grouped by domain.
 #[derive(Debug, Default)]
 pub struct NpcRuntime {
+    pub visual: NpcVisualState,
+    pub routine: NpcRoutineState,
+    pub equipment: NpcEquipmentState,
+    pub dialog: NpcDialogState,
+    /// Item instance counts.
+    pub inventory: Inventory,
+    pub talents: NpcTalents,
+    pub social: NpcSocialState,
+    pub live: NpcLiveState,
+}
+
+/// Visual state set by the model functions and resolved at load time.
+#[derive(Debug, Default)]
+pub struct NpcVisualState {
     /// Set when `Mdl_SetVisualBody`/`Mdl_SetVisual` ran during instance init.
     /// Only these instances are treated as npcs.
-    pub visual_initialized: bool,
+    pub initialized: bool,
     /// Body model symbol set via `Mdl_SetVisualBody`.
     pub body_model_id: Option<StringId>,
     pub head_model_id: Option<StringId>,
@@ -53,57 +67,61 @@ pub struct NpcRuntime {
 
     /// Body fatness set via `Mdl_SetModelFatness`.
     pub model_fatness: Option<f32>,
+}
 
+/// Routine and AI-state data of an npc.
+#[derive(Debug, Default)]
+pub struct NpcRoutineState {
     /// Routine entries set via `TA_Min`.
-    pub routine_entries: Vec<RoutineEntry>,
-
-    /// Root dialog options (`C_INFO`) of this npc, `None` until dialog
-    /// information is loaded for it.
-    pub dialog_roots: Option<Vec<DialogRoot>>,
-
+    pub entries: Vec<RoutineEntry>,
     /// Animations requested via `AI_PlayAni(BS)` by the last executed routine
     /// state function, in request order.
-    pub routine_played_anis: Vec<StringCanon>,
-
+    pub played_anis: Vec<StringCanon>,
     /// State time (seconds) set via `NPC_SetStateTime`.
     pub state_time: i32,
-
-    /// Info (`C_INFO`) instances known by this npc (`Npc_KnowsInfo`).
-    pub known_infos: HashSet<InstanceId>,
-
-    /// Talent skills/values (`Npc_SetTalentSkill`/`Npc_SetTalentValue`).
-    pub talents: NpcTalents,
-
-    /// Inventory, item instance id to count.
-    pub inventory: Inventory,
-
     /// Routine state function currently active (`Npc_IsInState`).
-    pub current_routine_state: Option<FunctionId>,
-
+    pub current_state: Option<FunctionId>,
     /// Previously active routine state function (`Npc_WasInState`).
-    pub previous_routine_state: Option<FunctionId>,
+    pub previous_state: Option<FunctionId>,
+}
 
-    /// Permanent attitude (`Npc_SetAttitude`).
-    pub attitude: Option<i32>,
-
-    /// Temporary attitude (`Npc_SetTempAttitude`).
-    pub temp_attitude: Option<i32>,
-
-    // -- live facts shared with the ECS side --
-    /// World position, `None` when the npc has no entity (unknown or dead).
-    pub position: Option<Vec3>,
-
-    /// Npc currently looked at (`AI_LookAtNPC`/`AI_StopLookAt`).
-    pub look_at: Option<InstanceId>,
-
+/// Equipped items and weapon mode of an npc.
+#[derive(Debug, Default)]
+pub struct NpcEquipmentState {
+    /// Melee weapon equipped (`EquipItem` with an `itmw_*` item).
+    pub melee: Option<InstanceId>,
+    /// Ranged weapon equipped (`EquipItem` with an `itrw_*` item).
+    pub ranged: Option<InstanceId>,
     /// Weapon mode (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI).
     pub weapon_mode: Option<WeaponMode>,
+}
 
-    /// Melee weapon equipped (`EquipItem` with an `itmw_*` item).
-    pub equipped_melee: Option<InstanceId>,
+/// Dialog knowledge of an npc.
+#[derive(Debug, Default)]
+pub struct NpcDialogState {
+    /// Root dialog options (`C_INFO`) of this npc, `None` until dialog
+    /// information is loaded for it.
+    pub roots: Option<Vec<DialogRoot>>,
+    /// Info (`C_INFO`) instances known by this npc (`Npc_KnowsInfo`).
+    pub known_infos: HashSet<InstanceId>,
+}
 
-    /// Ranged weapon equipped (`EquipItem` with an `itrw_*` item).
-    pub equipped_ranged: Option<InstanceId>,
+/// Attitude values of an npc.
+#[derive(Debug, Default)]
+pub struct NpcSocialState {
+    /// Permanent attitude (`Npc_SetAttitude`).
+    pub attitude: Option<i32>,
+    /// Temporary attitude (`Npc_SetTempAttitude`).
+    pub temp_attitude: Option<i32>,
+}
+
+/// Live world facts shared with the ECS side.
+#[derive(Debug, Default)]
+pub struct NpcLiveState {
+    /// World position, `None` when the npc has no entity (unknown or dead).
+    pub position: Option<Vec3>,
+    /// Npc currently looked at (`AI_LookAtNPC`/`AI_StopLookAt`).
+    pub look_at: Option<InstanceId>,
 }
 
 impl NpcRuntime {
@@ -111,9 +129,9 @@ impl NpcRuntime {
     /// entries start (inclusive) at their start time and stop (exclusive) at
     /// their stop time, entries wrapping over midnight stay active past it.
     pub fn get_routine_entry(&self, minutes_of_day: u32) -> Option<&RoutineEntry> {
-        let first = self.routine_entries.first()?;
+        let first = self.routine.entries.first()?;
         let minutes = minutes_of_day % (24 * 60);
-        for entry in &self.routine_entries {
+        for entry in &self.routine.entries {
             let start = entry.start_h * 60 + entry.start_m;
             let stop = entry.stop_h * 60 + entry.stop_m;
             let in_range = if stop <= start {

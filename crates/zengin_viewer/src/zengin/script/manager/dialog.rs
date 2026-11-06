@@ -46,6 +46,7 @@ impl super::ScriptManager {
             return;
         };
         self.npc_state_mut(npc_instance_id)
+            .dialog
             .known_infos
             .insert(info_instance_id);
     }
@@ -65,7 +66,7 @@ impl super::ScriptManager {
             let already_known = !root.permanent
                 && root.info_instance_id.is_some_and(|info_instance_id| {
                     self.npc_state(npc_player)
-                        .is_some_and(|npc| npc.known_infos.contains(&info_instance_id))
+                        .is_some_and(|npc| npc.dialog.known_infos.contains(&info_instance_id))
                 });
             if already_known {
                 return false;
@@ -87,13 +88,13 @@ impl super::ScriptManager {
     ) -> bool {
         let roots = self
             .npc_state(npc_talk_to)
-            .and_then(|state| state.dialog_roots.clone());
+            .and_then(|state| state.dialog.roots.clone());
         let Some(roots) = roots else {
             return false;
         };
         let known_infos = self
             .npc_state(npc_player)
-            .map(|state| state.known_infos.clone());
+            .map(|state| state.dialog.known_infos.clone());
 
         roots.iter().any(|root| {
             root.important
@@ -115,7 +116,7 @@ impl super::ScriptManager {
     ) -> Option<DialogRoot> {
         let mut roots: Vec<DialogRoot> = {
             let state = self.npc_state(npc_talk_to)?;
-            let roots = state.dialog_roots.as_ref()?;
+            let roots = state.dialog.roots.as_ref()?;
             roots
                 .iter()
                 .filter(|root| root.important)
@@ -178,7 +179,7 @@ impl super::ScriptManager {
                 .condition
                 .and_then(|id| self.symbol_table().function(id.value()));
             let mut npc = self.npc_state_mut(npc_id);
-            let roots = npc.dialog_roots.get_or_insert_with(Vec::new);
+            let roots = npc.dialog.roots.get_or_insert_with(Vec::new);
             roots.push(DialogRoot {
                 info_instance_id: Some(index),
                 sequence_function_id,

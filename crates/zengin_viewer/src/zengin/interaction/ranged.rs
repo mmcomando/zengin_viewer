@@ -144,7 +144,7 @@ fn spawn_shot(
         let mut script = gothic_script.lock();
         let weapon = script
             .npc_state(shooter)
-            .and_then(|player| player.equipped_ranged);
+            .and_then(|player| player.equipment.ranged);
         weapon.map(|weapon| script.item_damage_total(weapon))
     };
     let Some(damage) = damage else {
