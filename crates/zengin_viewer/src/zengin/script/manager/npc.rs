@@ -205,6 +205,32 @@ impl super::ScriptManager {
             .collect()
     }
 
+    /// Re-resolves the runtime visual strings of an item from its typed
+    /// `C_Item` record. Used after a script edit; does not mark the item again.
+    pub fn refresh_item_runtime(&mut self, item: InstanceId) {
+        let Some(data) = self.item_data(item.value() as u32) else {
+            return;
+        };
+        let visual = data
+            .visual
+            .and_then(|id| self.string_by_id(Some(id.value())))
+            .unwrap_or_default();
+        let visual_change = data
+            .visual_change
+            .and_then(|id| self.string_by_id(Some(id.value())));
+        let state = self
+            .store
+            .data_mut()
+            .loaded_state
+            .items_instances
+            .entry(item)
+            .or_default()
+            .clone();
+        let mut state = state.write().unwrap_or_else(PoisonError::into_inner);
+        state.visual = visual;
+        state.visual_change = visual_change;
+    }
+
     /// Hitpoints and hitpoints max of an npc, read from the typed `C_Npc` model
     /// (`ATR_HITPOINTS` and `ATR_HITPOINTS_MAX`), `None` when the id is not an
     /// npc instance.

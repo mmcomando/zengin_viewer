@@ -24,7 +24,6 @@ pub struct ItemChanged {
 /// Signal that the entities carrying an item instance need to refresh their
 /// mirrored components.
 #[derive(Debug, Message, Clone)]
-#[allow(dead_code)] // no item consumers yet
 pub struct ItemEntitiesChanged {
     /// Shared data of the instance, so consumers do not need a second lookup.
     pub handle: ItemHandle,

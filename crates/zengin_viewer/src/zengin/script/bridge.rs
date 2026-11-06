@@ -165,12 +165,15 @@ fn expand_npc_changes(
 
 /// Drains item data edits recorded by the script and forwards them as messages.
 fn send_item_changes(mut changed: MessageWriter<ItemChanged>, gothic_script: Res<ScriptResource>) {
-    let changed_ids = gothic_script.lock().drain_item_changes();
+    let mut script = gothic_script.lock();
+    let changed_ids = script.drain_item_changes();
     if changed_ids.is_empty() {
         return;
     }
     debug!("Item data changed: {} instance(s)", changed_ids.len());
     for instance_id in changed_ids {
+        // Resolve the typed members into the runtime strings the consumers read.
+        script.refresh_item_runtime(instance_id);
         changed.write(ItemChanged { instance_id });
     }
 }

@@ -11,14 +11,12 @@ use crate::zengin::script::symbol_id::InstanceId;
 /// Handle to one item instance. Cloning it is cheap: the data is shared through
 /// the two `Arc`s, only the instance id is copied.
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // no item consumers yet
 pub struct ItemHandle {
     instance_id: InstanceId,
     typed: Arc<RwLock<Item>>,
     runtime: Arc<RwLock<ItemRuntime>>,
 }
 
-#[allow(dead_code)] // no item consumers yet
 impl ItemHandle {
     pub fn new(
         instance_id: InstanceId,
@@ -36,6 +34,7 @@ impl ItemHandle {
         self.instance_id
     }
 
+    #[allow(dead_code)] // typed item members are not consumed yet
     pub fn typed(&self) -> &Arc<RwLock<Item>> {
         &self.typed
     }

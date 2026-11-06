@@ -1062,11 +1062,17 @@ impl mmcomando::zengine_scripts::symbols::Host for ImportCallState {
             return;
         };
         self.typed.write_symbol(symbol, element, value);
-        if element > 0
-            && self.typed.class_of(symbol) == Some(daedalus_typed::ClassKind::Npc)
-            && let Some(instance) = InstanceId::new(symbol as i32)
-        {
-            self.pending.npc_changed.insert(instance);
+        if element > 0 {
+            let class = self.typed.class_of(symbol);
+            if class == Some(daedalus_typed::ClassKind::Npc)
+                && let Some(instance) = InstanceId::new(symbol as i32)
+            {
+                self.pending.npc_changed.insert(instance);
+            } else if class == Some(daedalus_typed::ClassKind::Item)
+                && let Some(instance) = InstanceId::new(symbol as i32)
+            {
+                self.pending.item_changed.insert(instance);
+            }
         }
     }
 
@@ -1098,10 +1104,15 @@ impl mmcomando::zengine_scripts::symbols::Host for ImportCallState {
         };
 
         self.typed.write_member(instance, member, element, value);
-        if self.typed.class_of(instance) == Some(daedalus_typed::ClassKind::Npc)
+        let class = self.typed.class_of(instance);
+        if class == Some(daedalus_typed::ClassKind::Npc)
             && let Some(instance) = InstanceId::new(instance as i32)
         {
             self.pending.npc_changed.insert(instance);
+        } else if class == Some(daedalus_typed::ClassKind::Item)
+            && let Some(instance) = InstanceId::new(instance as i32)
+        {
+            self.pending.item_changed.insert(instance);
         }
     }
 }

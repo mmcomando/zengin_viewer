@@ -8,6 +8,7 @@ pub(crate) use crate::zengin::interaction::{grant_test_items, seed_test_journal}
 pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
 pub(crate) use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
 mod item_data;
+mod item_visual;
 mod npc_data;
 mod npc_routines;
 mod objects_to_entities;
@@ -69,6 +70,7 @@ impl Plugin for ZenginPlugin {
         app.add_plugins(crate::zengin::interaction::selection::SelectionPlugin);
         app.add_plugins(crate::zengin::instance_index::InstanceIndexPlugin);
         app.add_plugins(crate::zengin::script::bridge::ScriptBridgePlugin);
+        app.add_plugins(crate::zengin::item_visual::ItemVisualPlugin);
         app.add_plugins(crate::zengin::interaction::PlayerInteractionPlugin);
         app.add_plugins(crate::zengin::interaction::ranged::RangedCombatPlugin);
         app.add_plugins(crate::zengin::statistics::StatisticsZenginPlugin);
@@ -117,7 +119,6 @@ impl GameItem {
     }
 
     /// Shared typed and runtime data of this item.
-    #[allow(dead_code)] // no item consumers yet
     pub fn handle(&self) -> &ItemHandle {
         &self.handle
     }
