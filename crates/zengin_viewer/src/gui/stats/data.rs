@@ -33,6 +33,7 @@ pub(crate) struct StatsSnapshot {
     exp_next: i32,
     lp: i32,
     talents: Vec<TalentRow>,
+    protection: [i32; PROTECTION_COUNT],
     strength: i32,
     dexterity: i32,
     mana: i32,
@@ -43,53 +44,8 @@ pub(crate) struct StatsSnapshot {
 
 impl StatsSnapshot {
     /// Reads the player stats and the menu text arrays they need. The script
-    /// lock is taken once after the npc locks are released.
+    /// lock is released before the npc data is read.
     pub(crate) fn from_npc(npc: &GameNpc, script: &ScriptResource) -> Self {
-        let (
-            guild,
-            level,
-            exp,
-            exp_next,
-            lp,
-            strength,
-            dexterity,
-            mana,
-            mana_max,
-            hitpoints,
-            hitpoints_max,
-            hitchance,
-        ) = {
-            let typed = npc
-                .handle()
-                .typed()
-                .read()
-                .unwrap_or_else(PoisonError::into_inner);
-            (
-                typed.guild,
-                typed.level,
-                typed.exp,
-                typed.exp_next,
-                typed.lp,
-                typed.strength,
-                typed.dexterity,
-                typed.mana,
-                typed.mana_max,
-                typed.hitpoints,
-                typed.hitpoints_max,
-                typed.hitchance,
-            )
-        };
-        let talent_values = {
-            let runtime = npc
-                .handle()
-                .runtime()
-                .read()
-                .unwrap_or_else(PoisonError::into_inner);
-            (0..TALENT_COUNT as i32)
-                .map(|talent| runtime.talents.skill(talent))
-                .collect::<Vec<_>>()
-        };
-
         let (guilds, talent_titles, talent_skills) = {
             let mut script = script.lock();
             (
@@ -107,22 +63,33 @@ impl StatsSnapshot {
             warn!("TXT_TALENTS is unavailable, talent titles stay empty");
         }
 
-        let guild = array_item(&guilds, guild).map_or_else(
+        let typed = npc
+            .handle()
+            .typed()
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
+        let runtime = npc
+            .handle()
+            .runtime()
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
+
+        let guild = array_item(&guilds, typed.guild).map_or_else(
             || {
-                warn!("Guild({guild}) has no TXT_GUILDS entry");
-                guild.to_string()
+                warn!("Guild({}) has no TXT_GUILDS entry", typed.guild);
+                typed.guild.to_string()
             },
             ToOwned::to_owned,
         );
         let talents = (0..TALENT_COUNT)
             .map(|talent| {
-                let skill_value = talent_values.get(talent).copied().unwrap_or_default();
+                let skill_value = runtime.talents.skill(talent as i32);
                 let title = array_item(&talent_titles, talent as i32)
                     .unwrap_or_default()
                     .to_owned();
                 let skill = array_item(&talent_skills, talent as i32)
                     .map_or_else(String::new, |encoded| str_enum(encoded, skill_value));
-                let value = hitchance.get(talent).copied().unwrap_or_default();
+                let value = typed.hitchance.get(talent).copied().unwrap_or_default();
                 TalentRow {
                     title,
                     skill,
@@ -133,17 +100,18 @@ impl StatsSnapshot {
 
         Self {
             guild,
-            level,
-            exp,
-            exp_next,
-            lp,
+            level: typed.level,
+            exp: typed.exp,
+            exp_next: typed.exp_next,
+            lp: typed.lp,
             talents,
-            strength,
-            dexterity,
-            mana,
-            mana_max,
-            hitpoints,
-            hitpoints_max,
+            protection: typed.protection,
+            strength: typed.strength,
+            dexterity: typed.dexterity,
+            mana: typed.mana,
+            mana_max: typed.mana_max,
+            hitpoints: typed.hitpoints,
+            hitpoints_max: typed.hitpoints_max,
         }
     }
 
@@ -178,13 +146,28 @@ impl StatsSnapshot {
             "MENU_ITEM_ATTRIBUTE_2" => self.dexterity.to_string(),
             "MENU_ITEM_ATTRIBUTE_3" => format!("{}/{}", self.mana, self.mana_max),
             "MENU_ITEM_ATTRIBUTE_4" => format!("{}/{}", self.hitpoints, self.hitpoints_max),
+            "MENU_ITEM_ARMOR_1" => self.protection_value(PROT_BLUNT).to_string(),
+            "MENU_ITEM_ARMOR_2" => self.protection_value(PROT_POINT).to_string(),
+            "MENU_ITEM_ARMOR_3" => self.protection_value(PROT_FIRE).to_string(),
+            "MENU_ITEM_ARMOR_4" => self.protection_value(PROT_MAGIC).to_string(),
             _ => item.title().to_owned(),
         }
     }
+
+    fn protection_value(&self, index: usize) -> i32 {
+        self.protection.get(index).copied().unwrap_or_default()
+    }
 }
 
-/// `C_Npc.hitchance` / `C_Npc.attribute` talent slots in G2.
+/// Talent slots in G2 (`TALENT_MAX_G2`).
 const TALENT_COUNT: usize = 22;
+
+/// `C_Npc.protection` indices used by the `OCHRONA` rows.
+const PROTECTION_COUNT: usize = 8;
+const PROT_BLUNT: usize = 1;
+const PROT_POINT: usize = 6;
+const PROT_FIRE: usize = 3;
+const PROT_MAGIC: usize = 5;
 
 enum TalentField {
     Title,
@@ -258,6 +241,7 @@ mod tests {
             exp_next: 4000,
             lp: 7,
             talents,
+            protection: [0, 158, 10, 108, 0, 58, 158, 0],
             strength: 40,
             dexterity: 25,
             mana: 30,
@@ -301,6 +285,15 @@ mod tests {
             snapshot().text_for(&item("MENU_ITEM_ARMOR_1_TITLE")),
             "menu text"
         );
+    }
+
+    #[test]
+    fn protection_widgets_use_the_matching_protection_rows() {
+        let snapshot = snapshot();
+        assert_eq!(snapshot.text_for(&item("MENU_ITEM_ARMOR_1")), "158");
+        assert_eq!(snapshot.text_for(&item("MENU_ITEM_ARMOR_2")), "158");
+        assert_eq!(snapshot.text_for(&item("MENU_ITEM_ARMOR_3")), "108");
+        assert_eq!(snapshot.text_for(&item("MENU_ITEM_ARMOR_4")), "58");
     }
 
     #[test]
