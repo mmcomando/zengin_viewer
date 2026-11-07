@@ -122,7 +122,7 @@ impl super::ScriptManager {
         self.store.data().typed.npc(instance)
     }
 
-    fn item_data(&self, instance: u32) -> Option<Item> {
+    pub(super) fn item_data(&self, instance: u32) -> Option<Item> {
         self.store.data().typed.item(instance)
     }
 
@@ -434,7 +434,6 @@ impl super::ScriptManager {
                 (
                     npc.visual.body_model_id,
                     npc.visual.head_model_id,
-                    npc.visual.armor_model_id,
                     npc.visual.hierarchy_id,
                     npc.visual.face_texture_index,
                     npc.visual.body_texture_index,
@@ -445,7 +444,6 @@ impl super::ScriptManager {
             let (
                 body_model_id,
                 head_model_id,
-                armor_model_id,
                 hierarchy_id,
                 face_texture_index,
                 body_texture_index,
@@ -461,13 +459,8 @@ impl super::ScriptManager {
                 );
                 continue;
             };
-            // The armor id is an item instance symbol, its name must match
-            // the item instance names used by the `armor_visual` lookup.
             // Empty strings are valid script values meaning "none" (e.g.
             // animals pass "" as the head model), filter them out here.
-            let armor_model = armor_model_id
-                .and_then(|id| self.get_string_non_0(id.value()))
-                .filter(|armor_model| !armor_model.is_empty());
             let hierarchy = hierarchy_id
                 .and_then(|id| self.get_show_string(id))
                 .filter(|hierarchy| !hierarchy.string().is_empty());
@@ -501,7 +494,6 @@ impl super::ScriptManager {
             entry.visual.body_texture = body_texture;
             entry.visual.head_model = head_model;
             entry.visual.face_texture = face_texture;
-            entry.visual.armor_model = armor_model;
             entry.visual.hierarchy = hierarchy.map(ShowString::into_string);
         }
     }

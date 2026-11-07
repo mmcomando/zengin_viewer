@@ -22,7 +22,7 @@ pub struct ModelMeshKey {
 pub struct CachedAssetHandles {
     pub materials: HashMap<MaterialHashed, Handle<StandardMaterial>>,
     pub images: HashMap<String, Handle<Image>>,
-    pub models: HashMap<String, Handle<ZenGinModel>>,
+    pub models: HashMap<(String, Option<String>), Handle<ZenGinModel>>,
     pub meshes: HashMap<ModelMeshKey, Handle<Mesh>>,
     pub animations: HashMap<String, Handle<AnimationData>>,
     pub inverse_bindposes: HashMap<AssetId<ZenGinModel>, Handle<SkinnedMeshInverseBindposes>>,
@@ -84,7 +84,11 @@ impl CachedAssetHandles {
         model_path: &str,
         hierarchy_path: Option<&str>,
     ) -> Handle<ZenGinModel> {
-        if let Some(handle) = self.models.get(model_path) {
+        let key = (
+            model_path.to_string(),
+            hierarchy_path.map(std::string::ToString::to_string),
+        );
+        if let Some(handle) = self.models.get(&key) {
             return handle.clone();
         }
 
@@ -96,7 +100,7 @@ impl CachedAssetHandles {
                 settings.hierarchy_path.clone_from(&hierarchy_path);
             })
             .load(model_path.to_string());
-        self.models.insert(model_path.to_string(), handle.clone());
+        self.models.insert(key, handle.clone());
         handle
     }
 

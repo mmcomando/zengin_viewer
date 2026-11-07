@@ -50,16 +50,24 @@ pub(super) fn npc_inventory_window(
         .map(|(instance_id, count)| inventory_entry(script, instance_id, count))
         .collect();
     let gold_count = gold_sum(&items);
-    let (equipped_melee, equipped_ranged) = script
+    let (equipped_melee, equipped_ranged, equipped_armor) = script
         .npc_state(npc)
-        .map(|npc| (npc.equipment.melee, npc.equipment.ranged))
+        .map(|npc| {
+            (
+                npc.equipment.melee,
+                npc.equipment.ranged,
+                npc.equipment.armor,
+            )
+        })
         .unwrap_or_default();
     if hide_gold {
         items.retain(|entry| !entry.is_gold);
     }
     if hide_equipped {
         items.retain(|entry| {
-            Some(entry.instance_id) != equipped_melee && Some(entry.instance_id) != equipped_ranged
+            Some(entry.instance_id) != equipped_melee
+                && Some(entry.instance_id) != equipped_ranged
+                && Some(entry.instance_id) != equipped_armor
         });
     }
     build_window(
@@ -68,6 +76,7 @@ pub(super) fn npc_inventory_window(
         items,
         equipped_melee,
         equipped_ranged,
+        equipped_armor,
         gold_count,
     )
 }
@@ -89,6 +98,7 @@ pub(super) fn chest_inventory_window(
         items,
         None,
         None,
+        None,
         gold_count,
     )
 }
@@ -107,6 +117,7 @@ fn build_window(
     mut items: Vec<InventoryEntry>,
     equipped_melee: Option<InstanceId>,
     equipped_ranged: Option<InstanceId>,
+    equipped_armor: Option<InstanceId>,
     gold_count: i32,
 ) -> InventoryWindowState {
     sort_inventory_items(&mut items);
@@ -116,6 +127,7 @@ fn build_window(
         selected: 0,
         equipped_melee,
         equipped_ranged,
+        equipped_armor,
         gold_count,
         items,
     }

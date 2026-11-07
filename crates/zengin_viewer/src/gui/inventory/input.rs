@@ -218,10 +218,11 @@ pub(super) fn handle_inventory_input(
             if let Some(window) = state.windows[active].as_mut()
                 && let Some(entry) = window.items.get(window.selected)
             {
-                let (equipped_melee, equipped_ranged) =
+                let (equipped_melee, equipped_ranged, equipped_armor) =
                     equip_selected_item(entry, &mut game_log, &gothic_script, player_npc);
                 window.equipped_melee = equipped_melee;
                 window.equipped_ranged = equipped_ranged;
+                window.equipped_armor = equipped_armor;
             }
         }
     }
@@ -459,30 +460,66 @@ fn loot_confirm(
 /// second confirm unequips it again. A melee and a ranged weapon can be
 /// equipped at the same time, equipping again replaces the same slot. Returns
 /// the items equipped afterwards.
+#[allow(clippy::cognitive_complexity)]
 fn equip_selected_item(
     entry: &InventoryEntry,
     game_log: &mut GameLog,
     gothic_script: &ScriptResource,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
-) -> (Option<InstanceId>, Option<InstanceId>) {
+) -> (Option<InstanceId>, Option<InstanceId>, Option<InstanceId>) {
     let Ok(player_npc) = player_npc.single() else {
-        return (None, None);
+        return (None, None, None);
     };
     let player_id = player_npc.instance_id();
 
     let mut script = gothic_script.lock();
-    let (equipped_melee, equipped_ranged) = script
+    let (equipped_melee, equipped_ranged, equipped_armor) = script
         .npc_state(player_id)
-        .map(|npc| (npc.equipment.melee, npc.equipment.ranged))
+        .map(|npc| {
+            (
+                npc.equipment.melee,
+                npc.equipment.ranged,
+                npc.equipment.armor,
+            )
+        })
         .unwrap_or_default();
 
     let symbol = script
         .get_name_by_id(entry.instance_id.value())
         .unwrap_or_default()
         .to_lowercase();
+    if script.item_is_armor(entry.instance_id) {
+        if equipped_armor == Some(entry.instance_id) {
+            script.unequip_armor(player_id);
+            game_log.add(format!("Removed {}", entry.name));
+            info!(
+                "Player({}) removed armor({})",
+                player_id.value(),
+                entry.instance_id.value()
+            );
+        } else {
+            script.equip_item(player_id, entry.instance_id);
+            game_log.add(format!("Equipped {}", entry.name));
+            info!(
+                "Player({}) equipped armor({})",
+                player_id.value(),
+                entry.instance_id.value()
+            );
+        }
+        return script
+            .npc_state(player_id)
+            .map(|npc| {
+                (
+                    npc.equipment.melee,
+                    npc.equipment.ranged,
+                    npc.equipment.armor,
+                )
+            })
+            .unwrap_or_default();
+    }
     let Some(kind) = WeaponKind::from_symbol_name(&symbol) else {
-        game_log.add(format!("{} is not a weapon", entry.name));
-        return (equipped_melee, equipped_ranged);
+        game_log.add(format!("{} is not a weapon or armor", entry.name));
+        return (equipped_melee, equipped_ranged, equipped_armor);
     };
 
     let currently = match kind {
@@ -509,6 +546,12 @@ fn equip_selected_item(
 
     script
         .npc_state(player_id)
-        .map(|npc| (npc.equipment.melee, npc.equipment.ranged))
+        .map(|npc| {
+            (
+                npc.equipment.melee,
+                npc.equipment.ranged,
+                npc.equipment.armor,
+            )
+        })
         .unwrap_or_default()
 }

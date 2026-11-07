@@ -1,0 +1,10 @@
+[
+  TeleportPlayer(frame: 120, translation: (-3, 0, -11), rotation: (0, 90, 0)),
+  SetCameraLocation(frame: 120, translation: (-7, 1, -8), rotation: (-15, -80, 0)),
+  Screenshot(frame: 200, path: "armor_on.png"),
+  ToggleArmor(frame: 220, item: "itar_mil_m"),
+  Screenshot(frame: 300, path: "armor_off.png"),
+  ToggleArmor(frame: 320, item: "itar_mil_m"),
+  Screenshot(frame: 400, path: "armor_on_again.png"),
+  Press(frame: 420, action: Shared(Back)),
+]

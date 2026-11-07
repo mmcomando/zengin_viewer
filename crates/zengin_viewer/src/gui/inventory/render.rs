@@ -109,7 +109,8 @@ pub(super) fn sync_inventory_ui(
         }
         let entry = &window.items[slot.index];
         let is_equipped = window.equipped_melee == Some(entry.instance_id)
-            || window.equipped_ranged == Some(entry.instance_id);
+            || window.equipped_ranged == Some(entry.instance_id)
+            || window.equipped_armor == Some(entry.instance_id);
         let focused = slot.window == state.active_window && slot.index == window.selected;
         let texture = if focused {
             &textures.focus

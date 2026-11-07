@@ -336,6 +336,13 @@ fn apply_replay_command(
             };
             equip_player_weapon(gothic_script, player_npc, item);
         }
+        ReplayCommand::ToggleArmor { item, .. } => {
+            let Some(gothic_script) = gothic_script else {
+                warn!("ToggleArmor replay command: game script is not loaded");
+                return false;
+            };
+            toggle_player_armor(gothic_script, player_npc, item);
+        }
         ReplayCommand::Screenshot { path, .. } => {
             return apply_replay_screenshot(replay, path, commands);
         }
@@ -564,4 +571,52 @@ fn equip_player_weapon(
         "Replay equipped item({item}) on player({}) as drawn weapon",
         player_id.value()
     );
+}
+
+#[allow(clippy::cognitive_complexity)]
+fn toggle_player_armor(
+    gothic_script: &ScriptResource,
+    player_npc: &Query<&GameNpc, With<PlayerCharacter>>,
+    item: &str,
+) {
+    let Ok(player_npc) = player_npc.single() else {
+        warn!("Replay armor toggle failed: no player character found");
+        return;
+    };
+    let player_id = player_npc.instance_id();
+
+    let mut script = gothic_script.lock();
+    let lowered = item.to_lowercase();
+    let Some(item_id) = script
+        .get_loaded_state()
+        .items_instances
+        .iter()
+        .find(|(_, instance)| {
+            instance
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .name
+                .to_lowercase()
+                == lowered
+        })
+        .map(|(id, _)| *id)
+    else {
+        warn!("Replay armor toggle failed: no item instance named {item}");
+        return;
+    };
+
+    let equipped = script.npc_state(player_id).map(|npc| npc.equipment.armor);
+    if equipped == Some(Some(item_id)) {
+        script.unequip_armor(player_id);
+        info!(
+            "Replay removed armor({item}) from player({})",
+            player_id.value()
+        );
+    } else {
+        script.equip_item(player_id, item_id);
+        info!(
+            "Replay equipped armor({item}) on player({})",
+            player_id.value()
+        );
+    }
 }

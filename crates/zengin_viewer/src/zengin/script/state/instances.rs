@@ -7,7 +7,7 @@ use bevy::{
 
 use super::super::inventory::Inventory;
 use super::super::string_value::StringCanon;
-use super::super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
+use super::super::symbol_id::{FunctionId, InstanceId, StringId};
 use super::weapons::WeaponMode;
 #[derive(Debug, Default, Clone, PartialEq, Component)]
 pub struct RoutineEntry {
@@ -45,8 +45,6 @@ pub struct NpcVisualState {
     /// Body model symbol set via `Mdl_SetVisualBody`.
     pub body_model_id: Option<StringId>,
     pub head_model_id: Option<StringId>,
-    /// Armor is an item instance.
-    pub armor_model_id: Option<SymbolId>,
     /// Hierarchy (visual `.mds` stem) set via `Mdl_SetVisual`.
     pub hierarchy_id: Option<StringId>,
     /// Texture variant index, `0` means default.
@@ -59,7 +57,6 @@ pub struct NpcVisualState {
     pub body_texture: Option<String>,
     pub head_model: Option<String>,
     pub face_texture: Option<String>,
-    pub armor_model: Option<String>,
     pub hierarchy: Option<String>,
 
     /// Model scale set via `Mdl_SetModelScale`.
@@ -92,6 +89,8 @@ pub struct NpcEquipmentState {
     pub melee: Option<InstanceId>,
     /// Ranged weapon equipped (`EquipItem` with an `itrw_*` item).
     pub ranged: Option<InstanceId>,
+    /// Armor equipped (`EquipItem` with an `itar_*` item).
+    pub armor: Option<InstanceId>,
     /// Weapon mode (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI).
     pub weapon_mode: Option<WeaponMode>,
 }

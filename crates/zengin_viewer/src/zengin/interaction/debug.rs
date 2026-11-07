@@ -25,6 +25,7 @@ const TEST_ITEMS: &[(&str, i32)] = &[
     ("ITRW_BOLT", 25),
     ("ITMI_GOLD", 50),
     ("ITAR_MIL_M", 1),
+    ("ITAR_XARDAS", 1),
     ("ITPO_HEALTH_01", 5),
     ("ITPO_MANA_01", 5),
     ("ITRI_STR_01", 1),
@@ -150,6 +151,7 @@ fn item_display_name(script: &mut ScriptManager, item: InstanceId) -> String {
 /// Grants the debug equipment to the player once at the start of a game and
 /// equips the first melee and ranged weapon from [`TEST_ITEMS`] (sheathed, the
 /// player draws them with the weapon toggle inputs).
+#[allow(clippy::cognitive_complexity)]
 pub(super) fn debug_equipment_on_start(
     mut done: Local<bool>,
     gothic_script: Res<ScriptResource>,
@@ -173,6 +175,7 @@ pub(super) fn debug_equipment_on_start(
     let mut lines: Vec<String> = Vec::new();
     let mut melee = None;
     let mut ranged = None;
+    let mut armor = None;
     for (item_name, count) in TEST_ITEMS {
         let Some(item) = grant_test_item(&mut script, player_id, item_name, *count) else {
             warn!("Test item {item_name} not found among the loaded instances");
@@ -187,6 +190,8 @@ pub(super) fn debug_equipment_on_start(
             melee = melee.or(Some(item));
         } else if item_name.starts_with("ITRW_") && !is_ammo {
             ranged = ranged.or(Some(item));
+        } else if item_name.starts_with("ITAR_") {
+            armor = armor.or(Some(item));
         }
         lines.push(format!("{} x{count}", item_display_name(&mut script, item)));
     }
@@ -195,6 +200,14 @@ pub(super) fn debug_equipment_on_start(
             continue;
         };
         script.equip_item(player_id, weapon);
+    }
+    if let Some(armor) = armor {
+        info!(
+            "Player({}) equipped debug armor({})",
+            player_id.value(),
+            armor.value()
+        );
+        script.equip_item(player_id, armor);
     }
     drop(script);
     *done = true;

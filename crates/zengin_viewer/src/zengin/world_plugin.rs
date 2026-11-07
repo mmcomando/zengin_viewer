@@ -364,7 +364,6 @@ fn spawn_player(
             stand_animation: None,
             animation_scheme: None,
             model_fatness: None,
-            armor_model: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/ARMOR_LESTER.MDM".to_string()),
         },
         NpcAnimations { animation: None },
     ));
@@ -378,8 +377,6 @@ struct NpcSpawnScript {
     body_texture: Option<String>,
     head_model: Option<String>,
     face_texture: Option<String>,
-    /// Visual chosen for the equipped armor, when the npc has one.
-    armor_visual: Option<String>,
     hierarchy: Option<String>,
     model_scale: Option<Vec3>,
     model_fatness: Option<f32>,
@@ -409,21 +406,12 @@ fn npc_spawn_script_data(
     let routine_way_point = instance
         .get_routine_entry(minutes_of_day)
         .map(|entry| entry.way_point.clone());
-    let armor_visual = instance.visual.armor_model.as_ref().and_then(|name| {
-        state.items_instances.values().find_map(|item| {
-            let item = item
-                .read()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            (&item.name == name).then(|| item.chosen_visual().to_string())
-        })
-    });
     Some(NpcSpawnScript {
         handle,
         body_model: instance.visual.body_model.clone(),
         body_texture: instance.visual.body_texture.clone(),
         head_model: instance.visual.head_model.clone(),
         face_texture: instance.visual.face_texture.clone(),
-        armor_visual,
         hierarchy: instance.visual.hierarchy.clone(),
         model_scale: instance.visual.model_scale,
         model_fatness: instance.visual.model_fatness,
@@ -505,16 +493,6 @@ fn spawn_npc_entities(
             }
             path
         });
-        let armor_model = script.armor_visual.as_deref().and_then(|visual| {
-            let path = mesh_model_path(&vfs, visual);
-            if path.is_none() {
-                warn!(
-                    "No mesh for npc({}) armor visual({})",
-                    spawn.instance_id, visual
-                );
-            }
-            path
-        });
 
         // Animations of an npc live in the scheme of its visual (`.mds`), the
         // body mesh name is unrelated, e.g. the wolf visual `Wolf.mds` uses
@@ -533,7 +511,6 @@ fn spawn_npc_entities(
                 body_texture: script.body_texture.as_deref().map(get_full_texture_path),
                 head_model,
                 head_texture: script.face_texture.as_deref().map(get_full_texture_path),
-                armor_model,
                 animation_scheme,
                 stand_animation,
                 model_fatness: script.model_fatness,

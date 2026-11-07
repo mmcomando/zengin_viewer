@@ -1,3 +1,6 @@
+/// `C_Item.mainflag` category bit of armor items (`ITEM_KAT_ARMOR`).
+pub const ITEM_MAINFLAG_ARMOR: i32 = 16;
+
 /// Overlay change requested for an npc.
 #[derive(Debug, Clone, Copy)]
 pub enum OverlayRequest {

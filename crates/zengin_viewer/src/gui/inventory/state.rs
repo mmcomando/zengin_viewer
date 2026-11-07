@@ -40,6 +40,8 @@ pub(crate) struct InventoryWindowState {
     /// Currently equipped weapons of this window's npc, shown with a red slot.
     pub(crate) equipped_melee: Option<InstanceId>,
     pub(crate) equipped_ranged: Option<InstanceId>,
+    /// Currently equipped armor of this window's npc.
+    pub(crate) equipped_armor: Option<InstanceId>,
     /// Gold stacks are not always shown in the grid, the header always needs them.
     pub(crate) gold_count: i32,
     pub(crate) items: Vec<InventoryEntry>,

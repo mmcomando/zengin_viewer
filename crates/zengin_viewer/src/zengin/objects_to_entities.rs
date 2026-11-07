@@ -7,7 +7,6 @@ use crate::graphics::{
     AnimatedJoint, AnimationController, AnimationData, AnimationState, BoneAnimationData,
     FrameState, NpcAnimations,
 };
-use crate::gui_debug::NpcVisibility;
 use crate::warn_once;
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_animation_path;
@@ -59,11 +58,9 @@ struct ObjectEntitiesSpawned {}
 #[derive(Component, Default)]
 struct NpcSpawnState {
     body_handle: Handle<ZenGinModel>,
-    armor_handle: Option<Handle<ZenGinModel>>,
     animation_handle: Option<Handle<AnimationData>>,
     body_spawned: bool,
     head_spawned: bool,
-    armor_spawned: bool,
 }
 
 pub(crate) fn create_skinned_mesh_data(
@@ -204,15 +201,11 @@ fn spawn_npcs(
                     &npc_model.body_model,
                     npc_model.hierarchy.as_deref(),
                 ),
-                armor_handle: npc_model.armor_model.as_ref().map(|el| {
-                    handles_map.get_model_handle(&asset_server, el, npc_model.hierarchy.as_deref())
-                }),
                 animation_handle: Some(
                     handles_map.get_animation_handle(&asset_server, &animation_path),
                 ),
-                body_spawned: npc_model.armor_model.is_some(),
+                body_spawned: false,
                 head_spawned: npc_model.head_model.is_none(),
-                armor_spawned: npc_model.armor_model.is_none(),
             };
 
             let mut entity = commands.entity(entity_id);
@@ -234,13 +227,6 @@ fn spawn_npcs(
             continue;
         };
 
-        let armor_data = spawn_state
-            .armor_handle
-            .as_ref()
-            .and_then(|el| models.get(el));
-        if spawn_state.armor_handle.is_some() && armor_data.is_none() {
-            continue;
-        }
         let animation_data = spawn_state
             .animation_handle
             .as_ref()
@@ -351,8 +337,7 @@ fn spawn_npcs(
             spawn_state.body_spawned = true;
             let tr = Transform::IDENTITY;
 
-            let mut entity = commands.entity(entity_id);
-            entity.with_child((
+            let body = commands.spawn((
                 Visibility::default(),
                 ZenGinModelComponent {
                     model_handle: spawn_state.body_handle.clone(),
@@ -361,44 +346,10 @@ fn spawn_npcs(
                     ..default()
                 },
                 tr,
+                crate::zengin::npc_routines::NpcBodyMarker,
             ));
-        }
-        if let Some(armor_model) = &npc_model.armor_model {
-            let armor_data = armor_data.unwrap();
-            let bones_data_anim = bones_data.unwrap();
-
-            let inverse_bindposes = handles_map.get_inverse_bindposes_handle(
-                &mut skinned_mesh_inverse_bindposes_assets,
-                armor_data,
-                spawn_state.armor_handle.as_ref().unwrap(),
-            );
-            let bones_data = SkinnedMesh {
-                inverse_bindposes,
-                joints: armor_data
-                    .animation_bone_index
-                    .iter()
-                    .map(|el| bones_data_anim.joints[*el])
-                    .collect(),
-            };
-
-            let tr = Transform::IDENTITY;
-
-            let mut entity = commands.entity(entity_id);
-            entity.with_child((
-                Visibility::default(),
-                ZenGinModelComponent {
-                    model_handle: handles_map.get_model_handle(
-                        &asset_server,
-                        armor_model,
-                        npc_model.hierarchy.as_deref(),
-                    ),
-                    bones_data: Some(bones_data),
-                    ..default()
-                },
-                tr,
-                NpcVisibility::default(),
-            ));
-            spawn_state.armor_spawned = true;
+            let body = body.id();
+            commands.entity(entity_id).add_child(body);
         }
     }
 }

@@ -1,11 +1,12 @@
 use super::bindings::mmcomando;
 use super::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use super::state::{
-    AlignToWpChange, DialogChoice, DialogLine, ImportCallState, InventoryGain, MobRoutineEntry,
-    OverlayRequest, RoutineEntry, RoutineExchange, SpawnItem, SpawnNpc, WeaponKind, WeaponMode,
+    AlignToWpChange, DialogChoice, DialogLine, ITEM_MAINFLAG_ARMOR, ImportCallState, InventoryGain,
+    MobRoutineEntry, OverlayRequest, RoutineEntry, RoutineExchange, SpawnItem, SpawnNpc,
+    WeaponKind, WeaponMode,
 };
 use super::string_value::StringCanon;
-use super::symbol_id::{InstanceId, SymbolId};
+use super::symbol_id::InstanceId;
 use crate::warn_unimplemented;
 use crate::zengin::common::to_zengin_units;
 use bevy::log::warn;
@@ -287,7 +288,7 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         entry.visual.body_model_id = body_model_id;
         entry.visual.head_model_id = head_model_id;
         // The armor argument is an item instance symbol, not a string literal
-        entry.visual.armor_model_id = SymbolId::new(armor_model);
+        entry.equipment.armor = InstanceId::new(armor_model);
         entry.visual.face_texture_index = face_texture_index;
         entry.visual.body_texture_index = body_texture_index;
         entry.visual.initialized = true;
@@ -465,6 +466,14 @@ impl mmcomando::zengine_scripts::scripts::Host for ImportCallState {
         let Some(item) = self.symbol_table.instance(item) else {
             return;
         };
+        let mainflag = self
+            .typed
+            .item(item.value() as u32)
+            .map_or(0, |data| data.mainflag);
+        if mainflag & ITEM_MAINFLAG_ARMOR != 0 {
+            self.npc_state_mut(npc).equipment.armor = Some(item);
+            return;
+        }
         let kind = self
             .symbol_table
             .symbol_name(item_raw)

@@ -8,7 +8,7 @@ pub(crate) use changes::{
     ScreenMessage, SpawnItem, SpawnNpc,
 };
 pub(crate) use instances::{DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry};
-pub(crate) use weapons::{OverlayRequest, WeaponKind, WeaponMode};
+pub(crate) use weapons::{ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponKind, WeaponMode};
 
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};

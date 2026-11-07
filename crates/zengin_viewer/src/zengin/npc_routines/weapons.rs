@@ -103,14 +103,11 @@ pub struct NpcAttachment {
     pub slot: Option<Entity>,
 }
 
-/// Equipped weapon (and later armor) visuals of an npc, managed by
-/// [`update_npc_attachments`].
+/// Equipped weapon visuals of an npc, managed by [`update_npc_attachments`].
 #[derive(Component, Default, Clone, PartialEq)]
 pub struct NpcAttachments {
     pub melee: NpcAttachment,
     pub ranged: NpcAttachment,
-    /// Reserved for the armor replacement, currently produced by the spawn path.
-    pub armor: NpcAttachment,
     /// Weapon mode the slots were last laid out for.
     pub mode: Option<WeaponMode>,
 }

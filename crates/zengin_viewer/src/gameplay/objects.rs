@@ -18,8 +18,6 @@ pub struct NpcModel {
     pub head_model: Option<String>,
     /// Override default head texture
     pub head_texture: Option<String>,
-    /// Humanoids can wear armor
-    pub armor_model: Option<String>,
 
     /// Animation scheme (visual `.mds` stem) used as animation file prefix,
     /// e.g. `HUMANS` or `WOLF`. `None` when it could not be derived.

@@ -1,6 +1,6 @@
 use bevy::log::warn;
 
-use super::super::state::{WeaponKind, WeaponMode};
+use super::super::state::{ITEM_MAINFLAG_ARMOR, WeaponKind, WeaponMode};
 use super::super::symbol_id::InstanceId;
 
 impl super::ScriptManager {
@@ -30,10 +30,17 @@ impl super::ScriptManager {
         self.npc_state_mut(npc).inventory.remove(item, count)
     }
 
-    /// Equips an item as the npc's melee or ranged weapon depending on its
-    /// instance symbol name (`EquipItem` semantics). Equipping the same slot
-    /// again replaces the weapon.
+    /// Equips an item as the npc's armor or melee/ranged weapon depending on
+    /// the item data (`EquipItem` semantics). Equipping the same slot again
+    /// replaces the item.
     pub fn equip_item(&mut self, npc: InstanceId, item: InstanceId) {
+        let mainflag = self
+            .item_data(item.value() as u32)
+            .map_or(0, |data| data.mainflag);
+        if mainflag & ITEM_MAINFLAG_ARMOR != 0 {
+            self.npc_state_mut(npc).equipment.armor = Some(item);
+            return;
+        }
         let kind = self
             .symbol_table()
             .symbol_name(item.value())
@@ -41,7 +48,7 @@ impl super::ScriptManager {
             .and_then(WeaponKind::from_symbol_name);
         let Some(kind) = kind else {
             warn!(
-                "Cannot equip item({}) on npc({}): not a known weapon kind",
+                "Cannot equip item({}) on npc({}): not a known weapon or armor item",
                 item.value(),
                 npc.value()
             );
@@ -54,6 +61,17 @@ impl super::ScriptManager {
                 WeaponKind::Bow | WeaponKind::Crossbow => instance.equipment.ranged = Some(item),
             }
         }
+    }
+
+    /// Whether the item is armor (`C_Item.mainflag` armor category).
+    pub fn item_is_armor(&self, item: InstanceId) -> bool {
+        self.item_data(item.value() as u32)
+            .is_some_and(|data| data.mainflag & ITEM_MAINFLAG_ARMOR != 0)
+    }
+
+    /// Removes the npc's armor.
+    pub fn unequip_armor(&mut self, npc: InstanceId) {
+        self.npc_state_mut(npc).equipment.armor = None;
     }
 
     /// Draws the npc's weapon into the hand (`Npc_SetToFightMode` semantics).

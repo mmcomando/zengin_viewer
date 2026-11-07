@@ -1,6 +1,7 @@
 //! Npc routine driving: waypoint routines, look-at and weapon state changes
 //! produced by the script vm, weapon mesh attachment and path following.
 
+mod armor;
 mod health;
 mod overlay;
 mod routines;
@@ -12,12 +13,14 @@ use crate::game_state::AppState;
 use crate::gameplay::game_time::advance_game_time;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 
+use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
     NpcRoutineCheckState, apply_align_to_wp, apply_look_at, move_along_path, resolve_goto_paths,
     update_npc_routine_animations, update_npc_routine_entries, update_npc_routines,
 };
 use weapons::{apply_weapon_mode, update_npc_attachments};
 
+pub(crate) use armor::{NpcArmorItem, NpcBodyMarker};
 pub(crate) use health::NpcHealth;
 pub(crate) use overlay::overlay_scheme;
 pub(crate) use overlay::{AnimationFiles, NpcOverlay};
@@ -40,6 +43,7 @@ impl Plugin for NpcRoutinesPlugin {
                 apply_align_to_wp.after(apply_look_at),
                 apply_weapon_mode.after(update_npc_routine_animations),
                 update_npc_attachments,
+                (sync_npc_armor_visual, materialize_armor_visuals).chain(),
                 move_along_path.after(update_npc_routines),
             )
                 .after(advance_game_time)

@@ -81,6 +81,9 @@ pub(crate) enum ReplayCommand {
     /// Equips the item with the given (case-insensitive) instance symbol name
     /// on the player as a drawn weapon on `frame`.
     EquipWeapon { frame: u64, item: String },
+    /// Toggles the armor item with the given (case-insensitive) instance symbol
+    /// name on the player on `frame`.
+    ToggleArmor { frame: u64, item: String },
     /// Save a screenshot of the primary window to `path` on `frame`.
     Screenshot { frame: u64, path: String },
     /// Grants the hardcoded test items to the player on `frame`.
@@ -100,6 +103,7 @@ impl ReplayCommand {
             | ReplayCommand::TeleportPlayer { frame, .. }
             | ReplayCommand::SetCameraLocation { frame, .. }
             | ReplayCommand::EquipWeapon { frame, .. }
+            | ReplayCommand::ToggleArmor { frame, .. }
             | ReplayCommand::Screenshot { frame, .. }
             | ReplayCommand::GiveTestItems { frame }
             | ReplayCommand::GiveTestJournal { frame }
