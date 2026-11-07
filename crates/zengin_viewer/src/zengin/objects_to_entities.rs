@@ -55,14 +55,6 @@ const EXAMPLE_ANIMATION: &str = "zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS-S_FI
 #[derive(Component, Default)]
 struct ObjectEntitiesSpawned {}
 
-#[derive(Component, Default)]
-struct NpcSpawnState {
-    body_handle: Handle<ZenGinModel>,
-    animation_handle: Option<Handle<AnimationData>>,
-    body_spawned: bool,
-    head_spawned: bool,
-}
-
 pub(crate) fn create_skinned_mesh_data(
     commands: &mut Commands,
     material_handles: &mut CachedAssetHandles,
@@ -166,78 +158,54 @@ fn spawn_npcs(
             &GameNpc,
             &NpcModel,
             &NpcAnimations,
-            Option<&mut NpcSpawnState>,
             Option<&AnimationController>,
         ),
         (With<DistanceNear>, Without<ObjectEntitiesSpawned>),
     >,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
-    for (entity_id, game_npc, npc_model, npc_animations, spawn_state, existing_controller) in
-        &mut query
-    {
-        let Some(mut spawn_state) = spawn_state else {
-            // Plays the configured animation, otherwise the standing animation
-            // of the model scheme (e.g. a wolf stands in `WOLF-S_FISTRUN`)
-            let animation_path = npc_animations
-                .animation
-                .clone()
-                .or_else(|| {
-                    let scheme = npc_model.animation_scheme.as_deref()?;
-                    let stand = npc_model.stand_animation.as_deref()?;
-                    Some(get_animation_path(scheme, stand))
-                })
-                .unwrap_or_else(|| {
-                    warn_once!(
-                        "NPC({}), body({}) doesn't have idle animation",
-                        game_npc.instance_id(),
-                        &npc_model.body_model
-                    );
-                    EXAMPLE_ANIMATION.to_string()
-                });
-            let spawn_state = NpcSpawnState {
-                body_handle: handles_map.get_model_handle(
-                    &asset_server,
-                    &npc_model.body_model,
-                    npc_model.hierarchy.as_deref(),
-                ),
-                animation_handle: Some(
-                    handles_map.get_animation_handle(&asset_server, &animation_path),
-                ),
-                body_spawned: false,
-                head_spawned: npc_model.head_model.is_none(),
-            };
+    for (entity_id, game_npc, npc_model, npc_animations, existing_controller) in &mut query {
+        // Plays the configured animation, otherwise the standing animation
+        // of the model scheme (e.g. a wolf stands in `WOLF-S_FISTRUN`)
+        let animation_path = npc_animations
+            .animation
+            .clone()
+            .or_else(|| {
+                let scheme = npc_model.animation_scheme.as_deref()?;
+                let stand = npc_model.stand_animation.as_deref()?;
+                Some(get_animation_path(scheme, stand))
+            })
+            .unwrap_or_else(|| {
+                warn_once!(
+                    "NPC({}), body({}) doesn't have idle animation",
+                    game_npc.instance_id(),
+                    &npc_model.body_model
+                );
+                EXAMPLE_ANIMATION.to_string()
+            });
+        let body_handle = handles_map.get_model_handle(
+            &asset_server,
+            &npc_model.body_model,
+            npc_model.hierarchy.as_deref(),
+        );
+        let animation_handle = handles_map.get_animation_handle(&asset_server, &animation_path);
 
-            let mut entity = commands.entity(entity_id);
-            entity.insert(spawn_state);
-            continue;
-        };
-
-        let body_load_state = asset_server.load_state(spawn_state.body_handle.id());
-
-        if body_load_state.is_failed() {
+        if asset_server.load_state(body_handle.id()).is_failed() {
             let mut entity = commands.entity(entity_id);
             entity.insert(ObjectEntitiesSpawned::default());
-            // entity.insert(ClassifyDistance::default());
             spawn_npc_selection_collider(&mut commands, entity_id);
             continue;
         }
 
-        let Some(model_data) = models.get(&spawn_state.body_handle) else {
+        let Some(model_data) = models.get(&body_handle) else {
+            continue;
+        };
+        let Some(animation_data) = animations.get(&animation_handle) else {
             continue;
         };
 
-        let animation_data = spawn_state
-            .animation_handle
-            .as_ref()
-            .and_then(|el| animations.get(el));
-        if spawn_state.animation_handle.is_some() && animation_data.is_none() {
-            continue;
-        }
-
         {
             let mut entity = commands.entity(entity_id);
-            entity.remove::<NpcSpawnState>();
             entity.insert(ObjectEntitiesSpawned::default());
             spawn_npc_selection_collider(&mut commands, entity_id);
         }
@@ -246,10 +214,10 @@ fn spawn_npcs(
             &mut commands,
             &mut handles_map,
             &mut skinned_mesh_inverse_bindposes_assets,
-            &spawn_state.body_handle,
+            &body_handle,
             entity_id,
             model_data,
-            animation_data,
+            Some(animation_data),
         );
 
         if let Some(fatness) = npc_model.model_fatness {
@@ -286,24 +254,22 @@ fn spawn_npcs(
             }
         }
 
-        if let Some(animation_handle) = spawn_state.animation_handle.clone() {
-            // A re-spawned visual (e.g. after the far-distance despawn) must
-            // not reset playback state: re-inserting over an existing
-            // component does not fire `Added`, so the player's sequencer
-            // would never re-enable root motion and the character would stop
-            // being moved by animations. Preserve the controller state.
-            let controller = if let Some(existing) = existing_controller {
-                let mut controller = AnimationController::new(existing.current().clone());
-                if let Some(next) = existing.next() {
-                    controller.queue_next(next.clone(), existing.interrupt_current());
-                }
-                controller.set_root_motion(existing.root_motion());
-                controller
-            } else {
-                AnimationController::new(animation_handle)
-            };
-            commands.entity(entity_id).insert(controller);
-        }
+        // A re-spawned visual (e.g. after the far-distance despawn) must
+        // not reset playback state: re-inserting over an existing
+        // component does not fire `Added`, so the player's sequencer
+        // would never re-enable root motion and the character would stop
+        // being moved by animations. Preserve the controller state.
+        let controller = if let Some(existing) = existing_controller {
+            let mut controller = AnimationController::new(existing.current().clone());
+            if let Some(next) = existing.next() {
+                controller.queue_next(next.clone(), existing.interrupt_current());
+            }
+            controller.set_root_motion(existing.root_motion());
+            controller
+        } else {
+            AnimationController::new(animation_handle)
+        };
+        commands.entity(entity_id).insert(controller);
         let head_node_index = model_data
             .node_names
             .iter()
@@ -331,26 +297,22 @@ fn spawn_npcs(
                 },
                 tr,
             ));
-            spawn_state.head_spawned = true;
         }
-        if !spawn_state.body_spawned {
-            spawn_state.body_spawned = true;
-            let tr = Transform::IDENTITY;
+        let tr = Transform::IDENTITY;
 
-            let body = commands.spawn((
-                Visibility::default(),
-                ZenGinModelComponent {
-                    model_handle: spawn_state.body_handle.clone(),
-                    override_texture: npc_model.body_texture.clone(),
-                    bones_data: bones_data.clone(),
-                    ..default()
-                },
-                tr,
-                crate::zengin::npc_routines::NpcBodyMarker,
-            ));
-            let body = body.id();
-            commands.entity(entity_id).add_child(body);
-        }
+        let body = commands.spawn((
+            Visibility::default(),
+            ZenGinModelComponent {
+                model_handle: body_handle.clone(),
+                override_texture: npc_model.body_texture.clone(),
+                bones_data: bones_data.clone(),
+                ..default()
+            },
+            tr,
+            crate::zengin::npc_routines::NpcBodyMarker,
+        ));
+        let body = body.id();
+        commands.entity(entity_id).add_child(body);
     }
 }
 
