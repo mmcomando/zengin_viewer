@@ -21,8 +21,8 @@ run-replay-menu name:
 
 # Headless CPU profile: writes a ~1GB chrome trace, then prints heaviest spans.
 trace-chrome:
-    cargo run --release --features trace_chrome -- --renderless --frames 600
-    python3 misc/analyze_trace.py "$(ls -t trace-*.json | head -n1)"
+    cargo run --release --features trace_chrome -- --renderless --replay-actions misc/scenarios/walk_through_city.ron --frames 600
+    python3 misc/scripts/analyze_trace.py "$(ls -t trace-*.json | head -n1)"
 
 # Profile a headless run to target/flamegraph.svg (skips 4s startup; needs perf+cargo-flamegraph).
 flamegraph frames="4000":
