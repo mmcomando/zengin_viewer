@@ -54,6 +54,7 @@ fn initialize_game_script(world: &mut World) {
 /// position; the player visual is a `GameNpc` child and is included. Only npcs
 /// whose transform (or handle) changed are visited. Removal is not handled here,
 /// dead state will be computed separately.
+#[allow(clippy::type_complexity)]
 fn update_script_npc_state(
     changed_npcs: Query<
         (&GameNpc, &GlobalTransform),
