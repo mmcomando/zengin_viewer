@@ -170,6 +170,13 @@ impl MenuScriptResource {
         load_menu(&mut script, "menu_main")
     }
 
+    /// Resolves any menu section by its instance name (for example
+    /// `menu_status`) into a [`MenuDefinition`].
+    pub fn load_section(&self, section_name: &str) -> Option<MenuDefinition> {
+        let mut script = self.lock();
+        load_menu(&mut script, section_name)
+    }
+
     /// Locks the menu vm for direct script calls.
     pub fn lock(&self) -> MutexGuard<'_, ScriptManager> {
         self.script.lock().unwrap()
@@ -345,5 +352,29 @@ mod tests {
         assert_eq!(definition.items.len(), 10);
         assert_eq!(definition.items[2].name, "MENUITEM_MAIN_NEWGAME");
         assert_eq!(definition.items[2].title(), "Nowa gra");
+    }
+
+    #[test]
+    #[ignore = "requires a Gothic 2 install with MENU.DAT"]
+    fn debug_status_menu() {
+        let menu = MenuScriptResource::new().expect("MENU.DAT should load");
+        let definition = menu
+            .load_section("menu_status")
+            .expect("menu_status should load");
+
+        assert_eq!(definition.back_pic.as_deref(), Some("status_back.tga"));
+        assert_eq!(definition.items.len(), 58);
+
+        let item = |name: &str| {
+            definition
+                .items
+                .iter()
+                .find(|item| item.name == name)
+                .unwrap_or_else(|| panic!("status menu should contain {name}"))
+        };
+        assert_eq!(item("MENU_ITEM_ATTRIBUTE_1_TITLE").title(), "Siła");
+        assert_eq!(item("MENU_ITEM_TALENT_7_CIRCLE").title(), "Krąg");
+        assert_eq!(item("MENU_ITEM_LEVEL").dim, (-1, -1));
+        assert!(item("MENU_ITEM_PLAYERGUILD").title().is_empty());
     }
 }

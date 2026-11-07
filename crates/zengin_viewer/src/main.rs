@@ -195,7 +195,8 @@ fn main() {
         .add_plugins(crate::gui::InventoryUiPlugin)
         .add_plugins(crate::gui::JournalUiPlugin)
         .add_plugins(crate::gui::MainMenuPlugin)
-        .add_plugins(crate::gui::ScreenMessagesPlugin);
+        .add_plugins(crate::gui::ScreenMessagesPlugin)
+        .add_plugins(crate::gui::StatsUiPlugin);
 
     // The egui debug UI and gizmos are skipped for scenario replays so
     // screenshots contain no debug overlays, GuiDebugPlugin handles that.
