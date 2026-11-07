@@ -372,8 +372,8 @@ mod tests {
                 .find(|item| item.name == name)
                 .unwrap_or_else(|| panic!("status menu should contain {name}"))
         };
-        assert_eq!(item("MENU_ITEM_ATTRIBUTE_1_TITLE").title(), "Siła");
-        assert_eq!(item("MENU_ITEM_TALENT_7_CIRCLE").title(), "Krąg");
+        assert_eq!(item("MENU_ITEM_ATTRIBUTE_1_TITLE").title(), "Si\u{142}a");
+        assert_eq!(item("MENU_ITEM_TALENT_7_CIRCLE").title(), "Kr\u{105}g");
         assert_eq!(item("MENU_ITEM_LEVEL").dim, (-1, -1));
         assert!(item("MENU_ITEM_PLAYERGUILD").title().is_empty());
     }

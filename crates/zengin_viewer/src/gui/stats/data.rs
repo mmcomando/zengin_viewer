@@ -16,6 +16,14 @@ impl StatsMenuData {
     }
 }
 
+/// One row of the `UMIEJĘTNOŚCI` section.
+#[derive(Debug, Default, Clone)]
+struct TalentRow {
+    title: String,
+    skill: String,
+    value: i32,
+}
+
 /// Values of the character sheet shown by `menu_status`.
 #[derive(Debug, Default)]
 pub(crate) struct StatsSnapshot {
@@ -24,8 +32,7 @@ pub(crate) struct StatsSnapshot {
     exp: i32,
     exp_next: i32,
     lp: i32,
-    magic_name: String,
-    magic_circle: String,
+    talents: Vec<TalentRow>,
     strength: i32,
     dexterity: i32,
     mana: i32,
@@ -50,6 +57,7 @@ impl StatsSnapshot {
             mana_max,
             hitpoints,
             hitpoints_max,
+            hitchance,
         ) = {
             let typed = npc
                 .handle()
@@ -68,17 +76,21 @@ impl StatsSnapshot {
                 typed.mana_max,
                 typed.hitpoints,
                 typed.hitpoints_max,
+                typed.hitchance,
             )
         };
-        let magic_circle = npc
-            .handle()
-            .runtime()
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .talents
-            .skill(TALENT_MAGE);
+        let talent_values = {
+            let runtime = npc
+                .handle()
+                .runtime()
+                .read()
+                .unwrap_or_else(PoisonError::into_inner);
+            (0..TALENT_COUNT as i32)
+                .map(|talent| runtime.talents.skill(talent))
+                .collect::<Vec<_>>()
+        };
 
-        let (guilds, talents, talent_skills) = {
+        let (guilds, talent_titles, talent_skills) = {
             let mut script = script.lock();
             (
                 script.string_array("txt_guilds").unwrap_or_default(),
@@ -91,6 +103,9 @@ impl StatsSnapshot {
         if guilds.is_empty() {
             warn!("TXT_GUILDS is unavailable, the guild shows the raw id");
         }
+        if talent_titles.is_empty() {
+            warn!("TXT_TALENTS is unavailable, talent titles stay empty");
+        }
 
         let guild = array_item(&guilds, guild).map_or_else(
             || {
@@ -99,13 +114,22 @@ impl StatsSnapshot {
             },
             ToOwned::to_owned,
         );
-        let magic_name = array_item(&talents, TALENT_MAGE)
-            .unwrap_or_default()
-            .to_owned();
-        let magic_circle = array_item(&talent_skills, TALENT_MAGE).map_or_else(
-            || magic_circle.to_string(),
-            |encoded| str_enum(encoded, magic_circle),
-        );
+        let talents = (0..TALENT_COUNT)
+            .map(|talent| {
+                let skill_value = talent_values.get(talent).copied().unwrap_or_default();
+                let title = array_item(&talent_titles, talent as i32)
+                    .unwrap_or_default()
+                    .to_owned();
+                let skill = array_item(&talent_skills, talent as i32)
+                    .map_or_else(String::new, |encoded| str_enum(encoded, skill_value));
+                let value = hitchance.get(talent).copied().unwrap_or_default();
+                TalentRow {
+                    title,
+                    skill,
+                    value,
+                }
+            })
+            .collect();
 
         Self {
             guild,
@@ -113,8 +137,7 @@ impl StatsSnapshot {
             exp,
             exp_next,
             lp,
-            magic_name,
-            magic_circle,
+            talents,
             strength,
             dexterity,
             mana,
@@ -135,11 +158,19 @@ impl StatsSnapshot {
     /// Text of one menu widget: the snapshot value when the widget is in
     /// scope, the MENU.DAT text otherwise.
     pub(crate) fn text_for(&self, item: &MenuItemDefinition) -> String {
+        if let Some((talent, field)) = talent_widget(&item.name) {
+            if let Some(row) = self.talents.get(talent) {
+                return match field {
+                    TalentField::Title => row.title.clone(),
+                    TalentField::Skill => row.skill.clone(),
+                    TalentField::Value => format!("{}%", row.value),
+                };
+            }
+            return item.title().to_owned();
+        }
         match item.name.as_str() {
             "MENU_ITEM_PLAYERGUILD" => self.guild.clone(),
             "MENU_ITEM_LEVEL" => self.level.to_string(),
-            "MENU_ITEM_TALENT_7_TITLE" => self.magic_name.clone(),
-            "MENU_ITEM_TALENT_7_SKILL" => self.magic_circle.clone(),
             "MENU_ITEM_EXP" => self.exp.to_string(),
             "MENU_ITEM_LEVEL_NEXT" => self.exp_next.to_string(),
             "MENU_ITEM_LEARN" => self.lp.to_string(),
@@ -152,8 +183,28 @@ impl StatsSnapshot {
     }
 }
 
-/// Magic circle talent slot in G2.
-const TALENT_MAGE: i32 = 7;
+/// `C_Npc.hitchance` / `C_Npc.attribute` talent slots in G2.
+const TALENT_COUNT: usize = 22;
+
+enum TalentField {
+    Title,
+    Skill,
+    Value,
+}
+
+/// Resolves `MENU_ITEM_TALENT_<n>[_TITLE|_SKILL]` to its row and field. The
+/// `_CIRCLE` widget is menu text, not a talent index.
+fn talent_widget(name: &str) -> Option<(usize, TalentField)> {
+    let rest = name.strip_prefix("MENU_ITEM_TALENT_")?;
+    let (index, field) = if let Some(index) = rest.strip_suffix("_TITLE") {
+        (index, TalentField::Title)
+    } else if let Some(index) = rest.strip_suffix("_SKILL") {
+        (index, TalentField::Skill)
+    } else {
+        (rest, TalentField::Value)
+    };
+    Some((index.parse().ok()?, field))
+}
 
 fn array_item(array: &[String], index: i32) -> Option<&str> {
     let index = usize::try_from(index).ok()?;
@@ -189,14 +240,24 @@ mod tests {
     }
 
     fn snapshot() -> StatsSnapshot {
+        let mut talents = vec![TalentRow::default(); TALENT_COUNT];
+        talents[1] = TalentRow {
+            title: "Br. jednor\u{119}czna".to_owned(),
+            skill: "Mistrz".to_owned(),
+            value: 67,
+        };
+        talents[7] = TalentRow {
+            title: "Magia".to_owned(),
+            skill: "3".to_owned(),
+            value: 0,
+        };
         StatsSnapshot {
             guild: "Paladyn".to_owned(),
             level: 12,
             exp: 3456,
             exp_next: 4000,
             lp: 7,
-            magic_name: "Magia".to_owned(),
-            magic_circle: "3".to_owned(),
+            talents,
             strength: 40,
             dexterity: 25,
             mana: 30,
@@ -213,6 +274,25 @@ mod tests {
         assert_eq!(snapshot.text_for(&item("MENU_ITEM_ATTRIBUTE_3")), "30/50");
         assert_eq!(snapshot.text_for(&item("MENU_ITEM_ATTRIBUTE_4")), "120/150");
         assert_eq!(snapshot.text_for(&item("MENU_ITEM_LEARN")), "7");
+    }
+
+    #[test]
+    fn talent_widgets_use_the_row_values() {
+        let snapshot = snapshot();
+        assert_eq!(
+            snapshot.text_for(&item("MENU_ITEM_TALENT_1_TITLE")),
+            "Br. jednor\u{119}czna"
+        );
+        assert_eq!(
+            snapshot.text_for(&item("MENU_ITEM_TALENT_1_SKILL")),
+            "Mistrz"
+        );
+        assert_eq!(snapshot.text_for(&item("MENU_ITEM_TALENT_1")), "67%");
+        assert_eq!(snapshot.text_for(&item("MENU_ITEM_TALENT_7_SKILL")), "3");
+        assert_eq!(
+            snapshot.text_for(&item("MENU_ITEM_TALENT_7_CIRCLE")),
+            "menu text"
+        );
     }
 
     #[test]
