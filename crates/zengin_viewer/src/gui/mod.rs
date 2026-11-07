@@ -3,6 +3,7 @@ mod health_bars;
 mod inventory;
 mod journal;
 mod main_menu;
+mod menu_screen;
 mod screen_messages;
 mod stats;
 
