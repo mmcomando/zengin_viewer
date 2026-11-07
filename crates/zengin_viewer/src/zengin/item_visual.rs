@@ -4,7 +4,6 @@
 use bevy::prelude::*;
 
 use crate::game_state::AppState;
-use crate::zengin::GameItem;
 use crate::zengin::ZenginVfs;
 use crate::zengin::loaders::vfs::mesh_model_path;
 use crate::zengin::resources::{
@@ -12,6 +11,7 @@ use crate::zengin::resources::{
 };
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::state::ItemEntitiesChanged;
+use crate::zengin::{GameItem, ItemHandle};
 
 pub struct ItemVisualPlugin;
 
@@ -43,6 +43,18 @@ impl ItemData {
     pub fn chosen_visual(&self) -> &str {
         self.visual_change.as_deref().unwrap_or(&self.visual)
     }
+
+    fn from_handle(handle: &ItemHandle) -> Self {
+        let runtime = handle
+            .runtime()
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Self {
+            name: runtime.name.clone(),
+            visual: runtime.visual.clone(),
+            visual_change: runtime.visual_change.clone(),
+        }
+    }
 }
 
 /// Mirrors the handle data onto newly spawned item entities.
@@ -51,19 +63,9 @@ fn seed_item_data_on_add(
     items: Query<(Entity, &GameItem), Added<GameItem>>,
 ) {
     for (entity, item) in &items {
-        let data = {
-            let runtime = item
-                .handle()
-                .runtime()
-                .read()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            ItemData {
-                name: runtime.name.clone(),
-                visual: runtime.visual.clone(),
-                visual_change: runtime.visual_change.clone(),
-            }
-        };
-        commands.entity(entity).try_insert(data);
+        commands
+            .entity(entity)
+            .try_insert(ItemData::from_handle(item.handle()));
     }
 }
 
@@ -74,18 +76,7 @@ fn sync_item_data(
     items: Query<&ItemData>,
 ) {
     for change in changes.read() {
-        let data = {
-            let runtime = change
-                .handle
-                .runtime()
-                .read()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            ItemData {
-                name: runtime.name.clone(),
-                visual: runtime.visual.clone(),
-                visual_change: runtime.visual_change.clone(),
-            }
-        };
+        let data = ItemData::from_handle(&change.handle);
         for &entity in &change.entities {
             if items.get(entity).ok() == Some(&data) {
                 continue;
