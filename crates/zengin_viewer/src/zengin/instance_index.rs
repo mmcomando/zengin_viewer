@@ -96,6 +96,7 @@ impl InstanceIndex {
     }
 
     /// All shared npc handles, including instances without a spawned entity.
+    #[allow(dead_code)] // kept for the upcoming dead-state computation
     pub fn npc_handles(&self) -> impl Iterator<Item = &NpcHandle> {
         self.npc_handles.values()
     }

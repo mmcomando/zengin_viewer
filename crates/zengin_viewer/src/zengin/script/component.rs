@@ -1,7 +1,7 @@
 use crate::game_state::AppState;
-use crate::zengin::GameNpc;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::string_value::StringCanon;
+use crate::zengin::{GameNpc, NpcHandle};
 use crate::zengin::{common::gothic2_dir, script::manager::ScriptManager};
 use bevy::ecs::resource::Resource;
 use bevy::log::info;
@@ -51,26 +51,27 @@ fn initialize_game_script(world: &mut World) {
 
 /// Keeps the npc world positions in sync with the world. Uses `GlobalTransform`
 /// so npcs that are parented to something are still tracked at their world
-/// position; the player visual is a `GameNpc` child and is included. Every npc
-/// position is cleared first, so a removed npc drops out and counts as dead.
-fn update_script_npc_state(npcs: Query<(&GameNpc, &GlobalTransform)>, index: Res<InstanceIndex>) {
-    for handle in index.npc_handles() {
-        handle
-            .runtime()
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .live
-            .position = None;
+/// position; the player visual is a `GameNpc` child and is included. Only npcs
+/// whose transform (or handle) changed are visited. Removal is not handled here,
+/// dead state will be computed separately.
+fn update_script_npc_state(
+    changed_npcs: Query<
+        (&GameNpc, &GlobalTransform),
+        Or<(Changed<GlobalTransform>, Changed<GameNpc>)>,
+    >,
+) {
+    for (npc, transform) in &changed_npcs {
+        set_npc_script_position(npc.handle(), Some(transform.translation()));
     }
-    for (npc, transform) in &npcs {
-        // Position sync feeds the script, it is not a data change for the ECS.
-        npc.handle()
-            .runtime()
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .live
-            .position = Some(transform.translation());
-    }
+}
+
+fn set_npc_script_position(handle: &NpcHandle, position: Option<Vec3>) {
+    handle
+        .runtime()
+        .write()
+        .unwrap_or_else(PoisonError::into_inner)
+        .live
+        .position = position;
 }
 
 /// Bevy resource holding the world script vm behind `Arc<Mutex>` so it can be
