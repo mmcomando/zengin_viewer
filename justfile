@@ -26,7 +26,7 @@ trace-chrome:
 
 # Profile a headless run to target/flamegraph.svg (skips 4s startup; needs perf+cargo-flamegraph).
 flamegraph frames="4000":
-    perf record -F 299 --call-graph fp -D 4000 -o target/perf.data -- cargo run --release -- --renderless --replay-actions misc/scenarios/walk_through_city.ron --frames {{frames}}
+    perf record -F 299 --call-graph fp -D 4000 -o target/perf.data -- cargo run -- --renderless --replay-actions misc/scenarios/walk_through_city.ron --frames {{frames}}
     flamegraph --perfdata target/perf.data -o target/flamegraph.svg
 
 export-symbol-names:

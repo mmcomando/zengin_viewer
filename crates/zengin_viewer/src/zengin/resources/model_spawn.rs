@@ -4,7 +4,7 @@
 
 use avian3d::prelude::*;
 use bevy::camera::primitives::{Aabb, MeshAabb};
-use bevy::camera::visibility::DynamicSkinnedMeshBounds;
+use bevy::camera::visibility::NoAutoAabb;
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
@@ -27,6 +27,10 @@ pub const ARROW: u32 = 1 << 5;
 /// Collision layer of waypoint sphere colliders, used only by nearest-waypoint
 /// spatial queries, they collide with nothing.
 pub const WAYPOINT: u32 = 1 << 6;
+
+/// Margin added to a static culling [`Aabb`] of a skinned mesh, in meters, so
+/// animated limbs are not culled near the screen edge.
+const SKINNED_MESH_BOUNDS_MARGIN: f32 = 2.0;
 
 /// Adding this component will spawn child entities with 3d meshes contained in `model_handle`
 #[derive(Component, Default)]
@@ -91,14 +95,26 @@ pub(crate) fn convert_zengin_model_to_entities(
             );
         }
 
-        let mut aabb = Aabb::from_min_max(Vec3::ONE * -1.0, Vec3::ONE);
+        let model_aabb = model
+            .sub_meshes
+            .iter()
+            .filter_map(|sub_mesh| sub_mesh.mesh.get_aabb())
+            .fold(
+                Aabb::from_min_max(Vec3::ONE * -1.0, Vec3::ONE),
+                |aabb, sub_aabb| {
+                    Aabb::from_min_max(
+                        sub_aabb.min().min(aabb.min()).into(),
+                        sub_aabb.max().max(aabb.max()).into(),
+                    )
+                },
+            );
+        // Skinned poses can leave the bind-pose bounds. A static, expanded box
+        // avoids Bevy recomputing skinned bounds from all joints every frame.
+        let skinned_aabb = Aabb::from_min_max(
+            Vec3::from(model_aabb.min()) - Vec3::splat(SKINNED_MESH_BOUNDS_MARGIN),
+            Vec3::from(model_aabb.max()) + Vec3::splat(SKINNED_MESH_BOUNDS_MARGIN),
+        );
         for (sub_mesh_index, sub_mesh) in model.sub_meshes.iter().enumerate() {
-            if let Some(sub_aabb) = sub_mesh.mesh.get_aabb() {
-                aabb = Aabb::from_min_max(
-                    sub_aabb.min().min(aabb.min()).into(),
-                    sub_aabb.max().max(aabb.max()).into(),
-                );
-            }
             if sub_mesh.is_skinned && bones_data.is_none() {
                 warn_once!(
                     "Skinned object without hierarchy nodes is not rendered, model({})",
@@ -146,7 +162,9 @@ pub(crate) fn convert_zengin_model_to_entities(
             {
                 sub_entity.insert(skinned_mesh);
                 sub_entity.insert(Transform::IDENTITY);
-                sub_entity.insert(DynamicSkinnedMeshBounds);
+                // The bounds are static, so `calculate_bounds` must not replace
+                // the expanded box with the bind-pose one.
+                sub_entity.insert((skinned_aabb, NoAutoAabb));
             }
 
             let sub_entity = sub_entity.id();
@@ -154,7 +172,7 @@ pub(crate) fn convert_zengin_model_to_entities(
         }
         {
             let mut main_entity = commands.entity(entity_id);
-            main_entity.insert(aabb);
+            main_entity.insert(model_aabb);
         }
     }
 }
