@@ -1,7 +1,5 @@
 //! Npc weapons: weapon mode idle switch and weapon mesh attachment.
 
-use std::collections::HashSet;
-
 use bevy::ecs::entity::Entities;
 use bevy::prelude::*;
 
@@ -13,7 +11,7 @@ use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{NpcEntitiesChanged, WeaponKind, WeaponMode};
+use crate::zengin::script::state::{WeaponKind, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
 
 /// Weapon mode of the npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI),
@@ -108,20 +106,11 @@ pub struct NpcAttachment {
 pub struct NpcAttachments {
     pub melee: NpcAttachment,
     pub ranged: NpcAttachment,
-    /// Weapon mode the slots were last laid out for.
-    pub mode: Option<WeaponMode>,
 }
 
 /// Marks an attachment visual child entity.
 #[derive(Component)]
 pub struct NpcAttachmentMarker;
-
-/// Item instance rendered by an attachment child.
-#[derive(Component, Clone, Copy)]
-#[allow(dead_code)] // no item consumers yet
-pub struct EquippedItem {
-    pub instance_id: InstanceId,
-}
 
 /// Weapons equipped by the npc (`EquipItem`), maintained by the script bridge.
 /// A melee and a ranged weapon can be equipped at the same time.
@@ -132,98 +121,54 @@ pub struct NpcEquippedWeapon {
 }
 
 type NpcAttachmentQueryData = (
-    Entity,
     &'static NpcWeaponSlots,
     Option<&'static NpcEquippedWeapon>,
     Option<&'static NpcWeaponMode>,
     Option<&'static mut NpcAttachments>,
 );
 
+type ChangedWeaponAttachment = Or<(
+    Changed<NpcEquippedWeapon>,
+    Changed<NpcWeaponMode>,
+    Changed<NpcWeaponSlots>,
+)>;
+
 /// Keeps a weapon mesh on each npc that has one equipped. Melee sheathes at the
 /// hip, ranged on the back; switching to melee/ranged weapon mode moves the
-/// weapon to the hand. Reacts to the npc change signal, the equipped items
-/// changing, the weapon mode changing, and the visual (weapon slots) appearing.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+/// weapon to the hand. Reacts to the bridge-synced equipped items and weapon
+/// mode, and to the visual (weapon slots) appearing.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn update_npc_attachments(
     mut commands: Commands,
-    mut changes: MessageReader<NpcEntitiesChanged>,
     gothic_scripts: Res<ScriptResource>,
     vfs: Res<ZenginVfs>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     entities: &Entities,
-    mut npcs: ParamSet<(
-        Query<NpcAttachmentQueryData>,
-        Query<
-            NpcAttachmentQueryData,
-            Or<(
-                Changed<NpcEquippedWeapon>,
-                Changed<NpcWeaponMode>,
-                Changed<NpcWeaponSlots>,
-            )>,
-        >,
-    )>,
+    candidates: Query<Entity, ChangedWeaponAttachment>,
+    mut removed_equipped: RemovedComponents<NpcEquippedWeapon>,
+    mut removed_mode: RemovedComponents<NpcWeaponMode>,
+    mut npcs: Query<NpcAttachmentQueryData>,
 ) {
-    {
-        let mut processed = HashSet::new();
-        {
-            let mut query = npcs.p0();
-            for change in changes.read() {
-                let (melee, ranged, mode) = {
-                    let runtime = change
-                        .handle
-                        .runtime()
-                        .read()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner);
-                    (
-                        runtime.equipment.melee,
-                        runtime.equipment.ranged,
-                        runtime.equipment.weapon_mode,
-                    )
-                };
-                for &entity in &change.entities {
-                    let Ok((entity, slots, _, _, attachments)) = query.get_mut(entity) else {
-                        continue;
-                    };
-                    processed.insert(entity);
-                    sync_npc_attachments(
-                        &mut commands,
-                        entities,
-                        &gothic_scripts,
-                        &vfs,
-                        &mut handles,
-                        &asset_server,
-                        entity,
-                        slots,
-                        attachments,
-                        melee,
-                        ranged,
-                        mode,
-                    );
-                }
-            }
-        }
-
-        let mut query = npcs.p1();
-        for (entity, slots, equipped, mode, attachments) in &mut query {
-            if processed.contains(&entity) {
-                continue;
-            }
-            sync_npc_attachments(
-                &mut commands,
-                entities,
-                &gothic_scripts,
-                &vfs,
-                &mut handles,
-                &asset_server,
-                entity,
-                slots,
-                attachments,
-                equipped.and_then(|equipped| equipped.melee),
-                equipped.and_then(|equipped| equipped.ranged),
-                mode.map(|mode| mode.0),
-            );
-        }
+    let removed = removed_equipped.read().chain(removed_mode.read());
+    for entity in candidates.iter().chain(removed) {
+        let Ok((slots, equipped, mode, attachments)) = npcs.get_mut(entity) else {
+            continue;
+        };
+        sync_npc_attachments(
+            &mut commands,
+            entities,
+            &gothic_scripts,
+            &vfs,
+            &mut handles,
+            &asset_server,
+            entity,
+            slots,
+            attachments,
+            equipped.and_then(|equipped| equipped.melee),
+            equipped.and_then(|equipped| equipped.ranged),
+            mode.map_or(WeaponMode::Fists, |mode| mode.0),
+        );
     }
 }
 
@@ -242,27 +187,11 @@ fn sync_npc_attachments(
     attachments: Option<Mut<'_, NpcAttachments>>,
     melee_item: Option<InstanceId>,
     ranged_item: Option<InstanceId>,
-    mode: Option<WeaponMode>,
+    mode: WeaponMode,
 ) {
-    let mode = mode.unwrap_or(WeaponMode::Fists);
     // Work on a plain copy, written back at the end, so the component does not
     // need to exist yet
     let mut tracked = attachments.as_deref().cloned().unwrap_or_default();
-    let child_missing = tracked
-        .melee
-        .entity
-        .is_some_and(|child| !entities.contains(child))
-        || tracked
-            .ranged
-            .entity
-            .is_some_and(|child| !entities.contains(child));
-    if tracked.melee.item == melee_item
-        && tracked.ranged.item == ranged_item
-        && tracked.mode == Some(mode)
-        && !child_missing
-    {
-        return;
-    }
 
     // Bow and crossbow share the equipped ranged item; both `ZS_` slots exist
     // on humanoid models, so the kind is resolved from the item's symbol name,
@@ -301,7 +230,6 @@ fn sync_npc_attachments(
         );
     }
 
-    tracked.mode = Some(mode);
     if attachments.as_deref() != Some(&tracked) {
         commands.entity(entity).try_insert(tracked);
     }
@@ -366,7 +294,6 @@ fn update_attachment(
                 Transform::IDENTITY,
                 ChildOf(target_slot),
                 NpcAttachmentMarker,
-                EquippedItem { instance_id: item },
             ))
             .id();
         debug!(
