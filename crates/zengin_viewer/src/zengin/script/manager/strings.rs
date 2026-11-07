@@ -53,6 +53,20 @@ impl super::ScriptManager {
         self.get_string_non_0(raw?)
     }
 
+    /// Resolved values of a string-array symbol, `None` when the symbol is
+    /// missing or has no value slot.
+    pub(crate) fn string_array(&mut self, symbol_name: &str) -> Option<Vec<String>> {
+        let symbol = self.try_get_symbol_id(symbol_name)?;
+        let symbol = u32::try_from(symbol.value()).ok()?;
+        let words = self.store.data().typed.variable(symbol)?.words().to_vec();
+        Some(
+            words
+                .into_iter()
+                .map(|word| self.string_by_id(Some(word)).unwrap_or_default())
+                .collect(),
+        )
+    }
+
     pub fn get_symbol_id(&mut self, symbol_name: &str) -> SymbolId {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         let symbol_id = guest

@@ -1,6 +1,12 @@
 //! Stats (character sheet) UI, driven by the `menu_status` screen of MENU.DAT.
 
 mod data;
+mod render;
+mod spawn;
+mod state;
+mod style;
+
+pub(crate) use state::StatsUiState;
 
 use bevy::prelude::*;
 
@@ -13,8 +19,13 @@ pub(crate) struct StatsUiPlugin;
 
 impl Plugin for StatsUiPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<StatsMenuData>();
+        app.init_resource::<StatsUiState>();
+        app.add_systems(Startup, spawn::spawn_stats_ui);
         app.add_systems(OnEnter(AppState::InGame), load_stats_menu_data);
+        app.add_systems(
+            Update,
+            render::sync_stats_ui.run_if(in_state(AppState::InGame)),
+        );
     }
 }
 
