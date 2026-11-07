@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::gui::InventoryUiState;
+use crate::gui::StatsUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::{DialogUiState, ScriptResource};
 
@@ -12,6 +13,7 @@ pub(super) fn toggle_journal(
     action_state: Single<&ActionState<SharedAction>, With<SharedInputMarker>>,
     dialog_ui: Res<DialogUiState>,
     inventory_ui: Res<InventoryUiState>,
+    stats_ui: Res<StatsUiState>,
     mut state: ResMut<JournalUiState>,
     gothic_script: Res<ScriptResource>,
 ) {
@@ -22,7 +24,7 @@ pub(super) fn toggle_journal(
         state.close();
         return;
     }
-    if dialog_ui.is_open() || inventory_ui.is_open() {
+    if dialog_ui.is_open() || inventory_ui.is_open() || stats_ui.is_open() {
         return;
     }
 

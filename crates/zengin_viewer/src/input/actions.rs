@@ -5,7 +5,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::game_state::AppState;
-use crate::gui::{InventoryUiState, JournalUiState};
+use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
 use crate::zengin::DialogUiState;
@@ -154,6 +154,8 @@ pub enum SharedAction {
     Inventory,
     /// Toggle the journal UI, closes it when it is open.
     Journal,
+    /// Toggle the player stats (character sheet) UI, closes it when it is open.
+    Stats,
     /// Closes the topmost open UI, otherwise exits the game.
     Back,
 }
@@ -190,6 +192,7 @@ fn handle_back(
     action_state: Single<&ActionState<SharedAction>, With<SharedInputMarker>>,
     mut inventory_ui: ResMut<InventoryUiState>,
     mut journal_ui: ResMut<JournalUiState>,
+    mut stats_ui: ResMut<StatsUiState>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut exit: MessageWriter<AppExit>,
 ) {
@@ -210,6 +213,11 @@ fn handle_back(
         } else {
             info!("Back closed the open journal");
         }
+        return;
+    }
+    if stats_ui.is_open() {
+        stats_ui.close();
+        info!("Back closed the open stats menu");
         return;
     }
     if dialog_ui.is_open() {

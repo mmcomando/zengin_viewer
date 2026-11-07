@@ -124,6 +124,14 @@ impl StatsSnapshot {
         }
     }
 
+    pub(crate) fn guild(&self) -> &str {
+        &self.guild
+    }
+
+    pub(crate) fn level(&self) -> i32 {
+        self.level
+    }
+
     /// Text of one menu widget: the snapshot value when the widget is in
     /// scope, the MENU.DAT text otherwise.
     pub(crate) fn text_for(&self, item: &MenuItemDefinition) -> String {

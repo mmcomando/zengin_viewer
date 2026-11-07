@@ -130,6 +130,7 @@ fn spawn_item(
     let width = item_dimension(item.dim.0, DEFAULT_ITEM_WIDTH) * area_size.x / MENU_SCRIPT_DIV;
     let height = item_dimension(item.dim.1, DEFAULT_ITEM_HEIGHT) * area_size.y / MENU_SCRIPT_DIV;
 
+    let centered = item.flags & MENU_ITEM_FLAG_TXT_CENTER != 0;
     let mut row = commands.spawn((
         ChildOf(area),
         Node {
@@ -139,8 +140,16 @@ fn spawn_item(
             width: Val::Px(width.max(0.0)),
             height: Val::Px(height.max(0.0)),
             display: Display::Flex,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
+            justify_content: if centered {
+                JustifyContent::Center
+            } else {
+                JustifyContent::FlexStart
+            },
+            align_items: if centered {
+                AlignItems::Center
+            } else {
+                AlignItems::FlexStart
+            },
             ..default()
         },
     ));
@@ -156,7 +165,7 @@ fn spawn_item(
     }
 
     let ui_text = UiText::new(text, font_size, color_of(item));
-    let ui_text = if item.flags & MENU_ITEM_FLAG_TXT_CENTER != 0 {
+    let ui_text = if centered {
         ui_text.justify(Justify::Center)
     } else {
         ui_text

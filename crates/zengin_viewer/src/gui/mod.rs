@@ -13,4 +13,4 @@ pub(crate) use crate::gui::inventory::{InventoryUiPlugin, InventoryUiState, Open
 pub(crate) use crate::gui::journal::{JournalUiPlugin, JournalUiState};
 pub(crate) use crate::gui::main_menu::MainMenuPlugin;
 pub(crate) use crate::gui::screen_messages::ScreenMessagesPlugin;
-pub(crate) use crate::gui::stats::StatsUiPlugin;
+pub(crate) use crate::gui::stats::{StatsUiPlugin, StatsUiState};

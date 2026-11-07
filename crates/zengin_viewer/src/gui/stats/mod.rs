@@ -1,6 +1,7 @@
 //! Stats (character sheet) UI, driven by the `menu_status` screen of MENU.DAT.
 
 mod data;
+mod input;
 mod render;
 mod spawn;
 mod state;
@@ -24,7 +25,13 @@ impl Plugin for StatsUiPlugin {
         app.add_systems(OnEnter(AppState::InGame), load_stats_menu_data);
         app.add_systems(
             Update,
-            render::sync_stats_ui.run_if(in_state(AppState::InGame)),
+            (
+                input::toggle_stats,
+                input::close_stats_on_cancel,
+                render::sync_stats_ui,
+            )
+                .chain()
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

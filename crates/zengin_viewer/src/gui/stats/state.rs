@@ -17,12 +17,10 @@ impl StatsUiState {
         self.open
     }
 
-    #[allow(dead_code, reason = "wired to the toggle input in the next step")]
     pub(crate) fn close(&mut self) {
         *self = Self::default();
     }
 
-    #[allow(dead_code, reason = "wired to the toggle input in the next step")]
     pub(crate) fn open(&mut self, snapshot: StatsSnapshot) {
         *self = Self {
             open: true,
