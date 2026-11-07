@@ -12,7 +12,7 @@ pub(crate) use state::StatsUiState;
 use bevy::prelude::*;
 
 use crate::game_state::AppState;
-use crate::zengin::MenuScriptResource;
+use crate::zengin::ensure_menu_script;
 
 use data::StatsMenuData;
 
@@ -39,16 +39,12 @@ impl Plugin for StatsUiPlugin {
 /// Projects `menu_status` once when entering the game. The menu script may
 /// already be loaded by the main menu, otherwise this creates it.
 fn load_stats_menu_data(world: &mut World) {
-    if world.get_resource::<MenuScriptResource>().is_none() {
-        let Some(script) = MenuScriptResource::new() else {
-            error!("Status menu unavailable: MENU.DAT could not be loaded");
-            world.insert_resource(StatsMenuData(None));
-            return;
-        };
-        world.insert_resource(script);
-    }
+    let Some(script) = ensure_menu_script(world) else {
+        error!("Status menu unavailable: MENU.DAT could not be loaded");
+        world.insert_resource(StatsMenuData(None));
+        return;
+    };
 
-    let script = world.resource::<MenuScriptResource>().clone();
     let definition = script.load_section("menu_status");
     if definition.is_none() {
         error!("Status menu unavailable: menu_status could not be projected");

@@ -80,7 +80,7 @@ pub(crate) fn spawn_menu_screen(
     area_id
 }
 
-fn menu_area(definition: &MenuDefinition, window_size: Vec2, scale: f32) -> MenuArea {
+pub(crate) fn menu_area(definition: &MenuDefinition, window_size: Vec2, scale: f32) -> MenuArea {
     let (width, height) = if definition.flags & MENU_FLAG_DONT_SCALE_DIM != 0 {
         (
             definition.dim.0 as f32 * 640.0 * scale / MENU_SCRIPT_DIV,
@@ -111,6 +111,20 @@ fn menu_area(definition: &MenuDefinition, window_size: Vec2, scale: f32) -> Menu
     }
 }
 
+/// Pixel rect of one item inside a menu area, `(x, y, width, height)`.
+pub(crate) fn item_rect(item: &MenuItemDefinition, area_size: Vec2) -> (f32, f32, f32, f32) {
+    let x = item.pos.0 as f32 * area_size.x / MENU_SCRIPT_DIV;
+    let y = item.pos.1 as f32 * area_size.y / MENU_SCRIPT_DIV;
+    let width = item_dimension(item.dim.0, DEFAULT_ITEM_WIDTH) * area_size.x / MENU_SCRIPT_DIV;
+    let height = item_dimension(item.dim.1, DEFAULT_ITEM_HEIGHT) * area_size.y / MENU_SCRIPT_DIV;
+    (x, y, width.max(0.0), height.max(0.0))
+}
+
+/// Text of a menu item: the script stores line breaks as a literal `\n`.
+pub(crate) fn menu_text(value: &str) -> String {
+    value.replace("\\n", "\n")
+}
+
 #[allow(
     clippy::too_many_arguments,
     reason = "Pure layout painter, every value is independent"
@@ -125,10 +139,7 @@ fn spawn_item(
     text_of: &impl Fn(&MenuItemDefinition) -> String,
     color_of: &impl Fn(&MenuItemDefinition) -> Color,
 ) {
-    let x = item.pos.0 as f32 * area_size.x / MENU_SCRIPT_DIV;
-    let y = item.pos.1 as f32 * area_size.y / MENU_SCRIPT_DIV;
-    let width = item_dimension(item.dim.0, DEFAULT_ITEM_WIDTH) * area_size.x / MENU_SCRIPT_DIV;
-    let height = item_dimension(item.dim.1, DEFAULT_ITEM_HEIGHT) * area_size.y / MENU_SCRIPT_DIV;
+    let (x, y, width, height) = item_rect(item, area_size);
 
     let centered = item.flags & MENU_ITEM_FLAG_TXT_CENTER != 0;
     let mut row = commands.spawn((
@@ -159,7 +170,7 @@ fn spawn_item(
         image.image_mode = NodeImageMode::Stretch;
         row.insert(image);
     }
-    let text = text_of(item);
+    let text = menu_text(&text_of(item));
     if text.is_empty() {
         return;
     }

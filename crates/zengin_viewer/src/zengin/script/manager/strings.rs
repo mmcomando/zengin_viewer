@@ -67,6 +67,19 @@ impl super::ScriptManager {
         )
     }
 
+    /// Content of a scalar string symbol, `None` when the symbol is missing,
+    /// unset, or has no value slot.
+    pub(crate) fn string_variable(&mut self, symbol_name: &str) -> Option<String> {
+        let symbol = self.try_get_symbol_id(symbol_name)?;
+        let symbol = u32::try_from(symbol.value()).ok()?;
+        let typed = &self.store.data().typed;
+        if !typed.has_value_slot(symbol) {
+            return None;
+        }
+        let value = typed.read_symbol(symbol, 0);
+        self.string_by_id(Some(value))
+    }
+
     pub fn get_symbol_id(&mut self, symbol_name: &str) -> SymbolId {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         let symbol_id = guest

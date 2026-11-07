@@ -3,6 +3,8 @@
 use bevy::prelude::*;
 
 use crate::game_state::AppState;
+use crate::gui::{JournalUiState, StatsUiState};
+use crate::ui_kit::set_visibility;
 
 pub struct GameLogPlugin;
 
@@ -13,7 +15,11 @@ impl Plugin for GameLogPlugin {
         app.add_systems(Startup, spawn_game_log);
         app.add_systems(
             Update,
-            (handle_game_log_messages, update_game_log)
+            (
+                handle_game_log_messages,
+                update_game_log,
+                update_game_log_visibility,
+            )
                 .chain()
                 .run_if(in_state(AppState::InGame)),
         );
@@ -114,5 +120,18 @@ fn update_game_log(
         .join("\n");
     if text.0 != joined {
         text.0 = joined;
+    }
+}
+
+/// The menu screens are a smaller area than the window, so the log would show
+/// next to them.
+fn update_game_log_visibility(
+    journal: Res<JournalUiState>,
+    stats: Res<StatsUiState>,
+    mut texts: Query<&mut Visibility, With<GameLogTextMarker>>,
+) {
+    let visible = !journal.is_open() && !stats.is_open();
+    for mut visibility in &mut texts {
+        set_visibility(&mut visibility, visible);
     }
 }

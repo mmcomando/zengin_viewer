@@ -19,14 +19,23 @@ pub(crate) enum JournalCategory {
 impl JournalCategory {
     pub(crate) const ALL: [Self; 4] = [Self::Current, Self::Completed, Self::Failed, Self::General];
 
-    /// Placeholder menu labels; they move into the menu script once menu data
-    /// is loaded.
-    pub(crate) fn label(self) -> &'static str {
+    /// MENU.DAT instance name of the category selector.
+    pub(super) fn selector_name(self) -> &'static str {
         match self {
-            Self::Current => "Current missions",
-            Self::Completed => "Completed missions",
-            Self::Failed => "Failed missions",
-            Self::General => "General information",
+            Self::Current => "MENU_ITEM_SEL_MISSIONS_ACT",
+            Self::Completed => "MENU_ITEM_SEL_MISSIONS_OLD",
+            Self::Failed => "MENU_ITEM_SEL_MISSIONS_FAILED",
+            Self::General => "MENU_ITEM_SEL_LOG",
+        }
+    }
+
+    /// MENU.DAT instance name of the listbox shown for this category.
+    pub(super) fn list_name(self) -> &'static str {
+        match self {
+            Self::Current => "MENU_ITEM_LIST_MISSIONS_ACT",
+            Self::Completed => "MENU_ITEM_LIST_MISSIONS_OLD",
+            Self::Failed => "MENU_ITEM_LIST_MISSIONS_FAILED",
+            Self::General => "MENU_ITEM_LIST_LOG",
         }
     }
 
@@ -74,8 +83,9 @@ pub(crate) struct JournalUiState {
     /// Scroll offset of the entry viewer in text lines.
     pub(crate) detail_scroll: usize,
     pub(crate) detail_dirty: bool,
-    pub(crate) rows_dirty: bool,
-    pub(crate) reset_scroll: bool,
+    rebuild: bool,
+    last_size: Vec2,
+    last_scale: f32,
 }
 
 impl JournalUiState {
@@ -103,8 +113,8 @@ impl JournalUiState {
         *self = Self {
             open: true,
             topics,
-            rows_dirty: true,
-            reset_scroll: true,
+            detail_dirty: true,
+            rebuild: true,
             ..default()
         };
         self.rebuild_active();
@@ -116,8 +126,7 @@ impl JournalUiState {
         }
         self.category = category;
         self.rebuild_active();
-        self.rows_dirty = true;
-        self.reset_scroll = true;
+        self.rebuild = true;
     }
 
     pub(crate) fn move_category(&mut self, delta: isize) {
@@ -149,5 +158,18 @@ impl JournalUiState {
             return String::new();
         };
         topic.entries.join("\n---\n")
+    }
+
+    /// Whether the layout must be rebuilt for the given window size and scale.
+    pub(super) fn take_rebuild(&mut self, size: Vec2, scale: f32) -> bool {
+        let rebuild = self.rebuild
+            || self.last_size != size
+            || (self.last_scale - scale).abs() > f32::EPSILON;
+        if rebuild {
+            self.last_size = size;
+            self.last_scale = scale;
+            self.rebuild = false;
+        }
+        rebuild
     }
 }

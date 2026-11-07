@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use bevy::log::{error, info, warn};
-use bevy::prelude::Resource;
+use bevy::prelude::{Resource, World};
 
 use super::manager::ScriptManager;
 use super::symbol_id::{FunctionId, StringId};
@@ -98,6 +98,8 @@ pub(crate) struct MenuItemDefinition {
     pub flags: i32,
     pub pos: (i32, i32),
     pub dim: (i32, i32),
+    /// List box inner frame size in menu units.
+    pub frame_size: (i32, i32),
     pub alpha: u8,
     /// Non-`SEL_ACTION_UNDEF` entries with their matching `onSelAction_S` text.
     pub on_sel_action: Vec<(i32, String)>,
@@ -181,6 +183,14 @@ impl MenuScriptResource {
     pub fn lock(&self) -> MutexGuard<'_, ScriptManager> {
         self.script.lock().unwrap()
     }
+}
+
+/// Returns the shared MENU.DAT vm, creating it when the main menu did not run.
+pub(crate) fn ensure_menu_script(world: &mut World) -> Option<MenuScriptResource> {
+    if world.get_resource::<MenuScriptResource>().is_none() {
+        world.insert_resource(MenuScriptResource::new()?);
+    }
+    Some((*world.resource::<MenuScriptResource>()).clone())
 }
 
 #[expect(
@@ -275,6 +285,8 @@ fn item_definition(
         pos_y,
         dim_x,
         dim_y,
+        frame_size_x,
+        frame_size_y,
         item_flags: flags,
         ..
     } = info;
@@ -309,6 +321,7 @@ fn item_definition(
         flags,
         pos: (pos_x, pos_y),
         dim: (dim_x, dim_y),
+        frame_size: (frame_size_x, frame_size_y),
         alpha: alpha(alpha_value),
         on_sel_action,
         on_event_action,
@@ -376,5 +389,28 @@ mod tests {
         assert_eq!(item("MENU_ITEM_TALENT_7_CIRCLE").title(), "Kr\u{105}g");
         assert_eq!(item("MENU_ITEM_LEVEL").dim, (-1, -1));
         assert!(item("MENU_ITEM_PLAYERGUILD").title().is_empty());
+    }
+
+    #[test]
+    #[ignore = "requires a Gothic 2 install with MENU.DAT"]
+    fn debug_log_menu() {
+        let menu = MenuScriptResource::new().expect("MENU.DAT should load");
+        let definition = menu.load_section("menu_log").expect("menu_log should load");
+
+        assert_eq!(definition.back_pic.as_deref(), Some("log_back.tga"));
+        assert_eq!(definition.items.len(), 13);
+
+        let item = |name: &str| {
+            definition
+                .items
+                .iter()
+                .find(|item| item.name == name)
+                .unwrap_or_else(|| panic!("log menu should contain {name}"))
+        };
+        let list = item("MENU_ITEM_LIST_MISSIONS_ACT");
+        assert_eq!(list.kind, MENU_ITEM_LISTBOX);
+        println!("log list dim={:?} frame={:?}", list.dim, list.frame_size);
+        assert_eq!(item("MENU_ITEM_SEL_LOG").kind, MENU_ITEM_TEXT);
+        assert_eq!(item("MENU_ITEM_CONTENT_VIEWER").dim, (8192, 8192));
     }
 }

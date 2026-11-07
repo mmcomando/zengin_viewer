@@ -1,3 +1,4 @@
+use bevy::log::warn;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
@@ -6,6 +7,7 @@ use crate::gui::StatsUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::{DialogUiState, ScriptResource};
 
+use super::data::JournalMenuData;
 use super::state::{JournalFocus, JournalUiState};
 
 /// The dialog UI and the inventory take precedence over the journal.
@@ -16,6 +18,7 @@ pub(super) fn toggle_journal(
     stats_ui: Res<StatsUiState>,
     mut state: ResMut<JournalUiState>,
     gothic_script: Res<ScriptResource>,
+    menu_data: Res<JournalMenuData>,
 ) {
     if !action_state.just_pressed(&SharedAction::Journal) {
         return;
@@ -25,6 +28,10 @@ pub(super) fn toggle_journal(
         return;
     }
     if dialog_ui.is_open() || inventory_ui.is_open() || stats_ui.is_open() {
+        return;
+    }
+    if menu_data.definition().is_none() {
+        warn!("Journal menu data is unavailable");
         return;
     }
 

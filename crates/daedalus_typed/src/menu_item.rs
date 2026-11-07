@@ -91,6 +91,10 @@ pub struct MenuItem {
     pub dim_x: i32,
     /// Size on screen.
     pub dim_y: i32,
+    /// List box inner frame size.
+    pub frame_size_x: i32,
+    /// List box inner frame size.
+    pub frame_size_y: i32,
     /// Item flags.
     pub item_flags: i32,
 }
@@ -112,6 +116,8 @@ mod offset {
     pub const DIM_X: u32 = 476;
     pub const DIM_Y: u32 = 480;
     pub const ITEM_FLAGS: u32 = 488;
+    pub const FRAME_SIZE_X: u32 = 596;
+    pub const FRAME_SIZE_Y: u32 = 600;
 }
 
 pub(crate) const FIELD_SLOTS: &[FieldSlot] = &[
@@ -211,6 +217,18 @@ pub(crate) const FIELD_SLOTS: &[FieldSlot] = &[
         offset: offset::ITEM_FLAGS,
         count: 1,
     },
+    FieldSlot {
+        member: "framesizex",
+        element: 0,
+        offset: offset::FRAME_SIZE_X,
+        count: 1,
+    },
+    FieldSlot {
+        member: "framesizey",
+        element: 0,
+        offset: offset::FRAME_SIZE_Y,
+        count: 1,
+    },
 ];
 
 impl ScriptVmAccess for MenuItem {
@@ -243,6 +261,8 @@ impl ScriptVmAccess for MenuItem {
             (offset::DIM_X, 0) => Some(self.dim_x),
             (offset::DIM_Y, 0) => Some(self.dim_y),
             (offset::ITEM_FLAGS, 0) => Some(self.item_flags),
+            (offset::FRAME_SIZE_X, 0) => Some(self.frame_size_x),
+            (offset::FRAME_SIZE_Y, 0) => Some(self.frame_size_y),
             _ => None,
         }
     }
@@ -314,6 +334,14 @@ impl ScriptVmAccess for MenuItem {
             }
             (offset::ITEM_FLAGS, 0) => {
                 self.item_flags = value;
+                true
+            }
+            (offset::FRAME_SIZE_X, 0) => {
+                self.frame_size_x = value;
+                true
+            }
+            (offset::FRAME_SIZE_Y, 0) => {
+                self.frame_size_y = value;
                 true
             }
             _ => false,
