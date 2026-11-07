@@ -148,29 +148,20 @@ fn item_display_name(script: &mut ScriptManager, item: InstanceId) -> String {
     script.item_log_name(item)
 }
 
-/// Grants the debug equipment to the player once at the start of a game and
-/// equips the first melee and ranged weapon from [`TEST_ITEMS`] (sheathed, the
-/// player draws them with the weapon toggle inputs).
+/// Grants the debug equipment to the player once its entity appears and equips
+/// the first melee and ranged weapon from [`TEST_ITEMS`] (sheathed, the player
+/// draws them with the weapon toggle inputs).
 #[allow(clippy::cognitive_complexity)]
 pub(super) fn debug_equipment_on_start(
-    mut done: Local<bool>,
     gothic_script: Res<ScriptResource>,
-    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+    player_npc: Query<&GameNpc, (With<PlayerCharacter>, Added<GameNpc>)>,
     mut game_log: ResMut<GameLog>,
 ) {
-    if *done {
-        return;
-    }
     let Ok(player_npc) = player_npc.single() else {
         return;
     };
     let player_id = player_npc.instance_id();
     let mut script = gothic_script.lock();
-    // The player script instance is created when the game world spawns, that
-    // marks the start of the game.
-    if !script.npc_instances().contains_key(&player_id) {
-        return;
-    }
 
     let mut lines: Vec<String> = Vec::new();
     let mut melee = None;
@@ -210,7 +201,6 @@ pub(super) fn debug_equipment_on_start(
         script.equip_item(player_id, armor);
     }
     drop(script);
-    *done = true;
     game_log.add(format!("Debug equipment:\n{}", lines.join("\n")));
     info!("Granted debug equipment to player({})", player_id);
 }
