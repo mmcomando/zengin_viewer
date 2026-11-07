@@ -13,7 +13,7 @@
   ;;     parent @12 (u32::MAX when symbol has no parent)
   ;; 2 - symbol default values, only read by `get-symbol-values` (runtime values
   ;;     live in the host symbol store)
-  ;; 3 - one u32 element count per symbol, 0 for class members and consts
+  ;; 3 - one u32 element count per symbol, 0 for class members
   ;; Minimal sizes are placeholders, they are extended with daedalus data during merge.
   (memory $main 1)
   (memory $symbol_info 1)
@@ -409,8 +409,8 @@
   ;; Returns pointer to a (ptr, len) pair with the initial values of a symbol
   ;; value slot. Runtime values live in the host store, this copies from the
   ;; compile-time defaults memory and is meant to be called before instance
-  ;; initialization runs. Class members and consts have no slot, they return an
-  ;; empty list.
+  ;; initialization runs. Class members have no slot, they return an empty
+  ;; list. Const globals expose their compile-time values as read-only slots.
   (func $get_symbol_values (param $symbol_id i32) (result i32)
     (local $count i32) (local $address i32) (local $buffer i32) (local $pair i32)
 

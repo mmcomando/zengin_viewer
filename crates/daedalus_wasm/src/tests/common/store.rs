@@ -19,7 +19,7 @@ use crate::daedalus::SymbolKind;
 pub struct SymbolMeta {
     /// Kind of the symbol.
     pub kind: SymbolKind,
-    /// Const symbols are inlined at compile time and have no value slot.
+    /// Const globals are readable through their value slot but reject writes.
     pub is_const: bool,
     /// Class members live inside their parent instance record, the
     /// `address_or_offset` field is then a byte offset, not a slot base.
@@ -27,8 +27,8 @@ pub struct SymbolMeta {
     /// Global symbols: byte base of the value slot. Class members: byte offset
     /// inside the instance record.
     pub address_or_offset: u32,
-    /// Number of 32bit values the value slot holds, `0` for consts. Class
-    /// members report their array size.
+    /// Number of 32bit values the value slot holds, `0` for class members.
+    /// Const globals keep their declared count.
     pub element_count: u32,
     /// Whether the symbol has a wasm function with code.
     pub has_function: bool,
@@ -77,13 +77,8 @@ impl SymbolStore {
                 (true, symbol.offset.unwrap_or(0), symbol.elements_count)
             } else {
                 let address = word_count * 4;
-                let element_count = if symbol.is_const {
-                    0
-                } else {
-                    word_count += symbol.elements_count;
-                    symbol.elements_count
-                };
-                (false, address, element_count)
+                word_count += symbol.elements_count;
+                (false, address, symbol.elements_count)
             };
             entries.push(SymbolEntry {
                 meta: SymbolMeta {
@@ -106,7 +101,7 @@ impl SymbolStore {
         };
 
         for (index, symbol) in symbols.iter().enumerate() {
-            if symbol.is_class_var || symbol.is_const {
+            if symbol.is_class_var {
                 continue;
             }
             let base = usize::try_from(store.symbols[index].meta.address_or_offset / 4)
@@ -207,8 +202,16 @@ impl SymbolStore {
         self.words.get(slot).copied()
     }
 
-    /// Writes element `element` of a global/variable symbol value.
+    /// Writes element `element` of a global/variable symbol value. Const
+    /// symbols keep their compile-time value and reject writes.
     pub fn write_symbol(&mut self, symbol: u32, element: u32, value: i32) -> bool {
+        if self
+            .symbols
+            .get(symbol as usize)
+            .is_some_and(|entry| entry.meta.is_const)
+        {
+            return false;
+        }
         let Some(slot) = self.value_slot(symbol, element) else {
             return false;
         };

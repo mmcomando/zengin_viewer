@@ -506,9 +506,6 @@ fn symbols_memory_bytes(symbols: &[Symbol], memory_layout: &DaedalusMemoryLayout
         if symbol.is_class_var {
             continue;
         }
-        if symbol.is_const {
-            continue;
-        }
 
         let symbol_address = memory_layout.symbols[index].address_or_offset.to_usize();
         for (word_index, value) in symbol

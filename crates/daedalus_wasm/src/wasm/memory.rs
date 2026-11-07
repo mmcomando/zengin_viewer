@@ -16,7 +16,8 @@ pub(crate) struct SymbolMemoryInfo {
     pub(crate) func_index: u32,
     pub(crate) parent: u32,
     /// Number of 32bit values the symbol storage holds, `0` for class members
-    /// and consts (they have no value slot of their own).
+    /// (they live inside the instance record). Const globals keep their count
+    /// so their initial values are readable.
     pub(crate) elements_count: u32,
 }
 
@@ -68,7 +69,8 @@ impl DaedalusMemoryLayout {
     /// code never reads or writes this memory, `get-symbol-values` copies from
     /// it before instance initialization runs.
     pub(crate) const SYMBOL_DEFAULTS_MEMORY_INDEX: u32 = 2;
-    /// One `u32` element count per symbol, `0` for class members and consts.
+    /// One `u32` element count per symbol, `0` for class members. Const globals
+    /// keep their count and are readable through the defaults memory.
     pub(crate) const SYMBOL_COUNTS_MEMORY_INDEX: u32 = 3;
 
     pub(crate) fn add_symbol(&mut self, symbol: &Symbol, internal_func_index: Option<u32>) {
@@ -78,9 +80,7 @@ impl DaedalusMemoryLayout {
             (true, symbol.offset.unwrap())
         } else {
             let address = self.symbol_memory_size;
-            if !symbol.is_const {
-                self.symbol_memory_size += symbol.size();
-            }
+            self.symbol_memory_size += symbol.size();
             (false, address)
         };
 
@@ -96,12 +96,9 @@ impl DaedalusMemoryLayout {
             func_index: internal_func_index.unwrap_or(u32::MAX),
             parent: symbol.parent.unwrap_or(u32::MAX),
             // Class members report their array size (their storage lives
-            // inside the instance record), consts have no slot.
-            elements_count: if symbol.is_const {
-                0
-            } else {
-                symbol.elements_count
-            },
+            // inside the instance record); const globals keep their declared
+            // count so the host can read their initial values.
+            elements_count: symbol.elements_count,
         });
     }
 

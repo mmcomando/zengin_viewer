@@ -28,7 +28,7 @@ pub struct SymbolDecl<'a> {
     pub name: &'a str,
     /// Symbol kind.
     pub kind: SymbolKind,
-    /// Const symbols are inlined at compile time and have no value slot.
+    /// Const symbols are readable through a value slot but reject writes.
     pub is_const: bool,
     /// Class members live inside their parent instance record.
     pub is_class_member: bool,

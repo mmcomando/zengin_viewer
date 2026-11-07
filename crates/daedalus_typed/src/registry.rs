@@ -229,6 +229,7 @@ impl TypedInstance {
 struct SymbolEntry {
     name: String,
     kind: SymbolKind,
+    is_const: bool,
     is_class_member: bool,
     address_or_offset: u32,
     element_count: u32,
@@ -275,7 +276,7 @@ impl TypedRegistry {
             );
         }
 
-        let storage = if decl.is_const || decl.is_class_member {
+        let storage = if decl.is_class_member {
             None
         } else {
             GenericVariable::new(decl.kind, decl.element_count).map(TypedInstance::Generic)
@@ -284,6 +285,7 @@ impl TypedRegistry {
         self.symbols.push(SymbolEntry {
             name: decl.name.to_owned(),
             kind: decl.kind,
+            is_const: decl.is_const,
             is_class_member: decl.is_class_member,
             address_or_offset: decl.address_or_offset,
             element_count: decl.element_count,
@@ -455,6 +457,15 @@ impl TypedRegistry {
             .is_some_and(|entry| entry.has_function)
     }
 
+    /// Whether a symbol is declared `const`; such symbols are readable but
+    /// writes are ignored.
+    #[must_use]
+    pub fn is_const(&self, symbol: u32) -> bool {
+        self.symbols
+            .get(usize::try_from(symbol).unwrap_or(usize::MAX))
+            .is_some_and(|entry| entry.is_const)
+    }
+
     /// Whether a symbol has its own value slot.
     #[must_use]
     pub fn has_value_slot(&self, symbol: u32) -> bool {
@@ -523,8 +534,19 @@ impl TypedRegistry {
         self.read_typed_word(symbol, class, instance, byte_offset)
     }
 
-    /// Writes element `element` of a global/variable symbol.
+    /// Writes element `element` of a global/variable symbol. Writes to const
+    /// symbols are rejected, their values only come from the initial defaults.
     pub fn write_symbol(&mut self, symbol: u32, element: u32, value: i32) {
+        if self.is_const(symbol) {
+            println!("error: write of const symbol({symbol}), element({element}) ignored");
+            return;
+        }
+        self.write_symbol_unchecked(symbol, element, value);
+    }
+
+    /// Writes a symbol value slot without the const check, used for the initial
+    /// defaults of const globals.
+    fn write_symbol_unchecked(&mut self, symbol: u32, element: u32, value: i32) {
         let symbol_index = usize::try_from(symbol).unwrap_or(usize::MAX);
         let reference_class = self
             .instances
@@ -592,7 +614,7 @@ impl TypedRegistry {
                     continue;
                 }
             }
-            self.write_symbol(symbol, element, *value);
+            self.write_symbol_unchecked(symbol, element, *value);
         }
     }
 
@@ -1267,5 +1289,30 @@ mod tests {
 
         registry.write_symbol(self_var, 0, instance as i32);
         assert_eq!(registry.read_symbol(self_var, 0), instance as i32);
+    }
+
+    #[test]
+    fn const_symbols_have_read_only_storage() {
+        let mut registry = TypedRegistry::new();
+        let const_array = registry.add_symbol(SymbolDecl {
+            name: "txt_talents",
+            kind: SymbolKind::String,
+            is_const: true,
+            is_class_member: false,
+            address_or_offset: 0,
+            element_count: 3,
+            has_function: false,
+            parent: None,
+        });
+        registry.finish();
+
+        assert!(registry.is_const(const_array));
+        assert!(registry.has_value_slot(const_array));
+        registry.write_values(const_array, &[101, 102, 103]);
+        assert_eq!(registry.read_symbol(const_array, 0), 101);
+        assert_eq!(registry.read_symbol(const_array, 2), 103);
+
+        registry.write_symbol(const_array, 0, 999);
+        assert_eq!(registry.read_symbol(const_array, 0), 101);
     }
 }

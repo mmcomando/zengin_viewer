@@ -662,3 +662,23 @@ fn real_logical_and_of_npc_hasitems_comparisons() {
     executor.store.data_mut().npc_hasitems_return = 0;
     assert_eq!(executor.call_test_func(), 0);
 }
+
+/// Const globals keep their compile-time values in a read-only slot. Guild and
+/// talent labels are const string arrays of the game script.
+#[test]
+fn real_const_string_arrays_have_values() {
+    let path = gothic2_main_script_path();
+    let wasm_bytes = convert_daedalus_script(&path);
+    let mut executor = WasmExecutor::new(&wasm_bytes);
+
+    let symbol = executor.get_symbol_id("txt_guilds");
+    let values = {
+        let guest = executor.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_get_symbol_values(&mut executor.store, symbol)
+            .unwrap()
+    };
+    assert!(values.len() >= 66);
+    let guild = executor.read_string_by_id(values[0]).unwrap();
+    assert_eq!(guild, "Brak przyn.");
+}
