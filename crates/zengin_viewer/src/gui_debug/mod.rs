@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use crate::gui_debug::egui::GameDebugUI;
 use crate::gui_debug::gizmos::GizmosPlugin;
-use crate::gui_debug::statistics::StatisticsPlugin;
+pub(crate) use crate::gui_debug::statistics::{RefreshStatistics, StatisticsPlugin};
 use crate::gui_debug::toggle_visibility::ToggleVisibility;
 use crate::input::Options;
 

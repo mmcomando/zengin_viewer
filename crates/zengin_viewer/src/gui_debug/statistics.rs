@@ -1,10 +1,16 @@
 use bevy::prelude::*;
 
+/// Requests a recount of the debug statistics. The scans are expensive, so
+/// they only run when the debug UI asks for them.
+#[derive(Message)]
+pub struct RefreshStatistics;
+
 pub struct StatisticsPlugin;
 impl Plugin for StatisticsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Statistics>();
-        app.add_systems(Update, mesh_added);
+        app.add_message::<RefreshStatistics>();
+        app.add_systems(Update, mesh_added.run_if(on_message::<RefreshStatistics>));
     }
 }
 

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game_state::AppState;
+use crate::gui_debug::RefreshStatistics;
 use crate::zengin::GameNpc;
 use crate::zengin::resources::ZenGinModelComponent;
 
@@ -9,11 +9,12 @@ pub struct StatisticsZenginPlugin;
 impl Plugin for StatisticsZenginPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<StatisticsZengin>();
+        app.add_message::<RefreshStatistics>();
         app.add_systems(
             Update,
-            zengin_model_added.run_if(in_state(AppState::InGame)),
+            zengin_model_added.run_if(on_message::<RefreshStatistics>),
         );
-        app.add_systems(Update, npc_added.run_if(in_state(AppState::InGame)));
+        app.add_systems(Update, npc_added.run_if(on_message::<RefreshStatistics>));
     }
 }
 

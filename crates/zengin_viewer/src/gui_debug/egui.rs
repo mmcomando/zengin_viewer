@@ -9,6 +9,7 @@ use crate::gameplay::game_time::GameTime;
 use crate::graphics::RenderOptions;
 use crate::gui_debug::gizmos::GizmosOptions;
 use crate::gui_debug::{
+    RefreshStatistics,
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
 };
@@ -94,6 +95,7 @@ fn camera_info_overlay(context: &egui::Context, camera: &GlobalTransform) {
 #[allow(clippy::too_many_arguments)]
 fn ui_info_system(
     mut statistics_changed: MessageWriter<OptionsChanged>,
+    mut refresh_statistics: MessageWriter<RefreshStatistics>,
     mut contexts: EguiContexts,
     mut toggle_info: ResMut<ShowOptions>,
     statistics: Res<Statistics>,
@@ -145,6 +147,12 @@ fn ui_info_system(
                     statistics_zengin.npcs,
                     statistics_zengin.npcs_visible,
                 );
+
+                ui.label("Statistics");
+                if ui.button("Refresh").clicked() {
+                    refresh_statistics.write(RefreshStatistics);
+                }
+                ui.end_row();
 
                 add_checkbox(
                     ui,
