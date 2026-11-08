@@ -22,8 +22,6 @@ impl Plugin for DistancePlugin {
                 get_camera_pos,
                 update_distance_state_far,
                 update_distance_state_near,
-                make_visible,
-                make_hidden,
             )
                 .run_if(in_state(AppState::InGame)),
         );
@@ -114,17 +112,5 @@ fn update_distance_state_near(
             entity_cmd.remove::<DistanceNear>();
             entity_cmd.insert(DistanceFar::default());
         }
-    }
-}
-
-fn make_visible(query: Query<&mut Visibility, Added<DistanceNear>>) {
-    for mut visibility in query {
-        *visibility = Visibility::Inherited;
-    }
-}
-
-fn make_hidden(query: Query<&mut Visibility, Added<DistanceFar>>) {
-    for mut visibility in query {
-        *visibility = Visibility::Hidden;
     }
 }
