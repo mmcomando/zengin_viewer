@@ -58,6 +58,74 @@ impl ScriptConversion for MenuItemKind {
     }
 }
 
+/// Undefined item type.
+pub const MENU_ITEM_UNDEF: i32 = 0;
+/// Plain text line, see [`MenuItemKind::Text`].
+pub const MENU_ITEM_TEXT: i32 = 1;
+/// Slider, see [`MenuItemKind::Slider`].
+pub const MENU_ITEM_SLIDER: i32 = 2;
+/// Text input field, see [`MenuItemKind::Input`].
+pub const MENU_ITEM_INPUT: i32 = 3;
+/// Mouse cursor, see [`MenuItemKind::Cursor`].
+pub const MENU_ITEM_CURSOR: i32 = 4;
+/// Choice box, see [`MenuItemKind::Choicebox`].
+pub const MENU_ITEM_CHOICEBOX: i32 = 5;
+/// Button, see [`MenuItemKind::Button`].
+pub const MENU_ITEM_BUTTON: i32 = 6;
+/// List box, see [`MenuItemKind::Listbox`].
+pub const MENU_ITEM_LISTBOX: i32 = 7;
+
+/// `IT_CHROMAKEYED` item flag.
+pub const MENU_ITEM_FLAG_CHROMAKEYED: i32 = 1;
+/// `IT_TRANSPARENT` item flag.
+pub const MENU_ITEM_FLAG_TRANSPARENT: i32 = 2;
+/// `IT_SELECTABLE` item flag.
+pub const MENU_ITEM_FLAG_SELECTABLE: i32 = 4;
+/// `IT_MOVEABLE` item flag.
+pub const MENU_ITEM_FLAG_MOVEABLE: i32 = 8;
+/// `IT_TXT_CENTER` item flag: item text is centered.
+pub const MENU_ITEM_FLAG_TXT_CENTER: i32 = 16;
+/// `IT_DISABLED` item flag.
+pub const MENU_ITEM_FLAG_DISABLED: i32 = 32;
+/// `IT_FADE` item flag.
+pub const MENU_ITEM_FLAG_FADE: i32 = 64;
+/// `IT_EFFECTS_NEXT` item flag.
+pub const MENU_ITEM_FLAG_EFFECTS_NEXT: i32 = 128;
+/// `IT_ONLY_OUT_GAME` item flag: item is hidden inside the game.
+pub const MENU_ITEM_FLAG_ONLY_OUT_GAME: i32 = 256;
+/// `IT_ONLY_IN_GAME` item flag: item is hidden outside the game.
+pub const MENU_ITEM_FLAG_ONLY_IN_GAME: i32 = 512;
+/// `IT_PERF_OPTION` item flag.
+pub const MENU_ITEM_FLAG_PERF_OPTION: i32 = 1 << 10;
+/// `IT_MULTILINE` item flag.
+pub const MENU_ITEM_FLAG_MULTILINE: i32 = 1 << 11;
+/// `IT_NEEDS_APPLY` item flag.
+pub const MENU_ITEM_FLAG_NEEDS_APPLY: i32 = 1 << 12;
+/// `IT_NEEDS_RESTART` item flag.
+pub const MENU_ITEM_FLAG_NEEDS_RESTART: i32 = 1 << 13;
+/// `IT_EXTENDED_MENU` item flag.
+pub const MENU_ITEM_FLAG_EXTENDED_MENU: i32 = 1 << 14;
+
+/// No select action.
+pub const SEL_ACTION_UNDEF: i32 = 0;
+/// Returns to the previous menu.
+pub const SEL_ACTION_BACK: i32 = 1;
+/// Opens another menu.
+pub const SEL_ACTION_START_MENU: i32 = 2;
+/// Starts an item action.
+pub const SEL_ACTION_START_ITEM: i32 = 3;
+/// Closes the menu.
+pub const SEL_ACTION_CLOSE: i32 = 4;
+/// Runs console commands.
+pub const SEL_ACTION_CON_COMMANDS: i32 = 5;
+/// Plays a sound.
+pub const SEL_ACTION_PLAY_SOUND: i32 = 6;
+/// Executes script commands.
+pub const SEL_ACTION_EXEC_COMMANDS: i32 = 7;
+
+/// Index of the `execute` event in `C_MenuItem.onEventAction`.
+pub const MENU_EVENT_EXECUTE: usize = 1;
+
 /// `C_MenuItem` members modeled by the host.
 #[derive(Debug, Default, Clone)]
 pub struct MenuItem {

@@ -7,6 +7,24 @@ use super::registry::FieldSlot;
 /// Number of `C_Menu.items` entries in G2.
 pub const MENU_ITEMS_MAX: usize = 150;
 
+/// `MENU_OVERTOP` flag.
+pub const MENU_FLAG_OVERTOP: i32 = 1;
+/// `MENU_EXCLUSIVE` flag.
+pub const MENU_FLAG_EXCLUSIVE: i32 = 2;
+/// `MENU_NOANI` flag: disables the menu open/close animation.
+pub const MENU_FLAG_NO_ANI: i32 = 4;
+/// `MENU_DONTSCALE_DIM` flag: keeps the menu size independent of the screen.
+pub const MENU_FLAG_DONT_SCALE_DIM: i32 = 8;
+/// `MENU_DONTSCALE_POS` flag: keeps the menu position independent of the screen.
+pub const MENU_FLAG_DONT_SCALE_POS: i32 = 16;
+/// `MENU_ALIGN_CENTER` flag: centers the menu on screen.
+pub const MENU_FLAG_ALIGN_CENTER: i32 = 32;
+/// `MENU_SHOW_INFO` flag.
+pub const MENU_FLAG_SHOW_INFO: i32 = 64;
+
+/// Position and size are expressed in this many units per screen dimension.
+pub const MENU_SCRIPT_DIV: f32 = 8192.0;
+
 /// `C_Menu` members modeled by the host.
 #[derive(Debug, Clone)]
 pub struct Menu {

@@ -13,61 +13,10 @@ use bevy::prelude::{Resource, World};
 use super::manager::ScriptManager;
 use super::symbol_id::{FunctionId, StringId};
 use crate::zengin::common::gothic2_dir;
-use daedalus_typed::{Menu, MenuItem, ScriptConversion};
-
-/// Engine select-action command ids, see the `SEL_ACTION_*` constants of the
-/// menu script.
-pub(crate) const SEL_ACTION_UNDEF: i32 = 0;
-pub(crate) const SEL_ACTION_BACK: i32 = 1;
-pub(crate) const SEL_ACTION_START_MENU: i32 = 2;
-pub(crate) const SEL_ACTION_START_ITEM: i32 = 3;
-pub(crate) const SEL_ACTION_CLOSE: i32 = 4;
-pub(crate) const SEL_ACTION_CON_COMMANDS: i32 = 5;
-pub(crate) const SEL_ACTION_PLAY_SOUND: i32 = 6;
-pub(crate) const SEL_ACTION_EXEC_COMMANDS: i32 = 7;
-
-/// Engine menu item type ids, see the `MENU_ITEM_*` constants of the menu
-/// script.
-pub(crate) const MENU_ITEM_UNDEF: i32 = 0;
-pub(crate) const MENU_ITEM_TEXT: i32 = 1;
-pub(crate) const MENU_ITEM_SLIDER: i32 = 2;
-pub(crate) const MENU_ITEM_INPUT: i32 = 3;
-pub(crate) const MENU_ITEM_CURSOR: i32 = 4;
-pub(crate) const MENU_ITEM_CHOICEBOX: i32 = 5;
-pub(crate) const MENU_ITEM_BUTTON: i32 = 6;
-pub(crate) const MENU_ITEM_LISTBOX: i32 = 7;
-
-/// Menu item flags, see the `IT_*` constants of the menu script.
-pub(crate) const MENU_ITEM_FLAG_CHROMAKEYED: i32 = 1;
-pub(crate) const MENU_ITEM_FLAG_TRANSPARENT: i32 = 2;
-pub(crate) const MENU_ITEM_FLAG_SELECTABLE: i32 = 4;
-pub(crate) const MENU_ITEM_FLAG_MOVEABLE: i32 = 8;
-pub(crate) const MENU_ITEM_FLAG_TXT_CENTER: i32 = 16;
-pub(crate) const MENU_ITEM_FLAG_DISABLED: i32 = 32;
-pub(crate) const MENU_ITEM_FLAG_FADE: i32 = 64;
-pub(crate) const MENU_ITEM_FLAG_EFFECTS_NEXT: i32 = 128;
-pub(crate) const MENU_ITEM_FLAG_ONLY_OUT_GAME: i32 = 256;
-pub(crate) const MENU_ITEM_FLAG_ONLY_IN_GAME: i32 = 512;
-pub(crate) const MENU_ITEM_FLAG_PERF_OPTION: i32 = 1 << 10;
-pub(crate) const MENU_ITEM_FLAG_MULTILINE: i32 = 1 << 11;
-pub(crate) const MENU_ITEM_FLAG_NEEDS_APPLY: i32 = 1 << 12;
-pub(crate) const MENU_ITEM_FLAG_NEEDS_RESTART: i32 = 1 << 13;
-pub(crate) const MENU_ITEM_FLAG_EXTENDED_MENU: i32 = 1 << 14;
-
-/// Menu screen flags, see the `MENU_*` constants of the menu script.
-pub(crate) const MENU_FLAG_OVERTOP: i32 = 1;
-pub(crate) const MENU_FLAG_EXCLUSIVE: i32 = 2;
-pub(crate) const MENU_FLAG_NO_ANI: i32 = 4;
-pub(crate) const MENU_FLAG_DONT_SCALE_DIM: i32 = 8;
-pub(crate) const MENU_FLAG_DONT_SCALE_POS: i32 = 16;
-pub(crate) const MENU_FLAG_ALIGN_CENTER: i32 = 32;
-pub(crate) const MENU_FLAG_SHOW_INFO: i32 = 64;
-
-/// Menu item select event ids, see the `EVENT_*` constants of the menu script.
-pub(crate) const MENU_EVENT_EXECUTE: usize = 1;
-
-/// Position and size are expressed in this many units per screen dimension.
-pub(crate) const MENU_SCRIPT_DIV: f32 = 8192.0;
+use daedalus_typed::{
+    MENU_ITEM_FLAG_ONLY_IN_GAME, MENU_ITEM_FLAG_ONLY_OUT_GAME, MENU_ITEM_FLAG_SELECTABLE, Menu,
+    MenuItem, SEL_ACTION_UNDEF, ScriptConversion,
+};
 
 /// A loaded menu screen with its item instances.
 #[derive(Debug, Clone, Default)]
@@ -353,6 +302,7 @@ fn slot(value: i32) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use daedalus_typed::{MENU_ITEM_LISTBOX, MENU_ITEM_TEXT};
 
     #[test]
     #[ignore = "requires a Gothic 2 install with MENU.DAT"]
