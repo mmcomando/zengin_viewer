@@ -91,12 +91,28 @@ pub struct MenuItem {
     pub dim_x: i32,
     /// Size on screen.
     pub dim_y: i32,
+    /// Scale the item starts at when it opens.
+    pub size_start_scale: f32,
+    /// Item flags.
+    pub item_flags: i32,
+    /// Delay before the open animation starts.
+    pub open_delay_time: f32,
+    /// Duration of the open animation.
+    pub open_duration: f32,
+    /// Free float values for the item script.
+    pub user_float: [f32; 4],
+    /// Free string ids for the item script.
+    pub user_string: [Option<StringId>; 4],
     /// List box inner frame size.
     pub frame_size_x: i32,
     /// List box inner frame size.
     pub frame_size_y: i32,
-    /// Item flags.
-    pub item_flags: i32,
+    /// Option section string id that hides this item.
+    pub hide_if_option_section_set: Option<StringId>,
+    /// Option string id that hides this item.
+    pub hide_if_option_set: Option<StringId>,
+    /// Value that hides this item.
+    pub hide_on_value: i32,
 }
 
 mod offset {
@@ -115,9 +131,17 @@ mod offset {
     pub const POS_Y: u32 = 472;
     pub const DIM_X: u32 = 476;
     pub const DIM_Y: u32 = 480;
+    pub const SIZE_START_SCALE: u32 = 484;
     pub const ITEM_FLAGS: u32 = 488;
+    pub const OPEN_DELAY_TIME: u32 = 492;
+    pub const OPEN_DURATION: u32 = 496;
+    pub const USER_FLOAT: u32 = 500;
+    pub const USER_STRING: u32 = 516;
     pub const FRAME_SIZE_X: u32 = 596;
     pub const FRAME_SIZE_Y: u32 = 600;
+    pub const HIDE_IF_OPTION_SECTION_SET: u32 = 604;
+    pub const HIDE_IF_OPTION_SET: u32 = 624;
+    pub const HIDE_ON_VALUE: u32 = 644;
 }
 
 pub(crate) const FIELD_SLOTS: &[FieldSlot] = &[
@@ -212,10 +236,40 @@ pub(crate) const FIELD_SLOTS: &[FieldSlot] = &[
         count: 1,
     },
     FieldSlot {
+        member: "sizestartscale",
+        element: 0,
+        offset: offset::SIZE_START_SCALE,
+        count: 1,
+    },
+    FieldSlot {
         member: "flags",
         element: 0,
         offset: offset::ITEM_FLAGS,
         count: 1,
+    },
+    FieldSlot {
+        member: "opendelaytime",
+        element: 0,
+        offset: offset::OPEN_DELAY_TIME,
+        count: 1,
+    },
+    FieldSlot {
+        member: "openduration",
+        element: 0,
+        offset: offset::OPEN_DURATION,
+        count: 1,
+    },
+    FieldSlot {
+        member: "userfloat",
+        element: 0,
+        offset: offset::USER_FLOAT,
+        count: 4,
+    },
+    FieldSlot {
+        member: "userstring",
+        element: 0,
+        offset: offset::USER_STRING,
+        count: 4,
     },
     FieldSlot {
         member: "framesizex",
@@ -227,6 +281,24 @@ pub(crate) const FIELD_SLOTS: &[FieldSlot] = &[
         member: "framesizey",
         element: 0,
         offset: offset::FRAME_SIZE_Y,
+        count: 1,
+    },
+    FieldSlot {
+        member: "hideifoptionsectionset",
+        element: 0,
+        offset: offset::HIDE_IF_OPTION_SECTION_SET,
+        count: 1,
+    },
+    FieldSlot {
+        member: "hideifoptionset",
+        element: 0,
+        offset: offset::HIDE_IF_OPTION_SET,
+        count: 1,
+    },
+    FieldSlot {
+        member: "hideonvalue",
+        element: 0,
+        offset: offset::HIDE_ON_VALUE,
         count: 1,
     },
 ];
@@ -260,9 +332,24 @@ impl ScriptVmAccess for MenuItem {
             (offset::POS_Y, 0) => Some(self.pos_y),
             (offset::DIM_X, 0) => Some(self.dim_x),
             (offset::DIM_Y, 0) => Some(self.dim_y),
+            (offset::SIZE_START_SCALE, 0) => Some(self.size_start_scale.to_bits() as i32),
             (offset::ITEM_FLAGS, 0) => Some(self.item_flags),
+            (offset::OPEN_DELAY_TIME, 0) => Some(self.open_delay_time.to_bits() as i32),
+            (offset::OPEN_DURATION, 0) => Some(self.open_duration.to_bits() as i32),
+            (offset::USER_FLOAT, _) => self.user_float.get(index).map(|v| v.to_bits() as i32),
+            (offset::USER_STRING, _) => self
+                .user_string
+                .get(index)
+                .map(|id| id.map_or(0, StringId::value)),
             (offset::FRAME_SIZE_X, 0) => Some(self.frame_size_x),
             (offset::FRAME_SIZE_Y, 0) => Some(self.frame_size_y),
+            (offset::HIDE_IF_OPTION_SECTION_SET, 0) => {
+                Some(self.hide_if_option_section_set.map_or(0, StringId::value))
+            }
+            (offset::HIDE_IF_OPTION_SET, 0) => {
+                Some(self.hide_if_option_set.map_or(0, StringId::value))
+            }
+            (offset::HIDE_ON_VALUE, 0) => Some(self.hide_on_value),
             _ => None,
         }
     }
@@ -332,16 +419,48 @@ impl ScriptVmAccess for MenuItem {
                 self.dim_y = value;
                 true
             }
+            (offset::SIZE_START_SCALE, 0) => {
+                self.size_start_scale = f32::from_bits(value as u32);
+                true
+            }
             (offset::ITEM_FLAGS, 0) => {
                 self.item_flags = value;
                 true
             }
+            (offset::OPEN_DELAY_TIME, 0) => {
+                self.open_delay_time = f32::from_bits(value as u32);
+                true
+            }
+            (offset::OPEN_DURATION, 0) => {
+                self.open_duration = f32::from_bits(value as u32);
+                true
+            }
+            (offset::USER_FLOAT, _) => {
+                let Some(slot) = self.user_float.get_mut(index) else {
+                    return false;
+                };
+                *slot = f32::from_bits(value as u32);
+                true
+            }
+            (offset::USER_STRING, _) => write_string_slot(&mut self.user_string, index, value),
             (offset::FRAME_SIZE_X, 0) => {
                 self.frame_size_x = value;
                 true
             }
             (offset::FRAME_SIZE_Y, 0) => {
                 self.frame_size_y = value;
+                true
+            }
+            (offset::HIDE_IF_OPTION_SECTION_SET, 0) => {
+                self.hide_if_option_section_set = StringId::new(value);
+                true
+            }
+            (offset::HIDE_IF_OPTION_SET, 0) => {
+                self.hide_if_option_set = StringId::new(value);
+                true
+            }
+            (offset::HIDE_ON_VALUE, 0) => {
+                self.hide_on_value = value;
                 true
             }
             _ => false,
