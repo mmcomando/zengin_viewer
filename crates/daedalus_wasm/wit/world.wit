@@ -1,7 +1,7 @@
 package mmcomando:zengine-scripts@0.1.0;
 
 
-interface scripts {
+interface ai-scripts {
     ai-aimat: func(npc: s32, target: s32);
     ai-aligntofp: func(npc: s32);
     ai-aligntowp: func(npc: s32);
@@ -77,14 +77,17 @@ interface scripts {
     ai-waittillend: func(npc: s32, other: s32);
     ai-whirlaround: func(npc: s32, other: s32);
     ai-whirlaroundtosource: func(npc: s32);
+}
+
+interface apply-scripts {
     apply-options-audio: func();
     apply-options-controls: func();
     apply-options-game: func();
     apply-options-performance: func();
     apply-options-video: func();
-    concatstrings: func(aa: s32, bb: s32) -> list<u8>;
-    createinvitem: func(npc: s32, item: s32);
-    createinvitems: func(npc: s32, item: s32, count: s32);
+}
+
+interface doc-scripts {
     doc-create: func() -> s32;
     doc-createmap: func() -> s32;
     doc-font: func(v-0: s32);
@@ -100,14 +103,15 @@ interface scripts {
     doc-setpage: func(document: s32, page: s32, texture: s32, scale: s32);
     doc-setpages: func(document: s32, count: s32);
     doc-show: func(document: s32);
-    equipitem: func(npc: s32, item: s32);
-    exitgame: func();
-    exitsession: func();
-    floattoint: func(var: s32) -> s32;
-    floattostring: func(var: s32) -> list<u8>;
+}
+
+interface game-scripts {
     game-initengintl: func() -> s32;
     game-initenglish: func() -> s32;
     game-initgerman: func() -> s32;
+}
+
+interface hlp-scripts {
     hlp-cutsceneplayed: func(cutscene-name: s32) -> s32;
     hlp-getinstanceid: func(instance: s32) -> s32;
     hlp-getnpc: func(instance-symbol: s32) -> s32;
@@ -116,15 +120,20 @@ interface scripts {
     hlp-isvalidnpc: func(npc: s32) -> s32;
     hlp-random: func(bound: s32) -> s32;
     hlp-strcmp: func(aa: s32, bb: s32) -> s32;
+}
+
+interface info-scripts {
     info-addchoice: func(dialog-id: s32, description-text-id: s32, function-id: s32);
     info-clearchoices: func(dialog-id: s32);
-    infomanager-hasfinished: func() -> s32;
-    introducechapter: func(title: s32, subtitle: s32, texture: s32, sound: s32, wait-time: s32);
-    inttofloat: func(var: s32) -> s32;
-    inttostring: func(var: s32) -> list<u8>;
+}
+
+interface log-scripts {
     log-addentry: func(topic: s32, entry: s32);
     log-createtopic: func(topic: s32, section: s32);
     log-settopicstatus: func(topic: s32, status: s32);
+}
+
+interface mdl-scripts {
     mdl-applyoverlaymds: func(npc: s32, overlay: s32);
     mdl-applyoverlaymdstimed: func(npc: s32, overlay: s32, ticks: s32);
     mdl-applyrandomani: func(npc: s32, ani-a: s32, ani-b: s32);
@@ -136,13 +145,22 @@ interface scripts {
     mdl-setvisual: func(npc-index: s32, body-model-id: s32);
     mdl-setvisualbody: func(npc-index: s32, body-model: s32, body-texture-index: s32, par-4: s32, head-model: s32, face-texture-index: s32, par-1: s32, armor-model: s32);
     mdl-startfaceani: func(npc: s32, ani: s32, intensity: s32, hold-time: s32);
+}
+
+interface mis-scripts {
     mis-addmissionentry: func(mission: s32, entry: s32);
     mis-getstatus: func(mission: s32) -> s32;
     mis-ontime: func(mission: s32) -> s32;
     mis-removemission: func(mission: s32);
     mis-setstatus: func(mission: s32, status: s32);
+}
+
+interface mob-scripts {
     mob-createitems: func(mob: s32, item: s32, count: s32);
     mob-hasitems: func(mob: s32, item: s32) -> s32;
+}
+
+interface npc-scripts {
     npc-arewestronger: func(npc: s32, other: s32) -> s32;
     npc-canseeitem: func(npc: s32, item: s32) -> s32;
     npc-canseenpc: func(npc: s32, other: s32) -> s32;
@@ -264,32 +282,26 @@ interface scripts {
     npc-stopani: func(npc: s32, anim: s32);
     npc-wasinstate: func(npc: s32, state: s32) -> s32;
     npc-wasplayerinmyroom: func(npc: s32) -> s32;
-    perc-setrange: func(perception: s32, range: s32);
-    playvideo: func(filename: s32) -> s32;
-    playvideoex: func(filename: s32, screen-blend: s32, exit-session: s32) -> s32;
-    print: func(text: s32);
-    printdebug: func(text: s32);
-    printdebugch: func(channel: s32, text: s32);
-    printdebuginst: func(text: s32);
-    printdebuginstch: func(channel: s32, text: s32);
-    printdialog: func(dialog: s32, msg: s32, pos-x: s32, pos-y: s32, font: s32, time-sec: s32) -> s32;
-    printmulti: func(v-0: s32, v-1: s32, v-2: s32, v-3: s32, v-4: s32);
-    printscreen: func(msg: s32, pos-x: s32, pos-y: s32, font: s32, time-sec: s32) -> s32;
-    rtn-exchange: func(old-routine: s32, new-routine: s32);
-    setpercentdone: func(percent: s32);
+}
+
+interface snd-scripts {
     snd-getdisttosource: func(source: s32) -> s32;
     snd-issourceitem: func(source: s32) -> s32;
     snd-issourcenpc: func(source: s32) -> s32;
     snd-play3d: func(npc: s32, sound: s32);
     snd-play: func(sound: s32);
+}
+
+interface ta-scripts {
     ta-beginoverlay: func(npc: s32);
     ta-cs: func(npc: s32, cutscene: s32, role: s32);
     ta-endoverlay: func(npc: s32);
     ta-min: func(npc-index: s32, start-h: s32, start-m: s32, stop-h: s32, stop-m: s32, func-index: s32, way-point: s32);
     ta-removeoverlay: func(npc: s32);
     ta: func(npc: s32, start-hour: s32, stop-hour: s32, state: s32, waypoint: s32);
-    tal-configure: func(v-0: s32, v-1: s32);
-    update-choicebox: func(v-0: s32);
+}
+
+interface wld-scripts {
     wld-assignroomtoguild: func(room: s32, guild: s32);
     wld-assignroomtonpc: func(room: s32, npc: s32);
     wld-detectitem: func(npc: s32, filter-flags: s32) -> s32;
@@ -326,6 +338,37 @@ interface scripts {
     wld-spawnnpcrange: func(npc: s32, class: s32, count: s32, lifetime: s32);
     wld-stopeffect: func(effect: s32);
 }
+
+interface misc-scripts {
+    concatstrings: func(aa: s32, bb: s32) -> list<u8>;
+    createinvitem: func(npc: s32, item: s32);
+    createinvitems: func(npc: s32, item: s32, count: s32);
+    equipitem: func(npc: s32, item: s32);
+    exitgame: func();
+    exitsession: func();
+    floattoint: func(var: s32) -> s32;
+    floattostring: func(var: s32) -> list<u8>;
+    infomanager-hasfinished: func() -> s32;
+    introducechapter: func(title: s32, subtitle: s32, texture: s32, sound: s32, wait-time: s32);
+    inttofloat: func(var: s32) -> s32;
+    inttostring: func(var: s32) -> list<u8>;
+    perc-setrange: func(perception: s32, range: s32);
+    playvideo: func(filename: s32) -> s32;
+    playvideoex: func(filename: s32, screen-blend: s32, exit-session: s32) -> s32;
+    print: func(text: s32);
+    printdebug: func(text: s32);
+    printdebugch: func(channel: s32, text: s32);
+    printdebuginst: func(text: s32);
+    printdebuginstch: func(channel: s32, text: s32);
+    printdialog: func(dialog: s32, msg: s32, pos-x: s32, pos-y: s32, font: s32, time-sec: s32) -> s32;
+    printmulti: func(v-0: s32, v-1: s32, v-2: s32, v-3: s32, v-4: s32);
+    printscreen: func(msg: s32, pos-x: s32, pos-y: s32, font: s32, time-sec: s32) -> s32;
+    rtn-exchange: func(old-routine: s32, new-routine: s32);
+    setpercentdone: func(percent: s32);
+    tal-configure: func(v-0: s32, v-1: s32);
+    update-choicebox: func(v-0: s32);
+}
+
 interface manage {
     enum symbol-kind {
         float,
@@ -388,7 +431,21 @@ interface symbols {
 }
 
 world mm-world {
-    import scripts;
+    import ai-scripts;
+    import apply-scripts;
+    import doc-scripts;
+    import game-scripts;
+    import hlp-scripts;
+    import info-scripts;
+    import log-scripts;
+    import mdl-scripts;
+    import mis-scripts;
+    import mob-scripts;
+    import npc-scripts;
+    import snd-scripts;
+    import ta-scripts;
+    import wld-scripts;
+    import misc-scripts;
     import symbols;
     export manage;
 }

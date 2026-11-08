@@ -243,9 +243,10 @@ impl BinaryBuilder {
         };
         // func.print_wit_declaration();
 
+        let name = func.name.replace('_', "-");
         let imported_func = ImportedFunction {
-            module: "mmcomando:zengine-scripts/scripts@0.1.0".to_owned(),
-            name: func.name.replace('_', "-"),
+            module: interface_module(&name),
+            name,
             params,
             results,
         };
@@ -495,6 +496,19 @@ fn symbol_imports() -> Vec<ImportedFunction> {
             results: vec![],
         },
     ]
+}
+
+/// WIT interface module for an external script function. The world splits the
+/// script imports by the daedalus name prefix, unknown prefixes live in
+/// `misc-scripts`.
+fn interface_module(func_name: &str) -> String {
+    let prefix = func_name.split('-').next().unwrap_or_default();
+    let interface = match prefix {
+        "ai" | "apply" | "doc" | "game" | "hlp" | "info" | "log" | "mdl" | "mis" | "mob"
+        | "npc" | "snd" | "ta" | "wld" => prefix,
+        _ => "misc",
+    };
+    format!("mmcomando:zengine-scripts/{interface}-scripts@0.1.0")
 }
 
 /// Symbol index of a well known daedalus instance variable, matched by name
