@@ -9,6 +9,7 @@ pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
 pub(crate) use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
 mod item_data;
 mod item_visual;
+mod npc_actions;
 mod npc_data;
 mod npc_routines;
 mod objects_to_entities;
@@ -38,6 +39,7 @@ pub(crate) use crate::zengin::item_data::ItemHandle;
 pub(crate) use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };
+pub(crate) use crate::zengin::npc_actions::NpcActionQueue;
 pub(crate) use crate::zengin::npc_data::NpcHandle;
 pub(crate) use crate::zengin::npc_routines::NpcHealth;
 pub(crate) use crate::zengin::npc_routines::NpcWeaponMode;

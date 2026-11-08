@@ -4,7 +4,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::PoisonError;
 
-use avian3d::prelude::SpatialQuery;
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::GameTime;
@@ -14,14 +13,14 @@ use crate::zengin::GameNpc;
 use crate::zengin::common::{
     animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
 };
-use crate::zengin::instance_index::InstanceIndex;
+use crate::zengin::npc_actions::{NpcAction, NpcActionQueue};
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{AlignToWpChange, GotoChange, RoutineEntry};
+use crate::zengin::script::state::RoutineEntry;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::FunctionId;
-use crate::zengin::waypoint_graph::{WaypointGraph, WaypointNodeIndex, nearest_waypoint_node};
+use crate::zengin::waypoint_graph::WaypointGraph;
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.
@@ -37,6 +36,12 @@ pub(crate) const NPC_BODY_Y_OFFSET: f32 = -0.5;
 pub(crate) struct NpcRoutineState {
     /// Waypoint the npc was last assigned to by a routine check
     assigned_waypoint: StringCanon,
+}
+
+impl NpcRoutineState {
+    pub(crate) fn assigned_waypoint(&self) -> &StringCanon {
+        &self.assigned_waypoint
+    }
 }
 
 #[derive(Component, Default)]
@@ -83,23 +88,18 @@ pub(crate) fn update_npc_routine_entries(
     }
 }
 
-/// Reacts to the [`RoutineEntry`] component of an npc being added, changed or
-/// removed. When the active routine entry changed, the npc walks to the new
-/// waypoint (falling back to a teleport when no path is available).
+/// Reacts to the [`RoutineEntry`] component of an npc being added or changed.
+/// When the active routine entry changes, a waypoint action is queued.
 #[allow(clippy::type_complexity)]
 pub(crate) fn update_npc_routines(
     mut commands: Commands,
-    way_points: Res<WayPoints>,
-    graph: Res<WaypointGraph>,
-    spatial_query: SpatialQuery,
-    waypoint_nodes: Query<&WaypointNodeIndex>,
     mut npcs: Query<
         (
             Entity,
             &GameNpc,
             &RoutineEntry,
-            &mut Transform,
             Option<&mut NpcRoutineState>,
+            Option<&mut NpcActionQueue>,
         ),
         (Changed<RoutineEntry>, Without<ChildOf>),
     >,
@@ -111,7 +111,7 @@ pub(crate) fn update_npc_routines(
         commands.entity(entity).try_remove::<NpcRoutineState>();
     }
 
-    for (entity, npc, entry, mut tr, routine_state) in &mut npcs {
+    for (entity, npc, entry, routine_state, queue) in &mut npcs {
         let Some(mut state) = routine_state else {
             // First assignment: npcs were already placed at the start hour by the
             // world load, only record the current assignment.
@@ -124,43 +124,24 @@ pub(crate) fn update_npc_routines(
             continue;
         }
         state.assigned_waypoint = entry.way_point.clone();
-        let Some(waypoint_tr) = way_points.points.get(entry.way_point.as_str()) else {
+
+        let Some(mut queue) = queue else {
             crate::warn_once!(
-                "routine waypoint not found, npc({}), waypoint({})",
+                "routine npc({}) has no action queue, waypoint({})",
                 npc.instance_id(),
                 entry.way_point
             );
             continue;
         };
-
-        // Walk to the waypoint over the graph; teleport when no path exists
-        if let (Some(target), Some(start)) = (
-            graph.node_by_name(entry.way_point.as_str()),
-            nearest_waypoint_node(&spatial_query, &waypoint_nodes, &graph, tr.translation),
-        ) && let Some(path) = graph.shortest_path(start, target)
-        {
-            debug!(
-                "walk npc({}) to waypoint({})",
+        if !queue.push(NpcAction::GoToWaypoint {
+            waypoint: entry.way_point.clone(),
+        }) {
+            warn!(
+                "routine npc({}) action queue full, waypoint({}) not queued",
                 npc.instance_id(),
                 entry.way_point
             );
-            commands.entity(entity).insert(NpcPath {
-                nodes: path,
-                speed: NPC_WALK_SPEED,
-            });
-            continue;
         }
-
-        warn!(
-            "teleport npc({}) to waypoint({})",
-            npc.instance_id(),
-            entry.way_point
-        );
-        // Keep any model scale Mdl_SetModelScale applied
-        let scale = tr.scale;
-        *tr = Transform::from_translation(waypoint_tr.translation + Vec3::Y * NPC_BODY_Y_OFFSET)
-            .with_rotation(waypoint_tr.rotation)
-            .with_scale(scale);
     }
 }
 
@@ -295,32 +276,8 @@ pub(crate) fn apply_look_at(
     }
 }
 
-/// Faces npcs at their assigned routine waypoint when the script requested it
-/// via `AI_AlignToWP`; the waypoint rotation is the facing direction.
-pub(crate) fn apply_align_to_wp(
-    mut changes: MessageReader<AlignToWpChange>,
-    index: Res<InstanceIndex>,
-    way_points: Res<WayPoints>,
-    mut npcs: Query<(Option<&NpcRoutineState>, &mut Transform)>,
-) {
-    for change in changes.read() {
-        for &entity in index.npcs(change.instance_id) {
-            let Ok((routine, mut tr)) = npcs.get_mut(entity) else {
-                continue;
-            };
-            let Some(name) = routine.map(|routine| routine.assigned_waypoint.as_str()) else {
-                continue;
-            };
-            let Some(way_point) = way_points.points.get(name) else {
-                continue;
-            };
-            tr.rotation = way_point.rotation;
-        }
-    }
-}
-
 /// Walking speed of npcs following an `AI_GoToWP` path, in Bevy meters/second.
-const NPC_WALK_SPEED: f32 = 3.0;
+pub(crate) const NPC_WALK_SPEED: f32 = 3.0;
 
 /// Remaining waypoint node indices an npc walks through (`AI_GoToWP`).
 #[derive(Component, Default)]
@@ -329,51 +286,9 @@ pub(crate) struct NpcPath {
     speed: f32,
 }
 
-/// Resolves `AI_GoToWP` requests into a path over the waypoint graph. Reads the
-/// waypoint name through the script vm, which is only safe outside a running
-/// script, hence this runs in `Update`.
-pub(crate) fn resolve_goto_paths(
-    mut changes: MessageReader<GotoChange>,
-    index: Res<InstanceIndex>,
-    gothic_script: Res<ScriptResource>,
-    graph: Res<WaypointGraph>,
-    spatial_query: SpatialQuery,
-    waypoint_nodes: Query<&WaypointNodeIndex>,
-    mut commands: Commands,
-    npcs: Query<&Transform>,
-) {
-    if changes.is_empty() {
-        return;
-    }
-
-    let mut script = gothic_script.lock();
-    for change in changes.read() {
-        let Some(name) = script.get_name_by_id(change.waypoint) else {
-            continue;
-        };
-        let Some(target) = graph.node_by_name(&name) else {
-            continue;
-        };
-        for &entity in index.npcs(change.instance_id) {
-            let Ok(transform) = npcs.get(entity) else {
-                continue;
-            };
-            let Some(start) = nearest_waypoint_node(
-                &spatial_query,
-                &waypoint_nodes,
-                &graph,
-                transform.translation,
-            ) else {
-                continue;
-            };
-            let Some(path) = graph.shortest_path(start, target) else {
-                continue;
-            };
-            commands.entity(entity).insert(NpcPath {
-                nodes: path,
-                speed: NPC_WALK_SPEED,
-            });
-        }
+impl NpcPath {
+    pub(crate) fn new(nodes: Vec<usize>, speed: f32) -> Self {
+        Self { nodes, speed }
     }
 }
 

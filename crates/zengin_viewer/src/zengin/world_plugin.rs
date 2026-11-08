@@ -29,7 +29,7 @@ use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
-use crate::zengin::{GameChest, GameItem, GameNpc, NpcHandle, ZenginVfs};
+use crate::zengin::{GameChest, GameItem, GameNpc, NpcActionQueue, NpcHandle, ZenginVfs};
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
@@ -505,6 +505,7 @@ fn spawn_npc_entities(
         commands.spawn((
             Visibility::default(),
             GameNpc::new(script.handle.clone()),
+            NpcActionQueue::default(),
             NpcModel {
                 hierarchy,
                 body_model,
