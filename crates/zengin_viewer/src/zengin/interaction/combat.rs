@@ -16,7 +16,7 @@ use crate::zengin::npc_routines::{AnimationFiles, NpcEquippedWeapon, NpcOverlay,
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::WeaponMode;
+use crate::zengin::script::state::{AttackChange, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc};
 
@@ -138,14 +138,15 @@ pub(super) fn melee_swing_hit(
     }
 }
 
-/// Applies a melee hit of an npc to its `Npc_SetTarget` target.
+/// Applies a melee hit of an npc to its `Npc_SetTarget` target. The player's
+/// hitpoints are floored at one, it never dies.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn npc_melee_swing_hit(
     mut commands: Commands,
     mut hits: MessageReader<MeleeHit>,
     index: Res<InstanceIndex>,
     shooters: Query<(&GameNpc, &GlobalTransform), Without<PlayerCharacter>>,
-    players: Query<(Entity, &GameNpc, &GlobalTransform, Option<&ChildOf>), With<PlayerCharacter>>,
+    players: Query<&GameNpc, With<PlayerCharacter>>,
     mut npcs: Query<NpcHitQueryData, Without<PlayerCharacter>>,
     transforms: Query<&GlobalTransform>,
     gothic_script: Res<ScriptResource>,
@@ -197,11 +198,6 @@ pub(super) fn npc_melee_swing_hit(
             continue;
         }
 
-        // The player is currently invulnerable.
-        if players.contains(target_entity) {
-            continue;
-        }
-
         let damage = {
             let mut script = gothic_script.lock();
             let melee = script
@@ -209,6 +205,32 @@ pub(super) fn npc_melee_swing_hit(
                 .and_then(|npc| npc.equipment.melee);
             melee.map_or(FIST_DAMAGE, |item| script.item_damage_total(item))
         };
+
+        // The player never dies: damage is applied but the hitpoints floor at one.
+        if let Ok(player_npc) = players.get(target_entity) {
+            let player_id = player_npc.instance_id();
+            let mut script = gothic_script.lock();
+            let Some(hitpoints) = script.change_hitpoints(player_id, -damage) else {
+                warn!(
+                    "Npc melee hit ignored: no hitpoints data for player({})",
+                    player_id.value()
+                );
+                continue;
+            };
+            let hitpoints = if hitpoints < 1 {
+                script
+                    .change_hitpoints(player_id, 1 - hitpoints)
+                    .unwrap_or(hitpoints)
+            } else {
+                hitpoints
+            };
+            info!(
+                "Npc({}) dealt {damage} damage to player({player_id}), hitpoints now {hitpoints}",
+                attacker_id.value()
+            );
+            game_log.add(format!("Took {damage} damage"));
+            continue;
+        }
 
         let Ok((target_npc, target_gt, model, overlay, controller, reaction)) =
             npcs.get_mut(target_entity)
@@ -281,6 +303,15 @@ pub(crate) fn damage_npc(
             npc_id.value()
         );
         game_log.add(format!("Dealt {damage} damage"));
+        if hitpoints > 0 {
+            // Being attacked makes the npc retaliate against the player.
+            let mut script = gothic_script.lock();
+            script.npc_state_mut(npc_id).live.target = Some(shooter_id);
+            script.pending_changes().attack_changes.push(AttackChange {
+                instance_id: npc_id,
+                target: shooter_id,
+            });
+        }
     } else {
         info!(
             "Npc({}) dealt {damage} damage to npc({}), hitpoints now {hitpoints}",
