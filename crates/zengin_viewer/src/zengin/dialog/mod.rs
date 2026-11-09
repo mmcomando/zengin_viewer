@@ -5,6 +5,7 @@ mod sounds;
 mod state;
 mod ui;
 
+pub(crate) use important::ImportantDialogOptions;
 pub(crate) use sounds::SpeechSounds;
 
 pub(crate) use state::DialogUiState;
@@ -33,7 +34,8 @@ impl Plugin for GameDialogPlugin {
             Update,
             (
                 flow::show_closest_npc_dialog,
-                important::auto_start_important_dialogs,
+                important::auto_start_important_dialogs
+                    .run_if(|options: Res<ImportantDialogOptions>| options.enabled),
                 state::handle_dialog_input,
                 state::advance_dialog_playback,
                 flow::handle_dialog_requests,

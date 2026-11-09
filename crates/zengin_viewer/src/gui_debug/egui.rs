@@ -13,7 +13,7 @@ use crate::gui_debug::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
 };
-use crate::zengin::StatisticsZengin;
+use crate::zengin::{ImportantDialogOptions, StatisticsZengin};
 
 pub struct GameDebugUI;
 impl Plugin for GameDebugUI {
@@ -103,6 +103,7 @@ fn ui_info_system(
     mut game_time: ResMut<GameTime>,
     mut render_options: ResMut<RenderOptions>,
     mut gizmos_options: ResMut<GizmosOptions>,
+    mut important_dialog_options: ResMut<ImportantDialogOptions>,
     mut teleports: MessageWriter<TeleportToLocation>,
     camera_query: Query<&GlobalTransform, With<Camera3d>>,
 ) -> Result {
@@ -146,6 +147,13 @@ fn ui_info_system(
                     "NPCs",
                     statistics_zengin.npcs,
                     statistics_zengin.npcs_visible,
+                );
+
+                add_checkbox(
+                    ui,
+                    "Important Dialogs",
+                    &mut important_dialog_options.enabled,
+                    &mut false,
                 );
 
                 ui.label("Statistics");

@@ -27,7 +27,15 @@ pub(super) struct ImportantDialogsPlugin;
 impl Plugin for ImportantDialogsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ImportantDialogChecks>();
+        app.init_resource::<ImportantDialogOptions>();
     }
+}
+
+/// Runtime toggle of the npc initiated dialogs, changed in the debug UI.
+/// Disabled by default because npc started dialogs interrupt development.
+#[derive(Resource, Default)]
+pub(crate) struct ImportantDialogOptions {
+    pub(crate) enabled: bool,
 }
 
 /// Condition evaluation throttle of the npc initiated dialogs.

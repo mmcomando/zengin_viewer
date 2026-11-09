@@ -33,6 +33,7 @@ pub(crate) use crate::zengin::common::get_full_texture_path;
 pub(crate) use crate::zengin::common::gothic2_dir;
 pub(crate) use crate::zengin::common::to_world_units;
 pub(crate) use crate::zengin::dialog::DialogUiState;
+pub(crate) use crate::zengin::dialog::ImportantDialogOptions;
 pub(crate) use crate::zengin::dialog::SpeechSounds;
 pub(crate) use crate::zengin::interaction::MeleeHit;
 pub(crate) use crate::zengin::interaction::ranged::ArrowShot;
