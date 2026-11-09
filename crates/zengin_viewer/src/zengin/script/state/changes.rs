@@ -68,6 +68,21 @@ pub struct AlignToWpChange {
     pub instance_id: InstanceId,
 }
 
+/// Signal that an instance requested `AI_Attack` (attack its current enemy).
+#[derive(Message)]
+pub struct AttackChange {
+    pub instance_id: InstanceId,
+    /// Target set via `Npc_SetTarget`, the entity to attack.
+    pub target: InstanceId,
+}
+
+/// Signal that an instance requested `Npc_ClearAIQueue` (drop all queued npc
+/// actions).
+#[derive(Message)]
+pub struct ClearAiQueueChange {
+    pub instance_id: InstanceId,
+}
+
 /// Requests an item entity to be spawned, with its resolved world placement.
 #[derive(Message)]
 pub struct SpawnItem {

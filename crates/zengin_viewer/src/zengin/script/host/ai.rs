@@ -90,7 +90,56 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         0
     }
     fake_impl!(ai_setnpcstostate(_0, _1, _2));
-    fake_impl!(ai_startstate(_0, _1, _2, _3));
+    /// Starts a routine state. Only `zs_attack` is emulated: it records the
+    /// state and requests an attack on the npc's `Npc_SetTarget` target.
+    fn ai_startstate(&mut self, npc: i32, state: i32, finalize: i32, waypoint: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("AI_StartState with invalid npc instance({npc})");
+            return;
+        };
+        let Some(state_fn) = self.symbol_table.function(state) else {
+            warn!(
+                "AI_StartState npc({}) with invalid state function({state})",
+                npc.value()
+            );
+            return;
+        };
+        let Some(state_name) = self.symbol_table.symbol_name(state) else {
+            warn!(
+                "AI_StartState npc({}) with unknown state name({state})",
+                npc.value()
+            );
+            return;
+        };
+        if !state_name.eq_ignore_ascii_case("zs_attack") {
+            crate::warn_unimplemented!("AI_StartState({state_name}) npc({})", npc.value());
+            return;
+        }
+        let Some(target) = self.npc_state(npc).and_then(|npc| npc.live.target) else {
+            warn!(
+                "AI_StartState({state_name}) npc({}) ignored: no target set (Npc_SetTarget)",
+                npc.value()
+            );
+            return;
+        };
+        bevy::log::info!(
+            "AI_StartState({state_name}) npc({}) finalize({finalize}) waypoint({waypoint}) on target({})",
+            npc.value(),
+            target.value()
+        );
+        {
+            let mut instance = self.npc_state_mut(npc);
+            if let Some(previous) = instance.routine.current_state.replace(state_fn)
+                && previous != state_fn
+            {
+                instance.routine.previous_state = Some(previous);
+            }
+        }
+        self.pending.attack_changes.push(AttackChange {
+            instance_id: npc,
+            target,
+        });
+    }
     fake_impl!(ai_continueroutine(_0));
     fake_impl!(ai_outputsvm(_0, _1, _2));
     fake_impl!(ai_outputsvm_overlay(_0, _1, _2));
@@ -176,7 +225,30 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     fake_impl!(ai_combatreacttodamage(_0));
     fake_impl!(ai_readyspell(_0, _1, _2));
     fake_impl!(ai_unreadyspell(_0));
-    fake_impl!(ai_attack(_0));
+    /// Requests that the npc attacks its `Npc_SetTarget` target, applied by the
+    /// ECS side.
+    fn ai_attack(&mut self, npc: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("AI_Attack with invalid npc instance({npc})");
+            return;
+        };
+        let Some(target) = self.npc_state(npc).and_then(|npc| npc.live.target) else {
+            warn!(
+                "AI_Attack npc({}) ignored: no target set (Npc_SetTarget)",
+                npc.value()
+            );
+            return;
+        };
+        bevy::log::info!(
+            "AI_Attack requested by npc({}) on target({})",
+            npc.value(),
+            target.value()
+        );
+        self.pending.attack_changes.push(AttackChange {
+            instance_id: npc,
+            target,
+        });
+    }
     fake_impl!(ai_finishingmove(_0, _1));
     fake_impl!(ai_dodge(_0));
     fake_impl!(ai_useitem(_0, _1));

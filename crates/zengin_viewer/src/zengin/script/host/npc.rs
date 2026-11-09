@@ -222,7 +222,15 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_gettrueguild(_0) -> i32);
     fake_impl!(npc_settrueguild(_0, _1) -> i32);
     fake_impl!(npc_arewestronger(_0, _1) -> i32);
-    fake_impl!(npc_gettarget(_0) -> i32);
+    /// Target the ai currently attacks (`Npc_SetTarget`), `0` when none.
+    fn npc_gettarget(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        self.npc_state(npc)
+            .and_then(|npc| npc.live.target)
+            .map_or(0, InstanceId::value)
+    }
     fake_impl!(npc_getnexttarget(_0) -> i32);
     /// Npc currently looked at, `0` when none.
     fn npc_getlookattarget(&mut self, npc: i32) -> i32 {
@@ -234,7 +242,26 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             .map_or(0, InstanceId::value)
     }
     fake_impl!(npc_isnexttargetavailable(_0) -> i32);
-    fake_impl!(npc_settarget(_0, _1));
+    /// Records the npc target later attacked by `AI_Attack`/`AI_StartState`.
+    fn npc_settarget(&mut self, npc: i32, target: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("Npc_SetTarget with invalid npc instance({npc})");
+            return;
+        };
+        let Some(target) = self.symbol_table.instance(target) else {
+            warn!(
+                "Npc_SetTarget npc({}) with invalid target instance({target})",
+                npc.value()
+            );
+            return;
+        };
+        self.npc_state_mut(npc).live.target = Some(target);
+        bevy::log::debug!(
+            "Npc_SetTarget npc({}) target({})",
+            npc.value(),
+            target.value()
+        );
+    }
     fake_impl!(npc_getbodystate(_0) -> i32);
     fake_impl!(npc_hasbodyflag(_0, _1) -> i32);
     fake_impl!(npc_isincutscene(_0) -> i32);
@@ -244,7 +271,18 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_playani(_0, _1));
     fake_impl!(npc_isdetectedmobownedbynpc(_0, _1) -> i32);
     fake_impl!(npc_isdetectedmobownedbyguild(_0, _1) -> i32);
-    fake_impl!(npc_clearaiqueue(_0));
+    /// Drops all actions queued by the ai (`Npc_ClearAIQueue`), applied by the
+    /// ECS side.
+    fn npc_clearaiqueue(&mut self, npc: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("Npc_ClearAIQueue with invalid npc instance({npc})");
+            return;
+        };
+        bevy::log::debug!("Npc_ClearAIQueue npc({})", npc.value());
+        self.pending
+            .clear_ai_queue_changes
+            .push(ClearAiQueueChange { instance_id: npc });
+    }
     /// Knowledge is gained when a dialog root is played.
     fn npc_knowsinfo(&mut self, npc: i32, info: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {

@@ -3,9 +3,9 @@ mod instances;
 mod weapons;
 
 pub(crate) use changes::{
-    AlignToWpChange, DialogClose, DialogLine, GotoChange, InventoryGain, ItemChanged,
-    ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, RoutineExchange,
-    ScreenMessage, SpawnItem, SpawnNpc,
+    AlignToWpChange, AttackChange, ClearAiQueueChange, DialogClose, DialogLine, GotoChange,
+    InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange,
+    RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
 };
 pub(crate) use instances::{DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry};
 pub(crate) use weapons::{ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponKind, WeaponMode};
@@ -221,6 +221,10 @@ pub struct PendingChanges {
     pub overlay_changes: Vec<OverlayChange>,
     /// `AI_GoToWP` requests produced by the script.
     pub goto_changes: Vec<GotoChange>,
+    /// `AI_Attack` requests produced by the script.
+    pub attack_changes: Vec<AttackChange>,
+    /// `Npc_ClearAIQueue` requests produced by the script.
+    pub clear_ai_queue_changes: Vec<ClearAiQueueChange>,
     /// `Npc_ExchangeRoutine` requests produced by the script.
     pub routine_exchanges: Vec<RoutineExchange>,
     /// Item spawn requests queued by the world load and `wld_insertitem`.

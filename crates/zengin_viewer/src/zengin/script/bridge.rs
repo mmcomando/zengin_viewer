@@ -17,9 +17,9 @@ use crate::zengin::npc_routines::{
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use crate::zengin::script::state::{
-    AlignToWpChange, DialogClose, DialogLine, GotoChange, InventoryGain, ItemChanged,
-    ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest,
-    RoutineEntry, ScreenMessage, SpawnItem, SpawnNpc, WeaponMode,
+    AlignToWpChange, AttackChange, ClearAiQueueChange, DialogClose, DialogLine, GotoChange,
+    InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange,
+    OverlayRequest, RoutineEntry, ScreenMessage, SpawnItem, SpawnNpc, WeaponMode,
 };
 
 pub struct ScriptBridgePlugin;
@@ -31,6 +31,8 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<ItemChanged>();
         app.add_message::<ItemEntitiesChanged>();
         app.add_message::<AlignToWpChange>();
+        app.add_message::<AttackChange>();
+        app.add_message::<ClearAiQueueChange>();
         app.add_message::<OverlayChange>();
         app.add_message::<GotoChange>();
         app.add_message::<SpawnItem>();
@@ -87,6 +89,8 @@ fn send_script_changes(
     mut align_to_wp: MessageWriter<AlignToWpChange>,
     mut overlay: MessageWriter<OverlayChange>,
     mut goto: MessageWriter<GotoChange>,
+    mut attack: MessageWriter<AttackChange>,
+    mut clear_ai_queue: MessageWriter<ClearAiQueueChange>,
     mut spawn_item: MessageWriter<SpawnItem>,
     mut spawn_npc: MessageWriter<SpawnNpc>,
     mut dialog_close: MessageWriter<DialogClose>,
@@ -104,6 +108,12 @@ fn send_script_changes(
     }
     for change in script.drain_goto_changes() {
         goto.write(change);
+    }
+    for change in script.drain_attack_changes() {
+        attack.write(change);
+    }
+    for change in script.drain_clear_ai_queue_changes() {
+        clear_ai_queue.write(change);
     }
     for change in script.drain_spawn_items() {
         spawn_item.write(change);

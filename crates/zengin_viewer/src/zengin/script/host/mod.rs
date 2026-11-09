@@ -1,9 +1,9 @@
 use super::bindings::mmcomando;
 use super::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use super::state::{
-    AlignToWpChange, DialogChoice, DialogLine, ITEM_MAINFLAG_ARMOR, ImportCallState, InventoryGain,
-    MobRoutineEntry, OverlayRequest, RoutineEntry, RoutineExchange, SpawnItem, SpawnNpc,
-    WeaponKind, WeaponMode,
+    AlignToWpChange, AttackChange, ClearAiQueueChange, DialogChoice, DialogLine,
+    ITEM_MAINFLAG_ARMOR, ImportCallState, InventoryGain, MobRoutineEntry, OverlayRequest,
+    RoutineEntry, RoutineExchange, SpawnItem, SpawnNpc, WeaponKind, WeaponMode,
 };
 use super::string_value::StringCanon;
 use super::symbol_id::InstanceId;

@@ -5,8 +5,9 @@ use bevy::math::Vec3;
 
 use super::super::journal::{JournalChange, JournalManager, JournalTopic};
 use super::super::state::{
-    AlignToWpChange, DialogLine, GotoChange, InventoryGain, ItemRuntime, LoadedState, NpcRuntime,
-    OverlayChange, PendingChanges, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
+    AlignToWpChange, AttackChange, ClearAiQueueChange, DialogLine, GotoChange, InventoryGain,
+    ItemRuntime, LoadedState, NpcRuntime, OverlayChange, PendingChanges, RoutineExchange,
+    ScreenMessage, SpawnItem, SpawnNpc,
 };
 use super::super::symbol_id::InstanceId;
 
@@ -76,6 +77,14 @@ impl super::ScriptManager {
         std::mem::take(&mut self.pending_changes().goto_changes)
     }
 
+    pub fn drain_attack_changes(&mut self) -> Vec<AttackChange> {
+        std::mem::take(&mut self.pending_changes().attack_changes)
+    }
+
+    pub fn drain_clear_ai_queue_changes(&mut self) -> Vec<ClearAiQueueChange> {
+        std::mem::take(&mut self.pending_changes().clear_ai_queue_changes)
+    }
+
     pub fn drain_spawn_items(&mut self) -> Vec<SpawnItem> {
         std::mem::take(&mut self.pending_changes().spawn_items)
     }
@@ -132,6 +141,11 @@ impl super::ScriptManager {
     /// Whether the player instance was set by a world spawn.
     pub fn has_player_instance(&self) -> bool {
         self.store.data().player_instance.is_some()
+    }
+
+    /// Instance id of the player (`PC_Hero`), `None` before the world spawn.
+    pub fn player_instance(&self) -> Option<InstanceId> {
+        self.store.data().player_instance
     }
 
     pub fn take_close_dialog(&mut self) -> bool {

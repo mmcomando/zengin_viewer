@@ -121,6 +121,8 @@ pub struct NpcLiveState {
     pub position: Option<Vec3>,
     /// Npc currently looked at (`AI_LookAtNPC`/`AI_StopLookAt`).
     pub look_at: Option<InstanceId>,
+    /// Npc the ai targets (`Npc_SetTarget`), the entity `AI_Attack` attacks.
+    pub target: Option<InstanceId>,
 }
 
 impl NpcRuntime {

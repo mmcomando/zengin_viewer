@@ -14,7 +14,10 @@ use crate::gameplay::game_time::advance_game_time;
 use crate::graphics::AutoAnimSequencerSet;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 
-use crate::zengin::npc_actions::{enqueue_align_actions, enqueue_goto_actions, run_npc_actions};
+use crate::zengin::npc_actions::{
+    clear_npc_actions, enqueue_align_actions, enqueue_attack_actions, enqueue_goto_actions,
+    run_npc_actions,
+};
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
     NpcRoutineCheckState, apply_look_at, move_along_path, update_npc_routine_animations,
@@ -26,7 +29,9 @@ pub(crate) use armor::{NpcArmorItem, NpcBodyMarker};
 pub(crate) use health::NpcHealth;
 pub(crate) use overlay::overlay_scheme;
 pub(crate) use overlay::{AnimationFiles, NpcOverlay};
-pub(crate) use routines::{NPC_BODY_Y_OFFSET, NpcLookAt, NpcPath, NpcRoutineState, WayPoints};
+pub(crate) use routines::{
+    NPC_BODY_Y_OFFSET, NpcLookAt, NpcPath, NpcRoutineState, WayPoints, queue_stand_animation,
+};
 pub(crate) use weapons::{NpcEquippedWeapon, NpcWeaponMode, NpcWeaponSlots};
 
 /// Drives npc routines, queued actions, look-at and weapon state.
@@ -39,12 +44,16 @@ impl Plugin for NpcRoutinesPlugin {
             Update,
             (
                 (update_npc_routine_entries, update_npc_routines).chain(),
-                enqueue_goto_actions,
-                enqueue_align_actions,
+                clear_npc_actions,
+                enqueue_goto_actions.after(clear_npc_actions),
+                enqueue_align_actions.after(clear_npc_actions),
+                enqueue_attack_actions.after(clear_npc_actions),
                 run_npc_actions
                     .after(update_npc_routines)
+                    .after(clear_npc_actions)
                     .after(enqueue_goto_actions)
-                    .after(enqueue_align_actions),
+                    .after(enqueue_align_actions)
+                    .after(enqueue_attack_actions),
                 update_npc_routine_animations.after(update_npc_routines),
                 apply_look_at.after(update_npc_routines),
                 apply_weapon_mode.after(update_npc_routine_animations),

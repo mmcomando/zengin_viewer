@@ -33,6 +33,7 @@ impl Plugin for PlayerInteractionPlugin {
             Update,
             (
                 combat::melee_swing_hit,
+                combat::npc_melee_swing_hit,
                 crate::graphics::npc_hit_reaction_end,
                 combat::handle_npc_death,
                 actions::handle_transfer_items,

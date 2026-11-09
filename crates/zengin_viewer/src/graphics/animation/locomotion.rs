@@ -14,6 +14,7 @@ use crate::gameplay::character::{ACCELERATION_MULTIPLIER, AcceleratingRootMotion
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
 
+use super::auto_anim_sequencer::AutoAnimSequencer;
 use super::components::{
     AnimationEnds, AnimationSound, AnimationState, AnimationTrigger, BoneAnimationData,
 };
@@ -122,11 +123,11 @@ fn root_displacement(movement: &[f32], total: f32, progress: f32) -> f32 {
 /// motion if its controller enables it.
 /// Queued `next` animations are switched to when the current one ends or may
 /// be interrupted.
-/// For entities marked as players it emits [`AnimationEnds`] when entering
-/// the `last_frame-2` window and [`AnimationTrigger`] when crossing a model
-/// script trigger frame, so the sequencer can schedule follow up animations.
-/// Every animated skeleton emits [`AnimationSound`] on model script sound
-/// frames.
+/// For entities driven by the animation sequencer (the player and attacking
+/// npcs) it emits [`AnimationEnds`] when entering the `last_frame-2` window and
+/// [`AnimationTrigger`] when crossing a model script trigger frame, so the
+/// sequencer can schedule follow up animations. Every animated skeleton emits
+/// [`AnimationSound`] on model script sound frames.
 #[allow(clippy::cast_precision_loss)]
 #[allow(clippy::type_complexity)]
 pub(crate) fn update_animations(
@@ -143,6 +144,7 @@ pub(crate) fn update_animations(
             Option<&Aabb>,
             Option<&ChildOf>,
             Option<&PlayerCharacter>,
+            Option<&AutoAnimSequencer>,
             &mut AnimationState,
             Option<&mut AnimationController>,
         ),
@@ -157,7 +159,9 @@ pub(crate) fn update_animations(
     let delta = time.delta_secs();
     let mut switches: Vec<(Entity, Arc<AnimationData>)> = Vec::new();
 
-    for (entity, global_transform, aabb, parent, player, mut data, controller) in &mut query {
+    for (entity, global_transform, aabb, parent, player, sequencer, mut data, controller) in
+        &mut query
+    {
         // Without a main camera (e.g. in tests) fall back to always updating.
         let needs_update = match (&frustum, aabb) {
             (Some(frustum), Some(aabb)) => {
@@ -237,8 +241,8 @@ pub(crate) fn update_animations(
             });
         }
 
-        write_player_triggers(
-            player,
+        write_sequencer_triggers(
+            player.is_some() || sequencer.is_some(),
             triggers.as_deref(),
             &controller,
             &update,
@@ -329,17 +333,17 @@ fn apply_root_motion(
     transform.translation += global_transform.rotation() * Vec3::Z * update.delta_movement * speed;
 }
 
-/// Animation trigger events are emitted only for players for now; the
-/// sequencer consuming them is player-only.
-fn write_player_triggers(
-    player: Option<&PlayerCharacter>,
+/// Animation trigger events are emitted for entities driven by the sequencer,
+/// which consumes them, e.g. to emit the melee hit on the impact frame.
+fn write_sequencer_triggers(
+    emit: bool,
     triggers: Option<&AnimationTriggers>,
     controller: &AnimationController,
     update: &FrameUpdate,
     entity: Entity,
     animation_triggers: &mut MessageWriter<AnimationTrigger>,
 ) {
-    let (Some(_), Some(triggers)) = (player, triggers) else {
+    let (true, Some(triggers)) = (emit, triggers) else {
         return;
     };
     let Some(path) = controller.current().path() else {

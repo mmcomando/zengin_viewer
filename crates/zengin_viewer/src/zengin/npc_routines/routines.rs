@@ -377,7 +377,7 @@ fn direction_to_next_node(
 }
 
 /// Switches the npc back to its standing idle after a path.
-fn queue_stand_animation(
+pub(crate) fn queue_stand_animation(
     controller: &mut AnimationController,
     model: &NpcModel,
     overlay: Option<&NpcOverlay>,
