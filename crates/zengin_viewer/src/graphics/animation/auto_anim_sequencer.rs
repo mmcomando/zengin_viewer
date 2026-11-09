@@ -17,7 +17,7 @@ use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
-use crate::gameplay::objects::PlayerCharacter;
+use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{AnimationGraph, AnimationIndex, animation_name_from_path};
 use crate::zengin::{
     ArrowShot, CachedAssetHandles, MeleeHit, face_direction_quat, get_animation_path,
@@ -86,7 +86,7 @@ const OPTIMAL_FRAME_TRIGGER: &str = "OPTIMAL_FRAME";
 /// Animation graph asset with the human scheme transition graph, generated
 /// from the anims archives (see the export tool). Resolved against the crate
 /// directory so it is found regardless of the working directory.
-const GRAPH_ASSET: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/humans_anim_graph.ron");
+const GRAPH_ASSET: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/anim_graph.ron");
 
 /// Additional hand written graph edges, same format as [`GRAPH_ASSET`].
 const MANUAL_EDGES_ASSET: &str = concat!(
@@ -94,8 +94,8 @@ const MANUAL_EDGES_ASSET: &str = concat!(
     "/assets/humans_anim_manual_edges.ron"
 );
 
-/// Scheme prefix of the animations driven by this sequencer.
-const SCHEME: &str = "HUMANS";
+/// Scheme used for entities whose `NpcModel.animation_scheme` is unknown.
+const DEFAULT_SCHEME: &str = "HUMANS";
 
 /// The animations the sequencer can desire, resolved to graph nodes.
 #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,14 +112,15 @@ pub enum DesiredAnimation {
 }
 
 impl DesiredAnimation {
-    /// Graph node name of the animation.
-    fn name(self) -> &'static str {
+    /// Scheme relative animation names this state may resolve to, best match
+    /// first. Humans use the `S_RUN`/`T_1HATTACKR` naming, creatures the
+    /// `S_FISTRUN`/`S_FISTATTACK` one; a scheme gets its first existing name.
+    fn candidates(self) -> &'static [&'static str] {
         match self {
-            DesiredAnimation::Stand => "S_RUN",
-            DesiredAnimation::Run => "S_RUNL",
-            // DesiredAnimation::Fire => "S_BOWSHOOT",
-            DesiredAnimation::Fire => "T_BOWRELOAD",
-            DesiredAnimation::MeleeAttack => "T_1HATTACKR",
+            DesiredAnimation::Stand => &["S_RUN", "S_FISTRUN", "S_FISTRUNL", "S_FISTWALK"],
+            DesiredAnimation::Run => &["S_RUNL", "S_FISTRUNL", "S_FISTRUN", "S_FISTWALK"],
+            DesiredAnimation::Fire => &["T_BOWRELOAD"],
+            DesiredAnimation::MeleeAttack => &["T_1HATTACKR", "S_FISTATTACK", "T_FISTATTACK"],
         }
     }
 }
@@ -169,16 +170,9 @@ fn add_auto_anim_sequencer(
 /// ([`apply_forced_change`] and [`advance_on_animation_ends`]), so a desired
 /// animation may lag a frame behind its message.
 fn apply_desired_animations(
-    graph: Option<Res<AnimationGraph>>,
     mut desired: MessageReader<SetDesiredAnimation>,
     mut sequencers: Query<(&mut AutoAnimSequencer, &AnimationController)>,
 ) {
-    let Some(graph) = graph else {
-        // Every decision needs the graph; without it the sequencer is inert.
-        return;
-    };
-    let graph = graph.into_inner();
-    let melee_swing_index = index_of(graph, DesiredAnimation::MeleeAttack);
     for message in desired.read() {
         let Ok((mut seq, controller)) = sequencers.get_mut(message.who) else {
             warn!(
@@ -195,9 +189,9 @@ fn apply_desired_animations(
         }
         seq.desired = Some(message.animation);
         seq.force_change = message.force_change;
-        // Let a started melee swing finish: interrupting the queued
+        // Let a started melee attack finish: interrupting the queued
         // follow-up would cut it mid-way and the hit would never land
-        if animation_index(graph, controller.current()) == Some(melee_swing_index) {
+        if is_melee_attack(controller.current()) {
             seq.force_change = false;
         }
         seq.direction = message.direction;
@@ -212,7 +206,7 @@ fn apply_forced_change(
     asset_server: Res<AssetServer>,
     mut handles: ResMut<CachedAssetHandles>,
     mut sequencers: Query<
-        (&AutoAnimSequencer, &mut AnimationController),
+        (&AutoAnimSequencer, &mut AnimationController, &NpcModel),
         Changed<AutoAnimSequencer>,
     >,
 ) {
@@ -220,7 +214,7 @@ fn apply_forced_change(
         return;
     };
     let graph = graph.into_inner();
-    for (seq, mut controller) in &mut sequencers {
+    for (seq, mut controller, model) in &mut sequencers {
         let Some(desired) = seq.desired else {
             continue;
         };
@@ -231,6 +225,14 @@ fn apply_forced_change(
         if controller.next().is_some_and(is_hit_reaction) {
             continue;
         }
+        let scheme = animation_scheme(model);
+        let Some(desired) = resolve_animation(graph, scheme, desired) else {
+            warn_once!(
+                "Scheme({scheme}) has no animation for desired({:?}), it is not queued",
+                seq.desired
+            );
+            continue;
+        };
         // A playing hit reaction is queued non-interrupting, the desired
         // animation takes over when the reaction ends.
         let interrupt = !is_hit_reaction(controller.current());
@@ -238,7 +240,7 @@ fn apply_forced_change(
             &mut controller,
             &mut handles,
             &asset_server,
-            graph.animation_name(index_of(graph, desired)),
+            graph.animation_name(desired),
             interrupt,
         );
     }
@@ -252,7 +254,12 @@ fn advance_on_animation_ends(
     mut handles: ResMut<CachedAssetHandles>,
     mut ends: MessageReader<AnimationEnds>,
     mut arrows: MessageWriter<ArrowShot>,
-    mut sequencers: Query<(Entity, &AutoAnimSequencer, &mut AnimationController)>,
+    mut sequencers: Query<(
+        Entity,
+        &AutoAnimSequencer,
+        &mut AnimationController,
+        &NpcModel,
+    )>,
 ) {
     let Some(graph) = graph else {
         // Every decision needs the graph; without it the sequencer is inert.
@@ -260,7 +267,7 @@ fn advance_on_animation_ends(
     };
     let graph = graph.into_inner();
     for end in ends.read() {
-        let Ok((entity, seq, mut controller)) = sequencers.get_mut(end.who) else {
+        let Ok((entity, seq, mut controller, model)) = sequencers.get_mut(end.who) else {
             // Most skeletons have no sequencer; their ends are not ours.
             continue;
         };
@@ -277,6 +284,7 @@ fn advance_on_animation_ends(
             entity,
             seq,
             &mut controller,
+            animation_scheme(model),
             &mut arrows,
             &mut handles,
             &asset_server,
@@ -285,12 +293,13 @@ fn advance_on_animation_ends(
 }
 
 /// Handles one [`AnimationEnds`] for a sequencer-owned skeleton.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::cognitive_complexity)]
 fn advance_sequencer_on_end(
     graph: &AnimationGraph,
     entity: Entity,
     seq: &AutoAnimSequencer,
     controller: &mut AnimationController,
+    scheme: &str,
     arrows: &mut MessageWriter<ArrowShot>,
     handles: &mut CachedAssetHandles,
     asset_server: &AssetServer,
@@ -306,7 +315,12 @@ fn advance_sequencer_on_end(
         warn!("AutoAnimSequencer({entity}) animation end without a desired animation");
         return;
     };
-    let desired_index = index_of(graph, desired);
+    let Some(desired_index) = resolve_animation(graph, scheme, desired) else {
+        warn!(
+            "AutoAnimSequencer({entity}) scheme({scheme}) has no animation for desired({desired:?})"
+        );
+        return;
+    };
     if current == desired_index {
         if desired == DesiredAnimation::Fire {
             // The reload loop wrapped: the arrow leaves the bow. The
@@ -346,16 +360,10 @@ fn advance_sequencer_on_end(
 /// frame. The optimal frame is the impact moment of the swing, so the damage
 /// lands before the animation ends.
 fn emit_melee_hits_on_optimal_frame(
-    graph: Option<Res<AnimationGraph>>,
     mut triggers: MessageReader<AnimationTrigger>,
     mut hits: MessageWriter<MeleeHit>,
     sequencers: Query<&AnimationController, With<AutoAnimSequencer>>,
 ) {
-    let Some(graph) = graph else {
-        return;
-    };
-    let graph = graph.into_inner();
-    let melee_swing_index = index_of(graph, DesiredAnimation::MeleeAttack);
     for trigger in triggers.read() {
         if !trigger.trigger_name.starts_with(OPTIMAL_FRAME_TRIGGER) {
             continue;
@@ -363,7 +371,7 @@ fn emit_melee_hits_on_optimal_frame(
         let Ok(controller) = sequencers.get(trigger.who) else {
             continue;
         };
-        if animation_index(graph, controller.current()) != Some(melee_swing_index) {
+        if !is_melee_attack(controller.current()) {
             continue;
         }
         hits.write(MeleeHit {
@@ -412,14 +420,6 @@ fn preload_graph_animations(
     }
 }
 
-/// Graph index of an animation by its sequencer name.
-fn index_of(graph: &AnimationGraph, animation: DesiredAnimation) -> AnimationIndex {
-    let name = animation.name();
-    graph
-        .animation_index(&format!("{SCHEME}-{name}"))
-        .unwrap_or_else(|| unreachable!("animation({SCHEME}-{name}) missing from the loaded graph"))
-}
-
 /// Graph index of the animation a handle refers to, resolved through the
 /// asset path (`zengin://.../HUMANS-S_RUN.MAN` -> `HUMANS-S_RUN`).
 fn animation_index(
@@ -427,19 +427,49 @@ fn animation_index(
     handle: &Handle<AnimationData>,
 ) -> Option<AnimationIndex> {
     let path = Handle::path(handle)?;
-    let name = animation_name_from_path(path.path())?;
-    graph.animation_index(&format!("{SCHEME}-{name}"))
+    let name = path.path().file_name()?.to_str()?.strip_suffix(".MAN")?;
+    graph.animation_index(name)
+}
+
+/// Animation scheme of the sequencer entity, `HUMANS` when unknown.
+fn animation_scheme(model: &NpcModel) -> &str {
+    model.animation_scheme.as_deref().unwrap_or(DEFAULT_SCHEME)
+}
+
+/// Graph node of the desired animation in the scheme, the first existing
+/// candidate wins. `None` when the scheme has none of them.
+fn resolve_animation(
+    graph: &AnimationGraph,
+    scheme: &str,
+    desired: DesiredAnimation,
+) -> Option<AnimationIndex> {
+    desired
+        .candidates()
+        .iter()
+        .find_map(|animation| graph.animation_index(&format!("{scheme}-{animation}")))
+}
+
+/// Animation name part of a handle (`zengin://.../WOLF-S_FISTATTACK.MAN` ->
+/// `S_FISTATTACK`).
+fn animation_name(handle: &Handle<AnimationData>) -> Option<&str> {
+    let path = Handle::path(handle)?;
+    animation_name_from_path(path.path())
+}
+
+/// Whether the animation handle is one of the melee attack animations.
+fn is_melee_attack(handle: &Handle<AnimationData>) -> bool {
+    animation_name(handle)
+        .is_some_and(|name| DesiredAnimation::MeleeAttack.candidates().contains(&name))
 }
 
 /// Whether the animation handle is the `T_GOTHIT` hit reaction one-shot.
 fn is_hit_reaction(handle: &Handle<AnimationData>) -> bool {
-    Handle::path(handle)
-        .and_then(|path| animation_name_from_path(path.path()))
-        .is_some_and(|name| name == "T_GOTHIT")
+    animation_name(handle) == Some("T_GOTHIT")
 }
 
 /// Queues the named graph animation on the controller. Graph names carry the
-/// scheme prefix (`HUMANS-T_RUN_2_RUNL`), the asset path adds it itself.
+/// scheme prefix (`HUMANS-T_RUN_2_RUNL`, `WOLF-S_FISTRUNL`), the asset path
+/// adds it itself.
 fn queue_animation(
     controller: &mut AnimationController,
     handles: &mut CachedAssetHandles,
@@ -447,8 +477,8 @@ fn queue_animation(
     name: &str,
     interrupt_current: bool,
 ) {
-    let animation = name.strip_prefix(&format!("{SCHEME}-")).unwrap_or(name);
-    let handle = handles.get_animation_handle(asset_server, &get_animation_path(SCHEME, animation));
+    let (scheme, animation) = name.split_once('-').unwrap_or((DEFAULT_SCHEME, name));
+    let handle = handles.get_animation_handle(asset_server, &get_animation_path(scheme, animation));
     controller.queue_next(handle, interrupt_current);
 }
 
@@ -468,14 +498,22 @@ mod tests {
     }
 
     fn animation_handle(world: &mut World, name: &str) -> Handle<AnimationData> {
+        animation_handle_for(world, DEFAULT_SCHEME, name)
+    }
+
+    fn animation_handle_for(world: &mut World, scheme: &str, name: &str) -> Handle<AnimationData> {
         let server = world.resource::<AssetServer>().clone();
-        let path = get_animation_path(SCHEME, name);
+        let path = get_animation_path(scheme, name);
         world
             .resource_mut::<CachedAssetHandles>()
             .get_animation_handle(&server, &path)
     }
 
     fn run_sequencer_world(current_name: &str) -> (World, Entity) {
+        run_sequencer_world_scheme(current_name, DEFAULT_SCHEME)
+    }
+
+    fn run_sequencer_world_scheme(current_name: &str, scheme: &str) -> (World, Entity) {
         let mut world = World::new();
         world.insert_resource(Time::<()>::default());
         world.init_resource::<Messages<AnimationEnds>>();
@@ -489,13 +527,17 @@ mod tests {
             AnimationGraph::load_from_ron(Path::new(GRAPH_ASSET)).expect("animation graph ron");
         graph.load_additional_edges(Path::new(MANUAL_EDGES_ASSET));
         world.insert_resource(graph);
-        let current = animation_handle(&mut world, current_name);
+        let current = animation_handle_for(&mut world, scheme, current_name);
         let model = world
             .spawn((
                 GlobalTransform::default(),
                 Transform::default(),
                 AnimationController::new(current),
                 AutoAnimSequencer::default(),
+                NpcModel {
+                    animation_scheme: Some(scheme.to_string()),
+                    ..default()
+                },
                 PlayerCharacter,
             ))
             .id();
@@ -759,5 +801,42 @@ mod tests {
         let controller = world.get::<AnimationController>(model).unwrap();
         assert_eq!(controller.next(), Some(&run_loop));
         assert!(!controller.interrupt_current());
+    }
+
+    /// A creature scheme resolves `MeleeAttack` to its `S_FISTATTACK` state.
+    #[test]
+    fn wolf_melee_attack_uses_fist_attack() {
+        let (mut world, model) = run_sequencer_world_scheme("S_FISTRUN", "WOLF");
+        let attack = animation_handle_for(&mut world, "WOLF", "S_FISTATTACK");
+
+        send_desired_force(&mut world, model, DesiredAnimation::MeleeAttack, true);
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(attack));
+    }
+
+    /// A creature scheme resolves Stand to its `S_FISTRUN` idle.
+    #[test]
+    fn wolf_stand_uses_fist_run() {
+        let (mut world, model) = run_sequencer_world_scheme("S_FISTRUNL", "WOLF");
+        let stand = animation_handle_for(&mut world, "WOLF", "S_FISTRUN");
+
+        send_desired_force(&mut world, model, DesiredAnimation::Stand, true);
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(stand));
+    }
+
+    /// Schemes without an `S_FISTRUN` (ALLIGATOR) fall back to the nearest
+    /// existing candidate, `S_FISTRUNL`.
+    #[test]
+    fn alligator_stand_falls_back_to_fist_run_loop() {
+        let (mut world, model) = run_sequencer_world_scheme("S_FISTWALK", "ALLIGATOR");
+        let stand = animation_handle_for(&mut world, "ALLIGATOR", "S_FISTRUNL");
+
+        send_desired_force(&mut world, model, DesiredAnimation::Stand, true);
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(stand));
     }
 }

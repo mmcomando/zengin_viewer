@@ -93,6 +93,12 @@ impl ModelAnimation<'_> {
         unsafe {
             let mut count: ZkSize = 0;
             let ptr = ZkModelAnimation_getNodeIndices(self.ptr.as_ptr(), &mut count);
+            // Animations without animated nodes (some prop animations) report a
+            // zero count and a null pointer; `from_raw_parts` requires both a
+            // non-null and aligned pointer even for an empty slice.
+            if ptr.is_null() || count == 0 {
+                return &[];
+            }
             std::slice::from_raw_parts(ptr, count as usize)
         }
     }

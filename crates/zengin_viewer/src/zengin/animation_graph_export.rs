@@ -25,9 +25,7 @@ use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
 
 const COMPILED_ANIMS_DIR: &str = "/_WORK/DATA/ANIMS/_COMPILED";
 /// File name of the exported graph inside the main assets directory.
-const OUTPUT_FILE: &str = "humans_anim_graph.ron";
-/// Model scheme prefix collected into the graph (humans only for now).
-const SCHEME_PREFIX: &str = "HUMANS";
+const OUTPUT_FILE: &str = "anim_graph.ron";
 
 /// Animation file names per scheme, plus the scheme names in sorted order.
 type SchemeFiles = (BTreeMap<String, Vec<String>>, Vec<String>);
@@ -86,8 +84,8 @@ type ScriptNextMap = HashMap<String, String>;
 /// Animation names a script aliases to other animations, uppercased.
 type ScriptAliasMap = HashMap<String, String>;
 
-/// Builds the data of every `HUMANS*` scheme found in the anims archive.
-fn build_human_graphs(vfs: &zen_kit_rs::vfs::Vfs) -> Option<AnimationGraphs> {
+/// Builds the data of every animation scheme found in the anims archive.
+fn build_graphs(vfs: &zen_kit_rs::vfs::Vfs) -> Option<AnimationGraphs> {
     let (scheme_files, schemes) = collect_schemes(vfs)?;
     let scripts = load_script_data(vfs, &schemes);
 
@@ -102,9 +100,8 @@ fn build_human_graphs(vfs: &zen_kit_rs::vfs::Vfs) -> Option<AnimationGraphs> {
     Some(AnimationGraphs { schemes })
 }
 
-/// Groups the `HUMANS*` animation file names by their scheme. Returns the file
-/// names per scheme (without the `.MAN` suffix, uppercased) and the set of
-/// schemes.
+/// Groups the animation file names by their scheme. Returns the file names per
+/// scheme (without the `.MAN` suffix, uppercased) and the set of schemes.
 fn collect_schemes(vfs: &zen_kit_rs::vfs::Vfs) -> Option<SchemeFiles> {
     let dir = vfs.resolve_path(COMPILED_ANIMS_DIR)?;
     let mut scheme_files: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -116,9 +113,6 @@ fn collect_schemes(vfs: &zen_kit_rs::vfs::Vfs) -> Option<SchemeFiles> {
         let Some((scheme, animation)) = stem.split_once('-') else {
             continue;
         };
-        if !scheme.starts_with(SCHEME_PREFIX) {
-            continue;
-        }
         scheme_files
             .entry(scheme.to_string())
             .or_default()
@@ -126,6 +120,16 @@ fn collect_schemes(vfs: &zen_kit_rs::vfs::Vfs) -> Option<SchemeFiles> {
     }
     let schemes = scheme_files.keys().cloned().collect();
     Some((scheme_files, schemes))
+}
+
+/// Schemes sharing a base: human overlays merge their transitions into
+/// `HUMANS`, every other scheme is its own base.
+fn base_scheme(scheme: &str) -> &str {
+    if scheme.starts_with(HUMANS_BASE_SCHEME) {
+        HUMANS_BASE_SCHEME
+    } else {
+        scheme
+    }
 }
 
 /// Model script data of one scheme: the `animation -> next` chaining and the
@@ -275,6 +279,9 @@ fn export_animation_graph(graphs: &AnimationGraphs) -> Vec<(String, Vec<String>)
             }
             let canonical = canonical_state(scheme, state, &scheme_aliases);
             for (other_scheme, other_graph) in &graphs.schemes {
+                if base_scheme(other_scheme) != base_scheme(scheme) {
+                    continue;
+                }
                 for edge in &other_graph.transitions {
                     if canonical_state(other_scheme, &edge.from, &scheme_aliases) != canonical {
                         continue;
@@ -324,7 +331,7 @@ fn resolve_node(
     if successors.contains_key(&own) {
         return Some(own);
     }
-    let base = format!("{HUMANS_BASE_SCHEME}-{animation}");
+    let base = format!("{}-{animation}", base_scheme(scheme));
     if successors.contains_key(&base) {
         return Some(base);
     }
@@ -372,7 +379,7 @@ fn canonical_state(
         .get(scheme)
         .and_then(|aliases| aliases.get(state))
         .or_else(|| {
-            let aliases = scheme_aliases.get(HUMANS_BASE_SCHEME)?;
+            let aliases = scheme_aliases.get(base_scheme(scheme))?;
             aliases.get(state)
         })
         .cloned()
@@ -416,14 +423,14 @@ fn save_graphs(export: &[(String, Vec<String>)]) {
 mod tests {
     use super::*;
 
-    /// Regenerates `assets/humans_anim_graph.ron` from the Gothic 2 anims
-    /// archives. The runtime animation graph only loads that file.
+    /// Regenerates `assets/anim_graph.ron` from the Gothic 2 anims archives.
+    /// The runtime animation graph only loads that file.
     #[test]
     #[ignore = "regenerates assets from the game data; run manually"]
     fn save_animation_graph_ron() {
         let vfs = crate::zengin::loaders::vdf_reader::create_zengin_vfs();
         let vfs = vfs.lock().unwrap();
-        let Some(graphs) = build_human_graphs(&vfs) else {
+        let Some(graphs) = build_graphs(&vfs) else {
             panic!("Compiled anims directory({COMPILED_ANIMS_DIR}) not found");
         };
         save_graphs(&export_animation_graph(&graphs));

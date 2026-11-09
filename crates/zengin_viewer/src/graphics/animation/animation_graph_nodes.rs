@@ -194,7 +194,7 @@ mod tests {
     /// directly reachable.
     #[test]
     fn stand_to_run_in() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/humans_anim_graph.ron");
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/anim_graph.ron");
         let graph = AnimationGraph::load_from_ron(&path).expect("animation graph ron");
 
         let stand = graph
@@ -211,7 +211,7 @@ mod tests {
     /// duplicate entries and never new indices.
     #[test]
     fn additional_edges_merge() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/humans_anim_graph.ron");
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/anim_graph.ron");
         let mut graph = AnimationGraph::load_from_ron(&path).expect("animation graph ron");
         let before: Vec<_> = graph.names.clone();
         let manual =
