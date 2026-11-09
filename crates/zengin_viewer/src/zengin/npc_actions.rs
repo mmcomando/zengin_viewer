@@ -7,9 +7,7 @@ use avian3d::prelude::SpatialQuery;
 use bevy::prelude::*;
 
 use crate::zengin::instance_index::InstanceIndex;
-use crate::zengin::npc_routines::{
-    NPC_BODY_Y_OFFSET, NPC_WALK_SPEED, NpcPath, NpcRoutineState, WayPoints,
-};
+use crate::zengin::npc_routines::{NPC_BODY_Y_OFFSET, NpcPath, NpcRoutineState, WayPoints};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{AlignToWpChange, GotoChange};
 use crate::zengin::script::string_value::StringCanon;
@@ -248,9 +246,7 @@ fn start_goto(
     };
 
     debug!("npc({entity}) starting action goto({waypoint})");
-    commands
-        .entity(entity)
-        .insert(NpcPath::new(path, NPC_WALK_SPEED));
+    commands.entity(entity).insert(NpcPath::new(path));
     queue.mark_started();
 }
 

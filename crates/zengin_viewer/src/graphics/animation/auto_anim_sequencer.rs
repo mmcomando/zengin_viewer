@@ -32,6 +32,12 @@ use crate::game_state::AppState;
 
 pub struct AutoAnimSequencerPlugin;
 
+/// Runs the systems that consume [`SetDesiredAnimation`] and drive the
+/// [`AutoAnimSequencer`]. Systems that insert or remove the sequencer have to
+/// run before this set so their commands are applied first.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct AutoAnimSequencerSet;
+
 impl Plugin for AutoAnimSequencerPlugin {
     fn build(&self, app: &mut App) {
         if let Some(mut graph) = AnimationGraph::load_from_ron(Path::new(GRAPH_ASSET)) {
@@ -42,6 +48,10 @@ impl Plugin for AutoAnimSequencerPlugin {
             warn!("AutoAnimSequencerPlugin without an animation graph({GRAPH_ASSET})");
         }
         app.add_message::<SetDesiredAnimation>();
+        app.configure_sets(
+            Update,
+            AutoAnimSequencerSet.before(super::locomotion::update_animations),
+        );
         app.add_systems(
             Update,
             (
@@ -53,7 +63,7 @@ impl Plugin for AutoAnimSequencerPlugin {
                 update_model_facing,
             )
                 .chain()
-                .before(super::locomotion::update_animations)
+                .in_set(AutoAnimSequencerSet)
                 .run_if(in_state(AppState::InGame)),
         );
     }

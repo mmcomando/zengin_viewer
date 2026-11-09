@@ -11,6 +11,7 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::gameplay::game_time::advance_game_time;
+use crate::graphics::AutoAnimSequencerSet;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 
 use crate::zengin::npc_actions::{enqueue_align_actions, enqueue_goto_actions, run_npc_actions};
@@ -25,9 +26,7 @@ pub(crate) use armor::{NpcArmorItem, NpcBodyMarker};
 pub(crate) use health::NpcHealth;
 pub(crate) use overlay::overlay_scheme;
 pub(crate) use overlay::{AnimationFiles, NpcOverlay};
-pub(crate) use routines::{
-    NPC_BODY_Y_OFFSET, NPC_WALK_SPEED, NpcLookAt, NpcPath, NpcRoutineState, WayPoints,
-};
+pub(crate) use routines::{NPC_BODY_Y_OFFSET, NpcLookAt, NpcPath, NpcRoutineState, WayPoints};
 pub(crate) use weapons::{NpcEquippedWeapon, NpcWeaponMode, NpcWeaponSlots};
 
 /// Drives npc routines, queued actions, look-at and weapon state.
@@ -53,7 +52,8 @@ impl Plugin for NpcRoutinesPlugin {
                 (sync_npc_armor_visual, materialize_armor_visuals).chain(),
                 move_along_path
                     .after(run_npc_actions)
-                    .after(update_npc_routine_animations),
+                    .after(update_npc_routine_animations)
+                    .before(AutoAnimSequencerSet),
             )
                 .after(advance_game_time)
                 .after(ScriptChangesApplied)

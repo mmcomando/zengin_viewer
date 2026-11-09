@@ -1,18 +1,18 @@
 //! Waypoint routines: active routine entries, their waypoint targets,
 //! routine state animations and `AI_GoToWP` path following.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::PoisonError;
 
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
-use crate::graphics::AnimationController;
-use crate::zengin::GameNpc;
-use crate::zengin::common::{
-    animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
+use crate::graphics::{
+    AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
 };
+use crate::zengin::GameNpc;
+use crate::zengin::common::{choose_animation_scheme, face_direction_quat, get_animation_path};
 use crate::zengin::npc_actions::{NpcAction, NpcActionQueue};
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::CachedAssetHandles;
@@ -276,123 +276,124 @@ pub(crate) fn apply_look_at(
     }
 }
 
-/// Walking speed of npcs following an `AI_GoToWP` path, in Bevy meters/second.
-pub(crate) const NPC_WALK_SPEED: f32 = 3.0;
+/// Distance to the next path node under which the npc advances along the path.
+const PATH_NODE_REACHED_DISTANCE: f32 = 0.5;
 
 /// Remaining waypoint node indices an npc walks through (`AI_GoToWP`).
 #[derive(Component, Default)]
 pub(crate) struct NpcPath {
     nodes: Vec<usize>,
-    speed: f32,
 }
 
 impl NpcPath {
-    pub(crate) fn new(nodes: Vec<usize>, speed: f32) -> Self {
-        Self { nodes, speed }
+    pub(crate) fn new(nodes: Vec<usize>) -> Self {
+        Self { nodes }
     }
 }
 
-/// Walk-loop animations tried while path-following, in preference order; the
-/// first one the scheme (or its overlay) has is played.
-const WALK_ANIMATIONS: [&str; 4] = ["S_RUNL", "S_FISTRUNL", "S_WALKL", "S_FISTWALKL"];
-
-/// Tracks whether the walk animation is currently applied to an npc.
-#[derive(Component, Default)]
-pub(crate) struct NpcWalk {
-    walking: bool,
-}
-
-/// First candidate animation the scheme or its overlay actually has.
-fn existing_animation<'a>(
-    scheme: &'a str,
-    overlay: Option<&'a str>,
-    candidates: &[&'a str],
-    files: &HashSet<String>,
-) -> Option<(&'a str, &'a str)> {
-    for animation in candidates {
-        if let Some(overlay) = overlay
-            && files.contains(&animation_file_name(overlay, animation))
-        {
-            return Some((overlay, animation));
-        }
-        if files.contains(&animation_file_name(scheme, animation)) {
-            return Some((scheme, animation));
-        }
-    }
-    None
-}
-
-/// Moves npcs along their [`NpcPath`] at a constant speed, facing the move
-/// direction, and plays a walk-loop animation while moving (restoring the
-/// standing idle on arrival). The body offset matches npc placement, otherwise
-/// they would float above the ground while moving.
-#[allow(clippy::type_complexity)]
+/// Moves npcs along their [`NpcPath`]. Npcs with an animation controller are
+/// moved by the root motion of the run animation through the
+/// [`AutoAnimSequencer`]; npcs whose visual was never spawned are stepped
+/// directly. The npc faces the next node, keeps its height from the path
+/// nodes and restores the standing idle on arrival. The body offset matches npc
+/// placement, otherwise they would float above the ground while moving.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(crate) fn move_along_path(
-    time: Res<Time>,
     graph: Res<WaypointGraph>,
     files: Res<AnimationFiles>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
+    mut desired: MessageWriter<SetDesiredAnimation>,
     mut npcs: Query<(
         Entity,
         &mut Transform,
         &mut NpcPath,
         &NpcModel,
         Option<&NpcOverlay>,
-        Option<&mut AnimationController>,
-        Option<&mut NpcWalk>,
+        Option<&AutoAnimSequencer>,
+        &mut AnimationController,
     )>,
 ) {
-    let delta = time.delta_secs();
-    for (entity, mut transform, mut path, model, overlay, controller, walk) in &mut npcs {
-        let step = path.speed * delta;
-        while let Some(node) = path.nodes.first().copied() {
-            let target = graph.nodes[node].position + Vec3::Y * NPC_BODY_Y_OFFSET;
-            let to_target = target - transform.translation;
-            let distance = to_target.length();
-            if distance <= step {
-                transform.translation = target;
-                path.nodes.remove(0);
-                continue;
-            }
-            let direction = to_target / distance;
-            transform.translation += direction * step;
-            transform.rotation = face_direction_quat(direction);
-            break;
-        }
-        let arrived = path.nodes.is_empty();
-        if arrived {
+    for (entity, mut transform, mut path, model, overlay, sequencer, mut controller) in &mut npcs {
+        let Some(direction) = direction_to_next_node(&mut transform, &mut path, &graph) else {
+            // The path is done, restore the standing idle
             commands.entity(entity).remove::<NpcPath>();
-        }
-
-        // Walk animation while moving, standing idle once arrived
-        let (Some(mut controller), Some(mut walk)) = (controller, walk) else {
-            commands.entity(entity).insert(NpcWalk::default());
-            continue;
-        };
-        let Some(scheme) = model.animation_scheme.as_deref() else {
-            continue;
-        };
-        let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
-
-        if !arrived && !walk.walking {
-            walk.walking = true;
-            if let Some((scheme, animation)) =
-                existing_animation(scheme, overlay, &WALK_ANIMATIONS, &files.0)
-            {
-                let path = get_animation_path(scheme, animation);
-                controller.queue_next(handles.get_animation_handle(&asset_server, &path), true);
+            commands.entity(entity).remove::<AutoAnimSequencer>();
+            controller.set_root_motion(false);
+            if sequencer.is_some() {
+                queue_stand_animation(
+                    &mut controller,
+                    model,
+                    overlay,
+                    &files,
+                    &mut handles,
+                    &asset_server,
+                );
             }
-        } else if arrived && walk.walking {
-            walk.walking = false;
-            let animation = model
-                .stand_animation
-                .as_deref()
-                .unwrap_or(STANDING_ANIMATION);
-            let scheme = choose_animation_scheme(scheme, overlay, animation, &files.0);
-            let path = get_animation_path(scheme, animation);
-            controller.queue_next(handles.get_animation_handle(&asset_server, &path), true);
+            continue;
+        };
+        transform.rotation = face_direction_quat(direction);
+
+        if sequencer.is_none() {
+            // Prepare the sequencer first, the desired animation message can
+            // only be consumed once the component is actually inserted
+            controller.set_root_motion(true);
+            commands.entity(entity).insert(AutoAnimSequencer::default());
+            continue;
         }
+
+        // `force_change` cuts the current animation immediately and re-queues
+        // every frame, which also covers animations still loading
+        desired.write(SetDesiredAnimation {
+            who: entity,
+            animation: DesiredAnimation::Run,
+            force_change: true,
+            direction: None,
+        });
     }
+}
+
+/// Removes already reached nodes from the front of the path and returns the
+/// direction to the next one, `None` once the path is complete. The npc height
+/// is taken from the current path node, root motion only moves it horizontally.
+fn direction_to_next_node(
+    transform: &mut Transform,
+    path: &mut NpcPath,
+    graph: &WaypointGraph,
+) -> Option<Vec3> {
+    while let Some(node) = path.nodes.first().copied() {
+        let target = graph.nodes[node].position + Vec3::Y * NPC_BODY_Y_OFFSET;
+        transform.translation.y = target.y;
+        let to_target = target - transform.translation;
+        let distance = to_target.length();
+        if distance <= PATH_NODE_REACHED_DISTANCE {
+            path.nodes.remove(0);
+            continue;
+        }
+        return Some(to_target / distance);
+    }
+    None
+}
+
+/// Switches the npc back to its standing idle after a path.
+fn queue_stand_animation(
+    controller: &mut AnimationController,
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    files: &AnimationFiles,
+    handles: &mut CachedAssetHandles,
+    asset_server: &AssetServer,
+) {
+    let Some(scheme) = model.animation_scheme.as_deref() else {
+        return;
+    };
+    let animation = model
+        .stand_animation
+        .as_deref()
+        .unwrap_or(STANDING_ANIMATION);
+    let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
+    let scheme = choose_animation_scheme(scheme, overlay, animation, &files.0);
+    let path = get_animation_path(scheme, animation);
+    controller.queue_next(handles.get_animation_handle(asset_server, &path), true);
 }

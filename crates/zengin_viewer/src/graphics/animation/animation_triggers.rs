@@ -14,6 +14,7 @@ use bevy::prelude::*;
 use zen_kit_rs::model_scripts::ModelScript;
 use zen_kit_rs::stream::Read;
 
+use super::components::AnimationTrigger;
 use crate::zengin::{ZenginVfs, get_zengin_asset_bytes};
 
 pub struct AnimationTriggersPlugin;
@@ -78,6 +79,15 @@ pub fn crossed_triggers(
             target > old_progress && target <= new_progress
         }
     })
+}
+
+pub fn print_animation_triggers(mut triggers: MessageReader<AnimationTrigger>) {
+    for trigger in triggers.read() {
+        info!(
+            "AnimationTrigger: entity={:?}, name={}",
+            trigger.who, trigger.trigger_name
+        );
+    }
 }
 
 /// Loads the model script triggers. Best effort: without the script no

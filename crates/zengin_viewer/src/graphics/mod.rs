@@ -8,8 +8,9 @@ mod skybox;
 
 pub(crate) use crate::graphics::animation::{
     AnimatedJoint, AnimationController, AnimationData, AnimationGraph, AnimationIndex,
-    AnimationSample, AnimationState, AnimationTriggersPlugin, BoneAnimationData, FrameState,
-    NpcAnimations, SkeletalAnimations, animation_name_from_path,
+    AnimationSample, AnimationState, AnimationTriggersPlugin, AutoAnimSequencer,
+    AutoAnimSequencerSet, BoneAnimationData, DesiredAnimation, FrameState, NpcAnimations,
+    SetDesiredAnimation, SkeletalAnimations, animation_name_from_path,
 };
 pub(crate) use crate::graphics::disco_lamp::{DiscoLamp, DrawGizmo};
 pub(crate) use crate::graphics::lighting::LightingPlugin;

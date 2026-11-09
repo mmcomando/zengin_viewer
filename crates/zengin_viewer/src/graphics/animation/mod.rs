@@ -19,7 +19,12 @@ use components::AnimationTrigger;
 use locomotion::{compute_animations, update_animations};
 
 pub(crate) use animation_graph_nodes::{AnimationGraph, AnimationIndex};
-pub(crate) use animation_triggers::{AnimationTriggersPlugin, animation_name_from_path};
+pub(crate) use animation_triggers::{
+    AnimationTriggersPlugin, animation_name_from_path, print_animation_triggers,
+};
+pub(crate) use auto_anim_sequencer::{
+    AutoAnimSequencer, AutoAnimSequencerSet, DesiredAnimation, SetDesiredAnimation,
+};
 pub(crate) use components::{
     AnimatedJoint, AnimationEnds, AnimationState, BoneAnimationData, FrameState, NpcAnimations,
 };
@@ -43,6 +48,12 @@ impl Plugin for SkeletalAnimations {
             Update,
             (update_animations.before(move_and_slide), compute_animations)
                 .chain()
+                .run_if(in_state(AppState::InGame)),
+        );
+        app.add_systems(
+            Update,
+            print_animation_triggers
+                .after(update_animations)
                 .run_if(in_state(AppState::InGame)),
         );
     }

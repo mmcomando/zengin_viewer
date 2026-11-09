@@ -78,10 +78,6 @@ pub struct AnimationEnds {
 #[derive(Message, Debug, Clone)]
 pub struct AnimationTrigger {
     /// Skeleton entity playing the animation
-    // No consumer yet: the sequencer phase reading triggers was removed;
-    // emission and the `HUMANS.MDS` parsing behind it are kept for it.
-    #[allow(dead_code)]
     pub who: Entity,
-    #[allow(dead_code)]
     pub trigger_name: String,
 }
