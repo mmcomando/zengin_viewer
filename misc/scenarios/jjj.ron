@@ -1,0 +1,22 @@
+// Recorded replay commands, replayable with --replay-actions
+[
+    Axis(frame: 1, action: Gameplay(Move), value: (0.0, 0.0)),
+    Axis(frame: 1, action: Gameplay(RotateCamera), value: (0.0, 0.0)),
+    Press(frame: 140, action: Debug(ToggleCharacterCamera)),
+    TeleportPlayer(frame: 140, translation: (-3.0, 1.0, -3.0), rotation: (0.0, 168.69008, 0.0)),
+    SetCameraLocation(frame: 140, translation: (-3.0, 1.0, -3.0), rotation: (-11.095805, -11.309935, 0.00000010875469)),
+    Release(frame: 157, action: Debug(ToggleCharacterCamera)),
+    Press(frame: 241, action: Gameplay(EquipMelee)),
+    Release(frame: 261, action: Gameplay(EquipMelee)),
+    Press(frame: 347, action: Gameplay(Interact)),
+    Release(frame: 367, action: Gameplay(Interact)),
+    Press(frame: 471, action: Gameplay(Interact)),
+    Release(frame: 497, action: Gameplay(Interact)),
+    Press(frame: 591, action: Gameplay(Interact)),
+    Release(frame: 617, action: Gameplay(Interact)),
+    Press(frame: 700, action: Gameplay(Interact)),
+    Release(frame: 727, action: Gameplay(Interact)),
+    Press(frame: 856, action: Gameplay(Interact)),
+    Release(frame: 876, action: Gameplay(Interact)),
+    Press(frame: 979, action: Shared(Back)),
+]

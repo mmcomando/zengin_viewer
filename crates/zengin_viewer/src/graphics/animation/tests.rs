@@ -5,7 +5,9 @@ use std::time::Duration;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
-use super::animation_triggers::{AnimationTriggerDef, crossed_triggers};
+use super::animation_triggers::{
+    AnimationSoundDef, AnimationTriggerDef, crossed_sounds, crossed_triggers,
+};
 use super::components::{AnimationEnds, AnimationState, AnimationTrigger, FrameState};
 use super::controller::AnimationController;
 use super::data::{AnimationData, AnimationSample};
@@ -248,6 +250,43 @@ fn triggers_fire_on_frame_crossing() {
     assert!(crossed.is_empty());
 }
 
+#[test]
+fn frame_zero_trigger_fires_at_animation_start() {
+    let triggers = [AnimationTriggerDef {
+        frame: 0,
+        name: "HIT_LIMB".to_string(),
+    }];
+
+    let crossed: Vec<&str> = crossed_triggers(&triggers, 0.0, 0.5, false)
+        .map(|trigger| trigger.name.as_str())
+        .collect();
+    assert_eq!(crossed, ["HIT_LIMB"]);
+}
+
+#[test]
+fn sounds_fire_on_frame_crossing() {
+    let sounds = [AnimationSoundDef {
+        frame: 12,
+        name: "WAR_AMBIENT".to_string(),
+        range: 2500.0,
+    }];
+
+    let crossed: Vec<&str> = crossed_sounds(&sounds, 10.0, 13.0, false)
+        .map(|sound| sound.name.as_str())
+        .collect();
+    assert_eq!(crossed, ["WAR_AMBIENT"]);
+
+    let crossed: Vec<&str> = crossed_sounds(&sounds, 13.0, 14.0, false)
+        .map(|sound| sound.name.as_str())
+        .collect();
+    assert!(crossed.is_empty());
+
+    let crossed: Vec<&str> = crossed_sounds(&sounds, 1.0, 2.0, true)
+        .map(|sound| sound.name.as_str())
+        .collect();
+    assert_eq!(crossed, ["WAR_AMBIENT"]);
+}
+
 /// Root movement dumped from the real `HUMANS-S_RUNL.MAN` (20 frames, 25 fps).
 fn runl_movement() -> Vec<f32> {
     vec![
@@ -321,6 +360,7 @@ fn run_update_animations(
     world.insert_resource(Time::<()>::default());
     world.init_resource::<Messages<AnimationEnds>>();
     world.init_resource::<Messages<AnimationTrigger>>();
+    world.init_resource::<Messages<super::components::AnimationSound>>();
     let model = world
         .spawn((
             DistanceNear::default(),

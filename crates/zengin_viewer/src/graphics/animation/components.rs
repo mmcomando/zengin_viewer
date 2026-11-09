@@ -76,8 +76,23 @@ pub struct AnimationEnds {
 /// Sent when the currently played animation crosses a trigger frame declared
 /// in the model script (e.g. the arrow release event).
 #[derive(Message, Debug, Clone)]
+#[allow(dead_code)]
 pub struct AnimationTrigger {
     /// Skeleton entity playing the animation
     pub who: Entity,
     pub trigger_name: String,
+}
+
+/// Sent when the currently played animation crosses a sound frame declared in
+/// the model script.
+#[derive(Message, Debug, Clone)]
+pub struct AnimationSound {
+    /// Skeleton entity playing the animation
+    pub who: Entity,
+    /// Sound definition name, e.g. `WAR_AMBIENT`
+    pub sound_name: String,
+    /// World position the sound originates from
+    pub position: Vec3,
+    /// Audible distance in world units
+    pub range: f32,
 }

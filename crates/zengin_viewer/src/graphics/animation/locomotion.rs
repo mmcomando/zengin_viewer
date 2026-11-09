@@ -7,12 +7,16 @@ use bevy::{
     prelude::*,
 };
 
-use super::animation_triggers::{AnimationTriggers, animation_name_from_path, crossed_triggers};
+use super::animation_triggers::{
+    AnimationTriggers, animation_name_from_path, crossed_sounds, crossed_triggers,
+};
 use crate::gameplay::character::{ACCELERATION_MULTIPLIER, AcceleratingRootMotion};
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
 
-use super::components::{AnimationEnds, AnimationState, AnimationTrigger, BoneAnimationData};
+use super::components::{
+    AnimationEnds, AnimationSound, AnimationState, AnimationTrigger, BoneAnimationData,
+};
 use super::controller::AnimationController;
 use super::data::AnimationData;
 
@@ -121,6 +125,8 @@ fn root_displacement(movement: &[f32], total: f32, progress: f32) -> f32 {
 /// For entities marked as players it emits [`AnimationEnds`] when entering
 /// the `last_frame-2` window and [`AnimationTrigger`] when crossing a model
 /// script trigger frame, so the sequencer can schedule follow up animations.
+/// Every animated skeleton emits [`AnimationSound`] on model script sound
+/// frames.
 #[allow(clippy::cast_precision_loss)]
 #[allow(clippy::type_complexity)]
 pub(crate) fn update_animations(
@@ -129,6 +135,7 @@ pub(crate) fn update_animations(
     triggers: Option<Res<AnimationTriggers>>,
     mut ends: MessageWriter<AnimationEnds>,
     mut animation_triggers: MessageWriter<AnimationTrigger>,
+    mut animation_sounds: MessageWriter<AnimationSound>,
     mut query: Query<
         (
             Entity,
@@ -239,6 +246,15 @@ pub(crate) fn update_animations(
             &mut animation_triggers,
         );
 
+        write_animation_sounds(
+            triggers.as_deref(),
+            &controller,
+            &update,
+            entity,
+            global_transform.translation(),
+            &mut animation_sounds,
+        );
+
         // // Uncomment to debug animations
         // if update.finished && controller.next.is_none() {
         //     info!("Loop animation({:?})", controller.current.path());
@@ -341,6 +357,42 @@ fn write_player_triggers(
         animation_triggers.write(AnimationTrigger {
             who: entity,
             trigger_name: trigger.name.clone(),
+        });
+    }
+}
+
+fn write_animation_sounds(
+    triggers: Option<&AnimationTriggers>,
+    controller: &AnimationController,
+    update: &FrameUpdate,
+    entity: Entity,
+    position: Vec3,
+    animation_sounds: &mut MessageWriter<AnimationSound>,
+) {
+    let Some(triggers) = triggers else {
+        return;
+    };
+    let Some(path) = controller.current().path() else {
+        return;
+    };
+    let Some(animation) = animation_name_from_path(path.path()) else {
+        return;
+    };
+    for sound in crossed_sounds(
+        triggers.sounds(animation),
+        update.old_progress,
+        update.new_progress,
+        update.finished,
+    ) {
+        // info!(
+        //     "AnimationSound triggered: entity={entity:?}, animation={animation}, frame={:.1}, sound={}, range={:.0}",
+        //     update.new_progress, sound.name, sound.range
+        // );
+        animation_sounds.write(AnimationSound {
+            who: entity,
+            sound_name: sound.name.clone(),
+            position,
+            range: sound.range,
         });
     }
 }

@@ -19,8 +19,15 @@ use zen_kit_rs::{misc::VfsOverwriteBehavior, vfs::Vfs};
 use crate::zengin::common::gothic2_dir;
 
 pub fn get_zengin_asset_bytes(vfs: &Vfs, path: &str) -> Option<Vec<u8>> {
-    let path = format!("/{}", path);
-    let node = vfs.resolve_path(&path)?;
+    let relative = path.trim_start_matches('/');
+    let resolved = vfs.resolve_path(&format!("/{relative}"));
+    // Model script sound definitions reference wav files by bare name, the
+    // archive directory layout is not part of that data.
+    let node = match resolved {
+        Some(node) => node,
+        None if !relative.contains('/') => vfs.find_node(relative)?,
+        None => return None,
+    };
     let read_obj = node.open()?;
 
     Some(read_obj.bytes())
@@ -58,6 +65,7 @@ pub fn create_zengin_vfs() -> Arc<Mutex<Vfs>> {
         &format!("{}/Data/Speech_Parlan_engl.vdf", dir),
         vfs_override,
     );
+    vfs.mount_disk_host(&format!("{}/Data/Scripts.vdf", dir), vfs_override);
     vfs.mount_disk_host(&format!("{}/Data/SystemPack.vdf", dir), vfs_override);
     vfs.mount_disk_host(&format!("{}/Data/Textures.vdf", dir), vfs_override);
     vfs.mount_disk_host(&format!("{}/Data/Textures_Addon.vdf", dir), vfs_override);

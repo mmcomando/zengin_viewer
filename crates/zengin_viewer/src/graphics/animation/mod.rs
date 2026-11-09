@@ -1,4 +1,5 @@
 mod animation_graph_nodes;
+mod animation_sounds;
 mod animation_triggers;
 mod auto_anim_sequencer;
 mod components;
@@ -19,14 +20,14 @@ use components::AnimationTrigger;
 use locomotion::{compute_animations, update_animations};
 
 pub(crate) use animation_graph_nodes::{AnimationGraph, AnimationIndex};
-pub(crate) use animation_triggers::{
-    AnimationTriggersPlugin, animation_name_from_path, print_animation_triggers,
-};
+pub(crate) use animation_sounds::play_animation_sounds;
+pub(crate) use animation_triggers::{AnimationTriggersPlugin, animation_name_from_path};
 pub(crate) use auto_anim_sequencer::{
     AutoAnimSequencer, AutoAnimSequencerSet, DesiredAnimation, SetDesiredAnimation,
 };
 pub(crate) use components::{
-    AnimatedJoint, AnimationEnds, AnimationState, BoneAnimationData, FrameState, NpcAnimations,
+    AnimatedJoint, AnimationEnds, AnimationSound, AnimationState, BoneAnimationData, FrameState,
+    NpcAnimations,
 };
 pub(crate) use controller::AnimationController;
 pub(crate) use data::{AnimationData, AnimationSample};
@@ -40,6 +41,7 @@ impl Plugin for SkeletalAnimations {
     fn build(&self, app: &mut App) {
         app.add_message::<AnimationEnds>();
         app.add_message::<AnimationTrigger>();
+        app.add_message::<AnimationSound>();
         app.add_plugins(auto_anim_sequencer::AutoAnimSequencerPlugin);
 
         // Root movement has to be applied before the character controller,
@@ -52,7 +54,7 @@ impl Plugin for SkeletalAnimations {
         );
         app.add_systems(
             Update,
-            print_animation_triggers
+            play_animation_sounds
                 .after(update_animations)
                 .run_if(in_state(AppState::InGame)),
         );
