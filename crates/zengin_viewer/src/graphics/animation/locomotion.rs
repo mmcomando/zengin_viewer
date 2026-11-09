@@ -354,6 +354,10 @@ fn write_player_triggers(
         update.new_progress,
         update.finished,
     ) {
+        info!(
+            "AnimationTrigger: entity={entity:?}, animation={animation}, frame={:.1}, trigger={}",
+            update.new_progress, trigger.name
+        );
         animation_triggers.write(AnimationTrigger {
             who: entity,
             trigger_name: trigger.name.clone(),

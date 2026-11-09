@@ -42,8 +42,8 @@ pub struct NpcDied {
 }
 
 /// Melee swing impact: written by the animation sequencer when the attack
-/// swing animation of the player finishes (see `AutoAnimSequencer`), the
-/// counterpart of the ranged `ArrowShot`.
+/// swing animation of the player crosses its optimal frame (see
+/// `AutoAnimSequencer`), the counterpart of the ranged `ArrowShot`.
 #[derive(Message, Debug)]
 pub struct MeleeHit {
     /// Animation model entity of the attacking player. Not used by the

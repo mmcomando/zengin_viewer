@@ -23,7 +23,7 @@ use crate::zengin::{
     ArrowShot, CachedAssetHandles, MeleeHit, face_direction_quat, get_animation_path,
 };
 
-use super::components::AnimationEnds;
+use super::components::{AnimationEnds, AnimationTrigger};
 use super::controller::AnimationController;
 use super::data::AnimationData;
 use super::send_desired::send_desired_animations;
@@ -66,12 +66,22 @@ impl Plugin for AutoAnimSequencerPlugin {
                 .in_set(AutoAnimSequencerSet)
                 .run_if(in_state(AppState::InGame)),
         );
+        app.add_systems(
+            Update,
+            emit_melee_hits_on_optimal_frame
+                .after(super::locomotion::update_animations)
+                .run_if(in_state(AppState::InGame)),
+        );
     }
 }
 
 /// Yaw turn speed of the model while following the movement intent, radians
 /// per second.
 const TURN_SPEED: f32 = 6.0;
+
+/// Prefix of the model script event tag marking the impact frame of an attack
+/// animation (`OPTIMAL_FRAME` plus the item suffix).
+const OPTIMAL_FRAME_TRIGGER: &str = "OPTIMAL_FRAME";
 
 /// Animation graph asset with the human scheme transition graph, generated
 /// from the anims archives (see the export tool). Resolved against the crate
@@ -228,15 +238,13 @@ fn apply_forced_change(
 }
 
 /// Advances the sequencer on [`AnimationEnds`]: walks the graph towards the
-/// desired animation and emits the loop wrap side effects (melee hit, arrow
-/// shot).
+/// desired animation and emits the loop wrap side effects (arrow shot).
 fn advance_on_animation_ends(
     graph: Option<Res<AnimationGraph>>,
     asset_server: Res<AssetServer>,
     mut handles: ResMut<CachedAssetHandles>,
     mut ends: MessageReader<AnimationEnds>,
     mut arrows: MessageWriter<ArrowShot>,
-    mut hits: MessageWriter<MeleeHit>,
     mut sequencers: Query<(Entity, &AutoAnimSequencer, &mut AnimationController)>,
 ) {
     let Some(graph) = graph else {
@@ -244,7 +252,6 @@ fn advance_on_animation_ends(
         return;
     };
     let graph = graph.into_inner();
-    let melee_swing_index = index_of(graph, DesiredAnimation::MeleeAttack);
     for end in ends.read() {
         let Ok((entity, seq, mut controller)) = sequencers.get_mut(end.who) else {
             // Most skeletons have no sequencer; their ends are not ours.
@@ -258,9 +265,7 @@ fn advance_on_animation_ends(
             entity,
             seq,
             &mut controller,
-            melee_swing_index,
             &mut arrows,
-            &mut hits,
             &mut handles,
             &asset_server,
         );
@@ -274,9 +279,7 @@ fn advance_sequencer_on_end(
     entity: Entity,
     seq: &AutoAnimSequencer,
     controller: &mut AnimationController,
-    melee_swing_index: AnimationIndex,
     arrows: &mut MessageWriter<ArrowShot>,
-    hits: &mut MessageWriter<MeleeHit>,
     handles: &mut CachedAssetHandles,
     asset_server: &AssetServer,
 ) {
@@ -287,11 +290,6 @@ fn advance_sequencer_on_end(
         );
         return;
     };
-    if current == melee_swing_index {
-        // The swing loop wrapped: the hit lands on the selected
-        // target, even when the attack was already released
-        hits.write(MeleeHit { shooter: entity });
-    }
     let Some(desired) = seq.desired else {
         warn!("AutoAnimSequencer({entity}) animation end without a desired animation");
         return;
@@ -326,6 +324,36 @@ fn advance_sequencer_on_end(
         graph.animation_name(next),
         seq.force_change,
     );
+}
+
+/// Emits [`MeleeHit`] when the melee swing animation crosses its optimal
+/// frame. The optimal frame is the impact moment of the swing, so the damage
+/// lands before the animation ends.
+fn emit_melee_hits_on_optimal_frame(
+    graph: Option<Res<AnimationGraph>>,
+    mut triggers: MessageReader<AnimationTrigger>,
+    mut hits: MessageWriter<MeleeHit>,
+    sequencers: Query<&AnimationController, With<AutoAnimSequencer>>,
+) {
+    let Some(graph) = graph else {
+        return;
+    };
+    let graph = graph.into_inner();
+    let melee_swing_index = index_of(graph, DesiredAnimation::MeleeAttack);
+    for trigger in triggers.read() {
+        if !trigger.trigger_name.starts_with(OPTIMAL_FRAME_TRIGGER) {
+            continue;
+        }
+        let Ok(controller) = sequencers.get(trigger.who) else {
+            continue;
+        };
+        if animation_index(graph, controller.current()) != Some(melee_swing_index) {
+            continue;
+        }
+        hits.write(MeleeHit {
+            shooter: trigger.who,
+        });
+    }
 }
 
 /// Rotates the model towards the stored movement direction; standing keeps
@@ -428,6 +456,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Time::<()>::default());
         world.init_resource::<Messages<AnimationEnds>>();
+        world.init_resource::<Messages<AnimationTrigger>>();
         world.init_resource::<Messages<SetDesiredAnimation>>();
         world.init_resource::<Messages<ArrowShot>>();
         world.init_resource::<Messages<MeleeHit>>();
@@ -477,6 +506,28 @@ mod tests {
                 who,
                 what_animation: what,
             });
+    }
+
+    fn send_optimal_frame(world: &mut World, who: Entity) {
+        world
+            .resource_mut::<Messages<AnimationTrigger>>()
+            .write(AnimationTrigger {
+                who,
+                trigger_name: "OPTIMAL_FRAME_".to_string(),
+            });
+    }
+
+    fn run_optimal_frame_system(world: &mut World) {
+        world
+            .run_system_once(emit_melee_hits_on_optimal_frame)
+            .unwrap();
+    }
+
+    fn melee_hits(world: &World) -> usize {
+        world
+            .resource::<Messages<MeleeHit>>()
+            .iter_current_update_messages()
+            .count()
     }
 
     /// Runs the sequencer reaction systems in the plugin order; the facing
@@ -606,10 +657,10 @@ mod tests {
         assert_eq!(queued_next(&world, model), Some(stand));
     }
 
-    /// Melee attack: the swing animation loops while the attack is held and
-    /// every wrap lands a `MeleeHit`.
+    /// Melee attack: crossing the optimal frame lands the `MeleeHit`; the
+    /// swing keeps looping while the attack is held.
     #[test]
-    fn melee_swing_loop_hits_on_every_wrap() {
+    fn melee_swing_hits_on_optimal_frame() {
         let (mut world, model) = run_sequencer_world("T_1HATTACKR");
         let swing = animation_handle(&mut world, "T_1HATTACKR");
 
@@ -618,18 +669,15 @@ mod tests {
         run_sequencer(&mut world);
         // Reached: the swing keeps looping, no animation queued
         assert_eq!(queued_next(&world, model), None);
-        // The wrap landed the melee hit
-        assert_eq!(
-            world
-                .resource::<Messages<MeleeHit>>()
-                .iter_current_update_messages()
-                .count(),
-            1
-        );
+
+        send_optimal_frame(&mut world, model);
+        run_optimal_frame_system(&mut world);
+        assert_eq!(melee_hits(&world), 1);
     }
 
-    /// Releasing the attack mid-swing still lands the hit: the swing plays
-    /// out and only then the follow-up (here the standing idle) is queued.
+    /// Releasing the attack mid-swing still lands the hit on the optimal
+    /// frame; only the animation end queues the follow-up (here the standing
+    /// idle).
     #[test]
     fn melee_hit_lands_when_attack_released_mid_swing() {
         let (mut world, model) = run_sequencer_world("T_1HATTACKR");
@@ -638,19 +686,18 @@ mod tests {
 
         // Attack starts (the real input path sends force_change)
         send_desired_force(&mut world, model, DesiredAnimation::MeleeAttack, true);
-        // Released before the swing wrapped
+        // Released before the swing ended
         send_desired(&mut world, model, DesiredAnimation::Stand);
+        run_sequencer(&mut world);
+
+        // The optimal frame still lands the hit.
+        send_optimal_frame(&mut world, model);
+        run_optimal_frame_system(&mut world);
+        assert_eq!(melee_hits(&world), 1);
+
+        // The swing end queues the follow-up stand afterwards.
         send_ends(&mut world, model, swing);
         run_sequencer(&mut world);
-        // The swing wrap landed the hit...
-        assert_eq!(
-            world
-                .resource::<Messages<MeleeHit>>()
-                .iter_current_update_messages()
-                .count(),
-            1
-        );
-        // ...and only afterwards the follow-up stand is queued
         assert_eq!(queued_next(&world, model), Some(stand));
     }
 }
