@@ -138,10 +138,7 @@ pub(super) fn melee_swing_hit(
     }
 }
 
-/// Applies a melee hit of an npc to its `Npc_SetTarget` target, player or npc.
-/// The damage is the drawn melee weapon's `damagetotal`, or [`FIST_DAMAGE`] for
-/// an unarmed npc. When a player's hitpoints reach 0 its inventory goes to the
-/// killer and the player entity is despawned.
+/// Applies a melee hit of an npc to its `Npc_SetTarget` target.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn npc_melee_swing_hit(
     mut commands: Commands,
@@ -156,14 +153,9 @@ pub(super) fn npc_melee_swing_hit(
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut game_log: ResMut<GameLog>,
-    mut transfer_items: MessageWriter<TransferItems>,
     mut npc_died: MessageWriter<NpcDied>,
 ) {
-    let mut player_dead = false;
     for hit in hits.read() {
-        if player_dead {
-            continue;
-        }
         let Ok((npc, npc_tr)) = shooters.get(hit.shooter) else {
             // Player swings are handled by `melee_swing_hit`.
             continue;
@@ -205,6 +197,11 @@ pub(super) fn npc_melee_swing_hit(
             continue;
         }
 
+        // The player is currently invulnerable.
+        if players.contains(target_entity) {
+            continue;
+        }
+
         let damage = {
             let mut script = gothic_script.lock();
             let melee = script
@@ -212,43 +209,6 @@ pub(super) fn npc_melee_swing_hit(
                 .and_then(|npc| npc.equipment.melee);
             melee.map_or(FIST_DAMAGE, |item| script.item_damage_total(item))
         };
-
-        if players.contains(target_entity) {
-            let Ok((_, player_npc, _, parent)) = players.get(target_entity) else {
-                continue;
-            };
-            let player_id = player_npc.instance_id();
-            let Some(hitpoints) = gothic_script.lock().change_hitpoints(player_id, -damage) else {
-                warn!(
-                    "Npc melee hit ignored: no hitpoints data for player({})",
-                    player_id.value()
-                );
-                continue;
-            };
-            info!(
-                "Npc({}) dealt {damage} damage to player({player_id}), hitpoints now {hitpoints}",
-                attacker_id.value()
-            );
-            game_log.add(format!("Took {damage} damage"));
-
-            if hitpoints > 0 {
-                continue;
-            }
-            player_dead = true;
-            transfer_items.write(TransferItems {
-                instance_from_id: player_id,
-                instance_to_id: attacker_id,
-            });
-            // The player visual is a child of its physics body, the body is the
-            // entity to remove (despawning it removes the visual with it).
-            let entity_to_despawn = parent.map_or(target_entity, |parent| parent.parent());
-            commands.entity(entity_to_despawn).try_despawn();
-            info!(
-                "Player({player_id}) died, killed by npc({})",
-                attacker_id.value()
-            );
-            continue;
-        }
 
         let Ok((target_npc, target_gt, model, overlay, controller, reaction)) =
             npcs.get_mut(target_entity)
