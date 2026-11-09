@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 use super::combat::NpcHitQueryData;
 use super::selection::{NpcHitCollider, Selection};
-use super::{NpcDamageData, NpcDied, damage_npc};
+use super::{DamageTargetData, NpcDied, deal_damage};
 use crate::gui::GameLog;
 use crate::zengin::GameNpc;
 use crate::zengin::npc_routines::AnimationFiles;
@@ -246,7 +246,7 @@ fn arrow_hits(
         let hit_entity = hit_colliders
             .get(hit_entity)
             .map_or(hit_entity, |collider| collider.owner);
-        let Ok((npc, global_tr, npc_model, overlay, controller, reaction)) =
+        let Ok((npc, global_tr, npc_model, overlay, controller, reaction, is_player)) =
             npcs.get_mut(hit_entity)
         else {
             continue;
@@ -256,18 +256,19 @@ fn arrow_hits(
         if arrow_tr.translation().distance(arrow.spawn_origin) < ARROW_MIN_HIT_DISTANCE {
             continue;
         }
-        let npc_data = NpcDamageData {
+        let target_data = DamageTargetData {
             npc,
             global_tr,
             model: npc_model,
             overlay,
             controller,
             reaction,
+            is_player,
         };
-        damage_npc(
+        deal_damage(
             &mut commands,
             hit_entity,
-            npc_data,
+            target_data,
             arrow.damage,
             arrow.shooter,
             &gothic_script,

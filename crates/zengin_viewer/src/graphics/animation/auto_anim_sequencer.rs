@@ -227,12 +227,19 @@ fn apply_forced_change(
         if !seq.force_change {
             continue;
         }
+        // A queued hit reaction must not be replaced before it starts.
+        if controller.next().is_some_and(is_hit_reaction) {
+            continue;
+        }
+        // A playing hit reaction is queued non-interrupting, the desired
+        // animation takes over when the reaction ends.
+        let interrupt = !is_hit_reaction(controller.current());
         queue_animation(
             &mut controller,
             &mut handles,
             &asset_server,
             graph.animation_name(index_of(graph, desired)),
-            seq.force_change,
+            interrupt,
         );
     }
 }
@@ -258,6 +265,11 @@ fn advance_on_animation_ends(
             continue;
         };
         if end.what_animation != *controller.current() {
+            continue;
+        }
+        if is_hit_reaction(controller.current()) {
+            // The reaction end is handled by `npc_hit_reaction_end`; the
+            // reaction is not part of the animation graph.
             continue;
         }
         advance_sequencer_on_end(
@@ -312,6 +324,10 @@ fn advance_sequencer_on_end(
         );
         return;
     }
+    // A queued hit reaction must not be replaced before it starts.
+    if controller.next().is_some_and(is_hit_reaction) {
+        return;
+    }
     // Walk the graph; cut straight to the desired animation when the
     // graph offers no path to it.
     let next = graph
@@ -322,7 +338,7 @@ fn advance_sequencer_on_end(
         handles,
         asset_server,
         graph.animation_name(next),
-        seq.force_change,
+        seq.force_change && !is_hit_reaction(controller.current()),
     );
 }
 
@@ -413,6 +429,13 @@ fn animation_index(
     let path = Handle::path(handle)?;
     let name = animation_name_from_path(path.path())?;
     graph.animation_index(&format!("{SCHEME}-{name}"))
+}
+
+/// Whether the animation handle is the `T_GOTHIT` hit reaction one-shot.
+fn is_hit_reaction(handle: &Handle<AnimationData>) -> bool {
+    Handle::path(handle)
+        .and_then(|path| animation_name_from_path(path.path()))
+        .is_some_and(|name| name == "T_GOTHIT")
 }
 
 /// Queues the named graph animation on the controller. Graph names carry the
@@ -699,5 +722,42 @@ mod tests {
         send_ends(&mut world, model, swing);
         run_sequencer(&mut world);
         assert_eq!(queued_next(&world, model), Some(stand));
+    }
+
+    /// A queued hit reaction is not replaced by a forced desired animation
+    /// before it starts.
+    #[test]
+    fn queued_hit_reaction_is_not_replaced() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        let reaction = animation_handle(&mut world, "T_GOTHIT");
+        world
+            .get_mut::<AnimationController>(model)
+            .unwrap()
+            .queue_next(reaction.clone(), true);
+
+        send_desired_force(&mut world, model, DesiredAnimation::Run, true);
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(reaction));
+    }
+
+    /// A playing hit reaction is not interrupted by a forced desired
+    /// animation; the desired one is queued behind it.
+    #[test]
+    fn playing_hit_reaction_is_not_interrupted() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        let reaction = animation_handle(&mut world, "T_GOTHIT");
+        let run_loop = animation_handle(&mut world, "S_RUNL");
+        world
+            .get_mut::<AnimationController>(model)
+            .unwrap()
+            .switch_to(reaction);
+
+        send_desired_force(&mut world, model, DesiredAnimation::Run, true);
+        run_sequencer(&mut world);
+
+        let controller = world.get::<AnimationController>(model).unwrap();
+        assert_eq!(controller.next(), Some(&run_loop));
+        assert!(!controller.interrupt_current());
     }
 }

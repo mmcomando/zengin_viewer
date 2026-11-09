@@ -29,6 +29,7 @@ pub(super) type NpcHitQueryData = (
     Option<&'static NpcOverlay>,
     Option<&'static mut AnimationController>,
     Option<&'static NpcHitReaction>,
+    Has<PlayerCharacter>,
 );
 
 /// An npc died (hitpoints reached 0): its inventory moves to the player, the
@@ -90,17 +91,19 @@ pub(super) fn melee_swing_hit(
         let Some(target) = selection.target else {
             continue;
         };
-        let Ok((npc, global_tr, npc_model, overlay, controller, reaction)) = npcs.get_mut(target)
+        let Ok((npc, global_tr, npc_model, overlay, controller, reaction, is_player)) =
+            npcs.get_mut(target)
         else {
             continue;
         };
-        let npc_data = NpcDamageData {
+        let target_data = DamageTargetData {
             npc,
             global_tr,
             model: npc_model,
             overlay,
             controller,
             reaction,
+            is_player,
         };
         let Ok(player_npc) = player_npc.single() else {
             continue;
@@ -122,10 +125,10 @@ pub(super) fn melee_swing_hit(
             };
             script.item_damage_total(weapon)
         };
-        damage_npc(
+        deal_damage(
             &mut commands,
             target,
-            npc_data,
+            target_data,
             damage,
             player_id,
             &gothic_script,
@@ -146,8 +149,7 @@ pub(super) fn npc_melee_swing_hit(
     mut hits: MessageReader<MeleeHit>,
     index: Res<InstanceIndex>,
     shooters: Query<(&GameNpc, &GlobalTransform), Without<PlayerCharacter>>,
-    players: Query<&GameNpc, With<PlayerCharacter>>,
-    mut npcs: Query<NpcHitQueryData, Without<PlayerCharacter>>,
+    mut targets: Query<NpcHitQueryData>,
     transforms: Query<&GlobalTransform>,
     gothic_script: Res<ScriptResource>,
     files: Res<AnimationFiles>,
@@ -206,53 +208,28 @@ pub(super) fn npc_melee_swing_hit(
             melee.map_or(FIST_DAMAGE, |item| script.item_damage_total(item))
         };
 
-        // The player never dies: damage is applied but the hitpoints floor at one.
-        if let Ok(player_npc) = players.get(target_entity) {
-            let player_id = player_npc.instance_id();
-            let mut script = gothic_script.lock();
-            let Some(hitpoints) = script.change_hitpoints(player_id, -damage) else {
-                warn!(
-                    "Npc melee hit ignored: no hitpoints data for player({})",
-                    player_id.value()
-                );
-                continue;
-            };
-            let hitpoints = if hitpoints < 1 {
-                script
-                    .change_hitpoints(player_id, 1 - hitpoints)
-                    .unwrap_or(hitpoints)
-            } else {
-                hitpoints
-            };
-            info!(
-                "Npc({}) dealt {damage} damage to player({player_id}), hitpoints now {hitpoints}",
-                attacker_id.value()
-            );
-            game_log.add(format!("Took {damage} damage"));
-            continue;
-        }
-
-        let Ok((target_npc, target_gt, model, overlay, controller, reaction)) =
-            npcs.get_mut(target_entity)
+        let Ok((target_npc, target_gt, model, overlay, controller, reaction, is_player)) =
+            targets.get_mut(target_entity)
         else {
             warn!(
-                "Npc({}) melee hit ignored: target({target_id}) is not a damageable npc",
+                "Npc({}) melee hit ignored: target({target_id}) is not a damageable entity",
                 attacker_id.value()
             );
             continue;
         };
-        let npc_data = NpcDamageData {
+        let target_data = DamageTargetData {
             npc: target_npc,
             global_tr: target_gt,
             model,
             overlay,
             controller,
             reaction,
+            is_player,
         };
-        damage_npc(
+        deal_damage(
             &mut commands,
             target_entity,
-            npc_data,
+            target_data,
             damage,
             attacker_id,
             &gothic_script,
@@ -265,15 +242,16 @@ pub(super) fn npc_melee_swing_hit(
     }
 }
 
-/// Damage application shared by the melee swing and the arrow hit paths:
-/// changes the npc hitpoints, logs, plays the `T_GOTHIT` hit reaction and
-/// emits `NpcDied` when the hitpoints reach 0. Logs a warn when the npc has
-/// no hitpoints data.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn damage_npc(
+/// Damage application shared by every melee and ranged hit path, regardless
+/// of whether the victim is the player or an npc. Changes the hitpoints, logs,
+/// plays the `T_GOTHIT` hit reaction and emits `NpcDied` when an npc's
+/// hitpoints reach 0. The player's hitpoints are floored at one, it never dies.
+/// Logs a warn when the victim has no hitpoints data.
+#[allow(clippy::too_many_arguments, clippy::cognitive_complexity)]
+pub(crate) fn deal_damage(
     commands: &mut Commands,
     target: Entity,
-    npc_data: NpcDamageData,
+    target_data: DamageTargetData,
     damage: i32,
     shooter_id: InstanceId,
     gothic_script: &Res<ScriptResource>,
@@ -283,71 +261,85 @@ pub(crate) fn damage_npc(
     game_log: &mut GameLog,
     npc_died: &mut MessageWriter<NpcDied>,
 ) {
-    let npc_id = npc_data.npc.instance_id();
+    let target_id = target_data.npc.instance_id();
     let (hitpoints, shooter_is_player) = {
         let mut script = gothic_script.lock();
         let shooter_is_player = script.player_instance() == Some(shooter_id);
-        let Some(hitpoints) = script.change_hitpoints(npc_id, -damage) else {
+        let Some(hitpoints) = script.change_hitpoints(target_id, -damage) else {
             warn!(
-                "Damage ignored: no hitpoints data for npc({})",
-                npc_id.value()
+                "Damage ignored: no hitpoints data for instance({})",
+                target_id.value()
             );
             return;
         };
-        (hitpoints, shooter_is_player)
-    };
-    if shooter_is_player {
-        info!(
-            "Player({}) dealt {damage} damage to npc({}), hitpoints now {hitpoints}",
-            shooter_id.value(),
-            npc_id.value()
-        );
-        game_log.add(format!("Dealt {damage} damage"));
-        if hitpoints > 0 {
+        let hitpoints = if target_data.is_player && hitpoints < 1 {
+            // The player never dies: the damage is applied but the hitpoints
+            // floor at one.
+            script
+                .change_hitpoints(target_id, 1 - hitpoints)
+                .unwrap_or(hitpoints)
+        } else {
+            hitpoints
+        };
+        if shooter_is_player && !target_data.is_player && hitpoints > 0 {
             // Being attacked makes the npc retaliate against the player.
-            let mut script = gothic_script.lock();
-            script.npc_state_mut(npc_id).live.target = Some(shooter_id);
+            script.npc_state_mut(target_id).live.target = Some(shooter_id);
             script.pending_changes().attack_changes.push(AttackChange {
-                instance_id: npc_id,
+                instance_id: target_id,
                 target: shooter_id,
             });
         }
+        (hitpoints, shooter_is_player)
+    };
+    if target_data.is_player {
+        info!(
+            "Npc({}) dealt {damage} damage to player({target_id}), hitpoints now {hitpoints}",
+            shooter_id.value()
+        );
+        game_log.add(format!("Took {damage} damage"));
+    } else if shooter_is_player {
+        info!(
+            "Player({}) dealt {damage} damage to npc({target_id}), hitpoints now {hitpoints}",
+            shooter_id.value()
+        );
+        game_log.add(format!("Dealt {damage} damage"));
     } else {
         info!(
-            "Npc({}) dealt {damage} damage to npc({}), hitpoints now {hitpoints}",
-            shooter_id.value(),
-            npc_id.value()
+            "Npc({}) dealt {damage} damage to npc({target_id}), hitpoints now {hitpoints}",
+            shooter_id.value()
         );
     }
     play_hit_reaction(
         commands,
         target,
-        npc_data.model,
-        npc_data.overlay,
-        npc_data.controller,
-        npc_data.reaction,
+        target_data.model,
+        target_data.overlay,
+        target_data.controller,
+        target_data.reaction,
         files,
         handles,
         asset_server,
     );
-    if hitpoints <= 0 {
+    if !target_data.is_player && hitpoints <= 0 {
         npc_died.write(NpcDied {
             entity: target,
-            instance_id: npc_id,
-            position: npc_data.global_tr.translation(),
+            instance_id: target_id,
+            position: target_data.global_tr.translation(),
         });
     }
 }
 
-/// The npc data [`damage_npc`] needs, gathered from the npc query by the
-/// caller (the query item is destructured into it).
-pub(crate) struct NpcDamageData<'a> {
+/// The target data [`deal_damage`] needs, gathered from the target query by the
+/// caller (the query item is destructured into it). Carries `is_player` so the
+/// same function applies hits to the player and to npcs.
+pub(crate) struct DamageTargetData<'a> {
     pub npc: &'a GameNpc,
     pub global_tr: &'a GlobalTransform,
     pub model: &'a NpcModel,
     pub overlay: Option<&'a NpcOverlay>,
     pub controller: Option<Mut<'a, AnimationController>>,
     pub reaction: Option<&'a NpcHitReaction>,
+    pub is_player: bool,
 }
 
 /// Removes the drawn weapon from the dead npc's inventory and spawns it on
