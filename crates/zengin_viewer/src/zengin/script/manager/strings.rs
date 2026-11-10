@@ -208,6 +208,7 @@ impl super::ScriptManager {
             let values = guest
                 .call_get_symbol_values(&mut self.store, index as i32)
                 .unwrap();
+            typed.set_default_values(index, &values);
             // Skip 0 writes as this is the default value
             // Improves startup time from by 4s
             if values.iter().all(|&el| el == 0) {

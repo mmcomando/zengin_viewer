@@ -5,6 +5,7 @@
 //! then applies the saved values; routine state is deliberately left to the
 //! normal initialization path.
 
+use std::collections::HashSet;
 use std::sync::{Arc, PoisonError, RwLock};
 
 use bevy::log::info;
@@ -56,6 +57,10 @@ impl super::ScriptManager {
             }
             // Function parameter symbols and other empty slots have no state.
             if values.is_empty() {
+                continue;
+            }
+            // Unchanged symbols are recreated by the load's initialization.
+            if typed.matches_default(symbol, &values) {
                 continue;
             }
             let saved = SavedValues {
@@ -146,6 +151,9 @@ impl super::ScriptManager {
         if !self.run_world_entry_points(world_name, false) {
             info!("No world entry points ran while restoring save state");
         }
+        // Symbols omitted from the save are at their defaults at save time, so
+        // undo any writes performed by initialization/`init_*`.
+        self.reset_unsaved_symbols(save);
         // Saved state wins over initialization and `init_*` writes.
         self.apply_globals(&save.globals);
         self.apply_instances(&save.instances);
@@ -169,6 +177,33 @@ impl super::ScriptManager {
         self.clear_item_changes();
 
         (self.npc_handles(), self.item_handles())
+    }
+
+    fn reset_unsaved_symbols(&mut self, save: &ScriptSnapshot) {
+        let saved: HashSet<i32> = save
+            .globals
+            .iter()
+            .chain(&save.instances)
+            .map(|values| values.id)
+            .collect();
+        let data = self.store.data_mut();
+        let symbol_count = data.typed.symbol_count();
+        for index in 0..symbol_count {
+            let Ok(symbol) = u32::try_from(index) else {
+                continue;
+            };
+            let Ok(saved_id) = i32::try_from(index) else {
+                continue;
+            };
+            if saved.contains(&saved_id)
+                || !data.typed.has_value_slot(symbol)
+                || data.typed.is_class_member(symbol)
+                || data.typed.is_const(symbol)
+            {
+                continue;
+            }
+            data.typed.reset_to_default(symbol);
+        }
     }
 
     fn apply_globals(&mut self, values: &[SavedValues]) {

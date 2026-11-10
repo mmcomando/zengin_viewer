@@ -247,6 +247,10 @@ pub struct TypedRegistry {
     /// past offset 0 it holds the instance reference (for example `self`/`other`
     /// values); for other classes it is unused.
     references: Vec<i32>,
+    /// Initial values of symbols with a value slot. `None` means all-zero
+    /// defaults. Used to skip unchanged symbols when saving and to restore the
+    /// default state of symbols which were intentionally not saved.
+    defaults: Vec<Option<Vec<i32>>>,
     classes: [Option<u32>; 5],
     finished: bool,
 }
@@ -294,6 +298,7 @@ impl TypedRegistry {
         });
         self.instances.push(storage);
         self.references.push(0);
+        self.defaults.push(None);
         symbol
     }
 
@@ -473,6 +478,71 @@ impl TypedRegistry {
         self.symbols
             .get(usize::try_from(symbol).unwrap_or(usize::MAX))
             .is_some_and(|entry| entry.is_class_member)
+    }
+
+    /// Records the initial values of a symbol with a value slot. All-zero
+    /// values are stored as "no non-zero default".
+    pub fn set_default_values(&mut self, symbol: u32, values: &[i32]) {
+        let Ok(index) = usize::try_from(symbol) else {
+            return;
+        };
+        if self.defaults.len() <= index {
+            self.defaults.resize(index + 1, None);
+        }
+        self.defaults[index] = if values.iter().all(|value| *value == 0) {
+            None
+        } else {
+            Some(values.to_vec())
+        };
+    }
+
+    /// Whether a value vector equals the symbol's default values. Extra words
+    /// past the stored default must be zero (default storage is sparse).
+    #[must_use]
+    pub fn matches_default(&self, symbol: u32, values: &[i32]) -> bool {
+        let Some(default) = self
+            .defaults
+            .get(usize::try_from(symbol).unwrap_or(usize::MAX))
+            .and_then(Option::as_ref)
+        else {
+            return values.iter().all(|value| *value == 0);
+        };
+        values.len() >= default.len()
+            && values
+                .iter()
+                .zip(default)
+                .all(|(value, default)| value == default)
+            && values[default.len()..].iter().all(|value| *value == 0)
+    }
+
+    /// Restores a symbol's value slot to its recorded defaults, zeroing every
+    /// modeled word first so init-time writes do not survive.
+    pub fn reset_to_default(&mut self, symbol: u32) {
+        if !self.has_value_slot(symbol) || self.is_class_member(symbol) {
+            return;
+        }
+        let Ok(index) = usize::try_from(symbol) else {
+            return;
+        };
+        let default = self.defaults.get(index).and_then(Option::as_ref).cloned();
+        let Some(storage) = self.instances.get(index).and_then(Option::as_ref) else {
+            return;
+        };
+        let words = if let TypedInstance::Generic(variable) = storage {
+            variable.len().max(default.as_ref().map_or(0, Vec::len))
+        } else if let Some(class) = storage.class() {
+            typed_words_len(class)
+        } else {
+            return;
+        };
+
+        let mut values = vec![0; words];
+        if let Some(default) = default {
+            for (value, default) in values.iter_mut().zip(default) {
+                *value = default;
+            }
+        }
+        self.restore_values(symbol, &values);
     }
 
     /// Word indices of a symbol's string values, for dynamic-string sanitizing.
@@ -1530,5 +1600,37 @@ mod tests {
         let npc = registry.npc(instance).expect("npc");
         assert_eq!(npc.id, 5);
         assert_eq!(npc.hitpoints_max, 200);
+    }
+
+    #[test]
+    fn default_values_are_tracked_and_reset() {
+        let mut registry = TypedRegistry::new();
+        let symbol = registry.add_symbol(decl("test_int", SymbolKind::Int, false, 0, 2, None));
+        registry.finish();
+        registry.set_default_values(symbol, &[1, 2]);
+        registry.write_values(symbol, &[1, 2]);
+        assert!(registry.matches_default(symbol, &[1, 2]));
+        assert!(registry.matches_default(symbol, &[1, 2, 0]));
+        assert!(!registry.matches_default(symbol, &[1, 3]));
+
+        registry.write_values(symbol, &[5, 6]);
+        assert!(!registry.matches_default(symbol, &[5, 6]));
+        registry.reset_to_default(symbol);
+        assert_eq!(registry.snapshot_values(symbol), Some(vec![1, 2]));
+        assert!(registry.matches_default(symbol, &[1, 2]));
+    }
+
+    #[test]
+    fn typed_defaults_are_tracked_and_reset() {
+        let (mut registry, instance) = npc_registry();
+        let defaults = registry.snapshot_values(instance).expect("defaults");
+        registry.set_default_values(instance, &defaults);
+        assert!(registry.matches_default(instance, &defaults));
+
+        registry.write_instance_word(instance, 288, 999);
+        let changed = registry.snapshot_values(instance).expect("changed");
+        assert!(!registry.matches_default(instance, &changed));
+        registry.reset_to_default(instance);
+        assert_eq!(registry.snapshot_values(instance), Some(defaults));
     }
 }
