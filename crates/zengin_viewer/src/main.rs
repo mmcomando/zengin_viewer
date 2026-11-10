@@ -108,6 +108,7 @@ mod gui;
 mod gui_debug;
 mod input;
 mod ui_kit;
+mod world_entity;
 mod xr;
 mod zengin;
 

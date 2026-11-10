@@ -7,6 +7,7 @@ use bevy::prelude::*;
 use pathfinding::prelude::astar;
 use zen_kit_rs::waynet::WayNet;
 
+use crate::world_entity::WorldEntityMarker;
 use crate::zengin::common::{get_world_dir_quat, get_world_pos};
 use crate::zengin::loaders::ZenginVec3ToGlam;
 use crate::zengin::resources::WAYPOINT;
@@ -131,6 +132,7 @@ pub(crate) fn spawn_waypoint_entities(commands: &mut Commands, graph: &WaypointG
             Collider::sphere(WAYPOINT_SPHERE_RADIUS),
             CollisionLayers::from_bits(WAYPOINT, 0),
             WaypointNodeIndex(index),
+            WorldEntityMarker,
         ));
     }
 }

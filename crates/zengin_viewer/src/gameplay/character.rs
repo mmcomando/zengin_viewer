@@ -10,6 +10,7 @@ use crate::gameplay::character_camera::{
     camera_movement_system, camera_toggle_input, use_character_camera,
 };
 use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::world_entity::WorldEntityMarker;
 use crate::zengin::NPC_BODY;
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
@@ -65,6 +66,7 @@ pub const QUERY_ONLY_LAYER: u32 = 1 << 3;
 
 /// Marks the player physics body entity driven by [`CharacterController`].
 #[derive(Default, Component)]
+#[require(WorldEntityMarker)]
 pub struct PlayerPhysicsBodyMarker;
 
 /// Component for configuring movement settings for a character controller.

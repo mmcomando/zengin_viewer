@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::world_entity::WorldEntityMarker;
+
 #[derive(Default)]
 pub struct ToggleVisibility;
 
@@ -20,9 +22,11 @@ fn insert_resources(mut commands: Commands) {
 pub struct NpcVisibility {}
 
 #[derive(Component, Default)]
+#[require(WorldEntityMarker)]
 pub struct WorldMesh {}
 
 #[derive(Component, Default)]
+#[require(WorldEntityMarker)]
 pub struct StaticMesh {}
 
 #[allow(clippy::struct_excessive_bools)]

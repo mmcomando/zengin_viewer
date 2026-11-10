@@ -8,6 +8,7 @@ use super::combat::NpcHitQueryData;
 use super::selection::{NpcHitCollider, Selection};
 use super::{DamageTargetData, NpcDied, deal_damage};
 use crate::gui::GameLog;
+use crate::world_entity::WorldEntityMarker;
 use crate::zengin::GameNpc;
 use crate::zengin::npc_routines::AnimationFiles;
 use crate::zengin::resources::{
@@ -58,6 +59,7 @@ pub struct ArrowShot {
 
 /// Data of a flying arrow, used for damage and cleanup.
 #[derive(Component)]
+#[require(WorldEntityMarker)]
 pub struct Arrow {
     pub damage: i32,
     pub shooter: InstanceId,

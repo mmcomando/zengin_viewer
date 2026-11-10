@@ -27,6 +27,8 @@ mod animation_graph_export;
 
 use bevy::prelude::*;
 
+use crate::world_entity::WorldEntityMarker;
+
 // Expose only what is needed for outside modules
 pub(crate) use crate::zengin::common::face_direction_quat;
 pub(crate) use crate::zengin::common::get_animation_path;
@@ -89,6 +91,7 @@ impl Plugin for ZenginPlugin {
 
 /// Identifies Entity with the shared data of a Zengin script npc instance.
 #[derive(Debug, Component, Clone)]
+#[require(WorldEntityMarker)]
 pub struct GameNpc {
     handle: NpcHandle,
 }
@@ -111,6 +114,7 @@ impl GameNpc {
 
 /// Identifies Entity with the shared data of a Zengin script item instance.
 #[derive(Debug, Component, Clone)]
+#[require(WorldEntityMarker)]
 pub struct GameItem {
     handle: ItemHandle,
 }
@@ -133,6 +137,7 @@ impl GameItem {
 
 /// Interactive chest vob with its remaining loot.
 #[derive(Debug, Component)]
+#[require(WorldEntityMarker)]
 pub struct GameChest {
     pub name: String,
     /// Vob `locked` flag, reported when the chest is opened.
