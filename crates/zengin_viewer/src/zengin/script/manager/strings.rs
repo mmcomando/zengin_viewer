@@ -208,7 +208,11 @@ impl super::ScriptManager {
             let values = guest
                 .call_get_symbol_values(&mut self.store, index as i32)
                 .unwrap();
-            typed.set_default_values(index, &values);
+            // Const values are compile-time constants: they are written into the
+            // read-only slot but must never be tracked or saved as runtime state.
+            if !typed.is_const(index) {
+                typed.set_default_values(index, &values);
+            }
             // Skip 0 writes as this is the default value
             // Improves startup time from by 4s
             if values.iter().all(|&el| el == 0) {
