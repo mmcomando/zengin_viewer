@@ -16,6 +16,7 @@ use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use bevy::math::Vec3;
 use daedalus_typed::TypedRegistry;
 use rand_mt::Mt;
+use serde::{Deserialize, Serialize};
 
 use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::journal::{JournalChange, JournalManager};
@@ -26,7 +27,7 @@ use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 /// `mob_name` should be switched to `state` when the game time reaches
 /// `hour`:`minute`.
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MobRoutineEntry {
     pub hour: i32,
     pub minute: i32,
@@ -132,6 +133,13 @@ impl SymbolTable {
             return None;
         }
         StringId::new(raw)
+    }
+
+    /// Whether a string id points at the dynamic `DYN_STRINGS` ring instead of
+    /// the static table. Dynamic content is overwritten by later calls, so such
+    /// ids must not be persisted.
+    pub fn is_dynamic_string_id(&self, raw: i32) -> bool {
+        raw >= self.dynamic_strings_base
     }
 
     /// Records the content a string-returning external returned, keeping the

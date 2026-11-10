@@ -475,6 +475,46 @@ impl TypedRegistry {
             .is_some_and(|entry| entry.is_class_member)
     }
 
+    /// Word indices of a symbol's string values, for dynamic-string sanitizing.
+    /// A string global returns its own slot words; an instance returns the word
+    /// offsets of the string members of its class. Other kinds return an empty
+    /// list.
+    #[must_use]
+    pub fn string_word_indices(&self, symbol: u32) -> Vec<u32> {
+        let Ok(symbol_index) = usize::try_from(symbol) else {
+            return Vec::new();
+        };
+        let Some(entry) = self.symbols.get(symbol_index) else {
+            return Vec::new();
+        };
+        if entry.kind == SymbolKind::String {
+            return (0..entry.element_count).collect();
+        }
+        if entry.kind != SymbolKind::Instance {
+            return Vec::new();
+        }
+        let Some(class_symbol) = self.class_symbol_of(symbol) else {
+            return Vec::new();
+        };
+
+        let mut indices = Vec::new();
+        for member in &self.symbols {
+            if !member.is_class_member
+                || member.parent != Some(class_symbol)
+                || member.kind != SymbolKind::String
+            {
+                continue;
+            }
+            let start = member.address_or_offset / 4;
+            for element in 0..member.element_count {
+                if let Some(index) = start.checked_add(element) {
+                    indices.push(index);
+                }
+            }
+        }
+        indices
+    }
+
     /// Whether a symbol has its own value slot.
     #[must_use]
     pub fn has_value_slot(&self, symbol: u32) -> bool {
@@ -1431,6 +1471,26 @@ mod tests {
             .find_member_id("c_npc", "attribute")
             .expect("member");
         assert!(registry.is_class_member(attribute));
+    }
+
+    #[test]
+    fn string_word_indices_cover_globals_and_class_members() {
+        let mut registry = TypedRegistry::new();
+        let global = registry.add_symbol(decl("txt_global", SymbolKind::String, false, 0, 3, None));
+        let class = registry.add_symbol(decl("c_test", SymbolKind::Class, false, 0, 0, None));
+        registry.add_symbol(decl("text", SymbolKind::String, true, 296, 2, Some(class)));
+        let instance = registry.add_symbol(decl(
+            "test_inst",
+            SymbolKind::Instance,
+            false,
+            0,
+            4,
+            Some(class),
+        ));
+        registry.finish();
+
+        assert_eq!(registry.string_word_indices(global), vec![0, 1, 2]);
+        assert_eq!(registry.string_word_indices(instance), vec![74, 75]);
     }
 
     #[test]

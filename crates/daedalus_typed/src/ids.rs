@@ -4,7 +4,10 @@
 //! can be safely converted to both `i32` and `u32`.
 
 /// Id of a daedalus script symbol.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(transparent)]
 pub struct SymbolId(i32);
 
 impl SymbolId {
@@ -36,7 +39,19 @@ impl std::fmt::Display for SymbolId {
 macro_rules! typed_symbol_id {
     ($(#[$doc:meta])* $name:ident) => {
         $(#[$doc])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[derive(
+            Debug,
+            Clone,
+            Copy,
+            PartialEq,
+            Eq,
+            PartialOrd,
+            Ord,
+            Hash,
+            serde::Serialize,
+            serde::Deserialize,
+        )]
+        #[serde(transparent)]
         pub struct $name(SymbolId);
 
         impl $name {
@@ -87,7 +102,10 @@ typed_symbol_id!(
 /// Id of a daedalus script string literal. String literals are not symbols,
 /// their ids are indices into the static strings table, so this type is
 /// deliberately independent of [`SymbolId`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(transparent)]
 pub struct StringId(i32);
 
 impl StringId {

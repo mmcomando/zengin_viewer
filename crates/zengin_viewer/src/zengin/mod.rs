@@ -60,6 +60,7 @@ pub(crate) use crate::zengin::script::manager::ScriptManager;
 pub(crate) use crate::zengin::script::state::ScreenMessage;
 pub(crate) use crate::zengin::script::state::WeaponKind;
 pub(crate) use crate::zengin::script::state::WeaponMode;
+pub(crate) use crate::zengin::script::state::{ItemRuntime, MobRoutineEntry, NpcRuntime};
 pub(crate) use crate::zengin::script::symbol_id::InstanceId;
 pub(crate) use crate::zengin::script::{
     MENU_FLAG_ALIGN_CENTER, MENU_FLAG_DONT_SCALE_DIM, MENU_FLAG_SHOW_INFO, MENU_ITEM_FLAG_DISABLED,

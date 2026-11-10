@@ -2,6 +2,7 @@
 //! are identified by their script-side name string.
 
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// What happened to a journal topic, recorded for the game log.
 #[derive(Debug, Clone)]
@@ -23,7 +24,7 @@ pub struct JournalChange {
 }
 
 /// Section of a journal topic (`Log_CreateTopic` argument).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum JournalSection {
     /// `LOG_MISSION` — normal quest.
     Mission,
@@ -43,7 +44,7 @@ impl JournalSection {
 }
 
 /// Status of a journal topic (`Log_SetTopicStatus` argument).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum JournalStatus {
     /// `LOG_RUNNING` — active quest.
     Running,
@@ -69,7 +70,7 @@ impl JournalStatus {
 }
 
 /// One journal topic: its section, status and accumulated entries.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JournalTopic {
     pub name: String,
     pub section: JournalSection,
@@ -88,6 +89,11 @@ impl JournalManager {
     /// Topics in creation order, oldest first.
     pub fn topics(&self) -> &[JournalTopic] {
         &self.topics
+    }
+
+    /// Replaces all topics, used when restoring a save.
+    pub fn replace_topics(&mut self, topics: Vec<JournalTopic>) {
+        self.topics = topics;
     }
 
     /// Adds a new topic in `section`. Returns `false` when a topic with that

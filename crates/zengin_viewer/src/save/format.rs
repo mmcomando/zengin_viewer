@@ -1,13 +1,18 @@
 //! On-disk save game format and file IO.
 //!
-//! The save is a single RON document. The types here are the on-disk contract:
-//! they deliberately use raw script ids and plain data instead of the runtime
-//! handles, so script/ECS refactors do not silently change the format.
+//! The save is a single RON document. Plain runtime values are serialized
+//! directly; only the ECS-side payloads and the raw script word containers get
+//! dedicated types here.
 
 use std::path::PathBuf;
 
 use bevy::prelude::Transform;
 use serde::{Deserialize, Serialize};
+
+use crate::gameplay::game_time::GameTime;
+use crate::zengin::InstanceId;
+use crate::zengin::JournalTopic;
+use crate::zengin::{ItemRuntime, MobRoutineEntry, NpcRuntime};
 
 /// Version of the on-disk save format. Increment on any incompatible change.
 pub(crate) const SAVE_FORMAT_VERSION: u32 = 1;
@@ -43,16 +48,9 @@ pub(crate) struct SaveGame {
     pub(crate) format_version: u32,
     pub(crate) script_fingerprint: u64,
     pub(crate) world_name: String,
-    pub(crate) game_time: SavedGameTime,
+    pub(crate) game_time: GameTime,
     pub(crate) player_transform: Transform,
-    pub(crate) player_instance: Option<i32>,
-    pub(crate) globals: Vec<SavedValues>,
-    pub(crate) instances: Vec<SavedValues>,
-    pub(crate) npc_runtimes: Vec<SavedNpcRuntime>,
-    pub(crate) item_runtimes: Vec<SavedItemRuntime>,
-    pub(crate) journal: Vec<SavedJournalTopic>,
-    pub(crate) guild_attitudes: Vec<SavedGuildAttitude>,
-    pub(crate) mob_routines: Vec<SavedMobRoutine>,
+    pub(crate) script: ScriptSnapshot,
     pub(crate) live_npcs: Vec<SavedNpcEntity>,
     pub(crate) live_items: Vec<SavedItemEntity>,
     pub(crate) chests: Vec<SavedChest>,
@@ -77,12 +75,19 @@ impl SaveGame {
     }
 }
 
-/// Saved in-game clock.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SavedGameTime {
-    pub(crate) total_hours: f32,
-    pub(crate) speed: f32,
-    pub(crate) day: u32,
+/// Script-owned part of a save, collected under one script lock.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub(crate) struct ScriptSnapshot {
+    pub(crate) player_instance: Option<InstanceId>,
+    pub(crate) globals: Vec<SavedValues>,
+    pub(crate) instances: Vec<SavedValues>,
+    /// The routine field of `NpcRuntime` is skipped by serde and rebuilt on
+    /// load, so only mutable non-routine state is persisted.
+    pub(crate) npc_runtimes: Vec<(InstanceId, NpcRuntime)>,
+    pub(crate) item_runtimes: Vec<(InstanceId, ItemRuntime)>,
+    pub(crate) journal: Vec<JournalTopic>,
+    pub(crate) guild_attitudes: Vec<SavedGuildAttitude>,
+    pub(crate) mob_routines: Vec<MobRoutineEntry>,
 }
 
 /// Raw words of one global symbol or one instance record.
@@ -93,123 +98,6 @@ pub(crate) struct SavedValues {
     pub(crate) values: Vec<i32>,
 }
 
-/// Mutable runtime state of one npc instance. Routine state is intentionally
-/// absent and is rebuilt by instance initialization.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub(crate) struct SavedNpcRuntime {
-    pub(crate) instance_id: i32,
-    pub(crate) visual: SavedNpcVisual,
-    pub(crate) equipment: SavedNpcEquipment,
-    pub(crate) dialog: SavedNpcDialog,
-    pub(crate) inventory: Vec<SavedInventoryItem>,
-    pub(crate) talent_skills: Vec<i32>,
-    pub(crate) talent_values: Vec<i32>,
-    pub(crate) social: SavedNpcSocial,
-    pub(crate) live: SavedNpcLive,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub(crate) struct SavedNpcVisual {
-    pub(crate) initialized: bool,
-    pub(crate) body_model_id: Option<i32>,
-    pub(crate) head_model_id: Option<i32>,
-    pub(crate) hierarchy_id: Option<i32>,
-    pub(crate) body_texture_index: i32,
-    pub(crate) face_texture_index: i32,
-    pub(crate) body_model: String,
-    pub(crate) body_texture: Option<String>,
-    pub(crate) head_model: Option<String>,
-    pub(crate) face_texture: Option<String>,
-    pub(crate) hierarchy: Option<String>,
-    pub(crate) model_scale: Option<[f32; 3]>,
-    pub(crate) model_fatness: Option<f32>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub(crate) struct SavedNpcEquipment {
-    pub(crate) melee: Option<i32>,
-    pub(crate) ranged: Option<i32>,
-    pub(crate) armor: Option<i32>,
-    pub(crate) weapon_mode: Option<SavedWeaponMode>,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub(crate) enum SavedWeaponMode {
-    Fists,
-    Melee,
-    Ranged,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub(crate) struct SavedNpcDialog {
-    pub(crate) roots: Option<Vec<SavedDialogRoot>>,
-    pub(crate) known_infos: Vec<i32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SavedDialogRoot {
-    pub(crate) info_instance_id: Option<i32>,
-    pub(crate) sequence_function_id: i32,
-    pub(crate) condition_function_id: Option<i32>,
-    pub(crate) order: i32,
-    pub(crate) description: String,
-    pub(crate) important: bool,
-    pub(crate) permanent: bool,
-    pub(crate) trade: bool,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub(crate) struct SavedNpcSocial {
-    pub(crate) attitude: Option<i32>,
-    pub(crate) temp_attitude: Option<i32>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub(crate) struct SavedNpcLive {
-    pub(crate) position: Option<[f32; 3]>,
-    pub(crate) look_at: Option<i32>,
-    pub(crate) target: Option<i32>,
-}
-
-/// One stack in an npc inventory or a chest.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SavedInventoryItem {
-    pub(crate) item: i32,
-    pub(crate) count: i32,
-}
-
-/// Mutable runtime state of one item instance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SavedItemRuntime {
-    pub(crate) instance_id: i32,
-    pub(crate) name: String,
-    pub(crate) visual: String,
-    pub(crate) visual_change: Option<String>,
-}
-
-/// One journal topic in creation order.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SavedJournalTopic {
-    pub(crate) name: String,
-    pub(crate) section: SavedJournalSection,
-    pub(crate) status: SavedJournalStatus,
-    pub(crate) entries: Vec<String>,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub(crate) enum SavedJournalSection {
-    Mission,
-    Note,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub(crate) enum SavedJournalStatus {
-    Running,
-    Success,
-    Failed,
-    Obsolete,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SavedGuildAttitude {
     pub(crate) guild_a: i32,
@@ -217,19 +105,10 @@ pub(crate) struct SavedGuildAttitude {
     pub(crate) attitude: i32,
 }
 
-/// One `Wld_SetMobRoutine` entry.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SavedMobRoutine {
-    pub(crate) hour: i32,
-    pub(crate) minute: i32,
-    pub(crate) mob_name: String,
-    pub(crate) state: i32,
-}
-
 /// A live npc entity, spawned back at its exact transform on load.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SavedNpcEntity {
-    pub(crate) instance_id: i32,
+    pub(crate) instance_id: InstanceId,
     pub(crate) transform: Transform,
     pub(crate) overlay: Option<String>,
 }
@@ -237,7 +116,7 @@ pub(crate) struct SavedNpcEntity {
 /// A live item entity, spawned back at its exact transform on load.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SavedItemEntity {
-    pub(crate) instance_id: i32,
+    pub(crate) instance_id: InstanceId,
     pub(crate) transform: Transform,
 }
 
@@ -245,12 +124,13 @@ pub(crate) struct SavedItemEntity {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SavedChest {
     pub(crate) index: usize,
-    pub(crate) items: Vec<SavedInventoryItem>,
+    pub(crate) items: Vec<(InstanceId, i32)>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::zengin::{JournalSection, JournalStatus};
 
     #[test]
     fn fnv1a_matches_known_values() {
@@ -264,29 +144,23 @@ mod tests {
             format_version: SAVE_FORMAT_VERSION,
             script_fingerprint: 42,
             world_name: "NEWWORLD/NEWWORLD".to_string(),
-            game_time: SavedGameTime {
-                total_hours: 12.0,
-                speed: 1.0,
-                day: 1,
-            },
+            game_time: GameTime::default(),
             player_transform: Transform::IDENTITY,
-            player_instance: Some(7),
-            globals: vec![SavedValues {
-                id: 3,
-                name: "test_global".to_string(),
-                values: vec![1, 2, 3],
-            }],
-            instances: Vec::new(),
-            npc_runtimes: Vec::new(),
-            item_runtimes: Vec::new(),
-            journal: vec![SavedJournalTopic {
-                name: "TEST_TOPIC".to_string(),
-                section: SavedJournalSection::Mission,
-                status: SavedJournalStatus::Running,
-                entries: vec!["entry".to_string()],
-            }],
-            guild_attitudes: Vec::new(),
-            mob_routines: Vec::new(),
+            script: ScriptSnapshot {
+                player_instance: InstanceId::new(7),
+                globals: vec![SavedValues {
+                    id: 3,
+                    name: "test_global".to_string(),
+                    values: vec![1, 2, 3],
+                }],
+                journal: vec![JournalTopic {
+                    name: "TEST_TOPIC".to_string(),
+                    section: JournalSection::Mission,
+                    status: JournalStatus::Running,
+                    entries: vec!["entry".to_string()],
+                }],
+                ..ScriptSnapshot::default()
+            },
             live_npcs: Vec::new(),
             live_items: Vec::new(),
             chests: Vec::new(),
@@ -302,9 +176,12 @@ mod tests {
         assert_eq!(restored.format_version, save.format_version);
         assert_eq!(restored.script_fingerprint, save.script_fingerprint);
         assert_eq!(restored.world_name, save.world_name);
-        assert_eq!(restored.globals.len(), 1);
-        assert_eq!(restored.globals[0].values, vec![1, 2, 3]);
-        assert_eq!(restored.journal[0].entries, vec!["entry".to_string()]);
+        assert_eq!(restored.script.globals.len(), 1);
+        assert_eq!(restored.script.globals[0].values, vec![1, 2, 3]);
+        assert_eq!(
+            restored.script.journal[0].entries,
+            vec!["entry".to_string()]
+        );
     }
 
     #[test]
@@ -317,5 +194,32 @@ mod tests {
 
         save.format_version = SAVE_FORMAT_VERSION;
         assert!(save.validate(43).is_err());
+    }
+
+    #[test]
+    fn npc_runtime_round_trips_without_routine_state() {
+        let instance = InstanceId::new(5).expect("instance id");
+        let item = InstanceId::new(9).expect("item id");
+        let mut runtime = NpcRuntime::default();
+        runtime.routine.state_time = 123;
+        runtime.inventory.create(item, 2);
+        runtime.talents.set_skill(0, 3);
+        runtime.live.position = Some(bevy::math::Vec3::new(1.0, 2.0, 3.0));
+
+        let mut save = minimal_save();
+        save.script.npc_runtimes.push((instance, runtime));
+        let text = ron::ser::to_string_pretty(&save, ron::ser::PrettyConfig::default())
+            .expect("serialize");
+        let restored: SaveGame = ron::from_str(&text).expect("deserialize");
+
+        let (restored_instance, restored) = &restored.script.npc_runtimes[0];
+        assert_eq!(*restored_instance, instance);
+        assert_eq!(restored.routine.state_time, 0);
+        assert_eq!(restored.inventory.count(item), 2);
+        assert_eq!(restored.talents.skill(0), 3);
+        assert_eq!(
+            restored.live.position,
+            Some(bevy::math::Vec3::new(1.0, 2.0, 3.0))
+        );
     }
 }

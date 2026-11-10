@@ -3,10 +3,12 @@
 
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
+
 use super::symbol_id::InstanceId;
 
 /// Items owned by one npc, keyed by item instance id.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Inventory {
     items: HashMap<InstanceId, i32>,
 }
@@ -52,6 +54,14 @@ impl Inventory {
             self.items.remove(&item);
         }
         removed
+    }
+
+    /// Replaces the whole inventory with the given stacks.
+    pub fn replace(&mut self, items: impl IntoIterator<Item = (InstanceId, i32)>) {
+        self.items.clear();
+        for (item, count) in items {
+            self.create(item, count);
+        }
     }
 
     /// Empties the inventory, returning the removed contents.

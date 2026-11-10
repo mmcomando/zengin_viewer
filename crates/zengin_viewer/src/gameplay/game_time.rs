@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::game_state::AppState;
 use crate::input::Options;
@@ -27,7 +28,7 @@ impl Plugin for GameTimePlugin {
 const HOURS_PER_SECOND: f32 = 24.0 / (5.0 * 60.0);
 
 /// Current time of day of the running game.
-#[derive(Resource, Debug)]
+#[derive(Resource, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct GameTime {
     /// In-game hours in `[0, 24)`, `0.0` is midnight.
     pub total_hours: f32,

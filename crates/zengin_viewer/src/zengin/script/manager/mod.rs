@@ -6,6 +6,7 @@ mod dialog;
 mod inventory;
 mod menu;
 mod npc;
+mod save;
 mod strings;
 mod world;
 
@@ -16,6 +17,8 @@ use std::sync::Arc;
 use daedalus_wasm::wasm::convert_daedalus_script;
 use wasmtime::component::{Component, HasData, Linker};
 use wasmtime::{Engine, Store};
+
+use crate::save::format::fnv1a_64;
 
 use super::bindings::MmWorld;
 use super::state::ImportCallState;
@@ -29,6 +32,9 @@ pub struct ScriptManager {
     pub(super) routine_loop_functions: HashMap<FunctionId, Option<FunctionId>>,
     /// `startup_global` ran, it is a one-time script entry point.
     pub(super) global_startup_done: bool,
+    /// Stable fingerprint of the raw `GOTHIC.DAT` bytes, used to reject saves
+    /// made against a different script build. `0` when the source is unknown.
+    script_fingerprint: u64,
 }
 
 /// Display stats of an item instance for the inventory info panel, string
@@ -64,9 +70,20 @@ pub(super) fn attribute_display_name(index: i32) -> Option<&'static str> {
 
 impl ScriptManager {
     pub fn from_file_cached(script_path: &Path, script_wasm_cache_path: &Path) -> Self {
+        let fingerprint = std::fs::read(script_path)
+            .map(|bytes| fnv1a_64(&bytes))
+            .unwrap_or_else(|error| {
+                bevy::log::warn!(
+                    "Failed to read {} for the script fingerprint: {error}",
+                    script_path.display()
+                );
+                0
+            });
         let wasm_bytes = convert_daedalus_script(script_path);
         std::fs::write(script_wasm_cache_path, &wasm_bytes).unwrap();
-        return Self::new(&wasm_bytes);
+        let mut manager = Self::new(&wasm_bytes);
+        manager.script_fingerprint = fingerprint;
+        manager
     }
 
     pub fn new(wasm_bytes: &[u8]) -> Self {
@@ -89,7 +106,14 @@ impl ScriptManager {
             instance: instance_arc,
             routine_loop_functions: HashMap::new(),
             global_startup_done: false,
+            script_fingerprint: 0,
         }
+    }
+
+    /// Fingerprint of the loaded `GOTHIC.DAT` used by the save compatibility
+    /// check. `0` when the vm was built from bytes without a known source.
+    pub fn script_fingerprint(&self) -> u64 {
+        self.script_fingerprint
     }
 
     pub(super) fn try_call_function(&mut self, symbol_id: FunctionId) -> wasmtime::Result<()> {

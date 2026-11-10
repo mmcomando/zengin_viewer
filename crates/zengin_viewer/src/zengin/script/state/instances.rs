@@ -4,6 +4,7 @@ use bevy::{
     math::Vec3,
     prelude::{Component, Message},
 };
+use serde::{Deserialize, Serialize};
 
 use super::super::inventory::Inventory;
 use super::super::string_value::StringCanon;
@@ -23,9 +24,12 @@ pub struct RoutineEntry {
 }
 
 /// Runtime state of an npc instance, grouped by domain.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NpcRuntime {
     pub visual: NpcVisualState,
+    /// Rebuilt by instance initialization and the normal routine path, not
+    /// persisted in a save.
+    #[serde(skip)]
     pub routine: NpcRoutineState,
     pub equipment: NpcEquipmentState,
     pub dialog: NpcDialogState,
@@ -37,7 +41,7 @@ pub struct NpcRuntime {
 }
 
 /// Visual state set by the model functions and resolved at load time.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NpcVisualState {
     /// Set when `Mdl_SetVisualBody`/`Mdl_SetVisual` ran during instance init.
     /// Only these instances are treated as npcs.
@@ -67,7 +71,7 @@ pub struct NpcVisualState {
 }
 
 /// Routine and AI-state data of an npc.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct NpcRoutineState {
     /// Routine entries set via `TA_Min`.
     pub entries: Vec<RoutineEntry>,
@@ -83,7 +87,7 @@ pub struct NpcRoutineState {
 }
 
 /// Equipped items and weapon mode of an npc.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NpcEquipmentState {
     /// Melee weapon equipped (`EquipItem` with an `itmw_*` item).
     pub melee: Option<InstanceId>,
@@ -96,7 +100,7 @@ pub struct NpcEquipmentState {
 }
 
 /// Dialog knowledge of an npc.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NpcDialogState {
     /// Root dialog options (`C_INFO`) of this npc, `None` until dialog
     /// information is loaded for it.
@@ -106,7 +110,7 @@ pub struct NpcDialogState {
 }
 
 /// Attitude values of an npc.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NpcSocialState {
     /// Permanent attitude (`Npc_SetAttitude`).
     pub attitude: Option<i32>,
@@ -115,7 +119,7 @@ pub struct NpcSocialState {
 }
 
 /// Live world facts shared with the ECS side.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NpcLiveState {
     /// World position, `None` when the npc has no entity (unknown or dead).
     pub position: Option<Vec3>,
@@ -152,7 +156,7 @@ impl NpcRuntime {
 
 /// Runtime state of an item instance, keyed by instance id in
 /// [`LoadedState::items_instances`].
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ItemRuntime {
     /// Instance (symbol) name.
     pub name: String,
@@ -169,7 +173,7 @@ impl ItemRuntime {
     }
 }
 
-#[derive(Debug, Clone, Message)]
+#[derive(Debug, Clone, Message, Serialize, Deserialize)]
 pub struct DialogRoot {
     /// Symbol of the `C_INFO` instance this root was loaded from
     pub info_instance_id: Option<InstanceId>,
@@ -196,7 +200,7 @@ pub struct DialogChoice {
 pub const TALENTS_MAX: usize = 22;
 
 /// Talent skill and value slots of one npc.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NpcTalents {
     skills: [i32; TALENTS_MAX],
     values: [i32; TALENTS_MAX],
@@ -234,6 +238,27 @@ impl NpcTalents {
     pub fn set_value(&mut self, talent: i32, level: i32) {
         if let Some(slot) = Self::slot_mut(talent, &mut self.values) {
             *slot = level;
+        }
+    }
+
+    /// Raw skill slots in talent index order.
+    pub fn skill_slots(&self) -> &[i32; TALENTS_MAX] {
+        &self.skills
+    }
+
+    /// Raw value slots in talent index order.
+    pub fn value_slots(&self) -> &[i32; TALENTS_MAX] {
+        &self.values
+    }
+
+    /// Replaces the skill and value slots from saved data, ignoring entries past
+    /// the talent table.
+    pub fn set_slots(&mut self, skills: &[i32], values: &[i32]) {
+        for (slot, value) in self.skills.iter_mut().zip(skills) {
+            *slot = *value;
+        }
+        for (slot, value) in self.values.iter_mut().zip(values) {
+            *slot = *value;
         }
     }
 }

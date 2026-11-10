@@ -102,6 +102,12 @@ impl super::ScriptManager {
         &mut self.store.data_mut().pending
     }
 
+    /// Drops every pending change recorded so far. Used after a save restore to
+    /// keep initialization/`init_*` side effects away from the ECS.
+    pub fn clear_pending_changes(&mut self) {
+        *self.pending_changes() = PendingChanges::default();
+    }
+
     /// Lines only: sub dialog choices belong to their info and are cleared only
     /// by `Info_ClearChoices`.
     pub fn clear_dialog_lines(&mut self) {

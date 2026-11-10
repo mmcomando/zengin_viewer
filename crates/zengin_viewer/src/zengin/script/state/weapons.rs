@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 /// `C_Item.mainflag` category bit of armor items (`ITEM_KAT_ARMOR`).
 pub const ITEM_MAINFLAG_ARMOR: i32 = 16;
 
@@ -11,7 +13,7 @@ pub enum OverlayRequest {
 }
 
 /// Weapon mode of an npc, drives the idle animation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WeaponMode {
     /// No weapon drawn (fists or sheathed)
     Fists,

@@ -41,12 +41,22 @@ impl ScriptManager {
     /// Runs the script entry points of a world load. `clean_spawn` is a fresh
     /// world without saved state, only then the startup functions run.
     pub fn load_world(&mut self, world_name: &str, clean_spawn: bool) {
+        self.reset_world_state();
+        if !self.run_world_entry_points(world_name, clean_spawn) {
+            return;
+        }
+        self.call_npc_routines();
+        // Initial values are seeded on npc spawn, do not replay them as changes.
+        self.clear_npc_changes();
+    }
+
+    /// Runs only the world script entry points (`startup_*` on a clean spawn,
+    /// then `init_*`). The save restore reuses this without the per-world reset.
+    pub(super) fn run_world_entry_points(&mut self, world_name: &str, clean_spawn: bool) -> bool {
         let Some(script_name) = world_script_name(world_name) else {
             warn!("No script name for world({world_name})");
-            return;
+            return false;
         };
-
-        self.reset_world_state();
 
         if clean_spawn && !self.global_startup_done {
             self.call_optional_function("startup_global");
@@ -57,10 +67,7 @@ impl ScriptManager {
         }
         self.call_optional_function("init_global");
         self.call_optional_function(&format!("init_{script_name}"));
-
-        self.call_npc_routines();
-        // Initial values are seeded on npc spawn, do not replay them as changes.
-        self.clear_npc_changes();
+        true
     }
 
     /// Drops the per-world script bookkeeping so reloading a world does not
