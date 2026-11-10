@@ -68,6 +68,7 @@ pub(crate) use crate::zengin::script::{
 };
 pub(crate) use crate::zengin::statistics::StatisticsZengin;
 pub(crate) use crate::zengin::waypoint_graph::WaypointGraph;
+pub(crate) use crate::zengin::world_plugin::RestartWorld;
 
 /// Plugin which provides Zengin related functionality
 pub struct ZenginPlugin;

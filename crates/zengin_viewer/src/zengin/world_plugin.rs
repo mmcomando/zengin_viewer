@@ -10,8 +10,10 @@ use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::NpcAnimations;
 use crate::gui_debug::{NpcVisibility, StaticMesh, WorldMesh};
+use crate::world_entity::WorldEntityMarker;
 use crate::zengin::common::get_full_texture_path;
 use crate::zengin::instance_index::InstanceIndex;
+use crate::zengin::interaction::selection::Selection;
 use crate::zengin::loaders::vfs::{
     item_model_path, mesh_model_path, normalize_mesh_name, resolve_stand_animation,
 };
@@ -45,11 +47,20 @@ impl Plugin for ZenGinWorldPlugin {
         app.init_resource::<WayPoints>();
         app.init_resource::<Spots>();
         app.init_resource::<WaypointGraph>();
+        app.init_resource::<CurrentWorld>();
 
         app.add_message::<SpawnWorld>();
+        app.add_message::<RestartWorld>();
         app.add_systems(
             OnEnter(AppState::InGame),
             request_initial_world.after(GameScriptLoaded),
+        );
+        app.add_systems(
+            Update,
+            restart_world
+                .before(spawn_world)
+                .run_if(in_state(AppState::InGame))
+                .run_if(on_message::<RestartWorld>),
         );
         app.add_systems(
             Update,
@@ -74,12 +85,67 @@ pub struct SpawnWorld {
     pub world_name: String,
     /// World has no saved state, its one-time startup script entry points run.
     pub clean_spawn: bool,
+    /// Player position to reuse instead of the default start location.
+    pub player_transform: Option<Transform>,
 }
+
+/// Set by the debug UI to tear down and respawn the current world.
+#[derive(Message)]
+pub struct RestartWorld;
+
+/// World path of the most recently spawned world.
+#[derive(Resource, Default)]
+struct CurrentWorld(String);
 
 fn request_initial_world(mut spawn_world: MessageWriter<SpawnWorld>) {
     spawn_world.write(SpawnWorld {
         world_name: "NEWWORLD/NEWWORLD".to_string(),
         clean_spawn: true,
+        player_transform: None,
+    });
+}
+
+fn restart_world(world: &mut World) {
+    let world_name = world.resource::<CurrentWorld>().0.clone();
+    if world_name.is_empty() {
+        warn!("World restart requested before a world was spawned");
+        return;
+    }
+
+    let player_transform = {
+        let mut query = world.query_filtered::<&Transform, With<PlayerPhysicsBodyMarker>>();
+        query.iter(world).next().copied()
+    };
+
+    *world.resource_mut::<GameTime>() = GameTime::default();
+
+    let entities: Vec<Entity> = world
+        .query_filtered::<Entity, With<WorldEntityMarker>>()
+        .iter(world)
+        .collect();
+    for entity in entities {
+        world.despawn(entity);
+    }
+
+    let scripts = world.resource::<ScriptResource>().clone();
+    let (npc_handles, item_handles) = {
+        let mut script = scripts.lock();
+        script.restart_world_state();
+        (script.npc_handles(), script.item_handles())
+    };
+    {
+        let mut index = world.resource_mut::<InstanceIndex>();
+        index.clear();
+        index.replace_npc_handles(npc_handles);
+        index.replace_item_handles(item_handles);
+    }
+
+    *world.resource_mut::<Selection>() = Selection::default();
+
+    world.write_message(SpawnWorld {
+        world_name,
+        clean_spawn: true,
+        player_transform,
     });
 }
 
@@ -99,11 +165,13 @@ fn spawn_world(
     for SpawnWorld {
         world_name,
         clean_spawn,
+        player_transform,
     } in requests.read()
     {
         spawn_world_data(
             world_name,
             *clean_spawn,
+            *player_transform,
             &mut commands,
             &mut handles_map,
             &mut named_models,
@@ -122,6 +190,7 @@ fn spawn_world(
 fn spawn_world_data(
     world_name: &str,
     clean_spawn: bool,
+    player_transform: Option<Transform>,
     commands: &mut Commands,
     handles_map: &mut CachedAssetHandles,
     named_models: &mut NamedModels,
@@ -133,6 +202,7 @@ fn spawn_world_data(
     meshes: &mut Assets<Mesh>,
     spawn_item: &mut MessageWriter<SpawnItem>,
 ) {
+    commands.insert_resource(CurrentWorld(world_name.to_string()));
     let _span = info_span!("spawn_world").entered();
     println!("\n-----SCRIPTS VM-----\n");
     let mut gothic_script = gothic_script.lock();
@@ -267,7 +337,12 @@ fn spawn_world_data(
     }
 
     if !gothic_script.has_player_instance() {
-        spawn_player(commands, &mut gothic_script, instance_index);
+        spawn_player(
+            commands,
+            &mut gothic_script,
+            instance_index,
+            player_transform,
+        );
     }
 }
 
@@ -309,6 +384,7 @@ fn spawn_player(
     commands: &mut Commands,
     gothic_script: &mut ScriptManager,
     instance_index: &mut InstanceIndex,
+    player_transform: Option<Transform>,
 ) {
     let player_instance = gothic_script
         .symbol_instance("pc_hero")
@@ -339,7 +415,7 @@ fn spawn_player(
         // Mesh3d(meshes.add(Capsule3d::new(0.5, 0.8))),
         // MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         // Transform::from_xyz(0.0, 1.5, 0.0),
-        Transform::from_xyz(-97.0, 6.0, -7.0),
+        player_transform.unwrap_or(Transform::from_xyz(-97.0, 6.0, -7.0)),
     ));
 
     // Player visual

@@ -79,6 +79,15 @@ pub struct InstanceIndex {
 }
 
 impl InstanceIndex {
+    /// Drops every tracked entity, instance and handle, used when the world is
+    /// restarted and all of them are rebuilt.
+    pub fn clear(&mut self) {
+        self.npcs = EntityIndex::default();
+        self.items = EntityIndex::default();
+        self.npc_handles.clear();
+        self.item_handles.clear();
+    }
+
     /// Entities carrying the given npc instance id.
     pub fn npcs(&self, id: InstanceId) -> &[Entity] {
         self.npcs.entities(id)

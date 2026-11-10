@@ -13,7 +13,7 @@ use crate::gui_debug::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
 };
-use crate::zengin::{ImportantDialogOptions, StatisticsZengin};
+use crate::zengin::{ImportantDialogOptions, RestartWorld, StatisticsZengin};
 
 pub struct GameDebugUI;
 impl Plugin for GameDebugUI {
@@ -104,6 +104,7 @@ fn ui_info_system(
     mut render_options: ResMut<RenderOptions>,
     mut gizmos_options: ResMut<GizmosOptions>,
     mut important_dialog_options: ResMut<ImportantDialogOptions>,
+    mut restart_world: MessageWriter<RestartWorld>,
     mut teleports: MessageWriter<TeleportToLocation>,
     camera_query: Query<&GlobalTransform, With<Camera3d>>,
 ) -> Result {
@@ -254,6 +255,13 @@ fn ui_info_system(
                         }
                     }
                 });
+            });
+
+            ui.group(|ui| {
+                ui.label("World");
+                if ui.button("Restart World").clicked() {
+                    restart_world.write(RestartWorld);
+                }
             });
 
             if visibility_settings_changed {
