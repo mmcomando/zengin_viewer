@@ -15,6 +15,8 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
         self.pending.spawn_npcs.push(SpawnNpc {
             instance_id: npc_index,
             transform: None,
+            exact_transform: false,
+            overlay: None,
             location_name: Some(waypoint_string_id),
         });
     }

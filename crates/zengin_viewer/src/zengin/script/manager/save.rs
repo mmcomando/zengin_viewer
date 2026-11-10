@@ -150,9 +150,9 @@ impl super::ScriptManager {
         self.journal_mut().replace_topics(save.journal.clone());
         self.restore_guild_attitudes(&save.guild_attitudes);
         self.store.data_mut().loaded_state.mob_routines = save.mob_routines.clone();
-        if let Some(player) = save.player_instance {
-            self.set_player_instance(player);
-        }
+        // Do not restore `player_instance` here: the world spawn checks it to
+        // decide whether the player entity still has to be created, and
+        // `spawn_player` sets it to the resolved `PC_HERO` instance.
 
         // Startup results came from the save, do not run them on world travel.
         self.global_startup_done = true;

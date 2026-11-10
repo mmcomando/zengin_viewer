@@ -97,6 +97,11 @@ pub struct SpawnNpc {
     pub instance_id: InstanceId,
     pub location_name: Option<StringId>, // Waypoint or spot name
     pub transform: Option<Transform>,
+    /// Use the transform verbatim instead of the ground-placement offset and
+    /// model-scale override. Used when restoring a saved world.
+    pub exact_transform: bool,
+    /// Overlay animation scheme to apply at spawn (saved world restore).
+    pub overlay: Option<String>,
 }
 
 /// Items an npc's inventory gained through the script, recorded only when the

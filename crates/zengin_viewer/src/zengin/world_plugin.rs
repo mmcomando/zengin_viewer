@@ -10,6 +10,7 @@ use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::NpcAnimations;
 use crate::gui_debug::{NpcVisibility, StaticMesh, WorldMesh};
+use crate::save::format::SaveGame;
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::common::get_full_texture_path;
 use crate::zengin::instance_index::InstanceIndex;
@@ -30,7 +31,9 @@ use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
-use crate::zengin::{GameChest, GameItem, GameNpc, NpcActionQueue, NpcHandle, ZenginVfs};
+use crate::zengin::{
+    GameChest, GameItem, GameNpc, NpcActionQueue, NpcHandle, NpcOverlay, ZenginVfs,
+};
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
@@ -85,6 +88,9 @@ pub struct SpawnWorld {
     pub clean_spawn: bool,
     /// Player position to reuse instead of the default start location.
     pub player_transform: Option<Transform>,
+    /// Saved world state to restore. `None` for a normal spawn or a debug
+    /// restart.
+    pub restore: Option<Box<SaveGame>>,
 }
 
 /// Set by the debug UI to tear down and respawn the current world.
@@ -100,6 +106,7 @@ fn request_initial_world(mut spawn_world: MessageWriter<SpawnWorld>) {
         world_name: "NEWWORLD/NEWWORLD".to_string(),
         clean_spawn: true,
         player_transform: None,
+        restore: None,
     });
 }
 
@@ -144,6 +151,7 @@ fn restart_world(world: &mut World) {
         world_name,
         clean_spawn: true,
         player_transform,
+        restore: None,
     });
 }
 
@@ -157,17 +165,20 @@ fn spawn_world(
     gothic_script: Res<ScriptResource>,
     mut instance_index: ResMut<InstanceIndex>,
     mut spawn_item: MessageWriter<SpawnItem>,
+    mut spawn_npc: MessageWriter<SpawnNpc>,
 ) {
     for SpawnWorld {
         world_name,
         clean_spawn,
         player_transform,
+        restore,
     } in requests.read()
     {
         spawn_world_data(
             world_name,
             *clean_spawn,
             *player_transform,
+            restore.as_deref(),
             &mut commands,
             &mut handles_map,
             &mut named_models,
@@ -176,6 +187,7 @@ fn spawn_world(
             &gothic_script,
             &mut instance_index,
             &mut spawn_item,
+            &mut spawn_npc,
         );
     }
 }
@@ -185,6 +197,7 @@ fn spawn_world_data(
     world_name: &str,
     clean_spawn: bool,
     player_transform: Option<Transform>,
+    restore: Option<&SaveGame>,
     commands: &mut Commands,
     handles_map: &mut CachedAssetHandles,
     named_models: &mut NamedModels,
@@ -193,6 +206,7 @@ fn spawn_world_data(
     gothic_script: &ScriptResource,
     instance_index: &mut InstanceIndex,
     spawn_item: &mut MessageWriter<SpawnItem>,
+    spawn_npc: &mut MessageWriter<SpawnNpc>,
 ) {
     commands.insert_resource(CurrentWorld(world_name.to_string()));
     let _span = info_span!("spawn_world").entered();
@@ -220,7 +234,15 @@ fn spawn_world_data(
     );
 
     println!("\n-----CALL WORLD SCRIPTS-----\n");
-    gothic_script.load_world(world_name, clean_spawn);
+    if let Some(save) = restore {
+        let (npc_handles, item_handles) =
+            gothic_script.restore_world_from_save(world_name, &save.script);
+        instance_index.clear();
+        instance_index.replace_npc_handles(npc_handles);
+        instance_index.replace_item_handles(item_handles);
+    } else {
+        gothic_script.load_world(world_name, clean_spawn);
+    }
 
     commands.insert_resource(WayPoints { points: way_points });
     commands.insert_resource(Spots(std::mem::take(&mut world_data.spots)));
@@ -269,14 +291,18 @@ fn spawn_world_data(
         ));
     }
 
-    for chest in world_data.chests {
+    for (index, chest) in world_data.chests.into_iter().enumerate() {
         let model_handle = handles_map.get_model_handle(asset_server, &chest.archetype, None);
+        let items = restore
+            .and_then(|save| save.chests.iter().find(|saved| saved.index == index))
+            .map_or(chest.items, |saved| saved.items.clone());
         commands.spawn((
             ClassifyDistance::default(),
             GameChest {
+                index,
                 name: chest.name,
                 locked: chest.locked,
-                items: chest.items,
+                items,
             },
             Collider::cuboid(
                 chest.collider_half_extents.x * 2.0,
@@ -302,6 +328,25 @@ fn spawn_world_data(
             instance_index,
             player_transform,
         );
+    }
+
+    if let Some(save) = restore {
+        for npc in &save.live_npcs {
+            spawn_npc.write(SpawnNpc {
+                instance_id: npc.instance_id,
+                location_name: None,
+                transform: Some(npc.transform),
+                exact_transform: true,
+                overlay: npc.overlay.clone(),
+            });
+        }
+        for item in &save.live_items {
+            spawn_item.write(SpawnItem {
+                instance_id: item.instance_id,
+                location_name: None,
+                transform: Some(item.transform),
+            });
+        }
     }
 }
 
@@ -498,10 +543,13 @@ fn spawn_npc_entities(
             };
             *tr
         };
-        // Place the visual on the ground, matching the engine placement
-        transform.translation.y -= 0.5;
-        if let Some(scale) = script.model_scale {
-            transform.scale = scale;
+        // Place the visual on the ground, matching the engine placement. A
+        // restore spawn uses the saved transform verbatim.
+        if !spawn.exact_transform {
+            transform.translation.y -= 0.5;
+            if let Some(scale) = script.model_scale {
+                transform.scale = scale;
+            }
         }
 
         let Some(body_model) = mesh_model_path(&vfs, &script.body_model) else {
@@ -537,7 +585,7 @@ fn spawn_npc_entities(
             .as_deref()
             .and_then(|scheme| resolve_stand_animation(&vfs, scheme));
 
-        commands.spawn((
+        let mut entity = commands.spawn((
             Visibility::default(),
             GameNpc::new(script.handle.clone()),
             NpcActionQueue::default(),
@@ -555,6 +603,9 @@ fn spawn_npc_entities(
             transform,
             NpcVisibility::default(),
         ));
+        if let Some(overlay) = &spawn.overlay {
+            entity.insert(NpcOverlay(Some(overlay.clone())));
+        }
     }
 }
 

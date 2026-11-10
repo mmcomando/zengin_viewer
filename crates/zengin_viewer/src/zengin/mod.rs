@@ -141,6 +141,9 @@ impl GameItem {
 #[derive(Debug, Component)]
 #[require(WorldEntityMarker)]
 pub struct GameChest {
+    /// Position of the container in the ZEN load order, used to match saved
+    /// loot to the same chest.
+    pub index: usize,
     pub name: String,
     /// Vob `locked` flag, reported when the chest is opened.
     pub locked: bool,
