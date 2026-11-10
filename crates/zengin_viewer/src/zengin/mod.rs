@@ -1,5 +1,6 @@
 mod common;
 pub(crate) mod dialog;
+mod fight_ai;
 mod instance_index;
 mod interaction;
 mod loaders;
@@ -35,6 +36,7 @@ pub(crate) use crate::zengin::common::to_world_units;
 pub(crate) use crate::zengin::dialog::DialogUiState;
 pub(crate) use crate::zengin::dialog::ImportantDialogOptions;
 pub(crate) use crate::zengin::dialog::SpeechSounds;
+pub(crate) use crate::zengin::fight_ai::{FightAiResource, load_fight_ai_tables};
 pub(crate) use crate::zengin::interaction::MeleeHit;
 pub(crate) use crate::zengin::interaction::ranged::ArrowShot;
 pub(crate) use crate::zengin::interaction::selection::{Selection, SelectionKind};

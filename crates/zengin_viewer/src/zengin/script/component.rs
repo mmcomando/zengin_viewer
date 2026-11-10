@@ -1,7 +1,7 @@
 use crate::game_state::AppState;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::{GameNpc, NpcHandle};
+use crate::zengin::{GameNpc, NpcHandle, load_fight_ai_tables};
 use crate::zengin::{common::gothic2_dir, script::manager::ScriptManager};
 use bevy::ecs::resource::Resource;
 use bevy::log::info;
@@ -41,6 +41,7 @@ fn initialize_game_script(world: &mut World) {
     let npc_handles = script.npc_handles();
     let item_handles = script.item_handles();
     world.insert_resource(ScriptResource::from_manager(script));
+    world.insert_resource(load_fight_ai_tables());
     {
         let mut index = world.resource_mut::<InstanceIndex>();
         index.replace_npc_handles(npc_handles);

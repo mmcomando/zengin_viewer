@@ -5,7 +5,6 @@ use crate::gameplay::objects::NpcModel;
 use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
 };
-use crate::zengin::GameNpc;
 use crate::zengin::npc_actions::goto::start_goto;
 use crate::zengin::npc_actions::queue::{NpcAction, NpcActionQueue};
 use crate::zengin::npc_routines::{
@@ -16,6 +15,7 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::waypoint_graph::{WaypointGraph, WaypointNodeIndex};
+use crate::zengin::{FightAiResource, GameNpc};
 
 /// Horizontal distance within which an attacking npc stops chasing and swings.
 const ATTACK_RANGE: f32 = 1.0;
@@ -32,6 +32,7 @@ pub(crate) fn run_npc_actions(
     spatial_query: SpatialQuery,
     waypoint_nodes: Query<&WaypointNodeIndex>,
     gothic_script: Res<ScriptResource>,
+    fight_ai: Res<FightAiResource>,
     files: Res<AnimationFiles>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
@@ -183,6 +184,12 @@ pub(crate) fn run_npc_actions(
                     commands.entity(entity).remove::<NpcPath>();
                     draw_melee_weapon(&gothic_script, npc.instance_id());
                     queue.mark_started();
+                    let tactic = gothic_script.lock().npc_fight_tactic(npc.instance_id());
+                    debug!(
+                        "npc({}) attack tactic({tactic:?}) with {} focus moves",
+                        npc.instance_id(),
+                        tactic.map_or(0, |tactic| fight_ai.0.focus_moves(tactic).len()),
+                    );
                     info!(
                         "npc({}) started attack on target({target}) at {distance:.2}m",
                         npc.instance_id()

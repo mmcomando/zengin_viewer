@@ -122,6 +122,12 @@ impl super::ScriptManager {
         self.store.data().typed.npc(instance)
     }
 
+    /// `C_Npc.fight_tactic`, the `FAI_*` fighter tactic table index. `None` when
+    /// the instance has no typed `C_Npc` data.
+    pub fn npc_fight_tactic(&self, npc: InstanceId) -> Option<i32> {
+        Some(self.npc_data(npc.value() as u32)?.fight_tactic)
+    }
+
     pub(super) fn item_data(&self, instance: u32) -> Option<Item> {
         self.store.data().typed.item(instance)
     }
