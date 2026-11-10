@@ -5,6 +5,7 @@
 
 mod common;
 
+mod fight_ai;
 mod print_class_offsets;
 mod test_control_flow;
 mod test_manage_functions;

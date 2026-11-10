@@ -1,7 +1,9 @@
 pub(crate) mod analyze;
+mod fight_ai;
 mod instruction;
 mod script;
 
+pub use fight_ai::{FIGHT_AI_MOVES, FightAiMove, FightAiTables};
 pub use instruction::Instruction;
 
 pub(crate) use script::CallSignature;
