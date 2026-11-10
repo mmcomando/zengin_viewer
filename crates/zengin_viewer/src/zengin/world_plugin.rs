@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::game_state::AppState;
+use crate::game_state::{AppState, WorldLoadState};
 use crate::gameplay::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
     PlayerPhysicsBodyMarker,
@@ -22,6 +22,7 @@ use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::resources::{
     CachedAssetHandles, NamedModels, SELECTABLE, ZenGinInsertResources, ZenGinModelComponent,
+    ZenGinModelComponentLoaded,
 };
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::{GameScriptLoaded, ScriptResource};
@@ -68,6 +69,10 @@ impl Plugin for ZenGinWorldPlugin {
             spawn_world
                 .before(ScriptChangesApplied)
                 .run_if(in_state(AppState::InGame)),
+        );
+        app.add_systems(
+            PostUpdate,
+            finish_world_load.run_if(in_state(WorldLoadState::Loading)),
         );
         app.add_systems(
             Update,
@@ -117,6 +122,10 @@ fn restart_world(world: &mut World) {
         return;
     }
 
+    world
+        .resource_mut::<NextState<WorldLoadState>>()
+        .set(WorldLoadState::Loading);
+
     let player_transform = {
         let mut query = world.query_filtered::<&Transform, With<PlayerPhysicsBodyMarker>>();
         query.iter(world).next().copied()
@@ -153,6 +162,23 @@ fn restart_world(world: &mut World) {
         player_transform,
         restore: None,
     });
+}
+
+/// Marks the world ready once the world mesh collider entities exist. Physics
+/// and the character controller stay paused until then.
+fn finish_world_load(
+    world_mesh: Query<&Children, (With<WorldMesh>, With<ZenGinModelComponentLoaded>)>,
+    colliders: Query<(), With<Collider>>,
+    mut load_state: ResMut<NextState<WorldLoadState>>,
+) {
+    let has_collider = world_mesh
+        .iter()
+        .any(|children| children.iter().any(|child| colliders.contains(child)));
+    if !has_collider {
+        return;
+    }
+    info!("World mesh colliders ready, resuming physics");
+    load_state.set(WorldLoadState::Ready);
 }
 
 fn spawn_world(

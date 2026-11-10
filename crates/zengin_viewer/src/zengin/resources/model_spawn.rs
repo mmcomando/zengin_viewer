@@ -10,6 +10,7 @@ use bevy::prelude::*;
 
 use crate::gameplay::character::QUERY_ONLY_LAYER;
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
+use crate::gui_debug::WorldMesh;
 use crate::zengin::objects_to_entities::create_skinned_mesh_data;
 use crate::zengin::resources::handles::CachedAssetHandles;
 use crate::zengin::visual::model::ZenGinModel;
@@ -64,7 +65,10 @@ pub(crate) fn convert_zengin_model_to_entities(
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
     query: Query<
         (Entity, &ZenGinModelComponent),
-        (With<DistanceNear>, Without<ZenGinModelComponentLoaded>),
+        (
+            Or<(With<DistanceNear>, With<WorldMesh>)>,
+            Without<ZenGinModelComponentLoaded>,
+        ),
     >,
 ) {
     for (entity_id, model_component) in query.iter() {

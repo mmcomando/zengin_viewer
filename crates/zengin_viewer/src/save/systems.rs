@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::game_state::AppState;
+use crate::game_state::{AppState, WorldLoadState};
 use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::game_time::GameTime;
@@ -202,6 +202,9 @@ fn quick_load(world: &mut World) {
         world.despawn(entity);
     }
     world.resource_mut::<InstanceIndex>().clear();
+    world
+        .resource_mut::<NextState<WorldLoadState>>()
+        .set(WorldLoadState::Loading);
 
     info!("Quick load requested, spawning world({})", save.world_name);
     let world_name = save.world_name.clone();
