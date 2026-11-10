@@ -107,6 +107,7 @@ mod graphics;
 mod gui;
 mod gui_debug;
 mod input;
+mod save;
 mod ui_kit;
 mod world_entity;
 mod xr;
