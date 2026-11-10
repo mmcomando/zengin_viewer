@@ -1,4 +1,4 @@
-//! Loads the world zen: the world mesh, static vob objects, lights, items,
+//! Loads the world zen: the world mesh, static vob objects, items,
 //! spots and the way net into [`ZenGinWorldData`].
 
 use bevy::prelude::*;
@@ -223,15 +223,6 @@ fn get_obj_tr(obj: &VirtualObject) -> Transform {
     return Transform::from_translation(pos).with_rotation(rot);
 }
 
-fn handle_light(obj: &VirtualObject, data: &mut ZenGinWorldData) {
-    let pos = get_world_pos(obj.position().to_glam());
-    let rot = get_world_rot(obj.rotation().to_glam());
-    // if !obj.cd_dynamic() {
-    //     return;
-    // }
-    data.light_instances.push(LightInstance { pos, rot });
-}
-
 fn handle_other_vob(
     data: &mut ZenGinWorldData,
     item_ids: &HashMap<String, InstanceId>,
@@ -258,8 +249,8 @@ fn handle_other_vob(
 
             return;
         }
-        VobType::zCVobLight => {
-            handle_light(obj, data);
+        VobType::zCVobLight | VobType::ignored => {
+            // Light vobs only carry baked lighting, runtime lights are not spawned.
             return;
         }
         VobType::zCVobSpot => {
@@ -345,9 +336,6 @@ fn handle_other_vob(
         }
         VobType::zCVobLensFlare => {
             warn_unimplemented!("VobType::zCVobLensFlare");
-        }
-        VobType::ignored => {
-            return;
         }
         // These should be handled in other function
         VobType::oCMobContainer => {

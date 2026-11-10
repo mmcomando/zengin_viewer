@@ -162,12 +162,6 @@ pub fn print_nodes(node: &VfsNode, level: u8) {
     }
 }
 
-#[derive(Debug)]
-pub struct LightInstance {
-    pub pos: Vec3,
-    pub rot: Quat,
-}
-
 #[derive(Debug, Default)]
 pub struct ZenGinInstance {
     pub tr: Transform,
@@ -193,7 +187,6 @@ pub struct ZenGinWorldData {
     pub world_model: ZenGinModel,
     pub static_models: Vec<ZenGinInstance>,
     pub chests: Vec<ZenGinChest>,
-    pub light_instances: Vec<LightInstance>,
     pub spots: HashMap<String, Transform>,
     pub way_points: HashMap<String, Transform>,
     /// Names of all files in the compiled anim archive (uppercase)

@@ -20,8 +20,7 @@ use crate::zengin::loaders::vfs::{
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::resources::{
-    CachedAssetHandles, DYNAMIC_OBJECT, NamedModels, SELECTABLE, STATIC_OBJECT,
-    ZenGinInsertResources, ZenGinModelComponent,
+    CachedAssetHandles, NamedModels, SELECTABLE, ZenGinInsertResources, ZenGinModelComponent,
 };
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::{GameScriptLoaded, ScriptResource};
@@ -33,7 +32,7 @@ use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
 use crate::zengin::{GameChest, GameItem, GameNpc, NpcActionQueue, NpcHandle, ZenginVfs};
 use avian3d::prelude::*;
-use bevy::{color::palettes::tailwind, prelude::*};
+use bevy::prelude::*;
 
 /// Loads the zengin world data and spawns the world and player entities.
 pub struct ZenGinWorldPlugin;
@@ -56,9 +55,8 @@ impl Plugin for ZenGinWorldPlugin {
             request_initial_world.after(GameScriptLoaded),
         );
         app.add_systems(
-            Update,
+            First,
             restart_world
-                .before(spawn_world)
                 .run_if(in_state(AppState::InGame))
                 .run_if(on_message::<RestartWorld>),
         );
@@ -158,8 +156,6 @@ fn spawn_world(
     vfs: Res<ZenginVfs>,
     gothic_script: Res<ScriptResource>,
     mut instance_index: ResMut<InstanceIndex>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut spawn_item: MessageWriter<SpawnItem>,
 ) {
     for SpawnWorld {
@@ -179,8 +175,6 @@ fn spawn_world(
             &vfs,
             &gothic_script,
             &mut instance_index,
-            &mut materials,
-            &mut meshes,
             &mut spawn_item,
         );
     }
@@ -198,8 +192,6 @@ fn spawn_world_data(
     vfs: &ZenginVfs,
     gothic_script: &ScriptResource,
     instance_index: &mut InstanceIndex,
-    materials: &mut Assets<StandardMaterial>,
-    meshes: &mut Assets<Mesh>,
     spawn_item: &mut MessageWriter<SpawnItem>,
 ) {
     commands.insert_resource(CurrentWorld(world_name.to_string()));
@@ -301,39 +293,6 @@ fn spawn_world_data(
             },
             StaticMesh::default(),
         ));
-    }
-
-    for instance in world_data.light_instances {
-        if true {
-            // For now ignore lights for performance, also it seems that most lights are for baking light data, not for rendering?
-            continue;
-        }
-        let tr = Transform::from_translation(instance.pos).with_rotation(instance.rot);
-        commands.spawn((
-            Visibility::default(),
-            PointLight {
-                color: Color::from(tailwind::ORANGE_300),
-                intensity: light_consts::lumens::LUMENS_PER_HALOGEN_WATTS * 5000.0,
-                range: 5.0,
-                ..default()
-            },
-            tr,
-        ));
-    }
-
-    for x in -2..2 {
-        for z in -2..2 {
-            commands.spawn((
-                RigidBody::Dynamic,
-                Collider::cuboid(1.0, 1.0, 1.0),
-                AngularVelocity(Vec3::new(2.5, 3.5, 1.5)),
-                Mesh3d(meshes.add(Cuboid::from_length(1.0))),
-                MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-                CollisionLayers::from_bits(DYNAMIC_OBJECT, STATIC_OBJECT | DYNAMIC_OBJECT),
-                #[allow(clippy::cast_precision_loss)]
-                Transform::from_xyz(-30.0 + x as f32 * 5.0, 30.0, z as f32 * 5.0),
-            ));
-        }
     }
 
     if !gothic_script.has_player_instance() {
