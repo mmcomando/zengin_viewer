@@ -204,6 +204,28 @@ mod tests {
         assert!(!queue.started());
     }
 
+    #[test]
+    fn attack_swings_are_dropped_with_the_action() {
+        let mut queue = NpcActionQueue::default();
+        queue.push(NpcAction::Attack {
+            target: Entity::PLACEHOLDER,
+        });
+        queue.attack_mut().swings.push_back(MeleeAttackKind::Left);
+
+        queue.pop_front();
+
+        assert!(queue.attack().swings.is_empty());
+
+        queue.push(NpcAction::Attack {
+            target: Entity::PLACEHOLDER,
+        });
+        queue.attack_mut().swings.push_back(MeleeAttackKind::Right);
+
+        queue.clear();
+
+        assert!(queue.attack().swings.is_empty());
+    }
+
     fn waypoint(name: &str) -> NpcAction {
         NpcAction::GoToWaypoint {
             waypoint: StringCanon::new(name),

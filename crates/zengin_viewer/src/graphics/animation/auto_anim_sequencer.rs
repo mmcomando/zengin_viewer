@@ -871,6 +871,48 @@ mod tests {
         assert_eq!(queued_next(&world, model), Some(attack));
     }
 
+    #[test]
+    fn left_swing_uses_the_left_attack_animation() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        let attack = animation_handle(&mut world, "T_1HATTACKL");
+
+        send_desired_force(
+            &mut world,
+            model,
+            DesiredAnimation::MeleeAttack(MeleeAttackKind::Left),
+            true,
+        );
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(attack));
+    }
+
+    #[test]
+    fn fist_kind_uses_the_fist_attack_animation() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        let attack = animation_handle(&mut world, "S_FISTATTACK");
+
+        send_desired_force(
+            &mut world,
+            model,
+            DesiredAnimation::MeleeAttack(MeleeAttackKind::Fist),
+            true,
+        );
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(attack));
+    }
+
+    #[test]
+    fn left_swing_lands_a_melee_hit_on_the_optimal_frame() {
+        let (mut world, model) = run_sequencer_world("T_1HATTACKL");
+
+        send_optimal_frame(&mut world, model);
+        run_optimal_frame_system(&mut world);
+
+        assert_eq!(melee_hits(&world), 1);
+    }
+
     /// A creature scheme resolves Stand to its `S_FISTRUN` idle.
     #[test]
     fn wolf_stand_uses_fist_run() {

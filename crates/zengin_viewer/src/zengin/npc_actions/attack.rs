@@ -145,3 +145,117 @@ fn random_side(rng: &mut Mt) -> MeleeAttackKind {
         MeleeAttackKind::Right
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rng() -> Mt {
+        Mt::new(0x9E37_79B9)
+    }
+
+    #[test]
+    fn attack_moves_expand_into_the_engine_swing_traces() {
+        let mut rng = rng();
+        assert_eq!(
+            expand_fai_move(FightAiMove::Attack, &mut rng),
+            [MeleeAttackKind::Default]
+        );
+        assert_eq!(
+            expand_fai_move(FightAiMove::SideAttack, &mut rng),
+            [MeleeAttackKind::Left, MeleeAttackKind::Right]
+        );
+        assert_eq!(
+            expand_fai_move(FightAiMove::WhirlAttack, &mut rng),
+            [
+                MeleeAttackKind::Left,
+                MeleeAttackKind::Right,
+                MeleeAttackKind::Left,
+                MeleeAttackKind::Right
+            ]
+        );
+        assert_eq!(
+            expand_fai_move(FightAiMove::MasterAttack, &mut rng),
+            [
+                MeleeAttackKind::Left,
+                MeleeAttackKind::Right,
+                MeleeAttackKind::Default,
+                MeleeAttackKind::Default,
+                MeleeAttackKind::Default,
+                MeleeAttackKind::Default
+            ]
+        );
+    }
+
+    #[test]
+    fn front_attack_starts_with_a_side_swing() {
+        let mut rng = rng();
+        let trace = expand_fai_move(FightAiMove::FrontAttack, &mut rng);
+
+        assert_eq!(trace.len(), 2);
+        assert!(matches!(
+            trace[0],
+            MeleeAttackKind::Left | MeleeAttackKind::Right
+        ));
+        assert_eq!(trace[1], MeleeAttackKind::Default);
+    }
+
+    #[test]
+    fn triple_attack_uses_one_of_the_two_combos() {
+        let mut rng = rng();
+        let trace = expand_fai_move(FightAiMove::TripleAttack, &mut rng);
+
+        let left_first = [
+            MeleeAttackKind::Left,
+            MeleeAttackKind::Right,
+            MeleeAttackKind::Default,
+        ];
+        let default_first = [
+            MeleeAttackKind::Default,
+            MeleeAttackKind::Right,
+            MeleeAttackKind::Left,
+        ];
+        assert!(trace == left_first || trace == default_first);
+    }
+
+    #[test]
+    fn non_attack_move_has_no_swings() {
+        let mut rng = rng();
+
+        assert!(expand_fai_move(FightAiMove::Wait, &mut rng).is_empty());
+    }
+
+    #[test]
+    fn pool_without_attacks_yields_no_move() {
+        let mut rng = rng();
+
+        assert_eq!(pick_focus_move(&[], None, &mut rng), None);
+        assert_eq!(
+            pick_focus_move(&[FightAiMove::Wait, FightAiMove::Strafe], None, &mut rng),
+            None
+        );
+    }
+
+    #[test]
+    fn previous_move_is_avoided_when_possible() {
+        let mut rng = rng();
+        let pool = [FightAiMove::Attack, FightAiMove::FrontAttack];
+
+        for _ in 0..16 {
+            assert_eq!(
+                pick_focus_move(&pool, Some(FightAiMove::Attack), &mut rng),
+                Some(FightAiMove::FrontAttack)
+            );
+        }
+    }
+
+    #[test]
+    fn single_attack_move_may_repeat() {
+        let mut rng = rng();
+
+        assert_eq!(
+            pick_focus_move(&[FightAiMove::Attack], Some(FightAiMove::Attack), &mut rng),
+            Some(FightAiMove::Attack)
+        );
+    }
+}
