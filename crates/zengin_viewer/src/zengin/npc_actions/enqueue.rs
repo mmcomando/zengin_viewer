@@ -116,6 +116,7 @@ pub(crate) fn clear_npc_actions(
 
 /// Turns `AI_Attack` requests into queued actions on their `Npc_SetTarget`
 /// target.
+#[allow(clippy::cognitive_complexity)]
 pub(crate) fn enqueue_attack_actions(
     mut changes: MessageReader<AttackChange>,
     index: Res<InstanceIndex>,

@@ -143,7 +143,7 @@ pub(super) fn melee_swing_hit(
 
 /// Applies a melee hit of an npc to its `Npc_SetTarget` target. The player's
 /// hitpoints are floored at one, it never dies.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::cognitive_complexity)]
 pub(super) fn npc_melee_swing_hit(
     mut commands: Commands,
     mut hits: MessageReader<MeleeHit>,

@@ -25,7 +25,11 @@ const ATTACK_RANGE: f32 = 1.0;
 const ATTACK_MAX_DISTANCE: f32 = 100.0;
 
 /// Executes the action at the front of every queue.
-#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+#[allow(
+    clippy::type_complexity,
+    clippy::too_many_arguments,
+    clippy::cognitive_complexity
+)]
 pub(crate) fn run_npc_actions(
     mut commands: Commands,
     way_points: Res<WayPoints>,
@@ -107,7 +111,7 @@ pub(crate) fn run_npc_actions(
                 queue.pop_front();
             }
             NpcAction::Attack { target } => {
-                let mut controller = controller;
+                let mut attack_controller = controller;
                 let Ok((target_tr, target_health)) = targets.get(target) else {
                     warn!(
                         "npc({}) attack target({target}) is gone, dropping action",
@@ -117,7 +121,7 @@ pub(crate) fn run_npc_actions(
                         &mut commands,
                         entity,
                         &mut queue,
-                        controller.as_deref_mut(),
+                        attack_controller.as_deref_mut(),
                         sequencer.is_some(),
                         model,
                         overlay,
@@ -136,7 +140,7 @@ pub(crate) fn run_npc_actions(
                         &mut commands,
                         entity,
                         &mut queue,
-                        controller.as_deref_mut(),
+                        attack_controller.as_deref_mut(),
                         sequencer.is_some(),
                         model,
                         overlay,
@@ -159,7 +163,7 @@ pub(crate) fn run_npc_actions(
                         &mut commands,
                         entity,
                         &mut queue,
-                        controller.as_deref_mut(),
+                        attack_controller.as_deref_mut(),
                         sequencer.is_some(),
                         model,
                         overlay,
@@ -170,7 +174,7 @@ pub(crate) fn run_npc_actions(
                     continue;
                 }
 
-                let Some(mut controller) = controller else {
+                let Some(mut controller) = attack_controller else {
                     // The visual is not spawned yet, the action waits for it.
                     crate::warn_once!(
                         "npc({}) attack waits for its animation controller (visual not spawned)",

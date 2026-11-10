@@ -92,6 +92,7 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     fake_impl!(ai_setnpcstostate(_0, _1, _2));
     /// Starts a routine state. Only `zs_attack` is emulated: it records the
     /// state and requests an attack on the npc's `Npc_SetTarget` target.
+    #[allow(clippy::cognitive_complexity)]
     fn ai_startstate(&mut self, npc: i32, state: i32, finalize: i32, waypoint: i32) {
         let Some(npc) = self.symbol_table.instance(npc) else {
             warn!("AI_StartState with invalid npc instance({npc})");

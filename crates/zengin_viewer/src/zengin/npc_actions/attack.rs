@@ -126,7 +126,7 @@ fn expand_fai_move(fai_move: FightAiMove, rng: &mut Mt) -> Vec<MeleeAttackKind> 
         FightAiMove::SideAttack => vec![Left, Right],
         FightAiMove::FrontAttack => vec![random_side(rng), Default],
         FightAiMove::TripleAttack => {
-            if rng.next_u32() % 2 == 0 {
+            if rng.next_u32().is_multiple_of(2) {
                 vec![Default, Right, Left]
             } else {
                 vec![Left, Right, Default]
@@ -134,12 +134,22 @@ fn expand_fai_move(fai_move: FightAiMove, rng: &mut Mt) -> Vec<MeleeAttackKind> 
         }
         FightAiMove::WhirlAttack => vec![Left, Right, Left, Right],
         FightAiMove::MasterAttack => vec![Left, Right, Default, Default, Default, Default],
-        _ => Vec::new(),
+        FightAiMove::Run
+        | FightAiMove::RunBack
+        | FightAiMove::JumpBack
+        | FightAiMove::Turn
+        | FightAiMove::Strafe
+        | FightAiMove::TurnToHit
+        | FightAiMove::Parade
+        | FightAiMove::StandUp
+        | FightAiMove::Wait
+        | FightAiMove::WaitLonger
+        | FightAiMove::WaitExt => Vec::new(),
     }
 }
 
 fn random_side(rng: &mut Mt) -> MeleeAttackKind {
-    if rng.next_u32() % 2 == 0 {
+    if rng.next_u32().is_multiple_of(2) {
         MeleeAttackKind::Left
     } else {
         MeleeAttackKind::Right

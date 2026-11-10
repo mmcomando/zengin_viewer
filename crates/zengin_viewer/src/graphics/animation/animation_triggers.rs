@@ -118,6 +118,7 @@ pub fn crossed_sounds(
 
 /// Loads the model script triggers. Best effort: without the script no
 /// triggers are registered.
+#[allow(clippy::cognitive_complexity)]
 fn load_human_animation_data(mut commands: Commands, vfs: Res<ZenginVfs>) {
     let (triggers, source) = load_triggers_or_fallback(&vfs);
 

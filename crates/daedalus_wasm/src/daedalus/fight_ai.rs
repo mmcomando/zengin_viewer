@@ -22,6 +22,7 @@ const MAX_FIGHT_AI_NAME: &str = "max_fightai";
 const FOCUS_PREFIX: &str = "fa_my_w_focus_";
 
 /// One `C_FIGHTAI.MOVE` entry, numbered like the `MOVE_*` script constants.
+#[expect(clippy::exhaustive_enums, reason = "MOVE_* constants are fixed")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FightAiMove {
     /// `MOVE_RUN`: run towards the opponent.
@@ -122,7 +123,7 @@ impl FightAiTables {
         else {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("{path:?} has no {MOVE_MEMBER_NAME} symbol"),
+                format!("{} has no {MOVE_MEMBER_NAME} symbol", path.display()),
             ));
         };
 
@@ -186,6 +187,10 @@ fn focus_tactic(name: &str) -> Option<usize> {
 }
 
 /// Values of the instance's `C_FIGHTAI.MOVE` array, read from its init code.
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "Only the instance-init instruction subset is interpreted"
+)]
 fn instance_moves(
     symbols: &[Symbol],
     instance: &Symbol,

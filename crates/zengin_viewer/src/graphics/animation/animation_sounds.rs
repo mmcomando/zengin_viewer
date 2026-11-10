@@ -13,6 +13,7 @@ const MAX_SOUNDS_PER_FRAME: usize = 40;
 /// units (the engine default is 3500 game units = 35 m).
 const DEFAULT_SOUND_RANGE: f32 = 35.0;
 
+#[allow(clippy::cognitive_complexity)]
 pub(crate) fn play_animation_sounds(
     mut sounds: MessageReader<AnimationSound>,
     player: Option<Single<&GlobalTransform, With<PlayerCharacter>>>,
@@ -23,9 +24,9 @@ pub(crate) fn play_animation_sounds(
         return;
     };
     let player_position = player.translation();
-    let mut played = 0;
+    let mut sounds_played = 0;
     for sound in sounds.read() {
-        if played >= MAX_SOUNDS_PER_FRAME {
+        if sounds_played >= MAX_SOUNDS_PER_FRAME {
             warn!(
                 "Too many sounds per frame, skip sound({})",
                 sound.sound_name
@@ -56,6 +57,6 @@ pub(crate) fn play_animation_sounds(
             sound.who,
             sound.position.distance(player_position)
         );
-        played += 1;
+        sounds_played += 1;
     }
 }
