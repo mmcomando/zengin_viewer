@@ -178,6 +178,15 @@ pub struct AutoAnimSequencer {
     pub direction: Option<Vec3>,
 }
 
+impl AutoAnimSequencer {
+    /// Sets the desired animation and switches to it immediately, cutting the
+    /// current animation even when it is a started melee swing.
+    pub fn set_desired_now(&mut self, animation: DesiredAnimation) {
+        self.desired = Some(animation);
+        self.force_change = true;
+    }
+}
+
 /// Adds the sequencer to the player animation model and enables root motion
 /// driven movement. Survives visual respawns.
 #[allow(clippy::type_complexity)]
@@ -221,7 +230,7 @@ fn apply_desired_animations(
         seq.force_change = message.force_change;
         // Let a started melee attack finish: interrupting the queued
         // follow-up would cut it mid-way and the hit would never land
-        if is_melee_attack(controller.current()) {
+        if is_melee_attack_animation(controller.current()) {
             seq.force_change = false;
         }
         seq.direction = message.direction;
@@ -401,7 +410,7 @@ fn emit_melee_hits_on_optimal_frame(
         let Ok(controller) = sequencers.get(trigger.who) else {
             continue;
         };
-        if !is_melee_attack(controller.current()) {
+        if !is_melee_attack_animation(controller.current()) {
             continue;
         }
         hits.write(MeleeHit {
@@ -487,7 +496,7 @@ fn animation_name(handle: &Handle<AnimationData>) -> Option<&str> {
 }
 
 /// Whether the animation handle is one of the melee attack animations.
-fn is_melee_attack(handle: &Handle<AnimationData>) -> bool {
+pub(crate) fn is_melee_attack_animation(handle: &Handle<AnimationData>) -> bool {
     animation_name(handle).is_some_and(|name| {
         MeleeAttackKind::ALL
             .iter()

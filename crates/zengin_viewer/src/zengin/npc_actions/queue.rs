@@ -1,8 +1,12 @@
 use std::collections::VecDeque;
 
 use bevy::prelude::*;
+use daedalus_wasm::daedalus::FightAiMove;
+use rand_mt::Mt;
 
+use crate::graphics::MeleeAttackKind;
 use crate::zengin::script::string_value::StringCanon;
+use crate::zengin::script::symbol_id::InstanceId;
 
 /// The action at the front is executed every frame until it is done.
 #[derive(Component, Default)]
@@ -10,6 +14,11 @@ pub(crate) struct NpcActionQueue {
     actions: VecDeque<NpcAction>,
     /// Front action has already been started (its `NpcPath` was inserted).
     started: bool,
+    attack: NpcAttackTrace,
+    /// Attack randomness, seeded per npc on first use so replays stay
+    /// deterministic while clones of one instance do not attack in lockstep.
+    rng: Mt,
+    rng_seeded: bool,
 }
 
 impl NpcActionQueue {
@@ -49,6 +58,7 @@ impl NpcActionQueue {
         }
         self.actions.clear();
         self.started = false;
+        self.attack.swings.clear();
         self.actions.push_back(NpcAction::Attack { target });
         true
     }
@@ -60,12 +70,14 @@ impl NpcActionQueue {
     pub(super) fn pop_front(&mut self) {
         self.actions.pop_front();
         self.started = false;
+        self.attack.swings.clear();
     }
 
     /// Drops every queued action (`Npc_ClearAIQueue`).
     pub(super) fn clear(&mut self) {
         self.actions.clear();
         self.started = false;
+        self.attack.swings.clear();
     }
 
     pub(super) fn started(&self) -> bool {
@@ -75,6 +87,32 @@ impl NpcActionQueue {
     pub(super) fn mark_started(&mut self) {
         self.started = true;
     }
+
+    pub(super) fn attack(&self) -> &NpcAttackTrace {
+        &self.attack
+    }
+
+    pub(super) fn attack_mut(&mut self) -> &mut NpcAttackTrace {
+        &mut self.attack
+    }
+
+    /// Per-npc attack generator, seeded from the instance and entity.
+    pub(super) fn attack_rng(&mut self, instance: InstanceId, entity: Entity) -> &mut Mt {
+        if !self.rng_seeded {
+            self.rng_seeded = true;
+            let seed = entity.to_bits() as u32 ^ instance.value() as u32;
+            self.rng = Mt::new(seed);
+        }
+        &mut self.rng
+    }
+}
+
+/// Swings of the active attack action, the front one is playing.
+#[derive(Debug, Default)]
+pub(super) struct NpcAttackTrace {
+    pub(super) swings: VecDeque<MeleeAttackKind>,
+    /// FAI move the swings were expanded from; a repeat pick is avoided.
+    pub(super) last_move: Option<FightAiMove>,
 }
 
 #[derive(Clone, Debug)]

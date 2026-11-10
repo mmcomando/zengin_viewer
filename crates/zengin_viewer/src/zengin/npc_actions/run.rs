@@ -5,6 +5,7 @@ use crate::gameplay::objects::NpcModel;
 use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind, SetDesiredAnimation,
 };
+use crate::zengin::npc_actions::attack::begin_attack_move;
 use crate::zengin::npc_actions::goto::start_goto;
 use crate::zengin::npc_actions::queue::{NpcAction, NpcActionQueue};
 use crate::zengin::npc_routines::{
@@ -185,10 +186,16 @@ pub(crate) fn run_npc_actions(
                     draw_melee_weapon(&gothic_script, npc.instance_id());
                     queue.mark_started();
                     let tactic = gothic_script.lock().npc_fight_tactic(npc.instance_id());
-                    debug!(
-                        "npc({}) attack tactic({tactic:?}) with {} focus moves",
+                    let fai_move = begin_attack_move(
+                        &mut queue,
                         npc.instance_id(),
-                        tactic.map_or(0, |tactic| fight_ai.0.focus_moves(tactic).len()),
+                        entity,
+                        &fight_ai,
+                        &gothic_script,
+                    );
+                    debug!(
+                        "npc({}) attack tactic({tactic:?}) starts FAI move({fai_move:?})",
+                        npc.instance_id(),
                     );
                     info!(
                         "npc({}) started attack on target({target}) at {distance:.2}m",
@@ -210,8 +217,14 @@ pub(crate) fn run_npc_actions(
 
                 let direction = horizontal.normalize_or_zero();
                 let direction = (direction.length_squared() > 0.0).then_some(direction);
+                let swing = queue
+                    .attack()
+                    .swings
+                    .front()
+                    .copied()
+                    .unwrap_or(MeleeAttackKind::Default);
                 let animation = if distance <= ATTACK_RANGE {
-                    DesiredAnimation::MeleeAttack(MeleeAttackKind::Default)
+                    DesiredAnimation::MeleeAttack(swing)
                 } else {
                     DesiredAnimation::Run
                 };

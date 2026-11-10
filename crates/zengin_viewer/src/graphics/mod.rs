@@ -7,10 +7,11 @@ mod lighting;
 mod skybox;
 
 pub(crate) use crate::graphics::animation::{
-    AnimatedJoint, AnimationController, AnimationData, AnimationGraph, AnimationIndex,
-    AnimationSample, AnimationState, AnimationTriggersPlugin, AutoAnimSequencer,
+    AnimatedJoint, AnimationController, AnimationData, AnimationEnds, AnimationGraph,
+    AnimationIndex, AnimationSample, AnimationState, AnimationTriggersPlugin, AutoAnimSequencer,
     AutoAnimSequencerSet, BoneAnimationData, DesiredAnimation, FrameState, MeleeAttackKind,
     NpcAnimations, SetDesiredAnimation, SkeletalAnimations, animation_name_from_path,
+    is_melee_attack_animation,
 };
 pub(crate) use crate::graphics::disco_lamp::{DiscoLamp, DrawGizmo};
 pub(crate) use crate::graphics::lighting::LightingPlugin;

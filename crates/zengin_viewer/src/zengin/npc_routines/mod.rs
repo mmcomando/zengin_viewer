@@ -15,8 +15,8 @@ use crate::graphics::AutoAnimSequencerSet;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 
 use crate::zengin::npc_actions::{
-    clear_npc_actions, enqueue_align_actions, enqueue_attack_actions, enqueue_goto_actions,
-    run_npc_actions,
+    advance_npc_attack_swings, clear_npc_actions, enqueue_align_actions, enqueue_attack_actions,
+    enqueue_goto_actions, run_npc_actions,
 };
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
@@ -54,6 +54,9 @@ impl Plugin for NpcRoutinesPlugin {
                     .after(enqueue_goto_actions)
                     .after(enqueue_align_actions)
                     .after(enqueue_attack_actions),
+                advance_npc_attack_swings
+                    .after(run_npc_actions)
+                    .after(AutoAnimSequencerSet),
                 update_npc_routine_animations.after(update_npc_routines),
                 apply_look_at.after(update_npc_routines),
                 apply_weapon_mode.after(update_npc_routine_animations),

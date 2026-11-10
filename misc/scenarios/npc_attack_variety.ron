@@ -1,0 +1,9 @@
+[
+    EquipWeapon(frame: 60, item: "itmw_1h_mil_sword"),
+    TeleportPlayer(frame: 60, translation: (-3, 0, -11), rotation: (0, 90, 0)),
+    SetCameraLocation(frame: 60, translation: (-7, 1, -8), rotation: (-15, -80, 0)),
+    // One hit makes Lares retaliate; the npc is then left alone so its attack
+    // swing loops are not interrupted by hit reactions.
+    Press(frame: 120, action: Gameplay(DealDamage)),
+    Release(frame: 130, action: Gameplay(DealDamage)),
+]
