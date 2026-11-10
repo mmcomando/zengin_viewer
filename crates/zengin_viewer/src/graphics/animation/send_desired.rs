@@ -10,7 +10,9 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::{NpcWeaponMode, Selection, WeaponMode};
 
-use super::auto_anim_sequencer::{AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation};
+use super::auto_anim_sequencer::{
+    AutoAnimSequencer, DesiredAnimation, MeleeAttackKind, SetDesiredAnimation,
+};
 
 /// Writes the desired animation of the player every frame from the move
 /// input, resolved camera relative (forward input moves away from the
@@ -92,7 +94,8 @@ fn set_attack_animation(
     };
     let animation = match mode {
         WeaponMode::Ranged => DesiredAnimation::Fire,
-        WeaponMode::Fists | WeaponMode::Melee => DesiredAnimation::MeleeAttack,
+        WeaponMode::Fists => DesiredAnimation::MeleeAttack(MeleeAttackKind::Fist),
+        WeaponMode::Melee => DesiredAnimation::MeleeAttack(MeleeAttackKind::Default),
     };
     writer.write(SetDesiredAnimation {
         who: entity,

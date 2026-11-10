@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
 use crate::graphics::{
-    AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
+    AnimationController, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind, SetDesiredAnimation,
 };
 use crate::zengin::npc_actions::goto::start_goto;
 use crate::zengin::npc_actions::queue::{NpcAction, NpcActionQueue};
@@ -211,7 +211,7 @@ pub(crate) fn run_npc_actions(
                 let direction = horizontal.normalize_or_zero();
                 let direction = (direction.length_squared() > 0.0).then_some(direction);
                 let animation = if distance <= ATTACK_RANGE {
-                    DesiredAnimation::MeleeAttack
+                    DesiredAnimation::MeleeAttack(MeleeAttackKind::Default)
                 } else {
                     DesiredAnimation::Run
                 };

@@ -106,9 +106,39 @@ pub enum DesiredAnimation {
     Run,
     /// Bow fire: the reload loop, an arrow shot on every wrap.
     Fire,
-    /// 1H melee attack: the swing, a hit on every loop (wrap). Held while
+    /// Melee attack: the swing, a hit on every loop (wrap). Held while
     /// attacking; the loop makes the swing repeat for the next hit.
-    MeleeAttack,
+    MeleeAttack(MeleeAttackKind),
+}
+
+/// Which melee attack animation to play; the animation scheme and weapon
+/// class resolve the concrete animation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MeleeAttackKind {
+    /// The weapon's default swing; for 1H weapons it is the right swing.
+    Default,
+    /// Left swing.
+    Left,
+    /// Right swing, the same animation as [`Self::Default`] for 1H weapons.
+    Right,
+    /// Unarmed and claw attack, for schemes without weapon swings.
+    Fist,
+}
+
+impl MeleeAttackKind {
+    /// Every attack kind, used to recognize attack animations.
+    const ALL: [Self; 4] = [Self::Default, Self::Left, Self::Right, Self::Fist];
+
+    /// Scheme relative animation names this kind may resolve to, best match
+    /// first; a scheme gets its first existing name. 1H schemes only have
+    /// left/right swings, so the default one is the right swing.
+    fn candidates(self) -> &'static [&'static str] {
+        match self {
+            Self::Default | Self::Right => &["T_1HATTACKR", "S_FISTATTACK", "T_FISTATTACK"],
+            Self::Left => &["T_1HATTACKL", "S_FISTATTACK", "T_FISTATTACK"],
+            Self::Fist => &["S_FISTATTACK", "T_FISTATTACK"],
+        }
+    }
 }
 
 impl DesiredAnimation {
@@ -120,7 +150,7 @@ impl DesiredAnimation {
             DesiredAnimation::Stand => &["S_RUN", "S_FISTRUN", "S_FISTRUNL", "S_FISTWALK"],
             DesiredAnimation::Run => &["S_RUNL", "S_FISTRUNL", "S_FISTRUN", "S_FISTWALK"],
             DesiredAnimation::Fire => &["T_BOWRELOAD"],
-            DesiredAnimation::MeleeAttack => &["T_1HATTACKR", "S_FISTATTACK", "T_FISTATTACK"],
+            DesiredAnimation::MeleeAttack(kind) => kind.candidates(),
         }
     }
 }
@@ -458,8 +488,11 @@ fn animation_name(handle: &Handle<AnimationData>) -> Option<&str> {
 
 /// Whether the animation handle is one of the melee attack animations.
 fn is_melee_attack(handle: &Handle<AnimationData>) -> bool {
-    animation_name(handle)
-        .is_some_and(|name| DesiredAnimation::MeleeAttack.candidates().contains(&name))
+    animation_name(handle).is_some_and(|name| {
+        MeleeAttackKind::ALL
+            .iter()
+            .any(|kind| kind.candidates().contains(&name))
+    })
 }
 
 /// Whether the animation handle is the `T_GOTHIT` hit reaction one-shot.
@@ -729,7 +762,11 @@ mod tests {
         let (mut world, model) = run_sequencer_world("T_1HATTACKR");
         let swing = animation_handle(&mut world, "T_1HATTACKR");
 
-        send_desired(&mut world, model, DesiredAnimation::MeleeAttack);
+        send_desired(
+            &mut world,
+            model,
+            DesiredAnimation::MeleeAttack(MeleeAttackKind::Default),
+        );
         send_ends(&mut world, model, swing);
         run_sequencer(&mut world);
         // Reached: the swing keeps looping, no animation queued
@@ -750,7 +787,12 @@ mod tests {
         let stand = animation_handle(&mut world, "S_RUN");
 
         // Attack starts (the real input path sends force_change)
-        send_desired_force(&mut world, model, DesiredAnimation::MeleeAttack, true);
+        send_desired_force(
+            &mut world,
+            model,
+            DesiredAnimation::MeleeAttack(MeleeAttackKind::Default),
+            true,
+        );
         // Released before the swing ended
         send_desired(&mut world, model, DesiredAnimation::Stand);
         run_sequencer(&mut world);
@@ -809,7 +851,12 @@ mod tests {
         let (mut world, model) = run_sequencer_world_scheme("S_FISTRUN", "WOLF");
         let attack = animation_handle_for(&mut world, "WOLF", "S_FISTATTACK");
 
-        send_desired_force(&mut world, model, DesiredAnimation::MeleeAttack, true);
+        send_desired_force(
+            &mut world,
+            model,
+            DesiredAnimation::MeleeAttack(MeleeAttackKind::Default),
+            true,
+        );
         run_sequencer(&mut world);
 
         assert_eq!(queued_next(&world, model), Some(attack));
