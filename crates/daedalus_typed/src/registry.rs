@@ -466,6 +466,15 @@ impl TypedRegistry {
             .is_some_and(|entry| entry.is_const)
     }
 
+    /// Whether a symbol is a class member living inside its parent instance
+    /// record instead of having its own value slot.
+    #[must_use]
+    pub fn is_class_member(&self, symbol: u32) -> bool {
+        self.symbols
+            .get(usize::try_from(symbol).unwrap_or(usize::MAX))
+            .is_some_and(|entry| entry.is_class_member)
+    }
+
     /// Whether a symbol has its own value slot.
     #[must_use]
     pub fn has_value_slot(&self, symbol: u32) -> bool {
@@ -595,6 +604,90 @@ impl TypedRegistry {
                 slot.member,
                 element
             );
+        }
+    }
+
+    /// Snapshot of every word of a symbol's value slot. Generic symbols return
+    /// their stored words; typed instances return a dense word vector with the
+    /// reference word first (when the class uses it) and every modeled field at
+    /// its record offset. Gaps of unmodeled record space stay zero.
+    #[must_use]
+    pub fn snapshot_values(&self, symbol: u32) -> Option<Vec<i32>> {
+        let storage = self.instance(symbol)?;
+        if let TypedInstance::Generic(variable) = storage {
+            return Some(variable.words().to_vec());
+        }
+
+        let class = storage.class()?;
+        let mut values = vec![0; typed_words_len(class)];
+        if class.uses_reference_word() {
+            let reference = self
+                .references
+                .get(usize::try_from(symbol).ok()?)
+                .copied()
+                .unwrap_or_default();
+            if let Some(first) = values.first_mut() {
+                *first = reference;
+            }
+        }
+        for (index, value) in values.iter_mut().enumerate() {
+            let byte_offset = u32::try_from(index).ok()?.checked_mul(4)?;
+            if byte_offset == 0 && class.uses_reference_word() {
+                continue;
+            }
+            let Some((slot, element)) = flat_word_slot(class, byte_offset) else {
+                continue;
+            };
+            if let Some(stored) = storage.read(slot.offset, element) {
+                *value = stored;
+            }
+        }
+        Some(values)
+    }
+
+    /// Writes a dense word vector produced by [`Self::snapshot_values`] back
+    /// into a symbol's value slot. Gaps of unmodeled record space and words past
+    /// the modeled end are ignored.
+    pub fn restore_values(&mut self, symbol: u32, values: &[i32]) {
+        let symbol_index = usize::try_from(symbol).unwrap_or(usize::MAX);
+        let Some(storage) = self
+            .instances
+            .get_mut(symbol_index)
+            .and_then(Option::as_mut)
+        else {
+            println!("error: restore of symbol({symbol}) without a value slot");
+            return;
+        };
+        if let TypedInstance::Generic(variable) = storage {
+            for (index, value) in values.iter().enumerate() {
+                if let Ok(index) = u32::try_from(index) {
+                    variable.set(index, *value);
+                }
+            }
+            return;
+        }
+
+        let Some(class) = storage.class() else {
+            return;
+        };
+        let uses_reference = class.uses_reference_word();
+        for (index, value) in values.iter().enumerate() {
+            if index == 0 && uses_reference {
+                if let Some(reference) = self.references.get_mut(symbol_index) {
+                    *reference = *value;
+                }
+                continue;
+            }
+            let Ok(index) = u32::try_from(index) else {
+                continue;
+            };
+            let Some(byte_offset) = index.checked_mul(4) else {
+                continue;
+            };
+            let Some((slot, element)) = flat_word_slot(class, byte_offset) else {
+                continue;
+            };
+            storage.write(slot.offset, element, *value);
         }
     }
 
@@ -901,6 +994,20 @@ fn is_instance_variable(entry: &SymbolEntry) -> bool {
 
 fn member_name_str(name: &str) -> &str {
     name.rsplit_once('.').map_or(name, |(_, member)| member)
+}
+
+/// Number of words of a typed instance record, dense through the last modeled
+/// field (or just the reference word when no field is modeled).
+fn typed_words_len(class: ClassKind) -> usize {
+    let mut words = usize::from(class.uses_reference_word());
+    for slot in class.field_slots() {
+        let end_word = usize::try_from(slot.offset / 4)
+            .unwrap_or_default()
+            .saturating_add(usize::try_from(slot.element).unwrap_or_default())
+            .saturating_add(usize::try_from(slot.count).unwrap_or_default());
+        words = words.max(end_word);
+    }
+    words
 }
 
 fn flat_word_slot(class: ClassKind, byte_offset: u32) -> Option<(&'static FieldSlot, u32)> {
@@ -1314,5 +1421,54 @@ mod tests {
 
         registry.write_symbol(const_array, 0, 999);
         assert_eq!(registry.read_symbol(const_array, 0), 101);
+    }
+
+    #[test]
+    fn class_members_are_reported() {
+        let (registry, instance) = npc_registry();
+        assert!(!registry.is_class_member(instance));
+        let attribute = registry
+            .find_member_id("c_npc", "attribute")
+            .expect("member");
+        assert!(registry.is_class_member(attribute));
+    }
+
+    #[test]
+    fn snapshot_and_restore_generic_values() {
+        let mut registry = TypedRegistry::new();
+        let symbol = registry.add_symbol(decl("test_int", SymbolKind::Int, false, 0, 4, None));
+        registry.finish();
+        registry.write_values(symbol, &[1, 2, 3, 4]);
+
+        let snapshot = registry.snapshot_values(symbol).expect("snapshot");
+        assert_eq!(snapshot, vec![1, 2, 3, 4]);
+
+        registry.write_values(symbol, &[9, 9, 9, 9]);
+        registry.restore_values(symbol, &snapshot);
+        assert_eq!(registry.snapshot_values(symbol), Some(vec![1, 2, 3, 4]));
+    }
+
+    #[test]
+    fn snapshot_and_restore_typed_instance() {
+        let (mut registry, instance) = npc_registry();
+        registry.write_symbol(instance, 0, 42);
+
+        let snapshot = registry.snapshot_values(instance).expect("snapshot");
+        assert_eq!(snapshot.len(), 272);
+        assert_eq!(snapshot[0], 42);
+        assert_eq!(snapshot[288 / 4], 5);
+        assert_eq!(snapshot[440 / 4 + 1], 200);
+
+        registry.write_symbol(instance, 0, 0);
+        registry.write_instance_word(instance, 288, 999);
+        registry.write_instance_word(instance, 444, 7);
+        assert_ne!(registry.snapshot_values(instance), Some(snapshot.clone()));
+
+        registry.restore_values(instance, &snapshot);
+        assert_eq!(registry.snapshot_values(instance), Some(snapshot));
+        assert_eq!(registry.read_symbol(instance, 0), 42);
+        let npc = registry.npc(instance).expect("npc");
+        assert_eq!(npc.id, 5);
+        assert_eq!(npc.hitpoints_max, 200);
     }
 }
