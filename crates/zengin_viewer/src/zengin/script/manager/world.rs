@@ -2,9 +2,42 @@ use std::path::Path;
 
 use bevy::log::{info, warn};
 
+use crate::zengin::script::journal::JournalManager;
+use crate::zengin::script::state::{LoadedState, PendingChanges, ScriptRandom};
+
 use super::ScriptManager;
 
 impl ScriptManager {
+    /// Rebuilds every piece of per-world script state in place so a world can
+    /// be spawned again without recreating the vm. Symbol metadata and strings
+    /// are static, only values and runtime state are reset.
+    pub fn restart_world_state(&mut self) {
+        info!("Restart world script state");
+        self.reset_symbol_values();
+
+        {
+            let data = self.store.data_mut();
+            data.loaded_state = LoadedState::default();
+            data.pending = PendingChanges::default();
+            data.close_dialog = false;
+            data.player_instance = None;
+            data.journal = JournalManager::default();
+            data.guild_attitudes.clear();
+            data.way_points.clear();
+            data.rng = ScriptRandom::default();
+        }
+        // `startup_global` writes globals which were just reset, it has to run
+        // again on the next world load.
+        self.global_startup_done = false;
+
+        self.initialize_instances();
+        self.load_item_instances();
+        self.load_npc_instances();
+        self.load_dialogs_information();
+        self.clear_npc_changes();
+        self.clear_item_changes();
+    }
+
     /// Runs the script entry points of a world load. `clean_spawn` is a fresh
     /// world without saved state, only then the startup functions run.
     pub fn load_world(&mut self, world_name: &str, clean_spawn: bool) {

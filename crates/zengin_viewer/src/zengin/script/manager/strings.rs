@@ -4,7 +4,9 @@ use daedalus_typed::{SymbolDecl, SymbolKind, TypedRegistry};
 
 use bevy::log::info;
 
-use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolInfo;
+use super::super::bindings::exports::mmcomando::zengine_scripts::manage::{
+    SymbolInfo, SymbolKind as ScriptSymbolKind,
+};
 use super::super::state::{SymbolTable, WellKnownSymbols};
 use super::super::string_value::{ShowString, StringCanon};
 use super::super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
@@ -123,13 +125,47 @@ impl super::ScriptManager {
     /// `get-symbol-values` only reports the initial values before any script
     /// runs.
     pub fn load_symbol_table(&mut self) {
+        let (typed, kinds, symbols_count, strings) = self.build_typed_registry();
+
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        let well_known_symbols = WellKnownSymbols {
+            self_symbol: guest.call_get_symbol_id(&mut self.store, "self").unwrap(),
+            other_symbol: guest.call_get_symbol_id(&mut self.store, "other").unwrap(),
+            victim_symbol: guest.call_get_symbol_id(&mut self.store, "victim").unwrap(),
+            item_symbol: guest.call_get_symbol_id(&mut self.store, "item").unwrap(),
+            hero_symbol: guest.call_get_symbol_id(&mut self.store, "hero").unwrap(),
+        };
+
+        let data = self.store.data_mut();
+        data.typed = typed;
+        data.well_known_symbols = well_known_symbols;
+        data.symbol_table = SymbolTable::new(kinds, symbols_count, strings);
+    }
+
+    /// Rebuilds the mutable symbol values from the guest's initial values while
+    /// keeping the static symbol metadata and string table. Used to restart a
+    /// world in place: symbol metadata and strings do not depend on runtime
+    /// state, but globals and instance records do.
+    pub fn reset_symbol_values(&mut self) {
+        let (typed, ..) = self.build_typed_registry();
+        self.store.data_mut().typed = typed;
+    }
+
+    /// Reads every symbol from the guest metadata and writes its initial values
+    /// into a fresh registry. Static string contents are loaded once here so
+    /// import handlers and host code resolve strings by table lookup instead of
+    /// calling back into the guest while a script function is running.
+    fn build_typed_registry(
+        &mut self,
+    ) -> (
+        TypedRegistry,
+        HashMap<i32, ScriptSymbolKind>,
+        i32,
+        Vec<String>,
+    ) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         let symbols_count = guest.call_get_all_symbols_num(&mut self.store).unwrap();
 
-        // Load all string pair contents once at startup (symbol names for ids
-        // below `symbols_count`, static string literals above), so import
-        // handlers and host code resolve strings by table lookup instead of
-        // calling back into the guest while a script function is running
         let strings_count = guest.call_get_all_strings_num(&mut self.store).unwrap();
         let mut strings = Vec::with_capacity(strings_count.max(0) as usize);
         for raw in 0..strings_count {
@@ -186,18 +222,7 @@ impl super::ScriptManager {
             symbols_count
         );
 
-        let well_known_symbols = WellKnownSymbols {
-            self_symbol: guest.call_get_symbol_id(&mut self.store, "self").unwrap(),
-            other_symbol: guest.call_get_symbol_id(&mut self.store, "other").unwrap(),
-            victim_symbol: guest.call_get_symbol_id(&mut self.store, "victim").unwrap(),
-            item_symbol: guest.call_get_symbol_id(&mut self.store, "item").unwrap(),
-            hero_symbol: guest.call_get_symbol_id(&mut self.store, "hero").unwrap(),
-        };
-
-        let data = self.store.data_mut();
-        data.typed = typed;
-        data.well_known_symbols = well_known_symbols;
-        data.symbol_table = SymbolTable::new(kinds, symbols_count, strings);
+        (typed, kinds, symbols_count, strings)
     }
 
     /// Resolves a symbol id by name, `None` when the symbol does not exist.
