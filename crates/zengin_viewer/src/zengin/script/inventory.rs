@@ -56,14 +56,6 @@ impl Inventory {
         removed
     }
 
-    /// Replaces the whole inventory with the given stacks.
-    pub fn replace(&mut self, items: impl IntoIterator<Item = (InstanceId, i32)>) {
-        self.items.clear();
-        for (item, count) in items {
-            self.create(item, count);
-        }
-    }
-
     /// Empties the inventory, returning the removed contents.
     pub fn take_all(&mut self) -> Inventory {
         Inventory {

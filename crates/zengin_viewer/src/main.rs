@@ -179,6 +179,7 @@ fn main() {
         .add_plugins(ActionsPlugin)
         // World and its content
         .add_plugins(ZenginPlugin)
+        .add_plugins(crate::save::QuickSavePlugin)
         // Environment
         .add_plugins(SkyBoxPlugin)
         .add_plugins(LightingPlugin)

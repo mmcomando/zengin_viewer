@@ -15,6 +15,16 @@
                 "KeyCode": KeyB,
             },
         ],
+        QuickSave: [
+            {
+                "KeyCode": F5,
+            },
+        ],
+        QuickLoad: [
+            {
+                "KeyCode": F7,
+            },
+        ],
         Back: [
             {
                 "KeyCode": Escape,

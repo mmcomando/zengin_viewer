@@ -99,7 +99,7 @@ pub struct RestartWorld;
 
 /// World path of the most recently spawned world.
 #[derive(Resource, Default)]
-struct CurrentWorld(String);
+pub(crate) struct CurrentWorld(pub(crate) String);
 
 fn request_initial_world(mut spawn_world: MessageWriter<SpawnWorld>) {
     spawn_world.write(SpawnWorld {

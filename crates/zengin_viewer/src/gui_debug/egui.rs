@@ -13,6 +13,7 @@ use crate::gui_debug::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
 };
+use crate::save::{QuickLoad, QuickSave};
 use crate::zengin::{ImportantDialogOptions, RestartWorld, StatisticsZengin};
 
 pub struct GameDebugUI;
@@ -105,6 +106,8 @@ fn ui_info_system(
     mut gizmos_options: ResMut<GizmosOptions>,
     mut important_dialog_options: ResMut<ImportantDialogOptions>,
     mut restart_world: MessageWriter<RestartWorld>,
+    mut quick_save: MessageWriter<QuickSave>,
+    mut quick_load: MessageWriter<QuickLoad>,
     mut teleports: MessageWriter<TeleportToLocation>,
     camera_query: Query<&GlobalTransform, With<Camera3d>>,
 ) -> Result {
@@ -262,6 +265,14 @@ fn ui_info_system(
                 if ui.button("Restart World").clicked() {
                     restart_world.write(RestartWorld);
                 }
+                ui.horizontal(|ui| {
+                    if ui.button("Quick Save").clicked() {
+                        quick_save.write(QuickSave);
+                    }
+                    if ui.button("Quick Load").clicked() {
+                        quick_load.write(QuickLoad);
+                    }
+                });
             });
 
             if visibility_settings_changed {

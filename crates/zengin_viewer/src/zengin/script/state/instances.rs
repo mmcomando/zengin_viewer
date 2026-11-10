@@ -240,25 +240,4 @@ impl NpcTalents {
             *slot = level;
         }
     }
-
-    /// Raw skill slots in talent index order.
-    pub fn skill_slots(&self) -> &[i32; TALENTS_MAX] {
-        &self.skills
-    }
-
-    /// Raw value slots in talent index order.
-    pub fn value_slots(&self) -> &[i32; TALENTS_MAX] {
-        &self.values
-    }
-
-    /// Replaces the skill and value slots from saved data, ignoring entries past
-    /// the talent table.
-    pub fn set_slots(&mut self, skills: &[i32], values: &[i32]) {
-        for (slot, value) in self.skills.iter_mut().zip(skills) {
-            *slot = *value;
-        }
-        for (slot, value) in self.values.iter_mut().zip(values) {
-            *slot = *value;
-        }
-    }
 }
