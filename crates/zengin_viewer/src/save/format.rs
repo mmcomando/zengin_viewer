@@ -187,7 +187,7 @@ mod tests {
     #[test]
     fn validate_rejects_version_and_fingerprint_mismatch() {
         let mut save = minimal_save();
-        assert!(save.validate(42).is_ok());
+        save.validate(42).expect("matching save should validate");
 
         save.format_version = SAVE_FORMAT_VERSION + 1;
         assert!(save.validate(42).is_err());

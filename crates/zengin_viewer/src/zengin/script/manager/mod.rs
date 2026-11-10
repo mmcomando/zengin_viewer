@@ -70,15 +70,16 @@ pub(super) fn attribute_display_name(index: i32) -> Option<&'static str> {
 
 impl ScriptManager {
     pub fn from_file_cached(script_path: &Path, script_wasm_cache_path: &Path) -> Self {
-        let fingerprint = std::fs::read(script_path)
-            .map(|bytes| fnv1a_64(&bytes))
-            .unwrap_or_else(|error| {
+        let fingerprint = std::fs::read(script_path).map_or_else(
+            |error| {
                 bevy::log::warn!(
                     "Failed to read {} for the script fingerprint: {error}",
                     script_path.display()
                 );
                 0
-            });
+            },
+            |bytes| fnv1a_64(&bytes),
+        );
         let wasm_bytes = convert_daedalus_script(script_path);
         std::fs::write(script_wasm_cache_path, &wasm_bytes).unwrap();
         let mut manager = Self::new(&wasm_bytes);

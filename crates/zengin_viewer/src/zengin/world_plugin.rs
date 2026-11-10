@@ -529,6 +529,7 @@ fn npc_spawn_script_data(
 /// Spawns a full npc entity for every requested npc, resolving its placement
 /// from the routine/spawn location and its visuals from the script state and
 /// the shared vfs.
+#[allow(clippy::cognitive_complexity)]
 fn spawn_npc_entities(
     mut spawns: MessageReader<SpawnNpc>,
     mut commands: Commands,

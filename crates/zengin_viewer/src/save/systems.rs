@@ -65,6 +65,7 @@ fn handle_quick_save_load_input(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::cognitive_complexity)]
 fn quick_save(
     mut requests: MessageReader<QuickSave>,
     mut game_log: MessageWriter<GameLogEntry>,
@@ -152,7 +153,7 @@ fn quick_save(
 
     match write_save(&save) {
         Ok(path) => {
-            let size = std::fs::metadata(&path).map(|meta| meta.len()).unwrap_or(0);
+            let size = std::fs::metadata(&path).map_or(0, |meta| meta.len());
             info!("Quick save written to {} ({size} bytes)", path.display());
             game_log.write(GameLogEntry {
                 text: format!("Quick save written ({size} bytes)"),

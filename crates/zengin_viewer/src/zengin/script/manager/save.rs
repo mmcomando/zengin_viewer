@@ -54,6 +54,10 @@ impl super::ScriptManager {
                     sanitized_dynamic_strings += 1;
                 }
             }
+            // Function parameter symbols and other empty slots have no state.
+            if values.is_empty() {
+                continue;
+            }
             let saved = SavedValues {
                 id: i32::try_from(symbol_index).unwrap_or_default(),
                 name: typed.name(symbol).unwrap_or_default().to_string(),
@@ -149,7 +153,11 @@ impl super::ScriptManager {
         self.restore_item_runtimes(&save.item_runtimes);
         self.journal_mut().replace_topics(save.journal.clone());
         self.restore_guild_attitudes(&save.guild_attitudes);
-        self.store.data_mut().loaded_state.mob_routines = save.mob_routines.clone();
+        self.store
+            .data_mut()
+            .loaded_state
+            .mob_routines
+            .clone_from(&save.mob_routines);
         // Do not restore `player_instance` here: the world spawn checks it to
         // decide whether the player entity still has to be created, and
         // `spawn_player` sets it to the resolved `PC_HERO` instance.
