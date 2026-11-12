@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use bevy::prelude::*;
 
 use crate::zengin::{
@@ -9,11 +11,26 @@ use crate::zengin::{
 #[derive(Resource, Default)]
 pub(crate) struct MainMenuData(pub Option<MenuDefinition>);
 
+/// Loaded `menu_savegame_load` data, `None` when it could not be projected.
+#[derive(Resource, Default)]
+pub(crate) struct LoadMenuData(pub Option<MenuDefinition>);
+
+/// Which MENU.DAT screen the main menu is currently showing.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MainMenuScreen {
+    #[default]
+    Main,
+    Load,
+}
+
 #[derive(Resource, Default)]
 pub(crate) struct MainMenuState {
     pub open: bool,
+    pub screen: MainMenuScreen,
     /// Selected item, identified by its index in the menu's `items[]` array.
     pub selected_slot: usize,
+    /// Save files shown by the load screen, newest first.
+    pub saved_games: Vec<PathBuf>,
     pub rebuild: bool,
     pub last_size: Vec2,
     pub last_scale: f32,
@@ -25,9 +42,22 @@ impl MainMenuState {
             open: true,
             selected_slot,
             rebuild: true,
-            last_size: Vec2::ZERO,
-            last_scale: 0.0,
+            ..Self::default()
         };
+    }
+
+    pub fn open_load_screen(&mut self, selected_slot: usize) {
+        self.screen = MainMenuScreen::Load;
+        self.saved_games = crate::save::list_saves();
+        self.selected_slot = selected_slot;
+        self.rebuild = true;
+    }
+
+    pub fn open_main_screen(&mut self, selected_slot: usize) {
+        self.screen = MainMenuScreen::Main;
+        self.saved_games.clear();
+        self.selected_slot = selected_slot;
+        self.rebuild = true;
     }
 
     pub fn close(&mut self) {
@@ -81,10 +111,65 @@ fn has_implemented_action(item: &MenuItemDefinition) -> bool {
 fn action_is_implemented(action: i32, argument: &str) -> bool {
     match action {
         SEL_ACTION_BACK => true,
-        SEL_ACTION_CLOSE => matches!(argument, "NEW_GAME" | "LEAVE_GAME"),
-        SEL_ACTION_START_MENU => argument == "MENU_LEAVE_GAME",
+        SEL_ACTION_CLOSE => matches!(argument, "NEW_GAME" | "LEAVE_GAME" | "SAVEGAME_LOAD"),
+        SEL_ACTION_START_MENU => matches!(
+            argument,
+            "MENU_LEAVE_GAME" | "MENU_SAVEGAME_SAVE" | "MENU_SAVEGAME_LOAD"
+        ),
         _ => false,
     }
+}
+
+/// Slots reachable with Up/Down on the main menu.
+pub(super) fn selectable_slots(data: &MenuDefinition, in_game: bool) -> Vec<usize> {
+    data.items
+        .iter()
+        .filter(|item| can_select(item, in_game))
+        .map(|item| item.slot)
+        .collect()
+}
+
+/// MENU.DAT load-slot row names (`MENUITEM_LOAD_SLOT1`, ..., `MENUITEM_LOAD_SLOT0`).
+const LOAD_SLOT_PREFIX: &str = "MENUITEM_LOAD_SLOT";
+/// The load screen row that returns to the main menu.
+const LOAD_BACK_NAME: &str = "MENUITEM_LOAD_BACK";
+
+/// Item slots of the load screen's save rows in display order. Index `i` in
+/// this list corresponds to save entry `i`.
+pub(super) fn load_slot_slots(data: &MenuDefinition) -> Vec<usize> {
+    data.items
+        .iter()
+        .filter(|item| item.name.starts_with(LOAD_SLOT_PREFIX))
+        .map(|item| item.slot)
+        .collect()
+}
+
+/// Position of a load-screen item slot in [`load_slot_slots`].
+pub(super) fn load_slot_index(data: &MenuDefinition, slot: usize) -> Option<usize> {
+    load_slot_slots(data)
+        .iter()
+        .position(|candidate| *candidate == slot)
+}
+
+/// Whether the item is the load screen's back row. The script leaves it without
+/// an action, so it is dispatched specially.
+pub(super) fn is_load_back(item: &MenuItemDefinition) -> bool {
+    item.name == LOAD_BACK_NAME
+}
+
+/// Slots reachable with Up/Down on the load screen: rows backed by a save file
+/// plus the back row.
+pub(super) fn load_selectable_slots(data: &MenuDefinition, saved: &[PathBuf]) -> Vec<usize> {
+    let mut slots: Vec<usize> = load_slot_slots(data)
+        .into_iter()
+        .enumerate()
+        .filter(|(index, _)| saved.get(*index).is_some())
+        .map(|(_, slot)| slot)
+        .collect();
+    if let Some(back) = data.items.iter().find(|item| is_load_back(item)) {
+        slots.push(back.slot);
+    }
+    slots
 }
 
 /// First selectable item of a menu, used as the initial selection.

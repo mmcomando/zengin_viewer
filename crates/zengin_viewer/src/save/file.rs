@@ -107,6 +107,17 @@ pub(crate) fn newest_save() -> Option<PathBuf> {
     list_saves().into_iter().next()
 }
 
+/// Human-readable label of a save file: `save_2025-11-12_14-30-00.ron` becomes
+/// `2025-11-12 14-30-00`.
+pub(crate) fn display_name(path: &Path) -> String {
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return path.display().to_string();
+    };
+    let name = name.strip_prefix(SAVE_PREFIX).unwrap_or(name);
+    let name = name.strip_suffix(".ron").unwrap_or(name);
+    name.replace('_', " ")
+}
+
 /// Whether `path` looks like a save file this module wrote.
 fn is_save_file(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
@@ -175,6 +186,14 @@ mod tests {
     #[test]
     fn saves_directory_points_into_the_workspace() {
         assert!(saves_dir().ends_with("misc/saves"));
+    }
+
+    #[test]
+    fn save_display_name_drops_prefix_and_extension() {
+        assert_eq!(
+            display_name(Path::new("/saves/save_2025-11-12_14-30-00.ron")),
+            "2025-11-12 14-30-00"
+        );
     }
 
     #[test]

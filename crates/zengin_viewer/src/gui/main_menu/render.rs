@@ -9,7 +9,10 @@ use crate::zengin::{
 };
 
 use super::spawn::{MainMenuContentMarker, MainMenuRootMarker};
-use super::state::{MainMenuData, MainMenuState, first_selectable, is_disabled, is_selectable};
+use super::state::{
+    LoadMenuData, MainMenuData, MainMenuScreen, MainMenuState, is_disabled, is_load_back,
+    load_selectable_slots, load_slot_index, selectable_slots,
+};
 use super::style::MainMenuStyle;
 
 #[derive(Component)]
@@ -17,12 +20,15 @@ pub(super) struct MainMenuInfoTextMarker;
 
 /// Engine start screen drawn behind the main menu, outside MENU.DAT.
 const MAIN_MENU_BACKGROUND: &str = "startscreen.tga";
+/// Label of a load-screen row without a save file.
+const EMPTY_SLOT_TEXT: &str = "---";
 
 #[allow(clippy::type_complexity)]
 pub(super) fn sync_main_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     data: Option<Res<MainMenuData>>,
+    load_data: Option<Res<LoadMenuData>>,
     current_world: Res<CurrentWorld>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut state: ResMut<MainMenuState>,
@@ -38,7 +44,7 @@ pub(super) fn sync_main_menu(
     if !state.open {
         return;
     }
-    let Some(data) = data.as_ref().and_then(|data| data.0.as_ref()) else {
+    let Some(definition) = active_definition(&state, data.as_ref(), load_data.as_ref()) else {
         return;
     };
     let in_game = !current_world.0.is_empty();
@@ -57,13 +63,16 @@ pub(super) fn sync_main_menu(
         || state.last_size != window_size
         || (state.last_scale - ui_scale).abs() > f32::EPSILON
     {
-        if !is_selectable(data, state.selected_slot, in_game) {
-            state.selected_slot = first_selectable(data, in_game).unwrap_or(state.selected_slot);
+        let selectable = active_selectable_slots(&state, definition, in_game);
+        if !selectable.contains(&state.selected_slot)
+            && let Some(first) = selectable.first()
+        {
+            state.selected_slot = *first;
         }
         rebuild_menu(
             &mut commands,
             &asset_server,
-            data,
+            definition,
             window_size,
             ui_scale,
             &state,
@@ -76,13 +85,22 @@ pub(super) fn sync_main_menu(
     }
 
     for (marker, mut color) in &mut texts {
-        let item = data.items.iter().find(|item| item.slot == marker.slot);
-        let value = item_color(item, marker.slot == state.selected_slot, in_game);
+        let item = definition
+            .items
+            .iter()
+            .find(|item| item.slot == marker.slot);
+        let value = screen_item_color(
+            item,
+            marker.slot == state.selected_slot,
+            &state,
+            definition,
+            in_game,
+        );
         set_text_color(&mut color, value);
     }
 
     let info = state
-        .selected_item(data)
+        .selected_item(definition)
         .and_then(|item| item.text.get(1))
         .map(String::as_str)
         .unwrap_or_default();
@@ -99,10 +117,33 @@ pub(super) fn sync_main_menu(
     }
 }
 
+fn active_definition<'a>(
+    state: &MainMenuState,
+    main: Option<&'a Res<MainMenuData>>,
+    load: Option<&'a Res<LoadMenuData>>,
+) -> Option<&'a MenuDefinition> {
+    match state.screen {
+        MainMenuScreen::Main => main?.0.as_ref(),
+        MainMenuScreen::Load => load?.0.as_ref(),
+    }
+}
+
+fn active_selectable_slots(
+    state: &MainMenuState,
+    definition: &MenuDefinition,
+    in_game: bool,
+) -> Vec<usize> {
+    match state.screen {
+        MainMenuScreen::Main => selectable_slots(definition, in_game),
+        MainMenuScreen::Load => load_selectable_slots(definition, &state.saved_games),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn rebuild_menu(
     commands: &mut Commands,
     asset_server: &AssetServer,
-    data: &MenuDefinition,
+    definition: &MenuDefinition,
     window_size: Vec2,
     scale: f32,
     state: &MainMenuState,
@@ -111,24 +152,87 @@ fn rebuild_menu(
 ) {
     commands.entity(content).despawn_children();
 
-    spawn_background(commands, asset_server, content);
+    if state.screen == MainMenuScreen::Main {
+        spawn_background(commands, asset_server, content);
+    }
 
     let area_id = spawn_menu_screen(
         commands,
         asset_server,
-        data,
+        definition,
         content,
         window_size,
         scale,
         MainMenuStyle::ITEM_FONT_SIZE * scale,
         MainMenuStyle::MENU_AREA_FALLBACK,
-        |item| item.title().to_owned(),
-        |item| item_color(Some(item), item.slot == state.selected_slot, in_game),
+        |item| screen_item_text(item, state, definition),
+        |item| {
+            screen_item_color(
+                Some(item),
+                item.slot == state.selected_slot,
+                state,
+                definition,
+                in_game,
+            )
+        },
     );
 
-    if data.flags & MENU_FLAG_SHOW_INFO != 0 {
+    if definition.flags & MENU_FLAG_SHOW_INFO != 0 {
         spawn_info_text(commands, area_id, scale);
     }
+}
+
+// TODO: fill the load screen metadata (thumbnail, save date, world, game time)
+// once saves store that information.
+fn screen_item_text(
+    item: &MenuItemDefinition,
+    state: &MainMenuState,
+    definition: &MenuDefinition,
+) -> String {
+    if state.screen == MainMenuScreen::Main {
+        return item.title().to_owned();
+    }
+    let Some(index) = load_slot_index(definition, item.slot) else {
+        return item.title().to_owned();
+    };
+    state.saved_games.get(index).map_or_else(
+        || EMPTY_SLOT_TEXT.to_owned(),
+        |path| crate::save::display_name(path),
+    )
+}
+
+fn screen_item_color(
+    item: Option<&MenuItemDefinition>,
+    selected: bool,
+    state: &MainMenuState,
+    definition: &MenuDefinition,
+    in_game: bool,
+) -> Color {
+    if state.screen == MainMenuScreen::Main {
+        return item_color(item, selected, in_game);
+    }
+    let alpha = item.map_or(255, |item| item.alpha);
+    let enabled = item.is_some_and(|item| load_item_enabled(item, state, definition));
+    let base = if !enabled {
+        MainMenuStyle::TEXT_COLOR_DISABLED
+    } else if selected {
+        MainMenuStyle::TEXT_COLOR_SELECTED
+    } else {
+        MainMenuStyle::TEXT_COLOR
+    };
+    base.with_alpha(f32::from(alpha) / 255.0)
+}
+
+fn load_item_enabled(
+    item: &MenuItemDefinition,
+    state: &MainMenuState,
+    definition: &MenuDefinition,
+) -> bool {
+    if is_load_back(item) {
+        return true;
+    }
+    load_slot_index(definition, item.slot)
+        .is_none_or(|index| state.saved_games.get(index).is_some())
 }
 
 fn spawn_background(commands: &mut Commands, asset_server: &AssetServer, content: Entity) {

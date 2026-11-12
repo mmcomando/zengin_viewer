@@ -179,9 +179,10 @@ fn quick_save(
     match write_save(&save, &path) {
         Ok(()) => {
             let size = std::fs::metadata(&path).map_or(0, |meta| meta.len());
+            let name = crate::save::display_name(&path);
             info!("Save written to {} ({size} bytes)", path.display());
             game_log.write(GameLogEntry {
-                text: format!("Game saved ({size} bytes)"),
+                text: format!("Game saved: {name} ({size} bytes)"),
             });
         }
         Err(error) => error!("Save failed: {error}"),

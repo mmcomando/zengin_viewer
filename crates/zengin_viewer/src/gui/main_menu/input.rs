@@ -3,50 +3,165 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::game_state::AppState;
 use crate::input::{GuiAction, GuiInputMarker};
+use crate::save::{LoadSaveRequest, QuickSave};
 use crate::zengin::{
     CurrentWorld, MenuDefinition, MenuItemDefinition, SEL_ACTION_BACK, SEL_ACTION_CLOSE,
     SEL_ACTION_START_MENU,
 };
 
-use super::state::{MainMenuData, MainMenuState, can_select};
+use super::state::{
+    LoadMenuData, MainMenuData, MainMenuScreen, MainMenuState, is_load_back, load_selectable_slots,
+    load_slot_index, selectable_slots,
+};
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn handle_main_menu_input(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     data: Option<Res<MainMenuData>>,
+    load_data: Option<Res<LoadMenuData>>,
     current_world: Res<CurrentWorld>,
     mut state: ResMut<MainMenuState>,
     mut next_state: ResMut<NextState<AppState>>,
+    mut quick_save: MessageWriter<QuickSave>,
+    mut load_request: MessageWriter<LoadSaveRequest>,
     mut exit: MessageWriter<AppExit>,
 ) {
     if !state.open {
         return;
     }
-    let Some(data) = data.as_ref().and_then(|data| data.0.as_ref()) else {
-        return;
-    };
     let in_game = !current_world.0.is_empty();
-    let selectable = selectable_slots(data, in_game);
+    let selectable = match state.screen {
+        MainMenuScreen::Main => {
+            let Some(definition) = data.as_ref().and_then(|data| data.0.as_ref()) else {
+                return;
+            };
+            selectable_slots(definition, in_game)
+        }
+        MainMenuScreen::Load => {
+            let Some(definition) = load_data.as_ref().and_then(|data| data.0.as_ref()) else {
+                return;
+            };
+            load_selectable_slots(definition, &state.saved_games)
+        }
+    };
     if selectable.is_empty() {
         return;
     }
-
     move_selection_on_input(&action_state, &mut state.selected_slot, &selectable);
+
+    if state.screen == MainMenuScreen::Load && action_state.just_pressed(&GuiAction::CancelAction) {
+        return_to_main(&mut state, data.as_ref().and_then(|data| data.0.as_ref()));
+        return;
+    }
     if !action_state.just_pressed(&GuiAction::Confirm) {
         return;
     }
 
-    let Some(item) = state.selected_item(data) else {
-        return;
-    };
-    apply_item_actions(item, &mut next_state, &mut exit);
+    match state.screen {
+        MainMenuScreen::Main => {
+            let Some(definition) = data.as_ref().and_then(|data| data.0.as_ref()) else {
+                return;
+            };
+            let Some(item) = state.selected_item(definition).cloned() else {
+                return;
+            };
+            handle_main_item(
+                &item,
+                load_data.as_ref().and_then(|data| data.0.as_ref()),
+                &mut state,
+                &mut next_state,
+                &mut quick_save,
+                &mut exit,
+            );
+        }
+        MainMenuScreen::Load => {
+            let Some(definition) = load_data.as_ref().and_then(|data| data.0.as_ref()) else {
+                return;
+            };
+            let Some(item) = state.selected_item(definition).cloned() else {
+                return;
+            };
+            handle_load_item(
+                &item,
+                definition,
+                data.as_ref().and_then(|data| data.0.as_ref()),
+                &mut state,
+                &mut load_request,
+            );
+        }
+    }
 }
 
-fn selectable_slots(data: &MenuDefinition, in_game: bool) -> Vec<usize> {
-    data.items
-        .iter()
-        .filter(|item| can_select(item, in_game))
-        .map(|item| item.slot)
-        .collect()
+fn handle_main_item(
+    item: &MenuItemDefinition,
+    load: Option<&MenuDefinition>,
+    state: &mut MainMenuState,
+    next_state: &mut NextState<AppState>,
+    quick_save: &mut MessageWriter<QuickSave>,
+    exit: &mut MessageWriter<AppExit>,
+) {
+    for (action, argument) in &item.on_sel_action {
+        match (*action, argument.as_str()) {
+            (SEL_ACTION_START_MENU, "MENU_SAVEGAME_SAVE") => {
+                info!("Main menu: saving the game");
+                quick_save.write(QuickSave);
+            }
+            (SEL_ACTION_START_MENU, "MENU_SAVEGAME_LOAD") => {
+                open_load_screen(state, load);
+            }
+            _ => apply_action(*action, argument, next_state, exit),
+        }
+    }
+    if item.on_event_action.iter().any(Option::is_some) {
+        warn!("Main menu event actions are not implemented yet");
+    }
+}
+
+fn handle_load_item(
+    item: &MenuItemDefinition,
+    definition: &MenuDefinition,
+    main: Option<&MenuDefinition>,
+    state: &mut MainMenuState,
+    load_request: &mut MessageWriter<LoadSaveRequest>,
+) {
+    if is_load_back(item) {
+        return_to_main(state, main);
+        return;
+    }
+    let Some(index) = load_slot_index(definition, item.slot) else {
+        warn!("Load menu item {} is not a save slot", item.name);
+        return;
+    };
+    let Some(path) = state.saved_games.get(index) else {
+        return;
+    };
+    info!("Main menu: loading {}", path.display());
+    load_request.write(LoadSaveRequest { path: path.clone() });
+}
+
+fn open_load_screen(state: &mut MainMenuState, load: Option<&MenuDefinition>) {
+    let Some(definition) = load else {
+        error!("Load menu unavailable: MENU_SAVEGAME_LOAD could not be loaded");
+        return;
+    };
+    state.open_load_screen(0);
+    let selectable = load_selectable_slots(definition, &state.saved_games);
+    if let Some(first) = selectable.first() {
+        state.selected_slot = *first;
+    }
+}
+
+fn return_to_main(state: &mut MainMenuState, main: Option<&MenuDefinition>) {
+    let selected = main
+        .and_then(|definition| {
+            definition.items.iter().find(|item| {
+                item.on_sel_action.iter().any(|(action, argument)| {
+                    *action == SEL_ACTION_START_MENU && argument == "MENU_SAVEGAME_LOAD"
+                })
+            })
+        })
+        .map_or(0, |item| item.slot);
+    state.open_main_screen(selected);
 }
 
 fn move_selection_on_input(
@@ -71,19 +186,10 @@ fn move_selection(selected: &mut usize, selectable: &[usize], delta: isize) {
     *selected = selectable[next];
 }
 
-fn apply_item_actions(
-    item: &MenuItemDefinition,
-    next_state: &mut NextState<AppState>,
-    exit: &mut MessageWriter<AppExit>,
-) {
-    for (action, argument) in &item.on_sel_action {
-        apply_action(*action, argument, next_state, exit);
-    }
-    if item.on_event_action.iter().any(Option::is_some) {
-        warn!("Main menu event actions are not implemented yet");
-    }
-}
-
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "Dispatch mirrors the menu script's action/argument pairs"
+)]
 fn apply_action(
     action: i32,
     argument: &str,

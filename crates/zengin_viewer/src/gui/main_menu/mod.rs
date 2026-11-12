@@ -11,7 +11,7 @@ mod style;
 
 pub(crate) use state::MainMenuState;
 
-use state::{MainMenuData, initial_selection};
+use state::{LoadMenuData, MainMenuData, initial_selection};
 
 /// Main menu driven by the `menu_main` instance of MENU.DAT.
 pub struct MainMenuPlugin;
@@ -50,6 +50,12 @@ fn load_menu_data(world: &mut World) {
         error!("Main menu data unavailable: menu_main could not be projected");
     }
     world.insert_resource(MainMenuData(definition));
+
+    let load_definition = script.load_section("menu_savegame_load");
+    if load_definition.is_none() {
+        error!("Load menu data unavailable: menu_savegame_load could not be projected");
+    }
+    world.insert_resource(LoadMenuData(load_definition));
     world.insert_resource(script);
 }
 

@@ -5,6 +5,7 @@ pub(crate) mod format;
 mod systems;
 
 pub(crate) use file::{
-    current_script_fingerprint, newest_save, read_save, timestamped_save_path, write_save,
+    current_script_fingerprint, display_name, list_saves, newest_save, read_save,
+    timestamped_save_path, write_save,
 };
-pub(crate) use systems::{PendingLoad, QuickLoad, QuickSave, QuickSavePlugin};
+pub(crate) use systems::{LoadSaveRequest, PendingLoad, QuickLoad, QuickSave, QuickSavePlugin};
