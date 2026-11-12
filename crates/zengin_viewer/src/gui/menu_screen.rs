@@ -171,9 +171,6 @@ fn spawn_item(
         row.insert(image);
     }
     let text = menu_text(&text_of(item));
-    if text.is_empty() {
-        return;
-    }
 
     let ui_text = UiText::new(text, font_size, color_of(item));
     let ui_text = if centered {

@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::game_state::AppState;
+use crate::gameplay::game_time::PlayTime;
 use crate::input::{GuiAction, GuiInputMarker};
 use crate::save::{LoadSaveRequest, QuickSave};
 use crate::zengin::{
@@ -22,6 +23,7 @@ pub(super) fn handle_main_menu_input(
     current_world: Res<CurrentWorld>,
     mut state: ResMut<MainMenuState>,
     mut next_state: ResMut<NextState<AppState>>,
+    mut play_time: ResMut<PlayTime>,
     mut quick_save: MessageWriter<QuickSave>,
     mut load_request: MessageWriter<LoadSaveRequest>,
     mut exit: MessageWriter<AppExit>,
@@ -70,6 +72,7 @@ pub(super) fn handle_main_menu_input(
                 load_data.as_ref().and_then(|data| data.0.as_ref()),
                 &mut state,
                 &mut next_state,
+                &mut play_time,
                 &mut quick_save,
                 &mut exit,
             );
@@ -97,6 +100,7 @@ fn handle_main_item(
     load: Option<&MenuDefinition>,
     state: &mut MainMenuState,
     next_state: &mut NextState<AppState>,
+    play_time: &mut PlayTime,
     quick_save: &mut MessageWriter<QuickSave>,
     exit: &mut MessageWriter<AppExit>,
 ) {
@@ -108,6 +112,11 @@ fn handle_main_item(
             }
             (SEL_ACTION_START_MENU, "MENU_SAVEGAME_LOAD") => {
                 open_load_screen(state, load);
+            }
+            (SEL_ACTION_CLOSE, "NEW_GAME") => {
+                info!("Main menu: starting new game");
+                play_time.reset();
+                next_state.set(AppState::LoadScreen);
             }
             _ => apply_action(*action, argument, next_state, exit),
         }
@@ -132,11 +141,13 @@ fn handle_load_item(
         warn!("Load menu item {} is not a save slot", item.name);
         return;
     };
-    let Some(path) = state.saved_games.get(index) else {
+    let Some(entry) = state.saved_games.get(index) else {
         return;
     };
-    info!("Main menu: loading {}", path.display());
-    load_request.write(LoadSaveRequest { path: path.clone() });
+    info!("Main menu: loading {}", entry.path.display());
+    load_request.write(LoadSaveRequest {
+        path: entry.path.clone(),
+    });
 }
 
 fn open_load_screen(state: &mut MainMenuState, load: Option<&MenuDefinition>) {
@@ -145,6 +156,10 @@ fn open_load_screen(state: &mut MainMenuState, load: Option<&MenuDefinition>) {
         return;
     };
     state.open_load_screen(0);
+    info!(
+        "Main menu: opened load screen with {} save(s)",
+        state.saved_games.len()
+    );
     let selectable = load_selectable_slots(definition, &state.saved_games);
     if let Some(first) = selectable.first() {
         state.selected_slot = *first;

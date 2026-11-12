@@ -19,6 +19,7 @@ pub struct MainMenuPlugin;
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MainMenuState>();
+        app.init_resource::<render::SaveThumbnailCache>();
         app.add_systems(Startup, spawn::spawn_main_menu);
         app.add_systems(
             OnEnter(AppState::MainMenu),

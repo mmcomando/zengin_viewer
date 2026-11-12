@@ -1,30 +1,38 @@
 //! Quick save/load triggers, save collection, and the destructive load.
 
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use bevy::prelude::*;
+use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured};
+use image::ImageFormat;
+use image::imageops::FilterType;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::game_state::{AppState, world_is_loaded};
 use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
-use crate::gameplay::game_time::GameTime;
+use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::{GameLogEntry, InventoryUiState, JournalUiState, StatsUiState};
-use crate::input::{SharedAction, SharedInputMarker};
+use crate::input::{Options, SharedAction, SharedInputMarker};
 use crate::save::format::{
-    SAVE_FORMAT_VERSION, SaveGame, SavedChest, SavedItemEntity, SavedNpcEntity,
+    SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedChest, SavedItemEntity,
+    SavedNpcEntity,
 };
-use crate::save::{
-    current_script_fingerprint, newest_save, read_save, timestamped_save_path, write_save,
-};
+use crate::save::{current_script_fingerprint, new_save_dir, newest_save, read_save, write_save};
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::request_initial_world;
 use crate::zengin::{
     CurrentWorld, DialogUiState, GameChest, GameItem, GameNpc, InstanceIndex, NpcOverlay,
     ScriptResource, Selection, SpawnWorld,
 };
+
+/// Size of the saved thumbnail. The load screen slot is 4:3, so a full window
+/// screenshot is stretched into this size.
+const THUMBNAIL_WIDTH: u32 = 512;
+const THUMBNAIL_HEIGHT: u32 = 384;
 
 /// Requests writing a new timestamped save.
 #[derive(Message)]
@@ -34,7 +42,7 @@ pub struct QuickSave;
 #[derive(Message)]
 pub struct QuickLoad;
 
-/// A save file selected in the menu. It is parsed and validated before the
+/// A save directory selected in the menu. It is parsed and validated before the
 /// state changes, so a corrupt or incompatible save leaves the menu open.
 #[derive(Message)]
 pub struct LoadSaveRequest {
@@ -91,11 +99,14 @@ fn handle_quick_save_load_input(
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::cognitive_complexity)]
 fn quick_save(
+    mut commands: Commands,
     mut requests: MessageReader<QuickSave>,
     mut game_log: MessageWriter<GameLogEntry>,
     scripts: Res<ScriptResource>,
     current_world: Res<CurrentWorld>,
     game_time: Res<GameTime>,
+    play_time: Res<PlayTime>,
+    options: Res<Options>,
     player: Query<&Transform, With<PlayerPhysicsBodyMarker>>,
     npcs: Query<(&GameNpc, &Transform, Option<&NpcOverlay>), Without<PlayerCharacter>>,
     items: Query<(&GameItem, &Transform)>,
@@ -157,11 +168,23 @@ fn quick_save(
         })
         .collect();
 
+    let (path, saved_at_unix) = match new_save_dir() {
+        Ok(dir) => dir,
+        Err(error) => {
+            error!("Save failed: {error}");
+            return;
+        }
+    };
     let save = SaveGame {
-        format_version: SAVE_FORMAT_VERSION,
-        script_fingerprint,
-        world_name,
-        game_time: *game_time,
+        metadata: SaveMetadata {
+            format_version: SAVE_FORMAT_VERSION,
+            script_fingerprint,
+            world_name,
+            saved_at_unix,
+            game_time: *game_time,
+            play_time_seconds: play_time.seconds,
+            screenshot: (!options.renderless()).then(|| SCREENSHOT_FILE.to_string()),
+        },
         player_transform: *player_transform,
         script,
         live_npcs,
@@ -169,24 +192,60 @@ fn quick_save(
         chests,
     };
 
-    let path = match timestamped_save_path() {
-        Ok(path) => path,
-        Err(error) => {
-            error!("Save failed: {error}");
-            return;
-        }
-    };
     match write_save(&save, &path) {
         Ok(()) => {
-            let size = std::fs::metadata(&path).map_or(0, |meta| meta.len());
+            let size = directory_size(&path);
             let name = crate::save::display_name(&path);
             info!("Save written to {} ({size} bytes)", path.display());
             game_log.write(GameLogEntry {
                 text: format!("Game saved: {name} ({size} bytes)"),
             });
+            if !options.renderless() {
+                // TODO: capture the game view instead of the whole window; a save
+                // requested from the main menu currently includes the menu in the
+                // thumbnail. Hide the UI for one frame or render to an offscreen
+                // camera once this becomes noticeable.
+                commands
+                    .spawn(Screenshot::primary_window())
+                    .observe(save_screenshot(path.join(SCREENSHOT_FILE)));
+            }
         }
         Err(error) => error!("Save failed: {error}"),
     }
+}
+
+/// Resizes a captured window screenshot to the load-screen thumbnail size and
+/// writes it into the save directory.
+fn save_screenshot(path: PathBuf) -> impl FnMut(On<ScreenshotCaptured>) {
+    move |captured: On<ScreenshotCaptured>| {
+        let result = captured
+            .image
+            .clone()
+            .try_into_dynamic()
+            .map_err(|error| error.to_string())
+            .and_then(|image| {
+                image
+                    .resize_exact(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, FilterType::Triangle)
+                    .save_with_format(&path, ImageFormat::Png)
+                    .map_err(|error| error.to_string())
+            });
+        match result {
+            Ok(()) => info!("Saved thumbnail to {}", path.display()),
+            Err(error) => error!("Failed to save thumbnail {}: {error}", path.display()),
+        }
+    }
+}
+
+fn directory_size(path: &Path) -> u64 {
+    let Ok(entries) = fs::read_dir(path) else {
+        return 0;
+    };
+    entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| entry.metadata().ok())
+        .filter(|metadata| metadata.is_file())
+        .map(|metadata| metadata.len())
+        .sum()
 }
 
 fn quick_load(world: &mut World) {
@@ -245,7 +304,10 @@ fn apply_pending_load(world: &mut World) {
     let Some(save) = world.resource_mut::<PendingLoad>().0.take() else {
         return;
     };
-    info!("Applying pending load of world({})", save.world_name);
+    info!(
+        "Applying pending load of world({})",
+        save.metadata.world_name
+    );
     perform_load(world, *save);
 }
 
@@ -260,7 +322,10 @@ fn perform_load(world: &mut World, save: SaveGame) {
     world
         .resource_mut::<CameraResource>()
         .set_third_person_camera();
-    *world.resource_mut::<GameTime>() = save.game_time;
+    *world.resource_mut::<GameTime>() = save.metadata.game_time;
+    *world.resource_mut::<PlayTime>() = PlayTime {
+        seconds: save.metadata.play_time_seconds,
+    };
 
     let entities: Vec<Entity> = world
         .query_filtered::<Entity, With<WorldEntityMarker>>()
@@ -271,8 +336,8 @@ fn perform_load(world: &mut World, save: SaveGame) {
     }
     world.resource_mut::<InstanceIndex>().clear();
 
-    info!("Load: spawning world({})", save.world_name);
-    let world_name = save.world_name.clone();
+    info!("Load: spawning world({})", save.metadata.world_name);
+    let world_name = save.metadata.world_name.clone();
     let player_transform = save.player_transform;
     world.write_message(SpawnWorld {
         world_name,

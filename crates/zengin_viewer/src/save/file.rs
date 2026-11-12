@@ -1,55 +1,180 @@
-//! Read, write and enumerate timestamped save files.
+//! Read, write and enumerate timestamped save directories.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use bevy::log::warn;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
-use super::format::{SaveGame, fnv1a_64, saves_dir};
+use super::format::{
+    GLOBALS_FILE, GUILDS_FILE, GlobalsSave, GuildsSave, INSTANCES_FILE, ITEMS_FILE, InstancesSave,
+    ItemsSave, JOURNAL_FILE, JournalSave, METADATA_FILE, NPCS_FILE, NpcsSave, PLAYER_FILE,
+    PlayerSave, SaveGame, SaveMetadata, ScriptSnapshot, WORLD_FILE, WorldSave, fnv1a_64,
+    format_unix_utc, saves_dir,
+};
 
 use crate::zengin::gothic2_dir;
 
-/// Prefix of every save file this module manages. Other files in the save
+/// Prefix of every save directory this module manages. Other files in the save
 /// directory (for example the legacy `quicksave.ron`) are ignored.
 const SAVE_PREFIX: &str = "save_";
 
-/// Writes a save file atomically: the RON goes to a temporary file next to the
-/// target and is renamed over the final path only after a successful write.
-pub(crate) fn write_save(save: &SaveGame, path: &Path) -> Result<(), String> {
-    let Some(dir) = path.parent() else {
+/// Prefix of the temporary directory a save is built in before it is renamed.
+const TMP_PREFIX: &str = ".tmp-";
+
+/// One listed save: its directory and the metadata needed by the load screen.
+#[derive(Debug, Clone)]
+pub(crate) struct SaveEntry {
+    pub(crate) path: PathBuf,
+    pub(crate) metadata: SaveMetadata,
+}
+
+/// Writes a save directory atomically: every document goes into a temporary
+/// sibling directory that is renamed to the final name only after all writes
+/// succeeded.
+pub(crate) fn write_save(save: &SaveGame, dir: &Path) -> Result<(), String> {
+    let Some(parent) = dir.parent() else {
         return Err(format!(
             "save path({}) has no parent directory",
-            path.display()
+            dir.display()
         ));
     };
-    fs::create_dir_all(dir)
-        .map_err(|error| format!("failed to create save directory {}: {error}", dir.display()))?;
+    let Some(name) = dir.file_name() else {
+        return Err(format!("save path({}) has no file name", dir.display()));
+    };
+    if dir.exists() {
+        return Err(format!("save directory {} already exists", dir.display()));
+    }
+    fs::create_dir_all(parent).map_err(|error| {
+        format!(
+            "failed to create save directory {}: {error}",
+            parent.display()
+        )
+    })?;
 
-    let mut config = ron::ser::PrettyConfig::default();
-    config.depth_limit = 2;
-    let contents = ron::ser::to_string_pretty(save, config)
-        .map_err(|error| format!("failed to serialize save: {error}"))?;
+    let tmp_dir = parent.join(format!("{TMP_PREFIX}{}", name.to_string_lossy()));
+    if tmp_dir.exists() {
+        fs::remove_dir_all(&tmp_dir)
+            .map_err(|error| format!("failed to clear {}: {error}", tmp_dir.display()))?;
+    }
 
-    let tmp_path = path.with_extension("ron.tmp");
-    fs::write(&tmp_path, contents)
-        .map_err(|error| format!("failed to write {}: {error}", tmp_path.display()))?;
-    fs::rename(&tmp_path, path).map_err(|error| {
+    if let Err(error) = write_save_files(save, &tmp_dir) {
+        if let Err(cleanup_error) = fs::remove_dir_all(&tmp_dir) {
+            warn!(
+                "Failed to remove incomplete save {}: {cleanup_error}",
+                tmp_dir.display()
+            );
+        }
+        return Err(error);
+    }
+    fs::rename(&tmp_dir, dir).map_err(|error| {
         format!(
             "failed to move {} to {}: {error}",
-            tmp_path.display(),
-            path.display()
+            tmp_dir.display(),
+            dir.display()
         )
     })?;
     Ok(())
 }
 
-/// Reads and parses a save file. Version and fingerprint checks are the
-/// caller's responsibility so it can report them separately.
-pub(crate) fn read_save(path: &Path) -> Result<SaveGame, String> {
-    let contents = fs::read_to_string(path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    ron::from_str(&contents).map_err(|error| format!("failed to parse {}: {error}", path.display()))
+fn write_save_files(save: &SaveGame, dir: &Path) -> Result<(), String> {
+    fs::create_dir_all(dir)
+        .map_err(|error| format!("failed to create save directory {}: {error}", dir.display()))?;
+
+    write_ron(&dir.join(METADATA_FILE), &save.metadata)?;
+    write_ron(
+        &dir.join(PLAYER_FILE),
+        &PlayerSave {
+            player_instance: save.script.player_instance,
+            player_transform: save.player_transform,
+        },
+    )?;
+    write_ron(
+        &dir.join(WORLD_FILE),
+        &WorldSave {
+            live_npcs: save.live_npcs.clone(),
+            live_items: save.live_items.clone(),
+            chests: save.chests.clone(),
+            mob_routines: save.script.mob_routines.clone(),
+        },
+    )?;
+    write_ron(
+        &dir.join(NPCS_FILE),
+        &NpcsSave {
+            npc_runtimes: save.script.npc_runtimes.clone(),
+        },
+    )?;
+    write_ron(
+        &dir.join(ITEMS_FILE),
+        &ItemsSave {
+            item_runtimes: save.script.item_runtimes.clone(),
+        },
+    )?;
+    write_ron(
+        &dir.join(JOURNAL_FILE),
+        &JournalSave {
+            journal: save.script.journal.clone(),
+        },
+    )?;
+    write_ron(
+        &dir.join(GLOBALS_FILE),
+        &GlobalsSave {
+            globals: save.script.globals.clone(),
+        },
+    )?;
+    write_ron(
+        &dir.join(INSTANCES_FILE),
+        &InstancesSave {
+            instances: save.script.instances.clone(),
+        },
+    )?;
+    write_ron(
+        &dir.join(GUILDS_FILE),
+        &GuildsSave {
+            guild_attitudes: save.script.guild_attitudes.clone(),
+        },
+    )?;
+    Ok(())
+}
+
+/// Reads a complete save directory into the in-memory aggregate. Version and
+/// fingerprint checks are the caller's responsibility so it can report them
+/// separately.
+pub(crate) fn read_save(dir: &Path) -> Result<SaveGame, String> {
+    let metadata = read_metadata(dir)?;
+    let player: PlayerSave = read_ron(&dir.join(PLAYER_FILE))?;
+    let world: WorldSave = read_ron(&dir.join(WORLD_FILE))?;
+    let npcs: NpcsSave = read_ron(&dir.join(NPCS_FILE))?;
+    let items: ItemsSave = read_ron(&dir.join(ITEMS_FILE))?;
+    let journal: JournalSave = read_ron(&dir.join(JOURNAL_FILE))?;
+    let globals: GlobalsSave = read_ron(&dir.join(GLOBALS_FILE))?;
+    let instances: InstancesSave = read_ron(&dir.join(INSTANCES_FILE))?;
+    let guilds: GuildsSave = read_ron(&dir.join(GUILDS_FILE))?;
+
+    Ok(SaveGame {
+        metadata,
+        player_transform: player.player_transform,
+        script: ScriptSnapshot {
+            player_instance: player.player_instance,
+            globals: globals.globals,
+            instances: instances.instances,
+            npc_runtimes: npcs.npc_runtimes,
+            item_runtimes: items.item_runtimes,
+            journal: journal.journal,
+            guild_attitudes: guilds.guild_attitudes,
+            mob_routines: world.mob_routines,
+        },
+        live_npcs: world.live_npcs,
+        live_items: world.live_items,
+        chests: world.chests,
+    })
+}
+
+/// Reads only `metadata.ron`, used for listing saves without loading the rest.
+pub(crate) fn read_metadata(dir: &Path) -> Result<SaveMetadata, String> {
+    read_ron(&dir.join(METADATA_FILE))
 }
 
 /// Fingerprint of the installed `GOTHIC.DAT`. Matches the value
@@ -65,25 +190,30 @@ pub(crate) fn current_script_fingerprint() -> Result<u64, String> {
     Ok(fnv1a_64(&bytes))
 }
 
-/// Builds the path of a new save named after the current UTC time. Fails when a
-/// file with the same timestamp already exists; saves are never overwritten.
-pub(crate) fn timestamped_save_path() -> Result<PathBuf, String> {
+/// Builds the path of a new save directory named after the current UTC time.
+/// Returns the directory and the unix timestamp used in its name. Fails when a
+/// directory with the same timestamp already exists; saves are never
+/// overwritten.
+pub(crate) fn new_save_dir() -> Result<(PathBuf, u64), String> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|error| format!("system clock is before the unix epoch: {error}"))?;
-    let stamp = format_unix_utc(now.as_secs());
-    let path = saves_dir().join(format!("{SAVE_PREFIX}{stamp}.ron"));
-    if path.exists() {
-        return Err(format!("save file {} already exists", path.display()));
+    let saved_at_unix = now.as_secs();
+    let dir = saves_dir().join(format!("{SAVE_PREFIX}{}", format_unix_utc(saved_at_unix)));
+    if dir.exists() {
+        return Err(format!("save directory {} already exists", dir.display()));
     }
-    Ok(path)
+    Ok((dir, saved_at_unix))
 }
 
-/// Every save file in the save directory, newest first. A missing directory is
-/// treated as "no saves" instead of an error.
-pub(crate) fn list_saves() -> Vec<PathBuf> {
-    let dir = saves_dir();
-    let entries = match fs::read_dir(&dir) {
+/// Every save directory in the save directory, newest first. Invalid metadata
+/// is skipped with a warning. A missing directory is treated as "no saves".
+pub(crate) fn list_saves() -> Vec<SaveEntry> {
+    list_saves_in(&saves_dir())
+}
+
+fn list_saves_in(dir: &Path) -> Vec<SaveEntry> {
+    let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
         Err(error) => {
@@ -91,23 +221,30 @@ pub(crate) fn list_saves() -> Vec<PathBuf> {
             return Vec::new();
         }
     };
-    let mut paths: Vec<PathBuf> = entries
+    let mut saves: Vec<SaveEntry> = entries
         .filter_map(Result::ok)
         .map(|entry| entry.path())
-        .filter(|path| path.is_file() && is_save_file(path))
+        .filter(|path| is_save_dir(path))
+        .filter_map(|path| match read_metadata(&path) {
+            Ok(metadata) => Some(SaveEntry { path, metadata }),
+            Err(error) => {
+                warn!("Skipping save {}: {error}", path.display());
+                None
+            }
+        })
         .collect();
     // The timestamp in the name is fixed-width, so a reverse lexical sort is
     // also a newest-first chronological sort.
-    paths.sort_by(|left, right| right.file_name().cmp(&left.file_name()));
-    paths
+    saves.sort_by(|left, right| right.path.file_name().cmp(&left.path.file_name()));
+    saves
 }
 
-/// The most recent save, if there is one.
+/// The most recent valid save directory, if there is one.
 pub(crate) fn newest_save() -> Option<PathBuf> {
-    list_saves().into_iter().next()
+    list_saves().into_iter().next().map(|entry| entry.path)
 }
 
-/// Human-readable label of a save file: `save_2025-11-12_14-30-00.ron` becomes
+/// Human-readable label of a save directory: `save_2025-11-12_14-30-00` becomes
 /// `2025-11-12 14-30-00`.
 pub(crate) fn display_name(path: &Path) -> String {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
@@ -118,91 +255,131 @@ pub(crate) fn display_name(path: &Path) -> String {
     name.replace('_', " ")
 }
 
-/// Whether `path` looks like a save file this module wrote.
-fn is_save_file(path: &Path) -> bool {
+/// Whether `path` looks like a save directory this module wrote.
+fn is_save_dir(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
         return false;
     };
-    path.extension().is_some_and(|extension| extension == "ron") && name.starts_with(SAVE_PREFIX)
+    path.is_dir() && name.starts_with(SAVE_PREFIX)
 }
 
-/// Formats a unix timestamp as `YYYY-MM-DD_HH-MM-SS` in UTC.
-fn format_unix_utc(seconds: u64) -> String {
-    let days = (seconds / 86_400) as i64;
-    let seconds_of_day = seconds % 86_400;
-    let (year, month, day) = civil_from_days(days);
-    let hour = seconds_of_day / 3_600;
-    let minute = (seconds_of_day % 3_600) / 60;
-    let second = seconds_of_day % 60;
-    format!("{year:04}-{month:02}-{day:02}_{hour:02}-{minute:02}-{second:02}")
+fn write_ron<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
+    let mut config = ron::ser::PrettyConfig::default();
+    config.depth_limit = 2;
+    let contents = ron::ser::to_string_pretty(value, config)
+        .map_err(|error| format!("failed to serialize {}: {error}", path.display()))?;
+    fs::write(path, contents)
+        .map_err(|error| format!("failed to write {}: {error}", path.display()))
 }
 
-/// Converts days since 1970-01-01 into a proleptic Gregorian calendar date.
-/// Based on Howard Hinnant's `civil_from_days` algorithm.
-fn civil_from_days(days_since_epoch: i64) -> (i64, u32, u32) {
-    let shifted = days_since_epoch + 719_468;
-    let era = if shifted >= 0 {
-        shifted
-    } else {
-        shifted - 146_096
-    } / 146_097;
-    let day_of_era = shifted - era * 146_097;
-    let year_of_era =
-        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let year = year_of_era + era * 400;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let month_prime = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
-    let month = if month_prime < 10 {
-        month_prime + 3
-    } else {
-        month_prime - 9
-    };
-    let year = if month <= 2 { year + 1 } else { year };
-    (year, month as u32, day as u32)
+fn read_ron<T: DeserializeOwned>(path: &Path) -> Result<T, String> {
+    let contents = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    ron::from_str(&contents).map_err(|error| format!("failed to parse {}: {error}", path.display()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gameplay::game_time::GameTime;
+    use crate::save::format::SAVE_FORMAT_VERSION;
+    use crate::zengin::InstanceId;
 
-    #[test]
-    fn unix_epoch_formats_as_utc_date_and_time() {
-        assert_eq!(format_unix_utc(0), "1970-01-01_00-00-00");
+    fn test_root(name: &str) -> PathBuf {
+        let root =
+            std::env::temp_dir().join(format!("zengin_save_test_{}_{name}", std::process::id()));
+        drop(fs::remove_dir_all(&root));
+        root
+    }
+
+    fn metadata(saved_at_unix: u64) -> SaveMetadata {
+        SaveMetadata {
+            format_version: SAVE_FORMAT_VERSION,
+            script_fingerprint: 42,
+            world_name: "NEWWORLD/NEWWORLD".to_string(),
+            saved_at_unix,
+            game_time: GameTime::default(),
+            play_time_seconds: 0.0,
+            screenshot: None,
+        }
+    }
+
+    fn save() -> SaveGame {
+        SaveGame {
+            metadata: metadata(1_762_957_800),
+            player_transform: bevy::prelude::Transform::IDENTITY,
+            script: ScriptSnapshot {
+                player_instance: InstanceId::new(7),
+                ..ScriptSnapshot::default()
+            },
+            live_npcs: Vec::new(),
+            live_items: Vec::new(),
+            chests: Vec::new(),
+        }
     }
 
     #[test]
-    fn known_unix_timestamp_formats_as_utc() {
-        // 2025-11-12 14:30:00 UTC
-        assert_eq!(format_unix_utc(1_762_957_800), "2025-11-12_14-30-00");
+    fn save_directory_round_trips() {
+        let root = test_root("roundtrip");
+        let dir = root.join("save_2025-11-12_14-30-00");
+        write_save(&save(), &dir).expect("write save");
+        let restored = read_save(&dir).expect("read save");
+
+        assert_eq!(restored.metadata.world_name, "NEWWORLD/NEWWORLD");
+        assert_eq!(restored.script.player_instance, InstanceId::new(7));
+        assert!(restored.script.globals.is_empty());
+
+        fs::remove_dir_all(root).expect("cleanup");
     }
 
     #[test]
-    fn leap_day_is_formatted_correctly() {
-        // 2024-02-29 12:00:00 UTC
-        assert_eq!(format_unix_utc(1_709_208_000), "2024-02-29_12-00-00");
-    }
+    fn list_skips_directories_without_metadata_and_sorts_newest_first() {
+        let root = test_root("listing");
+        fs::create_dir_all(&root).expect("create root");
 
-    #[test]
-    fn saves_directory_points_into_the_workspace() {
-        assert!(saves_dir().ends_with("misc/saves"));
-    }
+        let older = root.join("save_2025-11-12_14-30-00");
+        let newer = root.join("save_2025-11-13_10-00-00");
+        let invalid = root.join("save_2025-11-14_10-00-00");
+        for (dir, saved_at) in [(&older, 1_762_957_800), (&newer, 1_763_047_200)] {
+            fs::create_dir_all(dir).expect("create save dir");
+            write_ron(&dir.join(METADATA_FILE), &metadata(saved_at)).expect("write metadata");
+        }
+        fs::create_dir_all(&invalid).expect("create invalid dir");
 
-    #[test]
-    fn save_display_name_drops_prefix_and_extension() {
+        let saves = list_saves_in(&root);
+        let names: Vec<_> = saves
+            .iter()
+            .filter_map(|entry| entry.path.file_name())
+            .map(|name| name.to_string_lossy().into_owned())
+            .collect();
         assert_eq!(
-            display_name(Path::new("/saves/save_2025-11-12_14-30-00.ron")),
+            names,
+            vec!["save_2025-11-13_10-00-00", "save_2025-11-12_14-30-00"]
+        );
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn save_display_name_drops_prefix() {
+        assert_eq!(
+            display_name(Path::new("/saves/save_2025-11-12_14-30-00")),
             "2025-11-12 14-30-00"
         );
     }
 
     #[test]
-    fn only_save_prefixed_ron_files_are_listed() {
-        assert!(is_save_file(Path::new(
-            "/saves/save_2025-11-12_14-30-00.ron"
-        )));
-        assert!(!is_save_file(Path::new("/saves/quicksave.ron")));
-        assert!(!is_save_file(Path::new("/saves/save_2025-11-12.ron.tmp")));
-        assert!(!is_save_file(Path::new("/saves/notes.txt")));
+    fn only_save_prefixed_directories_are_listed() {
+        let root = test_root("dirs");
+        let save_dir = root.join("save_2025-11-12_14-30-00");
+        let tmp_dir = root.join(".tmp-save_2025-11-12_14-30-00");
+        let plain_dir = root.join("quicksave");
+        for dir in [&save_dir, &tmp_dir, &plain_dir] {
+            fs::create_dir_all(dir).expect("create dir");
+        }
+        assert!(is_save_dir(&save_dir));
+        assert!(!is_save_dir(&tmp_dir));
+        assert!(!is_save_dir(&plain_dir));
+        fs::remove_dir_all(root).expect("cleanup");
     }
 }

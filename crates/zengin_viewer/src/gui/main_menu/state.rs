@@ -1,7 +1,6 @@
-use std::path::PathBuf;
-
 use bevy::prelude::*;
 
+use crate::save::SaveEntry;
 use crate::zengin::{
     MENU_ITEM_FLAG_DISABLED, MenuDefinition, MenuItemDefinition, SEL_ACTION_BACK, SEL_ACTION_CLOSE,
     SEL_ACTION_START_MENU,
@@ -29,8 +28,8 @@ pub(crate) struct MainMenuState {
     pub screen: MainMenuScreen,
     /// Selected item, identified by its index in the menu's `items[]` array.
     pub selected_slot: usize,
-    /// Save files shown by the load screen, newest first.
-    pub saved_games: Vec<PathBuf>,
+    /// Save entries shown by the load screen, newest first.
+    pub saved_games: Vec<SaveEntry>,
     pub rebuild: bool,
     pub last_size: Vec2,
     pub last_scale: f32,
@@ -157,9 +156,9 @@ pub(super) fn is_load_back(item: &MenuItemDefinition) -> bool {
     item.name == LOAD_BACK_NAME
 }
 
-/// Slots reachable with Up/Down on the load screen: rows backed by a save file
+/// Slots reachable with Up/Down on the load screen: rows backed by a save
 /// plus the back row.
-pub(super) fn load_selectable_slots(data: &MenuDefinition, saved: &[PathBuf]) -> Vec<usize> {
+pub(super) fn load_selectable_slots(data: &MenuDefinition, saved: &[SaveEntry]) -> Vec<usize> {
     let mut slots: Vec<usize> = load_slot_slots(data)
         .into_iter()
         .enumerate()
@@ -211,6 +210,8 @@ pub(super) fn is_selectable(data: &MenuDefinition, slot: usize, in_game: bool) -
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gameplay::game_time::GameTime;
+    use crate::save::format::{SAVE_FORMAT_VERSION, SaveMetadata};
     use daedalus_typed::{MENU_ITEM_FLAG_ONLY_IN_GAME, MENU_ITEM_FLAG_SELECTABLE};
 
     fn item(slot: usize, name: &str) -> MenuItemDefinition {
@@ -250,7 +251,18 @@ mod tests {
             item(1, "MENUITEM_LOAD_SLOT2"),
             item(2, "MENUITEM_LOAD_BACK"),
         ]);
-        let one_save = vec![PathBuf::from("save_2025-11-12_14-30-00.ron")];
+        let one_save = vec![SaveEntry {
+            path: std::path::PathBuf::from("save_2025-11-12_14-30-00"),
+            metadata: SaveMetadata {
+                format_version: SAVE_FORMAT_VERSION,
+                script_fingerprint: 0,
+                world_name: "NEWWORLD/NEWWORLD".to_string(),
+                saved_at_unix: 0,
+                game_time: GameTime::default(),
+                play_time_seconds: 0.0,
+                screenshot: None,
+            },
+        }];
 
         assert_eq!(load_selectable_slots(&data, &[]), vec![2]);
         assert_eq!(load_selectable_slots(&data, &one_save), vec![0, 2]);

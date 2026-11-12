@@ -156,9 +156,9 @@ pub enum SharedAction {
     Journal,
     /// Toggle the player stats (character sheet) UI, closes it when it is open.
     Stats,
-    /// Write the quicksave slot.
+    /// Write a new timestamped save.
     QuickSave,
-    /// Load the quicksave slot.
+    /// Load the newest save.
     QuickLoad,
     /// Closes the topmost open UI, otherwise exits the game.
     Back,

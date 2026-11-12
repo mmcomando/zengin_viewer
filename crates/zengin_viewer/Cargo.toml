@@ -31,6 +31,9 @@ openxr = "0.22.0"
 # File formats
 serde = "1.0.228"
 ron = "0.12.0"
+# Thumbnail encoding/decoding for save screenshots. `image 0.25` is already in
+# the lock through `bevy_image`.
+image = { version = "0.25", default-features = false, features = ["png"] }
 rodio = { version = "0.22.2", features = ["symphonia-wav", "symphonia-adpcm"] }
 
 

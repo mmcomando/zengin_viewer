@@ -9,6 +9,11 @@ impl MainMenuStyle {
     pub(super) const TEXT_COLOR_SELECTED: Color = Color::srgb(1.0, 0.94, 0.8);
     pub(super) const TEXT_COLOR_DISABLED: Color = Color::srgb(0.42, 0.4, 0.36);
     pub(super) const ITEM_FONT_SIZE: f32 = 24.0;
+    /// Load-screen slots and metadata values use the script's small font.
+    pub(super) const LOAD_FONT_SIZE: f32 = 13.0;
+    /// Info bar under the load screen; the MENU.DAT slots are much shorter than
+    /// the main-menu rows.
+    pub(super) const LOAD_INFO_FONT_SIZE: f32 = 13.0;
     pub(super) const INFO_FONT_SIZE: f32 = 20.0;
     pub(super) const INFO_BOTTOM_OFFSET: f32 = 7.0;
 }

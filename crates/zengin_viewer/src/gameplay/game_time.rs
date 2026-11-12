@@ -20,7 +20,9 @@ impl Plugin for GameTimePlugin {
             });
         }
         app.init_resource::<GameTime>();
+        app.init_resource::<PlayTime>();
         app.add_systems(Update, advance_game_time.run_if(in_state(AppState::InGame)));
+        app.add_systems(Update, advance_play_time.run_if(in_state(AppState::InGame)));
     }
 }
 
@@ -66,4 +68,22 @@ pub(crate) fn advance_game_time(time: Res<Time>, mut game_time: ResMut<GameTime>
         game_time.day += elapsed_days as u32;
     }
     game_time.total_hours %= 24.0;
+}
+
+/// Real time spent playing the current save. Accumulates only in `InGame` so
+/// menu time is not counted.
+#[derive(Resource, Default, Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct PlayTime {
+    pub seconds: f64,
+}
+
+impl PlayTime {
+    /// Starts a new game's counter from zero.
+    pub fn reset(&mut self) {
+        self.seconds = 0.0;
+    }
+}
+
+pub(crate) fn advance_play_time(time: Res<Time>, mut play_time: ResMut<PlayTime>) {
+    play_time.seconds += time.delta_secs_f64();
 }

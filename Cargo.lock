@@ -9774,6 +9774,7 @@ dependencies = [
  "clap",
  "daedalus_typed",
  "daedalus_wasm",
+ "image",
  "leafwing-input-manager",
  "openxr",
  "pathfinding",
