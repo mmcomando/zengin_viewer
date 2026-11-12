@@ -17,19 +17,15 @@ use crate::zengin::{ItemRuntime, MobRoutineEntry, NpcRuntime};
 /// Version of the on-disk save format. Increment on any incompatible change.
 pub(crate) const SAVE_FORMAT_VERSION: u32 = 1;
 
-/// Directory of the single quicksave slot, relative to the workspace root.
+/// Directory of the save files, relative to the workspace root.
 const SAVE_DIR: &str = "../../misc/saves";
-/// File name of the single quicksave slot.
-const SAVE_FILE: &str = "quicksave.ron";
 
-/// Absolute path of the quicksave slot.
+/// Absolute path of the save directory.
 ///
 /// Resolved from the crate manifest, like the assets directory, so it does not
 /// depend on the process working directory.
-pub(crate) fn save_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(SAVE_DIR)
-        .join(SAVE_FILE)
+pub(crate) fn saves_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(SAVE_DIR)
 }
 
 /// Stable 64-bit FNV-1a hash. Used for the `GOTHIC.DAT` fingerprint; unlike

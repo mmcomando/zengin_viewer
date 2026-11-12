@@ -15,7 +15,7 @@ use crate::input::{SharedAction, SharedInputMarker};
 use crate::save::format::{
     SAVE_FORMAT_VERSION, SaveGame, SavedChest, SavedItemEntity, SavedNpcEntity,
 };
-use crate::save::{read_save, write_save};
+use crate::save::{newest_save, read_save, timestamped_save_path, write_save};
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::{
     CurrentWorld, DialogUiState, GameChest, GameItem, GameNpc, InstanceIndex, NpcOverlay,
@@ -151,8 +151,18 @@ fn quick_save(
         chests,
     };
 
-    match write_save(&save) {
-        Ok(path) => {
+    let path = match timestamped_save_path() {
+        Ok(path) => path,
+        Err(error) => {
+            error!("Quick save failed: {error}");
+            game_log.write(GameLogEntry {
+                text: format!("Quick save failed: {error}"),
+            });
+            return;
+        }
+    };
+    match write_save(&save, &path) {
+        Ok(()) => {
             let size = std::fs::metadata(&path).map_or(0, |meta| meta.len());
             info!("Quick save written to {} ({size} bytes)", path.display());
             game_log.write(GameLogEntry {
@@ -173,7 +183,11 @@ fn quick_load(world: &mut World) {
         .resource::<ScriptResource>()
         .lock()
         .script_fingerprint();
-    let save = match read_save() {
+    let Some(path) = newest_save() else {
+        report_load_error(world, "no saved games found");
+        return;
+    };
+    let save = match read_save(&path) {
         Ok(save) => save,
         Err(error) => {
             report_load_error(world, &error);
