@@ -15,7 +15,7 @@ use super::format::{
     format_unix_utc, saves_dir,
 };
 
-use crate::zengin::gothic2_dir;
+use crate::zengin::gothic_dat_path;
 
 /// Prefix of every save directory this module manages. Other files in the save
 /// directory (for example the legacy `quicksave.ron`) are ignored.
@@ -181,10 +181,7 @@ pub(crate) fn read_metadata(dir: &Path) -> Result<SaveMetadata, String> {
 /// `ScriptManager` stores, so saves can be validated before the script vm is
 /// loaded (for example from the main menu).
 pub(crate) fn current_script_fingerprint() -> Result<u64, String> {
-    let path = PathBuf::from(format!(
-        "{}/_work/Data/Scripts/_compiled/GOTHIC.DAT",
-        gothic2_dir()
-    ));
+    let path = gothic_dat_path();
     let bytes =
         fs::read(&path).map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     Ok(fnv1a_64(&bytes))

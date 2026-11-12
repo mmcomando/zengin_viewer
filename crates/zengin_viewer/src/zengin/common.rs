@@ -48,6 +48,11 @@ pub fn gothic2_dir() -> String {
     );
 }
 
+/// Path of the compiled game script (`GOTHIC.DAT`).
+pub fn gothic_dat_path() -> PathBuf {
+    PathBuf::from(gothic2_dir()).join("_work/Data/Scripts/_compiled/GOTHIC.DAT")
+}
+
 pub fn to_asset_path(zengin_asset_path: &str) -> String {
     format!("zengin:/{}", zengin_asset_path)
 }

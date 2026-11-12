@@ -1,11 +1,10 @@
-use crate::zengin::common::gothic2_dir;
+use crate::zengin::common::gothic_dat_path;
 use crate::zengin::script::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::symbol_id::FunctionId;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::script::symbol_id::SymbolId;
 use daedalus_wasm::wasm::convert_daedalus_script;
-use std::path::PathBuf;
 
 /// Symbol printed in detail, including the script import calls it makes when
 /// executed
@@ -16,7 +15,7 @@ const DEBUG_ID: u32 = 11145;
 #[test]
 #[ignore = "manual script VM debug tool"]
 fn debug_zengin_scripts() {
-    let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
+    let script_path = gothic_dat_path();
     let wasm_bytes = convert_daedalus_script(&script_path);
     let mut executor = ScriptManager::new(&wasm_bytes);
     executor.load_symbol_table();
@@ -82,7 +81,7 @@ fn unsafe_wrap_instance_callable(instance_id: InstanceId) -> FunctionId {
 #[test]
 #[ignore = "manual script VM debug tool"]
 fn debug_npc_hitpoints() {
-    let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
+    let script_path = gothic_dat_path();
     let wasm_bytes = convert_daedalus_script(&script_path);
     let mut executor = ScriptManager::new(&wasm_bytes);
     executor.load_symbol_table();
@@ -142,7 +141,7 @@ fn debug_npc_routine(executor: &mut ScriptManager, npc_id: InstanceId) {
 #[test]
 #[ignore = "manual script VM debug tool"]
 fn debug_player_instance_hitpoints() {
-    let script_path = PathBuf::from(gothic2_dir() + "/_work/Data/Scripts/_compiled/GOTHIC.DAT");
+    let script_path = gothic_dat_path();
     let wasm_bytes = convert_daedalus_script(&script_path);
     let mut executor = ScriptManager::new(&wasm_bytes);
     executor.load_symbol_table();
