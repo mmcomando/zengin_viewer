@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use bevy::log::{error, info, warn};
 use bevy::prelude::{Resource, World};
 
-use super::manager::ScriptManager;
+use super::manager::{ScriptManager, wasm_cache_path};
 use super::symbol_id::{FunctionId, StringId};
 use crate::zengin::common::gothic2_dir;
 use daedalus_typed::{
@@ -105,7 +105,7 @@ impl MenuScriptResource {
             return None;
         }
 
-        let cache_path = PathBuf::from("./menu.script.wasm");
+        let cache_path = wasm_cache_path("menu.script.wasm");
         let mut script = ScriptManager::from_file_cached(&path, &cache_path);
         script.load_symbol_table();
         script.initialize_instances();

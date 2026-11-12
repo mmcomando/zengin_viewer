@@ -11,7 +11,7 @@ mod strings;
 mod world;
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use daedalus_wasm::wasm::convert_daedalus_script;
@@ -68,6 +68,16 @@ pub(super) fn attribute_display_name(index: i32) -> Option<&'static str> {
     }
 }
 
+/// Path of a generated script wasm cache, resolved against the workspace
+/// `target` directory so it is independent of the process working directory.
+pub(crate) fn wasm_cache_path(name: &str) -> PathBuf {
+    let target = std::env::var_os("CARGO_TARGET_DIR").map_or_else(
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target"),
+        PathBuf::from,
+    );
+    target.join("script_cache").join(name)
+}
+
 impl ScriptManager {
     pub fn from_file_cached(script_path: &Path, script_wasm_cache_path: &Path) -> Self {
         let fingerprint = std::fs::read(script_path).map_or_else(
@@ -81,6 +91,14 @@ impl ScriptManager {
             |bytes| fnv1a_64(&bytes),
         );
         let wasm_bytes = convert_daedalus_script(script_path);
+        if let Some(parent) = script_wasm_cache_path.parent() {
+            std::fs::create_dir_all(parent).unwrap_or_else(|error| {
+                panic!(
+                    "failed to create script cache directory {}: {error}",
+                    parent.display()
+                )
+            });
+        }
         std::fs::write(script_wasm_cache_path, &wasm_bytes).unwrap();
         let mut manager = Self::new(&wasm_bytes);
         manager.script_fingerprint = fingerprint;

@@ -4,13 +4,12 @@ use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{GameNpc, NpcHandle, load_fight_ai_tables};
 use crate::zengin::{
     common::{gothic_dat_path, gothic2_dir},
-    script::manager::ScriptManager,
+    script::manager::{ScriptManager, wasm_cache_path},
 };
 use bevy::ecs::resource::Resource;
 use bevy::log::info;
 use bevy::prelude::*;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use zen_kit_rs::cutscene_library::CutsceneLibrary;
 use zen_kit_rs::misc::TextEncoding;
@@ -101,7 +100,7 @@ impl ScriptResource {
 #[allow(clippy::cognitive_complexity)]
 fn load_gothic_script_manager() -> ScriptManager {
     let script_path = gothic_dat_path();
-    let cached_wasm_path = PathBuf::from("./gothic.script.wasm");
+    let cached_wasm_path = wasm_cache_path("gothic.script.wasm");
     let mut script = ScriptManager::from_file_cached(&script_path, &cached_wasm_path);
 
     // Load the symbol table before any script runs, host calls made during
