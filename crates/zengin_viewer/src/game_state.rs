@@ -5,7 +5,7 @@ use bevy::prelude::*;
 /// and is being built in [`AppState::LoadScreen`].
 #[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum AppState {
-    /// Default startup state: behaves as if the player picked New Game.
+    /// The world is fully loaded and gameplay systems run.
     #[default]
     InGame,
     MainMenu,

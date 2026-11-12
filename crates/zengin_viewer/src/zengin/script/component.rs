@@ -25,12 +25,12 @@ impl Plugin for GothicScriptsPlugin {
     }
 }
 
-/// Marks the point in `OnEnter(InGame)` after which the game script and dialog
-/// texts are available as resources.
+/// Marks the point in `OnEnter(LoadScreen)` after which the game script and
+/// dialog texts are available as resources.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GameScriptLoaded;
 
-/// Loads the game script and dialog texts when entering the game. This keeps
+/// Loads the game script and dialog texts when entering `LoadScreen`. This keeps
 /// the main menu from paying for GOTHIC.DAT conversion or instance setup.
 fn initialize_game_script(world: &mut World) {
     if world.get_resource::<ScriptResource>().is_some() {

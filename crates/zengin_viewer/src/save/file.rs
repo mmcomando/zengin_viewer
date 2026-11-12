@@ -251,7 +251,6 @@ pub(crate) fn display_name(path: &Path) -> String {
         return path.display().to_string();
     };
     let name = name.strip_prefix(SAVE_PREFIX).unwrap_or(name);
-    let name = name.strip_suffix(".ron").unwrap_or(name);
     name.replace('_', " ")
 }
 

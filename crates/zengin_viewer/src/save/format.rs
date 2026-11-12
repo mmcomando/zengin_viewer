@@ -66,7 +66,8 @@ pub(crate) struct SaveMetadata {
     pub(crate) format_version: u32,
     pub(crate) script_fingerprint: u64,
     pub(crate) world_name: String,
-    /// Unix timestamp of the save, used for the filename and the panel.
+    /// Unix timestamp of the save, used in the directory name and the load-screen
+    /// panel.
     pub(crate) saved_at_unix: u64,
     pub(crate) game_time: GameTime,
     /// Real time played in this save, in seconds.

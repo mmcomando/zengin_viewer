@@ -78,8 +78,7 @@ pub(super) fn can_select(item: &MenuItemDefinition, in_game: bool) -> bool {
 }
 
 /// Whether an item should be shown disabled and skipped during navigation: it
-/// is hidden in the current context or its selection action is not implemented
-/// yet.
+/// is hidden in the current context or its selection action is not implemented.
 pub(super) fn is_disabled(item: &MenuItemDefinition, in_game: bool) -> bool {
     if item.flags & MENU_ITEM_FLAG_DISABLED != 0 {
         return true;
@@ -94,7 +93,8 @@ pub(super) fn is_disabled(item: &MenuItemDefinition, in_game: bool) -> bool {
 }
 
 /// Whether selecting the item runs at least one implemented action and no
-/// unimplemented one, matching the dispatch in `input::apply_action`.
+/// unimplemented one, matching the dispatch in `input::handle_main_item` and
+/// `input::apply_action`.
 fn has_implemented_action(item: &MenuItemDefinition) -> bool {
     if item.on_event_action.iter().any(Option::is_some) {
         return false;
@@ -106,7 +106,7 @@ fn has_implemented_action(item: &MenuItemDefinition) -> bool {
             .all(|(action, argument)| action_is_implemented(*action, argument))
 }
 
-/// Whether `input::apply_action` handles the given selection action.
+/// Whether the main-menu dispatch handles the given selection action.
 fn action_is_implemented(action: i32, argument: &str) -> bool {
     match action {
         SEL_ACTION_BACK => true,
