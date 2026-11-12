@@ -10,12 +10,13 @@ pub(crate) enum AppState {
     MainMenu,
 }
 
-/// Loading phase of an in-game world. Physics and the character controller are
+/// Loading phase of the game world. Physics and the character controller are
 /// frozen until the world mesh and its colliders are available, so the player
-/// does not fall through the not-yet-spawned world.
-#[derive(SubStates, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[source(AppState = AppState::InGame)]
-pub(crate) enum WorldLoadState {
+/// does not fall through the not-yet-spawned world. This is a top-level state so
+/// its value survives the main menu, where it is used to tell whether saving is
+/// currently allowed.
+#[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum LoadScreen {
     #[default]
     Loading,
     Ready,
@@ -25,11 +26,16 @@ pub(crate) struct GameStatePlugin;
 
 impl Plugin for GameStatePlugin {
     fn build(&self, app: &mut App) {
-        app.add_sub_state::<WorldLoadState>();
+        app.init_state::<LoadScreen>();
         app.add_systems(OnEnter(AppState::MainMenu), pause_physics);
-        app.add_systems(OnExit(AppState::MainMenu), resume_physics);
-        app.add_systems(OnEnter(WorldLoadState::Loading), pause_physics);
-        app.add_systems(OnExit(WorldLoadState::Loading), resume_physics);
+        // Leaving the menu while the world is still loading keeps physics paused
+        // until `LoadScreen::Ready` resumes it.
+        app.add_systems(
+            OnExit(AppState::MainMenu),
+            resume_physics.run_if(in_state(LoadScreen::Ready)),
+        );
+        app.add_systems(OnEnter(LoadScreen::Loading), pause_physics);
+        app.add_systems(OnExit(LoadScreen::Loading), resume_physics);
     }
 }
 

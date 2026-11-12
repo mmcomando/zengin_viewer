@@ -4,7 +4,7 @@ use avian3d::{math::*, prelude::*};
 use bevy::{ecs::query::Has, prelude::*};
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::game_state::{AppState, WorldLoadState};
+use crate::game_state::{AppState, LoadScreen};
 use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character_camera::{
     camera_movement_system, camera_toggle_input, use_character_camera,
@@ -44,7 +44,7 @@ impl Plugin for CharacterControllerPlugin {
             )
                 .chain()
                 .run_if(in_state(AppState::InGame))
-                .run_if(in_state(WorldLoadState::Ready)),
+                .run_if(in_state(LoadScreen::Ready)),
         );
     }
 }

@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::game_state::{AppState, WorldLoadState};
+use crate::game_state::{AppState, LoadScreen};
 use crate::gameplay::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
     PlayerPhysicsBodyMarker,
@@ -62,7 +62,7 @@ impl Plugin for ZenGinWorldPlugin {
         app.add_systems(Update, spawn_world.before(ScriptChangesApplied));
         app.add_systems(
             PostUpdate,
-            finish_world_load.run_if(in_state(WorldLoadState::Loading)),
+            finish_world_load.run_if(in_state(LoadScreen::Loading)),
         );
         app.add_systems(
             Update,
@@ -122,8 +122,8 @@ fn restart_world(world: &mut World) {
     }
 
     world
-        .resource_mut::<NextState<WorldLoadState>>()
-        .set(WorldLoadState::Loading);
+        .resource_mut::<NextState<LoadScreen>>()
+        .set(LoadScreen::Loading);
 
     let player_transform = {
         let mut query = world.query_filtered::<&Transform, With<PlayerPhysicsBodyMarker>>();
@@ -168,7 +168,7 @@ fn restart_world(world: &mut World) {
 fn finish_world_load(
     world_mesh: Query<&Children, (With<WorldMesh>, With<ZenGinModelComponentLoaded>)>,
     colliders: Query<(), With<Collider>>,
-    mut load_state: ResMut<NextState<WorldLoadState>>,
+    mut load_state: ResMut<NextState<LoadScreen>>,
 ) {
     let has_collider = world_mesh
         .iter()
@@ -177,7 +177,7 @@ fn finish_world_load(
         return;
     }
     info!("World mesh colliders ready, resuming physics");
-    load_state.set(WorldLoadState::Ready);
+    load_state.set(LoadScreen::Ready);
 }
 
 fn spawn_world(
