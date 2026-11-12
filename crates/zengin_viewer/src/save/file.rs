@@ -6,7 +6,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use bevy::log::warn;
 
-use super::format::{SaveGame, saves_dir};
+use super::format::{SaveGame, fnv1a_64, saves_dir};
+
+use crate::zengin::gothic2_dir;
 
 /// Prefix of every save file this module manages. Other files in the save
 /// directory (for example the legacy `quicksave.ron`) are ignored.
@@ -48,6 +50,19 @@ pub(crate) fn read_save(path: &Path) -> Result<SaveGame, String> {
     let contents = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     ron::from_str(&contents).map_err(|error| format!("failed to parse {}: {error}", path.display()))
+}
+
+/// Fingerprint of the installed `GOTHIC.DAT`. Matches the value
+/// `ScriptManager` stores, so saves can be validated before the script vm is
+/// loaded (for example from the main menu).
+pub(crate) fn current_script_fingerprint() -> Result<u64, String> {
+    let path = PathBuf::from(format!(
+        "{}/_work/Data/Scripts/_compiled/GOTHIC.DAT",
+        gothic2_dir()
+    ));
+    let bytes =
+        fs::read(&path).map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    Ok(fnv1a_64(&bytes))
 }
 
 /// Builds the path of a new save named after the current UTC time. Fails when a

@@ -1,6 +1,7 @@
 //! Quick save/load triggers, save collection, and the destructive load.
 
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
@@ -15,8 +16,11 @@ use crate::input::{SharedAction, SharedInputMarker};
 use crate::save::format::{
     SAVE_FORMAT_VERSION, SaveGame, SavedChest, SavedItemEntity, SavedNpcEntity,
 };
-use crate::save::{newest_save, read_save, timestamped_save_path, write_save};
+use crate::save::{
+    current_script_fingerprint, newest_save, read_save, timestamped_save_path, write_save,
+};
 use crate::world_entity::WorldEntityMarker;
+use crate::zengin::request_initial_world;
 use crate::zengin::{
     CurrentWorld, DialogUiState, GameChest, GameItem, GameNpc, InstanceIndex, NpcOverlay,
     ScriptResource, Selection, SpawnWorld,
@@ -30,6 +34,17 @@ pub struct QuickSave;
 #[derive(Message)]
 pub struct QuickLoad;
 
+/// A save file selected in the menu. It is parsed and validated before the
+/// state changes, so a corrupt or incompatible save leaves the menu open.
+#[derive(Message)]
+pub struct LoadSaveRequest {
+    pub(crate) path: PathBuf,
+}
+
+/// Parsed save waiting to be applied after entering [`AppState::LoadScreen`].
+#[derive(Resource, Default)]
+pub(crate) struct PendingLoad(pub(crate) Option<Box<SaveGame>>);
+
 /// Wires the quicksave trigger actions, the save system and the exclusive load.
 pub struct QuickSavePlugin;
 
@@ -37,6 +52,13 @@ impl Plugin for QuickSavePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<QuickSave>();
         app.add_message::<QuickLoad>();
+        app.add_message::<LoadSaveRequest>();
+        app.init_resource::<PendingLoad>();
+        app.add_systems(Update, handle_load_save_request);
+        app.add_systems(
+            OnEnter(AppState::LoadScreen),
+            apply_pending_load.after(request_initial_world),
+        );
         app.add_systems(
             Update,
             handle_quick_save_load_input.run_if(in_state(AppState::InGame)),
@@ -187,6 +209,48 @@ fn quick_load(world: &mut World) {
         return;
     }
 
+    world
+        .resource_mut::<NextState<AppState>>()
+        .set(AppState::LoadScreen);
+    perform_load(world, save);
+}
+
+/// Validates a save selected in the main menu and queues it for the next
+/// `LoadScreen` entry. Runs while the menu is still open so a failure does not
+/// leave the menu or destroy the current world.
+fn handle_load_save_request(
+    mut requests: MessageReader<LoadSaveRequest>,
+    mut pending: ResMut<PendingLoad>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    for request in requests.read() {
+        let prepared = current_script_fingerprint().and_then(|fingerprint| {
+            let save = read_save(&request.path)?;
+            save.validate(fingerprint)?;
+            Ok(save)
+        });
+        match prepared {
+            Ok(save) => {
+                info!("Load requested from menu: {}", request.path.display());
+                pending.0 = Some(Box::new(save));
+                next_state.set(AppState::LoadScreen);
+            }
+            Err(error) => error!("Load failed for {}: {error}", request.path.display()),
+        }
+    }
+}
+
+fn apply_pending_load(world: &mut World) {
+    let Some(save) = world.resource_mut::<PendingLoad>().0.take() else {
+        return;
+    };
+    info!("Applying pending load of world({})", save.world_name);
+    perform_load(world, *save);
+}
+
+/// Destructive part of a load: closes UIs and replaces the current world with
+/// the saved one. The caller is responsible for entering `AppState::LoadScreen`.
+fn perform_load(world: &mut World, save: SaveGame) {
     world.resource_mut::<InventoryUiState>().close();
     world.resource_mut::<JournalUiState>().close();
     world.resource_mut::<StatsUiState>().close();
@@ -205,11 +269,8 @@ fn quick_load(world: &mut World) {
         world.despawn(entity);
     }
     world.resource_mut::<InstanceIndex>().clear();
-    world
-        .resource_mut::<NextState<AppState>>()
-        .set(AppState::LoadScreen);
 
-    info!("Quick load requested, spawning world({})", save.world_name);
+    info!("Load: spawning world({})", save.world_name);
     let world_name = save.world_name.clone();
     let player_transform = save.player_transform;
     world.write_message(SpawnWorld {
@@ -219,13 +280,13 @@ fn quick_load(world: &mut World) {
         restore: Some(Box::new(save)),
     });
     world.write_message(GameLogEntry {
-        text: "Loaded quicksave".to_string(),
+        text: "Loaded save".to_string(),
     });
 }
 
 fn report_load_error(world: &mut World, error: &str) {
-    error!("Quick load failed: {error}");
+    error!("Load failed: {error}");
     world.write_message(GameLogEntry {
-        text: format!("Quick load failed: {error}"),
+        text: format!("Load failed: {error}"),
     });
 }

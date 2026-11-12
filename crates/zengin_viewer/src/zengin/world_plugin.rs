@@ -10,6 +10,7 @@ use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::NpcAnimations;
 use crate::gui_debug::{NpcVisibility, StaticMesh, WorldMesh};
+use crate::save::PendingLoad;
 use crate::save::format::SaveGame;
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::common::get_full_texture_path;
@@ -95,10 +96,15 @@ pub struct RestartWorld;
 #[derive(Resource, Default)]
 pub(crate) struct CurrentWorld(pub(crate) String);
 
-fn request_initial_world(
+pub(crate) fn request_initial_world(
     mut spawn_world: MessageWriter<SpawnWorld>,
     current_world: Res<CurrentWorld>,
+    pending_load: Res<PendingLoad>,
 ) {
+    if pending_load.0.is_some() {
+        info!("Skipping the default world spawn, a save load is pending");
+        return;
+    }
     if !current_world.0.is_empty() {
         info!(
             "World {} already spawned, resuming without reload",
