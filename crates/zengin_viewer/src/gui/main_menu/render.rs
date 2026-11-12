@@ -5,12 +5,11 @@ use bevy::window::PrimaryWindow;
 use crate::gui::menu_screen::{MenuScreenTextMarker, spawn_menu_screen};
 use crate::ui_kit::{UiText, set_text, set_text_color, set_visibility};
 use crate::zengin::{
-    CurrentWorld, MENU_FLAG_SHOW_INFO, MENU_ITEM_FLAG_DISABLED, MenuDefinition, MenuItemDefinition,
-    get_full_texture_path,
+    CurrentWorld, MENU_FLAG_SHOW_INFO, MenuDefinition, MenuItemDefinition, get_full_texture_path,
 };
 
 use super::spawn::{MainMenuContentMarker, MainMenuRootMarker};
-use super::state::{MainMenuData, MainMenuState, first_selectable, is_selectable};
+use super::state::{MainMenuData, MainMenuState, first_selectable, is_disabled, is_selectable};
 use super::style::MainMenuStyle;
 
 #[derive(Component)]
@@ -172,11 +171,7 @@ fn spawn_info_text(commands: &mut Commands, area: Entity, scale: f32) {
 
 fn item_color(item: Option<&MenuItemDefinition>, selected: bool, in_game: bool) -> Color {
     let alpha = item.map_or(255, |item| item.alpha);
-    let base = if item.is_some_and(|item| {
-        item.flags & MENU_ITEM_FLAG_DISABLED != 0
-            || (item.is_only_in_game() && !in_game)
-            || (item.is_only_out_game() && in_game)
-    }) {
+    let base = if item.is_some_and(|item| is_disabled(item, in_game)) {
         MainMenuStyle::TEXT_COLOR_DISABLED
     } else if selected {
         MainMenuStyle::TEXT_COLOR_SELECTED
