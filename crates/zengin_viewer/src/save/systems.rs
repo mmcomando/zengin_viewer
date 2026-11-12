@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::game_state::{AppState, LoadScreen};
+use crate::game_state::{AppState, world_is_loaded};
 use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::game_time::GameTime;
@@ -22,11 +22,11 @@ use crate::zengin::{
     ScriptResource, Selection, SpawnWorld,
 };
 
-/// Requests writing the quicksave slot.
+/// Requests writing a new timestamped save.
 #[derive(Message)]
 pub struct QuickSave;
 
-/// Requests loading the quicksave slot.
+/// Requests loading the newest timestamped save.
 #[derive(Message)]
 pub struct QuickLoad;
 
@@ -41,7 +41,9 @@ impl Plugin for QuickSavePlugin {
             Update,
             handle_quick_save_load_input.run_if(in_state(AppState::InGame)),
         );
-        app.add_systems(Last, quick_save.run_if(in_state(AppState::InGame)));
+        // Saving is also reachable from the main menu, so it is gated on a
+        // loaded world instead of the `InGame` state.
+        app.add_systems(Last, quick_save.run_if(world_is_loaded));
         app.add_systems(
             First,
             quick_load
@@ -82,17 +84,11 @@ fn quick_save(
     }
     let world_name = current_world.0.clone();
     if world_name.is_empty() {
-        error!("Quick save requested before a world was spawned");
-        game_log.write(GameLogEntry {
-            text: "Quick save failed: no world loaded".to_string(),
-        });
+        error!("Save requested before a world was spawned");
         return;
     }
     let Ok(player_transform) = player.single() else {
-        error!("Quick save requested without a player entity");
-        game_log.write(GameLogEntry {
-            text: "Quick save failed: no player".to_string(),
-        });
+        error!("Save requested without a player entity");
         return;
     };
 
@@ -154,27 +150,19 @@ fn quick_save(
     let path = match timestamped_save_path() {
         Ok(path) => path,
         Err(error) => {
-            error!("Quick save failed: {error}");
-            game_log.write(GameLogEntry {
-                text: format!("Quick save failed: {error}"),
-            });
+            error!("Save failed: {error}");
             return;
         }
     };
     match write_save(&save, &path) {
         Ok(()) => {
             let size = std::fs::metadata(&path).map_or(0, |meta| meta.len());
-            info!("Quick save written to {} ({size} bytes)", path.display());
+            info!("Save written to {} ({size} bytes)", path.display());
             game_log.write(GameLogEntry {
-                text: format!("Quick save written ({size} bytes)"),
+                text: format!("Game saved ({size} bytes)"),
             });
         }
-        Err(error) => {
-            error!("Quick save failed: {error}");
-            game_log.write(GameLogEntry {
-                text: format!("Quick save failed: {error}"),
-            });
-        }
+        Err(error) => error!("Save failed: {error}"),
     }
 }
 
@@ -218,8 +206,8 @@ fn quick_load(world: &mut World) {
     }
     world.resource_mut::<InstanceIndex>().clear();
     world
-        .resource_mut::<NextState<LoadScreen>>()
-        .set(LoadScreen::Loading);
+        .resource_mut::<NextState<AppState>>()
+        .set(AppState::LoadScreen);
 
     info!("Quick load requested, spawning world({})", save.world_name);
     let world_name = save.world_name.clone();

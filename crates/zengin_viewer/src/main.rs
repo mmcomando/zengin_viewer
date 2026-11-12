@@ -167,7 +167,9 @@ fn main() {
     let initial_state = if app.world().resource::<Options>().main_menu() {
         AppState::MainMenu
     } else {
-        AppState::InGame
+        // Loading starts in its own phase and transitions to `InGame` once the
+        // world mesh and its colliders exist.
+        AppState::LoadScreen
     };
     app.insert_state(initial_state);
 

@@ -18,7 +18,7 @@ pub struct GothicScriptsPlugin;
 impl Plugin for GothicScriptsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            OnEnter(AppState::InGame),
+            OnEnter(AppState::LoadScreen),
             initialize_game_script.in_set(GameScriptLoaded),
         );
         app.add_systems(Update, update_script_npc_state);

@@ -16,7 +16,6 @@ pub(crate) use debug::{grant_test_items, seed_test_journal};
 
 use crate::game_state::AppState;
 use crate::zengin::script::TransferItems;
-use crate::zengin::script::component::GameScriptLoaded;
 
 pub struct PlayerInteractionPlugin;
 
@@ -25,10 +24,7 @@ impl Plugin for PlayerInteractionPlugin {
         app.add_message::<TransferItems>();
         app.add_message::<NpcDied>();
         app.add_message::<MeleeHit>();
-        app.add_systems(
-            OnEnter(AppState::InGame),
-            debug::seed_test_journal_on_start.after(GameScriptLoaded),
-        );
+        app.add_systems(OnEnter(AppState::InGame), debug::seed_test_journal_on_start);
         app.add_systems(
             Update,
             (

@@ -21,6 +21,7 @@ pub(crate) struct StatsUiPlugin;
 impl Plugin for StatsUiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<StatsUiState>();
+        app.init_resource::<StatsMenuData>();
         app.add_systems(Startup, spawn::spawn_stats_ui);
         app.add_systems(OnEnter(AppState::InGame), load_stats_menu_data);
         app.add_systems(

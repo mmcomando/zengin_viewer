@@ -113,7 +113,7 @@ fn apply_close_action(
     match argument {
         "NEW_GAME" => {
             info!("Main menu: starting new game");
-            next_state.set(AppState::InGame);
+            next_state.set(AppState::LoadScreen);
         }
         "LEAVE_GAME" => {
             info!("Main menu: exiting");
