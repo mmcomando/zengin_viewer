@@ -21,27 +21,20 @@ impl Plugin for CameraPlugin {
         app.add_plugins(FreeCameraPlugin);
         app.insert_resource(CameraResource::default());
         app.add_message::<TeleportToLocation>();
+        app.add_systems(Update, (sync_free_camera_enabled, sync_third_person_cursor));
         app.add_systems(
             Update,
-            (
-                sync_free_camera_enabled,
-                sync_third_person_cursor,
-                (rotate_third_person_camera, rotate_third_person_camera_mouse)
-                    .before(crate::gameplay::character_camera::camera_movement_system)
-                    .run_if(use_third_person_camera),
-            )
+            (rotate_third_person_camera, rotate_third_person_camera_mouse)
+                .before(crate::gameplay::character_camera::camera_movement_system)
+                .run_if(use_third_person_camera)
                 .run_if(in_state(AppState::InGame)),
         );
         app.add_systems(
             Update,
             update_dialog_camera
-                .run_if(|info: Res<CameraResource>| info.current_camera == CurrentCamera::Dialog)
-                .run_if(in_state(AppState::InGame)),
+                .run_if(|info: Res<CameraResource>| info.current_camera == CurrentCamera::Dialog),
         );
-        app.add_systems(
-            Update,
-            apply_teleport_requests.run_if(in_state(AppState::InGame)),
-        );
+        app.add_systems(Update, apply_teleport_requests);
 
         if !is_xr_enabled() {
             // Disable main camera for performance

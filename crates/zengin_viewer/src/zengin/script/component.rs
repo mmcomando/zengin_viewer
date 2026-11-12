@@ -21,10 +21,7 @@ impl Plugin for GothicScriptsPlugin {
             OnEnter(AppState::InGame),
             initialize_game_script.in_set(GameScriptLoaded),
         );
-        app.add_systems(
-            Update,
-            update_script_npc_state.run_if(in_state(AppState::InGame)),
-        );
+        app.add_systems(Update, update_script_npc_state);
     }
 }
 

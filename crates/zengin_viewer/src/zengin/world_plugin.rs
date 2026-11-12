@@ -58,18 +58,8 @@ impl Plugin for ZenGinWorldPlugin {
             OnEnter(AppState::InGame),
             request_initial_world.after(GameScriptLoaded),
         );
-        app.add_systems(
-            First,
-            restart_world
-                .run_if(in_state(AppState::InGame))
-                .run_if(on_message::<RestartWorld>),
-        );
-        app.add_systems(
-            Update,
-            spawn_world
-                .before(ScriptChangesApplied)
-                .run_if(in_state(AppState::InGame)),
-        );
+        app.add_systems(First, restart_world.run_if(on_message::<RestartWorld>));
+        app.add_systems(Update, spawn_world.before(ScriptChangesApplied));
         app.add_systems(
             PostUpdate,
             finish_world_load.run_if(in_state(WorldLoadState::Loading)),
@@ -78,8 +68,7 @@ impl Plugin for ZenGinWorldPlugin {
             Update,
             (spawn_npc_entities, spawn_item_entities)
                 .chain()
-                .after(ScriptChangesApplied)
-                .run_if(in_state(AppState::InGame)),
+                .after(ScriptChangesApplied),
         );
     }
 }

@@ -4,8 +4,6 @@ use bevy::{
     prelude::*,
 };
 
-use crate::game_state::AppState;
-
 /// Automatically assign objects Distance components based on distance from camera.
 /// It allows other systems to iterate only on interesting entities.
 /// It allows to efficiently reduce quality of objects based on distance.
@@ -22,8 +20,7 @@ impl Plugin for DistancePlugin {
                 get_camera_pos,
                 update_distance_state_far,
                 update_distance_state_near,
-            )
-                .run_if(in_state(AppState::InGame)),
+            ),
         );
     }
 }

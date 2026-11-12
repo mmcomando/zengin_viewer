@@ -26,13 +26,13 @@ impl Plugin for JournalUiPlugin {
         app.add_systems(OnEnter(AppState::InGame), load_journal_menu_data);
         app.add_systems(
             Update,
-            (
-                input::toggle_journal,
-                input::handle_journal_input,
-                render::sync_journal_ui,
-            )
+            (input::toggle_journal, input::handle_journal_input)
                 .chain()
                 .run_if(in_state(AppState::InGame)),
+        );
+        app.add_systems(
+            Update,
+            render::sync_journal_ui.after(input::handle_journal_input),
         );
     }
 }

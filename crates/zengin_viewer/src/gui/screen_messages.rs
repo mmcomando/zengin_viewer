@@ -3,17 +3,13 @@
 
 use bevy::prelude::*;
 
-use crate::game_state::AppState;
 use crate::zengin::ScreenMessage;
 
 pub struct ScreenMessagesPlugin;
 
 impl Plugin for ScreenMessagesPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (handle_screen_messages, expire_screen_messages).run_if(in_state(AppState::InGame)),
-        );
+        app.add_systems(Update, (handle_screen_messages, expire_screen_messages));
     }
 }
 

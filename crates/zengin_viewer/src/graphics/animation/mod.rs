@@ -53,11 +53,6 @@ impl Plugin for SkeletalAnimations {
                 .chain()
                 .run_if(in_state(AppState::InGame)),
         );
-        app.add_systems(
-            Update,
-            play_animation_sounds
-                .after(update_animations)
-                .run_if(in_state(AppState::InGame)),
-        );
+        app.add_systems(Update, play_animation_sounds.after(update_animations));
     }
 }

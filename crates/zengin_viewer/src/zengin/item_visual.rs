@@ -3,7 +3,6 @@
 
 use bevy::prelude::*;
 
-use crate::game_state::AppState;
 use crate::zengin::ZenginVfs;
 use crate::zengin::loaders::vfs::mesh_model_path;
 use crate::zengin::resources::{
@@ -21,8 +20,7 @@ impl Plugin for ItemVisualPlugin {
             Update,
             (seed_item_data_on_add, sync_item_data, apply_item_visual)
                 .chain()
-                .after(ScriptChangesApplied)
-                .run_if(in_state(AppState::InGame)),
+                .after(ScriptChangesApplied),
         );
     }
 }

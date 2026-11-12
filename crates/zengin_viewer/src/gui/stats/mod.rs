@@ -25,13 +25,13 @@ impl Plugin for StatsUiPlugin {
         app.add_systems(OnEnter(AppState::InGame), load_stats_menu_data);
         app.add_systems(
             Update,
-            (
-                input::toggle_stats,
-                input::close_stats_on_cancel,
-                render::sync_stats_ui,
-            )
+            (input::toggle_stats, input::close_stats_on_cancel)
                 .chain()
                 .run_if(in_state(AppState::InGame)),
+        );
+        app.add_systems(
+            Update,
+            render::sync_stats_ui.after(input::close_stats_on_cancel),
         );
     }
 }

@@ -36,10 +36,13 @@ impl Plugin for InventoryUiPlugin {
                 input::toggle_inventory,
                 input::handle_inventory_input,
                 input::close_orphaned_trade,
-                render::sync_inventory_ui,
             )
                 .chain()
                 .run_if(in_state(AppState::InGame)),
+        );
+        app.add_systems(
+            Update,
+            render::sync_inventory_ui.after(input::close_orphaned_trade),
         );
     }
 }

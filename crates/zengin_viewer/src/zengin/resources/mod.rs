@@ -18,8 +18,6 @@ pub(crate) use model_spawn::{
     ZenGinModelComponentLoaded, despawn_visual_when_far_resource,
 };
 
-use crate::game_state::AppState;
-
 #[derive(Default)]
 pub struct ZenGinInsertResources;
 
@@ -37,17 +35,10 @@ impl Plugin for ZenGinInsertResources {
         app.add_systems(
             Update,
             model_spawn::convert_zengin_model_to_entities
-                .run_if(model_spawn::run_convert_zengin_model_to_entities)
-                .run_if(in_state(AppState::InGame)),
+                .run_if(model_spawn::run_convert_zengin_model_to_entities),
         );
 
-        app.add_systems(
-            Update,
-            model_spawn::add_classify_distance.run_if(in_state(AppState::InGame)),
-        );
-        app.add_systems(
-            Last,
-            despawn_visual_when_far_resource.run_if(in_state(AppState::InGame)),
-        );
+        app.add_systems(Update, model_spawn::add_classify_distance);
+        app.add_systems(Last, despawn_visual_when_far_resource);
     }
 }

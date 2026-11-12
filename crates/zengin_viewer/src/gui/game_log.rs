@@ -2,7 +2,6 @@
 
 use bevy::prelude::*;
 
-use crate::game_state::AppState;
 use crate::gui::{JournalUiState, StatsUiState};
 use crate::ui_kit::set_visibility;
 
@@ -20,8 +19,7 @@ impl Plugin for GameLogPlugin {
                 update_game_log,
                 update_game_log_visibility,
             )
-                .chain()
-                .run_if(in_state(AppState::InGame)),
+                .chain(),
         );
     }
 }
