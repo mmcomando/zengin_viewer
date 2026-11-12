@@ -6,7 +6,7 @@ use crate::gameplay::game_time::PlayTime;
 use crate::input::{GuiAction, GuiInputMarker};
 use crate::save::{LoadSaveRequest, QuickSave};
 use crate::zengin::{
-    CurrentWorld, MenuDefinition, MenuItemDefinition, SEL_ACTION_BACK, SEL_ACTION_CLOSE,
+    CurrentWorld, MenuDefinition, MenuItemDefinition, NewGame, SEL_ACTION_BACK, SEL_ACTION_CLOSE,
     SEL_ACTION_START_MENU,
 };
 
@@ -25,6 +25,7 @@ pub(super) fn handle_main_menu_input(
     mut next_state: ResMut<NextState<AppState>>,
     mut play_time: ResMut<PlayTime>,
     mut quick_save: MessageWriter<QuickSave>,
+    mut new_game: MessageWriter<NewGame>,
     mut load_request: MessageWriter<LoadSaveRequest>,
     mut exit: MessageWriter<AppExit>,
 ) {
@@ -69,11 +70,13 @@ pub(super) fn handle_main_menu_input(
             };
             handle_main_item(
                 &item,
+                in_game,
                 load_data.as_ref().and_then(|data| data.0.as_ref()),
                 &mut state,
                 &mut next_state,
                 &mut play_time,
                 &mut quick_save,
+                &mut new_game,
                 &mut exit,
             );
         }
@@ -97,11 +100,13 @@ pub(super) fn handle_main_menu_input(
 
 fn handle_main_item(
     item: &MenuItemDefinition,
+    in_game: bool,
     load: Option<&MenuDefinition>,
     state: &mut MainMenuState,
     next_state: &mut NextState<AppState>,
     play_time: &mut PlayTime,
     quick_save: &mut MessageWriter<QuickSave>,
+    new_game: &mut MessageWriter<NewGame>,
     exit: &mut MessageWriter<AppExit>,
 ) {
     for (action, argument) in &item.on_sel_action {
@@ -114,15 +119,28 @@ fn handle_main_item(
                 open_load_screen(state, load);
             }
             (SEL_ACTION_CLOSE, "NEW_GAME") => {
-                info!("Main menu: starting new game");
-                play_time.reset();
-                next_state.set(AppState::LoadScreen);
+                start_new_game(in_game, play_time, new_game, next_state);
             }
             _ => apply_action(*action, argument, next_state, exit),
         }
     }
     if item.on_event_action.iter().any(Option::is_some) {
         warn!("Main menu event actions are not implemented yet");
+    }
+}
+
+fn start_new_game(
+    in_game: bool,
+    play_time: &mut PlayTime,
+    new_game: &mut MessageWriter<NewGame>,
+    next_state: &mut NextState<AppState>,
+) {
+    info!("Main menu: starting new game");
+    play_time.reset();
+    if in_game {
+        new_game.write(NewGame);
+    } else {
+        next_state.set(AppState::LoadScreen);
     }
 }
 

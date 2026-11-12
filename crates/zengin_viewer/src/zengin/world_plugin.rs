@@ -6,7 +6,7 @@ use crate::gameplay::character::{
     PlayerPhysicsBodyMarker,
 };
 use crate::gameplay::distance::ClassifyDistance;
-use crate::gameplay::game_time::GameTime;
+use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::NpcAnimations;
 use crate::gui_debug::{NpcVisibility, StaticMesh, WorldMesh};
@@ -55,11 +55,13 @@ impl Plugin for ZenGinWorldPlugin {
 
         app.add_message::<SpawnWorld>();
         app.add_message::<RestartWorld>();
+        app.add_message::<NewGame>();
         app.add_systems(
             OnEnter(AppState::LoadScreen),
             request_initial_world.after(GameScriptLoaded),
         );
         app.add_systems(First, restart_world.run_if(on_message::<RestartWorld>));
+        app.add_systems(First, new_game.run_if(on_message::<NewGame>));
         app.add_systems(
             Update,
             spawn_world
@@ -98,6 +100,13 @@ pub struct SpawnWorld {
 #[derive(Message)]
 pub struct RestartWorld;
 
+/// Set by the main menu's New Game action to rebuild the script and world state.
+#[derive(Message)]
+pub struct NewGame;
+
+/// World spawned by a new game.
+const START_WORLD: &str = "NEWWORLD/NEWWORLD";
+
 /// World path of the most recently spawned world.
 #[derive(Resource, Default)]
 pub(crate) struct CurrentWorld(pub(crate) String);
@@ -119,7 +128,7 @@ pub(crate) fn request_initial_world(
         return;
     }
     spawn_world.write(SpawnWorld {
-        world_name: "NEWWORLD/NEWWORLD".to_string(),
+        world_name: START_WORLD.to_string(),
         clean_spawn: true,
         player_transform: None,
         restore: None,
@@ -133,14 +142,24 @@ fn restart_world(world: &mut World) {
         return;
     }
 
-    world
-        .resource_mut::<NextState<AppState>>()
-        .set(AppState::LoadScreen);
-
     let player_transform = {
         let mut query = world.query_filtered::<&Transform, With<PlayerPhysicsBodyMarker>>();
         query.iter(world).next().copied()
     };
+    teardown_world(world, &world_name, player_transform);
+}
+
+fn new_game(world: &mut World) {
+    *world.resource_mut::<PlayTime>() = PlayTime::default();
+    teardown_world(world, START_WORLD, None);
+}
+
+/// Tears down the current world and requests a clean spawn. Shared by the debug
+/// world restart (keeps the player in place) and New Game (default start).
+fn teardown_world(world: &mut World, world_name: &str, player_transform: Option<Transform>) {
+    world
+        .resource_mut::<NextState<AppState>>()
+        .set(AppState::LoadScreen);
 
     *world.resource_mut::<GameTime>() = GameTime::default();
 
@@ -168,7 +187,7 @@ fn restart_world(world: &mut World) {
     *world.resource_mut::<Selection>() = Selection::default();
 
     world.write_message(SpawnWorld {
-        world_name,
+        world_name: world_name.to_string(),
         clean_spawn: true,
         player_transform,
         restore: None,
