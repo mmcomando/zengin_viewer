@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 
 use crate::game_state::AppState;
+use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
     PlayerPhysicsBodyMarker,
@@ -9,6 +10,7 @@ use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::NpcAnimations;
+use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
 use crate::gui_debug::{NpcVisibility, StaticMesh, WorldMesh};
 use crate::save::PendingLoad;
 use crate::save::format::SaveGame;
@@ -34,7 +36,7 @@ use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
 use crate::zengin::{
-    GameChest, GameItem, GameNpc, NpcActionQueue, NpcHandle, NpcOverlay, ZenginVfs,
+    DialogUiState, GameChest, GameItem, GameNpc, NpcActionQueue, NpcHandle, NpcOverlay, ZenginVfs,
 };
 use avian3d::prelude::*;
 use bevy::prelude::*;
@@ -146,22 +148,45 @@ fn restart_world(world: &mut World) {
         let mut query = world.query_filtered::<&Transform, With<PlayerPhysicsBodyMarker>>();
         query.iter(world).next().copied()
     };
-    teardown_world(world, &world_name, player_transform);
+    begin_world_load(world, &world_name, player_transform, None);
 }
 
 fn new_game(world: &mut World) {
-    *world.resource_mut::<PlayTime>() = PlayTime::default();
-    teardown_world(world, START_WORLD, None);
+    begin_world_load(world, START_WORLD, None, None);
 }
 
-/// Tears down the current world and requests a clean spawn. Shared by the debug
-/// world restart (keeps the player in place) and New Game (default start).
-fn teardown_world(world: &mut World, world_name: &str, player_transform: Option<Transform>) {
-    world
-        .resource_mut::<NextState<AppState>>()
-        .set(AppState::LoadScreen);
+/// Tears the current world down and requests the next spawn. `restore` carries
+/// the save to load; without it the world is rebuilt from scratch.
+pub(crate) fn begin_world_load(
+    world: &mut World,
+    world_name: &str,
+    player_transform: Option<Transform>,
+    restore: Option<Box<SaveGame>>,
+) {
+    if *world.resource::<State<AppState>>().get() != AppState::LoadScreen {
+        world
+            .resource_mut::<NextState<AppState>>()
+            .set(AppState::LoadScreen);
+    }
 
-    *world.resource_mut::<GameTime>() = GameTime::default();
+    world.resource_mut::<InventoryUiState>().close();
+    world.resource_mut::<JournalUiState>().close();
+    world.resource_mut::<StatsUiState>().close();
+    world.resource_mut::<DialogUiState>().close();
+    *world.resource_mut::<Selection>() = Selection::default();
+
+    if let Some(save) = restore.as_deref() {
+        world
+            .resource_mut::<CameraResource>()
+            .set_third_person_camera();
+        *world.resource_mut::<GameTime>() = save.metadata.game_time;
+        *world.resource_mut::<PlayTime>() = PlayTime {
+            seconds: save.metadata.play_time_seconds,
+        };
+    } else {
+        *world.resource_mut::<GameTime>() = GameTime::default();
+        *world.resource_mut::<PlayTime>() = PlayTime::default();
+    }
 
     let entities: Vec<Entity> = world
         .query_filtered::<Entity, With<WorldEntityMarker>>()
@@ -171,26 +196,27 @@ fn teardown_world(world: &mut World, world_name: &str, player_transform: Option<
         world.despawn(entity);
     }
 
-    let scripts = world.resource::<ScriptResource>().clone();
-    let (npc_handles, item_handles) = {
-        let mut script = scripts.lock();
-        script.restart_world_state();
-        (script.npc_handles(), script.item_handles())
-    };
-    {
+    if restore.is_none() {
+        let scripts = world.resource::<ScriptResource>().clone();
+        let (npc_handles, item_handles) = {
+            let mut script = scripts.lock();
+            script.restart_world_state();
+            (script.npc_handles(), script.item_handles())
+        };
         let mut index = world.resource_mut::<InstanceIndex>();
         index.clear();
         index.replace_npc_handles(npc_handles);
         index.replace_item_handles(item_handles);
+    } else {
+        world.resource_mut::<InstanceIndex>().clear();
     }
 
-    *world.resource_mut::<Selection>() = Selection::default();
-
+    let clean_spawn = restore.is_none();
     world.write_message(SpawnWorld {
         world_name: world_name.to_string(),
-        clean_spawn: true,
+        clean_spawn,
         player_transform,
-        restore: None,
+        restore,
     });
 }
 

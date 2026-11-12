@@ -72,7 +72,7 @@ pub(crate) fn advance_game_time(time: Res<Time>, mut game_time: ResMut<GameTime>
 
 /// Real time spent playing the current save. Accumulates only in `InGame` so
 /// menu time is not counted.
-#[derive(Resource, Default, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct PlayTime {
     pub seconds: f64,
 }

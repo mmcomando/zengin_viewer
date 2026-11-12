@@ -40,7 +40,6 @@ pub(crate) use crate::zengin::dialog::DialogUiState;
 pub(crate) use crate::zengin::dialog::ImportantDialogOptions;
 pub(crate) use crate::zengin::dialog::SpeechSounds;
 pub(crate) use crate::zengin::fight_ai::{FightAiResource, load_fight_ai_tables};
-pub(crate) use crate::zengin::instance_index::InstanceIndex;
 pub(crate) use crate::zengin::interaction::MeleeHit;
 pub(crate) use crate::zengin::interaction::ranged::ArrowShot;
 pub(crate) use crate::zengin::interaction::selection::{Selection, SelectionKind};
@@ -73,7 +72,7 @@ pub(crate) use crate::zengin::script::{
 pub(crate) use crate::zengin::statistics::StatisticsZengin;
 pub(crate) use crate::zengin::waypoint_graph::WaypointGraph;
 pub(crate) use crate::zengin::world_plugin::{
-    CurrentWorld, NewGame, RestartWorld, SpawnWorld, request_initial_world,
+    CurrentWorld, NewGame, RestartWorld, begin_world_load, request_initial_world,
 };
 
 /// Plugin which provides Zengin related functionality

@@ -11,22 +11,19 @@ use image::imageops::FilterType;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::game_state::{AppState, world_is_loaded};
-use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::PlayerCharacter;
-use crate::gui::{GameLogEntry, InventoryUiState, JournalUiState, StatsUiState};
+use crate::gui::GameLogEntry;
 use crate::input::{Options, SharedAction, SharedInputMarker};
 use crate::save::format::{
     SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedChest, SavedItemEntity,
     SavedNpcEntity,
 };
 use crate::save::{current_script_fingerprint, new_save_dir, newest_save, read_save, write_save};
-use crate::world_entity::WorldEntityMarker;
-use crate::zengin::request_initial_world;
 use crate::zengin::{
-    CurrentWorld, DialogUiState, GameChest, GameItem, GameNpc, InstanceIndex, NpcOverlay,
-    ScriptResource, Selection, SpawnWorld,
+    CurrentWorld, GameChest, GameItem, GameNpc, NpcOverlay, ScriptResource, begin_world_load,
+    request_initial_world,
 };
 
 /// Size of the saved thumbnail. The load screen slot is 4:3, so a full window
@@ -269,9 +266,6 @@ fn quick_load(world: &mut World) {
         return;
     }
 
-    world
-        .resource_mut::<NextState<AppState>>()
-        .set(AppState::LoadScreen);
     perform_load(world, save);
 }
 
@@ -311,40 +305,18 @@ fn apply_pending_load(world: &mut World) {
     perform_load(world, *save);
 }
 
-/// Destructive part of a load: closes UIs and replaces the current world with
-/// the saved one. The caller is responsible for entering `AppState::LoadScreen`.
+/// Replaces the current world with the saved one. The save was validated before
+/// this point.
 fn perform_load(world: &mut World, save: SaveGame) {
-    world.resource_mut::<InventoryUiState>().close();
-    world.resource_mut::<JournalUiState>().close();
-    world.resource_mut::<StatsUiState>().close();
-    world.resource_mut::<DialogUiState>().close();
-    *world.resource_mut::<Selection>() = Selection::default();
-    world
-        .resource_mut::<CameraResource>()
-        .set_third_person_camera();
-    *world.resource_mut::<GameTime>() = save.metadata.game_time;
-    *world.resource_mut::<PlayTime>() = PlayTime {
-        seconds: save.metadata.play_time_seconds,
-    };
-
-    let entities: Vec<Entity> = world
-        .query_filtered::<Entity, With<WorldEntityMarker>>()
-        .iter(world)
-        .collect();
-    for entity in entities {
-        world.despawn(entity);
-    }
-    world.resource_mut::<InstanceIndex>().clear();
-
     info!("Load: spawning world({})", save.metadata.world_name);
     let world_name = save.metadata.world_name.clone();
     let player_transform = save.player_transform;
-    world.write_message(SpawnWorld {
-        world_name,
-        clean_spawn: false,
-        player_transform: Some(player_transform),
-        restore: Some(Box::new(save)),
-    });
+    begin_world_load(
+        world,
+        &world_name,
+        Some(player_transform),
+        Some(Box::new(save)),
+    );
     world.write_message(GameLogEntry {
         text: "Loaded save".to_string(),
     });
