@@ -3,7 +3,7 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::game_state::AppState;
 use crate::gameplay::game_time::PlayTime;
-use crate::input::{GuiAction, GuiInputMarker};
+use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::save::{LoadSaveRequest, QuickSave};
 use crate::zengin::{
     CurrentWorld, MenuDefinition, MenuItemDefinition, NewGame, SEL_ACTION_BACK, SEL_ACTION_CLOSE,
@@ -18,6 +18,7 @@ use super::state::{
 #[allow(clippy::too_many_arguments)]
 pub(super) fn handle_main_menu_input(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
+    shared_actions: Single<&ActionState<SharedAction>, With<SharedInputMarker>>,
     data: Option<Res<MainMenuData>>,
     load_data: Option<Res<LoadMenuData>>,
     current_world: Res<CurrentWorld>,
@@ -33,6 +34,12 @@ pub(super) fn handle_main_menu_input(
         return;
     }
     let in_game = !current_world.0.is_empty();
+    let back_pressed = action_state.just_pressed(&GuiAction::CancelAction)
+        || shared_actions.just_pressed(&SharedAction::Back);
+    if state.screen == MainMenuScreen::Load && back_pressed {
+        return_to_main(&mut state, data.as_ref().and_then(|data| data.0.as_ref()));
+        return;
+    }
     let selectable = match state.screen {
         MainMenuScreen::Main => {
             let Some(definition) = data.as_ref().and_then(|data| data.0.as_ref()) else {
@@ -52,10 +59,6 @@ pub(super) fn handle_main_menu_input(
     }
     move_selection_on_input(&action_state, &mut state.selected_slot, &selectable);
 
-    if state.screen == MainMenuScreen::Load && action_state.just_pressed(&GuiAction::CancelAction) {
-        return_to_main(&mut state, data.as_ref().and_then(|data| data.0.as_ref()));
-        return;
-    }
     if !action_state.just_pressed(&GuiAction::Confirm) {
         return;
     }
