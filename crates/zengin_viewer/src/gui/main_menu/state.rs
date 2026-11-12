@@ -151,8 +151,8 @@ pub(super) fn load_slot_index(data: &MenuDefinition, slot: usize) -> Option<usiz
         .position(|candidate| *candidate == slot)
 }
 
-/// Whether the item is the load screen's back row. The script leaves it without
-/// an action, so it is dispatched specially.
+/// Whether the item is the load screen's back row. It is dispatched specially
+/// so it returns to the main menu instead of resuming the game.
 pub(super) fn is_load_back(item: &MenuItemDefinition) -> bool {
     item.name == LOAD_BACK_NAME
 }
@@ -206,4 +206,70 @@ pub(super) fn is_selectable(data: &MenuDefinition, slot: usize, in_game: bool) -
     data.items
         .iter()
         .any(|item| item.slot == slot && can_select(item, in_game))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use daedalus_typed::{MENU_ITEM_FLAG_ONLY_IN_GAME, MENU_ITEM_FLAG_SELECTABLE};
+
+    fn item(slot: usize, name: &str) -> MenuItemDefinition {
+        MenuItemDefinition {
+            slot,
+            name: name.to_string(),
+            flags: MENU_ITEM_FLAG_SELECTABLE,
+            ..MenuItemDefinition::default()
+        }
+    }
+
+    fn definition(items: Vec<MenuItemDefinition>) -> MenuDefinition {
+        MenuDefinition {
+            items,
+            ..MenuDefinition::default()
+        }
+    }
+
+    #[test]
+    fn load_slot_slots_keep_menu_order() {
+        let data = definition(vec![
+            item(0, "MENUITEM_LOAD_SLOT1"),
+            item(1, "MENUITEM_LOAD_SLOT2"),
+            item(2, "MENUITEM_LOAD_BACK"),
+            item(3, "MENUITEM_LOAD_HEADLINE"),
+            item(4, "MENUITEM_LOAD_SLOT0"),
+        ]);
+        assert_eq!(load_slot_slots(&data), vec![0, 1, 4]);
+        assert_eq!(load_slot_index(&data, 4), Some(2));
+        assert_eq!(load_slot_index(&data, 2), None);
+    }
+
+    #[test]
+    fn load_selectable_slots_skip_empty_rows_and_append_back() {
+        let data = definition(vec![
+            item(0, "MENUITEM_LOAD_SLOT1"),
+            item(1, "MENUITEM_LOAD_SLOT2"),
+            item(2, "MENUITEM_LOAD_BACK"),
+        ]);
+        let one_save = vec![PathBuf::from("save_2025-11-12_14-30-00.ron")];
+
+        assert_eq!(load_selectable_slots(&data, &[]), vec![2]);
+        assert_eq!(load_selectable_slots(&data, &one_save), vec![0, 2]);
+    }
+
+    #[test]
+    fn save_and_load_main_menu_actions_are_selectable() {
+        let mut load = item(0, "MENUITEM_MAIN_SAVEGAME_LOAD");
+        load.on_sel_action = vec![(SEL_ACTION_START_MENU, "MENU_SAVEGAME_LOAD".to_string())];
+        let mut save = item(1, "MENUITEM_MAIN_SAVEGAME_SAVE");
+        save.on_sel_action = vec![(SEL_ACTION_START_MENU, "MENU_SAVEGAME_SAVE".to_string())];
+        save.flags |= MENU_ITEM_FLAG_ONLY_IN_GAME;
+        let disabled = MenuItemDefinition {
+            flags: MENU_ITEM_FLAG_SELECTABLE | MENU_ITEM_FLAG_DISABLED,
+            ..item(2, "MENUITEM_DISABLED")
+        };
+        let data = definition(vec![load, save, disabled]);
+
+        assert_eq!(selectable_slots(&data, false), vec![0]);
+        assert_eq!(selectable_slots(&data, true), vec![0, 1]);
+    }
 }

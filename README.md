@@ -30,11 +30,10 @@ cargo run
 - Journal
 - Inventory
 - Day/Night cycle
+- Save/Load
 
 # TODO
 - ZenGin skybox
 - Weather
 - Combat
-- States Menu
-- Save/Load
 - Everything else

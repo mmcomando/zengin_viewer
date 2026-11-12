@@ -319,6 +319,29 @@ mod tests {
 
     #[test]
     #[ignore = "requires a Gothic 2 install with MENU.DAT"]
+    fn debug_load_menu() {
+        let menu = MenuScriptResource::new().expect("MENU.DAT should load");
+        let definition = menu
+            .load_section("menu_savegame_load")
+            .expect("menu_savegame_load should load");
+
+        assert_eq!(definition.items.len(), 31);
+        let item = |name: &str| {
+            definition
+                .items
+                .iter()
+                .find(|item| item.name == name)
+                .unwrap_or_else(|| panic!("load menu should contain {name}"))
+        };
+        assert_eq!(item("MENUITEM_LOAD_SLOT1").slot, 9);
+        assert_eq!(item("MENUITEM_LOAD_SLOT0").slot, 29);
+        assert_eq!(item("MENUITEM_LOAD_BACK").slot, 30);
+        assert!(item("MENUITEM_LOAD_SLOT1").is_selectable());
+        assert!(item("MENUITEM_LOAD_BACK").is_selectable());
+    }
+
+    #[test]
+    #[ignore = "requires a Gothic 2 install with MENU.DAT"]
     fn debug_status_menu() {
         let menu = MenuScriptResource::new().expect("MENU.DAT should load");
         let definition = menu
