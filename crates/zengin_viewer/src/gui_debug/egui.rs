@@ -4,6 +4,7 @@ use bevy_egui::{
     egui::{self, Ui},
 };
 
+use crate::game_state::AppState;
 use crate::gameplay::camera::{TELEPORT_LOCATIONS, TeleportToLocation};
 use crate::gameplay::game_time::GameTime;
 use crate::graphics::RenderOptions;
@@ -109,6 +110,7 @@ fn ui_info_system(
     mut quick_save: MessageWriter<QuickSave>,
     mut quick_load: MessageWriter<QuickLoad>,
     mut teleports: MessageWriter<TeleportToLocation>,
+    mut next_app_state: ResMut<NextState<AppState>>,
     camera_query: Query<&GlobalTransform, With<Camera3d>>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
@@ -262,9 +264,14 @@ fn ui_info_system(
 
             ui.group(|ui| {
                 ui.label("World");
-                if ui.button("Restart World").clicked() {
-                    restart_world.write(RestartWorld);
-                }
+                ui.horizontal(|ui| {
+                    if ui.button("Restart World").clicked() {
+                        restart_world.write(RestartWorld);
+                    }
+                    if ui.button("Main Menu").clicked() {
+                        next_app_state.set(AppState::MainMenu);
+                    }
+                });
                 ui.horizontal(|ui| {
                     if ui.button("Quick Save").clicked() {
                         quick_save.write(QuickSave);

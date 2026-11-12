@@ -33,6 +33,10 @@ pub struct GameScriptLoaded;
 /// Loads the game script and dialog texts when entering the game. This keeps
 /// the main menu from paying for GOTHIC.DAT conversion or instance setup.
 fn initialize_game_script(world: &mut World) {
+    if world.get_resource::<ScriptResource>().is_some() {
+        info!("Game script already loaded, resuming without reload");
+        return;
+    }
     info!("Load game script");
     let mut script = load_gothic_script_manager();
     let npc_handles = script.npc_handles();

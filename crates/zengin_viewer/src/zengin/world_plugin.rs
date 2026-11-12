@@ -95,7 +95,17 @@ pub struct RestartWorld;
 #[derive(Resource, Default)]
 pub(crate) struct CurrentWorld(pub(crate) String);
 
-fn request_initial_world(mut spawn_world: MessageWriter<SpawnWorld>) {
+fn request_initial_world(
+    mut spawn_world: MessageWriter<SpawnWorld>,
+    current_world: Res<CurrentWorld>,
+) {
+    if !current_world.0.is_empty() {
+        info!(
+            "World {} already spawned, resuming without reload",
+            current_world.0
+        );
+        return;
+    }
     spawn_world.write(SpawnWorld {
         world_name: "NEWWORLD/NEWWORLD".to_string(),
         clean_spawn: true,

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game_state::AppState;
-use crate::zengin::MenuScriptResource;
+use crate::zengin::{CurrentWorld, MenuScriptResource};
 
 mod input;
 mod render;
@@ -53,11 +53,16 @@ fn load_menu_data(world: &mut World) {
     world.insert_resource(script);
 }
 
-fn open_main_menu(mut state: ResMut<MainMenuState>, data: Option<Res<MainMenuData>>) {
+fn open_main_menu(
+    mut state: ResMut<MainMenuState>,
+    data: Option<Res<MainMenuData>>,
+    current_world: Res<CurrentWorld>,
+) {
+    let in_game = !current_world.0.is_empty();
     let selected = data
         .as_ref()
         .and_then(|data| data.0.as_ref())
-        .and_then(initial_selection)
+        .and_then(|data| initial_selection(data, in_game))
         .unwrap_or(0);
     state.open(selected);
     info!("Main menu opened");

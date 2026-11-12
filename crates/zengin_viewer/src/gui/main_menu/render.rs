@@ -5,7 +5,7 @@ use bevy::window::PrimaryWindow;
 use crate::gui::menu_screen::{MenuScreenTextMarker, spawn_menu_screen};
 use crate::ui_kit::{UiText, set_text, set_text_color, set_visibility};
 use crate::zengin::{
-    MENU_FLAG_SHOW_INFO, MENU_ITEM_FLAG_DISABLED, MenuDefinition, MenuItemDefinition,
+    CurrentWorld, MENU_FLAG_SHOW_INFO, MENU_ITEM_FLAG_DISABLED, MenuDefinition, MenuItemDefinition,
     get_full_texture_path,
 };
 
@@ -24,6 +24,7 @@ pub(super) fn sync_main_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     data: Option<Res<MainMenuData>>,
+    current_world: Res<CurrentWorld>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut state: ResMut<MainMenuState>,
     mut root: Single<&mut Visibility, With<MainMenuRootMarker>>,
@@ -41,6 +42,7 @@ pub(super) fn sync_main_menu(
     let Some(data) = data.as_ref().and_then(|data| data.0.as_ref()) else {
         return;
     };
+    let in_game = !current_world.0.is_empty();
     let (window_size, ui_scale) =
         windows
             .iter()
@@ -56,8 +58,8 @@ pub(super) fn sync_main_menu(
         || state.last_size != window_size
         || (state.last_scale - ui_scale).abs() > f32::EPSILON
     {
-        if !is_selectable(data, state.selected_slot) {
-            state.selected_slot = first_selectable(data).unwrap_or(state.selected_slot);
+        if !is_selectable(data, state.selected_slot, in_game) {
+            state.selected_slot = first_selectable(data, in_game).unwrap_or(state.selected_slot);
         }
         rebuild_menu(
             &mut commands,
@@ -66,6 +68,7 @@ pub(super) fn sync_main_menu(
             window_size,
             ui_scale,
             &state,
+            in_game,
             *content,
         );
         state.last_size = window_size;
@@ -75,7 +78,7 @@ pub(super) fn sync_main_menu(
 
     for (marker, mut color) in &mut texts {
         let item = data.items.iter().find(|item| item.slot == marker.slot);
-        let value = item_color(item, marker.slot == state.selected_slot);
+        let value = item_color(item, marker.slot == state.selected_slot, in_game);
         set_text_color(&mut color, value);
     }
 
@@ -104,6 +107,7 @@ fn rebuild_menu(
     window_size: Vec2,
     scale: f32,
     state: &MainMenuState,
+    in_game: bool,
     content: Entity,
 ) {
     commands.entity(content).despawn_children();
@@ -120,7 +124,7 @@ fn rebuild_menu(
         MainMenuStyle::ITEM_FONT_SIZE * scale,
         MainMenuStyle::MENU_AREA_FALLBACK,
         |item| item.title().to_owned(),
-        |item| item_color(Some(item), item.slot == state.selected_slot),
+        |item| item_color(Some(item), item.slot == state.selected_slot, in_game),
     );
 
     if data.flags & MENU_FLAG_SHOW_INFO != 0 {
@@ -166,11 +170,13 @@ fn spawn_info_text(commands: &mut Commands, area: Entity, scale: f32) {
     ));
 }
 
-fn item_color(item: Option<&MenuItemDefinition>, selected: bool) -> Color {
+fn item_color(item: Option<&MenuItemDefinition>, selected: bool, in_game: bool) -> Color {
     let alpha = item.map_or(255, |item| item.alpha);
-    let base = if item
-        .is_some_and(|item| item.flags & MENU_ITEM_FLAG_DISABLED != 0 || item.is_only_in_game())
-    {
+    let base = if item.is_some_and(|item| {
+        item.flags & MENU_ITEM_FLAG_DISABLED != 0
+            || (item.is_only_in_game() && !in_game)
+            || (item.is_only_out_game() && in_game)
+    }) {
         MainMenuStyle::TEXT_COLOR_DISABLED
     } else if selected {
         MainMenuStyle::TEXT_COLOR_SELECTED

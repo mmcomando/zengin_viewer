@@ -38,30 +38,46 @@ impl MainMenuState {
     }
 }
 
-/// Whether an item can be reached with menu navigation while out of game.
-pub(super) fn can_select(item: &MenuItemDefinition) -> bool {
-    item.is_selectable() && !item.is_only_in_game() && item.flags & MENU_ITEM_FLAG_DISABLED == 0
+/// Whether an item can be reached with menu navigation. `in_game` is true when
+/// a game world is loaded, enabling `IT_ONLY_IN_GAME` items (e.g. resume) and
+/// disabling the out-of-game ones.
+pub(super) fn can_select(item: &MenuItemDefinition, in_game: bool) -> bool {
+    if item.flags & MENU_ITEM_FLAG_DISABLED != 0 {
+        return false;
+    }
+    if item.is_only_in_game() && !in_game {
+        return false;
+    }
+    if item.is_only_out_game() && in_game {
+        return false;
+    }
+    item.is_selectable()
 }
 
 /// First selectable item of a menu, used as the initial selection.
-pub(super) fn first_selectable(data: &MenuDefinition) -> Option<usize> {
+pub(super) fn first_selectable(data: &MenuDefinition, in_game: bool) -> Option<usize> {
     data.items
         .iter()
-        .find(|item| can_select(item))
+        .find(|item| can_select(item, in_game))
         .map(|item| item.slot)
 }
 
-/// The script default item when it is selectable, the first selectable item
-/// otherwise.
-pub(super) fn initial_selection(data: &MenuDefinition) -> Option<usize> {
-    is_selectable(data, data.default_out_game)
-        .then_some(data.default_out_game)
-        .or_else(|| first_selectable(data))
+/// The script default item for the current context when it is selectable, the
+/// first selectable item otherwise.
+pub(super) fn initial_selection(data: &MenuDefinition, in_game: bool) -> Option<usize> {
+    let default = if in_game {
+        data.default_in_game
+    } else {
+        data.default_out_game
+    };
+    is_selectable(data, default, in_game)
+        .then_some(default)
+        .or_else(|| first_selectable(data, in_game))
 }
 
 /// Whether the item with `slot` can be reached with menu navigation.
-pub(super) fn is_selectable(data: &MenuDefinition, slot: usize) -> bool {
+pub(super) fn is_selectable(data: &MenuDefinition, slot: usize, in_game: bool) -> bool {
     data.items
         .iter()
-        .any(|item| item.slot == slot && can_select(item))
+        .any(|item| item.slot == slot && can_select(item, in_game))
 }

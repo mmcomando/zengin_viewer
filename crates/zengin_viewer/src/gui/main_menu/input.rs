@@ -3,13 +3,17 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::game_state::AppState;
 use crate::input::{GuiAction, GuiInputMarker};
-use crate::zengin::{MenuDefinition, MenuItemDefinition, SEL_ACTION_CLOSE, SEL_ACTION_START_MENU};
+use crate::zengin::{
+    CurrentWorld, MenuDefinition, MenuItemDefinition, SEL_ACTION_BACK, SEL_ACTION_CLOSE,
+    SEL_ACTION_START_MENU,
+};
 
 use super::state::{MainMenuData, MainMenuState, can_select};
 
 pub(super) fn handle_main_menu_input(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     data: Option<Res<MainMenuData>>,
+    current_world: Res<CurrentWorld>,
     mut state: ResMut<MainMenuState>,
     mut next_state: ResMut<NextState<AppState>>,
     mut exit: MessageWriter<AppExit>,
@@ -20,7 +24,8 @@ pub(super) fn handle_main_menu_input(
     let Some(data) = data.as_ref().and_then(|data| data.0.as_ref()) else {
         return;
     };
-    let selectable = selectable_slots(data);
+    let in_game = !current_world.0.is_empty();
+    let selectable = selectable_slots(data, in_game);
     if selectable.is_empty() {
         return;
     }
@@ -36,10 +41,10 @@ pub(super) fn handle_main_menu_input(
     apply_item_actions(item, &mut next_state, &mut exit);
 }
 
-fn selectable_slots(data: &MenuDefinition) -> Vec<usize> {
+fn selectable_slots(data: &MenuDefinition, in_game: bool) -> Vec<usize> {
     data.items
         .iter()
-        .filter(|item| can_select(item))
+        .filter(|item| can_select(item, in_game))
         .map(|item| item.slot)
         .collect()
 }
@@ -87,6 +92,10 @@ fn apply_action(
 ) {
     match action {
         SEL_ACTION_CLOSE => apply_close_action(argument, next_state, exit),
+        SEL_ACTION_BACK => {
+            info!("Main menu: resuming the game");
+            next_state.set(AppState::InGame);
+        }
         SEL_ACTION_START_MENU if argument == "MENU_LEAVE_GAME" => {
             info!("Main menu: exiting");
             exit.write(AppExit::Success);
