@@ -9782,6 +9782,7 @@ dependencies = [
  "clap",
  "daedalus_typed",
  "daedalus_wasm",
+ "dmusic-sys",
  "image",
  "leafwing-input-manager",
  "openxr",

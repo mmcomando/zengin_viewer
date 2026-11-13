@@ -1,3 +1,4 @@
+mod music;
 mod music_definitions;
 mod sound_definitions;
 mod sound_manager;
@@ -14,6 +15,7 @@ pub struct SoundPlugin;
 
 impl Plugin for SoundPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(music::MusicPlaybackPlugin);
         app.add_message::<PlaySound>();
         app.init_resource::<SoundManager>();
         app.add_systems(
