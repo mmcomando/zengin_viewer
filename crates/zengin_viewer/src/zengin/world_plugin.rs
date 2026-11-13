@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::f32::consts::PI;
 
 use crate::game_state::AppState;
@@ -56,20 +57,21 @@ impl Plugin for ZenGinWorldPlugin {
         app.init_resource::<MusicZones>();
         app.init_resource::<WaypointGraph>();
         app.init_resource::<CurrentWorld>();
+        app.init_resource::<LoadingWorld>();
+        app.init_resource::<PendingWorldSpawns>();
 
-        app.add_message::<SpawnWorld>();
         app.add_message::<RestartWorld>();
         app.add_message::<NewGame>();
-        app.add_systems(
-            OnEnter(AppState::LoadScreen),
-            request_initial_world.after(GameScriptLoaded),
-        );
+        app.add_systems(OnEnter(AppState::LoadScreen), request_initial_world);
         app.add_systems(First, restart_world.run_if(on_message::<RestartWorld>));
         app.add_systems(First, new_game.run_if(on_message::<NewGame>));
         app.add_systems(
             Update,
             spawn_world
+                .after(GameScriptLoaded)
                 .before(ScriptChangesApplied)
+                .run_if(crate::game_state::loading_screen_ready)
+                .run_if(resource_exists::<ScriptResource>)
                 .run_if(in_state(AppState::LoadScreen).or_else(in_state(AppState::InGame))),
         );
         app.add_systems(
@@ -81,6 +83,7 @@ impl Plugin for ZenGinWorldPlugin {
             (spawn_npc_entities, spawn_item_entities)
                 .chain()
                 .after(ScriptChangesApplied)
+                .run_if(resource_exists::<ScriptResource>)
                 .run_if(in_state(AppState::LoadScreen).or_else(in_state(AppState::InGame))),
         );
     }
@@ -88,7 +91,6 @@ impl Plugin for ZenGinWorldPlugin {
 
 /// World load request; `world_name` is the path relative to the worlds
 /// directory without the `.ZEN` extension (e.g. `NEWWORLD/NEWWORLD`).
-#[derive(Message)]
 pub struct SpawnWorld {
     pub world_name: String,
     /// World has no saved state, its one-time startup script entry points run.
@@ -100,6 +102,11 @@ pub struct SpawnWorld {
     pub restore: Option<Box<SaveGame>>,
 }
 
+/// World spawn requests waiting for the loading screen; drained by
+/// [`spawn_world`].
+#[derive(Resource, Default)]
+pub(crate) struct PendingWorldSpawns(VecDeque<SpawnWorld>);
+
 /// Set by the debug UI to tear down and respawn the current world.
 #[derive(Message)]
 pub struct RestartWorld;
@@ -109,16 +116,28 @@ pub struct RestartWorld;
 pub struct NewGame;
 
 /// World spawned by a new game.
-const START_WORLD: &str = "NEWWORLD/NEWWORLD";
+pub(crate) const START_WORLD: &str = "NEWWORLD/NEWWORLD";
 
 /// World path of the most recently spawned world.
 #[derive(Resource, Default)]
 pub(crate) struct CurrentWorld(pub(crate) String);
 
+/// World path of the world being spawned or restored, used to pick the
+/// loading screen artwork before the world exists.
+#[derive(Resource)]
+pub(crate) struct LoadingWorld(pub(crate) String);
+
+impl Default for LoadingWorld {
+    fn default() -> Self {
+        Self(START_WORLD.to_string())
+    }
+}
+
 pub(crate) fn request_initial_world(
-    mut spawn_world: MessageWriter<SpawnWorld>,
+    mut pending_spawns: ResMut<PendingWorldSpawns>,
     current_world: Res<CurrentWorld>,
     pending_load: Res<PendingLoad>,
+    mut loading_world: ResMut<LoadingWorld>,
 ) {
     if pending_load.0.is_some() {
         info!("Skipping the default world spawn, a save load is pending");
@@ -131,7 +150,8 @@ pub(crate) fn request_initial_world(
         );
         return;
     }
-    spawn_world.write(SpawnWorld {
+    loading_world.0 = START_WORLD.to_string();
+    pending_spawns.0.push_back(SpawnWorld {
         world_name: START_WORLD.to_string(),
         clean_spawn: true,
         player_transform: None,
@@ -214,12 +234,16 @@ pub(crate) fn begin_world_load(
     }
 
     let clean_spawn = restore.is_none();
-    world.write_message(SpawnWorld {
-        world_name: world_name.to_string(),
-        clean_spawn,
-        player_transform,
-        restore,
-    });
+    *world.resource_mut::<LoadingWorld>() = LoadingWorld(world_name.to_string());
+    world
+        .resource_mut::<PendingWorldSpawns>()
+        .0
+        .push_back(SpawnWorld {
+            world_name: world_name.to_string(),
+            clean_spawn,
+            player_transform,
+            restore,
+        });
 }
 
 /// Marks the world ready once the world mesh collider entities exist. Physics
@@ -240,7 +264,7 @@ fn finish_world_load(
 }
 
 fn spawn_world(
-    mut requests: MessageReader<SpawnWorld>,
+    mut pending_spawns: ResMut<PendingWorldSpawns>,
     mut commands: Commands,
     mut handles_map: ResMut<CachedAssetHandles>,
     mut named_models: ResMut<NamedModels>,
@@ -251,17 +275,20 @@ fn spawn_world(
     mut spawn_item: MessageWriter<SpawnItem>,
     mut spawn_npc: MessageWriter<SpawnNpc>,
 ) {
+    if pending_spawns.0.is_empty() {
+        return;
+    }
     for SpawnWorld {
         world_name,
         clean_spawn,
         player_transform,
         restore,
-    } in requests.read()
+    } in std::mem::take(&mut pending_spawns.0)
     {
         spawn_world_data(
-            world_name,
-            *clean_spawn,
-            *player_transform,
+            &world_name,
+            clean_spawn,
+            player_transform,
             restore.as_deref(),
             &mut commands,
             &mut handles_map,

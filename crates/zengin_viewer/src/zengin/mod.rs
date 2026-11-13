@@ -74,7 +74,7 @@ pub(crate) use crate::zengin::script::{
 pub(crate) use crate::zengin::statistics::StatisticsZengin;
 pub(crate) use crate::zengin::waypoint_graph::WaypointGraph;
 pub(crate) use crate::zengin::world_plugin::{
-    CurrentWorld, NewGame, RestartWorld, begin_world_load, request_initial_world,
+    CurrentWorld, LoadingWorld, NewGame, RestartWorld, begin_world_load, request_initial_world,
 };
 
 /// Plugin which provides Zengin related functionality

@@ -22,8 +22,8 @@ use crate::save::format::{
 };
 use crate::save::{current_script_fingerprint, new_save_dir, newest_save, read_save, write_save};
 use crate::zengin::{
-    CurrentWorld, GameChest, GameItem, GameNpc, NpcOverlay, ScriptResource, begin_world_load,
-    request_initial_world,
+    CurrentWorld, GameChest, GameItem, GameNpc, LoadingWorld, NpcOverlay, ScriptResource,
+    begin_world_load, request_initial_world,
 };
 
 /// Size of the saved thumbnail. The load screen slot is 4:3, so a full window
@@ -275,6 +275,7 @@ fn quick_load(world: &mut World) {
 fn handle_load_save_request(
     mut requests: MessageReader<LoadSaveRequest>,
     mut pending: ResMut<PendingLoad>,
+    mut loading_world: ResMut<LoadingWorld>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     for request in requests.read() {
@@ -286,6 +287,7 @@ fn handle_load_save_request(
         match prepared {
             Ok(save) => {
                 info!("Load requested from menu: {}", request.path.display());
+                loading_world.0.clone_from(&save.metadata.world_name);
                 pending.0 = Some(Box::new(save));
                 next_state.set(AppState::LoadScreen);
             }

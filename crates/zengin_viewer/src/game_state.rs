@@ -26,11 +26,30 @@ pub(crate) fn world_is_loaded(loaded: Res<WorldLoaded>) -> bool {
     loaded.0
 }
 
+/// Blocks world preparation until the loading screen is visible with its
+/// artwork loaded, so the first heavy loading frame does not hide the screen.
+/// Defaults to `true` so partial apps without the loading screen can spawn.
+#[derive(Resource, Debug, Clone, Copy)]
+pub(crate) struct LoadingScreenReady(pub(crate) bool);
+
+impl Default for LoadingScreenReady {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
+/// Run condition for the heavy loading work that must wait for the loading
+/// screen.
+pub(crate) fn loading_screen_ready(ready: Res<LoadingScreenReady>) -> bool {
+    ready.0
+}
+
 pub(crate) struct GameStatePlugin;
 
 impl Plugin for GameStatePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WorldLoaded>();
+        app.init_resource::<LoadingScreenReady>();
         app.add_systems(OnEnter(AppState::MainMenu), pause_physics);
         app.add_systems(OnExit(AppState::MainMenu), resume_physics);
         app.add_systems(

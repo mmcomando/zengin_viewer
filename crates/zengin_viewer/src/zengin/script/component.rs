@@ -20,8 +20,12 @@ pub struct GothicScriptsPlugin;
 impl Plugin for GothicScriptsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            OnEnter(AppState::LoadScreen),
-            initialize_game_script.in_set(GameScriptLoaded),
+            Update,
+            initialize_game_script
+                .in_set(GameScriptLoaded)
+                .run_if(in_state(AppState::LoadScreen))
+                .run_if(not(resource_exists::<ScriptResource>))
+                .run_if(crate::game_state::loading_screen_ready),
         );
         app.add_systems(Update, update_script_npc_state);
     }
