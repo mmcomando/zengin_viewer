@@ -20,8 +20,8 @@ use crate::gameplay::character_camera::camera_toggle_input;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::input::actions::{
-    DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker, GuiAction, GuiInputMarker,
-    SharedAction, SharedInputMarker, update_input_mode,
+    EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker, GuiAction,
+    GuiInputMarker, SharedAction, SharedInputMarker, update_input_mode,
 };
 use crate::input::options::Options;
 use crate::input::record::{RecordedAction, ReplayCommand};
@@ -237,7 +237,7 @@ fn replay_actions(
     mut gameplay: Query<&mut ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut gui: Query<&mut ActionState<GuiAction>, With<GuiInputMarker>>,
     mut shared: Query<&mut ActionState<SharedAction>, With<SharedInputMarker>>,
-    mut debug: Query<&mut ActionState<DebugAction>, With<DebugInputMarker>>,
+    mut editor: Query<&mut ActionState<EditorAction>, With<EditorInputMarker>>,
     gothic_script: Option<Res<ScriptResource>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
     mut pending: ResMut<PendingLocations>,
@@ -277,7 +277,7 @@ fn replay_actions(
             &mut gameplay,
             &mut gui,
             &mut shared,
-            &mut debug,
+            &mut editor,
             *action,
             started,
         );
@@ -415,7 +415,7 @@ fn press(
     gameplay: &mut Query<&mut ActionState<GameplayAction>, With<GameplayInputMarker>>,
     gui: &mut Query<&mut ActionState<GuiAction>, With<GuiInputMarker>>,
     shared: &mut Query<&mut ActionState<SharedAction>, With<SharedInputMarker>>,
-    debug: &mut Query<&mut ActionState<DebugAction>, With<DebugInputMarker>>,
+    editor: &mut Query<&mut ActionState<EditorAction>, With<EditorInputMarker>>,
     action: RecordedAction,
     started: bool,
 ) {
@@ -435,8 +435,8 @@ fn press(
                 apply_press(&mut state, &action, started);
             }
         }
-        RecordedAction::Debug(action) => {
-            if let Ok(mut state) = debug.single_mut() {
+        RecordedAction::Editor(action) => {
+            if let Ok(mut state) = editor.single_mut() {
                 apply_press(&mut state, &action, started);
             }
         }

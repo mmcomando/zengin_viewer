@@ -24,7 +24,7 @@ impl Plugin for ActionsPlugin {
             InputManagerPlugin::<GameplayAction>::default(),
             InputManagerPlugin::<GuiAction>::default(),
             InputManagerPlugin::<SharedAction>::default(),
-            InputManagerPlugin::<DebugAction>::default(),
+            InputManagerPlugin::<EditorAction>::default(),
         ));
         app.add_systems(Startup, spawn_input_maps);
         // Mode switching must happen before synthetic replay presses and
@@ -42,13 +42,19 @@ impl Plugin for ActionsPlugin {
 
 /// Which input map is currently active.
 ///
-/// [`DebugAction`] is always enabled; [`GameplayAction`] is enabled in
-/// [`InputMode::Gameplay`] and [`GuiAction`] in [`InputMode::Gui`].
+/// [`GameplayAction`] is enabled in [`InputMode::Gameplay`], [`GuiAction`] in
+/// [`InputMode::Gui`] and [`EditorAction`] in [`InputMode::Editor`]. Shared
+/// actions are enabled in gameplay and menu modes only.
+///
+/// [`EditorAction::ToggleEditorMode`] stays enabled in every mode so editor
+/// mode can always be toggled.
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputMode {
     #[default]
     Gameplay,
     Gui,
+    /// Debugging with the free camera: gameplay and UI input is disabled.
+    Editor,
 }
 
 /// Marker for the entity holding the gameplay [`InputMap`] (and its required
@@ -61,10 +67,11 @@ pub struct GameplayInputMarker;
 #[derive(Component)]
 pub struct GuiInputMarker;
 
-/// Marker for the entity holding the debug [`InputMap`] (and its required
-/// [`ActionState`]). Debug input is always enabled.
+/// Marker for the entity holding the editor [`InputMap`] (and its required
+/// [`ActionState`]). Only [`EditorAction::ToggleEditorMode`] is enabled outside
+/// [`InputMode::Editor`].
 #[derive(Component)]
-pub struct DebugInputMarker;
+pub struct EditorInputMarker;
 
 /// Actions controlling the character during gameplay.
 ///
@@ -134,9 +141,9 @@ pub enum GuiAction {
     CancelAction,
 }
 
-/// Actions available in both [`InputMode`]s (gameplay and menu), for things
-/// like the inventory toggle that must work while a GUI is open. Unlike
-/// [`DebugAction`] this set is a normal, mode-independent feature set.
+/// Actions available in both gameplay and menu modes, for things like the
+/// inventory toggle that must work while a GUI is open. Unlike
+/// [`EditorAction`] this set is a normal, mode-independent feature set.
 #[derive(
     Actionlike,
     PartialEq,
@@ -169,11 +176,14 @@ pub enum SharedAction {
 }
 
 /// Marker for the entity holding the shared [`InputMap`] (and its required
-/// [`ActionState`]). Shared input is enabled in both gameplay and GUI modes.
+/// [`ActionState`]). Shared input is enabled in the gameplay and GUI modes, but
+/// not in [`InputMode::Editor`].
 #[derive(Component)]
 pub struct SharedInputMarker;
 
-/// Debug helper actions, always available regardless of [`InputMode`].
+/// Actions used while debugging with the free camera, enabled in
+/// [`InputMode::Editor`]. [`EditorAction::ToggleEditorMode`] is the exception:
+/// it is enabled in every mode so the editor can always be entered and left.
 #[derive(
     Actionlike,
     PartialEq,
@@ -187,11 +197,11 @@ pub struct SharedInputMarker;
     Deserialize,
     strum::EnumIter,
 )]
-pub enum DebugAction {
+pub enum EditorAction {
     TeleportOrigin,
     TeleportAway,
-    /// Toggle between the free camera and the character camera.
-    ToggleCharacterCamera,
+    /// Toggle editor mode, which uses the free camera.
+    ToggleEditorMode,
 }
 
 #[allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
@@ -301,36 +311,58 @@ fn spawn_input_maps(mut commands: Commands) {
             warn!("Falling back to default shared input map: {error}");
             InputMap::default()
         });
-    let debug_map =
-        load_input_profile::<DebugAction>("input_bindings_debug.ron").unwrap_or_else(|error| {
-            warn!("Falling back to default debug input map: {error}");
+    let editor_map = load_input_profile::<EditorAction>("input_bindings_editor.ron")
+        .unwrap_or_else(|error| {
+            warn!("Falling back to default editor input map: {error}");
             InputMap::default()
         });
     commands.spawn((GameplayInputMarker, gameplay_map));
     commands.spawn((GuiInputMarker, gui_map));
     commands.spawn((SharedInputMarker, shared_map));
-    commands.spawn((DebugInputMarker, debug_map));
+    commands.spawn((EditorInputMarker, editor_map));
 }
 
 /// Enables and disables action groups based on [`InputMode`].
 ///
-/// The shared and debug groups are never touched, so they stay enabled in
-/// every mode.
+/// Editor mode disables the shared actions too, so quick save/load, menus and
+/// the exit shortcut cannot fire while debugging with the free camera. The
+/// editor toggle stays enabled in every mode.
 pub(crate) fn update_input_mode(
     input_mode: Res<InputMode>,
     mut gameplay: Single<&mut ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut gui: Single<&mut ActionState<GuiAction>, With<GuiInputMarker>>,
+    mut shared: Single<&mut ActionState<SharedAction>, With<SharedInputMarker>>,
+    mut editor: Single<&mut ActionState<EditorAction>, With<EditorInputMarker>>,
 ) {
     match *input_mode {
         InputMode::Gameplay => {
             gui.disable_all_actions();
             gameplay.enable_all_actions();
+            shared.enable_all_actions();
+            enable_only_editor_toggle(&mut editor);
         }
         InputMode::Gui => {
             gameplay.disable_all_actions();
             gui.enable_all_actions();
+            shared.enable_all_actions();
+            enable_only_editor_toggle(&mut editor);
+        }
+        InputMode::Editor => {
+            gameplay.disable_all_actions();
+            gui.disable_all_actions();
+            shared.disable_all_actions();
+            editor.enable_all_actions();
         }
     }
+}
+
+/// Disables the editor actions except the mode toggle, which must stay
+/// available to leave editor mode. The toggle is enabled without resetting it,
+/// so a press is not lost when the mode changes on the same frame.
+fn enable_only_editor_toggle(editor: &mut ActionState<EditorAction>) {
+    editor.disable_action(&EditorAction::TeleportOrigin);
+    editor.disable_action(&EditorAction::TeleportAway);
+    editor.enable_action(&EditorAction::ToggleEditorMode);
 }
 
 /// Loads an input profile from the `input` subdirectory of the main assets

@@ -17,7 +17,7 @@ use bevy_xr_utils::transform_utils::{SnapToPosition, TransformUtilitiesPlugin};
 use leafwing_input_manager::prelude::ActionState;
 use std::sync::OnceLock;
 
-use crate::input::{DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker};
+use crate::input::{EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker};
 
 /// Experiment with VR
 /// Worked with Pico 4 and `SteamVR` on Linux but very laggy (in the past I know it worked better)
@@ -123,13 +123,13 @@ fn move_camera(
 }
 
 fn teleport(
-    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
+    action_state: Single<&ActionState<EditorAction>, With<EditorInputMarker>>,
     mut event_writer: MessageWriter<SnapToPosition>,
 ) {
-    if action_state.just_pressed(&DebugAction::TeleportOrigin) {
+    if action_state.just_pressed(&EditorAction::TeleportOrigin) {
         event_writer.write(SnapToPosition(Vec3::new(0.0, 0.0, 0.0)));
     }
-    if action_state.just_pressed(&DebugAction::TeleportAway) {
+    if action_state.just_pressed(&EditorAction::TeleportAway) {
         event_writer.write(SnapToPosition(Vec3::new(10.0, 10.0, 10.0)));
     }
 }

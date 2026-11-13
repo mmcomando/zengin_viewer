@@ -10,7 +10,7 @@
                 "KeyCode": Digit7,
             },
         ],
-        ToggleCharacterCamera: [
+        ToggleEditorMode: [
             {
                 "KeyCode": Digit0,
             },

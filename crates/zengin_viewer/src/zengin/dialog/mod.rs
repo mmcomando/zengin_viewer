@@ -12,6 +12,7 @@ pub(crate) use state::DialogRequest;
 pub(crate) use state::DialogUiState;
 
 use crate::game_state::AppState;
+use crate::gameplay::camera::EditorMode;
 use crate::input::InputMode;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use bevy::prelude::*;
@@ -65,10 +66,12 @@ impl Plugin for GameDialogPlugin {
     }
 }
 
-/// While a dialog, the inventory, the journal or the stats menu is open the
-/// input mode is GUI navigation, otherwise gameplay.
+/// While editor mode is active in game the input mode is editor, while a
+/// dialog, the inventory, the journal or the stats menu is open the input mode
+/// is GUI navigation, otherwise gameplay.
 pub(crate) fn sync_input_mode(
     state: Res<State<AppState>>,
+    editor_mode: Res<EditorMode>,
     dialog_ui: Res<DialogUiState>,
     chapter_screen: Res<crate::gui::ChapterScreenState>,
     inventory_ui: Res<crate::gui::InventoryUiState>,
@@ -76,7 +79,9 @@ pub(crate) fn sync_input_mode(
     stats_ui: Res<crate::gui::StatsUiState>,
     mut input_mode: ResMut<InputMode>,
 ) {
-    let mode = if *state.get() == AppState::MainMenu
+    let mode = if *state.get() == AppState::InGame && editor_mode.is_enabled() {
+        InputMode::Editor
+    } else if *state.get() == AppState::MainMenu
         || chapter_screen.is_open()
         || dialog_ui.is_open()
         || inventory_ui.is_open()

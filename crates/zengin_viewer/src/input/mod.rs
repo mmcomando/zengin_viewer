@@ -4,7 +4,7 @@ mod record;
 mod replay;
 
 pub(crate) use crate::input::actions::{
-    ActionsPlugin, DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker, GuiAction,
+    ActionsPlugin, EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker, GuiAction,
     GuiInputMarker, InputMode, SharedAction, SharedInputMarker,
 };
 pub(crate) use crate::input::options::{Options, OptionsPlugin, add_renderless_default_plugins};

@@ -20,8 +20,25 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FreeCameraPlugin);
         app.insert_resource(CameraResource::default());
+        app.init_resource::<EditorMode>();
         app.add_message::<TeleportToLocation>();
-        app.add_systems(Update, (sync_free_camera_enabled, sync_third_person_cursor));
+        // Apply the editor mode right after the toggle flips it, so the camera
+        // consumers of this frame already see the new controller.
+        app.add_systems(
+            PreUpdate,
+            apply_editor_mode
+                .after(crate::gameplay::character_camera::camera_toggle_input)
+                .run_if(in_state(AppState::InGame)),
+        );
+        app.add_systems(
+            Update,
+            (
+                apply_editor_mode,
+                sync_free_camera_enabled,
+                sync_third_person_cursor,
+            )
+                .chain(),
+        );
         app.add_systems(
             Update,
             (rotate_third_person_camera, rotate_third_person_camera_mouse)
@@ -90,6 +107,31 @@ pub enum CurrentCamera {
     Free,
     ThirdPerson,
     Dialog,
+}
+
+/// Whether the editor mode is active. It is the source of truth for the free
+/// camera: while enabled, [`CameraResource`] always ends up on the free camera,
+/// and while disabled the free camera is never left in control.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditorMode {
+    /// Debugging with the free camera, no character control.
+    #[default]
+    Enabled,
+    /// Normal gameplay with the third person camera.
+    Disabled,
+}
+
+impl EditorMode {
+    pub fn is_enabled(self) -> bool {
+        matches!(self, Self::Enabled)
+    }
+
+    pub fn toggle(&mut self) {
+        *self = match self {
+            Self::Enabled => Self::Disabled,
+            Self::Disabled => Self::Enabled,
+        };
+    }
 }
 
 /// Rotation speed of the third person camera, radians per second.
@@ -211,6 +253,22 @@ fn apply_teleport_requests(
 
 fn use_third_person_camera(info: Res<CameraResource>) -> bool {
     info.current_camera == CurrentCamera::ThirdPerson
+}
+
+/// Keeps [`CameraResource`] consistent with [`EditorMode`].
+fn apply_editor_mode(editor_mode: Res<EditorMode>, mut camera: ResMut<CameraResource>) {
+    match *editor_mode {
+        EditorMode::Enabled => {
+            if camera.current() != CurrentCamera::Free {
+                camera.set_free_camera();
+            }
+        }
+        EditorMode::Disabled => {
+            if camera.current() == CurrentCamera::Free {
+                camera.set_third_person_camera();
+            }
+        }
+    }
 }
 
 fn sync_free_camera_enabled(

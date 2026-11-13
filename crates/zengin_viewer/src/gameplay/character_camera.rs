@@ -4,21 +4,22 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::gameplay::camera::{CameraResource, CurrentCamera};
+use crate::gameplay::camera::{CameraResource, CurrentCamera, EditorMode};
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::input::{CameraSwitchedToThirdPerson, DebugAction, DebugInputMarker};
+use crate::input::{CameraSwitchedToThirdPerson, EditorAction, EditorInputMarker};
 use crate::zengin::STATIC_OBJECT;
 
 pub(crate) fn use_character_camera(info: Res<CameraResource>) -> bool {
     info.current() == CurrentCamera::ThirdPerson
 }
 
-/// Toggles between the free camera and the character camera.
+/// Toggles [`EditorMode`]. Leaving editor mode places the player at the free
+/// camera position so gameplay continues where the camera was looking.
 #[allow(clippy::type_complexity)]
 pub(crate) fn camera_toggle_input(
-    mut info: ResMut<CameraResource>,
-    action_state: Single<&ActionState<DebugAction>, With<DebugInputMarker>>,
+    mut editor_mode: ResMut<EditorMode>,
+    action_state: Single<&ActionState<EditorAction>, With<EditorInputMarker>>,
     camera_query: Query<&GlobalTransform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
     mut player_query: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
     mut player_visual: Query<
@@ -31,14 +32,11 @@ pub(crate) fn camera_toggle_input(
     >,
     mut switches: MessageWriter<CameraSwitchedToThirdPerson>,
 ) {
-    if !action_state.just_pressed(&DebugAction::ToggleCharacterCamera) {
+    if !action_state.just_pressed(&EditorAction::ToggleEditorMode) {
         return;
     }
-    match info.current() {
-        CurrentCamera::Free => info.set_third_person_camera(),
-        CurrentCamera::ThirdPerson | CurrentCamera::Dialog => info.set_free_camera(),
-    }
-    if info.current() != CurrentCamera::ThirdPerson {
+    editor_mode.toggle();
+    if editor_mode.is_enabled() {
         return;
     }
     // Player starts where the free camera was looking

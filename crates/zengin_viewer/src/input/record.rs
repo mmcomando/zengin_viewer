@@ -14,8 +14,8 @@ use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::input::actions::{
-    DebugAction, DebugInputMarker, GameplayAction, GameplayInputMarker, GuiAction, GuiInputMarker,
-    SharedAction, SharedInputMarker,
+    EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker, GuiAction,
+    GuiInputMarker, SharedAction, SharedInputMarker,
 };
 use crate::input::options::Options;
 
@@ -44,7 +44,7 @@ pub(crate) enum RecordedAction {
     Gameplay(GameplayAction),
     Gui(GuiAction),
     Shared(SharedAction),
-    Debug(DebugAction),
+    Editor(EditorAction),
 }
 
 /// One recorded replay command. Together these fully describe the triggered
@@ -124,7 +124,7 @@ struct ActionRecording {
     held_gameplay: HashSet<GameplayAction>,
     held_gui: HashSet<GuiAction>,
     held_shared: HashSet<SharedAction>,
-    held_debug: HashSet<DebugAction>,
+    held_editor: HashSet<EditorAction>,
     /// Last recorded dual axis values, to detect changes.
     last_axis: HashMap<RecordedAction, Vec2>,
 }
@@ -146,7 +146,7 @@ fn open_recording_file(options: Res<Options>, mut commands: Commands) {
         held_gameplay: HashSet::new(),
         held_gui: HashSet::new(),
         held_shared: HashSet::new(),
-        held_debug: HashSet::new(),
+        held_editor: HashSet::new(),
         last_axis: HashMap::new(),
     });
 }
@@ -157,7 +157,7 @@ fn record_triggered_actions(
     gameplay: Option<Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>>,
     gui: Option<Single<&ActionState<GuiAction>, With<GuiInputMarker>>>,
     shared: Option<Single<&ActionState<SharedAction>, With<SharedInputMarker>>>,
-    debug: Option<Single<&ActionState<DebugAction>, With<DebugInputMarker>>>,
+    editor: Option<Single<&ActionState<EditorAction>, With<EditorInputMarker>>>,
     mut camera_switches: MessageReader<CameraSwitchedToThirdPerson>,
 ) {
     let Some(recording) = recording.as_deref_mut() else {
@@ -171,7 +171,7 @@ fn record_triggered_actions(
     let gameplay = gameplay.map(|state| state.into_inner());
     let gui = gui.map(|state| state.into_inner());
     let shared = shared.map(|state| state.into_inner());
-    let debug = debug.map(|state| state.into_inner());
+    let editor = editor.map(|state| state.into_inner());
 
     // Commands are collected in a local vector to avoid double borrows of the
     // resource through the separate held-state fields.
@@ -199,11 +199,11 @@ fn record_triggered_actions(
         &mut recording.held_shared,
     );
     record_buttons(
-        debug,
-        RecordedAction::Debug,
+        editor,
+        RecordedAction::Editor,
         frame,
         &mut commands,
-        &mut recording.held_debug,
+        &mut recording.held_editor,
     );
 
     // The action enums are iterable, so all dual axis actions of every map
@@ -230,8 +230,8 @@ fn record_triggered_actions(
         &mut recording.last_axis,
     );
     record_map_axes(
-        debug,
-        RecordedAction::Debug,
+        editor,
+        RecordedAction::Editor,
         frame,
         &mut commands,
         &mut recording.last_axis,

@@ -2,10 +2,10 @@
 [
     Axis(frame: 1, action: Gameplay(Move), value: (0.0, 0.0)),
     Axis(frame: 1, action: Gameplay(RotateCamera), value: (0.0, 0.0)),
-    Press(frame: 93, action: Debug(ToggleCharacterCamera)),
+    Press(frame: 93, action: Editor(ToggleEditorMode)),
     TeleportPlayer(frame: 93, translation: (-3.0, 1.0, -3.0), rotation: (0.0, 168.69008, 0.0)),
     SetCameraLocation(frame: 93, translation: (-3.0, 1.0, -3.0), rotation: (-11.095805, -11.309935, 0.00000010875469)),
-    Release(frame: 105, action: Debug(ToggleCharacterCamera)),
+    Release(frame: 105, action: Editor(ToggleEditorMode)),
     Axis(frame: 151, action: Gameplay(RotateCamera), value: (-1.0, 0.0)),
     Axis(frame: 218, action: Gameplay(RotateCamera), value: (0.0, 0.0)),
     Axis(frame: 236, action: Gameplay(RotateCamera), value: (-1.0, 0.0)),
