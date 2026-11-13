@@ -1,0 +1,15 @@
+[package]
+name = "dmusic-sys"
+version = "0.1.0"
+edition = "2024"
+links = "dmusic"
+
+[lib]
+name = "dmusic_sys"
+path = "src/lib.rs"
+
+[dependencies]
+libc = "0.2"
+
+[build-dependencies]
+cc = "1"

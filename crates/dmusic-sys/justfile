@@ -1,0 +1,7 @@
+# Regenerate the committed FFI bindings, then build the crate.
+build:
+    cargo build
+
+# Regenerate src/bindings.rs from vendor/dmusic/include/dmusic.h.
+bindings:
+    cd xtask && cargo run

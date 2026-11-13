@@ -1,0 +1,10 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2024"
+
+# Generation is an explicit developer step, not part of the library build.
+[workspace]
+
+[dependencies]
+bindgen = "0.72"

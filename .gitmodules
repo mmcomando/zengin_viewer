@@ -10,3 +10,6 @@
 [submodule "crates/daedalus_wasm/tests_output"]
 	path = crates/daedalus_wasm/tests_output
 	url = https://github.com/mmcomando/daedalus_wasm_tests
+[submodule "crates/dmusic-sys/vendor/dmusic"]
+	path = crates/dmusic-sys/vendor/dmusic
+	url = https://github.com/GothicKit/dmusic.git

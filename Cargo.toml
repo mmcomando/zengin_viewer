@@ -7,6 +7,7 @@ members = [
     "crates/daedalus_typed",
     "crates/ZenKit-rs",
     "crates/ZenKit-sys",
+    "crates/dmusic-sys",
 ]
 
 # Enable a small amount of optimization in the dev profile.
