@@ -46,6 +46,15 @@ pub struct NpcEntitiesChanged {
     pub entities: Vec<Entity>,
 }
 
+/// Signal that a script requested an animation for an npc
+/// (`AI_PlayAni`/`AI_PlayAniBS`). Later requests from the same script call
+/// override earlier ones.
+#[derive(Debug, Clone, Message)]
+pub struct AnimationChange {
+    pub instance_id: InstanceId,
+    pub animation: StringCanon,
+}
+
 /// Signal that an instance requested `AI_GoToWP` (walk to a waypoint).
 #[derive(Message)]
 pub struct GotoChange {

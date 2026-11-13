@@ -1,4 +1,4 @@
-use std::sync::PoisonError;
+use std::sync::{PoisonError, RwLockWriteGuard};
 
 use bevy::log::warn;
 use daedalus_typed::{Item, Npc};
@@ -6,7 +6,8 @@ use daedalus_typed::{Item, Npc};
 use crate::zengin::{ItemHandle, NpcHandle};
 
 use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
-use super::super::string_value::{ShowString, StringCanon};
+use super::super::state::{NpcRuntime, RoutineFunctions};
+use super::super::string_value::ShowString;
 use super::super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 use super::{ItemDisplayData, attribute_display_name};
 
@@ -311,58 +312,109 @@ impl super::ScriptManager {
         }
     }
 
-    /// Executes the routine state function (`ZS_*`) for the npc instance with
-    /// the instance set as `self`, followed by a single invocation of the
-    /// state's `_loop` function when one exists, mirroring how the engine
-    /// starts a routine state. Returns the animation names the script requested
-    /// via `AI_PlayAni(BS)` in request order.
-    pub fn call_routine_state_function(
-        &mut self,
-        npc_instance_id: InstanceId,
-        state_fn: FunctionId,
-    ) -> Vec<StringCanon> {
-        self.npc_state_mut(npc_instance_id)
-            .routine
-            .played_anis
-            .clear();
-        // Track the active state so `Npc_IsInState`/`Npc_WasInState` answer
-        // while the state function runs
+    /// Resolves the `_loop`/`_end` hooks of a routine state function, cached per
+    /// start function. Hook symbols are the state symbol name with the suffix.
+    pub fn resolve_routine_functions(&mut self, start: FunctionId) -> RoutineFunctions {
+        if let Some(functions) = self.routine_functions.get(&start) {
+            return *functions;
+        }
+        let start_name = self.call_get_name(start.symbol());
+        let loop_fn = self.resolve_routine_hook(&start_name, "_loop");
+        let end_fn = self.resolve_routine_hook(&start_name, "_end");
+        let functions = RoutineFunctions {
+            start,
+            loop_fn,
+            end_fn,
+        };
+        self.routine_functions.insert(start, functions);
+        functions
+    }
+
+    fn resolve_routine_hook(&mut self, start_name: &str, suffix: &str) -> Option<FunctionId> {
+        let name = format!("{start_name}{suffix}");
+        let symbol = self.try_get_symbol_id(&name)?;
+        self.store.data().symbol_table.function(symbol.value())
+    }
+
+    /// Runs the start hook of a routine state.
+    pub fn call_routine_start(&mut self, npc: InstanceId, functions: RoutineFunctions) {
         {
-            let mut npc = self.npc_state_mut(npc_instance_id);
-            if let Some(previous) = npc.routine.current_state.replace(state_fn)
-                && previous != state_fn
+            let mut instance = self.npc_state_mut(npc);
+            instance.routine.state_time = 0;
+            if let Some(previous) = instance.routine.current_state.replace(functions.start)
+                && previous != functions.start
             {
-                npc.routine.previous_state = Some(previous);
+                instance.routine.previous_state = Some(previous);
             }
         }
-        self.set_self(npc_instance_id);
-        self.set_instance(npc_instance_id);
-        if let Err(err) = self.try_call_function(state_fn) {
-            println!(
-                "Routine state function instance({npc_instance_id}) state_fn({}) error: {err:?}",
-                state_fn.value()
-            );
-            return Vec::new();
-        }
-
-        if !self.routine_loop_functions.contains_key(&state_fn) {
-            let loop_name = format!("{}_loop", self.call_get_name(state_fn.symbol()));
-            let loop_fn = self
-                .try_get_symbol_id(&loop_name)
-                .and_then(|symbol| self.store.data().symbol_table.function(symbol.value()));
-            self.routine_loop_functions.insert(state_fn, loop_fn);
-        }
-        let loop_fn = self.routine_loop_functions[&state_fn];
-        if let Some(loop_fn) = loop_fn
-            && let Err(err) = self.try_call_function_bool(loop_fn)
-        {
-            println!(
-                "Routine state loop function instance({npc_instance_id}) loop_fn({}) error: {err:?}",
-                loop_fn.value()
+        self.set_self(npc);
+        self.set_instance(npc);
+        if let Err(err) = self.try_call_function(functions.start) {
+            warn!(
+                "Routine start instance({npc}) function({}) failed: {err:?}",
+                functions.start.value()
             );
         }
+    }
 
-        std::mem::take(&mut self.npc_state_mut(npc_instance_id).routine.played_anis)
+    /// Runs the loop hook of a routine state, `true` when it returned
+    /// `LOOP_END`.
+    pub fn call_routine_loop(&mut self, npc: InstanceId, functions: RoutineFunctions) -> bool {
+        let Some(loop_fn) = functions.loop_fn else {
+            return false;
+        };
+        self.set_self(npc);
+        self.set_instance(npc);
+        match self.try_call_function_bool(loop_fn) {
+            Ok(ended) => ended,
+            Err(err) => {
+                warn!(
+                    "Routine loop instance({npc}) function({}) failed: {err:?}",
+                    loop_fn.value()
+                );
+                false
+            }
+        }
+    }
+
+    /// Runs the end hook of a routine state and clears its active state.
+    pub fn call_routine_end(&mut self, npc: InstanceId, functions: RoutineFunctions) {
+        if let Some(end_fn) = functions.end_fn {
+            self.set_self(npc);
+            self.set_instance(npc);
+            if let Err(err) = self.try_call_function(end_fn) {
+                warn!(
+                    "Routine end instance({npc}) function({}) failed: {err:?}",
+                    end_fn.value()
+                );
+            }
+        }
+        let mut instance = self.npc_state_mut(npc);
+        instance.routine.previous_state = instance.routine.current_state.take();
+        instance.routine.state_time = 0;
+    }
+
+    /// Sets the state time the next `NPC_GetStateTime` call reports.
+    pub fn set_routine_state_time(&mut self, npc: InstanceId, seconds: i32) {
+        self.routine_state_mut(npc).routine.state_time = seconds;
+    }
+
+    /// Current routine state time, in seconds.
+    pub fn routine_state_time(&self, npc: InstanceId) -> Option<i32> {
+        self.npc_state(npc).map(|npc| npc.routine.state_time)
+    }
+
+    /// Mutable routine runtime state written without marking the instance as
+    /// changed, the loop and state-time systems touch it every frame.
+    fn routine_state_mut(&mut self, npc: InstanceId) -> RwLockWriteGuard<'_, NpcRuntime> {
+        self.store
+            .data_mut()
+            .loaded_state
+            .npc_instances
+            .entry(npc)
+            .or_default()
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     pub fn get_item_visual(&mut self, symbol_id: SymbolId) -> Option<String> {

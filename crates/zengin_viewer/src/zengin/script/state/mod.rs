@@ -3,11 +3,14 @@ mod instances;
 mod weapons;
 
 pub(crate) use changes::{
-    AlignToWpChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose, DialogLine,
-    GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged,
-    OverlayChange, RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc,
+    AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
+    DialogLine, GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged,
+    NpcEntitiesChanged, OverlayChange, RoutineExchange, ScreenMessage, ScriptSound, SpawnItem,
+    SpawnNpc,
 };
-pub(crate) use instances::{DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry};
+pub(crate) use instances::{
+    DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry, RoutineFunctions,
+};
 pub(crate) use weapons::{ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponKind, WeaponMode};
 
 use std::collections::{BTreeSet, HashMap};
@@ -232,6 +235,8 @@ pub struct PendingChanges {
     pub goto_changes: Vec<GotoChange>,
     /// `AI_Attack` requests produced by the script.
     pub attack_changes: Vec<AttackChange>,
+    /// `AI_PlayAni`/`AI_PlayAniBS` requests produced by the script.
+    pub animation_changes: Vec<AnimationChange>,
     /// `Npc_ClearAIQueue` requests produced by the script.
     pub clear_ai_queue_changes: Vec<ClearAiQueueChange>,
     /// `Npc_ExchangeRoutine` requests produced by the script.

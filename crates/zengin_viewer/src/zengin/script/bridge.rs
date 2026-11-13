@@ -17,10 +17,10 @@ use crate::zengin::npc_routines::{
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use crate::zengin::script::state::{
-    AlignToWpChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose, DialogLine,
-    GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged,
-    OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc,
-    WeaponMode,
+    AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
+    DialogLine, GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged,
+    NpcEntitiesChanged, OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage, ScriptSound,
+    SpawnItem, SpawnNpc, WeaponMode,
 };
 
 pub struct ScriptBridgePlugin;
@@ -32,6 +32,7 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<ItemChanged>();
         app.add_message::<ItemEntitiesChanged>();
         app.add_message::<AlignToWpChange>();
+        app.add_message::<AnimationChange>();
         app.add_message::<AttackChange>();
         app.add_message::<ClearAiQueueChange>();
         app.add_message::<OverlayChange>();
@@ -99,6 +100,7 @@ fn sync_game_day(game_time: Res<GameTime>, gothic_script: Res<ScriptResource>) {
 /// Drains all the changes the script recorded and forwards them as messages.
 fn send_script_changes(
     mut align_to_wp: MessageWriter<AlignToWpChange>,
+    mut animation: MessageWriter<AnimationChange>,
     mut overlay: MessageWriter<OverlayChange>,
     mut goto: MessageWriter<GotoChange>,
     mut attack: MessageWriter<AttackChange>,
@@ -114,6 +116,9 @@ fn send_script_changes(
     let mut script = gothic_script.lock();
     for change in script.drain_align_to_wp_changes() {
         align_to_wp.write(change);
+    }
+    for change in script.drain_animation_changes() {
+        animation.write(change);
     }
     for change in script.drain_overlay_changes() {
         overlay.write(change);

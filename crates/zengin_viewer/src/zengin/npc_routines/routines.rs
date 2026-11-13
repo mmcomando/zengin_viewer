@@ -1,5 +1,5 @@
-//! Waypoint routines: active routine entries, their waypoint targets,
-//! routine state animations and `AI_GoToWP` path following.
+//! Waypoint routines: active routine entries, their waypoint targets, routine
+//! state execution and `AI_GoToWP` path following.
 
 use std::collections::HashMap;
 use std::sync::PoisonError;
@@ -17,9 +17,8 @@ use crate::zengin::npc_actions::{NpcAction, NpcActionQueue};
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::RoutineEntry;
+use crate::zengin::script::state::{RoutineEntry, RoutineFunctions};
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::script::symbol_id::FunctionId;
 use crate::zengin::waypoint_graph::WaypointGraph;
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
@@ -44,11 +43,20 @@ impl NpcRoutineState {
     }
 }
 
-#[derive(Component, Default)]
-pub(crate) struct NpcRoutineAnimation {
-    /// State function of the routine entry whose animation was applied last,
-    /// `None` when none was applied yet.
-    applied_state_fn: Option<FunctionId>,
+/// Engine loop cadence of a running routine state (`ZS_*_loop`), in seconds.
+const ROUTINE_LOOP_INTERVAL_SECS: f32 = 1.0;
+
+/// Running routine state of an npc with its resolved start/loop/end hooks. The
+/// lifecycle system starts the state, calls its loop once per
+/// [`ROUTINE_LOOP_INTERVAL_SECS`] and runs its end hook when the state is
+/// replaced or the component is removed.
+#[derive(Component, Debug, Clone)]
+pub(crate) struct RoutineExecutor {
+    functions: RoutineFunctions,
+    /// Seconds since the state started or was last reset by `NPC_SetStateTime`.
+    state_time: f32,
+    /// Seconds until the next loop hook call.
+    next_loop_in: f32,
 }
 
 #[derive(Resource, Default)]
@@ -145,28 +153,40 @@ pub(crate) fn update_npc_routines(
     }
 }
 
-/// Applies the animation of the active routine entry state to npcs. The
-/// routine state function (`ZS_*`) is executed in the script vm, animation
-/// names it requests via `AI_PlayAni(BS)` are collected and the resulting
-/// animation is switched to on the npc visual. The state function is only
-/// re-executed when the active routine entry state changes or the visual
-/// controller appears, so unchanged npcs are not visited at all.
-#[allow(clippy::type_complexity)]
-pub(crate) fn update_npc_routine_animations(
-    gothic_script: Res<ScriptResource>,
-    files: Res<AnimationFiles>,
-    mut handles: ResMut<CachedAssetHandles>,
-    asset_server: Res<AssetServer>,
+/// Runs the end hook of routine states whose [`RoutineEntry`] disappeared and
+/// drops their executor.
+pub(crate) fn end_removed_routine_entries(
     mut commands: Commands,
+    gothic_script: Res<ScriptResource>,
+    mut removed: RemovedComponents<RoutineEntry>,
+    npcs: Query<(Entity, &GameNpc, &RoutineExecutor), Without<RoutineEntry>>,
+) {
+    let mut script = gothic_script.lock();
+    for entity in removed.read() {
+        // Despawned entities are fine here, the executor goes away with them.
+        let Ok((entity, npc, executor)) = npcs.get(entity) else {
+            continue;
+        };
+        script.call_routine_end(npc.instance_id(), executor.functions);
+        commands.entity(entity).remove::<RoutineExecutor>();
+    }
+}
+
+/// Starts, replaces and removes the running routine state from the active
+/// [`RoutineEntry`]. The previous state's end hook runs before the next start.
+/// Executors are only created for npcs whose visual is spawned, far npcs run
+/// neither their state script nor its animation.
+#[allow(clippy::type_complexity)]
+pub(crate) fn update_routine_executors(
+    mut commands: Commands,
+    gothic_script: Res<ScriptResource>,
     mut npcs: Query<
         (
             Entity,
             &GameNpc,
             &RoutineEntry,
-            &NpcModel,
-            Option<&NpcOverlay>,
-            Option<&mut NpcRoutineAnimation>,
-            Option<&mut AnimationController>,
+            Option<&AnimationController>,
+            Option<&mut RoutineExecutor>,
         ),
         (
             Or<(Changed<RoutineEntry>, Added<AnimationController>)>,
@@ -176,74 +196,144 @@ pub(crate) fn update_npc_routine_animations(
         ),
     >,
 ) {
-    for (entity, npc, entry, npc_model, overlay, routine_animation, controller) in &mut npcs {
-        let Some(mut controller) = controller else {
-            // Npc visual is not spawned yet, retry when its controller appears
+    let mut script = gothic_script.lock();
+    for (entity, npc, entry, controller, executor) in &mut npcs {
+        if controller.is_none() {
             continue;
-        };
-        let Some(scheme) = npc_model.animation_scheme.as_deref() else {
-            continue;
-        };
-        let stand_animation = npc_model
-            .stand_animation
-            .as_deref()
-            .unwrap_or(STANDING_ANIMATION);
-
-        let Some(state_fn) = entry.state_fn else {
-            continue;
-        };
-        let applied = routine_animation
+        }
+        let desired = entry.state_fn;
+        if executor
             .as_ref()
-            .and_then(|routine_animation| routine_animation.applied_state_fn);
-        if applied == Some(state_fn) {
+            .is_some_and(|executor| Some(executor.functions.start) == desired)
+        {
+            if let Some(mut executor) = executor {
+                // A visual respawn does not re-run the start hook; force one
+                // loop so scripts that request their pose from the loop can
+                // restore it.
+                executor.bypass_change_detection().next_loop_in = 0.0;
+            }
             continue;
         }
 
-        // Only lock the script when a state actually has to run
-        let played_anis = gothic_script
-            .lock()
-            .call_routine_state_function(npc.instance_id(), state_fn);
-        let ani = choose_routine_animation(&played_anis, stand_animation);
-
-        let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
-        let scheme = choose_animation_scheme(scheme, overlay, &ani, &files.0);
-        let path = get_animation_path(scheme, &ani);
-        // info!("npc({}) routine animation({})", npc.instance_id(), ani);
-        // Applied via `next` so the animation system syncs its playback state on
-        // the switch. When the animation asset does not exist the switch is
-        // silently dropped and the npc keeps its current animation.
-        controller.queue_next(handles.get_animation_handle(&asset_server, &path), true);
-
-        if let Some(mut routine_animation) = routine_animation {
-            routine_animation.applied_state_fn = Some(state_fn);
-        } else {
-            commands.entity(entity).insert(NpcRoutineAnimation {
-                applied_state_fn: Some(state_fn),
+        let instance = npc.instance_id();
+        let Some(mut executor) = executor else {
+            let Some(start) = desired else {
+                continue;
+            };
+            let functions = script.resolve_routine_functions(start);
+            script.call_routine_start(instance, functions);
+            commands.entity(entity).insert(RoutineExecutor {
+                functions,
+                state_time: 0.0,
+                // The engine runs the first loop on the next tick, the loop
+                // system picks it up on the next update.
+                next_loop_in: 0.0,
             });
+            continue;
+        };
+
+        script.call_routine_end(instance, executor.functions);
+        let Some(start) = desired else {
+            commands.entity(entity).remove::<RoutineExecutor>();
+            continue;
+        };
+        let functions = script.resolve_routine_functions(start);
+        script.call_routine_start(instance, functions);
+        executor.functions = functions;
+        executor.state_time = 0.0;
+        executor.next_loop_in = 0.0;
+    }
+}
+
+/// Calls the loop hook of every running routine state once per interval and
+/// ends the state when the loop returns `LOOP_END`.
+pub(crate) fn run_routine_loops(
+    time: Res<Time>,
+    mut commands: Commands,
+    gothic_script: Res<ScriptResource>,
+    mut npcs: Query<(Entity, &GameNpc, &mut RoutineExecutor), With<AnimationController>>,
+) {
+    if npcs.is_empty() {
+        return;
+    }
+
+    let delta = time.delta_secs();
+    let mut script = gothic_script.lock();
+    for (entity, npc, mut executor) in &mut npcs {
+        // Timer bookkeeping must not mark the executor changed, otherwise
+        // `restore_routine_stand` would reset the pose every frame.
+        {
+            let executor = executor.bypass_change_detection();
+            executor.state_time += delta;
+            executor.next_loop_in -= delta;
         }
+        if executor.next_loop_in > 0.0 {
+            continue;
+        }
+        executor.bypass_change_detection().next_loop_in = ROUTINE_LOOP_INTERVAL_SECS;
+
+        let instance = npc.instance_id();
+        let state_time = executor.state_time as i32;
+        script.set_routine_state_time(instance, state_time);
+        let ended = script.call_routine_loop(instance, executor.functions);
+        if let Some(actual) = script.routine_state_time(instance)
+            && actual != state_time
+        {
+            // The script reset the state time via `NPC_SetStateTime`.
+            executor.bypass_change_detection().state_time = actual as f32;
+        }
+        if ended {
+            script.call_routine_end(instance, executor.functions);
+            commands.entity(entity).remove::<RoutineExecutor>();
+        }
+    }
+}
+
+/// Restores the standing idle when a routine state starts or ends. A state that
+/// requests no animation leaves the npc standing; requested animations arrive
+/// through the script bridge.
+#[allow(clippy::type_complexity)]
+pub(crate) fn restore_routine_stand(
+    files: Res<AnimationFiles>,
+    mut handles: ResMut<CachedAssetHandles>,
+    asset_server: Res<AssetServer>,
+    mut removed: RemovedComponents<RoutineExecutor>,
+    mut changed: Query<
+        (&NpcModel, Option<&NpcOverlay>, &mut AnimationController),
+        (Changed<RoutineExecutor>, With<RoutineExecutor>),
+    >,
+    mut removed_npcs: Query<
+        (&NpcModel, Option<&NpcOverlay>, &mut AnimationController),
+        Without<RoutineExecutor>,
+    >,
+) {
+    for (model, overlay, mut controller) in &mut changed {
+        queue_stand_animation(
+            &mut controller,
+            model,
+            overlay,
+            &files,
+            &mut handles,
+            &asset_server,
+        );
+    }
+    for entity in removed.read() {
+        let Ok((model, overlay, mut controller)) = removed_npcs.get_mut(entity) else {
+            continue;
+        };
+        queue_stand_animation(
+            &mut controller,
+            model,
+            overlay,
+            &files,
+            &mut handles,
+            &asset_server,
+        );
     }
 }
 
 /// Standing body state animation fallback, `S_RUN` is the human idle.
 pub(crate) const STANDING_ANIMATION: &str = "S_RUN";
-
-/// Picks the animation to loop from the names the routine state script
-/// requested. The engine keeps the body state animation looping after a
-/// transition, so a requested transition into a pose (`T_X_2_Y`) is replaced
-/// by the pose idle itself (`S_Y`). States that request no animation
-/// (`played_anis` empty) leave the npc in the default standing body state, so
-/// they fall back to the scheme standing idle (`stand_animation`) too.
-fn choose_routine_animation(played_anis: &[StringCanon], stand_animation: &str) -> String {
-    let Some(ani) = played_anis.first() else {
-        return stand_animation.to_string();
-    };
-    // Requested ani names are canonically lowercased, poses compare lowercase
-    match ani.as_str().rsplit_once("_2_") {
-        Some((_, "stand")) => stand_animation.to_string(),
-        Some((_, pose)) => format!("S_{}", pose.to_uppercase()),
-        None => ani.as_str().to_string(),
-    }
-}
 
 /// Entity the npc currently looks at (`AI_LookAtNPC`), maintained by the script
 /// bridge. Absent when the npc looks at nothing.

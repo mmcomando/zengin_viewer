@@ -11,10 +11,10 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         let Some(ani) = self.get_show_string(ani_id) else {
             return;
         };
-        self.npc_state_mut(npc_index)
-            .routine
-            .played_anis
-            .push(StringCanon::new(ani.string()));
+        self.pending.animation_changes.push(AnimationChange {
+            instance_id: npc_index,
+            animation: StringCanon::new(ani.string()),
+        });
     }
     fn ai_playanibs(&mut self, npc_index: i32, ani_id: i32, _body_state: i32) {
         let Some(npc_index) = self.symbol_table.instance(npc_index) else {
@@ -26,10 +26,10 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         let Some(ani) = self.get_show_string(ani_id) else {
             return;
         };
-        self.npc_state_mut(npc_index)
-            .routine
-            .played_anis
-            .push(StringCanon::new(ani.string()));
+        self.pending.animation_changes.push(AnimationChange {
+            instance_id: npc_index,
+            animation: StringCanon::new(ani.string()),
+        });
     }
     fn ai_output(&mut self, npc_a: i32, npc_b: i32, line_id: i32) {
         let Some(npc_a) = self.symbol_table.instance(npc_a) else {
@@ -69,10 +69,10 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             return 0;
         };
         let ani = format!("S_{}_S{state}", mob.string().to_uppercase());
-        self.npc_state_mut(npc_index)
-            .routine
-            .played_anis
-            .push(StringCanon::new(ani));
+        self.pending.animation_changes.push(AnimationChange {
+            instance_id: npc_index,
+            animation: StringCanon::new(ani),
+        });
         0
     }
     fn ai_stopprocessinfos(&mut self, _npc: i32) {

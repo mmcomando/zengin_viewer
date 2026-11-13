@@ -21,15 +21,14 @@ use wasmtime::{Engine, Store};
 use crate::save::format::fnv1a_64;
 
 use super::bindings::MmWorld;
-use super::state::ImportCallState;
+use super::state::{ImportCallState, RoutineFunctions};
 use super::symbol_id::FunctionId;
 
 pub struct ScriptManager {
     pub store: Store<ImportCallState>,
     pub instance: Arc<MmWorld>,
-    /// Cache of resolved `_loop` function symbol ids of routine state
-    /// functions, `None` when the state has no loop function.
-    pub(super) routine_loop_functions: HashMap<FunctionId, Option<FunctionId>>,
+    /// Cache of resolved `_loop`/`_end` hooks of routine state functions.
+    pub(super) routine_functions: HashMap<FunctionId, RoutineFunctions>,
     /// `startup_global` ran, it is a one-time script entry point.
     pub(super) global_startup_done: bool,
     /// Stable fingerprint of the raw `GOTHIC.DAT` bytes, used to reject saves
@@ -123,7 +122,7 @@ impl ScriptManager {
         Self {
             store,
             instance: instance_arc,
-            routine_loop_functions: HashMap::new(),
+            routine_functions: HashMap::new(),
             global_startup_done: false,
             script_fingerprint: 0,
         }

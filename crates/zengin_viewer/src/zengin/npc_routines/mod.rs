@@ -5,6 +5,7 @@ mod armor;
 mod health;
 mod overlay;
 mod routines;
+mod script_animation;
 mod weapons;
 
 use bevy::prelude::*;
@@ -20,9 +21,11 @@ use crate::zengin::npc_actions::{
 };
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
-    NpcRoutineCheckState, apply_look_at, move_along_path, update_npc_routine_animations,
-    update_npc_routine_entries, update_npc_routines,
+    NpcRoutineCheckState, apply_look_at, end_removed_routine_entries, move_along_path,
+    restore_routine_stand, run_routine_loops, update_npc_routine_entries, update_npc_routines,
+    update_routine_executors,
 };
+use script_animation::apply_scripted_animations;
 use weapons::{apply_weapon_mode, update_npc_attachments};
 
 pub(crate) use armor::{NpcArmorItem, NpcBodyMarker};
@@ -44,6 +47,17 @@ impl Plugin for NpcRoutinesPlugin {
             Update,
             (
                 (update_npc_routine_entries, update_npc_routines).chain(),
+                end_removed_routine_entries.after(update_npc_routine_entries),
+                update_routine_executors.after(update_npc_routine_entries),
+                run_routine_loops
+                    .after(update_routine_executors)
+                    .after(end_removed_routine_entries),
+                apply_scripted_animations,
+                restore_routine_stand
+                    .after(update_routine_executors)
+                    .after(run_routine_loops)
+                    .after(end_removed_routine_entries)
+                    .after(apply_scripted_animations),
                 clear_npc_actions,
                 enqueue_goto_actions.after(clear_npc_actions),
                 enqueue_align_actions.after(clear_npc_actions),
@@ -57,14 +71,13 @@ impl Plugin for NpcRoutinesPlugin {
                 advance_npc_attack_swings
                     .after(run_npc_actions)
                     .after(AutoAnimSequencerSet),
-                update_npc_routine_animations.after(update_npc_routines),
                 apply_look_at.after(update_npc_routines),
-                apply_weapon_mode.after(update_npc_routine_animations),
+                apply_weapon_mode.after(apply_scripted_animations),
                 update_npc_attachments,
                 (sync_npc_armor_visual, materialize_armor_visuals).chain(),
                 move_along_path
                     .after(run_npc_actions)
-                    .after(update_npc_routine_animations)
+                    .after(apply_scripted_animations)
                     .before(AutoAnimSequencerSet),
             )
                 .after(advance_game_time)

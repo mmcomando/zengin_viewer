@@ -1,7 +1,7 @@
 use super::bindings::mmcomando;
 use super::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use super::state::{
-    AlignToWpChange, AttackChange, ClearAiQueueChange, DialogChoice, DialogLine,
+    AlignToWpChange, AnimationChange, AttackChange, ClearAiQueueChange, DialogChoice, DialogLine,
     ITEM_MAINFLAG_ARMOR, ImportCallState, InventoryGain, MobRoutineEntry, OverlayRequest,
     RoutineEntry, RoutineExchange, SpawnItem, SpawnNpc, WeaponKind, WeaponMode,
 };

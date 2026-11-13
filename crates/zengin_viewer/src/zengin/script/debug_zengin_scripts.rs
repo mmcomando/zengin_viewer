@@ -168,8 +168,13 @@ fn debug_npc_routine(executor: &mut ScriptManager, npc_id: InstanceId) {
         "state_fn name: {:?}",
         executor.call_get_name(state_fn.symbol())
     );
-    let anis = executor.call_routine_state_function(npc_id, state_fn);
-    println!("played anis: {anis:?}");
+    let functions = executor.resolve_routine_functions(state_fn);
+    executor.call_routine_start(npc_id, functions);
+    let ended = executor.call_routine_loop(npc_id, functions);
+    println!(
+        "animation changes: {:?}, loop ended: {ended}",
+        executor.drain_animation_changes()
+    );
 }
 
 /// Documents why the player uses the `pc_hero` instance: the `hero` instance

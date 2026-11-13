@@ -23,6 +23,15 @@ pub struct RoutineEntry {
     pub state_fn: Option<FunctionId>,
 }
 
+/// Function ids of a `ZS_*` routine state. The state function itself is the
+/// start hook, `_loop` and `_end` are resolved from its symbol name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RoutineFunctions {
+    pub start: FunctionId,
+    pub loop_fn: Option<FunctionId>,
+    pub end_fn: Option<FunctionId>,
+}
+
 /// Runtime state of an npc instance, grouped by domain.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NpcRuntime {
@@ -75,9 +84,7 @@ pub struct NpcVisualState {
 pub struct NpcRoutineState {
     /// Routine entries set via `TA_Min`.
     pub entries: Vec<RoutineEntry>,
-    /// Animations requested via `AI_PlayAni(BS)` by the last executed routine
-    /// state function, in request order.
-    pub played_anis: Vec<StringCanon>,
+
     /// State time (seconds) set via `NPC_SetStateTime`.
     pub state_time: i32,
     /// Routine state function currently active (`Npc_IsInState`).
