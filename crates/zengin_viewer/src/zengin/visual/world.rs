@@ -63,6 +63,13 @@ pub fn load_zengin_world_data(
     for obj in world.root_objects() {
         load_objects(vfs, &mut data, &item_ids, &obj, spawn_item);
     }
+    info!(
+        "Loaded {} music zones (default: {:?})",
+        data.music_zones.len(),
+        data.default_music_zone
+            .as_ref()
+            .map(|zone| zone.name.as_str())
+    );
     let way_net = world.way_net();
     let (waypoint_graph, way_points) = load_way_net_points(&way_net);
     data.waypoint_graph = waypoint_graph;
@@ -223,6 +230,24 @@ fn get_obj_tr(obj: &VirtualObject) -> Transform {
     return Transform::from_translation(pos).with_rotation(rot);
 }
 
+/// Converts a music zone vob's bounds to world units. Degenerate boxes are
+/// kept as-is; the half-open containment test never matches them.
+fn music_zone(obj: &VirtualObject) -> Option<MusicZone> {
+    let name = obj.name();
+    if name.is_empty() {
+        warn!("Music zone vob without a name, skipping");
+        return None;
+    }
+
+    let bbox = obj.bbox();
+    let corner_a = get_world_pos(bbox.min.to_glam());
+    let corner_b = get_world_pos(bbox.max.to_glam());
+    Some(MusicZone {
+        name,
+        bounds: bevy::shape::Aabb3d::from_min_max(corner_a.min(corner_b), corner_a.max(corner_b)),
+    })
+}
+
 fn handle_other_vob(
     data: &mut ZenGinWorldData,
     item_ids: &HashMap<String, InstanceId>,
@@ -314,10 +339,19 @@ fn handle_other_vob(
             warn_unimplemented!("VobType::zCMover");
         }
 
-        VobType::zCVobSound
-        | VobType::zCVobSoundDaytime
-        | VobType::oCZoneMusic
-        | VobType::oCZoneMusicDefault => {
+        VobType::oCZoneMusic => {
+            if let Some(zone) = music_zone(obj) {
+                data.music_zones.push(zone);
+            }
+            return;
+        }
+        VobType::oCZoneMusicDefault => {
+            if let Some(zone) = music_zone(obj) {
+                data.default_music_zone = Some(zone);
+            }
+            return;
+        }
+        VobType::zCVobSound | VobType::zCVobSoundDaytime => {
             warn_unimplemented!("Sound Vobs unimplemented");
             return;
         }

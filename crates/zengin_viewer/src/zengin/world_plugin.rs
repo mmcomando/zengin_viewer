@@ -36,7 +36,8 @@ use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
 use crate::zengin::{
-    DialogUiState, GameChest, GameItem, GameNpc, NpcActionQueue, NpcHandle, NpcOverlay, ZenginVfs,
+    DialogUiState, GameChest, GameItem, GameNpc, MusicZones, NpcActionQueue, NpcHandle, NpcOverlay,
+    ZenginVfs,
 };
 use avian3d::prelude::*;
 use bevy::prelude::*;
@@ -52,6 +53,7 @@ impl Plugin for ZenGinWorldPlugin {
         app.init_resource::<AnimationFiles>();
         app.init_resource::<WayPoints>();
         app.init_resource::<Spots>();
+        app.init_resource::<MusicZones>();
         app.init_resource::<WaypointGraph>();
         app.init_resource::<CurrentWorld>();
 
@@ -329,6 +331,10 @@ fn spawn_world_data(
     commands.insert_resource(WayPoints { points: way_points });
     commands.insert_resource(Spots(std::mem::take(&mut world_data.spots)));
     commands.insert_resource(AnimationFiles(std::mem::take(&mut world_data.anim_files)));
+    commands.insert_resource(MusicZones {
+        zones: std::mem::take(&mut world_data.music_zones),
+        default: world_data.default_music_zone.take(),
+    });
     spawn_waypoint_entities(commands, &world_data.waypoint_graph);
     commands.insert_resource(std::mem::take(&mut world_data.waypoint_graph));
 

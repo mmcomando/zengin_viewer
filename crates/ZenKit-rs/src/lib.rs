@@ -20,6 +20,7 @@ pub mod model_animation;
 pub mod model_scripts;
 pub mod morph_mesh;
 pub mod mrs_mesh;
+pub mod music_definitions;
 pub mod obb;
 pub mod sound_definitions;
 pub mod stream;

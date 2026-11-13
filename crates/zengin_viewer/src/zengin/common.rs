@@ -5,6 +5,7 @@ use std::{
 };
 
 use bevy::prelude::*;
+use bevy::shape::Aabb3d;
 use zen_kit_rs::vfs::VfsNode;
 
 use crate::zengin::script::symbol_id::InstanceId;
@@ -187,6 +188,47 @@ pub struct ZenGinChest {
     pub locked: bool,
 }
 
+#[allow(dead_code)] // consumed by the music director step
+#[derive(Debug, Clone)]
+pub struct MusicZone {
+    /// Raw vob name, e.g. `KHORINIS_KHO`.
+    pub name: String,
+    /// Zone bounds in Bevy world units.
+    pub bounds: Aabb3d,
+}
+
+#[allow(dead_code)] // consumed by the music director step
+impl MusicZone {
+    /// Theme tag: the part of the vob name after the first `_`.
+    ///
+    /// `KHORINIS_KHO` -> `KHO`, which prefixes the `KHO_DAY_STD` music themes.
+    pub fn tag(&self) -> &str {
+        self.name
+            .split_once('_')
+            .map_or(self.name.as_str(), |(_, tag)| tag)
+    }
+
+    /// Same half-open point test as the original engine. [`Aabb3d`] only has
+    /// volume-vs-volume containment, so the point check is manual. Degenerate
+    /// boxes never contain a point.
+    pub fn contains(&self, position: Vec3) -> bool {
+        position.x >= self.bounds.min.x
+            && position.x < self.bounds.max.x
+            && position.y >= self.bounds.min.y
+            && position.y < self.bounds.max.y
+            && position.z >= self.bounds.min.z
+            && position.z < self.bounds.max.z
+    }
+}
+
+/// Music zones of the current world, replaced on every world spawn.
+#[allow(dead_code)] // consumed by the music director step
+#[derive(Resource, Debug, Default)]
+pub struct MusicZones {
+    pub zones: Vec<MusicZone>,
+    pub default: Option<MusicZone>,
+}
+
 #[derive(Debug, Default)]
 pub struct ZenGinWorldData {
     pub world_model: ZenGinModel,
@@ -198,4 +240,45 @@ pub struct ZenGinWorldData {
     pub anim_files: HashSet<String>,
     /// Waypoint navigation graph built from the world way net
     pub waypoint_graph: WaypointGraph,
+    pub music_zones: Vec<MusicZone>,
+    pub default_music_zone: Option<MusicZone>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn zone(name: &str, min: Vec3, max: Vec3) -> MusicZone {
+        MusicZone {
+            name: name.to_string(),
+            bounds: Aabb3d::from_min_max(min, max),
+        }
+    }
+
+    #[test]
+    fn tag_is_the_part_after_the_first_underscore() {
+        let z = zone("KHORINIS_KHO", Vec3::ZERO, Vec3::ONE);
+        assert_eq!(z.tag(), "KHO");
+
+        let z = zone("DEFAULT_DEF", Vec3::ZERO, Vec3::ONE);
+        assert_eq!(z.tag(), "DEF");
+
+        let z = zone("PLAIN", Vec3::ZERO, Vec3::ONE);
+        assert_eq!(z.tag(), "PLAIN");
+    }
+
+    #[test]
+    fn contains_uses_half_open_bounds() {
+        let z = zone("Z_Z", Vec3::ZERO, Vec3::splat(10.0));
+        assert!(z.contains(Vec3::ZERO));
+        assert!(z.contains(Vec3::splat(9.9)));
+        assert!(!z.contains(Vec3::splat(10.0)));
+        assert!(!z.contains(Vec3::splat(-0.1)));
+    }
+
+    #[test]
+    fn degenerate_zone_contains_nothing() {
+        let z = zone("Z_Z", Vec3::splat(5.0), Vec3::splat(5.0));
+        assert!(!z.contains(Vec3::splat(5.0)));
+    }
 }

@@ -30,6 +30,7 @@ use bevy::prelude::*;
 use crate::world_entity::WorldEntityMarker;
 
 // Expose only what is needed for outside modules
+pub(crate) use crate::zengin::common::MusicZones;
 pub(crate) use crate::zengin::common::face_direction_quat;
 pub(crate) use crate::zengin::common::get_animation_path;
 pub(crate) use crate::zengin::common::get_full_texture_path;

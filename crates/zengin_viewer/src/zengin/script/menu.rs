@@ -22,6 +22,8 @@ use daedalus_typed::{
 #[derive(Debug, Clone, Default)]
 pub(crate) struct MenuDefinition {
     pub back_pic: Option<String>,
+    /// `C_Menu.musicTheme` instance name, if the screen defines one.
+    pub music_theme: Option<String>,
     pub pos: (i32, i32),
     pub dim: (i32, i32),
     pub alpha: u8,
@@ -158,6 +160,7 @@ fn load_menu(script: &mut ScriptManager, section_name: &str) -> Option<MenuDefin
 
     let Some(Menu {
         back_pic,
+        music_theme,
         pos_x,
         pos_y,
         dim_x,
@@ -200,6 +203,7 @@ fn load_menu(script: &mut ScriptManager, section_name: &str) -> Option<MenuDefin
 
     let definition = MenuDefinition {
         back_pic: non_empty(script.string_by_id(back_pic.map(StringId::value))),
+        music_theme: non_empty(script.string_by_id(music_theme.map(StringId::value))),
         pos: (pos_x, pos_y),
         dim: (dim_x, dim_y),
         alpha: alpha(alpha_value),
@@ -310,6 +314,7 @@ mod tests {
         let menu = MenuScriptResource::new().expect("MENU.DAT should load");
         let definition = menu.load_main_menu().expect("menu_main should load");
         println!("{definition:#?}");
+        assert_eq!(definition.music_theme.as_deref(), Some("SYS_Menu"));
         assert_eq!(definition.default_out_game, 2);
         assert_eq!(definition.default_in_game, 4);
         assert_eq!(definition.items.len(), 10);
