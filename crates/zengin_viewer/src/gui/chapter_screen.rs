@@ -6,7 +6,6 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::audio::PlaySound;
-use crate::game_state::AppState;
 use crate::ui_kit::{UiText, set_visibility, spawn_gui_root};
 use crate::zengin::{
     ChapterIntro, ScriptChangesApplied, ZenginVfs, resolve_sound_asset, resolve_texture_asset,
@@ -34,8 +33,7 @@ impl Plugin for ChapterScreenPlugin {
                 show_chapter_screen.in_set(ChapterScreenUpdated),
                 tick_chapter_screen.run_if(is_chapter_open),
                 sync_chapter_visibility.run_if(resource_changed::<ChapterScreenState>),
-            )
-                .run_if(in_state(AppState::InGame)),
+            ),
         );
     }
 }

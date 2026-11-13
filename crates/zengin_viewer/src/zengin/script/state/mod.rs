@@ -5,7 +5,7 @@ mod weapons;
 pub(crate) use changes::{
     AlignToWpChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose, DialogLine,
     GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged,
-    OverlayChange, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
+    OverlayChange, RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc,
 };
 pub(crate) use instances::{DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry};
 pub(crate) use weapons::{ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponKind, WeaponMode};
@@ -247,6 +247,9 @@ pub struct PendingChanges {
     pub inventory_gains: Vec<InventoryGain>,
     /// On-screen messages requested by `PrintScreen`/`AI_PrintScreen`.
     pub screen_messages: Vec<ScreenMessage>,
+    /// Sounds requested by `Snd_Play`/`Snd_Play3D` and the `AI_Snd_Play*`
+    /// variants.
+    pub sound_requests: Vec<ScriptSound>,
     /// Chapter splash requested by `IntroduceChapter`, at most one pending at a
     /// time (a later request replaces an undrained one).
     pub chapter_intro: Option<ChapterIntro>,
@@ -411,6 +414,42 @@ impl ImportCallState {
             y,
             time_sec: time,
         });
+    }
+
+    /// Queues a sound for the ECS bridge. `sound` is a string literal with a
+    /// `C_SFX` instance name, uppercased here because the script passes it in
+    /// arbitrary case while the definitions are stored uppercase.
+    pub(crate) fn push_sound(&mut self, sound: i32, position: Option<Vec3>) {
+        let Some(id) = self.symbol_table.string(sound) else {
+            warn!("Sound: name({sound}) is not a string");
+            return;
+        };
+        let Some(name) = self.get_string_non_0(id.value()) else {
+            warn!("Sound: name({sound}) has no content");
+            return;
+        };
+        self.pending.sound_requests.push(ScriptSound {
+            name: name.to_uppercase(),
+            position,
+        });
+    }
+
+    /// Queues a sound played at the npc's world position (`Snd_Play3D`,
+    /// `AI_Snd_Play`). Falls back to global playback when the npc has no world
+    /// entity yet.
+    pub(crate) fn push_sound_at_npc(&mut self, npc: i32, sound: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("Sound: npc({npc}) is not an instance");
+            return;
+        };
+        let position = self.npc_state(npc).and_then(|state| state.live.position);
+        if position.is_none() {
+            warn!(
+                "Sound: npc({}) has no world position, playing globally",
+                npc.value()
+            );
+        }
+        self.push_sound(sound, position);
     }
 
     /// Queues a chapter splash for the ECS bridge. A newer request replaces an

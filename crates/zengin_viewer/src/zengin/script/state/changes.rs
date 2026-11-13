@@ -1,4 +1,4 @@
-use bevy::prelude::{Entity, Message, Transform};
+use bevy::prelude::{Entity, Message, Transform, Vec3};
 
 use crate::zengin::{ItemHandle, NpcHandle};
 
@@ -141,6 +141,15 @@ pub struct ChapterIntro {
     pub texture: String,
     pub sound: String,
     pub time_ms: i32,
+}
+
+/// Sound requested by `Snd_Play`/`Snd_Play3D` and the `AI_Snd_Play*` variants.
+/// The name is the uppercased `C_SFX` instance name, the position is the world
+/// position in meters for the 3D variants and `None` for global playback.
+#[derive(Debug, Clone, Message)]
+pub struct ScriptSound {
+    pub name: String,
+    pub position: Option<Vec3>,
 }
 
 #[derive(Debug, Clone, Message)]

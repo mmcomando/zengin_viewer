@@ -257,8 +257,15 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     fake_impl!(ai_ask(_0, _1, _2));
     fake_impl!(ai_asktext(_0, _1, _2, _3, _4));
     fake_impl!(ai_waitforquestion(_0, _1));
-    fake_impl!(ai_snd_play(_0, _1));
-    fake_impl!(ai_snd_play3d(_0, _1, _2));
+    /// Plays a sound at the npc's world position.
+    fn ai_snd_play(&mut self, npc: i32, sound: i32) {
+        self.push_sound_at_npc(npc, sound);
+    }
+    /// Plays a sound at the npc's world position, `v2` has no consumer in the
+    /// viewer and no script in G2MDK calls this variant.
+    fn ai_snd_play3d(&mut self, npc: i32, sound: i32, _v2: i32) {
+        self.push_sound_at_npc(npc, sound);
+    }
     fake_impl!(ai_playfx(_0, _1, _2));
     fake_impl!(ai_stopfx(_0, _1));
     fake_impl!(ai_takemob(_0, _1));

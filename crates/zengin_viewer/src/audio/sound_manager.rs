@@ -1,5 +1,8 @@
 use bevy::prelude::*;
 
+use crate::audio::SoundDefinitions;
+use crate::zengin::ScriptSound;
+
 /// Asset path of the sound which should be played
 #[derive(Message)]
 pub struct PlaySound {
@@ -16,10 +19,25 @@ pub struct SoundManager {
 impl SoundManager {
     /// Spawns a fire-and-forget entity playing the given audio source
     pub fn play_sound(&mut self, commands: &mut Commands, audio_handle: Handle<AudioSource>) {
-        let entity = commands
-            .spawn((AudioPlayer::new(audio_handle), PlaybackSettings::DESPAWN))
-            .id();
+        let entity = Self::spawn_source(commands, audio_handle, None);
         self.active = Some(entity);
+    }
+
+    /// Spawns a fire-and-forget global sound. It is not a dialog voice, so it
+    /// must not replace [`SoundManager::active`].
+    pub fn play_global_sound(commands: &mut Commands, audio_handle: Handle<AudioSource>) {
+        Self::spawn_source(commands, audio_handle, None);
+    }
+
+    /// Spawns a fire-and-forget sound positioned in the world. Like
+    /// [`SoundManager::play_global_sound`] it is not tracked as the active
+    /// dialog voice.
+    pub fn play_positional_sound(
+        commands: &mut Commands,
+        audio_handle: Handle<AudioSource>,
+        position: Vec3,
+    ) {
+        Self::spawn_source(commands, audio_handle, Some(position));
     }
 
     /// Only the most recently spawned sound can be stopped
@@ -28,6 +46,19 @@ impl SoundManager {
             return;
         };
         commands.entity(entity).try_despawn();
+    }
+
+    fn spawn_source(
+        commands: &mut Commands,
+        audio_handle: Handle<AudioSource>,
+        position: Option<Vec3>,
+    ) -> Entity {
+        let settings = PlaybackSettings::DESPAWN.with_spatial(position.is_some());
+        let mut entity = commands.spawn((AudioPlayer::new(audio_handle), settings));
+        if let Some(position) = position {
+            entity.insert(Transform::from_translation(position));
+        }
+        entity.id()
     }
 }
 
@@ -40,6 +71,38 @@ pub(crate) fn handle_play_sound_messages(
     for message in messages.read() {
         let audio_handle = asset_server.load(&message.asset_path);
         sound_manager.play_sound(&mut commands, audio_handle);
+    }
+}
+
+/// Plays the sounds requested by the script (`Snd_Play` and friends),
+/// resolving the `C_SFX` definition name to its wav file.
+pub(crate) fn handle_script_sounds(
+    mut sounds: MessageReader<ScriptSound>,
+    definitions: Res<SoundDefinitions>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    for sound in sounds.read() {
+        let Some(file) = definitions.file(&sound.name) else {
+            warn!("Missing sound definition({})", sound.name);
+            continue;
+        };
+        if file.is_empty() {
+            debug!("Sound definition({}) has no file", sound.name);
+            continue;
+        }
+        let audio_handle = asset_server.load(format!("zengin://{file}"));
+        match sound.position {
+            Some(position) => {
+                SoundManager::play_positional_sound(&mut commands, audio_handle, position);
+            }
+            None => SoundManager::play_global_sound(&mut commands, audio_handle),
+        }
+        debug!(
+            "Script sound({}) -> {file}, positional={}",
+            sound.name,
+            sound.position.is_some()
+        );
     }
 }
 

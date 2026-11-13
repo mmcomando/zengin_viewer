@@ -7,7 +7,7 @@ use super::super::journal::{JournalChange, JournalManager, JournalTopic};
 use super::super::state::{
     AlignToWpChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogLine, GotoChange,
     InventoryGain, ItemRuntime, LoadedState, NpcRuntime, OverlayChange, PendingChanges,
-    RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
+    RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc,
 };
 use super::super::symbol_id::InstanceId;
 
@@ -141,6 +141,10 @@ impl super::ScriptManager {
 
     pub fn drain_chapter_intro(&mut self) -> Option<ChapterIntro> {
         self.pending_changes().chapter_intro.take()
+    }
+
+    pub fn drain_sound_requests(&mut self) -> Vec<ScriptSound> {
+        std::mem::take(&mut self.pending_changes().sound_requests)
     }
 
     /// Records the instance id of the player (`PC_Hero`).

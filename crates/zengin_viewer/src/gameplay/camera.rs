@@ -149,6 +149,9 @@ fn spawn_camera(mut commands: Commands) {
             ..default()
         },
         Camera3d::default(),
+        // World units are meters, the ears sit a human head apart so spatial
+        // sounds pan by their real direction.
+        SpatialListener::new(0.3),
         Transform::from_xyz(-3.0, 1.0, -3.0).looking_at(
             Vec3 {
                 x: -2.0,

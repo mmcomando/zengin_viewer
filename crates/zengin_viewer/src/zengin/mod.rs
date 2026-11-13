@@ -64,6 +64,7 @@ pub(crate) use crate::zengin::script::manager::ItemDisplayData;
 pub(crate) use crate::zengin::script::manager::ScriptManager;
 pub(crate) use crate::zengin::script::state::ChapterIntro;
 pub(crate) use crate::zengin::script::state::ScreenMessage;
+pub(crate) use crate::zengin::script::state::ScriptSound;
 pub(crate) use crate::zengin::script::state::WeaponKind;
 pub(crate) use crate::zengin::script::state::WeaponMode;
 pub(crate) use crate::zengin::script::state::{ItemRuntime, MobRoutineEntry, NpcRuntime};

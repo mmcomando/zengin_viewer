@@ -19,7 +19,8 @@ use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSectio
 use crate::zengin::script::state::{
     AlignToWpChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose, DialogLine,
     GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged,
-    OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage, SpawnItem, SpawnNpc, WeaponMode,
+    OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc,
+    WeaponMode,
 };
 
 pub struct ScriptBridgePlugin;
@@ -43,6 +44,15 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<JournalChange>();
         app.add_message::<ScreenMessage>();
         app.add_message::<ChapterIntro>();
+        app.add_message::<ScriptSound>();
+        // Unlike the rest of the bridge, script sounds are not gated by
+        // `AppState::InGame`: the script runs during the loading screen too.
+        app.add_systems(
+            Update,
+            forward_script_sounds
+                .in_set(ScriptChangesApplied)
+                .run_if(resource_exists::<ScriptResource>),
+        );
         app.add_systems(
             Update,
             (
@@ -221,6 +231,18 @@ fn forward_screen_messages(
     let mut script = gothic_script.lock();
     for message in script.drain_screen_messages() {
         screen_message.write(message);
+    }
+}
+
+/// Forwards the sounds the script requested (`Snd_Play` and friends) as ECS
+/// messages.
+fn forward_script_sounds(
+    mut sounds: MessageWriter<ScriptSound>,
+    gothic_script: Res<ScriptResource>,
+) {
+    let mut script = gothic_script.lock();
+    for sound in script.drain_sound_requests() {
+        sounds.write(sound);
     }
 }
 
