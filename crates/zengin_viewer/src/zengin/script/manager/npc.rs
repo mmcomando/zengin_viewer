@@ -13,10 +13,22 @@ use super::{ItemDisplayData, attribute_display_name};
 impl super::ScriptManager {
     /// Clears the npc's routine entries and runs the `Rtn_{name}_{npcId}`
     /// function, which re-fills them via `TA_Min` (`Npc_ExchangeRoutine`).
+    /// The suffix is the `C_Npc.id` member, not the instance symbol id, and
+    /// script symbol names are stored lowercased.
     pub fn exchange_routine(&mut self, npc: InstanceId, routine_name: &str) {
-        let symbol_name = format!("Rtn_{routine_name}_{}", npc.value());
+        let Some(npc_id) = self.npc_data(npc.value() as u32).map(|npc| npc.id) else {
+            warn!(
+                "No C_Npc data for npc({}), cannot exchange routine({routine_name})",
+                npc.value()
+            );
+            return;
+        };
+        let symbol_name = format!("rtn_{}_{npc_id}", routine_name.to_lowercase());
         let Some(symbol) = self.try_get_symbol_id(&symbol_name) else {
-            warn!("No routine symbol({symbol_name}) for npc({})", npc.value());
+            warn!(
+                "No routine symbol({symbol_name}) for npc({}, C_Npc.id {npc_id})",
+                npc.value()
+            );
             return;
         };
         let Some(function) = self.symbol_table().function(symbol.value()) else {

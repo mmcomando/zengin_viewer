@@ -77,6 +77,43 @@ fn unsafe_wrap_instance_callable(instance_id: InstanceId) -> FunctionId {
     FunctionId::from_symbol(instance_id.symbol())
 }
 
+/// Verifies `Npc_ExchangeRoutine` name resolution: the suffix is the `C_Npc.id`
+/// member, so `none_100_xardas` (instance symbol id 11156) must resolve
+/// `rtn_start_100`, not `rtn_start_11156`.
+#[test]
+#[ignore = "manual script VM debug tool"]
+fn debug_exchange_routine() {
+    let script_path = gothic_dat_path();
+    let wasm_bytes = convert_daedalus_script(&script_path);
+    let mut executor = ScriptManager::new(&wasm_bytes);
+    executor.load_symbol_table();
+    executor.initialize_instances();
+
+    let symbol = executor.get_symbol_id("none_100_xardas");
+    let Some(npc) = executor.symbol_table().instance(symbol.value()) else {
+        println!("none_100_xardas is not an instance symbol");
+        return;
+    };
+    println!("none_100_xardas instance id: {}", npc.value());
+
+    executor.exchange_routine(npc, "START");
+
+    let entries = executor
+        .npc_instances()
+        .get(&npc)
+        .map(|instance| {
+            instance
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .routine
+                .entries
+                .len()
+        })
+        .unwrap_or_default();
+    println!("routine entries after exchange: {entries}");
+    assert_ne!(entries, 0, "rtn_start_100 did not register routine entries");
+}
+
 /// Prints the hitpoints of a npc instance, verifying the `get-npc-info` export
 #[test]
 #[ignore = "manual script VM debug tool"]
