@@ -92,7 +92,8 @@ pub struct EditorInputMarker;
     strum::EnumIter,
 )]
 pub enum GameplayAction {
-    /// Movement direction from WASD, the arrow keys, or the left gamepad stick.
+    /// Movement direction: forward/backward and, without a forward component,
+    /// sideways without turning.
     #[actionlike(DualAxis)]
     Move,
     /// Third person camera rotation from the arrow keys or the right gamepad

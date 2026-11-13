@@ -16,9 +16,10 @@ use super::auto_anim_sequencer::{
 };
 
 /// Writes the desired animation of the player every frame from the move
-/// input, resolved camera relative (forward input moves away from the
-/// camera; holds for every camera mode). Firing (ranged weapon drawn and
-/// attack pressed) wins over movement; the model aims at the target.
+/// input, resolved camera relative (forward input moves away from the camera;
+/// holds for every camera mode). Sideways input takes priority and strafes
+/// without turning the model. Firing (ranged weapon drawn and attack pressed)
+/// wins over movement; the model aims at the target.
 #[allow(clippy::type_complexity)]
 pub(super) fn send_desired_animations(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
@@ -46,9 +47,12 @@ pub(super) fn send_desired_animations(
         WeaponMode::Fists => false,
     };
 
+    let direction = action_state
+        .axis_pair(&GameplayAction::Move)
+        .clamp_length_max(1.0);
+
     // Quick check first: standing still is the common case, and the attack
     // branch below wins over it when attacking.
-    let direction = action_state.axis_pair(&GameplayAction::Move);
     if !attacking && direction.length_squared() < 0.1 {
         set_idle_facing(entity, player_tr, &camera, &camera_info, &mut writer);
         return;
@@ -66,8 +70,19 @@ pub(super) fn send_desired_animations(
         return;
     }
 
+    // Sideways input wins over forward/backward (like OpenGothic): the model
+    // keeps its facing and the strafe loop carries it to the side.
+    if direction.x.abs() >= STRAFE_DEADZONE {
+        set_strafe_animation(entity, direction.x, &mut writer);
+        return;
+    }
+
     set_run_animation(entity, &camera, direction, &mut writer);
 }
+
+/// Sideways input above this magnitude makes the character strafe instead of
+/// running in the input direction.
+const STRAFE_DEADZONE: f32 = 0.1;
 
 /// Writes the attack animation: melee swing or bow fire depending on the
 /// drawn weapon. The model aims at the selected npc, falling back to the
@@ -190,6 +205,26 @@ fn set_run_animation(
         who: entity,
         animation: DesiredAnimation::Run,
         direction: Some(dir.normalize()),
+        force_change: true,
+    });
+}
+
+/// Writes the sideways run loop matching `side` (negative is left), the model
+/// keeps its facing and the animation root motion carries it to the side.
+fn set_strafe_animation(
+    entity: Entity,
+    side: f32,
+    writer: &mut MessageWriter<SetDesiredAnimation>,
+) {
+    let animation = if side < 0.0 {
+        DesiredAnimation::StrafeLeft
+    } else {
+        DesiredAnimation::StrafeRight
+    };
+    writer.write(SetDesiredAnimation {
+        who: entity,
+        animation,
+        direction: None,
         force_change: true,
     });
 }

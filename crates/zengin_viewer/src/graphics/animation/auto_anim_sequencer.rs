@@ -120,6 +120,10 @@ pub enum DesiredAnimation {
     MeleeAttack(MeleeAttackKind),
     /// Turn in place towards the camera direction.
     Turn(TurnDirection),
+    /// Sideways run loop that keeps the facing.
+    StrafeLeft,
+    /// Sideways run loop that keeps the facing.
+    StrafeRight,
 }
 
 /// Which way the model turns in place.
@@ -173,14 +177,39 @@ impl DesiredAnimation {
     /// Scheme relative animation names this state may resolve to, best match
     /// first. Humans use the `S_RUN`/`T_1HATTACKR` naming, creatures the
     /// `S_FISTRUN`/`S_FISTATTACK` one; a scheme gets its first existing name.
-    fn candidates(self) -> &'static [&'static str] {
+    fn candidates(self, weapon_mode: WeaponMode) -> &'static [&'static str] {
         match self {
             DesiredAnimation::Stand => &["S_RUN", "S_FISTRUN", "S_FISTRUNL", "S_FISTWALK"],
             DesiredAnimation::Run => &["S_RUNL", "S_FISTRUNL", "S_FISTRUN", "S_FISTWALK"],
             DesiredAnimation::Fire => &["T_BOWRELOAD"],
             DesiredAnimation::MeleeAttack(kind) => kind.candidates(),
             DesiredAnimation::Turn(direction) => direction.candidates(),
+            DesiredAnimation::StrafeLeft => strafe_candidates("L", weapon_mode),
+            DesiredAnimation::StrafeRight => strafe_candidates("R", weapon_mode),
         }
+    }
+}
+
+/// Strafe loop candidates for the drawn weapon, then the unarmed and fist
+/// fallbacks. `side` is the animation name suffix (`L` or `R`).
+fn strafe_candidates(side: &str, weapon_mode: WeaponMode) -> &'static [&'static str] {
+    match (side, weapon_mode) {
+        ("L", WeaponMode::Melee) => &["T_1HRUNSTRAFEL", "T_RUNSTRAFEL", "T_FISTRUNSTRAFEL"],
+        ("L", WeaponMode::Ranged) => &[
+            "T_BOWRUNSTRAFEL",
+            "T_CBOWRUNSTRAFEL",
+            "T_RUNSTRAFEL",
+            "T_FISTRUNSTRAFEL",
+        ],
+        ("L", WeaponMode::Fists) => &["T_FISTRUNSTRAFEL", "T_RUNSTRAFEL"],
+        (_, WeaponMode::Melee) => &["T_1HRUNSTRAFER", "T_RUNSTRAFER", "T_FISTRUNSTRAFER"],
+        (_, WeaponMode::Ranged) => &[
+            "T_BOWRUNSTRAFER",
+            "T_CBOWRUNSTRAFER",
+            "T_RUNSTRAFER",
+            "T_FISTRUNSTRAFER",
+        ],
+        (_, WeaponMode::Fists) => &["T_FISTRUNSTRAFER", "T_RUNSTRAFER"],
     }
 }
 
@@ -274,7 +303,12 @@ fn apply_forced_change(
     asset_server: Res<AssetServer>,
     mut handles: ResMut<CachedAssetHandles>,
     mut sequencers: Query<
-        (&AutoAnimSequencer, &mut AnimationController, &NpcModel),
+        (
+            &AutoAnimSequencer,
+            &mut AnimationController,
+            &NpcModel,
+            Option<&NpcWeaponMode>,
+        ),
         Changed<AutoAnimSequencer>,
     >,
 ) {
@@ -282,7 +316,7 @@ fn apply_forced_change(
         return;
     };
     let graph = graph.into_inner();
-    for (seq, mut controller, model) in &mut sequencers {
+    for (seq, mut controller, model, weapon_mode) in &mut sequencers {
         let Some(desired) = seq.desired else {
             continue;
         };
@@ -294,7 +328,7 @@ fn apply_forced_change(
             continue;
         }
         let scheme = animation_scheme(model);
-        let Some(desired) = resolve_animation(graph, scheme, desired) else {
+        let Some(desired) = resolve_animation(graph, scheme, desired, weapon_mode) else {
             warn_once!(
                 "Scheme({scheme}) has no animation for desired({:?}), it is not queued",
                 seq.desired
@@ -327,6 +361,7 @@ fn advance_on_animation_ends(
         &AutoAnimSequencer,
         &mut AnimationController,
         &NpcModel,
+        Option<&NpcWeaponMode>,
     )>,
 ) {
     let Some(graph) = graph else {
@@ -335,7 +370,8 @@ fn advance_on_animation_ends(
     };
     let graph = graph.into_inner();
     for end in ends.read() {
-        let Ok((entity, seq, mut controller, model)) = sequencers.get_mut(end.who) else {
+        let Ok((entity, seq, mut controller, model, weapon_mode)) = sequencers.get_mut(end.who)
+        else {
             // Most skeletons have no sequencer; their ends are not ours.
             continue;
         };
@@ -353,6 +389,7 @@ fn advance_on_animation_ends(
             seq,
             &mut controller,
             animation_scheme(model),
+            weapon_mode,
             &mut arrows,
             &mut handles,
             &asset_server,
@@ -368,6 +405,7 @@ fn advance_sequencer_on_end(
     seq: &AutoAnimSequencer,
     controller: &mut AnimationController,
     scheme: &str,
+    weapon_mode: Option<&NpcWeaponMode>,
     arrows: &mut MessageWriter<ArrowShot>,
     handles: &mut CachedAssetHandles,
     asset_server: &AssetServer,
@@ -383,7 +421,7 @@ fn advance_sequencer_on_end(
         warn!("AutoAnimSequencer({entity}) animation end without a desired animation");
         return;
     };
-    let Some(desired_index) = resolve_animation(graph, scheme, desired) else {
+    let Some(desired_index) = resolve_animation(graph, scheme, desired, weapon_mode) else {
         warn!(
             "AutoAnimSequencer({entity}) scheme({scheme}) has no animation for desired({desired:?})"
         );
@@ -490,7 +528,13 @@ fn model_turn_speed(seq: &AutoAnimSequencer, weapon_mode: Option<&NpcWeaponMode>
                 Some(WeaponMode::Fists) | None => TURN_IN_PLACE_SPEED_FISTS,
             }
         }
-        Some(DesiredAnimation::Run | DesiredAnimation::Fire | DesiredAnimation::MeleeAttack(_))
+        Some(
+            DesiredAnimation::Run
+            | DesiredAnimation::Fire
+            | DesiredAnimation::MeleeAttack(_)
+            | DesiredAnimation::StrafeLeft
+            | DesiredAnimation::StrafeRight,
+        )
         | None => TURN_SPEED,
     }
 }
@@ -531,9 +575,11 @@ fn resolve_animation(
     graph: &AnimationGraph,
     scheme: &str,
     desired: DesiredAnimation,
+    weapon_mode: Option<&NpcWeaponMode>,
 ) -> Option<AnimationIndex> {
+    let weapon_mode = weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0);
     desired
-        .candidates()
+        .candidates(weapon_mode)
         .iter()
         .find_map(|animation| graph.animation_index(&format!("{scheme}-{animation}")))
 }
@@ -796,6 +842,17 @@ mod tests {
 
     /// Firing: the graph offers no path to the reload loop, so the sequencer
     /// cuts to it; on its wrap the arrow is shot and the loop keeps playing.
+    #[test]
+    fn strafe_left_uses_the_unarmed_strafe_loop() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        let strafe = animation_handle(&mut world, "T_FISTRUNSTRAFEL");
+
+        send_desired_force(&mut world, model, DesiredAnimation::StrafeLeft, true);
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(strafe));
+    }
+
     #[test]
     fn firing_cuts_to_reload_and_shoots_on_wrap() {
         let (mut world, model) = run_sequencer_world("S_RUN");

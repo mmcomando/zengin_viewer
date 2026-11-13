@@ -70,16 +70,16 @@ impl AnimationData {
             .position(|el| *el == bone_index as u32)
     }
 
-    pub fn get_movement(&self, bone_index: usize) -> Vec<f32> {
+    pub fn get_movement(&self, bone_index: usize) -> Vec<Vec2> {
         let local_bone_index = self.get_index_for_bone(bone_index).unwrap();
 
         let mut movement = vec![];
 
-        let start = self.get_bone_sample(0, local_bone_index).position.z;
+        let start = self.get_bone_sample(0, local_bone_index).position;
 
         for frame_index in 0..self.frames_num as usize {
             let position = self.get_bone_sample(frame_index, local_bone_index).position;
-            movement.push(position.z - start);
+            movement.push(Vec2::new(position.x - start.x, position.z - start.z));
         }
         return movement;
     }
@@ -118,7 +118,7 @@ impl AnimationData {
             return false;
         };
 
-        if max_position.z - min_position.z < 0.4 {
+        if max_position.x - min_position.x < 0.4 && max_position.z - min_position.z < 0.4 {
             return false;
         }
 
@@ -126,7 +126,7 @@ impl AnimationData {
     }
 
     /// Root movement of the base pos bone, if the animation moves it
-    pub fn root_movement(&self, base_pos_node_index: usize) -> Option<Vec<f32>> {
+    pub fn root_movement(&self, base_pos_node_index: usize) -> Option<Vec<Vec2>> {
         if self.bone_has_movement(base_pos_node_index) {
             Some(self.get_movement(base_pos_node_index))
         } else {

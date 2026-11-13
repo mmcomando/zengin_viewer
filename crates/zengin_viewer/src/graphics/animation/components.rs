@@ -56,9 +56,10 @@ pub struct AnimationState {
     pub frames_num: usize,
     /// Elapsed animation time in microseconds, always kept within one loop.
     pub time_us: AtomicU32,
-    /// Forward displacement of the base pos bone for every frame, relative to frame 0.
-    /// `None` when the animation does not move the base pos bone.
-    pub movement: Option<Vec<f32>>,
+    /// Horizontal displacement (local X, Z) of the base pos bone for every
+    /// frame, relative to frame 0. `None` when the animation does not move the
+    /// base pos bone.
+    pub movement: Option<Vec<Vec2>>,
     /// Node index of the base pos bone, used to extract root movement of switched animations
     pub base_pos_node_index: usize,
 }

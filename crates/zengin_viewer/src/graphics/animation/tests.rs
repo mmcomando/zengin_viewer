@@ -26,7 +26,7 @@ fn plays_half_frame_at_natural_pace() {
     assert!((update.mul_1000 as f32 / ATOMIC_SCALE - 0.5).abs() < 0.01);
     assert!(!update.finished);
     // Movement of half a frame: linear interpolation into the first frame step
-    assert!((update.delta_movement - 0.5 * 0.135_191_35).abs() < 1e-4);
+    assert!((update.delta_movement.y - 0.5 * 0.135_191_35).abs() < 1e-4);
 }
 
 #[test]
@@ -39,14 +39,14 @@ fn advances_one_frame_per_frame_time() {
     assert_eq!(update.end_frame, 2);
     assert_eq!(update.mul_1000, 0);
     assert!(!update.finished);
-    assert!((update.delta_movement - 0.135_191_35).abs() < 1e-3);
+    assert!((update.delta_movement.y - 0.135_191_35).abs() < 1e-3);
     assert!((update.time_us as f32 / TIME_SCALE - 0.04).abs() < 1e-5);
 }
 
 #[test]
 fn loop_travels_the_full_root_movement() {
     let movement = runl_movement();
-    let total = movement[19] + (movement[19] - movement[18]);
+    let total = movement[19].y + (movement[19].y - movement[18].y);
 
     let state = runl_state(Some(movement));
     // Simulate one loop with 60 fps steps; travelled distance must match the
@@ -55,22 +55,58 @@ fn loop_travels_the_full_root_movement() {
     for _ in 0..48 {
         let update = advance_animation(&state, 1.0 / 60.0).unwrap();
         state.time_us.store(update.time_us, Ordering::Release);
-        travelled += update.delta_movement;
+        travelled += update.delta_movement.y;
     }
     assert!((travelled - total).abs() < 1e-3, "travelled {travelled}");
 }
 
 #[test]
+fn lateral_root_movement_moves_entity_sideways() {
+    let mut world = World::new();
+    let mut assets = Assets::<AnimationData>::default();
+    let handle = assets.add(test_animation());
+    world.insert_resource(assets);
+    let mut time = Time::<()>::default();
+    time.advance_by(Duration::from_secs_f32(1.0 / 60.0));
+    world.insert_resource(time);
+    world.init_resource::<Messages<AnimationEnds>>();
+    world.init_resource::<Messages<AnimationTrigger>>();
+    world.init_resource::<Messages<super::components::AnimationSound>>();
+
+    let lateral: Vec<Vec2> = runl_movement()
+        .iter()
+        .map(|movement| Vec2::new(movement.y, 0.0))
+        .collect();
+    let mut controller = AnimationController::new(handle);
+    controller.set_root_motion(true);
+    let model = world
+        .spawn((
+            DistanceNear::default(),
+            runl_state(Some(lateral)),
+            controller,
+            Transform::default(),
+            GlobalTransform::default(),
+        ))
+        .id();
+
+    world.run_system_once(update_animations).unwrap();
+
+    let translation = world.get::<Transform>(model).unwrap().translation;
+    assert!(translation.x > 0.0, "translation {translation:?}");
+    assert!(translation.z.abs() < 1e-6, "translation {translation:?}");
+}
+
+#[test]
 fn long_pause_wraps_multiple_loops() {
     let movement = runl_movement();
-    let total = movement[19] + (movement[19] - movement[18]);
+    let total = movement[19].y + (movement[19].y - movement[18].y);
 
     let state = runl_state(Some(movement.clone()));
     // 1.7 s is two loops (1.6 s) plus 0.1 s into the new loop
     let update = advance_animation(&state, 1.7).unwrap();
 
-    let expected = 2.0 * total + movement[2] + (movement[3] - movement[2]) * 0.5;
-    assert!((update.delta_movement - expected).abs() < 1e-3);
+    let expected = 2.0 * total + movement[2].y + (movement[3].y - movement[2].y) * 0.5;
+    assert!((update.delta_movement.y - expected).abs() < 1e-3);
     assert_eq!(update.start_frame, 2);
     assert!(update.finished);
 }
@@ -80,7 +116,7 @@ fn animation_without_root_movement_does_not_move_entity() {
     let state = runl_state(None);
     let update = advance_animation(&state, 0.02).unwrap();
 
-    assert_eq!(update.delta_movement, 0.0);
+    assert_eq!(update.delta_movement, Vec2::ZERO);
     assert_eq!(update.start_frame, 0);
 }
 
@@ -163,7 +199,7 @@ fn single_frame_animation_holds_its_frame() {
     assert_eq!(update.start_frame, 0);
     assert_eq!(update.end_frame, 0);
     assert!(update.finished);
-    assert_eq!(update.delta_movement, 0.0);
+    assert_eq!(update.delta_movement, Vec2::ZERO);
 }
 
 #[test]
@@ -287,8 +323,9 @@ fn sounds_fire_on_frame_crossing() {
     assert_eq!(crossed, ["WAR_AMBIENT"]);
 }
 
-/// Root movement dumped from the real `HUMANS-S_RUNL.MAN` (20 frames, 25 fps).
-fn runl_movement() -> Vec<f32> {
+/// Root movement dumped from the real `HUMANS-S_RUNL.MAN` (20 frames, 25 fps),
+/// forward is the Z component.
+fn runl_movement() -> Vec<Vec2> {
     vec![
         0.0,
         0.135_191_35,
@@ -311,9 +348,12 @@ fn runl_movement() -> Vec<f32> {
         2.489_898_7,
         2.624_903_2,
     ]
+    .into_iter()
+    .map(|z| Vec2::new(0.0, z))
+    .collect()
 }
 
-fn runl_state(movement: Option<Vec<f32>>) -> AnimationState {
+fn runl_state(movement: Option<Vec<Vec2>>) -> AnimationState {
     AnimationState {
         frame_state: Arc::new(FrameState {
             start_frame: AtomicU32::new(0),

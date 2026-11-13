@@ -31,8 +31,9 @@ pub(crate) struct FrameUpdate {
     pub(crate) end_frame: usize,
     pub(crate) mul_1000: u32,
     pub(crate) time_us: u32,
-    /// How much root movement the entity should be moved by this step.
-    pub(crate) delta_movement: f32,
+    /// Horizontal root movement (local X, Z) the entity should be moved by
+    /// this step.
+    pub(crate) delta_movement: Vec2,
     /// Whether the animation completed at least one loop this step.
     /// Consumers only distinguish "wrapped" from "not wrapped", the loop
     /// count itself is internal to the root movement computation.
@@ -63,7 +64,7 @@ pub(crate) fn advance_animation(data: &AnimationState, delta: f32) -> Option<Fra
             end_frame: 0,
             mul_1000: 0,
             time_us: 0,
-            delta_movement: 0.0,
+            delta_movement: Vec2::ZERO,
             finished: true,
             old_progress: 0.0,
             new_progress: 0.0,
@@ -80,9 +81,9 @@ pub(crate) fn advance_animation(data: &AnimationState, delta: f32) -> Option<Fra
     let progress = new_time * data.fps;
     let start_frame = (progress as usize).min(frames_num - 1);
 
-    let delta_movement = data.movement.as_deref().map_or(0.0, |movement| {
-        // Movement past the last frame is extrapolated so looping keeps moving forward
-        // instead of sliding back to the frame 0 position.
+    let delta_movement = data.movement.as_deref().map_or(Vec2::ZERO, |movement| {
+        // Movement past the last frame is extrapolated so looping keeps moving in
+        // the same direction instead of sliding back to the frame 0 position.
         let total =
             movement[frames_num - 1] + (movement[frames_num - 1] - movement[frames_num - 2]);
         let old_displacement = root_displacement(movement, total, old_time * data.fps);
@@ -107,10 +108,10 @@ pub(crate) fn advance_animation(data: &AnimationState, delta: f32) -> Option<Fra
     })
 }
 
-/// Root forward displacement at animation `progress` (`0..frames_num`).
+/// Root horizontal displacement at animation `progress` (`0..frames_num`).
 /// The segment past the last frame interpolates towards the extrapolated
 /// full loop displacement (`total`).
-fn root_displacement(movement: &[f32], total: f32, progress: f32) -> f32 {
+fn root_displacement(movement: &[Vec2], total: Vec2, progress: f32) -> Vec2 {
     let segment = (progress as usize).min(movement.len() - 1);
     let factor = progress - segment as f32;
     let start = movement[segment];
@@ -315,7 +316,7 @@ fn apply_root_motion(
     accelerating: &Query<(), With<AcceleratingRootMotion>>,
     transforms: &mut Query<&mut Transform>,
 ) {
-    if !controller.root_motion() || update.delta_movement == 0.0 {
+    if !controller.root_motion() || update.delta_movement == Vec2::ZERO {
         return;
     }
     let target = match parent {
@@ -330,7 +331,8 @@ fn apply_root_motion(
     let Ok(mut transform) = transforms.get_mut(target) else {
         return;
     };
-    transform.translation += global_transform.rotation() * Vec3::Z * update.delta_movement * speed;
+    let delta = update.delta_movement;
+    transform.translation += global_transform.rotation() * Vec3::new(delta.x, 0.0, delta.y) * speed;
 }
 
 /// Animation trigger events are emitted for entities driven by the sequencer,
