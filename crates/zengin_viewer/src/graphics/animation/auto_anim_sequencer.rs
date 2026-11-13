@@ -20,7 +20,8 @@ use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{AnimationGraph, AnimationIndex, animation_name_from_path};
 use crate::zengin::{
-    ArrowShot, CachedAssetHandles, MeleeHit, face_direction_quat, get_animation_path,
+    ArrowShot, CachedAssetHandles, MeleeHit, NpcWeaponMode, WeaponMode, face_direction_quat,
+    get_animation_path,
 };
 
 use super::components::{AnimationEnds, AnimationTrigger};
@@ -79,6 +80,14 @@ impl Plugin for AutoAnimSequencerPlugin {
 /// per second.
 const TURN_SPEED: f32 = 6.0;
 
+/// Yaw turn speed while turning in place with fists, radians per second
+/// (Gothic's 90 degrees).
+const TURN_IN_PLACE_SPEED_FISTS: f32 = std::f32::consts::FRAC_PI_2;
+
+/// Yaw turn speed while turning in place with a weapon drawn, radians per
+/// second (Gothic's 180 degrees).
+const TURN_IN_PLACE_SPEED_ARMED: f32 = std::f32::consts::PI;
+
 /// Prefix of the model script event tag marking the impact frame of an attack
 /// animation (`OPTIMAL_FRAME` plus the item suffix).
 const OPTIMAL_FRAME_TRIGGER: &str = "OPTIMAL_FRAME";
@@ -109,6 +118,25 @@ pub enum DesiredAnimation {
     /// Melee attack: the swing, a hit on every loop (wrap). Held while
     /// attacking; the loop makes the swing repeat for the next hit.
     MeleeAttack(MeleeAttackKind),
+    /// Turn in place towards the camera direction.
+    Turn(TurnDirection),
+}
+
+/// Which way the model turns in place.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TurnDirection {
+    Left,
+    Right,
+}
+
+impl TurnDirection {
+    /// Scheme relative turn animation names, best match first.
+    fn candidates(self) -> &'static [&'static str] {
+        match self {
+            Self::Left => &["T_RUNTURNL", "T_FISTRUNTURNL"],
+            Self::Right => &["T_RUNTURNR", "T_FISTRUNTURNR"],
+        }
+    }
 }
 
 /// Which melee attack animation to play; the animation scheme and weapon
@@ -151,6 +179,7 @@ impl DesiredAnimation {
             DesiredAnimation::Run => &["S_RUNL", "S_FISTRUNL", "S_FISTRUN", "S_FISTWALK"],
             DesiredAnimation::Fire => &["T_BOWRELOAD"],
             DesiredAnimation::MeleeAttack(kind) => kind.candidates(),
+            DesiredAnimation::Turn(direction) => direction.candidates(),
         }
     }
 }
@@ -424,17 +453,23 @@ fn emit_melee_hits_on_optimal_frame(
 /// so the velocity it induces on the physics body is zeroed every frame.
 fn update_model_facing(
     time: Res<Time>,
-    mut sequencers: Query<(&AutoAnimSequencer, &mut Transform, Option<&ChildOf>)>,
+    mut sequencers: Query<(
+        &AutoAnimSequencer,
+        &mut Transform,
+        Option<&ChildOf>,
+        Option<&NpcWeaponMode>,
+    )>,
     mut velocities: Query<
         &mut LinearVelocity,
         (With<PlayerPhysicsBodyMarker>, Without<AutoAnimSequencer>),
     >,
 ) {
     let delta = time.delta_secs();
-    for (seq, mut tr, parent) in &mut sequencers {
+    for (seq, mut tr, parent, weapon_mode) in &mut sequencers {
         if let Some(direction) = seq.direction {
             let target = face_direction_quat(direction);
-            tr.rotation = tr.rotation.slerp(target, (TURN_SPEED * delta).min(1.0));
+            let speed = model_turn_speed(seq, weapon_mode);
+            tr.rotation = tr.rotation.slerp(target, (speed * delta).min(1.0));
         }
         if let Some(parent) = parent
             && let Ok(mut velocity) = velocities.get_mut(parent.parent())
@@ -442,6 +477,20 @@ fn update_model_facing(
             velocity.x = 0.0;
             velocity.z = 0.0;
         }
+    }
+}
+
+/// Yaw turn speed of the model: idle turning follows the camera slowly, the
+/// movement intent turns fast.
+fn model_turn_speed(seq: &AutoAnimSequencer, weapon_mode: Option<&NpcWeaponMode>) -> f32 {
+    match seq.desired {
+        Some(DesiredAnimation::Stand | DesiredAnimation::Turn(_)) => match weapon_mode.map(|m| m.0)
+        {
+            Some(WeaponMode::Melee | WeaponMode::Ranged) => TURN_IN_PLACE_SPEED_ARMED,
+            Some(WeaponMode::Fists) | None => TURN_IN_PLACE_SPEED_FISTS,
+        },
+        Some(DesiredAnimation::Run | DesiredAnimation::Fire | DesiredAnimation::MeleeAttack(_))
+        | None => TURN_SPEED,
     }
 }
 
@@ -647,6 +696,61 @@ mod tests {
 
     fn queued_next(world: &World, model: Entity) -> Option<Handle<AnimationData>> {
         world.get::<AnimationController>(model)?.next().cloned()
+    }
+
+    #[test]
+    fn turn_left_cuts_to_left_turn_animation() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        let turn = animation_handle(&mut world, "T_RUNTURNL");
+
+        send_desired_force(
+            &mut world,
+            model,
+            DesiredAnimation::Turn(TurnDirection::Left),
+            true,
+        );
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(turn));
+    }
+
+    #[test]
+    fn turn_right_cuts_to_right_turn_animation() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        let turn = animation_handle(&mut world, "T_RUNTURNR");
+
+        send_desired_force(
+            &mut world,
+            model,
+            DesiredAnimation::Turn(TurnDirection::Right),
+            true,
+        );
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(turn));
+    }
+
+    /// The turn animation loops while the camera keeps turning; releasing it
+    /// returns to the standing idle.
+    #[test]
+    fn released_turn_returns_to_stand() {
+        let (mut world, model) = run_sequencer_world("T_RUNTURNL");
+        let turn = animation_handle(&mut world, "T_RUNTURNL");
+        let stand = animation_handle(&mut world, "S_RUN");
+
+        send_desired(
+            &mut world,
+            model,
+            DesiredAnimation::Turn(TurnDirection::Left),
+        );
+        send_ends(&mut world, model, turn.clone());
+        run_sequencer(&mut world);
+        assert_eq!(queued_next(&world, model), None);
+
+        send_desired(&mut world, model, DesiredAnimation::Stand);
+        send_ends(&mut world, model, turn);
+        run_sequencer(&mut world);
+        assert_eq!(queued_next(&world, model), Some(stand));
     }
 
     #[test]

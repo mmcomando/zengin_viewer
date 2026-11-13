@@ -6,12 +6,13 @@
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
+use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::{NpcWeaponMode, Selection, WeaponMode};
 
 use super::auto_anim_sequencer::{
-    AutoAnimSequencer, DesiredAnimation, MeleeAttackKind, SetDesiredAnimation,
+    AutoAnimSequencer, DesiredAnimation, MeleeAttackKind, SetDesiredAnimation, TurnDirection,
 };
 
 /// Writes the desired animation of the player every frame from the move
@@ -26,6 +27,7 @@ pub(super) fn send_desired_animations(
         (With<PlayerCharacter>, With<AutoAnimSequencer>),
     >,
     camera: Single<&Transform, With<Camera3d>>,
+    camera_info: Res<CameraResource>,
     selection: Res<Selection>,
     transforms: Query<&GlobalTransform>,
     mut writer: MessageWriter<SetDesiredAnimation>,
@@ -48,7 +50,7 @@ pub(super) fn send_desired_animations(
     // branch below wins over it when attacking.
     let direction = action_state.axis_pair(&GameplayAction::Move);
     if !attacking && direction.length_squared() < 0.1 {
-        set_stand_animation(entity, &mut writer);
+        set_idle_facing(entity, player_tr, &camera, &camera_info, &mut writer);
         return;
     }
 
@@ -113,6 +115,60 @@ fn set_stand_animation(entity: Entity, writer: &mut MessageWriter<SetDesiredAnim
         direction: None,
         force_change: false,
     });
+}
+
+/// Angle below which the idle model is not considered to be turning, keeps
+/// the turn animation from flickering on tiny camera movement.
+const TURN_ANIMATION_DEADZONE: f32 = 0.08;
+
+/// Writes the idle facing: the character turns towards the third person camera
+/// direction, playing the turn animation while the angle is large. The free and
+/// dialog cameras do not drive the player's facing.
+fn set_idle_facing(
+    entity: Entity,
+    player_tr: &GlobalTransform,
+    camera: &Transform,
+    camera_info: &CameraResource,
+    writer: &mut MessageWriter<SetDesiredAnimation>,
+) {
+    if camera_info.current() != CurrentCamera::ThirdPerson {
+        set_stand_animation(entity, writer);
+        return;
+    }
+    let target = horizontal(*camera.forward());
+    if target.length_squared() < 0.0001 {
+        set_stand_animation(entity, writer);
+        return;
+    }
+    // The npc model faces its local +Z, unlike the Bevy camera forward (-Z).
+    let current = horizontal(player_tr.rotation() * Vec3::Z);
+    let angle = signed_yaw_between(current, target);
+    let (animation, force_change) = if angle.abs() > TURN_ANIMATION_DEADZONE {
+        (DesiredAnimation::Turn(turn_direction(angle)), true)
+    } else {
+        (DesiredAnimation::Stand, false)
+    };
+    writer.write(SetDesiredAnimation {
+        who: entity,
+        animation,
+        direction: Some(target),
+        force_change,
+    });
+}
+
+/// Signed horizontal angle from `from` towards `to`, positive when the model
+/// turns to its left.
+fn signed_yaw_between(from: Vec3, to: Vec3) -> f32 {
+    let cross_y = from.z * to.x - from.x * to.z;
+    cross_y.atan2(from.dot(to).clamp(-1.0, 1.0))
+}
+
+fn turn_direction(angle: f32) -> TurnDirection {
+    if angle > 0.0 {
+        TurnDirection::Left
+    } else {
+        TurnDirection::Right
+    }
 }
 
 /// Writes the run animation moving in `move_direction` (stick axes), resolved
