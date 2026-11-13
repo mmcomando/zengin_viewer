@@ -30,6 +30,11 @@
                 "KeyCode": Escape,
             },
         ],
+        SkipDialog: [
+            {
+                "MouseButton": Right,
+            },
+        ],
     },
     axislike_map: {},
     dual_axislike_map: {},
