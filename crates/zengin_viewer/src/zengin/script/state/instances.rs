@@ -175,6 +175,11 @@ pub struct NpcLiveState {
     pub look_at: Option<InstanceId>,
     /// Npc the ai targets (`Npc_SetTarget`), the entity `AI_Attack` attacks.
     pub target: Option<InstanceId>,
+    /// Body state imposed by the mob being used (`Npc_GetBodyState`), `None`
+    /// while the npc is not attached to one. Rebuilt from the interaction on
+    /// load, so it is not saved.
+    #[serde(skip)]
+    pub body_state: Option<i32>,
 }
 
 impl NpcRuntime {

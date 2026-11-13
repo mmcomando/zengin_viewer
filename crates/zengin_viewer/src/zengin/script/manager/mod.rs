@@ -1,6 +1,7 @@
 // Method groups live in sibling files, one `impl` block per domain.
 #![allow(clippy::multiple_inherent_impl)]
 
+mod body_state;
 mod changes;
 mod dialog;
 mod inventory;

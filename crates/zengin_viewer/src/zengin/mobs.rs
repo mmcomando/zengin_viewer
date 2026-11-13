@@ -5,7 +5,9 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::zengin::GameMob;
+use crate::zengin::GameNpc;
 use crate::zengin::resources::ZenGinModelComponent;
+use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 
@@ -14,7 +16,14 @@ pub struct MobsPlugin;
 impl Plugin for MobsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MobRegistry>();
-        app.add_systems(Update, (extract_mob_positions, release_despawned_mob_uses));
+        app.add_systems(
+            Update,
+            (
+                extract_mob_positions,
+                release_despawned_mob_uses,
+                sync_npc_body_state,
+            ),
+        );
     }
 }
 
@@ -64,6 +73,40 @@ fn release_despawned_mob_uses(
                 commands.entity(mob).remove::<MobOccupant>();
             }
         }
+    }
+}
+
+/// Mirrors the used mob onto the npc body state reported to the scripts.
+fn sync_npc_body_state(
+    gothic_script: Option<Res<ScriptResource>>,
+    added: Query<(&GameNpc, &NpcMobUse), Added<NpcMobUse>>,
+    mut removed: RemovedComponents<NpcMobUse>,
+    npcs: Query<(&GameNpc, Option<&NpcMobUse>)>,
+) {
+    let Some(gothic_script) = gothic_script else {
+        return;
+    };
+    let mut script = gothic_script.lock();
+    for entity in removed.read() {
+        // Despawned npcs keep no script state, and a switched mob still has its
+        // component here and is handled below.
+        let Ok((npc, current)) = npcs.get(entity) else {
+            continue;
+        };
+        if current.is_some() {
+            continue;
+        }
+        debug!("npc({}) body state cleared", npc.instance_id());
+        script.set_npc_body_state(npc.instance_id(), None);
+    }
+    for (npc, mob_use) in &added {
+        let body_state = script.scheme_body_state(mob_use.scheme.as_str());
+        debug!(
+            "npc({}) body state({body_state}) for mob({})",
+            npc.instance_id(),
+            mob_use.scheme
+        );
+        script.set_npc_body_state(npc.instance_id(), Some(body_state));
     }
 }
 

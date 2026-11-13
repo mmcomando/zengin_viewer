@@ -262,8 +262,22 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             target.value()
         );
     }
-    fake_impl!(npc_getbodystate(_0) -> i32);
-    fake_impl!(npc_hasbodyflag(_0, _1) -> i32);
+    fn npc_getbodystate(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return BS_STAND;
+        };
+        self.npc_state(npc)
+            .map_or(BS_STAND, |npc| current_body_state(&npc.live))
+    }
+    fn npc_hasbodyflag(&mut self, npc: i32, flag: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let state = self
+            .npc_state(npc)
+            .map_or(BS_STAND, |npc| current_body_state(&npc.live));
+        i32::from(has_body_flag(state, flag))
+    }
     fake_impl!(npc_isincutscene(_0) -> i32);
     fake_impl!(npc_isvoiceactive(_0) -> i32);
     fake_impl!(npc_stopani(_0, _1));
