@@ -8,13 +8,13 @@ mod ui;
 pub(crate) use important::ImportantDialogOptions;
 pub(crate) use sounds::SpeechSounds;
 
+pub(crate) use state::DialogRequest;
 pub(crate) use state::DialogUiState;
 
 use crate::game_state::AppState;
 use crate::input::InputMode;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use bevy::prelude::*;
-use state::DialogRequest;
 
 pub struct GameDialogPlugin;
 

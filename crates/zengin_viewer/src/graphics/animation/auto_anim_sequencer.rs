@@ -484,11 +484,12 @@ fn update_model_facing(
 /// movement intent turns fast.
 fn model_turn_speed(seq: &AutoAnimSequencer, weapon_mode: Option<&NpcWeaponMode>) -> f32 {
     match seq.desired {
-        Some(DesiredAnimation::Stand | DesiredAnimation::Turn(_)) => match weapon_mode.map(|m| m.0)
-        {
-            Some(WeaponMode::Melee | WeaponMode::Ranged) => TURN_IN_PLACE_SPEED_ARMED,
-            Some(WeaponMode::Fists) | None => TURN_IN_PLACE_SPEED_FISTS,
-        },
+        Some(DesiredAnimation::Stand | DesiredAnimation::Turn(_)) => {
+            match weapon_mode.map(|mode| mode.0) {
+                Some(WeaponMode::Melee | WeaponMode::Ranged) => TURN_IN_PLACE_SPEED_ARMED,
+                Some(WeaponMode::Fists) | None => TURN_IN_PLACE_SPEED_FISTS,
+            }
+        }
         Some(DesiredAnimation::Run | DesiredAnimation::Fire | DesiredAnimation::MeleeAttack(_))
         | None => TURN_SPEED,
     }

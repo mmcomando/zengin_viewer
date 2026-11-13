@@ -42,7 +42,7 @@ pub(super) struct DialogLineView {
 /// systems, applied by `handle_dialog_requests` in the same frame, so no reply
 /// message or correlation is needed.
 #[derive(Message)]
-pub(super) enum DialogRequest {
+pub(crate) enum DialogRequest {
     /// Open the dialog with the npc, showing its current root options
     Open {
         npc_entity: Entity,
@@ -211,7 +211,7 @@ impl DialogUiState {
     }
 
     /// Whether dialog lines are currently played back
-    pub(super) fn is_playing_lines(&self) -> bool {
+    pub(crate) fn is_playing_lines(&self) -> bool {
         matches!(self.mode, DialogUiMode::Lines { .. })
     }
 
@@ -377,7 +377,7 @@ impl DialogUiState {
 
     /// Ends the current line early, the next one starts immediately. After the
     /// last line the options are shown again
-    pub(super) fn stop_current_line(
+    pub(crate) fn stop_current_line(
         &mut self,
         sounds: &mut MessageWriter<PlaySound>,
         requests: &mut MessageWriter<DialogRequest>,

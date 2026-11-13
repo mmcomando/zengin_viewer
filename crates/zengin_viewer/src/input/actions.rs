@@ -4,11 +4,12 @@ use leafwing_input_manager::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use crate::audio::{PlaySound, SoundManager};
 use crate::game_state::AppState;
 use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
-use crate::zengin::DialogUiState;
+use crate::zengin::{DialogRequest, DialogUiState};
 
 /// Adds [`leafwing_input_manager`] with one input map per action group and
 /// spawns the global input entities with the profiles loaded from the RON
@@ -190,7 +191,7 @@ pub enum DebugAction {
     ToggleCharacterCamera,
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
 fn handle_back(
     state: Res<State<AppState>>,
     action_state: Single<&ActionState<SharedAction>, With<SharedInputMarker>>,
@@ -198,7 +199,11 @@ fn handle_back(
     mut journal_ui: ResMut<JournalUiState>,
     mut stats_ui: ResMut<StatsUiState>,
     mut dialog_ui: ResMut<DialogUiState>,
+    mut requests: MessageWriter<DialogRequest>,
+    mut sounds: MessageWriter<PlaySound>,
+    mut sound_manager: ResMut<SoundManager>,
     mut exit: MessageWriter<AppExit>,
+    mut commands: Commands,
 ) {
     if *state.get() == AppState::MainMenu {
         return;
@@ -225,8 +230,14 @@ fn handle_back(
         return;
     }
     if dialog_ui.is_open() {
-        dialog_ui.close();
-        info!("Back closed the open dialog");
+        if dialog_ui.is_playing_lines() {
+            dialog_ui.stop_current_line(&mut sounds, &mut requests);
+            sound_manager.stop_active(&mut commands);
+            info!("Back skipped the playing dialog line");
+        } else {
+            dialog_ui.close();
+            info!("Back closed the open dialog");
+        }
         return;
     }
     info!("Back action triggered, exiting");
