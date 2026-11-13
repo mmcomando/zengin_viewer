@@ -26,6 +26,11 @@
                 "KeyCode": Digit2,
             },
         ],
+        DrawWeapon: [
+            {
+                "KeyCode": Space,
+            },
+        ],
         Accelerate: [
             {
                 "KeyCode": ShiftLeft,

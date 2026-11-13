@@ -16,8 +16,9 @@ use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc};
 
 /// Toggles the player's equipped weapons between sheathed and drawn on
-/// `EquipMelee`/`EquipRanged`: pressing draws the respective weapon into
-/// the hand, pressing again sheathes it back to the hip/back.
+/// `EquipMelee`/`EquipRanged`, and toggles the last used weapon on
+/// `DrawWeapon`. Pressing draws the weapon into the hand, pressing again
+/// sheathes it back to the hip/back.
 pub(super) fn toggle_player_weapons(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
@@ -38,6 +39,48 @@ pub(super) fn toggle_player_weapons(
         }
         toggle_weapon(&gothic_script, &mut game_log, player_id, action, ranged);
     }
+    if action_state.just_pressed(&GameplayAction::DrawWeapon) {
+        toggle_last_weapon(&gothic_script, player_id);
+    }
+}
+
+/// Draws the last used weapon when it is sheathed, sheathes it when it is
+/// already drawn. Falls back to the melee weapon or fists.
+fn toggle_last_weapon(gothic_script: &ScriptResource, player_id: InstanceId) {
+    let mut script = gothic_script.lock();
+    let Some(target) = script
+        .npc_state(player_id)
+        .map(|npc| npc.equipment.last_used_weapon())
+    else {
+        warn!(
+            "No script instance for player({}) on draw weapon",
+            player_id.value()
+        );
+        return;
+    };
+    let drawn = script
+        .npc_state(player_id)
+        .and_then(|npc| npc.equipment.weapon_mode)
+        == Some(target);
+    if target == WeaponMode::Fists {
+        info!(
+            "Player({}) has no weapon to draw, fighting with fists",
+            player_id.value()
+        );
+        script.sheathe_weapon(player_id);
+        return;
+    }
+    if drawn {
+        script.sheathe_weapon(player_id);
+        info!(
+            "Player({}) sheathed its {target:?} weapon",
+            player_id.value()
+        );
+        return;
+    }
+    let ranged = target == WeaponMode::Ranged;
+    script.draw_weapon(player_id, ranged);
+    info!("Player({}) drew its {target:?} weapon", player_id.value());
 }
 
 /// Applies one weapon toggle press for the player.

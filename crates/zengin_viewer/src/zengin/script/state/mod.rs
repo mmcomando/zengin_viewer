@@ -309,7 +309,7 @@ impl ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.npc_state_mut(npc).equipment.weapon_mode = Some(mode);
+        self.npc_state_mut(npc).equipment.set_weapon_mode(mode);
     }
 
     /// Queues an overlay apply or remove for an npc.

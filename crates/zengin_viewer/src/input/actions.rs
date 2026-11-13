@@ -111,6 +111,9 @@ pub enum GameplayAction {
     EquipMelee,
     /// Toggle the equipped ranged weapon between sheathed and drawn.
     EquipRanged,
+    /// Toggle the last used weapon, falling back to the melee weapon or fists
+    /// when no weapon was drawn yet.
+    DrawWeapon,
     /// Move faster while held.
     Accelerate,
 }

@@ -97,7 +97,7 @@ impl super::ScriptManager {
             );
             return;
         }
-        self.npc_state_mut(npc).equipment.weapon_mode = Some(mode);
+        self.npc_state_mut(npc).equipment.set_weapon_mode(mode);
     }
 
     /// Sheathes the drawn weapon back to its stowed position
@@ -105,7 +105,9 @@ impl super::ScriptManager {
     /// equipped.
     #[allow(dead_code)] // used by the draw/sheathe weapon inputs
     pub fn sheathe_weapon(&mut self, npc: InstanceId) {
-        self.npc_state_mut(npc).equipment.weapon_mode = Some(WeaponMode::Fists);
+        self.npc_state_mut(npc)
+            .equipment
+            .set_weapon_mode(WeaponMode::Fists);
     }
 
     /// Unequips the npc's weapon of the given kind, sheathing it when it was
@@ -124,7 +126,9 @@ impl super::ScriptManager {
             }
         };
         if drawn_kind_matches {
-            self.npc_state_mut(npc).equipment.weapon_mode = Some(WeaponMode::Fists);
+            self.npc_state_mut(npc)
+                .equipment
+                .set_weapon_mode(WeaponMode::Fists);
         }
     }
 
@@ -136,7 +140,7 @@ impl super::ScriptManager {
             let mut instance = self.npc_state_mut(npc);
             instance.equipment.melee = None;
             instance.equipment.ranged = None;
-            instance.equipment.weapon_mode = Some(WeaponMode::Fists);
+            instance.equipment.set_weapon_mode(WeaponMode::Fists);
         }
     }
 

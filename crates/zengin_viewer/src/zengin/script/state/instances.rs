@@ -97,6 +97,29 @@ pub struct NpcEquipmentState {
     pub armor: Option<InstanceId>,
     /// Weapon mode (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI).
     pub weapon_mode: Option<WeaponMode>,
+    /// Last non-fist weapon mode drawn, `None` when no weapon was drawn yet.
+    pub last_weapon: Option<WeaponMode>,
+}
+
+impl NpcEquipmentState {
+    /// Sets the drawn weapon mode, remembering the last weapon that was drawn.
+    pub fn set_weapon_mode(&mut self, mode: WeaponMode) {
+        if mode != WeaponMode::Fists {
+            self.last_weapon = Some(mode);
+        }
+        self.weapon_mode = Some(mode);
+    }
+
+    /// Weapon mode to draw next: the last drawn weapon when it is still
+    /// equipped, otherwise the melee weapon, otherwise fists.
+    pub fn last_used_weapon(&self) -> WeaponMode {
+        match self.last_weapon {
+            Some(WeaponMode::Melee) if self.melee.is_some() => WeaponMode::Melee,
+            Some(WeaponMode::Ranged) if self.ranged.is_some() => WeaponMode::Ranged,
+            _ if self.melee.is_some() => WeaponMode::Melee,
+            _ => WeaponMode::Fists,
+        }
+    }
 }
 
 /// Dialog knowledge of an npc.
