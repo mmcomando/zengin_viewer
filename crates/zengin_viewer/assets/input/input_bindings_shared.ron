@@ -2,7 +2,7 @@
     buttonlike_map: {
         Inventory: [
             {
-                "KeyCode": KeyI,
+                "KeyCode": Tab,
             },
         ],
         Journal: [

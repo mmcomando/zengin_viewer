@@ -281,12 +281,13 @@ pub(crate) fn update_input_mode(
     }
 }
 
-/// Loads an input profile from the main assets directory.
+/// Loads an input profile from the `input` subdirectory of the main assets
+/// directory.
 fn load_input_profile<A>(file_name: &str) -> Result<InputMap<A>, String>
 where
     A: Actionlike + Serialize + DeserializeOwned,
 {
-    let path = format!("{}/{file_name}", crate::main_assets_dir());
+    let path = format!("{}/input/{file_name}", crate::main_assets_dir());
     let contents = std::fs::read_to_string(&path)
         .map_err(|error| format!("failed to read {path}: {error}"))?;
     ron::de::from_str(&contents).map_err(|error| format!("failed to parse {path}: {error}"))

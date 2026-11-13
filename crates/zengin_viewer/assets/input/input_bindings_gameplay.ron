@@ -2,7 +2,7 @@
     buttonlike_map: {
         Jump: [
             {
-                "KeyCode": Space,
+                "KeyCode": AltLeft,
             },
             {
                 "GamepadButton": South,
@@ -10,12 +10,10 @@
         ],
         Interact: [
             {
-                "KeyCode": KeyE,
+                "MouseButton": Left,
             },
-        ],
-        DealDamage: [
             {
-                "KeyCode": KeyF,
+                "KeyCode": ControlLeft,
             },
         ],
         EquipMelee: [
