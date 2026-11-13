@@ -166,7 +166,8 @@ pub enum SharedAction {
     QuickLoad,
     /// Closes the topmost open UI, otherwise exits the game.
     Back,
-    /// Skips the played dialog content, or closes the open dialog.
+    /// Skips the dialog line currently played back. Does not close the dialog
+    /// while it waits for an option.
     SkipDialog,
 }
 
@@ -217,8 +218,8 @@ fn handle_back(
     // Right mouse click is a dialog-only shortcut, it must not close other
     // views or exit the game.
     if action_state.just_pressed(&SharedAction::SkipDialog) {
-        if dialog_ui.is_open() {
-            skip_dialog(
+        if dialog_ui.is_playing_lines() {
+            skip_dialog_line(
                 &mut dialog_ui,
                 &mut requests,
                 &mut sounds,
@@ -255,36 +256,36 @@ fn handle_back(
         return;
     }
     if dialog_ui.is_open() {
-        skip_dialog(
-            &mut dialog_ui,
-            &mut requests,
-            &mut sounds,
-            &mut sound_manager,
-            &mut commands,
-        );
+        if dialog_ui.is_playing_lines() {
+            skip_dialog_line(
+                &mut dialog_ui,
+                &mut requests,
+                &mut sounds,
+                &mut sound_manager,
+                &mut commands,
+            );
+        } else {
+            dialog_ui.close();
+            info!("Back closed the open dialog");
+        }
         return;
     }
     info!("Back action triggered, exiting");
     exit.write(AppExit::Success);
 }
 
-/// Skips the currently played dialog line, or closes the dialog when it waits
-/// for an option.
-fn skip_dialog(
+/// Ends the currently played dialog line early, the next one starts
+/// immediately.
+fn skip_dialog_line(
     dialog_ui: &mut DialogUiState,
     requests: &mut MessageWriter<DialogRequest>,
     sounds: &mut MessageWriter<PlaySound>,
     sound_manager: &mut SoundManager,
     commands: &mut Commands,
 ) {
-    if dialog_ui.is_playing_lines() {
-        dialog_ui.stop_current_line(sounds, requests);
-        sound_manager.stop_active(commands);
-        info!("Skipped the playing dialog line");
-    } else {
-        dialog_ui.close();
-        info!("Closed the open dialog");
-    }
+    dialog_ui.stop_current_line(sounds, requests);
+    sound_manager.stop_active(commands);
+    info!("Skipped the playing dialog line");
 }
 
 fn spawn_input_maps(mut commands: Commands) {
