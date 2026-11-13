@@ -4,7 +4,9 @@ use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::queue::{NpcAction, NpcActionQueue};
 use crate::zengin::npc_routines::NpcRoutineState;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange};
+use crate::zengin::script::state::{
+    AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange, UseMobChange,
+};
 use crate::zengin::script::symbol_id::StringId;
 
 /// Turns `AI_GoToWP` requests into queued actions. The waypoint name is resolved
@@ -110,6 +112,38 @@ pub(crate) fn clear_npc_actions(
                 "Npc_ClearAIQueue npc({}) cleared actions entity({entity})",
                 change.instance_id
             );
+        }
+    }
+}
+
+/// Turns `AI_UseMob` requests into queued actions.
+pub(crate) fn enqueue_use_mob_actions(
+    mut changes: MessageReader<UseMobChange>,
+    index: Res<InstanceIndex>,
+    mut action_queues: Query<&mut NpcActionQueue>,
+) {
+    for change in changes.read() {
+        let entities = index.npcs(change.instance_id);
+        if entities.is_empty() {
+            warn!(
+                "AI_UseMob npc({}) ignored: instance has no entity",
+                change.instance_id
+            );
+            continue;
+        }
+        for &entity in entities {
+            let Ok(mut queue) = action_queues.get_mut(entity) else {
+                continue;
+            };
+            if !queue.push(NpcAction::UseMob {
+                scheme: change.mob_name.clone(),
+                state: change.state,
+            }) {
+                warn!(
+                    "AI_UseMob npc({}) scheme({}) not queued: action queue is full",
+                    change.instance_id, change.mob_name
+                );
+            }
         }
     }
 }

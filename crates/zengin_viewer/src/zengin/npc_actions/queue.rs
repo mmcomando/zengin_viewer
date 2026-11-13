@@ -28,14 +28,24 @@ impl NpcActionQueue {
         match action {
             NpcAction::GoToWaypoint { waypoint } => self.push_goto(waypoint),
             NpcAction::Attack { target } => self.push_attack(target),
+            NpcAction::UseMob { scheme, state } => self.push_use_mob(scheme, state),
         }
     }
 
+    /// A new destination replaces the queued one instead of stacking behind it.
+    /// Routine entry changes re-issue `AI_GoToWP` while an earlier walk may
+    /// still be pending.
     fn push_goto(&mut self, waypoint: StringCanon) -> bool {
-        if let Some(NpcAction::GoToWaypoint { waypoint: last }) = self.actions.back_mut() {
-            *last = waypoint;
+        let queued = self
+            .actions
+            .iter()
+            .rposition(|action| matches!(action, NpcAction::GoToWaypoint { .. }));
+        if let Some(index) = queued {
+            if let Some(NpcAction::GoToWaypoint { waypoint: last }) = self.actions.get_mut(index) {
+                *last = waypoint;
+            }
             // The replaced action was the active front, its path must be replanned.
-            if self.actions.len() == 1 {
+            if index == 0 {
                 self.started = false;
             }
             return true;
@@ -44,6 +54,26 @@ impl NpcActionQueue {
             return false;
         }
         self.actions.push_back(NpcAction::GoToWaypoint { waypoint });
+        true
+    }
+
+    /// Only the latest `AI_UseMob` request for a scheme matters: the routine
+    /// loop re-issues it every second until the body state changes, so a
+    /// repeated request updates the queued one instead of stacking.
+    fn push_use_mob(&mut self, scheme: StringCanon, state: i32) -> bool {
+        let queued = self.actions.iter().position(
+            |action| matches!(action, NpcAction::UseMob { scheme: queued, .. } if *queued == scheme),
+        );
+        if let Some(index) = queued {
+            if let Some(NpcAction::UseMob { state: last, .. }) = self.actions.get_mut(index) {
+                *last = state;
+            }
+            return true;
+        }
+        if self.actions.len() >= MAX_QUEUED_ACTIONS {
+            return false;
+        }
+        self.actions.push_back(NpcAction::UseMob { scheme, state });
         true
     }
 
@@ -74,7 +104,7 @@ impl NpcActionQueue {
     }
 
     /// Drops every queued action (`Npc_ClearAIQueue`).
-    pub(super) fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.actions.clear();
         self.started = false;
         self.attack.swings.clear();
@@ -124,6 +154,12 @@ pub(crate) enum NpcAction {
     /// it is farther away than the attack abandonment distance.
     Attack {
         target: Entity,
+    },
+    /// Use the nearest available mob with the given `AI_UseMob` scheme, or
+    /// release the current mob when `state` is not positive.
+    UseMob {
+        scheme: StringCanon,
+        state: i32,
     },
 }
 
@@ -187,6 +223,61 @@ mod tests {
 
         assert_eq!(queue.actions.len(), 1);
         assert!(queue.started());
+    }
+
+    #[test]
+    fn use_mob_dedupes_the_last_request() {
+        let mut queue = NpcActionQueue::default();
+        assert!(queue.push(NpcAction::UseMob {
+            scheme: StringCanon::new("BENCH"),
+            state: 1,
+        }));
+        assert!(queue.push(NpcAction::UseMob {
+            scheme: StringCanon::new("BENCH"),
+            state: 1,
+        }));
+
+        assert_eq!(queue.actions.len(), 1);
+    }
+
+    #[test]
+    fn use_mob_replaces_the_queued_state_of_its_scheme() {
+        let mut queue = NpcActionQueue::default();
+        queue.push(NpcAction::UseMob {
+            scheme: StringCanon::new("BENCH"),
+            state: 1,
+        });
+        queue.push(waypoint("wp0"));
+
+        assert!(queue.push(NpcAction::UseMob {
+            scheme: StringCanon::new("BENCH"),
+            state: -1,
+        }));
+
+        assert_eq!(queue.actions.len(), 2);
+        assert!(matches!(
+            queue.front(),
+            Some(NpcAction::UseMob { state: -1, .. })
+        ));
+    }
+
+    #[test]
+    fn goto_replaces_a_queued_goto_behind_other_actions() {
+        let mut queue = NpcActionQueue::default();
+        queue.push(NpcAction::UseMob {
+            scheme: StringCanon::new("BENCH"),
+            state: 1,
+        });
+        queue.push(waypoint("wp0"));
+        queue.mark_started();
+
+        assert!(queue.push(waypoint("wp1")));
+
+        assert_eq!(queue.actions.len(), 2);
+        assert!(matches!(
+            queue.actions.back(),
+            Some(NpcAction::GoToWaypoint { waypoint }) if waypoint.as_str() == "wp1"
+        ));
     }
 
     #[test]

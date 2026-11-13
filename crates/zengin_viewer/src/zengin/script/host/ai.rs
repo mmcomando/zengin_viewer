@@ -55,10 +55,6 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         });
     }
     fn ai_usemob(&mut self, npc_index: i32, mob_name_id: i32, state: i32) -> i32 {
-        // Negative states release the mob, nothing to animate.
-        if state <= 0 {
-            return 0;
-        }
         let Some(npc_index) = self.symbol_table.instance(npc_index) else {
             return 0;
         };
@@ -68,10 +64,10 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         let Some(mob) = self.get_show_string(mob_name_id) else {
             return 0;
         };
-        let ani = format!("S_{}_S{state}", mob.string().to_uppercase());
-        self.pending.animation_changes.push(AnimationChange {
+        self.pending.use_mob_changes.push(UseMobChange {
             instance_id: npc_index,
-            animation: StringCanon::new(ani),
+            mob_name: StringCanon::new(mob.string()),
+            state,
         });
         0
     }

@@ -17,7 +17,7 @@ use crate::zengin::script::bridge::ScriptChangesApplied;
 
 use crate::zengin::npc_actions::{
     advance_npc_attack_swings, clear_npc_actions, enqueue_align_actions, enqueue_attack_actions,
-    enqueue_goto_actions, run_npc_actions,
+    enqueue_goto_actions, enqueue_use_mob_actions, run_npc_actions,
 };
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
@@ -33,7 +33,8 @@ pub(crate) use health::NpcHealth;
 pub(crate) use overlay::overlay_scheme;
 pub(crate) use overlay::{AnimationFiles, NpcOverlay};
 pub(crate) use routines::{
-    NPC_BODY_Y_OFFSET, NpcLookAt, NpcPath, NpcRoutineState, WayPoints, queue_stand_animation,
+    NPC_BODY_Y_OFFSET, NpcLookAt, NpcPath, NpcRoutineState, WayPoints, queue_named_animation,
+    queue_stand_animation,
 };
 pub(crate) use weapons::{NpcEquippedWeapon, NpcWeaponMode, NpcWeaponSlots};
 
@@ -66,12 +67,14 @@ impl Plugin for NpcRoutinesPlugin {
                 enqueue_goto_actions.after(clear_npc_actions),
                 enqueue_align_actions.after(clear_npc_actions),
                 enqueue_attack_actions.after(clear_npc_actions),
+                enqueue_use_mob_actions.after(clear_npc_actions),
                 run_npc_actions
                     .after(update_npc_routines)
                     .after(clear_npc_actions)
                     .after(enqueue_goto_actions)
                     .after(enqueue_align_actions)
-                    .after(enqueue_attack_actions),
+                    .after(enqueue_attack_actions)
+                    .after(enqueue_use_mob_actions),
                 advance_npc_attack_swings
                     .after(run_npc_actions)
                     .after(AutoAnimSequencerSet),

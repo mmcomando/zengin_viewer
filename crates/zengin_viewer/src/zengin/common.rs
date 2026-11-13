@@ -194,6 +194,8 @@ pub struct ZenGinMob {
     pub collides: bool,
     /// Vob name, used by scripts and trigger targets.
     pub vob_name: String,
+    /// In-game focus name (`oCMOB.name`), shown when the player looks at it.
+    pub focus_name: String,
     /// `AI_UseMob` scheme derived from the visual stem.
     pub scheme: String,
     /// Number of interaction states (`stateNum`).

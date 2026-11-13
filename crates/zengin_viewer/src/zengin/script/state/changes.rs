@@ -55,6 +55,16 @@ pub struct AnimationChange {
     pub animation: StringCanon,
 }
 
+/// Signal that a script requested `AI_UseMob`: an npc should use a mob with
+/// the given `AI_UseMob` scheme, `state` > 0 attaches and `state` <= 0
+/// releases.
+#[derive(Debug, Clone, Message)]
+pub struct UseMobChange {
+    pub instance_id: InstanceId,
+    pub mob_name: StringCanon,
+    pub state: i32,
+}
+
 /// Signal that a script started an AI state (`AI_StartState`). The state
 /// replaces the running routine state and is not replaced by routine entry
 /// changes while it runs.

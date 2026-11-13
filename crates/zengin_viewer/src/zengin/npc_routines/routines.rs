@@ -64,6 +64,10 @@ enum RoutineSource {
 pub(crate) struct RoutineExecutor {
     functions: RoutineFunctions,
     source: RoutineSource,
+    /// Routine waypoint the state was started for, empty for AI states. A
+    /// changed waypoint restarts the state even when the state function is the
+    /// same, so its end hook releases the previous mob or path.
+    way_point: StringCanon,
     /// Seconds since the state started or was last reset by `NPC_SetStateTime`.
     state_time: f32,
     /// Seconds until the next loop hook call.
@@ -201,6 +205,7 @@ pub(crate) fn update_routine_executors(
             &RoutineEntry,
             Option<&AnimationController>,
             Option<&mut RoutineExecutor>,
+            Option<&mut NpcActionQueue>,
         ),
         (
             Or<(Changed<RoutineEntry>, Added<AnimationController>)>,
@@ -211,7 +216,7 @@ pub(crate) fn update_routine_executors(
     >,
 ) {
     let mut script = gothic_script.lock();
-    for (entity, npc, entry, controller, executor) in &mut npcs {
+    for (entity, npc, entry, controller, executor, queue) in &mut npcs {
         if controller.is_none() {
             continue;
         }
@@ -226,6 +231,7 @@ pub(crate) fn update_routine_executors(
             commands.entity(entity).insert(RoutineExecutor {
                 functions,
                 source: RoutineSource::Routine,
+                way_point: entry.way_point.clone(),
                 state_time: 0.0,
                 // The engine runs the first loop on the next tick, the loop
                 // system picks it up on the next update.
@@ -241,11 +247,18 @@ pub(crate) fn update_routine_executors(
             executor.bypass_change_detection().next_loop_in = 0.0;
             continue;
         }
-        if Some(executor.functions.start) == desired {
+        if Some(executor.functions.start) == desired && executor.way_point == entry.way_point {
             executor.bypass_change_detection().next_loop_in = 0.0;
             continue;
         }
 
+        // A state start drops the pending actions (engine `startState`),
+        // otherwise the routine loop and the re-issued `AI_GotoWP` stack faster
+        // than the queue drains. Done before the end hook so the hook's own
+        // `AI_UseMob(-1)` release survives.
+        if let Some(mut queue) = queue {
+            queue.clear();
+        }
         script.call_routine_end(instance, executor.functions);
         let Some(start) = desired else {
             commands.entity(entity).remove::<RoutineExecutor>();
@@ -255,6 +268,7 @@ pub(crate) fn update_routine_executors(
         script.call_routine_start(instance, functions);
         executor.functions = functions;
         executor.source = RoutineSource::Routine;
+        executor.way_point = entry.way_point.clone();
         executor.state_time = 0.0;
         executor.next_loop_in = 0.0;
     }
@@ -301,6 +315,7 @@ pub(crate) fn apply_start_state_changes(
                 script.call_routine_start(change.instance_id, functions);
                 executor.functions = functions;
                 executor.source = RoutineSource::AiState;
+                executor.way_point = StringCanon::default();
                 executor.state_time = 0.0;
                 executor.next_loop_in = 0.0;
             } else {
@@ -311,6 +326,7 @@ pub(crate) fn apply_start_state_changes(
                 commands.entity(entity).insert(RoutineExecutor {
                     functions,
                     source: RoutineSource::AiState,
+                    way_point: StringCanon::default(),
                     state_time: 0.0,
                     next_loop_in: 0.0,
                 });
@@ -323,6 +339,7 @@ pub(crate) fn apply_start_state_changes(
 /// ends the state when the loop returns `LOOP_END`.
 pub(crate) fn run_routine_loops(
     time: Res<Time>,
+    game_time: Res<GameTime>,
     mut commands: Commands,
     gothic_script: Res<ScriptResource>,
     mut npcs: Query<
@@ -340,8 +357,23 @@ pub(crate) fn run_routine_loops(
     }
 
     let delta = time.delta_secs();
+    let minutes = game_time.minutes_of_day();
     let mut script = gothic_script.lock();
     for (entity, npc, mut executor, entry) in &mut npcs {
+        // Routine entries stop at their stop time even when no next entry is
+        // active yet; the end hook releases a used mob or path.
+        if executor.source == RoutineSource::Routine
+            && let Some(entry) = entry
+            && !entry.is_active_at(minutes)
+        {
+            debug!(
+                "npc({}) routine entry stopped at minute {minutes}",
+                npc.instance_id()
+            );
+            script.call_routine_end(npc.instance_id(), executor.functions);
+            commands.entity(entity).remove::<RoutineExecutor>();
+            continue;
+        }
         // Timer bookkeeping must not mark the executor changed, otherwise
         // `restore_routine_stand` would reset the pose every frame.
         {
@@ -367,13 +399,16 @@ pub(crate) fn run_routine_loops(
         if ended {
             script.call_routine_end(instance, executor.functions);
             if executor.source == RoutineSource::AiState
-                && let Some(start) = entry.and_then(|entry| entry.state_fn)
+                && let Some(entry) = entry
+                && entry.is_active_at(minutes)
+                && let Some(start) = entry.state_fn
             {
                 // The AI state returned control, resume the scheduled routine.
                 let functions = script.resolve_routine_functions(start);
                 script.call_routine_start(instance, functions);
                 executor.functions = functions;
                 executor.source = RoutineSource::Routine;
+                executor.way_point = entry.way_point.clone();
                 executor.state_time = 0.0;
                 executor.next_loop_in = 0.0;
                 continue;
@@ -560,6 +595,25 @@ fn direction_to_next_node(
     None
 }
 
+/// Queues an animation resolved through the npc scheme and its overlay.
+pub(crate) fn queue_named_animation(
+    controller: &mut AnimationController,
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    files: &AnimationFiles,
+    handles: &mut CachedAssetHandles,
+    asset_server: &AssetServer,
+    animation: &str,
+) {
+    let Some(scheme) = model.animation_scheme.as_deref() else {
+        return;
+    };
+    let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
+    let scheme = choose_animation_scheme(scheme, overlay, animation, &files.0);
+    let path = get_animation_path(scheme, animation);
+    controller.queue_next(handles.get_animation_handle(asset_server, &path), true);
+}
+
 /// Switches the npc back to its standing idle after a path.
 pub(crate) fn queue_stand_animation(
     controller: &mut AnimationController,
@@ -569,15 +623,17 @@ pub(crate) fn queue_stand_animation(
     handles: &mut CachedAssetHandles,
     asset_server: &AssetServer,
 ) {
-    let Some(scheme) = model.animation_scheme.as_deref() else {
-        return;
-    };
     let animation = model
         .stand_animation
         .as_deref()
         .unwrap_or(STANDING_ANIMATION);
-    let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
-    let scheme = choose_animation_scheme(scheme, overlay, animation, &files.0);
-    let path = get_animation_path(scheme, animation);
-    controller.queue_next(handles.get_animation_handle(asset_server, &path), true);
+    queue_named_animation(
+        controller,
+        model,
+        overlay,
+        files,
+        handles,
+        asset_server,
+        animation,
+    );
 }

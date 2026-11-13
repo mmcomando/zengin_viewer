@@ -6,7 +6,7 @@ pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged,
     NpcEntitiesChanged, OverlayChange, RoutineExchange, ScreenMessage, ScriptSound, SpawnItem,
-    SpawnNpc, StartStateChange,
+    SpawnNpc, StartStateChange, UseMobChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -239,6 +239,8 @@ pub struct PendingChanges {
     pub animation_changes: Vec<AnimationChange>,
     /// `AI_StartState` requests produced by the script.
     pub start_state_changes: Vec<StartStateChange>,
+    /// `AI_UseMob` requests produced by the script.
+    pub use_mob_changes: Vec<UseMobChange>,
     /// `Npc_ClearAIQueue` requests produced by the script.
     pub clear_ai_queue_changes: Vec<ClearAiQueueChange>,
     /// `Npc_ExchangeRoutine` requests produced by the script.

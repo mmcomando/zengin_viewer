@@ -446,6 +446,7 @@ fn spawn_world_data(
             GameMob {
                 index,
                 vob_name: mob.vob_name,
+                focus_name: mob.focus_name,
                 scheme: mob.scheme.clone(),
                 state_num: mob.state_num,
                 use_with_item: mob.use_with_item,

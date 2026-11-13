@@ -23,6 +23,21 @@ pub struct RoutineEntry {
     pub state_fn: Option<FunctionId>,
 }
 
+impl RoutineEntry {
+    /// Whether `minutes_of_day` is inside the entry's start-inclusive,
+    /// stop-exclusive window. Entries wrapping midnight stay active past it.
+    pub fn is_active_at(&self, minutes_of_day: u32) -> bool {
+        let minutes = minutes_of_day % (24 * 60);
+        let start = self.start_h * 60 + self.start_m;
+        let stop = self.stop_h * 60 + self.stop_m;
+        if stop <= start {
+            minutes >= start || minutes < stop
+        } else {
+            minutes >= start && minutes < stop
+        }
+    }
+}
+
 /// Function ids of a `ZS_*` routine state. The state function itself is the
 /// start hook, `_loop` and `_end` are resolved from its symbol name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -168,17 +183,8 @@ impl NpcRuntime {
     /// their stop time, entries wrapping over midnight stay active past it.
     pub fn get_routine_entry(&self, minutes_of_day: u32) -> Option<&RoutineEntry> {
         let first = self.routine.entries.first()?;
-        let minutes = minutes_of_day % (24 * 60);
         for entry in &self.routine.entries {
-            let start = entry.start_h * 60 + entry.start_m;
-            let stop = entry.stop_h * 60 + entry.stop_m;
-            let in_range = if stop <= start {
-                minutes >= start || minutes < stop
-            } else {
-                minutes >= start && minutes < stop
-            };
-
-            if in_range {
+            if entry.is_active_at(minutes_of_day) {
                 return Some(entry);
             }
         }
@@ -272,5 +278,40 @@ impl NpcTalents {
         if let Some(slot) = Self::slot_mut(talent, &mut self.values) {
             *slot = level;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(start_h: u32, start_m: u32, stop_h: u32, stop_m: u32) -> RoutineEntry {
+        RoutineEntry {
+            start_h,
+            start_m,
+            stop_h,
+            stop_m,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn routine_entry_window_is_start_inclusive_stop_exclusive() {
+        let entry = entry(5, 0, 10, 0);
+
+        assert!(!entry.is_active_at(4 * 60 + 59));
+        assert!(entry.is_active_at(5 * 60));
+        assert!(entry.is_active_at(9 * 60 + 59));
+        assert!(!entry.is_active_at(10 * 60));
+    }
+
+    #[test]
+    fn routine_entry_window_wraps_midnight() {
+        let entry = entry(22, 0, 6, 0);
+
+        assert!(!entry.is_active_at(21 * 60 + 59));
+        assert!(entry.is_active_at(22 * 60));
+        assert!(entry.is_active_at(5 * 60 + 59));
+        assert!(!entry.is_active_at(6 * 60));
     }
 }

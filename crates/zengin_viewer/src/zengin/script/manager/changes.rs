@@ -8,6 +8,7 @@ use super::super::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogLine,
     GotoChange, InventoryGain, ItemRuntime, LoadedState, NpcRuntime, OverlayChange, PendingChanges,
     RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StartStateChange,
+    UseMobChange,
 };
 use super::super::symbol_id::InstanceId;
 
@@ -79,6 +80,10 @@ impl super::ScriptManager {
 
     pub fn drain_start_state_changes(&mut self) -> Vec<StartStateChange> {
         std::mem::take(&mut self.pending_changes().start_state_changes)
+    }
+
+    pub fn drain_use_mob_changes(&mut self) -> Vec<UseMobChange> {
+        std::mem::take(&mut self.pending_changes().use_mob_changes)
     }
 
     pub fn drain_goto_changes(&mut self) -> Vec<GotoChange> {

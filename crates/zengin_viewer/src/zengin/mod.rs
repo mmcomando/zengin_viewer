@@ -52,6 +52,7 @@ pub(crate) use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };
 pub(crate) use crate::zengin::loaders::vfs::{resolve_sound_asset, resolve_texture_asset};
+pub(crate) use crate::zengin::mobs::{MobOccupant, MobRegistry, NpcMobUse};
 pub(crate) use crate::zengin::npc_actions::NpcActionQueue;
 pub(crate) use crate::zengin::npc_data::NpcHandle;
 pub(crate) use crate::zengin::npc_routines::NpcHealth;
@@ -158,6 +159,8 @@ pub struct GameMob {
     /// Position in the ZEN load order.
     pub index: usize,
     pub vob_name: String,
+    /// In-game focus name (`oCMOB.name`).
+    pub focus_name: String,
     /// `AI_UseMob` scheme derived from the visual stem.
     pub scheme: String,
     /// Number of interaction states (`stateNum`).

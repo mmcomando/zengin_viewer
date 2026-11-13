@@ -6,6 +6,7 @@ use bevy::prelude::*;
 
 use crate::zengin::GameMob;
 use crate::zengin::resources::ZenGinModelComponent;
+use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 
 pub struct MobsPlugin;
@@ -13,7 +14,7 @@ pub struct MobsPlugin;
 impl Plugin for MobsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MobRegistry>();
-        app.add_systems(Update, extract_mob_positions);
+        app.add_systems(Update, (extract_mob_positions, release_despawned_mob_uses));
     }
 }
 
@@ -28,7 +29,6 @@ impl MobRegistry {
         self.by_scheme.entry(scheme).or_default().push(entity);
     }
 
-    #[allow(dead_code)] // consumed by the mob use action
     pub fn mobs(&self, scheme: &str) -> &[Entity] {
         self.by_scheme.get(scheme).map_or(&[], Vec::as_slice)
     }
@@ -38,6 +38,32 @@ impl MobRegistry {
         self.by_scheme
             .iter()
             .map(|(scheme, mobs)| (scheme.as_str(), mobs.as_slice()))
+    }
+}
+
+/// Npc currently attached to a mob interaction point.
+#[derive(Component, Debug, Clone)]
+pub struct NpcMobUse {
+    pub mob: Entity,
+    pub scheme: StringCanon,
+}
+
+/// Npc entity occupying a mob interaction point.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct MobOccupant(pub Entity);
+
+/// Releases mob points held by despawned npcs.
+fn release_despawned_mob_uses(
+    mut commands: Commands,
+    mut removed: RemovedComponents<NpcMobUse>,
+    mobs: Query<(Entity, &MobOccupant)>,
+) {
+    for npc in removed.read() {
+        for (mob, occupant) in &mobs {
+            if occupant.0 == npc {
+                commands.entity(mob).remove::<MobOccupant>();
+            }
+        }
     }
 }
 
@@ -53,7 +79,13 @@ fn extract_mob_positions(
         let Some(model) = models.get(&model_component.model_handle) else {
             continue;
         };
-        mob.positions = Some(mob_positions(model));
+        let positions = mob_positions(model);
+        debug!(
+            "mob({}) extracted {} attachment point(s)",
+            mob.focus_name,
+            positions.len()
+        );
+        mob.positions = Some(positions);
     }
 }
 
