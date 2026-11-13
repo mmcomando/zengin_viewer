@@ -7,7 +7,7 @@ use super::super::journal::{JournalChange, JournalManager, JournalTopic};
 use super::super::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogLine,
     GotoChange, InventoryGain, ItemRuntime, LoadedState, NpcRuntime, OverlayChange, PendingChanges,
-    RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc,
+    RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StartStateChange,
 };
 use super::super::symbol_id::InstanceId;
 
@@ -75,6 +75,10 @@ impl super::ScriptManager {
 
     pub fn drain_animation_changes(&mut self) -> Vec<AnimationChange> {
         std::mem::take(&mut self.pending_changes().animation_changes)
+    }
+
+    pub fn drain_start_state_changes(&mut self) -> Vec<StartStateChange> {
+        std::mem::take(&mut self.pending_changes().start_state_changes)
     }
 
     pub fn drain_goto_changes(&mut self) -> Vec<GotoChange> {

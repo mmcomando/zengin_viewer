@@ -20,7 +20,7 @@ use crate::zengin::script::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged,
     NpcEntitiesChanged, OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage, ScriptSound,
-    SpawnItem, SpawnNpc, WeaponMode,
+    SpawnItem, SpawnNpc, StartStateChange, WeaponMode,
 };
 
 pub struct ScriptBridgePlugin;
@@ -33,6 +33,7 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<ItemEntitiesChanged>();
         app.add_message::<AlignToWpChange>();
         app.add_message::<AnimationChange>();
+        app.add_message::<StartStateChange>();
         app.add_message::<AttackChange>();
         app.add_message::<ClearAiQueueChange>();
         app.add_message::<OverlayChange>();
@@ -101,6 +102,7 @@ fn sync_game_day(game_time: Res<GameTime>, gothic_script: Res<ScriptResource>) {
 fn send_script_changes(
     mut align_to_wp: MessageWriter<AlignToWpChange>,
     mut animation: MessageWriter<AnimationChange>,
+    mut start_state: MessageWriter<StartStateChange>,
     mut overlay: MessageWriter<OverlayChange>,
     mut goto: MessageWriter<GotoChange>,
     mut attack: MessageWriter<AttackChange>,
@@ -119,6 +121,9 @@ fn send_script_changes(
     }
     for change in script.drain_animation_changes() {
         animation.write(change);
+    }
+    for change in script.drain_start_state_changes() {
+        start_state.write(change);
     }
     for change in script.drain_overlay_changes() {
         overlay.write(change);

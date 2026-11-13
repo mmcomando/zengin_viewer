@@ -90,10 +90,8 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         0
     }
     fake_impl!(ai_setnpcstostate(_0, _1, _2));
-    /// Starts a routine state. Only `zs_attack` is emulated: it records the
-    /// state and requests an attack on the npc's `Npc_SetTarget` target.
-    #[allow(clippy::cognitive_complexity)]
-    fn ai_startstate(&mut self, npc: i32, state: i32, finalize: i32, waypoint: i32) {
+    /// Starts an AI state through the routine executor (`AI_StartState`).
+    fn ai_startstate(&mut self, npc: i32, state: i32, _finalize: i32, _waypoint: i32) {
         let Some(npc) = self.symbol_table.instance(npc) else {
             warn!("AI_StartState with invalid npc instance({npc})");
             return;
@@ -105,40 +103,23 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             );
             return;
         };
-        let Some(state_name) = self.symbol_table.symbol_name(state) else {
-            warn!(
-                "AI_StartState npc({}) with unknown state name({state})",
-                npc.value()
-            );
-            return;
-        };
-        if !state_name.eq_ignore_ascii_case("zs_attack") {
-            crate::warn_unimplemented!("AI_StartState({state_name}) npc({})", npc.value());
-            return;
-        }
-        let Some(target) = self.npc_state(npc).and_then(|npc| npc.live.target) else {
-            warn!(
-                "AI_StartState({state_name}) npc({}) ignored: no target set (Npc_SetTarget)",
-                npc.value()
-            );
-            return;
-        };
+        let state_name = self.symbol_table.symbol_name(state).unwrap_or_default();
+        let other = self
+            .npc_state(npc)
+            .and_then(|npc| npc.live.target)
+            .or_else(|| self.other_instance());
         bevy::log::info!(
-            "AI_StartState({state_name}) npc({}) finalize({finalize}) waypoint({waypoint}) on target({})",
-            npc.value(),
-            target.value()
+            "AI_StartState({state_name}) npc({}) other({other:?})",
+            npc.value()
         );
-        {
-            let mut instance = self.npc_state_mut(npc);
-            if let Some(previous) = instance.routine.current_state.replace(state_fn)
-                && previous != state_fn
-            {
-                instance.routine.previous_state = Some(previous);
-            }
-        }
-        self.pending.attack_changes.push(AttackChange {
+        // The engine drops the ai action queue when a state starts.
+        self.pending
+            .clear_ai_queue_changes
+            .push(ClearAiQueueChange { instance_id: npc });
+        self.pending.start_state_changes.push(StartStateChange {
             instance_id: npc,
-            target,
+            state: state_fn,
+            other,
         });
     }
     fake_impl!(ai_continueroutine(_0));

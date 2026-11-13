@@ -21,9 +21,9 @@ use crate::zengin::npc_actions::{
 };
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
-    NpcRoutineCheckState, apply_look_at, end_removed_routine_entries, move_along_path,
-    restore_routine_stand, run_routine_loops, update_npc_routine_entries, update_npc_routines,
-    update_routine_executors,
+    NpcRoutineCheckState, apply_look_at, apply_start_state_changes, end_removed_routine_entries,
+    move_along_path, restore_routine_stand, run_routine_loops, update_npc_routine_entries,
+    update_npc_routines, update_routine_executors,
 };
 use script_animation::apply_scripted_animations;
 use weapons::{apply_weapon_mode, update_npc_attachments};
@@ -47,8 +47,12 @@ impl Plugin for NpcRoutinesPlugin {
             Update,
             (
                 (update_npc_routine_entries, update_npc_routines).chain(),
+                clear_npc_actions,
+                apply_start_state_changes.after(clear_npc_actions),
                 end_removed_routine_entries.after(update_npc_routine_entries),
-                update_routine_executors.after(update_npc_routine_entries),
+                update_routine_executors
+                    .after(update_npc_routine_entries)
+                    .after(apply_start_state_changes),
                 run_routine_loops
                     .after(update_routine_executors)
                     .after(end_removed_routine_entries),
@@ -57,8 +61,8 @@ impl Plugin for NpcRoutinesPlugin {
                     .after(update_routine_executors)
                     .after(run_routine_loops)
                     .after(end_removed_routine_entries)
+                    .after(apply_start_state_changes)
                     .after(apply_scripted_animations),
-                clear_npc_actions,
                 enqueue_goto_actions.after(clear_npc_actions),
                 enqueue_align_actions.after(clear_npc_actions),
                 enqueue_attack_actions.after(clear_npc_actions),

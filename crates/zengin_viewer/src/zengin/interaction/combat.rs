@@ -16,7 +16,7 @@ use crate::zengin::npc_routines::{AnimationFiles, NpcEquippedWeapon, NpcOverlay,
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{AttackChange, WeaponMode};
+use crate::zengin::script::state::{AttackChange, StartStateChange, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc};
 
@@ -288,6 +288,23 @@ pub(crate) fn deal_damage(
                 instance_id: target_id,
                 target: shooter_id,
             });
+            let zs_attack = script.try_get_symbol_id("zs_attack");
+            let zs_attack =
+                zs_attack.and_then(|symbol| script.symbol_table().function(symbol.value()));
+            if let Some(state) = zs_attack
+                && script
+                    .npc_state(target_id)
+                    .is_none_or(|npc| npc.routine.current_state != Some(state))
+            {
+                script
+                    .pending_changes()
+                    .start_state_changes
+                    .push(StartStateChange {
+                        instance_id: target_id,
+                        state,
+                        other: Some(shooter_id),
+                    });
+            }
         }
         (hitpoints, shooter_is_player)
     };
@@ -417,6 +434,16 @@ pub(super) fn handle_npc_death(
             continue;
         };
         let npc_id = npc.map_or(death.instance_id, |npc| npc.instance_id());
+        // Script liveness checks (`Npc_IsDead`, `c_npcisdown`) read these.
+        {
+            let mut script = gothic_scripts.lock();
+            let mut state = script.npc_state_mut(npc_id);
+            state.live.dead = true;
+            state.live.position = None;
+            // The executor goes away with the despawned entity, drop the
+            // script-side active state with it.
+            state.routine.previous_state = state.routine.current_state.take();
+        }
         let position = death.position;
         // Only the drawn weapon drops on the ground; sheathed weapons stay
         // part of the inventory that moves to the player

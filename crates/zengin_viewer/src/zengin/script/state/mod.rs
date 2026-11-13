@@ -6,7 +6,7 @@ pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged,
     NpcEntitiesChanged, OverlayChange, RoutineExchange, ScreenMessage, ScriptSound, SpawnItem,
-    SpawnNpc,
+    SpawnNpc, StartStateChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -237,6 +237,8 @@ pub struct PendingChanges {
     pub attack_changes: Vec<AttackChange>,
     /// `AI_PlayAni`/`AI_PlayAniBS` requests produced by the script.
     pub animation_changes: Vec<AnimationChange>,
+    /// `AI_StartState` requests produced by the script.
+    pub start_state_changes: Vec<StartStateChange>,
     /// `Npc_ClearAIQueue` requests produced by the script.
     pub clear_ai_queue_changes: Vec<ClearAiQueueChange>,
     /// `Npc_ExchangeRoutine` requests produced by the script.
@@ -356,6 +358,13 @@ impl ImportCallState {
             }
         });
         i32::from(recorded == Some(state))
+    }
+
+    /// Instance bound to the `other` script global, `None` when it is unset or
+    /// not a valid instance id.
+    pub fn other_instance(&self) -> Option<InstanceId> {
+        let symbol = self.well_known_symbols.other_symbol?;
+        InstanceId::new(self.typed.read_symbol(symbol as u32, 0))
     }
 
     /// Resolves both ids as npc/item instance symbols, `None` when either is

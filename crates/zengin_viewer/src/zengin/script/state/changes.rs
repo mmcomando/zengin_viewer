@@ -3,7 +3,7 @@ use bevy::prelude::{Entity, Message, Transform, Vec3};
 use crate::zengin::{ItemHandle, NpcHandle};
 
 use super::super::string_value::StringCanon;
-use super::super::symbol_id::{InstanceId, StringId};
+use super::super::symbol_id::{FunctionId, InstanceId, StringId};
 use super::weapons::OverlayRequest;
 
 /// Signal that an npc requested `Npc_ExchangeRoutine`: its routine entries are
@@ -53,6 +53,18 @@ pub struct NpcEntitiesChanged {
 pub struct AnimationChange {
     pub instance_id: InstanceId,
     pub animation: StringCanon,
+}
+
+/// Signal that a script started an AI state (`AI_StartState`). The state
+/// replaces the running routine state and is not replaced by routine entry
+/// changes while it runs.
+#[derive(Debug, Clone, Message)]
+pub struct StartStateChange {
+    pub instance_id: InstanceId,
+    pub state: FunctionId,
+    /// Instance the state starts against (the npc target, else the script
+    /// `other` global).
+    pub other: Option<InstanceId>,
 }
 
 /// Signal that an instance requested `AI_GoToWP` (walk to a waypoint).

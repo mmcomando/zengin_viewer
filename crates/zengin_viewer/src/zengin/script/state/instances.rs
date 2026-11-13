@@ -153,6 +153,9 @@ pub struct NpcSocialState {
 pub struct NpcLiveState {
     /// World position, `None` when the npc has no entity (unknown or dead).
     pub position: Option<Vec3>,
+    /// The npc died and its entity was despawned (`Npc_IsDead`).
+    #[serde(default)]
+    pub dead: bool,
     /// Npc currently looked at (`AI_LookAtNPC`/`AI_StopLookAt`).
     pub look_at: Option<InstanceId>,
     /// Npc the ai targets (`Npc_SetTarget`), the entity `AI_Attack` attacks.

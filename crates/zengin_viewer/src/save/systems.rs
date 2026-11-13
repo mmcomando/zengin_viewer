@@ -127,8 +127,8 @@ fn quick_save(
         (script.script_fingerprint(), script.snapshot_save())
     };
 
-    // A saved runtime without a live entity is a dead npc; `Npc_IsDead` is
-    // derived from the live position, so clear it for those instances.
+    // A saved runtime without a live entity is a dead npc, mark it so
+    // `Npc_IsDead` stays true after loading.
     let live_npcs: HashSet<i32> = npcs
         .iter()
         .map(|(npc, _, _)| npc.instance_id().value())
@@ -137,6 +137,7 @@ fn quick_save(
         if live_npcs.contains(&instance.value()) {
             continue;
         }
+        runtime.live.dead = true;
         runtime.live.position = None;
         runtime.live.look_at = None;
         runtime.live.target = None;

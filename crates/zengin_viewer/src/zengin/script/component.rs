@@ -75,12 +75,13 @@ fn update_script_npc_state(
 }
 
 fn set_npc_script_position(handle: &NpcHandle, position: Option<Vec3>) {
-    handle
+    let mut runtime = handle
         .runtime()
         .write()
-        .unwrap_or_else(PoisonError::into_inner)
-        .live
-        .position = position;
+        .unwrap_or_else(PoisonError::into_inner);
+    if !runtime.live.dead {
+        runtime.live.position = position;
+    }
 }
 
 /// Bevy resource holding the world script vm behind `Arc<Mutex>` so it can be

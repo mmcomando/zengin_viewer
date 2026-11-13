@@ -13,11 +13,12 @@ use crate::graphics::{
 };
 use crate::zengin::GameNpc;
 use crate::zengin::common::{choose_animation_scheme, face_direction_quat, get_animation_path};
+use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::{NpcAction, NpcActionQueue};
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{RoutineEntry, RoutineFunctions};
+use crate::zengin::script::state::{RoutineEntry, RoutineFunctions, StartStateChange};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::waypoint_graph::WaypointGraph;
 
@@ -46,6 +47,15 @@ impl NpcRoutineState {
 /// Engine loop cadence of a running routine state (`ZS_*_loop`), in seconds.
 const ROUTINE_LOOP_INTERVAL_SECS: f32 = 1.0;
 
+/// Why a routine state is running.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RoutineSource {
+    /// Started from the active [`RoutineEntry`].
+    Routine,
+    /// Pushed by `AI_StartState`; routine entry changes do not replace it.
+    AiState,
+}
+
 /// Running routine state of an npc with its resolved start/loop/end hooks. The
 /// lifecycle system starts the state, calls its loop once per
 /// [`ROUTINE_LOOP_INTERVAL_SECS`] and runs its end hook when the state is
@@ -53,6 +63,7 @@ const ROUTINE_LOOP_INTERVAL_SECS: f32 = 1.0;
 #[derive(Component, Debug, Clone)]
 pub(crate) struct RoutineExecutor {
     functions: RoutineFunctions,
+    source: RoutineSource,
     /// Seconds since the state started or was last reset by `NPC_SetStateTime`.
     state_time: f32,
     /// Seconds until the next loop hook call.
@@ -167,6 +178,9 @@ pub(crate) fn end_removed_routine_entries(
         let Ok((entity, npc, executor)) = npcs.get(entity) else {
             continue;
         };
+        if executor.source == RoutineSource::AiState {
+            continue;
+        }
         script.call_routine_end(npc.instance_id(), executor.functions);
         commands.entity(entity).remove::<RoutineExecutor>();
     }
@@ -202,19 +216,6 @@ pub(crate) fn update_routine_executors(
             continue;
         }
         let desired = entry.state_fn;
-        if executor
-            .as_ref()
-            .is_some_and(|executor| Some(executor.functions.start) == desired)
-        {
-            if let Some(mut executor) = executor {
-                // A visual respawn does not re-run the start hook; force one
-                // loop so scripts that request their pose from the loop can
-                // restore it.
-                executor.bypass_change_detection().next_loop_in = 0.0;
-            }
-            continue;
-        }
-
         let instance = npc.instance_id();
         let Some(mut executor) = executor else {
             let Some(start) = desired else {
@@ -224,6 +225,7 @@ pub(crate) fn update_routine_executors(
             script.call_routine_start(instance, functions);
             commands.entity(entity).insert(RoutineExecutor {
                 functions,
+                source: RoutineSource::Routine,
                 state_time: 0.0,
                 // The engine runs the first loop on the next tick, the loop
                 // system picks it up on the next update.
@@ -231,6 +233,18 @@ pub(crate) fn update_routine_executors(
             });
             continue;
         };
+
+        if executor.source == RoutineSource::AiState {
+            // AI states outlive routine entries. A visual respawn does not
+            // re-run the start hook, force one loop so scripts that request
+            // their pose from the loop can restore it.
+            executor.bypass_change_detection().next_loop_in = 0.0;
+            continue;
+        }
+        if Some(executor.functions.start) == desired {
+            executor.bypass_change_detection().next_loop_in = 0.0;
+            continue;
+        }
 
         script.call_routine_end(instance, executor.functions);
         let Some(start) = desired else {
@@ -240,8 +254,68 @@ pub(crate) fn update_routine_executors(
         let functions = script.resolve_routine_functions(start);
         script.call_routine_start(instance, functions);
         executor.functions = functions;
+        executor.source = RoutineSource::Routine;
         executor.state_time = 0.0;
         executor.next_loop_in = 0.0;
+    }
+}
+
+/// Applies `AI_StartState` requests. The requested state replaces the running
+/// executor and outlives routine entry changes until it ends.
+#[allow(clippy::type_complexity)]
+pub(crate) fn apply_start_state_changes(
+    mut commands: Commands,
+    gothic_script: Res<ScriptResource>,
+    mut changes: MessageReader<StartStateChange>,
+    index: Res<InstanceIndex>,
+    mut npcs: Query<(
+        Entity,
+        Option<&AnimationController>,
+        Option<&mut RoutineExecutor>,
+    )>,
+) {
+    if changes.is_empty() {
+        return;
+    }
+
+    let mut script = gothic_script.lock();
+    for change in changes.read() {
+        for &entity in index.npcs(change.instance_id) {
+            let Ok((entity, controller, executor)) = npcs.get_mut(entity) else {
+                continue;
+            };
+            if controller.is_none() {
+                continue;
+            }
+            let functions = script.resolve_routine_functions(change.state);
+            if let Some(mut executor) = executor {
+                if executor.source == RoutineSource::AiState
+                    && executor.functions.start == change.state
+                {
+                    continue;
+                }
+                script.call_routine_end(change.instance_id, executor.functions);
+                if let Some(other) = change.other {
+                    script.set_other(other);
+                }
+                script.call_routine_start(change.instance_id, functions);
+                executor.functions = functions;
+                executor.source = RoutineSource::AiState;
+                executor.state_time = 0.0;
+                executor.next_loop_in = 0.0;
+            } else {
+                if let Some(other) = change.other {
+                    script.set_other(other);
+                }
+                script.call_routine_start(change.instance_id, functions);
+                commands.entity(entity).insert(RoutineExecutor {
+                    functions,
+                    source: RoutineSource::AiState,
+                    state_time: 0.0,
+                    next_loop_in: 0.0,
+                });
+            }
+        }
     }
 }
 
@@ -251,7 +325,15 @@ pub(crate) fn run_routine_loops(
     time: Res<Time>,
     mut commands: Commands,
     gothic_script: Res<ScriptResource>,
-    mut npcs: Query<(Entity, &GameNpc, &mut RoutineExecutor), With<AnimationController>>,
+    mut npcs: Query<
+        (
+            Entity,
+            &GameNpc,
+            &mut RoutineExecutor,
+            Option<&RoutineEntry>,
+        ),
+        With<AnimationController>,
+    >,
 ) {
     if npcs.is_empty() {
         return;
@@ -259,7 +341,7 @@ pub(crate) fn run_routine_loops(
 
     let delta = time.delta_secs();
     let mut script = gothic_script.lock();
-    for (entity, npc, mut executor) in &mut npcs {
+    for (entity, npc, mut executor, entry) in &mut npcs {
         // Timer bookkeeping must not mark the executor changed, otherwise
         // `restore_routine_stand` would reset the pose every frame.
         {
@@ -284,6 +366,18 @@ pub(crate) fn run_routine_loops(
         }
         if ended {
             script.call_routine_end(instance, executor.functions);
+            if executor.source == RoutineSource::AiState
+                && let Some(start) = entry.and_then(|entry| entry.state_fn)
+            {
+                // The AI state returned control, resume the scheduled routine.
+                let functions = script.resolve_routine_functions(start);
+                script.call_routine_start(instance, functions);
+                executor.functions = functions;
+                executor.source = RoutineSource::Routine;
+                executor.state_time = 0.0;
+                executor.next_loop_in = 0.0;
+                continue;
+            }
             commands.entity(entity).remove::<RoutineExecutor>();
         }
     }

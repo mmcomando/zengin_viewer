@@ -189,7 +189,7 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
         };
         let alive = self
             .npc_state(npc)
-            .is_some_and(|npc| npc.live.position.is_some());
+            .is_some_and(|npc| !npc.live.dead && npc.live.position.is_some());
         i32::from(!alive)
     }
     fn npc_getstatetime(&mut self, npc: i32) -> i32 {
