@@ -13,18 +13,26 @@ use crate::zengin::{NpcWeaponMode, Selection, WeaponMode};
 
 use super::auto_anim_sequencer::{
     AutoAnimSequencer, DesiredAnimation, MeleeAttackKind, SetDesiredAnimation, TurnDirection,
+    is_melee_attack_animation,
 };
+use super::controller::AnimationController;
 
 /// Writes the desired animation of the player every frame from the move
 /// input, resolved camera relative (forward input moves away from the camera;
 /// holds for every camera mode). Sideways input takes priority and strafes
 /// without turning the model. Firing (ranged weapon drawn and attack pressed)
-/// wins over movement; the model aims at the target.
+/// wins over movement; the model aims at the target. A directional attack press
+/// wins over both for one swing.
 #[allow(clippy::type_complexity)]
 pub(super) fn send_desired_animations(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     players: Query<
-        (Entity, Option<&NpcWeaponMode>, &GlobalTransform),
+        (
+            Entity,
+            Option<&NpcWeaponMode>,
+            &GlobalTransform,
+            Option<&AnimationController>,
+        ),
         (With<PlayerCharacter>, With<AutoAnimSequencer>),
     >,
     camera: Single<&Transform, With<Camera3d>>,
@@ -33,11 +41,29 @@ pub(super) fn send_desired_animations(
     transforms: Query<&GlobalTransform>,
     mut writer: MessageWriter<SetDesiredAnimation>,
 ) {
-    let Ok((entity, weapon_mode, player_tr)) = players.single() else {
+    let Ok((entity, weapon_mode, player_tr, controller)) = players.single() else {
         return;
     };
 
     let mode = weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0);
+
+    // A directional press is a one-shot swing: it is only started when no
+    // swing is played or queued, so mashing does not chain swings.
+    if let Some(kind) = directional_attack(&action_state)
+        && mode == WeaponMode::Melee
+        && !controller.is_some_and(swing_is_playing)
+    {
+        set_attack_animation(
+            entity,
+            DesiredAnimation::MeleeAttack(kind),
+            player_tr,
+            &selection,
+            &transforms,
+            &mut writer,
+        );
+        return;
+    }
+
     let attacking = match mode {
         WeaponMode::Ranged => action_state.pressed(&GameplayAction::Interact),
         WeaponMode::Melee => {
@@ -61,7 +87,7 @@ pub(super) fn send_desired_animations(
     if attacking {
         set_attack_animation(
             entity,
-            mode,
+            attack_animation(mode),
             player_tr,
             &selection,
             &transforms,
@@ -84,12 +110,39 @@ pub(super) fn send_desired_animations(
 /// running in the input direction.
 const STRAFE_DEADZONE: f32 = 0.1;
 
-/// Writes the attack animation: melee swing or bow fire depending on the
-/// drawn weapon. The model aims at the selected npc, falling back to the
-/// current facing direction when nothing is selected.
+/// One-shot swing requested this frame; left wins when both keys are pressed
+/// together.
+fn directional_attack(action_state: &ActionState<GameplayAction>) -> Option<MeleeAttackKind> {
+    if action_state.just_pressed(&GameplayAction::AttackLeft) {
+        return Some(MeleeAttackKind::Left);
+    }
+    if action_state.just_pressed(&GameplayAction::AttackRight) {
+        return Some(MeleeAttackKind::Right);
+    }
+    None
+}
+
+/// Whether a melee swing is played or queued, so another directional press is
+/// dropped instead of chaining.
+fn swing_is_playing(controller: &AnimationController) -> bool {
+    is_melee_attack_animation(controller.current())
+        || controller.next().is_some_and(is_melee_attack_animation)
+}
+
+/// Loop animation of the held attack key for the drawn weapon.
+fn attack_animation(mode: WeaponMode) -> DesiredAnimation {
+    match mode {
+        WeaponMode::Ranged => DesiredAnimation::Fire,
+        WeaponMode::Fists => DesiredAnimation::MeleeAttack(MeleeAttackKind::Fist),
+        WeaponMode::Melee => DesiredAnimation::MeleeAttack(MeleeAttackKind::Default),
+    }
+}
+
+/// Writes the attack animation. The model aims at the selected npc, falling
+/// back to the current facing direction when nothing is selected.
 fn set_attack_animation(
     entity: Entity,
-    mode: WeaponMode,
+    animation: DesiredAnimation,
     player_tr: &GlobalTransform,
     selection: &Selection,
     transforms: &Query<&GlobalTransform>,
@@ -108,11 +161,6 @@ fn set_attack_animation(
         None
     } else {
         Some(direction)
-    };
-    let animation = match mode {
-        WeaponMode::Ranged => DesiredAnimation::Fire,
-        WeaponMode::Fists => DesiredAnimation::MeleeAttack(MeleeAttackKind::Fist),
-        WeaponMode::Melee => DesiredAnimation::MeleeAttack(MeleeAttackKind::Default),
     };
     writer.write(SetDesiredAnimation {
         who: entity,

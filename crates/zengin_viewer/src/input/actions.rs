@@ -107,6 +107,10 @@ pub enum GameplayAction {
     Interact,
     /// Deal damage with the drawn weapon to the selected npc.
     DealDamage,
+    /// One-shot left melee swing, only with a melee weapon drawn.
+    AttackLeft,
+    /// One-shot right melee swing, only with a melee weapon drawn.
+    AttackRight,
     /// Toggle the equipped melee weapon between sheathed and drawn.
     EquipMelee,
     /// Toggle the equipped ranged weapon between sheathed and drawn.

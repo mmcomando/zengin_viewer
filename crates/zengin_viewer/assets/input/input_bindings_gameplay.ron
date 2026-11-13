@@ -16,6 +16,16 @@
                 "KeyCode": ControlLeft,
             },
         ],
+        AttackLeft: [
+            {
+                "KeyCode": KeyZ,
+            },
+        ],
+        AttackRight: [
+            {
+                "KeyCode": KeyC,
+            },
+        ],
         EquipMelee: [
             {
                 "KeyCode": Digit1,

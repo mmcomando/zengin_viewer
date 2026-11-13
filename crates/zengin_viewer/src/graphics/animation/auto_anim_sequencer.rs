@@ -979,6 +979,41 @@ mod tests {
         assert_eq!(queued_next(&world, model), Some(stand));
     }
 
+    /// A directional press plays exactly one swing: the forced start cuts into
+    /// the swing, the next frame's stand replaces the desired animation, the
+    /// optimal frame lands the hit and the swing end queues the stand.
+    #[test]
+    fn directional_swing_is_one_shot() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        let attack = animation_handle(&mut world, "T_1HATTACKL");
+        let stand = animation_handle(&mut world, "S_RUN");
+
+        send_desired_force(
+            &mut world,
+            model,
+            DesiredAnimation::MeleeAttack(MeleeAttackKind::Left),
+            true,
+        );
+        run_sequencer(&mut world);
+        assert_eq!(queued_next(&world, model), Some(attack.clone()));
+
+        // The animation update switched to the swing before the next frame.
+        world
+            .get_mut::<AnimationController>(model)
+            .unwrap()
+            .switch_to(attack.clone());
+        send_desired(&mut world, model, DesiredAnimation::Stand);
+        run_sequencer(&mut world);
+
+        send_optimal_frame(&mut world, model);
+        run_optimal_frame_system(&mut world);
+        assert_eq!(melee_hits(&world), 1);
+
+        send_ends(&mut world, model, attack);
+        run_sequencer(&mut world);
+        assert_eq!(queued_next(&world, model), Some(stand));
+    }
+
     /// A queued hit reaction is not replaced by a forced desired animation
     /// before it starts.
     #[test]
