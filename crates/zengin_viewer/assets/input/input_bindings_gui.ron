@@ -37,6 +37,14 @@
                 "KeyCode": Enter,
             },
         ],
+        Interact: [
+            {
+                "MouseButton": Left,
+            },
+            {
+                "KeyCode": ControlLeft,
+            },
+        ],
         CancelAction: [
             {
                 "KeyCode": Space,

@@ -141,8 +141,9 @@ pub(super) fn toggle_inventory(
 }
 
 /// Grid navigation and closing while the inventory is open. When a second
-/// window is shown, moving past the left/right edge switches windows; confirm
-/// applies the action of the focused window for the current mode.
+/// window is shown, moving past the left/right edge switches windows; the
+/// Interact key (left mouse button, left ctrl) applies the action of the focused
+/// window for the current mode.
 pub(super) fn handle_inventory_input(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     mut state: ResMut<InventoryUiState>,
@@ -202,7 +203,7 @@ pub(super) fn handle_inventory_input(
         window.selected += columns;
     }
 
-    if !action_state.just_pressed(&GuiAction::Confirm) {
+    if !action_state.just_pressed(&GuiAction::Interact) {
         return;
     }
     match state.mode {
