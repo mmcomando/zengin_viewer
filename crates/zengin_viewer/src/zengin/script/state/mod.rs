@@ -3,9 +3,9 @@ mod instances;
 mod weapons;
 
 pub(crate) use changes::{
-    AlignToWpChange, AttackChange, ClearAiQueueChange, DialogClose, DialogLine, GotoChange,
-    InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange,
-    RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
+    AlignToWpChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose, DialogLine,
+    GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged,
+    OverlayChange, RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
 };
 pub(crate) use instances::{DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry};
 pub(crate) use weapons::{ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponKind, WeaponMode};
@@ -13,6 +13,7 @@ pub(crate) use weapons::{ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponKind, Weapon
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+use bevy::log::warn;
 use bevy::math::Vec3;
 use daedalus_typed::TypedRegistry;
 use rand_mt::Mt;
@@ -246,6 +247,9 @@ pub struct PendingChanges {
     pub inventory_gains: Vec<InventoryGain>,
     /// On-screen messages requested by `PrintScreen`/`AI_PrintScreen`.
     pub screen_messages: Vec<ScreenMessage>,
+    /// Chapter splash requested by `IntroduceChapter`, at most one pending at a
+    /// time (a later request replaces an undrained one).
+    pub chapter_intro: Option<ChapterIntro>,
     /// Journal changes produced by the script (`Log_*` host functions).
     pub journal_changes: Vec<JournalChange>,
     /// Npc instances whose data was edited since the last drain, deduplicated
@@ -407,6 +411,54 @@ impl ImportCallState {
             y,
             time_sec: time,
         });
+    }
+
+    /// Queues a chapter splash for the ECS bridge. A newer request replaces an
+    /// undrained one, matching the engine which keeps a single pending chapter.
+    pub(crate) fn push_chapter_intro(
+        &mut self,
+        title: i32,
+        subtitle: i32,
+        texture: i32,
+        sound: i32,
+        time_ms: i32,
+    ) {
+        let Some(title) = self.chapter_string(title, "title") else {
+            return;
+        };
+        let Some(subtitle) = self.chapter_string(subtitle, "subtitle") else {
+            return;
+        };
+        let Some(texture) = self.chapter_string(texture, "texture") else {
+            return;
+        };
+        let Some(sound) = self.chapter_string(sound, "sound") else {
+            return;
+        };
+        if self.pending.chapter_intro.is_some() {
+            warn!("IntroduceChapter: replacing a chapter screen which was not shown yet");
+        }
+        self.pending.chapter_intro = Some(ChapterIntro {
+            title,
+            subtitle,
+            texture,
+            sound,
+            time_ms,
+        });
+    }
+
+    /// Content of a string argument of `IntroduceChapter`, `None` when the id
+    /// does not refer to a string symbol (logged, the screen is dropped).
+    fn chapter_string(&self, raw: i32, what: &str) -> Option<String> {
+        let Some(id) = self.symbol_table.string(raw) else {
+            warn!("IntroduceChapter: {what}({raw}) is not a string, chapter screen dropped");
+            return None;
+        };
+        let Some(value) = self.get_string_non_0(id.value()) else {
+            warn!("IntroduceChapter: {what}({raw}) has no content, chapter screen dropped");
+            return None;
+        };
+        Some(value)
     }
 
     /// Fetches a static string literal with its original case

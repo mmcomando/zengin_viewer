@@ -17,9 +17,9 @@ use crate::zengin::npc_routines::{
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use crate::zengin::script::state::{
-    AlignToWpChange, AttackChange, ClearAiQueueChange, DialogClose, DialogLine, GotoChange,
-    InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange,
-    OverlayRequest, RoutineEntry, ScreenMessage, SpawnItem, SpawnNpc, WeaponMode,
+    AlignToWpChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose, DialogLine,
+    GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged,
+    OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage, SpawnItem, SpawnNpc, WeaponMode,
 };
 
 pub struct ScriptBridgePlugin;
@@ -42,6 +42,7 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<InventoryGain>();
         app.add_message::<JournalChange>();
         app.add_message::<ScreenMessage>();
+        app.add_message::<ChapterIntro>();
         app.add_systems(
             Update,
             (
@@ -54,6 +55,7 @@ impl Plugin for ScriptBridgePlugin {
                 log_inventory_gains,
                 log_journal_changes,
                 forward_screen_messages,
+                forward_chapter_intro,
                 sync_npc_routine_entry,
                 sync_npc_look_at,
                 sync_npc_weapon_mode,
@@ -219,6 +221,17 @@ fn forward_screen_messages(
     let mut script = gothic_script.lock();
     for message in script.drain_screen_messages() {
         screen_message.write(message);
+    }
+}
+
+/// Forwards the chapter splash the script requested as an ECS message.
+fn forward_chapter_intro(
+    mut chapter_intro: MessageWriter<ChapterIntro>,
+    gothic_script: Res<ScriptResource>,
+) {
+    let mut script = gothic_script.lock();
+    if let Some(intro) = script.drain_chapter_intro() {
+        chapter_intro.write(intro);
     }
 }
 

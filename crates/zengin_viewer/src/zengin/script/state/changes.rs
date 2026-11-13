@@ -128,6 +128,21 @@ pub struct ScreenMessage {
     pub time_sec: i32,
 }
 
+/// Chapter introduction requested by `IntroduceChapter`: a splash screen with
+/// a background texture, a title and a subtitle, shown for `time_ms`
+/// milliseconds (`<= 0` keeps it until the player closes it).
+///
+/// Texture and sound are the raw short names from the script (for example
+/// `chapter1.tga` and `chapter_01.wav`), resolved against the vfs by the GUI.
+#[derive(Debug, Clone, Message)]
+pub struct ChapterIntro {
+    pub title: String,
+    pub subtitle: String,
+    pub texture: String,
+    pub sound: String,
+    pub time_ms: i32,
+}
+
 #[derive(Debug, Clone, Message)]
 pub struct DialogLine {
     pub npc_a: InstanceId,

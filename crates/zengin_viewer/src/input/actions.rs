@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::audio::{PlaySound, SoundManager};
 use crate::game_state::AppState;
-use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
+use crate::gui::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiState};
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
 use crate::zengin::{DialogRequest, DialogUiState};
@@ -200,6 +200,7 @@ pub enum DebugAction {
 fn handle_back(
     state: Res<State<AppState>>,
     action_state: Single<&ActionState<SharedAction>, With<SharedInputMarker>>,
+    mut chapter_screen: ResMut<ChapterScreenState>,
     mut inventory_ui: ResMut<InventoryUiState>,
     mut journal_ui: ResMut<JournalUiState>,
     mut stats_ui: ResMut<StatsUiState>,
@@ -228,6 +229,11 @@ fn handle_back(
         return;
     }
     if !action_state.just_pressed(&SharedAction::Back) {
+        return;
+    }
+    if chapter_screen.is_open() {
+        chapter_screen.close();
+        info!("Back closed the chapter screen");
         return;
     }
     if inventory_ui.is_open() {

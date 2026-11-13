@@ -49,6 +49,7 @@ pub(crate) use crate::zengin::item_data::ItemHandle;
 pub(crate) use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };
+pub(crate) use crate::zengin::loaders::vfs::{resolve_sound_asset, resolve_texture_asset};
 pub(crate) use crate::zengin::npc_actions::NpcActionQueue;
 pub(crate) use crate::zengin::npc_data::NpcHandle;
 pub(crate) use crate::zengin::npc_routines::NpcHealth;
@@ -56,10 +57,12 @@ pub(crate) use crate::zengin::npc_routines::NpcWeaponMode;
 pub(crate) use crate::zengin::resources::CachedAssetHandles;
 pub(crate) use crate::zengin::resources::NPC_BODY;
 pub(crate) use crate::zengin::resources::STATIC_OBJECT;
+pub(crate) use crate::zengin::script::bridge::ScriptChangesApplied;
 pub(crate) use crate::zengin::script::component::ScriptResource;
 pub(crate) use crate::zengin::script::journal::{JournalSection, JournalStatus, JournalTopic};
 pub(crate) use crate::zengin::script::manager::ItemDisplayData;
 pub(crate) use crate::zengin::script::manager::ScriptManager;
+pub(crate) use crate::zengin::script::state::ChapterIntro;
 pub(crate) use crate::zengin::script::state::ScreenMessage;
 pub(crate) use crate::zengin::script::state::WeaponKind;
 pub(crate) use crate::zengin::script::state::WeaponMode;

@@ -5,8 +5,8 @@ use bevy::log::warn;
 use bevy::prelude::*;
 use zen_kit_rs::vfs::Vfs;
 
-use crate::zengin::common::to_asset_path;
-use crate::zengin::loaders::vdf_reader::ZenginVfs;
+use crate::zengin::common::{get_full_texture_path, to_asset_path};
+use crate::zengin::loaders::vdf_reader::{ZenginVfs, get_zengin_asset_bytes};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::symbol_id::InstanceId;
 
@@ -54,6 +54,66 @@ pub fn resolve_stand_animation(vfs: &ZenginVfs, scheme: &str) -> Option<String> 
                 .is_some()
         })
         .map(str::to_string)
+}
+
+/// Resolved asset path of a texture referenced by a script (for example
+/// `chapter1.tga`). Tries the compiled-textures directory first, then the bare
+/// compiled file name, mirroring the engine's texture lookup.
+pub fn resolve_texture_asset(vfs: &ZenginVfs, short: &str) -> Option<String> {
+    let candidates = [
+        get_full_texture_path(short),
+        format!("zengin://{}", compiled_texture_name(short)),
+    ];
+    candidates
+        .iter()
+        .find(|path| zengin_asset_exists(vfs, path))
+        .cloned()
+}
+
+/// Resolved asset path of a global sound referenced by a script (for example
+/// `chapter_01.wav`). Tries the global sound directory first, then the bare
+/// file name.
+pub fn resolve_sound_asset(vfs: &ZenginVfs, name: &str) -> Option<String> {
+    let file = sound_file_name(name);
+    let candidates = [
+        format!("zengin://_WORK/DATA/SOUND/{file}"),
+        format!("zengin://{file}"),
+    ];
+    candidates
+        .iter()
+        .find(|path| zengin_asset_exists(vfs, path))
+        .cloned()
+}
+
+/// `<NAME>-C.TEX` of a texture short name, with or without its `.TGA` suffix.
+fn compiled_texture_name(short: &str) -> String {
+    let texture = short.to_uppercase();
+    if texture.ends_with(".TGA") {
+        texture.replace(".TGA", "-C.TEX")
+    } else {
+        format!("{texture}-C.TEX")
+    }
+}
+
+/// Upper-cased `.WAV` file name of a sound short name.
+fn sound_file_name(name: &str) -> String {
+    let file = name.to_uppercase();
+    if file.ends_with(".WAV") {
+        file
+    } else {
+        format!("{file}.WAV")
+    }
+}
+
+/// Whether the vfs contains the given `zengin://` asset path. Bare file names
+/// fall back to the archive-wide name lookup of `get_zengin_asset_bytes`.
+fn zengin_asset_exists(vfs: &ZenginVfs, asset_path: &str) -> bool {
+    let relative = asset_path.strip_prefix("zengin://").unwrap_or(asset_path);
+    let vfs = vfs
+        .0
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    get_zengin_asset_bytes(&vfs, relative).is_some()
 }
 
 /// Resolved mesh asset path of an item instance, from the script item instances
@@ -112,4 +172,26 @@ pub(crate) fn resolve_mesh_path_quiet(vfs: &Vfs, name: &str) -> Option<String> {
         format!("/_WORK/DATA/MESHES/_COMPILED/{}.MSH", name),
     ];
     try_load_mesh(vfs, &asset_paths).map(|path| to_asset_path(&path))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::zengin::loaders::vdf_reader::create_zengin_vfs;
+
+    #[test]
+    #[ignore = "requires a Gothic 2 install"]
+    fn chapter_assets_resolve() {
+        let vfs = ZenginVfs(create_zengin_vfs());
+        assert_eq!(
+            resolve_texture_asset(&vfs, "chapter1.tga").as_deref(),
+            Some("zengin://_WORK/DATA/TEXTURES/_COMPILED/CHAPTER1-C.TEX")
+        );
+        // Global sounds are not under a fixed directory, the archive-wide name
+        // lookup finds them.
+        assert_eq!(
+            resolve_sound_asset(&vfs, "chapter_01.wav").as_deref(),
+            Some("zengin://CHAPTER_01.WAV")
+        );
+    }
 }

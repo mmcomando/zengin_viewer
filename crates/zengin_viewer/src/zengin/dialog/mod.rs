@@ -56,7 +56,12 @@ impl Plugin for GameDialogPlugin {
                 .after(ScriptChangesApplied)
                 .run_if(in_state(AppState::InGame)),
         );
-        app.add_systems(Update, sync_input_mode.after(ScriptChangesApplied));
+        app.add_systems(
+            Update,
+            sync_input_mode
+                .after(ScriptChangesApplied)
+                .after(crate::gui::ChapterScreenUpdated),
+        );
     }
 }
 
@@ -65,12 +70,14 @@ impl Plugin for GameDialogPlugin {
 pub(crate) fn sync_input_mode(
     state: Res<State<AppState>>,
     dialog_ui: Res<DialogUiState>,
+    chapter_screen: Res<crate::gui::ChapterScreenState>,
     inventory_ui: Res<crate::gui::InventoryUiState>,
     journal_ui: Res<crate::gui::JournalUiState>,
     stats_ui: Res<crate::gui::StatsUiState>,
     mut input_mode: ResMut<InputMode>,
 ) {
     let mode = if *state.get() == AppState::MainMenu
+        || chapter_screen.is_open()
         || dialog_ui.is_open()
         || inventory_ui.is_open()
         || journal_ui.is_open()

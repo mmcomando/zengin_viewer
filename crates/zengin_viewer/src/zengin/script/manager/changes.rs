@@ -5,9 +5,9 @@ use bevy::math::Vec3;
 
 use super::super::journal::{JournalChange, JournalManager, JournalTopic};
 use super::super::state::{
-    AlignToWpChange, AttackChange, ClearAiQueueChange, DialogLine, GotoChange, InventoryGain,
-    ItemRuntime, LoadedState, NpcRuntime, OverlayChange, PendingChanges, RoutineExchange,
-    ScreenMessage, SpawnItem, SpawnNpc,
+    AlignToWpChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogLine, GotoChange,
+    InventoryGain, ItemRuntime, LoadedState, NpcRuntime, OverlayChange, PendingChanges,
+    RoutineExchange, ScreenMessage, SpawnItem, SpawnNpc,
 };
 use super::super::symbol_id::InstanceId;
 
@@ -137,6 +137,10 @@ impl super::ScriptManager {
 
     pub fn drain_screen_messages(&mut self) -> Vec<ScreenMessage> {
         std::mem::take(&mut self.pending_changes().screen_messages)
+    }
+
+    pub fn drain_chapter_intro(&mut self) -> Option<ChapterIntro> {
+        self.pending_changes().chapter_intro.take()
     }
 
     /// Records the instance id of the player (`PC_Hero`).

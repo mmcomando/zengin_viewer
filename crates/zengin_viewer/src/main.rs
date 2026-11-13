@@ -196,6 +196,7 @@ fn main() {
         .add_plugins(RenderOptionsPlugin)
         .add_plugins(SoundPlugin)
         .add_plugins(GameLogPlugin)
+        .add_plugins(crate::gui::ChapterScreenPlugin)
         .add_plugins(crate::gui::HealthBarsPlugin)
         .add_plugins(crate::gui::InventoryUiPlugin)
         .add_plugins(crate::gui::JournalUiPlugin)

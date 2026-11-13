@@ -44,7 +44,19 @@ impl mmcomando::zengine_scripts::misc_scripts::Host for ImportCallState {
     fake_impl!(playvideo(_0) -> i32);
     fake_impl!(playvideoex(_0, _1, _2) -> i32);
     fake_impl!(setpercentdone(_0));
-    fake_impl!(introducechapter(_0, _1, _2, _3, _4));
+    /// Shows the chapter splash: background texture, title, subtitle and a
+    /// timed close in `time` milliseconds. The texture and sound names are
+    /// resolved against the vfs when the ECS shows the screen.
+    fn introducechapter(
+        &mut self,
+        title: i32,
+        subtitle: i32,
+        texture: i32,
+        sound: i32,
+        wait_time: i32,
+    ) {
+        self.push_chapter_intro(title, subtitle, texture, sound, wait_time);
+    }
     fake_impl!(update_choicebox(_0));
     fn createinvitem(&mut self, npc: i32, item: i32) {
         self.createinvitems(npc, item, 1);
