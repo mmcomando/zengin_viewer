@@ -7,6 +7,12 @@
             {
                 "KeyCode": KeyW,
             },
+            {
+                "MouseScrollDirection": (
+                    direction: Up,
+                    threshold: 0.0,
+                ),
+            },
         ],
         Down: [
             {
@@ -14,6 +20,12 @@
             },
             {
                 "KeyCode": KeyR,
+            },
+            {
+                "MouseScrollDirection": (
+                    direction: Down,
+                    threshold: 0.0,
+                ),
             },
         ],
         Left: [
