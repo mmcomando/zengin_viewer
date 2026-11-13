@@ -12,6 +12,12 @@ const LINE_DISPLAY_SECONDS: f32 = 1.0;
 /// Extra pause after a line's sound finished before the next line is shown
 const LINE_GAP_SECONDS: f32 = 0.2;
 
+/// Grace period after the dialog opens during which the Interact selection is
+/// ignored. The dialog opens from a gameplay Interact press, but the GUI action
+/// only starts being read a frame or two later, while the button may still be
+/// held; without the guard that held press would pick the first option.
+const INTERACT_SELECT_GRACE: f32 = 0.25;
+
 /// A root or sub dialog choice prepared for display and for being sent back when
 /// picked.
 #[derive(Debug, Clone)]
@@ -126,6 +132,11 @@ pub(crate) struct DialogUiState {
     /// Set by a trade option, consumed once the ui is back in options mode so
     /// the trade opens after the option's lines played.
     pending_trade: bool,
+    /// Remaining part of [`INTERACT_SELECT_GRACE`] since the dialog opened.
+    interact_grace: f32,
+    /// The press that opened the dialog was still held after it opened; the
+    /// Interact selection stays blocked until that press is released.
+    interact_held: bool,
 }
 
 impl DialogUiState {
@@ -157,6 +168,27 @@ impl DialogUiState {
         self.awaiting_outputs = false;
         self.pending_info = None;
         self.pending_trade = false;
+        self.interact_grace = INTERACT_SELECT_GRACE;
+        self.interact_held = false;
+    }
+
+    /// Advances the post-open Interact guard and reports whether the selection
+    /// input must be ignored. This keeps the press that started the dialog from
+    /// also picking an option; a press seen during the grace period keeps the
+    /// selection blocked until it is released.
+    pub(super) fn interact_selection_blocked(&mut self, delta_secs: f32, pressed: bool) -> bool {
+        if self.interact_grace > 0.0 {
+            self.interact_held |= pressed;
+            self.interact_grace = (self.interact_grace - delta_secs).max(0.0);
+        }
+        if !self.interact_held {
+            return false;
+        }
+        if pressed {
+            return true;
+        }
+        self.interact_held = false;
+        false
     }
 
     /// Pair of `(viewed, listener)` character entities for the dialog camera. The
@@ -275,6 +307,8 @@ impl DialogUiState {
         self.pending_close = false;
         self.pending_info = None;
         self.pending_trade = false;
+        self.interact_grace = 0.0;
+        self.interact_held = false;
         self.reset_to_options();
     }
 
@@ -421,6 +455,7 @@ impl DialogUiState {
 /// Options mode input: navigation and activation. In lines mode space ends
 /// the current line early
 pub(super) fn handle_dialog_input(
+    time: Res<Time>,
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut requests: MessageWriter<DialogRequest>,
@@ -432,6 +467,14 @@ pub(super) fn handle_dialog_input(
     if !dialog_ui.is_open() || inventory_ui.is_open() {
         return;
     }
+
+    // The press that opened the dialog must not select an option when the GUI
+    // input mode takes over, so it is ignored until the grace period passed or
+    // the button was released.
+    let interact_blocked = dialog_ui.interact_selection_blocked(
+        time.delta_secs(),
+        action_state.pressed(&GuiAction::Interact),
+    );
 
     if !dialog_ui.is_showing_options() {
         if action_state.just_pressed(&GuiAction::CancelAction) {
@@ -447,7 +490,7 @@ pub(super) fn handle_dialog_input(
     if action_state.just_pressed(&GuiAction::Down) {
         dialog_ui.move_selection(1);
     }
-    if action_state.just_pressed(&GuiAction::Confirm) {
+    if !interact_blocked && action_state.just_pressed(&GuiAction::Interact) {
         dialog_ui.execute_selected(&mut requests);
     }
 }
@@ -480,4 +523,43 @@ pub(super) fn advance_dialog_playback(
         return;
     };
     trade_requests.write(OpenTrade { player, trader });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The press that opened the dialog is still held after the GUI input mode
+    /// takes over: it must not select an option, even past the grace period,
+    /// until it is released.
+    #[test]
+    fn held_open_press_is_blocked_until_release() {
+        let mut state = DialogUiState {
+            interact_grace: INTERACT_SELECT_GRACE,
+            ..default()
+        };
+
+        assert!(state.interact_selection_blocked(0.016, true));
+        for _ in 0..40 {
+            assert!(state.interact_selection_blocked(0.016, true));
+        }
+        assert!(!state.interact_selection_blocked(0.016, false));
+        // A fresh press after the release selects normally.
+        assert!(!state.interact_selection_blocked(0.016, true));
+    }
+
+    /// A quick tap released before the GUI began reading the input leaves no
+    /// held press, so a later deliberate press is not blocked.
+    #[test]
+    fn released_open_press_does_not_block_later_press() {
+        let mut state = DialogUiState {
+            interact_grace: INTERACT_SELECT_GRACE,
+            ..default()
+        };
+
+        for _ in 0..40 {
+            assert!(!state.interact_selection_blocked(0.016, false));
+        }
+        assert!(!state.interact_selection_blocked(0.016, true));
+    }
 }
