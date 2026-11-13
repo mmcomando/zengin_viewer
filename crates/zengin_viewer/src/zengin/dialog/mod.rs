@@ -21,14 +21,15 @@ pub struct GameDialogPlugin;
 impl Plugin for GameDialogPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DialogUiState>();
+        app.init_resource::<camera::DialogCameraShots>();
         app.add_plugins(important::ImportantDialogsPlugin);
         app.add_message::<DialogRequest>();
         app.add_systems(Startup, ui::override_default_font);
         app.add_systems(Startup, ui::spawn_dialog_ui);
         // The UI systems emit requests, `handle_dialog_requests` applies them
         // and runs the script before the script bridge drains the produced
-        // outputs, `handle_dialog_outputs` consumes them in the same frame,
-        // `aim_dialog_camera` points the camera at the current speaker and
+        // `handle_dialog_outputs` consumes them in the same frame,
+        // `aim_dialog_camera` picks a shot for the current speaker and
         // `sync_dialog_ui` renders the result.
         app.add_systems(
             Update,

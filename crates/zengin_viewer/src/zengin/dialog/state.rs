@@ -137,6 +137,9 @@ pub(crate) struct DialogUiState {
     /// The press that opened the dialog was still held after it opened; the
     /// Interact selection stays blocked until that press is released.
     interact_held: bool,
+    /// Incremented every time a new line or the option list becomes the shot
+    /// the dialog camera should show, so the camera rolls a new shot per line.
+    camera_shot_serial: u64,
 }
 
 impl DialogUiState {
@@ -245,6 +248,12 @@ impl DialogUiState {
     /// Whether dialog lines are currently played back
     pub(crate) fn is_playing_lines(&self) -> bool {
         matches!(self.mode, DialogUiMode::Lines { .. })
+    }
+
+    /// Serial of the line or option list currently shown, changes whenever the
+    /// dialog camera should pick a new shot.
+    pub(super) fn camera_shot_serial(&self) -> u64 {
+        self.camera_shot_serial
     }
 
     /// Moves the selection by one entry, wrapping around at both ends
@@ -381,6 +390,7 @@ impl DialogUiState {
             return;
         };
         *timer = Timer::from_seconds(line_display_seconds(line), TimerMode::Once);
+        self.camera_shot_serial = self.camera_shot_serial.wrapping_add(1);
         sounds.write(PlaySound {
             asset_path: line.sound_path.clone(),
         });
@@ -390,6 +400,7 @@ impl DialogUiState {
     fn reset_to_options(&mut self) {
         self.mode = DialogUiMode::Options;
         self.selected_index = 0;
+        self.camera_shot_serial = self.camera_shot_serial.wrapping_add(1);
     }
 
     /// Advances the line playback timer, the next line starts when it finishes

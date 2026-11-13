@@ -46,9 +46,15 @@ impl Plugin for CameraPlugin {
 #[derive(Resource, Default)]
 pub struct CameraResource {
     current_camera: CurrentCamera,
-    reference_point: Transform,
-    /// Distance the dialog camera keeps from the reference point.
-    dialog_distance: f32,
+    /// Fixed camera placement chosen by the dialog shot system.
+    dialog_pose: Option<DialogShotPose>,
+}
+
+/// Camera position and look-at point of a dialog shot.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct DialogShotPose {
+    pub(crate) camera: Vec3,
+    pub(crate) look_at: Vec3,
 }
 
 impl CameraResource {
@@ -57,10 +63,11 @@ impl CameraResource {
         self.current_camera
     }
 
-    pub fn set_dialog_camera(&mut self, reference_point: Transform, distance: f32) {
+    /// Places the camera at the given dialog shot, switching to the dialog
+    /// camera controller.
+    pub(crate) fn set_dialog_shot(&mut self, pose: DialogShotPose) {
         self.current_camera = CurrentCamera::Dialog;
-        self.reference_point = reference_point;
-        self.dialog_distance = distance;
+        self.dialog_pose = Some(pose);
     }
 
     /// Switches to the third person camera following the player.
@@ -92,15 +99,6 @@ const THIRD_PERSON_PITCH_LIMIT: f32 = 1.4;
 /// Rotation speed of the third person camera mouse movement, radians per
 /// pixel of mouse movement.
 const THIRD_PERSON_MOUSE_SENSITIVITY: f32 = 0.003;
-
-struct DialogCameraStyle;
-impl DialogCameraStyle {
-    /// Minimum distance kept from the viewed character, even when the two talking
-    /// characters stand very close to each other
-    const MIN_DISTANCE: f32 = 2.0;
-    const CAMERA_HEIGHT: f32 = 3.0;
-    const LOOK_AT_HEIGHT: f32 = 1.45;
-}
 
 /// Saved location the debug UI can teleport the player and camera to.
 pub struct TeleportLocation {
@@ -295,25 +293,15 @@ fn rotate_camera_transform(transform: &mut Transform, delta: Vec2) {
 }
 
 pub(super) fn update_dialog_camera(
-    info: ResMut<CameraResource>,
+    info: Res<CameraResource>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
 ) {
+    let Some(pose) = info.dialog_pose else {
+        return;
+    };
     let Ok(mut camera_transform) = camera_query.single_mut() else {
         return;
     };
-
-    let npc_position = info.reference_point.translation;
-    let npc_forward = *info.reference_point.forward();
-    // The placement direction (behind the viewed character, offset to the side)
-    // is carried by the reference rotation
-    let npc_facing = -Vec3::new(npc_forward.x, 0.0, npc_forward.z).normalize_or_zero();
-
-    let distance = info.dialog_distance.max(DialogCameraStyle::MIN_DISTANCE);
-    let position =
-        npc_position + npc_facing * distance + Vec3::Y * DialogCameraStyle::CAMERA_HEIGHT;
-    camera_transform.translation = position;
-    camera_transform.look_at(
-        npc_position + Vec3::Y * DialogCameraStyle::LOOK_AT_HEIGHT,
-        Vec3::Y,
-    );
+    camera_transform.translation = pose.camera;
+    camera_transform.look_at(pose.look_at, Vec3::Y);
 }
