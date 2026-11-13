@@ -82,6 +82,17 @@
                 ),
             },
             {
+                "HorizontalAxis": (
+                    negative: {
+                        "KeyCode": KeyQ,
+                    },
+                    positive: {
+                        "KeyCode": KeyE,
+                    },
+                    processors: [],
+                ),
+            },
+            {
                 "GamepadStick": (
                     x: RightStickX,
                     y: RightStickY,

@@ -1,4 +1,5 @@
 mod actions;
+mod horizontal_axis;
 mod options;
 mod record;
 mod replay;

@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::audio::{PlaySound, SoundManager};
 use crate::game_state::AppState;
 use crate::gui::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiState};
+use crate::input::horizontal_axis::HorizontalAxis;
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
 use crate::zengin::{DialogRequest, DialogUiState};
@@ -20,6 +21,7 @@ pub struct ActionsPlugin;
 impl Plugin for ActionsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InputMode>();
+        app.register_dual_axislike_input::<HorizontalAxis>();
         app.add_plugins((
             InputManagerPlugin::<GameplayAction>::default(),
             InputManagerPlugin::<GuiAction>::default(),
@@ -376,4 +378,19 @@ where
     let contents = std::fs::read_to_string(&path)
         .map_err(|error| format!("failed to read {path}: {error}"))?;
     ron::de::from_str(&contents).map_err(|error| format!("failed to parse {path}: {error}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gameplay_profile_parses() {
+        let mut app = App::new();
+        app.add_plugins(ActionsPlugin);
+
+        if let Err(error) = load_input_profile::<GameplayAction>("input_bindings_gameplay.ron") {
+            panic!("{error}");
+        }
+    }
 }
