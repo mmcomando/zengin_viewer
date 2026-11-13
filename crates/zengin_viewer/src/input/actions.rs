@@ -130,9 +130,6 @@ pub enum GuiAction {
     Right,
     /// Confirm the selected entry.
     Confirm,
-    /// Equip/unequip or confirm the selected inventory entry. Uses the
-    /// gameplay Interact keys (left mouse button, left ctrl).
-    Interact,
     /// Close the current view or skip the currently played content.
     CancelAction,
 }

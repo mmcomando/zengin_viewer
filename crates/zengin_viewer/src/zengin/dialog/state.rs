@@ -12,11 +12,12 @@ const LINE_DISPLAY_SECONDS: f32 = 1.0;
 /// Extra pause after a line's sound finished before the next line is shown
 const LINE_GAP_SECONDS: f32 = 0.2;
 
-/// Grace period after the dialog opens during which the Interact selection is
-/// ignored. The dialog opens from a gameplay Interact press, but the GUI action
-/// only starts being read a frame or two later, while the button may still be
-/// held; without the guard that held press would pick the first option.
-const INTERACT_SELECT_GRACE: f32 = 0.25;
+/// Grace period after the dialog opens during which the option selection is
+/// ignored. The dialog opens from a gameplay Interact press, which the GUI map
+/// reads as its Confirm key once it takes over a frame or two later, while the
+/// button may still be held; without the guard that held press would pick the
+/// first option.
+const CONFIRM_SELECT_GRACE: f32 = 0.25;
 
 /// A root or sub dialog choice prepared for display and for being sent back when
 /// picked.
@@ -132,11 +133,11 @@ pub(crate) struct DialogUiState {
     /// Set by a trade option, consumed once the ui is back in options mode so
     /// the trade opens after the option's lines played.
     pending_trade: bool,
-    /// Remaining part of [`INTERACT_SELECT_GRACE`] since the dialog opened.
-    interact_grace: f32,
+    /// Remaining part of [`CONFIRM_SELECT_GRACE`] since the dialog opened.
+    confirm_grace: f32,
     /// The press that opened the dialog was still held after it opened; the
-    /// Interact selection stays blocked until that press is released.
-    interact_held: bool,
+    /// option selection stays blocked until that press is released.
+    confirm_held: bool,
     /// Incremented every time a new line or the option list becomes the shot
     /// the dialog camera should show, so the camera rolls a new shot per line.
     camera_shot_serial: u64,
@@ -171,26 +172,26 @@ impl DialogUiState {
         self.awaiting_outputs = false;
         self.pending_info = None;
         self.pending_trade = false;
-        self.interact_grace = INTERACT_SELECT_GRACE;
-        self.interact_held = false;
+        self.confirm_grace = CONFIRM_SELECT_GRACE;
+        self.confirm_held = false;
     }
 
-    /// Advances the post-open Interact guard and reports whether the selection
+    /// Advances the post-open selection guard and reports whether the option
     /// input must be ignored. This keeps the press that started the dialog from
     /// also picking an option; a press seen during the grace period keeps the
     /// selection blocked until it is released.
-    pub(super) fn interact_selection_blocked(&mut self, delta_secs: f32, pressed: bool) -> bool {
-        if self.interact_grace > 0.0 {
-            self.interact_held |= pressed;
-            self.interact_grace = (self.interact_grace - delta_secs).max(0.0);
+    pub(super) fn confirm_selection_blocked(&mut self, delta_secs: f32, pressed: bool) -> bool {
+        if self.confirm_grace > 0.0 {
+            self.confirm_held |= pressed;
+            self.confirm_grace = (self.confirm_grace - delta_secs).max(0.0);
         }
-        if !self.interact_held {
+        if !self.confirm_held {
             return false;
         }
         if pressed {
             return true;
         }
-        self.interact_held = false;
+        self.confirm_held = false;
         false
     }
 
@@ -316,8 +317,8 @@ impl DialogUiState {
         self.pending_close = false;
         self.pending_info = None;
         self.pending_trade = false;
-        self.interact_grace = 0.0;
-        self.interact_held = false;
+        self.confirm_grace = 0.0;
+        self.confirm_held = false;
         self.reset_to_options();
     }
 
@@ -482,10 +483,8 @@ pub(super) fn handle_dialog_input(
     // The press that opened the dialog must not select an option when the GUI
     // input mode takes over, so it is ignored until the grace period passed or
     // the button was released.
-    let interact_blocked = dialog_ui.interact_selection_blocked(
-        time.delta_secs(),
-        action_state.pressed(&GuiAction::Interact),
-    );
+    let confirm_blocked = dialog_ui
+        .confirm_selection_blocked(time.delta_secs(), action_state.pressed(&GuiAction::Confirm));
 
     if !dialog_ui.is_showing_options() {
         if action_state.just_pressed(&GuiAction::CancelAction) {
@@ -501,7 +500,7 @@ pub(super) fn handle_dialog_input(
     if action_state.just_pressed(&GuiAction::Down) {
         dialog_ui.move_selection(1);
     }
-    if !interact_blocked && action_state.just_pressed(&GuiAction::Interact) {
+    if !confirm_blocked && action_state.just_pressed(&GuiAction::Confirm) {
         dialog_ui.execute_selected(&mut requests);
     }
 }
@@ -546,17 +545,17 @@ mod tests {
     #[test]
     fn held_open_press_is_blocked_until_release() {
         let mut state = DialogUiState {
-            interact_grace: INTERACT_SELECT_GRACE,
+            confirm_grace: CONFIRM_SELECT_GRACE,
             ..default()
         };
 
-        assert!(state.interact_selection_blocked(0.016, true));
+        assert!(state.confirm_selection_blocked(0.016, true));
         for _ in 0..40 {
-            assert!(state.interact_selection_blocked(0.016, true));
+            assert!(state.confirm_selection_blocked(0.016, true));
         }
-        assert!(!state.interact_selection_blocked(0.016, false));
+        assert!(!state.confirm_selection_blocked(0.016, false));
         // A fresh press after the release selects normally.
-        assert!(!state.interact_selection_blocked(0.016, true));
+        assert!(!state.confirm_selection_blocked(0.016, true));
     }
 
     /// A quick tap released before the GUI began reading the input leaves no
@@ -564,13 +563,13 @@ mod tests {
     #[test]
     fn released_open_press_does_not_block_later_press() {
         let mut state = DialogUiState {
-            interact_grace: INTERACT_SELECT_GRACE,
+            confirm_grace: CONFIRM_SELECT_GRACE,
             ..default()
         };
 
         for _ in 0..40 {
-            assert!(!state.interact_selection_blocked(0.016, false));
+            assert!(!state.confirm_selection_blocked(0.016, false));
         }
-        assert!(!state.interact_selection_blocked(0.016, true));
+        assert!(!state.confirm_selection_blocked(0.016, true));
     }
 }
