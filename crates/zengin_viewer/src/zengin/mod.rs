@@ -4,6 +4,7 @@ mod fight_ai;
 mod instance_index;
 mod interaction;
 mod loaders;
+mod mobs;
 pub(crate) use crate::zengin::common::choose_animation_scheme;
 pub(crate) use crate::zengin::interaction::{grant_test_items, seed_test_journal};
 pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
@@ -30,6 +31,7 @@ use bevy::prelude::*;
 use crate::world_entity::WorldEntityMarker;
 
 // Expose only what is needed for outside modules
+pub(crate) use crate::zengin::common::MobPosition;
 pub(crate) use crate::zengin::common::MusicZones;
 pub(crate) use crate::zengin::common::face_direction_quat;
 pub(crate) use crate::zengin::common::get_animation_path;
@@ -87,6 +89,7 @@ pub struct ZenginPlugin;
 impl Plugin for ZenginPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(crate::zengin::world_plugin::ZenGinWorldPlugin);
+        app.add_plugins(crate::zengin::mobs::MobsPlugin);
         app.add_plugins(crate::zengin::npc_routines::NpcRoutinesPlugin);
         app.add_plugins(crate::zengin::interaction::selection::SelectionPlugin);
         app.add_plugins(crate::zengin::instance_index::InstanceIndexPlugin);
@@ -145,6 +148,26 @@ impl GameItem {
     pub fn handle(&self) -> &ItemHandle {
         &self.handle
     }
+}
+
+/// Interactive mob vob (`oCMobInter` and its subtypes).
+#[allow(dead_code)] // metadata is consumed by the mob use action
+#[derive(Debug, Component)]
+#[require(WorldEntityMarker)]
+pub struct GameMob {
+    /// Position in the ZEN load order.
+    pub index: usize,
+    pub vob_name: String,
+    /// `AI_UseMob` scheme derived from the visual stem.
+    pub scheme: String,
+    /// Number of interaction states (`stateNum`).
+    pub state_num: i32,
+    pub use_with_item: String,
+    pub on_state_func: String,
+    pub condition_func: String,
+    pub rewind: bool,
+    /// `ZS_POS*` attachment nodes, `None` until the model asset is scanned.
+    pub positions: Option<Vec<MobPosition>>,
 }
 
 /// Interactive chest vob with its remaining loot.

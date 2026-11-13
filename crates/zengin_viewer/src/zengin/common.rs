@@ -175,6 +175,51 @@ pub struct ZenGinInstance {
     pub collides: bool,
 }
 
+/// Attachment point of an interactive mob (`ZS_POS*` node of its mesh).
+#[allow(dead_code)] // consumed by the mob use action
+#[derive(Debug, Default, Clone)]
+pub struct MobPosition {
+    /// Node name, e.g. `ZS_POS0_FRONT`.
+    pub name: String,
+    /// Node transform in the mob model space.
+    pub transform: Transform,
+}
+
+/// Interactive mob vob (`oCMobInter` and its subtypes).
+#[derive(Debug, Default)]
+pub struct ZenGinMob {
+    pub tr: Transform,
+    /// Mesh asset path, empty when the vob has no visual.
+    pub archetype: String,
+    pub collides: bool,
+    /// Vob name, used by scripts and trigger targets.
+    pub vob_name: String,
+    /// `AI_UseMob` scheme derived from the visual stem.
+    pub scheme: String,
+    /// Number of interaction states (`stateNum`).
+    pub state_num: i32,
+    /// Script item instance required to use the mob, empty when none.
+    pub use_with_item: String,
+    /// Script function called when the mob changes state, empty when none.
+    pub on_state_func: String,
+    /// Script condition gating use of the mob, empty when none.
+    pub condition_func: String,
+    pub rewind: bool,
+}
+
+/// `AI_UseMob` scheme of a mob visual: the mesh stem up to the first `_` or
+/// `.`, uppercased (`BENCH_NW_CITY_01.ASC` -> `BENCH`).
+pub fn mob_scheme(visual_name: &str) -> String {
+    visual_name
+        .rsplit('/')
+        .next()
+        .unwrap_or(visual_name)
+        .split(['_', '.'])
+        .next()
+        .unwrap_or_default()
+        .to_uppercase()
+}
+
 #[derive(Debug, Default)]
 pub struct ZenGinChest {
     pub tr: Transform,
@@ -234,6 +279,7 @@ pub struct ZenGinWorldData {
     pub world_model: ZenGinModel,
     pub static_models: Vec<ZenGinInstance>,
     pub chests: Vec<ZenGinChest>,
+    pub mobs: Vec<ZenGinMob>,
     pub spots: HashMap<String, Transform>,
     pub way_points: HashMap<String, Transform>,
     /// Names of all files in the compiled anim archive (uppercase)
@@ -253,6 +299,15 @@ mod tests {
             name: name.to_string(),
             bounds: Aabb3d::from_min_max(min, max),
         }
+    }
+
+    #[test]
+    fn mob_scheme_is_the_stem_before_the_first_underscore_or_dot() {
+        assert_eq!(mob_scheme("BENCH_NW_CITY_01.ASC"), "BENCH");
+        assert_eq!(mob_scheme("BSANVIL_OC.MDS"), "BSANVIL");
+        assert_eq!(mob_scheme("BEDHIGH_PC.ASC"), "BEDHIGH");
+        assert_eq!(mob_scheme("chair"), "CHAIR");
+        assert_eq!(mob_scheme(""), "");
     }
 
     #[test]

@@ -115,6 +115,38 @@ impl VirtualObject<'_> {
         unsafe { ZkMovableObject_getName(self.ptr.as_ptr().cast()).to_string() }
     }
 
+    /// Number of interaction states of an `oCMobInter` (`stateNum`).
+    pub fn interactive_state(&self) -> i32 {
+        unsafe { ZkInteractiveObject_getState(self.ptr.as_ptr().cast()) }
+    }
+
+    /// Script name of the vob notified when an `oCMobInter` is used.
+    pub fn interactive_target(&self) -> String {
+        unsafe { ZkInteractiveObject_getTarget(self.ptr.as_ptr().cast()).to_string() }
+    }
+
+    /// Script item instance the user must carry to interact with an `oCMobInter`.
+    pub fn interactive_use_with_item(&self) -> String {
+        unsafe { ZkInteractiveObject_getItem(self.ptr.as_ptr().cast()).to_string() }
+    }
+
+    /// Script condition function gating interaction with an `oCMobInter`.
+    pub fn interactive_condition_function(&self) -> String {
+        unsafe { ZkInteractiveObject_getConditionFunction(self.ptr.as_ptr().cast()).to_string() }
+    }
+
+    /// Script function called when an `oCMobInter` changes state.
+    pub fn interactive_on_state_change_function(&self) -> String {
+        unsafe {
+            ZkInteractiveObject_getOnStateChangeFunction(self.ptr.as_ptr().cast()).to_string()
+        }
+    }
+
+    /// Whether an `oCMobInter` sends its trigger event on every interaction.
+    pub fn interactive_rewind(&self) -> bool {
+        unsafe { ZkInteractiveObject_getRewind(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
     pub fn visual(&self) -> Visual<'_> {
         unsafe {
             let ptr = ZkVirtualObject_getVisual(self.ptr.as_ptr());

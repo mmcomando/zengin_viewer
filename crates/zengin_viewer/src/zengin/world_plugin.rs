@@ -22,6 +22,7 @@ use crate::zengin::interaction::selection::Selection;
 use crate::zengin::loaders::vfs::{
     item_model_path, mesh_model_path, normalize_mesh_name, resolve_stand_animation,
 };
+use crate::zengin::mobs::MobRegistry;
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::resources::{
@@ -37,8 +38,8 @@ use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
 use crate::zengin::{
-    DialogUiState, GameChest, GameItem, GameNpc, MusicZones, NpcActionQueue, NpcHandle, NpcOverlay,
-    ZenginVfs,
+    DialogUiState, GameChest, GameItem, GameMob, GameNpc, MusicZones, NpcActionQueue, NpcHandle,
+    NpcOverlay, ZenginVfs,
 };
 use avian3d::prelude::*;
 use bevy::prelude::*;
@@ -435,6 +436,38 @@ fn spawn_world_data(
             StaticMesh::default(),
         ));
     }
+
+    let mut mob_registry = MobRegistry::default();
+    for (index, mob) in world_data.mobs.into_iter().enumerate() {
+        let model_handle = (!mob.archetype.is_empty())
+            .then(|| handles_map.get_model_handle(asset_server, &mob.archetype, None));
+        let mut entity = commands.spawn((
+            ClassifyDistance::default(),
+            GameMob {
+                index,
+                vob_name: mob.vob_name,
+                scheme: mob.scheme.clone(),
+                state_num: mob.state_num,
+                use_with_item: mob.use_with_item,
+                on_state_func: mob.on_state_func,
+                condition_func: mob.condition_func,
+                rewind: mob.rewind,
+                positions: None,
+            },
+            Visibility::default(),
+            mob.tr,
+            StaticMesh::default(),
+        ));
+        if let Some(model_handle) = model_handle {
+            entity.insert(ZenGinModelComponent {
+                model_handle,
+                convex_colider: mob.collides,
+                ..default()
+            });
+        }
+        mob_registry.insert(mob.scheme, entity.id());
+    }
+    commands.insert_resource(mob_registry);
 
     if !gothic_script.has_player_instance() {
         spawn_player(

@@ -63,6 +63,7 @@ pub fn load_zengin_world_data(
     for obj in world.root_objects() {
         load_objects(vfs, &mut data, &item_ids, &obj, spawn_item);
     }
+    info!("Loaded {} interactive mobs", data.mobs.len());
     info!(
         "Loaded {} music zones (default: {:?})",
         data.music_zones.len(),
@@ -105,6 +106,8 @@ fn load_objects(
 
     if obj.get_type() == VobType::oCMobContainer {
         handle_container(vfs, data, item_ids, obj, has_visual);
+    } else if is_interactive_mob(obj.get_type()) {
+        handle_mob(vfs, data, obj, has_visual);
     } else if has_visual {
         assert_ne!(obj.get_type(), VobType::zCVobLight);
         if let Some(asset_path) = visual_asset_path(vfs, &visual) {
@@ -156,6 +159,41 @@ fn visual_asset_path(vfs: &Vfs, visual: &Visual<'_>) -> Option<String> {
     }
 }
 
+/// Interactive mob classes driven by `AI_UseMob`; `oCMobContainer` has its
+/// own loot flow.
+fn is_interactive_mob(type_: VobType) -> bool {
+    matches!(
+        type_,
+        VobType::oCMobInter
+            | VobType::oCMobBed
+            | VobType::oCMobFire
+            | VobType::oCMobLadder
+            | VobType::oCMobSwitch
+            | VobType::oCMobWheel
+            | VobType::oCMobDoor
+    )
+}
+
+fn handle_mob(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject, has_visual: bool) {
+    let visual = obj.visual();
+    let archetype = has_visual
+        .then(|| visual_asset_path(vfs, &visual))
+        .flatten()
+        .unwrap_or_default();
+    data.mobs.push(ZenGinMob {
+        tr: get_obj_tr(obj),
+        archetype,
+        collides: obj.cd_dynamic(),
+        vob_name: obj.name(),
+        scheme: mob_scheme(&visual.name()),
+        state_num: obj.interactive_state(),
+        use_with_item: obj.interactive_use_with_item(),
+        on_state_func: obj.interactive_on_state_change_function(),
+        condition_func: obj.interactive_condition_function(),
+        rewind: obj.interactive_rewind(),
+    });
+}
+
 fn handle_container(
     vfs: &Vfs,
     data: &mut ZenGinWorldData,
@@ -171,7 +209,7 @@ fn handle_container(
         tr: get_obj_tr(obj),
         archetype,
         collides: obj.cd_dynamic(),
-        collider_half_extents: chest_collider_half_extents(obj),
+        collider_half_extents: vob_collider_half_extents(obj),
         name: obj.movable_name(),
         items: container_items(&obj.container_contents(), item_ids),
         locked: obj.container_locked(),
@@ -213,7 +251,7 @@ fn fun_name(item_ids: &HashMap<String, InstanceId>, token: &str) -> Option<(Inst
     Some((instance_id, count))
 }
 
-fn chest_collider_half_extents(obj: &VirtualObject) -> Vec3 {
+fn vob_collider_half_extents(obj: &VirtualObject) -> Vec3 {
     let bbox = obj.bbox();
     let size = (bbox.max.to_glam() - bbox.min.to_glam()) / ZENGIN_UNITS_PER_WORLD_UNIT;
     let half = size * 0.5;
@@ -317,12 +355,7 @@ fn handle_other_vob(
         VobType::zCEarthquake => {
             warn_unimplemented!("VobType::zCEarthquake");
         }
-        VobType::oCMobInter => {
-            warn_unimplemented!("VobType::oCMobInter");
-        }
-        VobType::oCMobSwitch => {
-            warn_unimplemented!("VobType::oCMobSwitch");
-        }
+
         VobType::zCTrigger => {
             warn_unimplemented!("VobType::zCTrigger");
         }
@@ -371,8 +404,8 @@ fn handle_other_vob(
         VobType::zCVobLensFlare => {
             warn_unimplemented!("VobType::zCVobLensFlare");
         }
-        // These should be handled in other function
-        VobType::oCMobContainer => {
+        // These should be handled in other functions
+        VobType::oCMobContainer | VobType::oCMobInter | VobType::oCMobSwitch => {
             panic!("should be handled in other function");
         }
         // These are not used in NEWWORLD.ZEN
