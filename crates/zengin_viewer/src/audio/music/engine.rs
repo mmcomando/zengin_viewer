@@ -9,6 +9,7 @@ use dmusic_sys::{DmEmbellishmentType, DmTiming, Loader, Performance};
 use zen_kit_rs::misc::{MusicTransitionEffect, MusicTransitionType};
 use zen_kit_rs::music_definitions::MusicTheme;
 
+use crate::audio::music_definitions::MusicDefinitions;
 use crate::zengin::gothic2_dir;
 
 pub(super) const SAMPLE_RATE: u32 = 44_100;
@@ -54,6 +55,15 @@ impl MusicEngine {
             return;
         };
         core.stop();
+    }
+
+    /// Resolves a `MUSIC.DAT` theme by name and plays it.
+    pub fn play_named(&self, name: &str, definitions: &MusicDefinitions) {
+        let Some(theme) = definitions.theme(name) else {
+            warn!("Music theme {name} not found in MUSIC.DAT");
+            return;
+        };
+        self.play_theme(name, theme);
     }
 
     pub fn set_master_volume(&self, volume: f32) {

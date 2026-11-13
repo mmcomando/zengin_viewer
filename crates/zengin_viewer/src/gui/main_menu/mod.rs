@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::audio::PendingMusic;
 use crate::game_state::AppState;
 use crate::zengin::{CurrentWorld, MenuScriptResource};
 
@@ -64,18 +65,22 @@ fn open_main_menu(
     mut state: ResMut<MainMenuState>,
     data: Option<Res<MainMenuData>>,
     current_world: Res<CurrentWorld>,
+    mut pending_music: ResMut<PendingMusic>,
 ) {
     let in_game = !current_world.0.is_empty();
-    let selected = data
-        .as_ref()
-        .and_then(|data| data.0.as_ref())
+    let menu = data.as_ref().and_then(|data| data.0.as_ref());
+    let selected = menu
         .and_then(|data| initial_selection(data, in_game))
         .unwrap_or(0);
     state.open(selected);
+    if let Some(theme) = menu.and_then(|menu| menu.music_theme.as_deref()) {
+        pending_music.play(theme);
+    }
     info!("Main menu opened");
 }
 
-fn close_main_menu(mut state: ResMut<MainMenuState>) {
+fn close_main_menu(mut state: ResMut<MainMenuState>, mut pending_music: ResMut<PendingMusic>) {
     state.close();
+    pending_music.stop();
     info!("Main menu closed");
 }

@@ -6,13 +6,11 @@ use zen_kit_rs::music_definitions::{MusicDefinitions as ZkMusicDefinitions, Musi
 use crate::zengin::{ZenginVfs, gothic2_dir};
 
 /// Music theme instance name to its segment and playback settings.
-#[allow(dead_code)] // consumed by the music playback step
 #[derive(Resource, Default)]
 pub(crate) struct MusicDefinitions {
     inner: ZkMusicDefinitions,
 }
 
-#[allow(dead_code)] // consumed by the music playback step
 impl MusicDefinitions {
     /// Theme by instance name (`SYS_Menu`, `KHO_DAY_STD`, ...), case-insensitive.
     pub fn theme(&self, name: &str) -> Option<&MusicTheme> {
