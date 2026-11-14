@@ -97,6 +97,10 @@ pub(crate) enum ReplayCommand {
     /// without the `.ZEN` extension) on `frame`. Replays load no world unless
     /// they request it with this command.
     SpawnWorld { frame: u64, world: String },
+    /// Adds name filters for npc spawning on `frame`. An npc is spawned when
+    /// its script symbol name or display name contains any of `filters`
+    /// (case-insensitive). Repeated commands extend the same list.
+    FilterNpcWithName { frame: u64, filters: Vec<String> },
 }
 
 impl ReplayCommand {
@@ -113,7 +117,8 @@ impl ReplayCommand {
             | ReplayCommand::GiveTestItems { frame }
             | ReplayCommand::GiveTestJournal { frame }
             | ReplayCommand::OpenMainMenu { frame }
-            | ReplayCommand::SpawnWorld { frame, .. } => frame,
+            | ReplayCommand::SpawnWorld { frame, .. }
+            | ReplayCommand::FilterNpcWithName { frame, .. } => frame,
         }
     }
 }

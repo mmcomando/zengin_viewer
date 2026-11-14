@@ -61,6 +61,7 @@ impl Plugin for ZenGinWorldPlugin {
         app.init_resource::<CurrentWorld>();
         app.init_resource::<LoadingWorld>();
         app.init_resource::<PendingWorldSpawns>();
+        app.init_resource::<NpcSpawnNameFilter>();
 
         app.add_message::<RestartWorld>();
         app.add_message::<NewGame>();
@@ -135,6 +136,32 @@ impl Default for LoadingWorld {
     }
 }
 
+/// Case-insensitive substring filters matched against an npc's script symbol
+/// and display names. An empty list matches every npc.
+#[derive(Resource, Default)]
+pub(crate) struct NpcSpawnNameFilter(Vec<String>);
+
+impl NpcSpawnNameFilter {
+    pub(crate) fn add(&mut self, filters: &[String]) {
+        self.0
+            .extend(filters.iter().map(|filter| filter.to_lowercase()));
+    }
+
+    fn allows(&self, symbol_name: &str, display_name: Option<&str>) -> bool {
+        if self.0.is_empty() {
+            return true;
+        }
+        let symbol_name = symbol_name.to_lowercase();
+        let display_name = display_name.map(str::to_lowercase);
+        self.0.iter().any(|filter| {
+            symbol_name.contains(filter)
+                || display_name
+                    .as_ref()
+                    .is_some_and(|name| name.contains(filter))
+        })
+    }
+}
+
 pub(crate) fn request_initial_world(
     mut pending_spawns: ResMut<PendingWorldSpawns>,
     current_world: Res<CurrentWorld>,
@@ -162,8 +189,7 @@ pub(crate) fn request_initial_world(
 }
 
 /// Queues a spawn of `world_name` without touching script state, so it can
-/// run before the game script is loaded. Used by replay scenarios, which load
-/// no world unless they request it.
+/// run before the game script is loaded.
 pub(crate) fn request_world_spawn(world: &mut World, world_name: &str) {
     let spawn = clean_spawn_request(world_name);
     world
@@ -641,6 +667,10 @@ fn spawn_player(
 /// Data needed to spawn one npc entity, extracted from the script state in a
 /// single lock.
 struct NpcSpawnScript {
+    /// Script symbol name, matched by [`NpcSpawnNameFilter`].
+    symbol_name: String,
+    /// Localized display name, matched by [`NpcSpawnNameFilter`].
+    display_name: Option<String>,
     handle: NpcHandle,
     body_model: String,
     body_texture: Option<String>,
@@ -661,6 +691,11 @@ fn npc_spawn_script_data(
     minutes_of_day: u32,
 ) -> Option<NpcSpawnScript> {
     let mut script = scripts.lock();
+    let symbol_name = script
+        .symbol_table()
+        .symbol_name(spawn.instance_id.value())
+        .unwrap_or_default();
+    let display_name = script.npc_display_name(spawn.instance_id);
     // Resolve the location string first, the instance state borrow below is
     // immutable while `get_canon_string` needs `&mut`
     let location_name = spawn
@@ -676,6 +711,8 @@ fn npc_spawn_script_data(
         .get_routine_entry(minutes_of_day)
         .map(|entry| entry.way_point.clone());
     Some(NpcSpawnScript {
+        symbol_name,
+        display_name,
         handle,
         body_model: instance.visual.body_model.clone(),
         body_texture: instance.visual.body_texture.clone(),
@@ -702,6 +739,7 @@ fn spawn_npc_entities(
     spots: Res<Spots>,
     game_time: Res<GameTime>,
     mut instance_index: ResMut<InstanceIndex>,
+    npc_filter: Res<NpcSpawnNameFilter>,
 ) {
     for spawn in spawns.read() {
         let Some(script) = npc_spawn_script_data(&gothic_scripts, spawn, game_time.hour() * 60)
@@ -710,6 +748,13 @@ fn spawn_npc_entities(
             continue;
         };
         instance_index.insert_npc_handle(script.handle.clone());
+        if !npc_filter.allows(&script.symbol_name, script.display_name.as_deref()) {
+            debug!(
+                "Skipping npc({}) {} spawn, filtered by name",
+                spawn.instance_id, script.symbol_name
+            );
+            continue;
+        }
 
         let mut transform = if let Some(tr) = spawn.transform {
             tr
@@ -869,5 +914,48 @@ fn spawn_item_entities(
             waypoint_tr,
             GameItem::new(handle),
         ));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NpcSpawnNameFilter;
+
+    #[test]
+    fn empty_filter_allows_every_npc() {
+        let filter = NpcSpawnNameFilter::default();
+        assert!(filter.allows("vlk_449_lares", Some("Lares")));
+    }
+
+    #[test]
+    fn filter_matches_symbol_or_display_name_substring() {
+        let filter = filter_with(&["lares"]);
+        assert!(filter.allows("vlk_449_lares", None));
+        assert!(filter.allows("other", Some("Lares")));
+        assert!(!filter.allows("vlk_449_milten", Some("Milten")));
+    }
+
+    #[test]
+    fn added_filters_accumulate() {
+        let mut filter = NpcSpawnNameFilter::default();
+        filter.add(&["lares".to_string()]);
+        filter.add(&["milten".to_string()]);
+        assert!(filter.allows("vlk_449_lares", None));
+        assert!(filter.allows("vlk_449_milten", None));
+        assert!(!filter.allows("vlk_449_diego", None));
+    }
+
+    #[test]
+    fn matching_is_case_insensitive() {
+        let filter = filter_with(&["LaReS"]);
+        assert!(filter.allows("vlk_449_lares", None));
+        assert!(filter.allows("other", Some("Lares")));
+    }
+
+    fn filter_with(names: &[&str]) -> NpcSpawnNameFilter {
+        let mut filter = NpcSpawnNameFilter::default();
+        let names: Vec<String> = names.iter().map(|name| (*name).to_string()).collect();
+        filter.add(&names);
+        filter
     }
 }

@@ -25,7 +25,9 @@ use crate::input::actions::{
 };
 use crate::input::options::Options;
 use crate::input::record::{RecordedAction, ReplayCommand};
-use crate::zengin::{GameNpc, ScriptResource, WeaponKind, grant_test_items, seed_test_journal};
+use crate::zengin::{
+    GameNpc, NpcSpawnNameFilter, ScriptResource, WeaponKind, grant_test_items, seed_test_journal,
+};
 
 /// Filter of the player visual model transform query.
 type PlayerVisualFilter = (
@@ -243,6 +245,7 @@ fn replay_actions(
     mut pending: ResMut<PendingLocations>,
     mut game_log: ResMut<GameLog>,
     mut next_state: ResMut<NextState<AppState>>,
+    mut npc_filter: ResMut<NpcSpawnNameFilter>,
 ) {
     let Some(mut replay) = replay else {
         return;
@@ -265,6 +268,7 @@ fn replay_actions(
             &mut commands,
             &mut game_log,
             &mut next_state,
+            &mut npc_filter,
         ) {
             commands.remove_resource::<ActionReplay>();
             return;
@@ -299,6 +303,7 @@ fn apply_replay_command(
     commands: &mut Commands,
     game_log: &mut GameLog,
     next_state: &mut NextState<AppState>,
+    npc_filter: &mut NpcSpawnNameFilter,
 ) -> bool {
     match command {
         ReplayCommand::Press { action, .. } => {
@@ -387,6 +392,10 @@ fn apply_replay_command(
             commands.queue(move |world: &mut World| {
                 crate::zengin::request_world_spawn(world, &world_name);
             });
+        }
+        ReplayCommand::FilterNpcWithName { filters, .. } => {
+            npc_filter.add(filters);
+            info!("Replay npc spawn name filters: {filters:?}");
         }
     }
     false
