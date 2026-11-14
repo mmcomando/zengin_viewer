@@ -10,6 +10,7 @@ use bevy::prelude::*;
 
 use crate::gameplay::character::QUERY_ONLY_LAYER;
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
+use crate::graphics::{AnimationController, AnimationData};
 use crate::gui_debug::WorldMesh;
 use crate::zengin::objects_to_entities::create_skinned_mesh_data;
 use crate::zengin::resources::handles::CachedAssetHandles;
@@ -41,6 +42,9 @@ pub struct ZenGinModelComponent {
     pub convex_colider: bool,
     pub trimesh_collider: bool,
     pub bones_data: Option<SkinnedMesh>,
+    /// Animation played by the skeleton the model is turned into, `None` for a
+    /// skeleton frozen in its bind pose.
+    pub animation_handle: Option<Handle<AnimationData>>,
 }
 
 /// Check only entities which were not handled previously
@@ -59,6 +63,7 @@ pub(crate) fn convert_zengin_model_to_entities(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     models: ResMut<Assets<ZenGinModel>>,
+    animations: Res<Assets<AnimationData>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut material_handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
@@ -75,6 +80,20 @@ pub(crate) fn convert_zengin_model_to_entities(
         let handle = &model_component.model_handle;
         let Some(model) = models.get(handle) else {
             continue;
+        };
+        // Only models which build their own skeleton wait for the animation, a
+        // supplied `bones_data` already carries one.
+        let animation_data = match (
+            &model_component.animation_handle,
+            &model_component.bones_data,
+        ) {
+            (Some(animation_handle), None) => {
+                let Some(animation_data) = animations.get(animation_handle) else {
+                    continue;
+                };
+                Some(animation_data)
+            }
+            _ => None,
         };
         let main_entity_id = commands.entity(entity_id).id();
         {
@@ -95,8 +114,15 @@ pub(crate) fn convert_zengin_model_to_entities(
                 handle,
                 entity_id,
                 model,
-                None,
+                animation_data,
             );
+            if animation_data.is_some()
+                && let Some(animation_handle) = &model_component.animation_handle
+            {
+                commands
+                    .entity(entity_id)
+                    .insert(AnimationController::new(animation_handle.clone()));
+            }
         }
 
         let model_aabb = model

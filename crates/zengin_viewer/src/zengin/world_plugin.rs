@@ -22,7 +22,7 @@ use crate::zengin::interaction::selection::Selection;
 use crate::zengin::loaders::vfs::{
     item_model_path, mesh_model_path, normalize_mesh_name, resolve_stand_animation,
 };
-use crate::zengin::mobs::MobRegistry;
+use crate::zengin::mobs::{MobAnimation, MobRegistry, mob_state_animation};
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::resources::{
@@ -358,7 +358,7 @@ fn spawn_world_data(
 
     commands.insert_resource(WayPoints { points: way_points });
     commands.insert_resource(Spots(std::mem::take(&mut world_data.spots)));
-    commands.insert_resource(AnimationFiles(std::mem::take(&mut world_data.anim_files)));
+    let animation_files = AnimationFiles(std::mem::take(&mut world_data.anim_files));
     commands.insert_resource(MusicZones {
         zones: std::mem::take(&mut world_data.music_zones),
         default: world_data.default_music_zone.take(),
@@ -448,6 +448,7 @@ fn spawn_world_data(
                 vob_name: mob.vob_name,
                 focus_name: mob.focus_name,
                 scheme: mob.scheme.clone(),
+                visual_stem: mob.visual_stem.clone(),
                 state_num: mob.state_num,
                 use_with_item: mob.use_with_item,
                 on_state_func: mob.on_state_func,
@@ -461,14 +462,29 @@ fn spawn_world_data(
             StaticMesh::default(),
         ));
         if let Some(model_handle) = model_handle {
-            entity.insert(ZenGinModelComponent {
-                model_handle,
-                convex_colider: mob.collides,
-                ..default()
-            });
+            let animation_handle = mob_state_animation(
+                &animation_files,
+                handles_map,
+                asset_server,
+                &mob.visual_stem,
+                0,
+            );
+            entity.insert((
+                ZenGinModelComponent {
+                    model_handle,
+                    convex_colider: mob.collides,
+                    animation_handle,
+                    ..default()
+                },
+                MobAnimation {
+                    stem: mob.visual_stem.clone(),
+                    state: 0,
+                },
+            ));
         }
         mob_registry.insert(mob.scheme, entity.id());
     }
+    commands.insert_resource(animation_files);
     commands.insert_resource(mob_registry);
 
     if !gothic_script.has_player_instance() {

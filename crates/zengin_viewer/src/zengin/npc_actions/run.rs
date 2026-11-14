@@ -53,8 +53,8 @@ pub(crate) fn run_npc_actions(
     mut desired: MessageWriter<SetDesiredAnimation>,
     targets: Query<(&GlobalTransform, Option<&NpcHealth>)>,
     mob_registry: Res<MobRegistry>,
-    mobs: Query<(
-        &GameMob,
+    mut mobs: Query<(
+        &mut GameMob,
         &GlobalTransform,
         Option<&MobOccupant>,
         Option<&ZenGinModelComponent>,
@@ -273,6 +273,11 @@ pub(crate) fn run_npc_actions(
             }
             NpcAction::UseMob { scheme, state } => {
                 if state <= 0 {
+                    if let Some(mob_use) = npc_mob_use
+                        && let Ok((mut mob, ..)) = mobs.get_mut(mob_use.mob)
+                    {
+                        mob.state = 0;
+                    }
                     release_mob_use(
                         &mut commands,
                         entity,
@@ -298,6 +303,9 @@ pub(crate) fn run_npc_actions(
                     // A different mob use supersedes the current one.
                     commands.entity(mob_use.mob).remove::<MobOccupant>();
                     commands.entity(entity).remove::<NpcMobUse>();
+                    if let Ok((mut mob, ..)) = mobs.get_mut(mob_use.mob) {
+                        mob.state = 0;
+                    }
                 }
 
                 let Some(mut controller) = controller else {
@@ -310,8 +318,8 @@ pub(crate) fn run_npc_actions(
                 };
 
                 let Some(choice) = select_mob(
+                    &mut mobs,
                     &mob_registry,
-                    &mobs,
                     &claimed_mobs,
                     scheme.as_str(),
                     transform.translation,
@@ -369,6 +377,13 @@ pub(crate) fn run_npc_actions(
                     mob: choice.mob,
                     scheme: scheme.clone(),
                 });
+                // The mob switches to the state the npc uses it in, which plays
+                // its own `<STEM>-S_S<n>` animation.
+                if let Ok((mut mob, ..)) = mobs.get_mut(choice.mob)
+                    && mob.state != state.max(0)
+                {
+                    mob.state = state.max(0);
+                }
                 info!(
                     "npc({}) uses mob({}) focus({}) animation({})",
                     npc.instance_id(),
@@ -420,13 +435,13 @@ struct MobChoice {
 /// engine only enforces them for the player, npcs use a mob by scheme and a
 /// free attachment point alone.
 fn select_mob(
-    registry: &MobRegistry,
-    mobs: &Query<(
-        &GameMob,
+    mobs: &mut Query<(
+        &mut GameMob,
         &GlobalTransform,
         Option<&MobOccupant>,
         Option<&ZenGinModelComponent>,
     )>,
+    registry: &MobRegistry,
     claimed: &HashSet<Entity>,
     scheme: &str,
     npc_pos: Vec3,
@@ -439,14 +454,14 @@ fn select_mob(
         if claimed.contains(&mob_entity) {
             continue;
         }
-        let Ok((mob, mob_tr, occupant, model)) = mobs.get(mob_entity) else {
+        let Ok((mob, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
             continue;
         };
         if occupant.is_some() {
             continue;
         }
         let Some((use_pos, use_rot, position_tag, ready)) =
-            mob_use_transform(mob, mob_tr, npc_pos, model.is_some())
+            mob_use_transform(&mob, mob_tr, npc_pos, model.is_some())
         else {
             continue;
         };
@@ -587,17 +602,17 @@ mod tests {
     #[derive(Resource, Default)]
     struct Selected(Option<Entity>);
 
-    fn select(mut selected: ResMut<Selected>, registry: Res<MobRegistry>, mobs: MobQuery) {
+    fn select(mut selected: ResMut<Selected>, registry: Res<MobRegistry>, mut mobs: MobQuery) {
         let claimed = HashSet::new();
-        selected.0 =
-            select_mob(&registry, &mobs, &claimed, "bsanvil", Vec3::ZERO).map(|choice| choice.mob);
+        selected.0 = select_mob(&mut mobs, &registry, &claimed, "bsanvil", Vec3::ZERO)
+            .map(|choice| choice.mob);
     }
 
     type MobQuery<'w, 's> = Query<
         'w,
         's,
         (
-            &'static GameMob,
+            &'static mut GameMob,
             &'static GlobalTransform,
             Option<&'static MobOccupant>,
             Option<&'static ZenGinModelComponent>,
@@ -632,6 +647,7 @@ mod tests {
             vob_name: String::new(),
             focus_name: String::new(),
             scheme: scheme.to_string(),
+            visual_stem: scheme.to_uppercase(),
             state_num: 1,
             use_with_item: use_with_item.to_string(),
             on_state_func: String::new(),

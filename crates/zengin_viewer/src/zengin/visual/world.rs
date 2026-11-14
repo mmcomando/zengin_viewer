@@ -187,6 +187,7 @@ fn handle_mob(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject, has_vi
         vob_name: obj.name(),
         focus_name: obj.movable_name(),
         scheme: mob_scheme(&visual.name()),
+        visual_stem: mob_visual_stem(&visual.name()),
         state_num: obj.interactive_state(),
         use_with_item: obj.interactive_use_with_item(),
         on_state_func: obj.interactive_on_state_change_function(),

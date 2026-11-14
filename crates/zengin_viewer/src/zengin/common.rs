@@ -202,6 +202,8 @@ pub struct ZenGinMob {
     pub focus_name: String,
     /// `AI_UseMob` scheme derived from the visual stem.
     pub scheme: String,
+    /// Visual file stem, the `<STEM>` of the mob's own animation set.
+    pub visual_stem: String,
     /// Number of interaction states (`stateNum`).
     pub state_num: i32,
     /// Script item instance required to use the mob, empty when none.
@@ -224,6 +226,14 @@ pub fn mob_scheme(visual_name: &str) -> String {
         .next()
         .unwrap_or_default()
         .to_uppercase()
+}
+
+/// File stem of a mob visual, the `<STEM>` of its `<STEM>-S_S<n>.MAN`
+/// animations (`BSFIRE_OC.MDM` -> `BSFIRE_OC`).
+pub fn mob_visual_stem(visual_name: &str) -> String {
+    let file = visual_name.rsplit('/').next().unwrap_or(visual_name);
+    let stem = file.rsplit_once('.').map_or(file, |(stem, _)| stem);
+    stem.to_uppercase()
 }
 
 #[derive(Debug, Default)]

@@ -163,6 +163,8 @@ pub struct GameMob {
     pub focus_name: String,
     /// `AI_UseMob` scheme derived from the visual stem.
     pub scheme: String,
+    /// Visual file stem, the `<STEM>` of the mob's own animation set.
+    pub visual_stem: String,
     /// Number of interaction states (`stateNum`).
     pub state_num: i32,
     pub use_with_item: String,

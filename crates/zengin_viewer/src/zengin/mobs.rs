@@ -5,8 +5,12 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::GameTime;
+use crate::graphics::{AnimationController, AnimationData};
 use crate::zengin::GameMob;
 use crate::zengin::GameNpc;
+use crate::zengin::common::{animation_file_name, get_animation_path};
+use crate::zengin::npc_routines::AnimationFiles;
+use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::resources::ZenGinModelComponent;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::MobRoutineEntry;
@@ -26,6 +30,7 @@ impl Plugin for MobsPlugin {
                 release_despawned_mob_uses,
                 sync_npc_body_state,
                 apply_mob_routines,
+                apply_mob_animations,
                 sync_script_mobs,
             ),
         );
@@ -65,6 +70,15 @@ pub struct NpcMobUse {
 /// Npc entity occupying a mob interaction point.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct MobOccupant(pub Entity);
+
+/// Animation currently applied to a mob for its state.
+#[derive(Component, Debug, Clone)]
+pub struct MobAnimation {
+    /// Visual file stem, the `<STEM>` of the `<STEM>-S_S<n>.MAN` set.
+    pub stem: String,
+    /// State the animation handle of the model belongs to.
+    pub state: i32,
+}
 
 /// Releases mob points held by despawned npcs.
 fn release_despawned_mob_uses(
@@ -134,11 +148,18 @@ fn apply_mob_routines(
     };
     let minutes = game_time.minutes_of_day();
     let mut states: HashMap<String, i32> = HashMap::new();
+    for routine in &routines {
+        states.entry(routine.mob_name.to_uppercase()).or_insert(0);
+    }
+    for (scheme, state) in &mut states {
+        *state = routine_state_at(&routines, scheme, minutes).unwrap_or(0);
+    }
     for mut mob in &mut mobs {
         let scheme = mob.scheme.to_uppercase();
-        let state = states
-            .entry(scheme.clone())
-            .or_insert_with(|| routine_state_at(&routines, &scheme, minutes).unwrap_or(0));
+        // Mobs without a schedule keep the state the interaction gave them.
+        let Some(state) = states.get(&scheme) else {
+            continue;
+        };
         if mob.state == *state {
             continue;
         }
@@ -168,6 +189,67 @@ fn routine_state_at(routines: &[MobRoutineEntry], scheme: &str, minutes: u32) ->
         }
     }
     active.or(latest).map(|(_, state)| state)
+}
+
+/// Animation of a mob in `state`, `None` when the mob has no such animation file.
+pub(crate) fn mob_state_animation(
+    files: &AnimationFiles,
+    handles: &mut CachedAssetHandles,
+    asset_server: &AssetServer,
+    stem: &str,
+    state: i32,
+) -> Option<Handle<AnimationData>> {
+    let animation = format!("S_S{state}");
+    if !files.0.contains(&animation_file_name(stem, &animation)) {
+        return None;
+    }
+    Some(handles.get_animation_handle(asset_server, &get_animation_path(stem, &animation)))
+}
+
+/// Plays the `<STEM>-S_S<n>.MAN` animation of the mob state on the mob itself.
+fn apply_mob_animations(
+    asset_server: Res<AssetServer>,
+    animation_files: Option<Res<AnimationFiles>>,
+    mut handles: ResMut<CachedAssetHandles>,
+    mut mobs: Query<(
+        &GameMob,
+        &mut MobAnimation,
+        &mut ZenGinModelComponent,
+        Option<&mut AnimationController>,
+    )>,
+) {
+    let Some(animation_files) = animation_files else {
+        return;
+    };
+    for (mob, mut animation, mut component, controller) in &mut mobs {
+        if animation.state == mob.state {
+            continue;
+        }
+        let state = mob.state;
+        let Some(handle) = mob_state_animation(
+            &animation_files,
+            &mut handles,
+            &asset_server,
+            &animation.stem,
+            state,
+        ) else {
+            debug!(
+                "mob({}) has no animation for state({state})",
+                mob.focus_name
+            );
+            animation.state = state;
+            continue;
+        };
+        animation.state = state;
+        component.animation_handle = Some(handle.clone());
+        if let Some(mut controller) = controller {
+            controller.queue_next(handle, true);
+        }
+        debug!(
+            "mob({}) animation state({state}) stem({})",
+            mob.focus_name, animation.stem
+        );
+    }
 }
 
 /// Publishes the mob table for `Wld_IsMobAvailable`/`Wld_GetMobState`.
