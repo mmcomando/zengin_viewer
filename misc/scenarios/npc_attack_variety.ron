@@ -7,4 +7,5 @@
     // swing loops are not interrupted by hit reactions.
     Press(frame: 120, action: Gameplay(DealDamage)),
     Release(frame: 130, action: Gameplay(DealDamage)),
+    ExitGame(frame: 1000),
 ]

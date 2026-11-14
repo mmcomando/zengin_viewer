@@ -19,5 +19,5 @@
     Release(frame: 727, action: Gameplay(Interact)),
     Press(frame: 856, action: Gameplay(Interact)),
     Release(frame: 876, action: Gameplay(Interact)),
-    Press(frame: 979, action: Shared(Back)),
+    ExitGame(frame: 979),
 ]

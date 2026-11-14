@@ -246,6 +246,7 @@ fn replay_actions(
     mut game_log: ResMut<GameLog>,
     mut next_state: ResMut<NextState<AppState>>,
     mut npc_filter: ResMut<NpcSpawnNameFilter>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     let Some(mut replay) = replay else {
         return;
@@ -269,6 +270,7 @@ fn replay_actions(
             &mut game_log,
             &mut next_state,
             &mut npc_filter,
+            &mut exit,
         ) {
             commands.remove_resource::<ActionReplay>();
             return;
@@ -304,6 +306,7 @@ fn apply_replay_command(
     game_log: &mut GameLog,
     next_state: &mut NextState<AppState>,
     npc_filter: &mut NpcSpawnNameFilter,
+    exit: &mut MessageWriter<AppExit>,
 ) -> bool {
     match command {
         ReplayCommand::Press { action, .. } => {
@@ -396,6 +399,10 @@ fn apply_replay_command(
         ReplayCommand::FilterNpcWithName { filters, .. } => {
             npc_filter.add(filters);
             info!("Replay npc spawn name filters: {filters:?}");
+        }
+        ReplayCommand::ExitGame { .. } => {
+            info!("Replay requested the game exit");
+            exit.write(AppExit::Success);
         }
     }
     false

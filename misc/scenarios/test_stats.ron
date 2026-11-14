@@ -20,4 +20,5 @@
   // Escape closes it again.
   Press(frame:300,action:Shared(Back)),
   Release(frame:304,action:Shared(Back)),
+  ExitGame(frame: 320),
 ]

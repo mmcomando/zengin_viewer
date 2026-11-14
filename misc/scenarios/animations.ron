@@ -34,5 +34,5 @@
     Axis(frame: 3419, action: Gameplay(Move), value: (0.0, 0.0)),
     Press(frame: 3570, action: Gameplay(Interact)),
     Release(frame: 3772, action: Gameplay(Interact)),
-    Press(frame: 3955, action: Shared(Back)),
+    ExitGame(frame: 3955),
 ]

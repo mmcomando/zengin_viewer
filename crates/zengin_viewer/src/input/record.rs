@@ -101,6 +101,8 @@ pub(crate) enum ReplayCommand {
     /// its script symbol name or display name contains any of `filters`
     /// (case-insensitive). Repeated commands extend the same list.
     FilterNpcWithName { frame: u64, filters: Vec<String> },
+    /// Exits the application on `frame`.
+    ExitGame { frame: u64 },
 }
 
 impl ReplayCommand {
@@ -118,7 +120,8 @@ impl ReplayCommand {
             | ReplayCommand::GiveTestJournal { frame }
             | ReplayCommand::OpenMainMenu { frame }
             | ReplayCommand::SpawnWorld { frame, .. }
-            | ReplayCommand::FilterNpcWithName { frame, .. } => frame,
+            | ReplayCommand::FilterNpcWithName { frame, .. }
+            | ReplayCommand::ExitGame { frame } => frame,
         }
     }
 }

@@ -113,5 +113,5 @@
     Press(frame: 4053, action: Gameplay(Jump)),
     Release(frame: 4053, action: Gui(CancelAction)),
     Release(frame: 4070, action: Gameplay(Jump)),
-    Press(frame: 4309, action: Shared(Back)),
+    ExitGame(frame: 4309),
 ]

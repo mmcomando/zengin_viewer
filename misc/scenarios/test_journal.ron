@@ -37,5 +37,5 @@
   Press(frame: 360, action: Shared(Back)),
   Release(frame: 364, action: Shared(Back)),
   Screenshot(frame: 368, path: "screen_journal_closed.png"),
-  Press(frame: 375, action: Shared(Back)),
+  ExitGame(frame: 375),
 ]

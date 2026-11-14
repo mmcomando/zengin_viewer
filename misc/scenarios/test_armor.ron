@@ -7,5 +7,5 @@
   Screenshot(frame: 300, path: "armor_off.png"),
   ToggleArmor(frame: 320, item: "itar_mil_m"),
   Screenshot(frame: 400, path: "armor_on_again.png"),
-  Press(frame: 420, action: Shared(Back)),
+  ExitGame(frame: 420),
 ]
