@@ -6,9 +6,9 @@ use bevy::math::Vec3;
 use super::super::journal::{JournalChange, JournalManager, JournalTopic};
 use super::super::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogLine,
-    GotoChange, InventoryGain, ItemRuntime, LoadedState, NpcRuntime, OverlayChange, PendingChanges,
-    RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StartStateChange,
-    UseMobChange,
+    GotoChange, GotoFpChange, InventoryGain, ItemRuntime, LoadedState, NpcRuntime, OverlayChange,
+    PendingChanges, RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc,
+    StartStateChange, UseMobChange,
 };
 use super::super::symbol_id::InstanceId;
 
@@ -88,6 +88,10 @@ impl super::ScriptManager {
 
     pub fn drain_goto_changes(&mut self) -> Vec<GotoChange> {
         std::mem::take(&mut self.pending_changes().goto_changes)
+    }
+
+    pub fn drain_goto_fp_changes(&mut self) -> Vec<GotoFpChange> {
+        std::mem::take(&mut self.pending_changes().goto_fp_changes)
     }
 
     pub fn drain_attack_changes(&mut self) -> Vec<AttackChange> {

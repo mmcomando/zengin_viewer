@@ -18,9 +18,11 @@ use crate::zengin::npc_actions::{NpcAction, NpcActionQueue};
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{RoutineEntry, RoutineFunctions, StartStateChange};
+use crate::zengin::script::state::{
+    RoutineEntry, RoutineFunctions, ScriptFreePoint, StartStateChange,
+};
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::waypoint_graph::WaypointGraph;
+use crate::zengin::waypoint_graph::{Spots, WaypointGraph};
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.
@@ -335,6 +337,57 @@ pub(crate) fn apply_start_state_changes(
     }
 }
 
+/// Publishes the world spots (freepoints) for the freepoint host functions.
+pub(crate) fn sync_script_freepoints(
+    gothic_script: Option<Res<ScriptResource>>,
+    spots: Res<Spots>,
+    mut initialized: Local<bool>,
+) {
+    if *initialized && !spots.is_changed() {
+        return;
+    }
+    let Some(gothic_script) = gothic_script else {
+        return;
+    };
+    if spots.0.is_empty() {
+        return;
+    }
+    let freepoints: Vec<ScriptFreePoint> = spots
+        .0
+        .iter()
+        .map(|(name, tr)| ScriptFreePoint {
+            name: name.clone(),
+            position: tr.translation,
+        })
+        .collect();
+    debug!("published {} freepoints", freepoints.len());
+    gothic_script.lock().set_freepoints(freepoints);
+    *initialized = true;
+}
+
+/// Frees the freepoint of an npc whose routine state changed or ended.
+pub(crate) fn release_npc_freepoints(
+    gothic_script: Res<ScriptResource>,
+    changed: Query<&GameNpc, Changed<RoutineExecutor>>,
+    mut removed: RemovedComponents<RoutineExecutor>,
+    npcs: Query<&GameNpc>,
+) {
+    let mut removed_entities: Vec<Entity> = removed.read().collect();
+    if changed.is_empty() && removed_entities.is_empty() {
+        return;
+    }
+    let mut script = gothic_script.lock();
+    for npc in &changed {
+        script.release_freepoint(npc.instance_id());
+    }
+    for entity in removed_entities.drain(..) {
+        let Ok(npc) = npcs.get(entity) else {
+            continue;
+        };
+        script.release_freepoint(npc.instance_id());
+    }
+}
+
 /// Calls the loop hook of every running routine state once per interval and
 /// ends the state when the loop returns `LOOP_END`.
 pub(crate) fn run_routine_loops(
@@ -502,11 +555,24 @@ const PATH_NODE_REACHED_DISTANCE: f32 = 0.5;
 #[derive(Component, Default)]
 pub(crate) struct NpcPath {
     nodes: Vec<usize>,
+    /// World position walked to after the last graph node, used for targets that
+    /// are not part of the way net (spots).
+    target: Option<Vec3>,
 }
 
 impl NpcPath {
     pub(crate) fn new(nodes: Vec<usize>) -> Self {
-        Self { nodes }
+        Self {
+            nodes,
+            target: None,
+        }
+    }
+
+    pub(crate) fn with_target(nodes: Vec<usize>, target: Vec3) -> Self {
+        Self {
+            nodes,
+            target: Some(target),
+        }
     }
 }
 
@@ -592,7 +658,15 @@ fn direction_to_next_node(
         }
         return Some(to_target / distance);
     }
-    None
+    let target = path.target?;
+    transform.translation.y = target.y;
+    let to_target = target - transform.translation;
+    let distance = to_target.length();
+    if distance <= PATH_NODE_REACHED_DISTANCE {
+        path.target = None;
+        return None;
+    }
+    Some(to_target / distance)
 }
 
 /// Queues an animation resolved through the npc scheme and its overlay.

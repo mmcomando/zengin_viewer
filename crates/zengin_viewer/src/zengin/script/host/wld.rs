@@ -57,8 +57,14 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
         };
         i32::from(self.available_mob(npc, scheme.as_str()).is_some())
     }
-    fake_impl!(wld_isfpavailable(_0, _1) -> i32);
-    fake_impl!(wld_isnextfpavailable(_0, _1) -> i32);
+    /// `Wld_IsFPAvailable`: the npc has a free freepoint with the name nearby.
+    fn wld_isfpavailable(&mut self, npc: i32, waypoint: i32) -> i32 {
+        self.freepoint_available(npc, waypoint, false)
+    }
+    /// `Wld_IsNextFPAvailable`: like above, skipping the npc's current point.
+    fn wld_isnextfpavailable(&mut self, npc: i32, waypoint: i32) -> i32 {
+        self.freepoint_available(npc, waypoint, true)
+    }
     /// State of the nearest free mob with the scheme, `-1` when there is none.
     fn wld_getmobstate(&mut self, npc: i32, mob_name: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {

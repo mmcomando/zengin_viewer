@@ -144,9 +144,17 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     fake_impl!(ai_teleport(_0, _1));
     fake_impl!(ai_gotoitem(_0, _1));
     fake_impl!(ai_gotonpc(_0, _1));
-    fake_impl!(ai_aligntofp(_0));
-    fake_impl!(ai_gotofp(_0, _1));
-    fake_impl!(ai_gotonextfp(_0, _1));
+    /// The walk to the freepoint already orients the npc, nothing to align.
+    fn ai_aligntofp(&mut self, _npc: i32) {}
+    /// Picks the nearest free freepoint matching the name and orders a walk to
+    /// it; the point is held by the npc until its routine state changes.
+    fn ai_gotofp(&mut self, npc: i32, waypoint: i32) {
+        self.goto_freepoint(npc, waypoint, false);
+    }
+    /// Like `AI_GotoFP`, skipping the freepoint the npc already uses.
+    fn ai_gotonextfp(&mut self, npc: i32, waypoint: i32) {
+        self.goto_freepoint(npc, waypoint, true);
+    }
     fake_impl!(ai_gotosound(_0));
     fake_impl!(ai_takeitem(_0, _1));
     fake_impl!(ai_dropitem(_0, _1));

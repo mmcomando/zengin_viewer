@@ -24,7 +24,6 @@ pub struct WaypointGraph {
 
 #[derive(Debug)]
 pub struct WaypointNode {
-    // pub name: String,
     /// World position (Bevy units, `get_world_pos` conversion)
     pub position: Vec3,
     /// Gothic-space direction the waypoint faces
@@ -163,7 +162,6 @@ pub fn load_way_net_points(way_net: &WayNet) -> (WaypointGraph, HashMap<String, 
         let index = graph.nodes.len();
         graph.name_to_index.insert(name.clone(), index);
         graph.nodes.push(WaypointNode {
-            // name,
             position: pos,
             // direction: Vec3::new(direction.x, direction.y, direction.z),
             free: point.free_point(),

@@ -85,6 +85,15 @@ pub struct GotoChange {
     pub waypoint: i32,
 }
 
+/// Signal that an instance should walk to a freepoint resolved by the script
+/// host (`AI_GotoFP`/`AI_GotoNextFP`).
+#[derive(Debug, Clone, Message)]
+pub struct GotoFpChange {
+    pub instance_id: InstanceId,
+    /// Lowercased name of the chosen freepoint.
+    pub point_name: StringCanon,
+}
+
 /// Signal that an instance requested an overlay change
 /// (`Mdl_ApplyOverlayMds`/`Mdl_ApplyOverlayMdsTimed`/`Mdl_RemoveOverlayMds`).
 #[derive(Message)]

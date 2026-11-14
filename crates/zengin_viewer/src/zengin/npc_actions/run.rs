@@ -7,8 +7,8 @@ use crate::gameplay::objects::NpcModel;
 use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind, SetDesiredAnimation,
 };
-use crate::zengin::common::MOB_SEARCH_RADIUS;
 use crate::zengin::common::face_direction_quat;
+use crate::zengin::common::{MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS};
 use crate::zengin::npc_actions::attack::begin_attack_move;
 use crate::zengin::npc_actions::goto::start_goto;
 use crate::zengin::npc_actions::queue::{NpcAction, NpcActionQueue};
@@ -31,7 +31,7 @@ const ATTACK_RANGE: f32 = 1.0;
 const ATTACK_MAX_DISTANCE: f32 = 100.0;
 
 /// `OpenGothic` `MAX_AI_USE_DISTANCE`, in world units (meters).
-const MOB_USE_DISTANCE: f32 = 1.5;
+const MOB_USE_DISTANCE: f32 = MAX_AI_USE_DISTANCE;
 
 /// Executes the action at the front of every queue.
 #[allow(

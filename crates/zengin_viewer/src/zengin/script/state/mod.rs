@@ -8,9 +8,9 @@ pub(crate) use body_state::{
 };
 pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
-    DialogLine, GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged,
-    NpcEntitiesChanged, OverlayChange, RoutineExchange, ScreenMessage, ScriptSound, SpawnItem,
-    SpawnNpc, StartStateChange, UseMobChange,
+    DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
+    NpcChanged, NpcEntitiesChanged, OverlayChange, RoutineExchange, ScreenMessage, ScriptSound,
+    SpawnItem, SpawnNpc, StartStateChange, UseMobChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -30,7 +30,7 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::journal::{JournalChange, JournalManager};
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
-use crate::zengin::common::MOB_SEARCH_RADIUS;
+use crate::zengin::common::{FREEPOINT_SEARCH_RADIUS, MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS};
 
 /// A mob state assignment scheduled by `Wld_SetMobRoutine`: the mob with
 /// `mob_name` should be switched to `state` when the game time reaches
@@ -186,6 +186,15 @@ impl SymbolTable {
     }
 }
 
+/// Way-net freepoint mirrored for the freepoint host functions.
+#[derive(Debug, Clone)]
+pub struct ScriptFreePoint {
+    /// Lowercased name.
+    pub name: String,
+    /// World position, Bevy units (meters).
+    pub position: Vec3,
+}
+
 /// Interactive mob mirrored from the world for the mob host functions.
 #[derive(Debug, Clone)]
 pub struct ScriptMob {
@@ -223,6 +232,12 @@ pub struct ImportCallState {
     /// Interactive mobs by lowercased scheme, refreshed by the world side when
     /// the mob set or their occupancy changes.
     pub mobs: HashMap<String, Vec<ScriptMob>>,
+    /// Way-net freepoints, filled at world load.
+    pub freepoints: Vec<ScriptFreePoint>,
+    /// Npc currently heading to or standing on a freepoint, by point name.
+    pub freepoint_users: HashMap<String, InstanceId>,
+    /// Freepoint the npc is currently using, by npc instance.
+    pub npc_freepoint: HashMap<InstanceId, String>,
     /// Generator backing `Hlp_Random`.
     pub rng: ScriptRandom,
 }
@@ -251,6 +266,8 @@ pub struct PendingChanges {
     pub overlay_changes: Vec<OverlayChange>,
     /// `AI_GoToWP` requests produced by the script.
     pub goto_changes: Vec<GotoChange>,
+    /// `AI_GotoFP`/`AI_GotoNextFP` requests produced by the script host.
+    pub goto_fp_changes: Vec<GotoFpChange>,
     /// `AI_Attack` requests produced by the script.
     pub attack_changes: Vec<AttackChange>,
     /// `AI_PlayAni`/`AI_PlayAniBS` requests produced by the script.
@@ -345,6 +362,120 @@ impl ImportCallState {
     pub fn mob_scheme(&self, raw: i32) -> Option<StringCanon> {
         let id = self.symbol_table.string(raw)?;
         self.get_canon_string(id)
+    }
+
+    /// Canonical (lowercased) content of a string symbol id argument.
+    pub fn canon_string_arg(&self, raw: i32) -> Option<StringCanon> {
+        let id = self.symbol_table.string(raw)?;
+        self.get_canon_string(id)
+    }
+
+    /// Nearest freepoint whose name contains `query` within
+    /// [`FREEPOINT_SEARCH_RADIUS`] of the npc, skipping points held by another
+    /// npc. `next` also excludes the point the npc is standing on.
+    pub fn available_freepoint(
+        &self,
+        npc: InstanceId,
+        query: &str,
+        next: bool,
+    ) -> Option<&ScriptFreePoint> {
+        let position = {
+            let npc = self.npc_state(npc)?;
+            npc.live.position?
+        };
+        let current = self.npc_freepoint.get(&npc).map(String::as_str);
+        let radius_squared = FREEPOINT_SEARCH_RADIUS * FREEPOINT_SEARCH_RADIUS;
+        self.freepoints
+            .iter()
+            .filter(|point| point.name.contains(query))
+            .filter(|point| !next || Some(point.name.as_str()) != current)
+            .filter(|point| {
+                self.freepoint_users
+                    .get(&point.name)
+                    .is_none_or(|user| *user == npc)
+            })
+            .map(|point| (point, point.position.distance_squared(position)))
+            .filter(|(_, distance)| *distance <= radius_squared)
+            .min_by(|(_, left), (_, right)| left.total_cmp(right))
+            .map(|(point, _)| point)
+    }
+
+    /// Marks a freepoint as used by the npc, releasing its previous one.
+    pub fn assign_freepoint(&mut self, npc: InstanceId, point_name: &str) {
+        self.release_freepoint(npc);
+        self.freepoint_users.insert(point_name.to_string(), npc);
+        self.npc_freepoint.insert(npc, point_name.to_string());
+    }
+
+    /// Frees the freepoint held by the npc.
+    pub fn release_freepoint(&mut self, npc: InstanceId) {
+        let Some(point_name) = self.npc_freepoint.remove(&npc) else {
+            return;
+        };
+        self.freepoint_users.remove(&point_name);
+    }
+
+    /// Resolves a freepoint for `AI_GotoFP`/`AI_GotoNextFP`, holds it for the
+    /// npc and queues the walk.
+    pub fn goto_freepoint(&mut self, npc: i32, waypoint: i32, next: bool) {
+        let Some(npc_id) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(query) = self.canon_string_arg(waypoint) else {
+            return;
+        };
+        let Some(point_name) = self
+            .available_freepoint(npc_id, query.as_str(), next)
+            .map(|point| point.name.clone())
+        else {
+            bevy::log::debug!("AI_GotoFP npc({npc}) has no free freepoint({query})");
+            return;
+        };
+        self.assign_freepoint(npc_id, &point_name);
+        bevy::log::debug!("npc({npc}) AI_GotoFP freepoint({point_name})");
+        self.pending.goto_fp_changes.push(GotoFpChange {
+            instance_id: npc_id,
+            point_name: StringCanon::new(point_name),
+        });
+    }
+
+    /// Freepoint the npc is heading to or standing on.
+    pub fn npc_freepoint(&self, npc: InstanceId) -> Option<&str> {
+        self.npc_freepoint.get(&npc).map(String::as_str)
+    }
+
+    /// `Wld_IsFPAvailable` / `Wld_IsNextFPAvailable` as a script return value.
+    pub fn freepoint_available(&self, npc: i32, fp_name: i32, next: bool) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(query) = self.canon_string_arg(fp_name) else {
+            return 0;
+        };
+        i32::from(
+            self.available_freepoint(npc, query.as_str(), next)
+                .is_some(),
+        )
+    }
+
+    /// Whether the npc stands on a freepoint whose name contains `query`.
+    pub fn npc_is_on_freepoint(&self, npc: InstanceId, query: &str) -> bool {
+        let Some(point_name) = self.npc_freepoint(npc) else {
+            return false;
+        };
+        if !point_name.contains(query) {
+            return false;
+        }
+        let Some(point) = self
+            .freepoints
+            .iter()
+            .find(|point| point.name == point_name)
+        else {
+            return false;
+        };
+        self.npc_state(npc)
+            .and_then(|npc| npc.live.position)
+            .is_some_and(|position| point.position.distance(position) <= MAX_AI_USE_DISTANCE)
     }
 
     /// Sets the weapon mode of an npc, ignored when the id is not an npc.
@@ -598,6 +729,7 @@ fn nearest_free_mob(mobs: &[ScriptMob], position: Vec3) -> Option<&ScriptMob> {
 
 #[cfg(test)]
 mod tests {
+    use super::instances::NpcLiveState;
     use super::*;
 
     #[test]
@@ -634,5 +766,51 @@ mod tests {
         }];
 
         assert!(nearest_free_mob(&mobs, Vec3::ZERO).is_none());
+    }
+
+    #[test]
+    fn freepoint_selection_is_nearest_free_and_can_skip_the_current_point() {
+        let mut state = ImportCallState::default();
+        let npc = InstanceId::new(1).expect("valid id");
+        let other = InstanceId::new(2).expect("valid id");
+        state.loaded_state.npc_instances.insert(
+            npc,
+            Arc::new(RwLock::new(NpcRuntime {
+                live: NpcLiveState {
+                    position: Some(Vec3::ZERO),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })),
+        );
+        state.freepoints = vec![
+            ScriptFreePoint {
+                name: "fp_near_a".to_string(),
+                position: Vec3::new(1.0, 0.0, 0.0),
+            },
+            ScriptFreePoint {
+                name: "fp_near_b".to_string(),
+                position: Vec3::new(3.0, 0.0, 0.0),
+            },
+            ScriptFreePoint {
+                name: "fp_far".to_string(),
+                position: Vec3::new(50.0, 0.0, 0.0),
+            },
+        ];
+
+        let nearest = state
+            .available_freepoint(npc, "fp_", false)
+            .map(|point| point.name.clone());
+        assert_eq!(nearest.as_deref(), Some("fp_near_a"));
+
+        state.freepoint_users.insert("fp_near_a".to_string(), other);
+        let nearest = state
+            .available_freepoint(npc, "fp_", false)
+            .map(|point| point.name.clone());
+        assert_eq!(nearest.as_deref(), Some("fp_near_b"));
+
+        state.assign_freepoint(npc, "fp_near_b");
+        assert!(state.available_freepoint(npc, "fp_", true).is_none());
+        assert!(state.available_freepoint(npc, "fp_", false).is_some());
     }
 }

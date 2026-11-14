@@ -18,9 +18,9 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use crate::zengin::script::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
-    DialogLine, GotoChange, InventoryGain, ItemChanged, ItemEntitiesChanged, NpcChanged,
-    NpcEntitiesChanged, OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage, ScriptSound,
-    SpawnItem, SpawnNpc, StartStateChange, UseMobChange, WeaponMode,
+    DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
+    NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage,
+    ScriptSound, SpawnItem, SpawnNpc, StartStateChange, UseMobChange, WeaponMode,
 };
 
 pub struct ScriptBridgePlugin;
@@ -39,6 +39,7 @@ impl Plugin for ScriptBridgePlugin {
         app.add_message::<ClearAiQueueChange>();
         app.add_message::<OverlayChange>();
         app.add_message::<GotoChange>();
+        app.add_message::<GotoFpChange>();
         app.add_message::<SpawnItem>();
         app.add_message::<SpawnNpc>();
         app.add_message::<DialogClose>();
@@ -107,6 +108,7 @@ fn send_script_changes(
     mut use_mob: MessageWriter<UseMobChange>,
     mut overlay: MessageWriter<OverlayChange>,
     mut goto: MessageWriter<GotoChange>,
+    mut goto_fp: MessageWriter<GotoFpChange>,
     mut attack: MessageWriter<AttackChange>,
     mut clear_ai_queue: MessageWriter<ClearAiQueueChange>,
     mut spawn_item: MessageWriter<SpawnItem>,
@@ -135,6 +137,9 @@ fn send_script_changes(
     }
     for change in script.drain_goto_changes() {
         goto.write(change);
+    }
+    for change in script.drain_goto_fp_changes() {
+        goto_fp.write(change);
     }
     for change in script.drain_attack_changes() {
         attack.write(change);

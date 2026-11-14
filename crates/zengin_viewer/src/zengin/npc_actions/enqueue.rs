@@ -5,7 +5,7 @@ use crate::zengin::npc_actions::queue::{NpcAction, NpcActionQueue};
 use crate::zengin::npc_routines::NpcRoutineState;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
-    AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange, UseMobChange,
+    AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange, GotoFpChange, UseMobChange,
 };
 use crate::zengin::script::symbol_id::StringId;
 
@@ -58,6 +58,39 @@ pub(crate) fn enqueue_goto_actions(
                 "AI_GoToWP waypoint({}) was not queued, npc({}) has no action queue or it is full",
                 waypoint, change.instance_id
             );
+        }
+    }
+}
+
+/// Turns `AI_GotoFP`/`AI_GotoNextFP` requests into queued actions. The freepoint
+/// is resolved by the script host, the name is a way-net point the action queue
+/// can walk to.
+pub(crate) fn enqueue_goto_fp_actions(
+    mut changes: MessageReader<GotoFpChange>,
+    index: Res<InstanceIndex>,
+    mut action_queues: Query<&mut NpcActionQueue>,
+) {
+    for change in changes.read() {
+        let entities = index.npcs(change.instance_id);
+        if entities.is_empty() {
+            warn!(
+                "AI_GotoFP freepoint({}) ignored: npc({}) has no entity",
+                change.point_name, change.instance_id
+            );
+            continue;
+        }
+        for &entity in entities {
+            let Ok(mut queue) = action_queues.get_mut(entity) else {
+                continue;
+            };
+            if !queue.push(NpcAction::GoToWaypoint {
+                waypoint: change.point_name.clone(),
+            }) {
+                warn!(
+                    "AI_GotoFP freepoint({}) was not queued, npc({}) action queue is full",
+                    change.point_name, change.instance_id
+                );
+            }
         }
     }
 }

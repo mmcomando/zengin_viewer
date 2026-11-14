@@ -38,9 +38,19 @@ pub(super) fn start_goto(
             graph.shortest_path(start, target)
         });
     let Some(path) = path else {
-        warn!("npc({entity}) action goto({waypoint}), no path, teleporting");
-        teleport(transform, waypoint_tr);
-        queue.pop_front();
+        // A spot (freepoint) is not part of the way net: walk to the nearest
+        // node and cover the short remaining distance directly.
+        start_goto_spot(
+            entity,
+            queue,
+            transform,
+            commands,
+            graph,
+            spatial_query,
+            waypoint_nodes,
+            target_position,
+            waypoint,
+        );
         return;
     };
 
@@ -49,13 +59,32 @@ pub(super) fn start_goto(
     queue.mark_started();
 }
 
+#[allow(clippy::too_many_arguments)]
+fn start_goto_spot(
+    entity: Entity,
+    queue: &mut NpcActionQueue,
+    transform: &Transform,
+    commands: &mut Commands,
+    graph: &WaypointGraph,
+    spatial_query: &SpatialQuery,
+    waypoint_nodes: &Query<&WaypointNodeIndex>,
+    target_position: Vec3,
+    waypoint: &StringCanon,
+) {
+    let path = nearest_waypoint_node(spatial_query, waypoint_nodes, graph, transform.translation)
+        .and_then(|start| graph.shortest_path(start, graph.nearest_node(target_position)?));
+    let Some(path) = path else {
+        warn!("npc({entity}) action goto spot({waypoint}), no path");
+        queue.pop_front();
+        return;
+    };
+    debug!("npc({entity}) starting action goto spot({waypoint})");
+    commands
+        .entity(entity)
+        .insert(NpcPath::with_target(path, target_position));
+    queue.mark_started();
+}
+
 /// Distance in Bevy meters within which an npc counts as standing on the target
 /// waypoint and only has to align.
 const ARRIVE_DISTANCE: f32 = 0.5;
-
-fn teleport(transform: &mut Transform, waypoint: &Transform) {
-    let scale = transform.scale;
-    transform.translation = waypoint.translation + Vec3::Y * NPC_BODY_Y_OFFSET;
-    transform.rotation = waypoint.rotation;
-    transform.scale = scale;
-}

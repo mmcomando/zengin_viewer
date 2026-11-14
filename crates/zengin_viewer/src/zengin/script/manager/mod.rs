@@ -4,6 +4,7 @@
 mod body_state;
 mod changes;
 mod dialog;
+mod freepoints;
 mod inventory;
 mod menu;
 mod mobs;

@@ -204,7 +204,16 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
         };
         self.npc_state_mut(npc).routine.state_time = seconds;
     }
-    fake_impl!(npc_isonfp(_0, _1) -> i32);
+    /// Whether the npc stands on a freepoint whose name contains the value.
+    fn npc_isonfp(&mut self, npc: i32, fp: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(query) = self.canon_string_arg(fp) else {
+            return 0;
+        };
+        i32::from(self.npc_is_on_freepoint(npc, query.as_str()))
+    }
     fake_impl!(npc_hasrangedweaponwithammo(_0) -> i32);
     fake_impl!(npc_hasequippedweapon(_0) -> i32);
     fn npc_hasequippedmeleeweapon(&mut self, npc: i32) -> i32 {
