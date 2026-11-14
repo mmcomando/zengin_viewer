@@ -11,10 +11,10 @@ impl ScriptManager {
     pub fn scheme_body_state(&mut self, scheme: &str) -> i32 {
         let mut lists = MobSchemeLists::default();
         for (symbol, list) in [
-            ("MOB_SIT", &mut lists.sit),
-            ("MOB_LIE", &mut lists.lie),
-            ("MOB_CLIMB", &mut lists.climb),
-            ("MOB_NOTINTERRUPTABLE", &mut lists.not_interruptable),
+            ("mob_sit", &mut lists.sit),
+            ("mob_lie", &mut lists.lie),
+            ("mob_climb", &mut lists.climb),
+            ("mob_notinterruptable", &mut lists.not_interruptable),
         ] {
             if let Some(value) = self.string_variable(symbol) {
                 *list = value;

@@ -384,6 +384,11 @@ pub(crate) fn run_npc_actions(
                 {
                     mob.state = state.max(0);
                 }
+                gothic_script.lock().call_mob_state_hook(
+                    npc.instance_id(),
+                    &choice.on_state_func,
+                    state,
+                );
                 info!(
                     "npc({}) uses mob({}) focus({}) animation({})",
                     npc.instance_id(),
@@ -420,6 +425,8 @@ fn draw_melee_weapon(gothic_script: &ScriptResource, npc: InstanceId) {
 struct MobChoice {
     mob: Entity,
     focus_name: String,
+    /// Script hook run when the npc reaches the mob's final state.
+    on_state_func: String,
     use_pos: Vec3,
     use_rot: Quat,
     /// `FRONT`/`BACK` of the chosen `ZS_POS*` node, if it has one.
@@ -476,6 +483,7 @@ fn select_mob(
             best = Some(MobChoice {
                 mob: mob_entity,
                 focus_name: mob.focus_name.clone(),
+                on_state_func: mob.on_state_func.clone(),
                 use_pos,
                 use_rot,
                 position_tag,
