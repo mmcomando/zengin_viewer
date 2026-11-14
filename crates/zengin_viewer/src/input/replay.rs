@@ -13,6 +13,8 @@ use leafwing_input_manager::action_state::ActionKindData;
 use leafwing_input_manager::buttonlike::ButtonState;
 use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::{ActionState, Actionlike};
+use ron::Options as RonOptions;
+use ron::extensions::Extensions;
 
 use crate::game_state::AppState;
 use crate::gameplay::character::PlayerPhysicsBodyMarker;
@@ -24,7 +26,7 @@ use crate::input::actions::{
     GuiInputMarker, SharedAction, SharedInputMarker, update_input_mode,
 };
 use crate::input::options::Options;
-use crate::input::record::{RecordedAction, ReplayCommand};
+use crate::input::record::{DEFAULT_FRAME_DT, RecordedAction, ReplayCommand};
 use crate::zengin::{
     GameNpc, NpcSpawnNameFilter, ScriptResource, WeaponKind, grant_test_items, seed_test_journal,
 };
@@ -85,13 +87,20 @@ pub fn apply_scenario_window_settings(window: &mut Window, replay_enabled: bool)
     window.resolution = SCENARIO_WINDOW_RESOLUTION.into();
 }
 
+/// A replay command with its resolved execution frame.
+#[derive(Clone, Debug)]
+struct ScheduledCommand {
+    frame: u64,
+    command: ReplayCommand,
+}
+
 /// Replay schedule loaded from the scenario file plus the replay state.
 #[derive(Resource)]
 struct ActionReplay {
     /// Workdir used to resolve relative paths inside the commands.
     workdir: PathBuf,
-    /// Commands sorted by frame.
-    commands: Vec<ReplayCommand>,
+    /// Commands with resolved frames, sorted by frame.
+    commands: Vec<ScheduledCommand>,
     /// Index of the next event to apply.
     next: usize,
     frame: u64,
@@ -189,9 +198,11 @@ fn prepare_replay(path: &Path) -> Option<ActionReplay> {
 fn read_replay(workdir: &Path, path: &Path) -> Result<ActionReplay, String> {
     let contents = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    let mut commands: Vec<ReplayCommand> = ron::de::from_str(&contents)
+    let commands: Vec<ReplayCommand> = RonOptions::default()
+        .with_default_extension(Extensions::IMPLICIT_SOME)
+        .from_str(&contents)
         .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
-    commands.sort_by_key(|command| command.frame());
+    let commands = schedule_commands(commands)?;
     Ok(ActionReplay {
         workdir: workdir.to_path_buf(),
         commands,
@@ -201,6 +212,30 @@ fn read_replay(workdir: &Path, path: &Path) -> Result<ActionReplay, String> {
         started_buttons: HashSet::new(),
         held_axes: HashMap::new(),
     })
+}
+
+/// Resolves the absolute frame of every command. A command without `frame`
+/// runs `frame_dt` after the previous command in file order, or
+/// [`DEFAULT_FRAME_DT`] when it has no timing field at all.
+fn schedule_commands(commands: Vec<ReplayCommand>) -> Result<Vec<ScheduledCommand>, String> {
+    let mut previous_frame: u64 = 0;
+    let mut scheduled = Vec::with_capacity(commands.len());
+    for (index, command) in commands.into_iter().enumerate() {
+        let frame = match command.timing() {
+            (Some(frame), None) => frame,
+            (None, Some(delta)) => previous_frame.saturating_add(delta),
+            (None, None) => previous_frame.saturating_add(DEFAULT_FRAME_DT),
+            (Some(_), Some(_)) => {
+                return Err(format!(
+                    "command {index} {command:?} has both frame and frame_dt"
+                ));
+            }
+        };
+        previous_frame = frame;
+        scheduled.push(ScheduledCommand { frame, command });
+    }
+    scheduled.sort_by_key(|scheduled| scheduled.frame);
+    Ok(scheduled)
 }
 
 /// Teleport and camera location commands of the current frame, buffered by
@@ -254,10 +289,9 @@ fn replay_actions(
     replay.frame += 1;
     replay.started_buttons.clear();
 
-    while replay.next < replay.commands.len()
-        && replay.commands[replay.next].frame() <= replay.frame
+    while replay.next < replay.commands.len() && replay.commands[replay.next].frame <= replay.frame
     {
-        let command = replay.commands[replay.next].clone();
+        let command = replay.commands[replay.next].command.clone();
         replay.next += 1;
         info!("Replay triggered command: {command:?}");
         if apply_replay_command(
@@ -641,5 +675,92 @@ fn toggle_player_armor(
             "Replay equipped armor({item}) on player({})",
             player_id.value()
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ron::Options as RonOptions;
+    use ron::extensions::Extensions;
+
+    use super::{ReplayCommand, ScheduledCommand, schedule_commands};
+
+    fn parse(commands: &str) -> Result<Vec<ScheduledCommand>, String> {
+        let commands: Vec<ReplayCommand> = RonOptions::default()
+            .with_default_extension(Extensions::IMPLICIT_SOME)
+            .from_str(commands)
+            .expect("test ron should parse");
+        schedule_commands(commands)
+    }
+
+    fn frames(commands: &[ScheduledCommand]) -> Vec<u64> {
+        commands.iter().map(|command| command.frame).collect()
+    }
+
+    #[test]
+    fn frame_dt_is_relative_to_previous_command() {
+        let commands =
+            parse("[ExitGame(frame: 10), ExitGame(frame_dt: 5), ExitGame(frame_dt: 2)]").unwrap();
+        assert_eq!(frames(&commands), [10, 15, 17]);
+    }
+
+    #[test]
+    fn commands_are_sorted_by_resolved_frame() {
+        let commands =
+            parse("[ExitGame(frame: 10), ExitGame(frame: 4), ExitGame(frame_dt: 1)]").unwrap();
+        assert_eq!(frames(&commands), [4, 5, 10]);
+    }
+
+    #[test]
+    fn missing_timing_defaults_to_frame_dt_5() {
+        let commands = parse("[ExitGame(frame: 10), EquipWeapon(item: \"sword\")]").unwrap();
+        assert_eq!(frames(&commands), [10, 15]);
+    }
+
+    #[test]
+    fn command_with_both_frames_is_rejected() {
+        assert!(parse("[EquipWeapon(frame: 1, frame_dt: 1, item: \"sword\")]").is_err());
+    }
+
+    #[test]
+    fn first_command_frame_dt_is_relative_to_zero() {
+        let commands = parse("[EquipWeapon(frame_dt: 2, item: \"sword\")]").unwrap();
+        assert_eq!(frames(&commands), [2]);
+    }
+
+    #[test]
+    fn bundled_scenarios_parse() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../misc/scenarios");
+        let mut found = 0;
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().and_then(|ext| ext.to_str()) != Some("ron") {
+                continue;
+            }
+            found += 1;
+            let contents = std::fs::read_to_string(&path).unwrap();
+            let commands: Vec<ReplayCommand> = RonOptions::default()
+                .with_default_extension(Extensions::IMPLICIT_SOME)
+                .from_str(&contents)
+                .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+            schedule_commands(commands)
+                .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+        }
+        assert!(found > 0);
+    }
+
+    #[test]
+    fn absolute_frame_serializes_without_option_wrapper() {
+        let command = ReplayCommand::ExitGame {
+            frame: Some(3),
+            frame_dt: None,
+        };
+        let text = RonOptions::default()
+            .with_default_extension(Extensions::IMPLICIT_SOME)
+            .to_string_pretty(&vec![command], ron::ser::PrettyConfig::default())
+            .unwrap();
+        assert!(text.contains("frame: 3"));
+        assert!(!text.contains("Some("));
+        assert!(!text.contains("frame_dt"));
     }
 }

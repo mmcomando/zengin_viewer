@@ -10,6 +10,8 @@ use std::path::PathBuf;
 
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::{ActionState, Actionlike, InputControlKind};
+use ron::Options as RonOptions;
+use ron::extensions::Extensions;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
@@ -50,78 +52,187 @@ pub(crate) enum RecordedAction {
 
 /// One recorded replay command. Together these fully describe the triggered
 /// inputs and extra commands of a run so they can be replayed frame by frame.
+///
+/// A command runs either on an absolute `frame` or a `frame_dt` after the
+/// previous command's frame. Missing both means `frame_dt` of
+/// [`DEFAULT_FRAME_DT`].
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub(crate) enum ReplayCommand {
-    /// Button was pressed on `frame`; replay holds it until a matching
-    /// `Release`.
-    Press { frame: u64, action: RecordedAction },
-    /// Button was released on `frame`.
-    Release { frame: u64, action: RecordedAction },
-    /// Dual axis value changed on `frame` to `value`.
+    /// Button was pressed; replay holds it until a matching `Release`.
+    Press {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        action: RecordedAction,
+    },
+    /// Button was released.
+    Release {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        action: RecordedAction,
+    },
+    /// Dual axis value changed to `value`.
     Axis {
-        frame: u64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
         action: RecordedAction,
         value: Vec2,
     },
-    /// Teleport the player character on `frame` to `translation` with
-    /// `rotation` in axis labeled degrees `(x = pitch, y = yaw, z = roll)`,
-    /// matching the camera info overlay.
+    /// Teleport the player character to `translation` with `rotation` in axis
+    /// labeled degrees `(x = pitch, y = yaw, z = roll)`, matching the camera
+    /// info overlay.
     TeleportPlayer {
-        frame: u64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
         translation: Vec3,
         rotation: Vec3,
     },
-    /// Set the camera location on `frame` to `translation` with `rotation`
-    /// in axis labeled degrees `(x = pitch, y = yaw, z = roll)`, matching
-    /// the camera info overlay.
+    /// Set the camera location to `translation` with `rotation` in axis labeled
+    /// degrees `(x = pitch, y = yaw, z = roll)`, matching the camera info
+    /// overlay.
     SetCameraLocation {
-        frame: u64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
         translation: Vec3,
         rotation: Vec3,
     },
     /// Equips the item with the given (case-insensitive) instance symbol name
-    /// on the player as a drawn weapon on `frame`.
-    EquipWeapon { frame: u64, item: String },
+    /// on the player as a drawn weapon.
+    EquipWeapon {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        item: String,
+    },
     /// Toggles the armor item with the given (case-insensitive) instance symbol
-    /// name on the player on `frame`.
-    ToggleArmor { frame: u64, item: String },
-    /// Save a screenshot of the primary window to `path` on `frame`.
-    Screenshot { frame: u64, path: String },
-    /// Grants the hardcoded test items to the player on `frame`.
-    GiveTestItems { frame: u64 },
-    /// Seeds the hardcoded test journal topics on `frame`.
-    GiveTestJournal { frame: u64 },
-    /// Switches to the main menu on `frame`.
-    OpenMainMenu { frame: u64 },
+    /// name on the player.
+    ToggleArmor {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        item: String,
+    },
+    /// Save a screenshot of the primary window to `path`.
+    Screenshot {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        path: String,
+    },
+    /// Grants the hardcoded test items to the player.
+    GiveTestItems {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+    },
+    /// Seeds the hardcoded test journal topics.
+    GiveTestJournal {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+    },
+    /// Switches to the main menu.
+    OpenMainMenu {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+    },
     /// Spawns the world `world` (path relative to the worlds directory
-    /// without the `.ZEN` extension) on `frame`. Replays load no world unless
-    /// they request it with this command.
-    SpawnWorld { frame: u64, world: String },
-    /// Adds name filters for npc spawning on `frame`. An npc is spawned when
-    /// its script symbol name or display name contains any of `filters`
+    /// without the `.ZEN` extension). Replays load no world unless they
+    /// request it with this command.
+    SpawnWorld {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        world: String,
+    },
+    /// Adds name filters for npc spawning. An npc is spawned when its script
+    /// symbol name or display name contains any of `filters`
     /// (case-insensitive). Repeated commands extend the same list.
-    FilterNpcWithName { frame: u64, filters: Vec<String> },
-    /// Exits the application on `frame`.
-    ExitGame { frame: u64 },
+    FilterNpcWithName {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        filters: Vec<String>,
+    },
+    /// Exits the application.
+    ExitGame {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+    },
 }
 
+/// Default offset used when a command has neither `frame` nor `frame_dt`.
+pub(crate) const DEFAULT_FRAME_DT: u64 = 5;
+
 impl ReplayCommand {
-    pub(crate) fn frame(&self) -> u64 {
+    #[allow(
+        clippy::unnecessary_rest_pattern,
+        reason = "a single pattern group keeps the shared timing fields together"
+    )]
+    pub(crate) fn timing(&self) -> (Option<u64>, Option<u64>) {
         match *self {
-            ReplayCommand::Press { frame, .. }
-            | ReplayCommand::Release { frame, .. }
-            | ReplayCommand::Axis { frame, .. }
-            | ReplayCommand::TeleportPlayer { frame, .. }
-            | ReplayCommand::SetCameraLocation { frame, .. }
-            | ReplayCommand::EquipWeapon { frame, .. }
-            | ReplayCommand::ToggleArmor { frame, .. }
-            | ReplayCommand::Screenshot { frame, .. }
-            | ReplayCommand::GiveTestItems { frame }
-            | ReplayCommand::GiveTestJournal { frame }
-            | ReplayCommand::OpenMainMenu { frame }
-            | ReplayCommand::SpawnWorld { frame, .. }
-            | ReplayCommand::FilterNpcWithName { frame, .. }
-            | ReplayCommand::ExitGame { frame } => frame,
+            Self::Press {
+                frame, frame_dt, ..
+            }
+            | Self::Release {
+                frame, frame_dt, ..
+            }
+            | Self::Axis {
+                frame, frame_dt, ..
+            }
+            | Self::TeleportPlayer {
+                frame, frame_dt, ..
+            }
+            | Self::SetCameraLocation {
+                frame, frame_dt, ..
+            }
+            | Self::EquipWeapon {
+                frame, frame_dt, ..
+            }
+            | Self::ToggleArmor {
+                frame, frame_dt, ..
+            }
+            | Self::Screenshot {
+                frame, frame_dt, ..
+            }
+            | Self::SpawnWorld {
+                frame, frame_dt, ..
+            }
+            | Self::FilterNpcWithName {
+                frame, frame_dt, ..
+            }
+            | Self::GiveTestItems {
+                frame, frame_dt, ..
+            }
+            | Self::GiveTestJournal {
+                frame, frame_dt, ..
+            }
+            | Self::OpenMainMenu {
+                frame, frame_dt, ..
+            }
+            | Self::ExitGame {
+                frame, frame_dt, ..
+            } => (frame, frame_dt),
         }
     }
 }
@@ -158,7 +269,8 @@ fn open_recording_file(options: Res<Options>, mut commands: Commands) {
         frame: 0,
         // Recorded scenarios need an explicit world spawn to replay in a world.
         commands: vec![ReplayCommand::SpawnWorld {
-            frame: 0,
+            frame: Some(0),
+            frame_dt: None,
             world: START_WORLD.to_string(),
         }],
         held_gameplay: HashSet::new(),
@@ -259,12 +371,14 @@ fn record_triggered_actions(
     for switch in camera_switches.read() {
         let (translation, player_rotation, camera_rotation) = switch_sync_transforms(&switch.0);
         commands.push(ReplayCommand::TeleportPlayer {
-            frame,
+            frame: Some(frame),
+            frame_dt: None,
             translation,
             rotation: player_rotation,
         });
         commands.push(ReplayCommand::SetCameraLocation {
-            frame,
+            frame: Some(frame),
+            frame_dt: None,
             translation,
             rotation: camera_rotation,
         });
@@ -294,7 +408,8 @@ fn record_buttons<A: Actionlike + Copy>(
     for action in state.get_just_pressed() {
         if held.insert(action) {
             commands.push(ReplayCommand::Press {
-                frame,
+                frame: Some(frame),
+                frame_dt: None,
                 action: to_recorded(action),
             });
         }
@@ -304,7 +419,8 @@ fn record_buttons<A: Actionlike + Copy>(
             return true;
         }
         commands.push(ReplayCommand::Release {
-            frame,
+            frame: Some(frame),
+            frame_dt: None,
             action: to_recorded(*action),
         });
         false
@@ -356,7 +472,8 @@ fn record_axis(
     }
     last_axis.insert(action, value);
     commands.push(ReplayCommand::Axis {
-        frame,
+        frame: Some(frame),
+        frame_dt: None,
         action,
         value,
     });
@@ -389,7 +506,10 @@ pub(crate) fn switch_sync_transforms(camera: &GlobalTransform) -> (Vec3, Vec3, V
 fn save_recording(recording: &ActionRecording) {
     let mut pretty_config = PrettyConfig::default();
     pretty_config.depth_limit = 1;
-    let contents = match ron::ser::to_string_pretty(&recording.commands, pretty_config) {
+    let contents = match RonOptions::default()
+        .with_default_extension(Extensions::IMPLICIT_SOME)
+        .to_string_pretty(&recording.commands, pretty_config)
+    {
         Ok(contents) => contents,
         Err(error) => {
             warn!("Failed to serialize action recording: {error}");

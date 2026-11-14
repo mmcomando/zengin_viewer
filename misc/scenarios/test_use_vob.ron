@@ -1,10 +1,10 @@
 // Recorded replay commands, replayable with --replay-actions
 [
-    FilterNpcWithName(frame: 0, filters: ["brian"]),
-    SpawnWorld(frame: 2, world: "NEWWORLD/NEWWORLD"),
+    FilterNpcWithName(filters: ["brian"]),
+    SpawnWorld(world: "NEWWORLD/NEWWORLD"),
 
     TeleportPlayer(frame: 50, translation: (-60.610947, 6.082156, -21.910109), rotation: (0.0, 36.09063, 0.0)),
-    SetCameraLocation(frame: 55, translation: (-60.610947, 6.082156, -21.910109), rotation: (-13.38763, -143.90936, -0.0000013164334)),
-    Screenshot(frame: 150, path: "brian_position.png"),
-    ExitGame(frame: 200),
+    SetCameraLocation(translation: (-60.610947, 6.082156, -21.910109), rotation: (-13.38763, -143.90936, -0.0000013164334)),
+    Screenshot(frame_dt: 100, path: "brian_position.png"),
+    ExitGame(frame_dt: 20),
 ]
