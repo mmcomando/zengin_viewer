@@ -67,9 +67,9 @@ impl mmcomando::zengine_scripts::misc_scripts::Host for ImportCallState {
         };
         self.npc_state_mut(npc).inventory.create(item, count);
         if self.player_instance == Some(npc) {
-            self.pending
+            self.messages
                 .inventory_gains
-                .push(InventoryGain { npc, item, count });
+                .send(InventoryGain { npc, item, count });
         }
     }
     /// Records the item equipped on the npc; the mesh is attached by an ECS

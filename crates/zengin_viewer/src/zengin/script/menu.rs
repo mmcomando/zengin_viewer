@@ -11,6 +11,7 @@ use bevy::log::{error, info, warn};
 use bevy::prelude::{Resource, World};
 
 use super::manager::{ScriptManager, wasm_cache_path};
+use super::state::ScriptMessages;
 use super::symbol_id::{FunctionId, StringId};
 use crate::zengin::common::gothic2_dir;
 use daedalus_typed::{
@@ -108,7 +109,8 @@ impl MenuScriptResource {
         }
 
         let cache_path = wasm_cache_path("menu.script.wasm");
-        let mut script = ScriptManager::from_file_cached(&path, &cache_path);
+        let mut script =
+            ScriptManager::from_file_cached(&path, &cache_path, ScriptMessages::default());
         script.load_symbol_table();
         script.initialize_instances();
         info!("Loaded menu script {}", path.display());

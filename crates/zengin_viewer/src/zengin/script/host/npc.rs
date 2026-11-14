@@ -66,7 +66,7 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
         }
         self.npc_state_mut(to).inventory.create(item, count);
         if self.player_instance == Some(to) {
-            self.pending.inventory_gains.push(InventoryGain {
+            self.messages.inventory_gains.send(InventoryGain {
                 npc: to,
                 item,
                 count,
@@ -302,9 +302,9 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             return;
         };
         bevy::log::debug!("Npc_ClearAIQueue npc({})", npc.value());
-        self.pending
-            .clear_ai_queue_changes
-            .push(ClearAiQueueChange { instance_id: npc });
+        self.messages
+            .clear_ai_queue
+            .send(ClearAiQueueChange { instance_id: npc });
     }
     /// Knowledge is gained when a dialog root is played.
     fn npc_knowsinfo(&mut self, npc: i32, info: i32) -> i32 {

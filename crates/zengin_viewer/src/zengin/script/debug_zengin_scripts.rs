@@ -1,6 +1,7 @@
 use crate::zengin::common::gothic_dat_path;
 use crate::zengin::script::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use crate::zengin::script::manager::ScriptManager;
+use crate::zengin::script::state::ScriptMessages;
 use crate::zengin::script::symbol_id::FunctionId;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::script::symbol_id::SymbolId;
@@ -17,7 +18,7 @@ const DEBUG_ID: u32 = 11145;
 fn debug_zengin_scripts() {
     let script_path = gothic_dat_path();
     let wasm_bytes = convert_daedalus_script(&script_path);
-    let mut executor = ScriptManager::new(&wasm_bytes);
+    let mut executor = ScriptManager::new(&wasm_bytes, ScriptMessages::default());
     executor.load_symbol_table();
 
     executor.initialize_instances();
@@ -85,7 +86,7 @@ fn unsafe_wrap_instance_callable(instance_id: InstanceId) -> FunctionId {
 fn debug_exchange_routine() {
     let script_path = gothic_dat_path();
     let wasm_bytes = convert_daedalus_script(&script_path);
-    let mut executor = ScriptManager::new(&wasm_bytes);
+    let mut executor = ScriptManager::new(&wasm_bytes, ScriptMessages::default());
     executor.load_symbol_table();
     executor.initialize_instances();
 
@@ -120,7 +121,7 @@ fn debug_exchange_routine() {
 fn debug_npc_hitpoints() {
     let script_path = gothic_dat_path();
     let wasm_bytes = convert_daedalus_script(&script_path);
-    let mut executor = ScriptManager::new(&wasm_bytes);
+    let mut executor = ScriptManager::new(&wasm_bytes, ScriptMessages::default());
     executor.load_symbol_table();
     executor.initialize_instances();
 
@@ -173,7 +174,7 @@ fn debug_npc_routine(executor: &mut ScriptManager, npc_id: InstanceId) {
     let ended = executor.call_routine_loop(npc_id, functions);
     println!(
         "animation changes: {:?}, loop ended: {ended}",
-        executor.drain_animation_changes()
+        executor.messages().animation.take()
     );
 }
 
@@ -185,7 +186,7 @@ fn debug_npc_routine(executor: &mut ScriptManager, npc_id: InstanceId) {
 fn debug_player_instance_hitpoints() {
     let script_path = gothic_dat_path();
     let wasm_bytes = convert_daedalus_script(&script_path);
-    let mut executor = ScriptManager::new(&wasm_bytes);
+    let mut executor = ScriptManager::new(&wasm_bytes, ScriptMessages::default());
     executor.load_symbol_table();
     executor.initialize_instances();
 

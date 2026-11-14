@@ -3,12 +3,10 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use bevy::math::Vec3;
 
-use super::super::journal::{JournalChange, JournalManager, JournalTopic};
+use super::super::journal::{JournalManager, JournalTopic};
 use super::super::state::{
-    AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogLine,
-    GotoChange, GotoFpChange, InventoryGain, ItemRuntime, LoadedState, NpcRuntime, OverlayChange,
-    PendingChanges, RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc,
-    StartStateChange, UseMobChange,
+    ChapterIntro, ItemRuntime, LoadedState, NpcRuntime, PendingChanges, RoutineExchange,
+    ScriptMessages,
 };
 use super::super::symbol_id::InstanceId;
 
@@ -66,50 +64,6 @@ impl super::ScriptManager {
         std::mem::take(&mut self.pending_changes().routine_exchanges)
     }
 
-    pub fn drain_align_to_wp_changes(&mut self) -> Vec<AlignToWpChange> {
-        std::mem::take(&mut self.pending_changes().align_to_wp_changes)
-    }
-
-    pub fn drain_overlay_changes(&mut self) -> Vec<OverlayChange> {
-        std::mem::take(&mut self.pending_changes().overlay_changes)
-    }
-
-    pub fn drain_animation_changes(&mut self) -> Vec<AnimationChange> {
-        std::mem::take(&mut self.pending_changes().animation_changes)
-    }
-
-    pub fn drain_start_state_changes(&mut self) -> Vec<StartStateChange> {
-        std::mem::take(&mut self.pending_changes().start_state_changes)
-    }
-
-    pub fn drain_use_mob_changes(&mut self) -> Vec<UseMobChange> {
-        std::mem::take(&mut self.pending_changes().use_mob_changes)
-    }
-
-    pub fn drain_goto_changes(&mut self) -> Vec<GotoChange> {
-        std::mem::take(&mut self.pending_changes().goto_changes)
-    }
-
-    pub fn drain_goto_fp_changes(&mut self) -> Vec<GotoFpChange> {
-        std::mem::take(&mut self.pending_changes().goto_fp_changes)
-    }
-
-    pub fn drain_attack_changes(&mut self) -> Vec<AttackChange> {
-        std::mem::take(&mut self.pending_changes().attack_changes)
-    }
-
-    pub fn drain_clear_ai_queue_changes(&mut self) -> Vec<ClearAiQueueChange> {
-        std::mem::take(&mut self.pending_changes().clear_ai_queue_changes)
-    }
-
-    pub fn drain_spawn_items(&mut self) -> Vec<SpawnItem> {
-        std::mem::take(&mut self.pending_changes().spawn_items)
-    }
-
-    pub fn drain_spawn_npcs(&mut self) -> Vec<SpawnNpc> {
-        std::mem::take(&mut self.pending_changes().spawn_npcs)
-    }
-
     pub fn loaded_state(&mut self) -> &LoadedState {
         let data = self.store.data_mut();
         &data.loaded_state
@@ -119,28 +73,21 @@ impl super::ScriptManager {
         &mut self.store.data_mut().pending
     }
 
+    pub fn messages(&mut self) -> &mut ScriptMessages {
+        &mut self.store.data_mut().messages
+    }
+
     /// Drops every pending change recorded so far. Used after a save restore to
     /// keep initialization/`init_*` side effects away from the ECS.
     pub fn clear_pending_changes(&mut self) {
         *self.pending_changes() = PendingChanges::default();
+        self.messages().clear();
     }
 
     /// Lines only: sub dialog choices belong to their info and are cleared only
     /// by `Info_ClearChoices`.
     pub fn clear_dialog_lines(&mut self) {
-        self.pending_changes().dialog_lines.clear();
-    }
-
-    pub fn drain_dialog_lines(&mut self) -> Vec<DialogLine> {
-        std::mem::take(&mut self.pending_changes().dialog_lines)
-    }
-
-    pub fn drain_inventory_gains(&mut self) -> Vec<InventoryGain> {
-        std::mem::take(&mut self.pending_changes().inventory_gains)
-    }
-
-    pub fn drain_journal_changes(&mut self) -> Vec<JournalChange> {
-        std::mem::take(&mut self.pending_changes().journal_changes)
+        self.messages().dialog_lines.clear();
     }
 
     /// Snapshot of the journal topics in creation order.
@@ -152,16 +99,8 @@ impl super::ScriptManager {
         &mut self.store.data_mut().journal
     }
 
-    pub fn drain_screen_messages(&mut self) -> Vec<ScreenMessage> {
-        std::mem::take(&mut self.pending_changes().screen_messages)
-    }
-
     pub fn drain_chapter_intro(&mut self) -> Option<ChapterIntro> {
         self.pending_changes().chapter_intro.take()
-    }
-
-    pub fn drain_sound_requests(&mut self) -> Vec<ScriptSound> {
-        std::mem::take(&mut self.pending_changes().sound_requests)
     }
 
     /// Records the instance id of the player (`PC_Hero`).

@@ -5,6 +5,7 @@
 
 use bevy::prelude::*;
 
+use crate::external_messages::ExternalMessageAppExt;
 use crate::game_state::AppState;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::gui::GameLogEntry;
@@ -20,55 +21,50 @@ use crate::zengin::script::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
     NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage,
-    ScriptSound, SpawnItem, SpawnNpc, StartStateChange, UseMobChange, WeaponMode,
+    ScriptMessages, ScriptSound, SpawnItem, SpawnNpc, StartStateChange, UseMobChange, WeaponMode,
 };
 
 pub struct ScriptBridgePlugin;
 
 impl Plugin for ScriptBridgePlugin {
     fn build(&self, app: &mut App) {
+        let messages = ScriptMessages {
+            align_to_wp: app.add_external_message::<AlignToWpChange>(),
+            overlay: app.add_external_message::<OverlayChange>(),
+            goto: app.add_external_message::<GotoChange>(),
+            goto_fp: app.add_external_message::<GotoFpChange>(),
+            attack: app.add_external_message::<AttackChange>(),
+            animation: app.add_external_message::<AnimationChange>(),
+            start_state: app.add_external_message::<StartStateChange>(),
+            use_mob: app.add_external_message::<UseMobChange>(),
+            clear_ai_queue: app.add_external_message::<ClearAiQueueChange>(),
+            spawn_items: app.add_external_message::<SpawnItem>(),
+            spawn_npcs: app.add_external_message::<SpawnNpc>(),
+            dialog_lines: app.add_external_message::<DialogLine>(),
+            inventory_gains: app.add_external_message::<InventoryGain>(),
+            screen_messages: app.add_external_message::<ScreenMessage>(),
+            sounds: app.add_external_message::<ScriptSound>(),
+            journal_changes: app.add_external_message::<JournalChange>(),
+        };
+        app.insert_resource(messages);
+
         app.add_message::<NpcChanged>();
         app.add_message::<NpcEntitiesChanged>();
         app.add_message::<ItemChanged>();
         app.add_message::<ItemEntitiesChanged>();
-        app.add_message::<AlignToWpChange>();
-        app.add_message::<AnimationChange>();
-        app.add_message::<StartStateChange>();
-        app.add_message::<UseMobChange>();
-        app.add_message::<AttackChange>();
-        app.add_message::<ClearAiQueueChange>();
-        app.add_message::<OverlayChange>();
-        app.add_message::<GotoChange>();
-        app.add_message::<GotoFpChange>();
-        app.add_message::<SpawnItem>();
-        app.add_message::<SpawnNpc>();
         app.add_message::<DialogClose>();
-        app.add_message::<DialogLine>();
-        app.add_message::<InventoryGain>();
-        app.add_message::<JournalChange>();
-        app.add_message::<ScreenMessage>();
         app.add_message::<ChapterIntro>();
-        app.add_message::<ScriptSound>();
-        // Unlike the rest of the bridge, script sounds are not gated by
-        // `AppState::InGame`: the script runs during the loading screen too.
-        app.add_systems(
-            Update,
-            forward_script_sounds
-                .in_set(ScriptChangesApplied)
-                .run_if(resource_exists::<ScriptResource>),
-        );
         app.add_systems(
             Update,
             (
                 sync_game_day,
-                send_script_changes,
+                apply_script_requests,
                 send_npc_changes,
                 expand_npc_changes,
                 send_item_changes,
                 expand_item_changes,
                 log_inventory_gains,
                 log_journal_changes,
-                forward_screen_messages,
                 forward_chapter_intro,
                 sync_npc_routine_entry,
                 sync_npc_look_at,
@@ -100,75 +96,20 @@ fn sync_game_day(game_time: Res<GameTime>, gothic_script: Res<ScriptResource>) {
         .set_game_day(game_time.day.saturating_sub(1));
 }
 
-/// Drains all the changes the script recorded and forwards them as messages.
-fn send_script_changes(
-    mut align_to_wp: MessageWriter<AlignToWpChange>,
-    mut animation: MessageWriter<AnimationChange>,
-    mut start_state: MessageWriter<StartStateChange>,
-    mut use_mob: MessageWriter<UseMobChange>,
-    mut overlay: MessageWriter<OverlayChange>,
-    mut goto: MessageWriter<GotoChange>,
-    mut goto_fp: MessageWriter<GotoFpChange>,
-    mut attack: MessageWriter<AttackChange>,
-    mut clear_ai_queue: MessageWriter<ClearAiQueueChange>,
-    mut spawn_item: MessageWriter<SpawnItem>,
-    mut spawn_npc: MessageWriter<SpawnNpc>,
+/// Applies the script requests that cannot be a plain message: closing the
+/// dialog flips a flag and `Npc_ExchangeRoutine` has to call back into the vm.
+///
+/// `Npc_ExchangeRoutine` cannot run its `Rtn_*` function from inside the host
+/// import (wasmtime traps on re-entrancy), so it is resolved here: the function
+/// refills the npc's routine entries.
+fn apply_script_requests(
     mut dialog_close: MessageWriter<DialogClose>,
-    mut dialog_line: MessageWriter<DialogLine>,
-    mut inventory_gain: MessageWriter<InventoryGain>,
-    mut journal_change: MessageWriter<JournalChange>,
     gothic_script: Res<ScriptResource>,
 ) {
     let mut script = gothic_script.lock();
-    for change in script.drain_align_to_wp_changes() {
-        align_to_wp.write(change);
-    }
-    for change in script.drain_animation_changes() {
-        animation.write(change);
-    }
-    for change in script.drain_start_state_changes() {
-        start_state.write(change);
-    }
-    for change in script.drain_use_mob_changes() {
-        use_mob.write(change);
-    }
-    for change in script.drain_overlay_changes() {
-        overlay.write(change);
-    }
-    for change in script.drain_goto_changes() {
-        goto.write(change);
-    }
-    for change in script.drain_goto_fp_changes() {
-        goto_fp.write(change);
-    }
-    for change in script.drain_attack_changes() {
-        attack.write(change);
-    }
-    for change in script.drain_clear_ai_queue_changes() {
-        clear_ai_queue.write(change);
-    }
-    for change in script.drain_spawn_items() {
-        spawn_item.write(change);
-    }
-    for change in script.drain_spawn_npcs() {
-        spawn_npc.write(change);
-    }
     if script.take_close_dialog() {
         dialog_close.write(DialogClose);
     }
-    for line in script.drain_dialog_lines() {
-        dialog_line.write(line);
-    }
-    for gain in script.drain_inventory_gains() {
-        inventory_gain.write(gain);
-    }
-    for change in script.drain_journal_changes() {
-        journal_change.write(change);
-    }
-    // `Npc_ExchangeRoutine` cannot run its `Rtn_*` function from inside the
-    // host import (wasmtime traps on re-entrancy), so it is resolved here: the
-    // function refills the npc's routine entries and the produced routine entry
-    // changes are forwarded in the same frame.
     for exchange in script.drain_routine_exchanges() {
         script.exchange_routine(exchange.instance_id, &exchange.routine_name);
     }
@@ -240,29 +181,6 @@ fn expand_item_changes(
             handle: handle.clone(),
             entities: entities.to_vec(),
         });
-    }
-}
-
-/// Forwards the on-screen messages the script requested as ECS messages.
-fn forward_screen_messages(
-    mut screen_message: MessageWriter<ScreenMessage>,
-    gothic_script: Res<ScriptResource>,
-) {
-    let mut script = gothic_script.lock();
-    for message in script.drain_screen_messages() {
-        screen_message.write(message);
-    }
-}
-
-/// Forwards the sounds the script requested (`Snd_Play` and friends) as ECS
-/// messages.
-fn forward_script_sounds(
-    mut sounds: MessageWriter<ScriptSound>,
-    gothic_script: Res<ScriptResource>,
-) {
-    let mut script = gothic_script.lock();
-    for sound in script.drain_sound_requests() {
-        sounds.write(sound);
     }
 }
 

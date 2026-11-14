@@ -11,7 +11,7 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         let Some(ani) = self.get_show_string(ani_id) else {
             return;
         };
-        self.pending.animation_changes.push(AnimationChange {
+        self.messages.animation.send(AnimationChange {
             instance_id: npc_index,
             animation: StringCanon::new(ani.string()),
         });
@@ -26,7 +26,7 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         let Some(ani) = self.get_show_string(ani_id) else {
             return;
         };
-        self.pending.animation_changes.push(AnimationChange {
+        self.messages.animation.send(AnimationChange {
             instance_id: npc_index,
             animation: StringCanon::new(ani.string()),
         });
@@ -47,7 +47,7 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             );
             return;
         };
-        self.pending.dialog_lines.push(DialogLine {
+        self.messages.dialog_lines.send(DialogLine {
             npc_a,
             npc_b,
             line_id,
@@ -64,7 +64,7 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         let Some(mob) = self.get_show_string(mob_name_id) else {
             return 0;
         };
-        self.pending.use_mob_changes.push(UseMobChange {
+        self.messages.use_mob.send(UseMobChange {
             instance_id: npc_index,
             mob_name: StringCanon::new(mob.string()),
             state,
@@ -109,10 +109,10 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             npc.value()
         );
         // The engine drops the ai action queue when a state starts.
-        self.pending
-            .clear_ai_queue_changes
-            .push(ClearAiQueueChange { instance_id: npc });
-        self.pending.start_state_changes.push(StartStateChange {
+        self.messages
+            .clear_ai_queue
+            .send(ClearAiQueueChange { instance_id: npc });
+        self.messages.start_state.send(StartStateChange {
             instance_id: npc,
             state: state_fn,
             other,
@@ -131,9 +131,9 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.pending
-            .align_to_wp_changes
-            .push(AlignToWpChange { instance_id: npc });
+        self.messages
+            .align_to_wp
+            .send(AlignToWpChange { instance_id: npc });
     }
     fake_impl!(ai_setwalkmode(_0, _1));
     /// Records a `AI_GoToWP` request; the waypoint name is stored as a raw string
@@ -230,7 +230,7 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             npc.value(),
             target.value()
         );
-        self.pending.attack_changes.push(AttackChange {
+        self.messages.attack.send(AttackChange {
             instance_id: npc,
             target,
         });

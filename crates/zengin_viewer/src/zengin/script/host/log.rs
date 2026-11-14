@@ -10,7 +10,7 @@ impl mmcomando::zengine_scripts::log_scripts::Host for ImportCallState {
             return;
         };
         if self.journal.create_topic(topic.clone(), section) {
-            self.pending.journal_changes.push(JournalChange {
+            self.messages.journal_changes.send(JournalChange {
                 topic,
                 action: JournalAction::Created { section },
             });
@@ -25,7 +25,7 @@ impl mmcomando::zengine_scripts::log_scripts::Host for ImportCallState {
             return;
         };
         if self.journal.add_entry(&topic, entry.clone()) {
-            self.pending.journal_changes.push(JournalChange {
+            self.messages.journal_changes.send(JournalChange {
                 topic,
                 action: JournalAction::Entry(entry),
             });
@@ -40,7 +40,7 @@ impl mmcomando::zengine_scripts::log_scripts::Host for ImportCallState {
             return;
         };
         if self.journal.set_topic_status(&topic, status) {
-            self.pending.journal_changes.push(JournalChange {
+            self.messages.journal_changes.send(JournalChange {
                 topic,
                 action: JournalAction::Status(status),
             });

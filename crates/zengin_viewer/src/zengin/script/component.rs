@@ -1,5 +1,6 @@
 use crate::game_state::AppState;
 use crate::zengin::instance_index::InstanceIndex;
+use crate::zengin::script::state::ScriptMessages;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{GameNpc, NpcHandle, load_fight_ai_tables};
 use crate::zengin::{
@@ -44,7 +45,8 @@ fn initialize_game_script(world: &mut World) {
         return;
     }
     info!("Load game script");
-    let mut script = load_gothic_script_manager();
+    let messages = world.resource::<ScriptMessages>().clone();
+    let mut script = load_gothic_script_manager(messages);
     let npc_handles = script.npc_handles();
     let item_handles = script.item_handles();
     world.insert_resource(ScriptResource::from_manager(script));
@@ -103,10 +105,10 @@ impl ScriptResource {
 /// Loads the compiled script and its global instance data. World-specific
 /// script entry points run on world load, see [`ScriptManager::load_world`].
 #[allow(clippy::cognitive_complexity)]
-fn load_gothic_script_manager() -> ScriptManager {
+fn load_gothic_script_manager(messages: ScriptMessages) -> ScriptManager {
     let script_path = gothic_dat_path();
     let cached_wasm_path = wasm_cache_path("gothic.script.wasm");
-    let mut script = ScriptManager::from_file_cached(&script_path, &cached_wasm_path);
+    let mut script = ScriptManager::from_file_cached(&script_path, &cached_wasm_path, messages);
 
     // Load the symbol table before any script runs, host calls made during
     // initialization already verify typed symbol ids

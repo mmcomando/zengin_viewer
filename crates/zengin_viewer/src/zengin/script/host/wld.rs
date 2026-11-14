@@ -12,7 +12,7 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
         //     "NEW wld_insertnpc npc_index({npc_index}), waypoint_string_id({waypoint_string_id})"
         // );
 
-        self.pending.spawn_npcs.push(SpawnNpc {
+        self.messages.spawn_npcs.send(SpawnNpc {
             instance_id: npc_index,
             transform: None,
             exact_transform: false,
@@ -32,7 +32,7 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
         //     "NEW wld_insertitem item_index({item_index}), item_name({item_name}), waypoint_string_id({waypoint_string_id}), waypoint_name({waypoint_name})"
         // );
 
-        self.pending.spawn_items.push(SpawnItem {
+        self.messages.spawn_items.send(SpawnItem {
             instance_id: item_index,
             transform: None,
             location_name: Some(waypoint_string_id),

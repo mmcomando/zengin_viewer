@@ -19,6 +19,7 @@ impl ScriptManager {
             let data = self.store.data_mut();
             data.loaded_state = LoadedState::default();
             data.pending = PendingChanges::default();
+            data.messages.clear();
             data.close_dialog = false;
             data.player_instance = None;
             data.journal = JournalManager::default();
@@ -74,8 +75,8 @@ impl ScriptManager {
     /// accumulate routine entries, mob routines or pending spawns.
     fn reset_world_state(&mut self) {
         let data = self.store.data_mut();
-        data.pending.spawn_items.clear();
-        data.pending.spawn_npcs.clear();
+        data.messages.spawn_items.clear();
+        data.messages.spawn_npcs.clear();
         data.loaded_state.mob_routines.clear();
         data.guild_attitudes.clear();
         for npc in data.loaded_state.npc_instances.values() {

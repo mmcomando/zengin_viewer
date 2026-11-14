@@ -11,10 +11,12 @@ pub(crate) use sounds::SpeechSounds;
 pub(crate) use state::DialogRequest;
 pub(crate) use state::DialogUiState;
 
+use crate::external_messages::pump_external_messages;
 use crate::game_state::AppState;
 use crate::gameplay::camera::EditorMode;
 use crate::input::InputMode;
 use crate::zengin::script::bridge::ScriptChangesApplied;
+use crate::zengin::script::state::DialogLine;
 use bevy::prelude::*;
 
 pub struct GameDialogPlugin;
@@ -28,10 +30,10 @@ impl Plugin for GameDialogPlugin {
         app.add_systems(Startup, ui::override_default_font);
         app.add_systems(Startup, ui::spawn_dialog_ui);
         // The UI systems emit requests, `handle_dialog_requests` applies them
-        // and runs the script before the script bridge drains the produced
-        // `handle_dialog_outputs` consumes them in the same frame,
-        // `aim_dialog_camera` picks a shot for the current speaker and
-        // `sync_dialog_ui` renders the result.
+        // and runs the script; the dialog line pump below forwards the produced
+        // `AI_Output` lines so `handle_dialog_outputs` consumes them in the
+        // same frame. `aim_dialog_camera` picks a shot for the current speaker
+        // and `sync_dialog_ui` renders the result.
         app.add_systems(
             Update,
             (
@@ -44,6 +46,15 @@ impl Plugin for GameDialogPlugin {
             )
                 .chain()
                 .before(ScriptChangesApplied)
+                .run_if(in_state(AppState::InGame)),
+        );
+        // `handle_dialog_outputs` consumes the output capture flag once per
+        // frame, so the lines an option produced have to be there in that same
+        // frame.
+        app.add_systems(
+            Update,
+            pump_external_messages::<DialogLine>
+                .in_set(ScriptChangesApplied)
                 .run_if(in_state(AppState::InGame)),
         );
         app.add_systems(

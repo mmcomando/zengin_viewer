@@ -30,7 +30,9 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::journal::{JournalChange, JournalManager};
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
+use crate::external_messages::ExternalMessageSender;
 use crate::zengin::common::{FREEPOINT_SEARCH_RADIUS, MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS};
+use bevy::ecs::resource::Resource;
 
 /// A mob state assignment scheduled by `Wld_SetMobRoutine`: the mob with
 /// `mob_name` should be switched to `state` when the game time reaches
@@ -217,6 +219,7 @@ pub struct ImportCallState {
     pub close_dialog: bool,
     /// Kind of every symbol, used to verify typed symbol ids
     pub symbol_table: SymbolTable,
+    pub messages: ScriptMessages,
     pub pending: PendingChanges,
     /// Instance id of the player (`PC_Hero`), set by the world spawn.
     pub player_instance: Option<InstanceId>,
@@ -260,50 +263,79 @@ pub struct WellKnownSymbols {
 /// Changes and requests queued by the script vm, see [`ImportCallState::pending`].
 #[derive(Default)]
 pub struct PendingChanges {
-    /// `AI_AlignToWP` requests produced by the script.
-    pub align_to_wp_changes: Vec<AlignToWpChange>,
-    /// Overlay change requests produced by the script.
-    pub overlay_changes: Vec<OverlayChange>,
-    /// `AI_GoToWP` requests produced by the script.
-    pub goto_changes: Vec<GotoChange>,
-    /// `AI_GotoFP`/`AI_GotoNextFP` requests produced by the script host.
-    pub goto_fp_changes: Vec<GotoFpChange>,
-    /// `AI_Attack` requests produced by the script.
-    pub attack_changes: Vec<AttackChange>,
-    /// `AI_PlayAni`/`AI_PlayAniBS` requests produced by the script.
-    pub animation_changes: Vec<AnimationChange>,
-    /// `AI_StartState` requests produced by the script.
-    pub start_state_changes: Vec<StartStateChange>,
-    /// `AI_UseMob` requests produced by the script.
-    pub use_mob_changes: Vec<UseMobChange>,
-    /// `Npc_ClearAIQueue` requests produced by the script.
-    pub clear_ai_queue_changes: Vec<ClearAiQueueChange>,
     /// `Npc_ExchangeRoutine` requests produced by the script.
     pub routine_exchanges: Vec<RoutineExchange>,
-    /// Item spawn requests queued by the world load and `wld_insertitem`.
-    pub spawn_items: Vec<SpawnItem>,
-    /// Npc spawn requests queued by `wld_insertnpc`.
-    pub spawn_npcs: Vec<SpawnNpc>,
-    /// Dialog lines output by the script (`AI_Output`).
-    pub dialog_lines: Vec<DialogLine>,
-    /// Items the player's inventory gained through the script
-    /// (`CreateInvItem(s)`, `Npc_GiveItem`).
-    pub inventory_gains: Vec<InventoryGain>,
-    /// On-screen messages requested by `PrintScreen`/`AI_PrintScreen`.
-    pub screen_messages: Vec<ScreenMessage>,
-    /// Sounds requested by `Snd_Play`/`Snd_Play3D` and the `AI_Snd_Play*`
-    /// variants.
-    pub sound_requests: Vec<ScriptSound>,
     /// Chapter splash requested by `IntroduceChapter`, at most one pending at a
     /// time (a later request replaces an undrained one).
     pub chapter_intro: Option<ChapterIntro>,
-    /// Journal changes produced by the script (`Log_*` host functions).
-    pub journal_changes: Vec<JournalChange>,
     /// Npc instances whose data was edited since the last drain, deduplicated
     /// so one frame produces at most one message per instance.
     pub npc_changed: BTreeSet<InstanceId>,
     /// Item instances whose data was edited since the last drain.
     pub item_changed: BTreeSet<InstanceId>,
+}
+
+/// Queues of the changes the script produces for the ECS. They live outside
+/// [`PendingChanges`] because a world restart resets that wholesale while the
+/// sends must keep working.
+#[derive(Clone, Default, Resource)]
+pub struct ScriptMessages {
+    /// `AI_AlignToWP` requests produced by the script.
+    pub align_to_wp: ExternalMessageSender<AlignToWpChange>,
+    /// Overlay change requests produced by the script.
+    pub overlay: ExternalMessageSender<OverlayChange>,
+    /// `AI_GoToWP` requests produced by the script.
+    pub goto: ExternalMessageSender<GotoChange>,
+    /// `AI_GotoFP`/`AI_GotoNextFP` requests produced by the script host.
+    pub goto_fp: ExternalMessageSender<GotoFpChange>,
+    /// `AI_Attack` requests produced by the script.
+    pub attack: ExternalMessageSender<AttackChange>,
+    /// `AI_PlayAni`/`AI_PlayAniBS` requests produced by the script.
+    pub animation: ExternalMessageSender<AnimationChange>,
+    /// `AI_StartState` requests produced by the script.
+    pub start_state: ExternalMessageSender<StartStateChange>,
+    /// `AI_UseMob` requests produced by the script.
+    pub use_mob: ExternalMessageSender<UseMobChange>,
+    /// `Npc_ClearAIQueue` requests produced by the script.
+    pub clear_ai_queue: ExternalMessageSender<ClearAiQueueChange>,
+    /// Item spawn requests queued by the world load and `wld_insertitem`.
+    pub spawn_items: ExternalMessageSender<SpawnItem>,
+    /// Npc spawn requests queued by `wld_insertnpc`.
+    pub spawn_npcs: ExternalMessageSender<SpawnNpc>,
+    /// Dialog lines output by the script (`AI_Output`).
+    pub dialog_lines: ExternalMessageSender<DialogLine>,
+    /// Items the player's inventory gained through the script
+    /// (`CreateInvItem(s)`, `Npc_GiveItem`).
+    pub inventory_gains: ExternalMessageSender<InventoryGain>,
+    /// On-screen messages requested by `PrintScreen`/`AI_PrintScreen`.
+    pub screen_messages: ExternalMessageSender<ScreenMessage>,
+    /// Sounds requested by `Snd_Play`/`Snd_Play3D` and the `AI_Snd_Play*`
+    /// variants.
+    pub sounds: ExternalMessageSender<ScriptSound>,
+    /// Journal changes produced by the script (`Log_*` host functions).
+    pub journal_changes: ExternalMessageSender<JournalChange>,
+}
+
+impl ScriptMessages {
+    /// Drops every message the bridge has not forwarded to the ECS yet.
+    pub fn clear(&self) {
+        self.align_to_wp.clear();
+        self.overlay.clear();
+        self.goto.clear();
+        self.goto_fp.clear();
+        self.attack.clear();
+        self.animation.clear();
+        self.start_state.clear();
+        self.use_mob.clear();
+        self.clear_ai_queue.clear();
+        self.spawn_items.clear();
+        self.spawn_npcs.clear();
+        self.dialog_lines.clear();
+        self.inventory_gains.clear();
+        self.screen_messages.clear();
+        self.sounds.clear();
+        self.journal_changes.clear();
+    }
 }
 
 impl ImportCallState {
@@ -433,7 +465,7 @@ impl ImportCallState {
         };
         self.assign_freepoint(npc_id, &point_name);
         bevy::log::debug!("npc({npc}) AI_GotoFP freepoint({point_name})");
-        self.pending.goto_fp_changes.push(GotoFpChange {
+        self.messages.goto_fp.send(GotoFpChange {
             instance_id: npc_id,
             point_name: StringCanon::new(point_name),
         });
@@ -491,7 +523,7 @@ impl ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.pending.overlay_changes.push(OverlayChange {
+        self.messages.overlay.send(OverlayChange {
             instance_id: npc,
             request,
         });
@@ -502,7 +534,7 @@ impl ImportCallState {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return;
         };
-        self.pending.goto_changes.push(GotoChange {
+        self.messages.goto.send(GotoChange {
             instance_id: npc,
             waypoint,
         });
@@ -589,7 +621,7 @@ impl ImportCallState {
         let Some(text) = self.get_string_non_0(msg_id.value()) else {
             return;
         };
-        self.pending.screen_messages.push(ScreenMessage {
+        self.messages.screen_messages.send(ScreenMessage {
             text,
             x,
             y,
@@ -609,7 +641,7 @@ impl ImportCallState {
             warn!("Sound: name({sound}) has no content");
             return;
         };
-        self.pending.sound_requests.push(ScriptSound {
+        self.messages.sounds.send(ScriptSound {
             name: name.to_uppercase(),
             position,
         });

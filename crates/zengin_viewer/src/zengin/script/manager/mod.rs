@@ -24,7 +24,7 @@ use wasmtime::{Engine, Store};
 use crate::save::format::fnv1a_64;
 
 use super::bindings::MmWorld;
-use super::state::{ImportCallState, RoutineFunctions};
+use super::state::{ImportCallState, RoutineFunctions, ScriptMessages};
 use super::symbol_id::FunctionId;
 
 pub struct ScriptManager {
@@ -81,7 +81,11 @@ pub(crate) fn wasm_cache_path(name: &str) -> PathBuf {
 }
 
 impl ScriptManager {
-    pub fn from_file_cached(script_path: &Path, script_wasm_cache_path: &Path) -> Self {
+    pub fn from_file_cached(
+        script_path: &Path,
+        script_wasm_cache_path: &Path,
+        messages: ScriptMessages,
+    ) -> Self {
         let fingerprint = std::fs::read(script_path).map_or_else(
             |error| {
                 bevy::log::warn!(
@@ -102,12 +106,12 @@ impl ScriptManager {
             });
         }
         std::fs::write(script_wasm_cache_path, &wasm_bytes).unwrap();
-        let mut manager = Self::new(&wasm_bytes);
+        let mut manager = Self::new(&wasm_bytes, messages);
         manager.script_fingerprint = fingerprint;
         manager
     }
 
-    pub fn new(wasm_bytes: &[u8]) -> Self {
+    pub fn new(wasm_bytes: &[u8], messages: ScriptMessages) -> Self {
         let engine = Engine::default();
         let component = Component::from_binary(&engine, wasm_bytes).unwrap();
         let mut linker = Linker::new(&engine);
@@ -117,7 +121,10 @@ impl ScriptManager {
         )
         .unwrap();
 
-        let my_state = ImportCallState::default();
+        let my_state = ImportCallState {
+            messages,
+            ..ImportCallState::default()
+        };
         let mut store = Store::new(&engine, my_state);
         let instance = MmWorld::instantiate(&mut store, &component, &linker).unwrap();
         let instance_arc = Arc::new(instance);

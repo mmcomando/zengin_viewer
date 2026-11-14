@@ -284,7 +284,7 @@ pub(crate) fn deal_damage(
         if shooter_is_player && !target_data.is_player && hitpoints > 0 {
             // Being attacked makes the npc retaliate against the player.
             script.npc_state_mut(target_id).live.target = Some(shooter_id);
-            script.pending_changes().attack_changes.push(AttackChange {
+            script.messages().attack.send(AttackChange {
                 instance_id: target_id,
                 target: shooter_id,
             });
@@ -296,14 +296,11 @@ pub(crate) fn deal_damage(
                     .npc_state(target_id)
                     .is_none_or(|npc| npc.routine.current_state != Some(state))
             {
-                script
-                    .pending_changes()
-                    .start_state_changes
-                    .push(StartStateChange {
-                        instance_id: target_id,
-                        state,
-                        other: Some(shooter_id),
-                    });
+                script.messages().start_state.send(StartStateChange {
+                    instance_id: target_id,
+                    state,
+                    other: Some(shooter_id),
+                });
             }
         }
         (hitpoints, shooter_is_player)
