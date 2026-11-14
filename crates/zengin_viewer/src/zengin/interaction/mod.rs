@@ -7,6 +7,7 @@ mod actions;
 mod combat;
 mod debug;
 mod loot;
+mod use_mob;
 
 use bevy::prelude::*;
 
@@ -35,6 +36,7 @@ impl Plugin for PlayerInteractionPlugin {
                 actions::handle_transfer_items,
                 actions::pickup_selected_item,
                 loot::open_selected_chest,
+                use_mob::use_selected_mob,
                 actions::toggle_player_weapons,
                 debug::debug_equipment_on_start,
             )

@@ -12,7 +12,7 @@ use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::resources::{ARROW, NPC_BODY, SELECTABLE};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
-use crate::zengin::{GameChest, GameItem, GameNpc};
+use crate::zengin::{GameChest, GameItem, GameMob, GameNpc};
 
 /// Distance (meters) within which a world object can be selected.
 const SELECTION_RANGE: f32 = 5.0;
@@ -33,6 +33,8 @@ const NPC_LABEL_HEIGHT: f32 = 2.2;
 const ITEM_LABEL_HEIGHT: f32 = 0.6;
 /// Height of the name label above a selected chest.
 const CHEST_LABEL_HEIGHT: f32 = 1.2;
+/// Height of the name label above a selected interactive mob.
+const MOB_LABEL_HEIGHT: f32 = 1.2;
 /// Base font size of the label in font units, scaled down to world units by
 /// [`LABEL_WORLD_SCALE`] so the label is a few tenths of a meter tall.
 const LABEL_FONT_SIZE: f32 = 64.0;
@@ -66,6 +68,7 @@ pub enum SelectionKind {
     Npc,
     Item,
     Chest,
+    Mob,
 }
 
 /// The world object (npc, item or chest) the player currently has selected, if
@@ -189,6 +192,7 @@ fn update_selection(
         Option<&GameNpc>,
         Option<&GameItem>,
         Option<&GameChest>,
+        Option<&GameMob>,
         Has<PlayerCharacter>,
         &GlobalTransform,
     )>,
@@ -228,11 +232,11 @@ fn update_selection(
         if entity == player_entity {
             continue;
         }
-        let Ok((_, npc, item, chest, is_player, tr)) = candidates.get(entity) else {
+        let Ok((_, npc, item, chest, mob, is_player, tr)) = candidates.get(entity) else {
             continue;
         };
         // The player visual carries `GameNpc` too, it is not selectable.
-        if is_player || (npc.is_none() && item.is_none() && chest.is_none()) {
+        if is_player || (npc.is_none() && item.is_none() && chest.is_none() && mob.is_none()) {
             continue;
         }
         // With a weapon drawn items and chests are not selectable.
@@ -264,7 +268,7 @@ fn update_selection(
         return;
     }
 
-    let Ok((_, npc, item, chest, _, _)) = candidates.get(entity) else {
+    let Ok((_, npc, item, chest, mob, _, _)) = candidates.get(entity) else {
         return;
     };
     if let Some(item) = item {
@@ -278,6 +282,13 @@ fn update_selection(
     } else if chest.is_some() {
         selection.kind = Some(SelectionKind::Chest);
         selection.name = "Chest".to_string();
+    } else if let Some(mob) = mob {
+        selection.kind = Some(SelectionKind::Mob);
+        selection.name = gothic_script
+            .lock()
+            .string_variable(&mob.focus_name.to_lowercase())
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| mob.focus_name.clone());
     } else if let Some(npc) = npc {
         selection.kind = Some(SelectionKind::Npc);
         selection.name = gothic_script
@@ -323,6 +334,7 @@ fn update_selection_label(
     let height = match selection.kind {
         Some(SelectionKind::Item) => ITEM_LABEL_HEIGHT,
         Some(SelectionKind::Chest) => CHEST_LABEL_HEIGHT,
+        Some(SelectionKind::Mob) => MOB_LABEL_HEIGHT,
         Some(SelectionKind::Npc) | None => NPC_LABEL_HEIGHT,
     };
     transform.translation = target.translation() + Vec3::Y * height;

@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use avian3d::prelude::{Collider, CollisionLayers};
+use bevy::camera::primitives::Aabb;
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::GameTime;
@@ -11,12 +13,18 @@ use crate::zengin::GameNpc;
 use crate::zengin::common::{animation_file_name, get_animation_path};
 use crate::zengin::npc_routines::AnimationFiles;
 use crate::zengin::resources::CachedAssetHandles;
-use crate::zengin::resources::ZenGinModelComponent;
+use crate::zengin::resources::{SELECTABLE, ZenGinModelComponent, ZenGinModelComponentLoaded};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::MobRoutineEntry;
 use crate::zengin::script::state::ScriptMob;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
+
+/// Lower bound of a mob selection collider half extent, in meters, so tiny
+/// vobs stay selectable.
+const MIN_MOB_COLLIDER_HALF_EXTENT: f32 = 0.2;
+
+type MobVisualQuery = (Entity, &'static Aabb);
 
 pub struct MobsPlugin;
 
@@ -32,6 +40,7 @@ impl Plugin for MobsPlugin {
                 apply_mob_routines,
                 apply_mob_animations,
                 sync_script_mobs,
+                add_mob_selection_colliders,
             ),
         );
     }
@@ -289,6 +298,27 @@ fn sync_script_mobs(
     *initialized = true;
 }
 
+/// Gives a freshly built mob visual a selection collider sized to its model
+/// bounds. The collider is a child so it follows the vob transform and is
+/// respawned with the visual.
+fn add_mob_selection_colliders(
+    mut commands: Commands,
+    mobs: Query<MobVisualQuery, (With<GameMob>, Added<ZenGinModelComponentLoaded>)>,
+) {
+    for (entity, aabb) in &mobs {
+        let half = (aabb.max() - aabb.min()) * 0.5;
+        commands.entity(entity).with_child((
+            Collider::cuboid(
+                half.x.max(MIN_MOB_COLLIDER_HALF_EXTENT),
+                half.y.max(MIN_MOB_COLLIDER_HALF_EXTENT),
+                half.z.max(MIN_MOB_COLLIDER_HALF_EXTENT),
+            ),
+            CollisionLayers::from_bits(SELECTABLE, 0),
+            Transform::from_translation(Vec3::from(aabb.center)),
+        ));
+    }
+}
+
 /// Fills [`GameMob::positions`] once the mob model asset is loaded.
 fn extract_mob_positions(
     mut mobs: Query<(&mut GameMob, &ZenGinModelComponent)>,
@@ -352,6 +382,43 @@ mod tests {
         assert_eq!(routine_state_at(&routines, "FIREPLACE", 4 * 60), Some(1));
         assert_eq!(routine_state_at(&routines, "FIREPLACE", 10 * 60), Some(0));
         assert_eq!(routine_state_at(&routines, "fireplace", 21 * 60), Some(1));
+    }
+
+    #[test]
+    fn mob_visual_gets_a_selection_collider() {
+        let mut app = App::new();
+        app.add_systems(Update, add_mob_selection_colliders);
+        let mob = app
+            .world_mut()
+            .spawn((
+                test_mob("DOOR", "door_nw_normal_01"),
+                Aabb::from_min_max(Vec3::new(-1.0, 0.0, -1.0), Vec3::new(1.0, 2.0, 1.0)),
+                ZenGinModelComponentLoaded::default(),
+            ))
+            .id();
+
+        app.update();
+
+        let children = app.world().get::<Children>(mob).expect("collider child");
+        assert_eq!(children.len(), 1);
+        assert!(app.world().get::<Collider>(children[0]).is_some());
+    }
+
+    fn test_mob(scheme: &str, stem: &str) -> GameMob {
+        GameMob {
+            index: 0,
+            vob_name: String::new(),
+            focus_name: String::new(),
+            scheme: scheme.to_string(),
+            visual_stem: stem.to_string(),
+            state_num: 1,
+            use_with_item: String::new(),
+            on_state_func: String::new(),
+            condition_func: String::new(),
+            rewind: false,
+            positions: None,
+            state: 0,
+        }
     }
 
     fn routine(hour: i32, minute: i32, state: i32) -> MobRoutineEntry {
