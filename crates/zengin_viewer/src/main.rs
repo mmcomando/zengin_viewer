@@ -101,6 +101,7 @@
 )]
 
 mod audio;
+mod external_messages;
 mod game_state;
 mod gameplay;
 mod graphics;
