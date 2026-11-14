@@ -20,6 +20,7 @@ use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::resources::ZenGinModelComponent;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
+use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::waypoint_graph::{WaypointGraph, WaypointNodeIndex};
 use crate::zengin::{FightAiResource, GameMob, GameNpc, MobOccupant, MobRegistry, NpcMobUse};
@@ -34,11 +35,7 @@ const ATTACK_MAX_DISTANCE: f32 = 100.0;
 const MOB_USE_DISTANCE: f32 = MAX_AI_USE_DISTANCE;
 
 /// Executes the action at the front of every queue.
-#[allow(
-    clippy::type_complexity,
-    clippy::too_many_arguments,
-    clippy::cognitive_complexity
-)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(crate) fn run_npc_actions(
     mut commands: Commands,
     way_points: Res<WayPoints>,
@@ -83,7 +80,7 @@ pub(crate) fn run_npc_actions(
         overlay,
         path,
         sequencer,
-        mut controller,
+        controller,
         npc_mob_use,
         body_root_offset,
     ) in &mut npcs
@@ -111,299 +108,405 @@ pub(crate) fn run_npc_actions(
         };
 
         match action {
-            NpcAction::GoToWaypoint { waypoint } => {
-                if !queue.started() {
-                    // A replaced front action may still carry the previous path.
-                    commands.entity(entity).remove::<NpcPath>();
-                    start_goto(
-                        entity,
-                        &waypoint,
-                        &mut queue,
-                        &mut transform,
-                        &mut commands,
-                        &way_points,
-                        &graph,
-                        &spatial_query,
-                        &waypoint_nodes,
-                    );
-                    continue;
-                }
-
-                if path.is_some() {
-                    continue;
-                }
-
-                // `move_along_path` removed the path, so the npc arrived
-                if let Some(waypoint_tr) = way_points.points.get(waypoint.as_str()) {
-                    transform.rotation = waypoint_tr.rotation;
-                }
-                debug!("npc({entity}) finished action goto({waypoint})");
-                queue.pop_front();
-            }
-            NpcAction::Attack { target } => {
-                let mut attack_controller = controller;
-                let Ok((target_tr, target_health)) = targets.get(target) else {
-                    warn!(
-                        "npc({}) attack target({target}) is gone, dropping action",
-                        npc.instance_id()
-                    );
-                    drop_attack(
-                        &mut commands,
-                        entity,
-                        &mut queue,
-                        attack_controller.as_deref_mut(),
-                        sequencer.is_some(),
-                        model,
-                        overlay,
-                        &files,
-                        &mut handles,
-                        &asset_server,
-                    );
-                    continue;
-                };
-                if target_health.is_some_and(|health| health.hitpoints <= 0) {
-                    warn!(
-                        "npc({}) attack target({target}) is dead, dropping action",
-                        npc.instance_id()
-                    );
-                    drop_attack(
-                        &mut commands,
-                        entity,
-                        &mut queue,
-                        attack_controller.as_deref_mut(),
-                        sequencer.is_some(),
-                        model,
-                        overlay,
-                        &files,
-                        &mut handles,
-                        &asset_server,
-                    );
-                    continue;
-                }
-
-                let to_target = target_tr.translation() - transform.translation;
-                let horizontal = Vec3::new(to_target.x, 0.0, to_target.z);
-                let distance = horizontal.length();
-                if distance > ATTACK_MAX_DISTANCE {
-                    warn!(
-                        "npc({}) attack target is {distance:.1}m away (> {ATTACK_MAX_DISTANCE}m), dropping action",
-                        npc.instance_id()
-                    );
-                    drop_attack(
-                        &mut commands,
-                        entity,
-                        &mut queue,
-                        attack_controller.as_deref_mut(),
-                        sequencer.is_some(),
-                        model,
-                        overlay,
-                        &files,
-                        &mut handles,
-                        &asset_server,
-                    );
-                    continue;
-                }
-
-                let Some(mut controller) = attack_controller else {
-                    // The visual is not spawned yet, the action waits for it.
-                    crate::warn_once!(
-                        "npc({}) attack waits for its animation controller (visual not spawned)",
-                        npc.instance_id()
-                    );
-                    continue;
-                };
-
-                if !queue.started() {
-                    // A preempted walk may still carry its path; the attack
-                    // starts with the melee weapon drawn when the npc has one.
-                    commands.entity(entity).remove::<NpcPath>();
-                    draw_melee_weapon(&gothic_script, npc.instance_id());
-                    queue.mark_started();
-                    let tactic = gothic_script.lock().npc_fight_tactic(npc.instance_id());
-                    let fai_move = begin_attack_move(
-                        &mut queue,
-                        npc.instance_id(),
-                        entity,
-                        &fight_ai,
-                        &gothic_script,
-                    );
-                    debug!(
-                        "npc({}) attack tactic({tactic:?}) starts FAI move({fai_move:?})",
-                        npc.instance_id(),
-                    );
-                    info!(
-                        "npc({}) started attack on target({target}) at {distance:.2}m",
-                        npc.instance_id()
-                    );
-                }
-
-                if sequencer.is_none() {
-                    // Prepare the sequencer first, desired messages are only
-                    // consumed once the component exists.
-                    debug!(
-                        "npc({}) attack inserts the animation sequencer",
-                        npc.instance_id()
-                    );
-                    controller.set_root_motion(true);
-                    commands.entity(entity).insert(AutoAnimSequencer::default());
-                    continue;
-                }
-
-                let direction = horizontal.normalize_or_zero();
-                let direction = (direction.length_squared() > 0.0).then_some(direction);
-                let swing = queue
-                    .attack()
-                    .swings
-                    .front()
-                    .copied()
-                    .unwrap_or(MeleeAttackKind::Default);
-                let animation = if distance <= ATTACK_RANGE {
-                    DesiredAnimation::MeleeAttack(swing)
-                } else {
-                    DesiredAnimation::Run
-                };
-                trace!(
-                    "npc({}) attack desires {animation:?} at {distance:.2}m",
-                    npc.instance_id()
-                );
-                desired.write(SetDesiredAnimation {
-                    who: entity,
-                    animation,
-                    force_change: true,
-                    direction,
-                });
-            }
-            NpcAction::UseMob { scheme, state } => {
-                if state <= 0 {
-                    if let Some(mob_use) = npc_mob_use
-                        && let Ok((mut mob, ..)) = mobs.get_mut(mob_use.mob)
-                    {
-                        mob.state = 0;
-                    }
-                    release_mob_use(
-                        &mut commands,
-                        entity,
-                        npc_mob_use,
-                        controller.as_deref_mut(),
-                        model,
-                        overlay,
-                        &files,
-                        &mut handles,
-                        &asset_server,
-                    );
-                    queue.pop_front();
-                    continue;
-                }
-
-                if let Some(mob_use) = npc_mob_use {
-                    if mob_use.scheme == scheme {
-                        // The routine loop re-issues AI_UseMob until the body
-                        // state reports the use; drop the duplicate.
-                        queue.pop_front();
-                        continue;
-                    }
-                    // A different mob use supersedes the current one.
-                    commands.entity(mob_use.mob).remove::<MobOccupant>();
-                    commands.entity(entity).remove::<NpcMobUse>();
-                    if let Ok((mut mob, ..)) = mobs.get_mut(mob_use.mob) {
-                        mob.state = 0;
-                    }
-                }
-
-                let Some(mut controller) = controller else {
-                    crate::warn_once!(
-                        "npc({}) AI_UseMob({}) waits for its animation controller",
-                        npc.instance_id(),
-                        scheme
-                    );
-                    continue;
-                };
-
-                let Some(choice) = select_mob(
-                    &mut mobs,
-                    &mob_registry,
-                    &claimed_mobs,
-                    scheme.as_str(),
-                    transform.translation,
-                ) else {
-                    debug!(
-                        "npc({}) AI_UseMob({}) found no available mob within {MOB_SEARCH_RADIUS}m",
-                        npc.instance_id(),
-                        scheme
-                    );
-                    queue.pop_front();
-                    continue;
-                };
-                claimed_mobs.insert(choice.mob);
-
-                let horizontal = choice.use_pos - transform.translation;
-                let horizontal = Vec3::new(horizontal.x, 0.0, horizontal.z);
-                if horizontal.length() > MOB_USE_DISTANCE {
-                    transform.rotation = face_direction_quat(horizontal);
-                    if sequencer.is_none() {
-                        controller.set_root_motion(true);
-                        commands.entity(entity).insert(AutoAnimSequencer::default());
-                        continue;
-                    }
-                    desired.write(SetDesiredAnimation {
-                        who: entity,
-                        animation: DesiredAnimation::Run,
-                        force_change: true,
-                        direction: Some(horizontal.normalize_or_zero()),
-                    });
-                    continue;
-                }
-
-                if !choice.ready {
-                    // Attachment nodes are extracted once the model asset loads.
-                    continue;
-                }
-                let body_y_offset = body_root_offset
-                    .map_or(NPC_BODY_Y_OFFSET, |offset| -offset.0 * transform.scale.y);
-                transform.translation = choice.use_pos + Vec3::Y * body_y_offset;
-                transform.rotation = choice.use_rot;
-                commands.entity(entity).remove::<NpcPath>();
-                commands.entity(entity).remove::<AutoAnimSequencer>();
-                controller.set_root_motion(false);
-                let animation =
-                    mob_animation_name(scheme.as_str(), choice.position_tag.as_deref(), state);
-                queue_named_animation(
-                    &mut controller,
-                    model,
-                    overlay,
-                    &files,
-                    &mut handles,
-                    &asset_server,
-                    &animation,
-                );
-                commands.entity(choice.mob).insert(MobOccupant(entity));
-                commands.entity(entity).insert(NpcMobUse {
-                    mob: choice.mob,
-                    scheme: scheme.clone(),
-                });
-                // The mob switches to the state the npc uses it in, which plays
-                // its own `<STEM>-S_S<n>` animation.
-                if let Ok((mut mob, ..)) = mobs.get_mut(choice.mob)
-                    && mob.state != state.max(0)
-                {
-                    mob.state = state.max(0);
-                }
-                gothic_script.lock().call_mob_state_hook(
-                    npc.instance_id(),
-                    &choice.on_state_func,
-                    state,
-                );
-                info!(
-                    "npc({}) uses mob({}) focus({}) animation({})",
-                    npc.instance_id(),
-                    choice.mob,
-                    choice.focus_name,
-                    animation
-                );
-                queue.pop_front();
-            }
+            NpcAction::GoToWaypoint { waypoint } => run_goto_action(
+                &mut commands,
+                entity,
+                &waypoint,
+                &mut queue,
+                &mut transform,
+                path,
+                &way_points,
+                &graph,
+                &spatial_query,
+                &waypoint_nodes,
+            ),
+            NpcAction::Attack { target } => run_attack_action(
+                &mut commands,
+                entity,
+                npc,
+                target,
+                &mut queue,
+                &mut transform,
+                model,
+                overlay,
+                sequencer,
+                controller,
+                &gothic_script,
+                &fight_ai,
+                &files,
+                &mut handles,
+                &asset_server,
+                &mut desired,
+                &targets,
+            ),
+            NpcAction::UseMob { scheme, state } => run_use_mob_action(
+                &mut commands,
+                entity,
+                npc,
+                &scheme,
+                state,
+                &mut queue,
+                &mut transform,
+                model,
+                overlay,
+                sequencer,
+                controller,
+                npc_mob_use,
+                body_root_offset,
+                &gothic_script,
+                &files,
+                &mut handles,
+                &asset_server,
+                &mut desired,
+                &mob_registry,
+                &mut mobs,
+                &mut claimed_mobs,
+            ),
         }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_goto_action(
+    commands: &mut Commands,
+    entity: Entity,
+    waypoint: &StringCanon,
+    queue: &mut NpcActionQueue,
+    transform: &mut Transform,
+    path: Option<&NpcPath>,
+    way_points: &WayPoints,
+    graph: &WaypointGraph,
+    spatial_query: &SpatialQuery,
+    waypoint_nodes: &Query<&WaypointNodeIndex>,
+) {
+    if !queue.started() {
+        // A replaced front action may still carry the previous path.
+        commands.entity(entity).remove::<NpcPath>();
+        start_goto(
+            entity,
+            waypoint,
+            queue,
+            transform,
+            commands,
+            way_points,
+            graph,
+            spatial_query,
+            waypoint_nodes,
+        );
+        return;
+    }
+
+    if path.is_some() {
+        return;
+    }
+
+    // `move_along_path` removed the path, so the npc arrived
+    if let Some(waypoint_tr) = way_points.points.get(waypoint.as_str()) {
+        transform.rotation = waypoint_tr.rotation;
+    }
+    debug!("npc({entity}) finished action goto({waypoint})");
+    queue.pop_front();
+}
+
+#[allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
+fn run_attack_action(
+    commands: &mut Commands,
+    entity: Entity,
+    npc: &GameNpc,
+    target: Entity,
+    queue: &mut NpcActionQueue,
+    transform: &mut Transform,
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    sequencer: Option<&AutoAnimSequencer>,
+    mut controller: Option<Mut<AnimationController>>,
+    gothic_script: &ScriptResource,
+    fight_ai: &FightAiResource,
+    files: &AnimationFiles,
+    handles: &mut CachedAssetHandles,
+    asset_server: &AssetServer,
+    desired: &mut MessageWriter<SetDesiredAnimation>,
+    targets: &Query<(&GlobalTransform, Option<&NpcHealth>)>,
+) {
+    let Ok((target_tr, target_health)) = targets.get(target) else {
+        warn!(
+            "npc({}) attack target({target}) is gone, dropping action",
+            npc.instance_id()
+        );
+        drop_attack(
+            commands,
+            entity,
+            queue,
+            controller.as_deref_mut(),
+            sequencer.is_some(),
+            model,
+            overlay,
+            files,
+            handles,
+            asset_server,
+        );
+        return;
+    };
+    if target_health.is_some_and(|health| health.hitpoints <= 0) {
+        warn!(
+            "npc({}) attack target({target}) is dead, dropping action",
+            npc.instance_id()
+        );
+        drop_attack(
+            commands,
+            entity,
+            queue,
+            controller.as_deref_mut(),
+            sequencer.is_some(),
+            model,
+            overlay,
+            files,
+            handles,
+            asset_server,
+        );
+        return;
+    }
+
+    let to_target = target_tr.translation() - transform.translation;
+    let horizontal = Vec3::new(to_target.x, 0.0, to_target.z);
+    let distance = horizontal.length();
+    if distance > ATTACK_MAX_DISTANCE {
+        warn!(
+            "npc({}) attack target is {distance:.1}m away (> {ATTACK_MAX_DISTANCE}m), dropping action",
+            npc.instance_id()
+        );
+        drop_attack(
+            commands,
+            entity,
+            queue,
+            controller.as_deref_mut(),
+            sequencer.is_some(),
+            model,
+            overlay,
+            files,
+            handles,
+            asset_server,
+        );
+        return;
+    }
+
+    let Some(mut controller) = controller else {
+        // The visual is not spawned yet, the action waits for it.
+        crate::warn_once!(
+            "npc({}) attack waits for its animation controller (visual not spawned)",
+            npc.instance_id()
+        );
+        return;
+    };
+
+    if !queue.started() {
+        // A preempted walk may still carry its path; the attack
+        // starts with the melee weapon drawn when the npc has one.
+        commands.entity(entity).remove::<NpcPath>();
+        draw_melee_weapon(gothic_script, npc.instance_id());
+        queue.mark_started();
+        let tactic = gothic_script.lock().npc_fight_tactic(npc.instance_id());
+        let fai_move = begin_attack_move(queue, npc.instance_id(), entity, fight_ai, gothic_script);
+        debug!(
+            "npc({}) attack tactic({tactic:?}) starts FAI move({fai_move:?})",
+            npc.instance_id(),
+        );
+        info!(
+            "npc({}) started attack on target({target}) at {distance:.2}m",
+            npc.instance_id()
+        );
+    }
+
+    if sequencer.is_none() {
+        // Prepare the sequencer first, desired messages are only
+        // consumed once the component exists.
+        debug!(
+            "npc({}) attack inserts the animation sequencer",
+            npc.instance_id()
+        );
+        controller.set_root_motion(true);
+        commands.entity(entity).insert(AutoAnimSequencer::default());
+        return;
+    }
+
+    let direction = horizontal.normalize_or_zero();
+    let direction = (direction.length_squared() > 0.0).then_some(direction);
+    let swing = queue
+        .attack()
+        .swings
+        .front()
+        .copied()
+        .unwrap_or(MeleeAttackKind::Default);
+    let animation = if distance <= ATTACK_RANGE {
+        DesiredAnimation::MeleeAttack(swing)
+    } else {
+        DesiredAnimation::Run
+    };
+    trace!(
+        "npc({}) attack desires {animation:?} at {distance:.2}m",
+        npc.instance_id()
+    );
+    desired.write(SetDesiredAnimation {
+        who: entity,
+        animation,
+        force_change: true,
+        direction,
+    });
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_use_mob_action(
+    commands: &mut Commands,
+    entity: Entity,
+    npc: &GameNpc,
+    scheme: &StringCanon,
+    state: i32,
+    queue: &mut NpcActionQueue,
+    transform: &mut Transform,
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    sequencer: Option<&AutoAnimSequencer>,
+    mut controller: Option<Mut<AnimationController>>,
+    npc_mob_use: Option<&NpcMobUse>,
+    body_root_offset: Option<&NpcBodyRootOffset>,
+    gothic_script: &ScriptResource,
+    files: &AnimationFiles,
+    handles: &mut CachedAssetHandles,
+    asset_server: &AssetServer,
+    desired: &mut MessageWriter<SetDesiredAnimation>,
+    mob_registry: &MobRegistry,
+    mobs: &mut Query<(
+        &mut GameMob,
+        &GlobalTransform,
+        Option<&MobOccupant>,
+        Option<&ZenGinModelComponent>,
+    )>,
+    claimed_mobs: &mut HashSet<Entity>,
+) {
+    if state <= 0 {
+        if let Some(mob_use) = npc_mob_use
+            && let Ok((mut mob, ..)) = mobs.get_mut(mob_use.mob)
+        {
+            mob.state = 0;
+        }
+        release_mob_use(
+            commands,
+            entity,
+            npc_mob_use,
+            controller.as_deref_mut(),
+            model,
+            overlay,
+            files,
+            handles,
+            asset_server,
+        );
+        queue.pop_front();
+        return;
+    }
+
+    if let Some(mob_use) = npc_mob_use {
+        if &mob_use.scheme == scheme {
+            // The routine loop re-issues AI_UseMob until the body
+            // state reports the use; drop the duplicate.
+            queue.pop_front();
+            return;
+        }
+        // A different mob use supersedes the current one.
+        commands.entity(mob_use.mob).remove::<MobOccupant>();
+        commands.entity(entity).remove::<NpcMobUse>();
+        if let Ok((mut mob, ..)) = mobs.get_mut(mob_use.mob) {
+            mob.state = 0;
+        }
+    }
+
+    let Some(mut controller) = controller else {
+        crate::warn_once!(
+            "npc({}) AI_UseMob({}) waits for its animation controller",
+            npc.instance_id(),
+            scheme
+        );
+        return;
+    };
+
+    let Some(choice) = select_mob(
+        &mut *mobs,
+        mob_registry,
+        &*claimed_mobs,
+        scheme.as_str(),
+        transform.translation,
+    ) else {
+        debug!(
+            "npc({}) AI_UseMob({}) found no available mob within {MOB_SEARCH_RADIUS}m",
+            npc.instance_id(),
+            scheme
+        );
+        queue.pop_front();
+        return;
+    };
+    claimed_mobs.insert(choice.mob);
+
+    let horizontal = choice.use_pos - transform.translation;
+    let horizontal = Vec3::new(horizontal.x, 0.0, horizontal.z);
+    if horizontal.length() > MOB_USE_DISTANCE {
+        transform.rotation = face_direction_quat(horizontal);
+        if sequencer.is_none() {
+            controller.set_root_motion(true);
+            commands.entity(entity).insert(AutoAnimSequencer::default());
+            return;
+        }
+        desired.write(SetDesiredAnimation {
+            who: entity,
+            animation: DesiredAnimation::Run,
+            force_change: true,
+            direction: Some(horizontal.normalize_or_zero()),
+        });
+        return;
+    }
+
+    if !choice.ready {
+        // Attachment nodes are extracted once the model asset loads.
+        return;
+    }
+    let body_y_offset =
+        body_root_offset.map_or(NPC_BODY_Y_OFFSET, |offset| -offset.0 * transform.scale.y);
+    transform.translation = choice.use_pos + Vec3::Y * body_y_offset;
+    transform.rotation = choice.use_rot;
+    commands.entity(entity).remove::<NpcPath>();
+    commands.entity(entity).remove::<AutoAnimSequencer>();
+    controller.set_root_motion(false);
+    let animation = mob_animation_name(scheme.as_str(), choice.position_tag.as_deref(), state);
+    queue_named_animation(
+        &mut controller,
+        model,
+        overlay,
+        files,
+        handles,
+        asset_server,
+        &animation,
+    );
+    commands.entity(choice.mob).insert(MobOccupant(entity));
+    commands.entity(entity).insert(NpcMobUse {
+        mob: choice.mob,
+        scheme: scheme.clone(),
+    });
+    // The mob switches to the state the npc uses it in, which plays
+    // its own `<STEM>-S_S<n>` animation.
+    if let Ok((mut mob, ..)) = mobs.get_mut(choice.mob)
+        && mob.state != state.max(0)
+    {
+        mob.state = state.max(0);
+    }
+    gothic_script
+        .lock()
+        .call_mob_state_hook(npc.instance_id(), &choice.on_state_func, state);
+    info!(
+        "npc({}) uses mob({}) focus({}) animation({})",
+        npc.instance_id(),
+        choice.mob,
+        choice.focus_name,
+        animation
+    );
+    queue.pop_front();
 }
 
 /// Draws the melee weapon of an npc when it has one sheathed, unarmed npcs keep
