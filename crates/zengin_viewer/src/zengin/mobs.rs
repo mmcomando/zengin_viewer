@@ -4,10 +4,13 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
+use crate::gameplay::game_time::GameTime;
 use crate::zengin::GameMob;
 use crate::zengin::GameNpc;
 use crate::zengin::resources::ZenGinModelComponent;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::state::MobRoutineEntry;
+use crate::zengin::script::state::ScriptMob;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 
@@ -22,6 +25,8 @@ impl Plugin for MobsPlugin {
                 extract_mob_positions,
                 release_despawned_mob_uses,
                 sync_npc_body_state,
+                apply_mob_routines,
+                sync_script_mobs,
             ),
         );
     }
@@ -110,6 +115,98 @@ fn sync_npc_body_state(
     }
 }
 
+/// Applies the `Wld_SetMobRoutine` states of the current time to the mobs.
+fn apply_mob_routines(
+    gothic_script: Option<Res<ScriptResource>>,
+    game_time: Res<GameTime>,
+    mut mobs: Query<&mut GameMob>,
+) {
+    let Some(gothic_script) = gothic_script else {
+        return;
+    };
+    let routines = {
+        let script = gothic_script.lock();
+        let routines = &script.get_loaded_state().mob_routines;
+        if routines.is_empty() {
+            return;
+        }
+        routines.clone()
+    };
+    let minutes = game_time.minutes_of_day();
+    let mut states: HashMap<String, i32> = HashMap::new();
+    for mut mob in &mut mobs {
+        let scheme = mob.scheme.to_uppercase();
+        let state = states
+            .entry(scheme.clone())
+            .or_insert_with(|| routine_state_at(&routines, &scheme, minutes).unwrap_or(0));
+        if mob.state == *state {
+            continue;
+        }
+        debug!(
+            "mob({}) scheme({scheme}) routine state {} -> {state}",
+            mob.focus_name, mob.state
+        );
+        mob.state = *state;
+    }
+}
+
+/// State of the last schedule entry at or before `minutes`, the last entry when
+/// every entry is still ahead, matching the engine `MobStates` semantics.
+fn routine_state_at(routines: &[MobRoutineEntry], scheme: &str, minutes: u32) -> Option<i32> {
+    let mut active: Option<(u32, i32)> = None;
+    let mut latest: Option<(u32, i32)> = None;
+    for routine in routines {
+        if !routine.mob_name.eq_ignore_ascii_case(scheme) {
+            continue;
+        }
+        let at = (routine.hour.max(0) as u32) * 60 + routine.minute.max(0) as u32;
+        if latest.is_none_or(|(latest_at, _)| at >= latest_at) {
+            latest = Some((at, routine.state));
+        }
+        if at <= minutes && active.is_none_or(|(active_at, _)| at >= active_at) {
+            active = Some((at, routine.state));
+        }
+    }
+    active.or(latest).map(|(_, state)| state)
+}
+
+/// Publishes the mob table for `Wld_IsMobAvailable`/`Wld_GetMobState`.
+fn sync_script_mobs(
+    gothic_script: Option<Res<ScriptResource>>,
+    mobs: Query<(&GameMob, &GlobalTransform, Option<&MobOccupant>)>,
+    mut initialized: Local<bool>,
+    added_occupancy: Query<(), Added<MobOccupant>>,
+    changed_mobs: Query<(), Changed<GameMob>>,
+    mut removed_occupancy: RemovedComponents<MobOccupant>,
+) {
+    let occupancy_removed = removed_occupancy.read().count() > 0;
+    let dirty = !*initialized
+        || occupancy_removed
+        || !added_occupancy.is_empty()
+        || !changed_mobs.is_empty();
+    if !dirty {
+        return;
+    }
+    let Some(gothic_script) = gothic_script else {
+        return;
+    };
+    let snapshot = mobs
+        .iter()
+        .map(|(mob, mob_tr, occupant)| {
+            (
+                mob.scheme.to_lowercase(),
+                ScriptMob {
+                    position: mob_tr.translation(),
+                    occupied: occupant.is_some(),
+                    state: mob.state,
+                },
+            )
+        })
+        .collect();
+    gothic_script.lock().set_mobs(snapshot);
+    *initialized = true;
+}
+
 /// Fills [`GameMob::positions`] once the mob model asset is loaded.
 fn extract_mob_positions(
     mut mobs: Query<(&mut GameMob, &ZenGinModelComponent)>,
@@ -164,5 +261,23 @@ mod tests {
         assert_eq!(positions.len(), 1);
         assert_eq!(positions[0].name, "ZS_POS0_FRONT");
         assert_eq!(positions[0].transform, front);
+    }
+
+    #[test]
+    fn routine_state_uses_the_last_entry_at_or_before_the_minute() {
+        let routines = [routine(5, 0, 0), routine(0, 0, 1), routine(20, 0, 1)];
+
+        assert_eq!(routine_state_at(&routines, "FIREPLACE", 4 * 60), Some(1));
+        assert_eq!(routine_state_at(&routines, "FIREPLACE", 10 * 60), Some(0));
+        assert_eq!(routine_state_at(&routines, "fireplace", 21 * 60), Some(1));
+    }
+
+    fn routine(hour: i32, minute: i32, state: i32) -> MobRoutineEntry {
+        MobRoutineEntry {
+            hour,
+            minute,
+            mob_name: "FIREPLACE".to_string(),
+            state,
+        }
     }
 }

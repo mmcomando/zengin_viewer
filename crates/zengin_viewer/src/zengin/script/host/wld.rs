@@ -47,15 +47,29 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
         self.guild_attitudes.insert((guild_a, guild_b), attitude);
     }
     fake_impl!(wld_getguildattitude(_0, _1) -> i32);
-    /// Minimal mob availability: all mobs count as available so routine states
-    /// reach their use-mob branch (real mob objects are not simulated)
-    fn wld_ismobavailable(&mut self, _npc: i32, _mob_name: i32) -> i32 {
-        warn_unimplemented!("wld_ismobavailable");
-        1
+    /// `Wld_IsMobAvailable`: the npc has a free mob with the scheme nearby.
+    fn wld_ismobavailable(&mut self, npc: i32, mob_name: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(scheme) = self.mob_scheme(mob_name) else {
+            return 0;
+        };
+        i32::from(self.available_mob(npc, scheme.as_str()).is_some())
     }
     fake_impl!(wld_isfpavailable(_0, _1) -> i32);
     fake_impl!(wld_isnextfpavailable(_0, _1) -> i32);
-    fake_impl!(wld_getmobstate(_0, _1) -> i32);
+    /// State of the nearest free mob with the scheme, `-1` when there is none.
+    fn wld_getmobstate(&mut self, npc: i32, mob_name: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return -1;
+        };
+        let Some(scheme) = self.mob_scheme(mob_name) else {
+            return -1;
+        };
+        self.available_mob(npc, scheme.as_str())
+            .map_or(-1, |mob| mob.state.max(0))
+    }
     fake_impl!(wld_istime(_0, _1, _2, _3) -> i32);
     /// Day counted from 0 on the first day.
     fn wld_getday(&mut self) -> i32 {
@@ -72,8 +86,8 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
     fake_impl!(wld_removeitem(_0) -> i32);
     fake_impl!(wld_exchangeguildattitudes(_0));
     fake_impl!(wld_setobjectroutine(_0, _1, _2, _3));
-    /// Records the mob state assignment for later consumers, mobs are not
-    /// simulated yet so nothing acts on the stored entries
+    /// Records the mob state assignment for the world side, which applies it at
+    /// the scheduled time
     fn wld_setmobroutine(&mut self, hour: i32, minute: i32, mob_name: i32, state: i32) {
         let (hour, minute, state) = (hour, minute, state);
         let Some(mob_name_id) = self.symbol_table.string(mob_name) else {
@@ -84,6 +98,7 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
             warn_unimplemented!("wld_setmobroutine with empty mob name");
             return;
         };
+        bevy::log::debug!("Wld_SetMobRoutine {hour}:{minute:02} {mob_name} -> state({state})");
         self.loaded_state.mob_routines.push(MobRoutineEntry {
             hour,
             minute,

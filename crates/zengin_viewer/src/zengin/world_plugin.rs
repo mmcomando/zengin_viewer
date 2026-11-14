@@ -454,6 +454,7 @@ fn spawn_world_data(
                 condition_func: mob.condition_func,
                 rewind: mob.rewind,
                 positions: None,
+                state: 0,
             },
             Visibility::default(),
             mob.tr,

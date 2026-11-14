@@ -29,6 +29,10 @@ pub fn to_world_units(zengin_units: f32) -> f32 {
     zengin_units / ZENGIN_UNITS_PER_WORLD_UNIT
 }
 
+/// Radius within which an npc may pick or use a mob of a scheme, in world units
+/// (meters). `OpenGothic` `availableMob` uses 1000 engine units.
+pub const MOB_SEARCH_RADIUS: f32 = 10.0;
+
 pub fn gothic2_dir() -> String {
     if let Ok(dir) = std::env::var("GOTHIC2_DIR") {
         let path = PathBuf::from(dir);

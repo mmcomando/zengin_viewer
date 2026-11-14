@@ -30,11 +30,11 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::journal::{JournalChange, JournalManager};
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
+use crate::zengin::common::MOB_SEARCH_RADIUS;
 
 /// A mob state assignment scheduled by `Wld_SetMobRoutine`: the mob with
 /// `mob_name` should be switched to `state` when the game time reaches
 /// `hour`:`minute`.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MobRoutineEntry {
     pub hour: i32,
@@ -186,6 +186,17 @@ impl SymbolTable {
     }
 }
 
+/// Interactive mob mirrored from the world for the mob host functions.
+#[derive(Debug, Clone)]
+pub struct ScriptMob {
+    /// World position, Bevy units (meters).
+    pub position: Vec3,
+    /// Every interaction point is taken.
+    pub occupied: bool,
+    /// State applied by `Wld_SetMobRoutine`.
+    pub state: i32,
+}
+
 #[derive(Default)]
 pub struct ImportCallState {
     /// Typed models of the G2 script classes which have one.
@@ -209,6 +220,9 @@ pub struct ImportCallState {
     /// World position of every waypoint/freepoint by lowercased name, filled at
     /// world load (`Npc_GetDistToWP`).
     pub way_points: HashMap<String, Vec3>,
+    /// Interactive mobs by lowercased scheme, refreshed by the world side when
+    /// the mob set or their occupancy changes.
+    pub mobs: HashMap<String, Vec<ScriptMob>>,
     /// Generator backing `Hlp_Random`.
     pub rng: ScriptRandom,
 }
@@ -315,6 +329,22 @@ impl ImportCallState {
                 .read()
                 .unwrap_or_else(PoisonError::into_inner),
         )
+    }
+
+    /// Nearest free mob with `scheme` within [`MOB_SEARCH_RADIUS`] of the npc,
+    /// the way `Wld_IsMobAvailable`/`Wld_GetMobState` see the world.
+    pub fn available_mob(&self, npc: InstanceId, scheme: &str) -> Option<&ScriptMob> {
+        let position = {
+            let npc = self.npc_state(npc)?;
+            npc.live.position?
+        };
+        nearest_free_mob(self.mobs.get(scheme)?, position)
+    }
+
+    /// Canonical (lowercased) scheme of a mob name string id.
+    pub fn mob_scheme(&self, raw: i32) -> Option<StringCanon> {
+        let id = self.symbol_table.string(raw)?;
+        self.get_canon_string(id)
     }
 
     /// Sets the weapon mode of an npc, ignored when the id is not an npc.
@@ -552,5 +582,57 @@ impl Default for ScriptRandom {
 impl ScriptRandom {
     pub fn next(&mut self) -> u32 {
         self.rng.next_u32()
+    }
+}
+
+/// Nearest unoccupied mob to `position` within [`MOB_SEARCH_RADIUS`].
+fn nearest_free_mob(mobs: &[ScriptMob], position: Vec3) -> Option<&ScriptMob> {
+    let radius_squared = MOB_SEARCH_RADIUS * MOB_SEARCH_RADIUS;
+    mobs.iter()
+        .filter(|mob| !mob.occupied)
+        .map(|mob| (mob, mob.position.distance_squared(position)))
+        .filter(|(_, distance)| *distance <= radius_squared)
+        .min_by(|(_, left), (_, right)| left.total_cmp(right))
+        .map(|(mob, _)| mob)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nearest_free_mob_skips_occupied_and_distant_mobs() {
+        let mobs = [
+            ScriptMob {
+                position: Vec3::new(2.0, 0.0, 0.0),
+                occupied: true,
+                state: 0,
+            },
+            ScriptMob {
+                position: Vec3::new(3.0, 0.0, 0.0),
+                occupied: false,
+                state: 1,
+            },
+            ScriptMob {
+                position: Vec3::new(20.0, 0.0, 0.0),
+                occupied: false,
+                state: 0,
+            },
+        ];
+
+        let mob = nearest_free_mob(&mobs, Vec3::ZERO).expect("a free mob is in range");
+
+        assert_eq!(mob.state, 1);
+    }
+
+    #[test]
+    fn nearest_free_mob_is_none_without_a_mob_in_range() {
+        let mobs = [ScriptMob {
+            position: Vec3::new(20.0, 0.0, 0.0),
+            occupied: false,
+            state: 0,
+        }];
+
+        assert!(nearest_free_mob(&mobs, Vec3::ZERO).is_none());
     }
 }

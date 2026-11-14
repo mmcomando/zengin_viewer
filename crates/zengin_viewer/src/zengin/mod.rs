@@ -171,6 +171,8 @@ pub struct GameMob {
     pub rewind: bool,
     /// `ZS_POS*` attachment nodes, `None` until the model asset is scanned.
     pub positions: Option<Vec<MobPosition>>,
+    /// State applied by `Wld_SetMobRoutine` over the day.
+    pub state: i32,
 }
 
 /// Interactive chest vob with its remaining loot.

@@ -6,6 +6,7 @@ mod changes;
 mod dialog;
 mod inventory;
 mod menu;
+mod mobs;
 mod npc;
 mod save;
 mod strings;
