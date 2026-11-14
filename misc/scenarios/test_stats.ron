@@ -1,4 +1,5 @@
 [
+  SpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
   Axis(frame:1,action:Gameplay(Move),value:(0.0,0.0)),
   Press(frame:180,action:Shared(Stats)),
   Release(frame:184,action:Shared(Stats)),

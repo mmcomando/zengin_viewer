@@ -18,6 +18,7 @@ use crate::input::actions::{
     GuiInputMarker, SharedAction, SharedInputMarker,
 };
 use crate::input::options::Options;
+use crate::zengin::START_WORLD;
 
 /// Third person camera switch, carrying the free camera transform the player
 /// and camera are placed at. Recorded as `TeleportPlayer` and
@@ -92,6 +93,10 @@ pub(crate) enum ReplayCommand {
     GiveTestJournal { frame: u64 },
     /// Switches to the main menu on `frame`.
     OpenMainMenu { frame: u64 },
+    /// Spawns the world `world` (path relative to the worlds directory
+    /// without the `.ZEN` extension) on `frame`. Replays load no world unless
+    /// they request it with this command.
+    SpawnWorld { frame: u64, world: String },
 }
 
 impl ReplayCommand {
@@ -107,7 +112,8 @@ impl ReplayCommand {
             | ReplayCommand::Screenshot { frame, .. }
             | ReplayCommand::GiveTestItems { frame }
             | ReplayCommand::GiveTestJournal { frame }
-            | ReplayCommand::OpenMainMenu { frame } => frame,
+            | ReplayCommand::OpenMainMenu { frame }
+            | ReplayCommand::SpawnWorld { frame, .. } => frame,
         }
     }
 }
@@ -142,7 +148,11 @@ fn open_recording_file(options: Res<Options>, mut commands: Commands) {
     commands.insert_resource(ActionRecording {
         path: path.clone(),
         frame: 0,
-        commands: Vec::new(),
+        // Recorded scenarios need an explicit world spawn to replay in a world.
+        commands: vec![ReplayCommand::SpawnWorld {
+            frame: 0,
+            world: START_WORLD.to_string(),
+        }],
         held_gameplay: HashSet::new(),
         held_gui: HashSet::new(),
         held_shared: HashSet::new(),

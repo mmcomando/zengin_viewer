@@ -1,4 +1,5 @@
 [
+  SpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
   Axis(frame:1,action:Gameplay(Move),value:(0.0,0.0)),
   SetCameraLocation(frame: 160, translation: (5.0, 0.0, -5.0), rotation: (20.0, 45.0, 0.0)),
   Press(frame: 163,action:Editor(ToggleEditorMode)),

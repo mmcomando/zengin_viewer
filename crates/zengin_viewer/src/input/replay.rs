@@ -381,6 +381,13 @@ fn apply_replay_command(
             info!("Replay opened the main menu");
             next_state.set(AppState::MainMenu);
         }
+        ReplayCommand::SpawnWorld { world, .. } => {
+            info!("Replay requested the world spawn of {world}");
+            let world_name = world.clone();
+            commands.queue(move |world: &mut World| {
+                crate::zengin::request_world_spawn(world, &world_name);
+            });
+        }
     }
     false
 }

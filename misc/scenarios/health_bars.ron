@@ -1,4 +1,5 @@
 [
+  SpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
   TeleportPlayer(frame: 120, translation: (-3, 0, -11), rotation: (0, 90, 0)),
   SetCameraLocation(frame: 120, translation: (-7, 1, -8), rotation: (-15, -80, 0)),
   // Selection of an npc takes a moment to settle

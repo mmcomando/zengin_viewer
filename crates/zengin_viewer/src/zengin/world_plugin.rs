@@ -13,6 +13,7 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::NpcAnimations;
 use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
 use crate::gui_debug::{NpcVisibility, StaticMesh, WorldMesh};
+use crate::input::Options;
 use crate::save::PendingLoad;
 use crate::save::format::SaveGame;
 use crate::world_entity::WorldEntityMarker;
@@ -139,7 +140,12 @@ pub(crate) fn request_initial_world(
     current_world: Res<CurrentWorld>,
     pending_load: Res<PendingLoad>,
     mut loading_world: ResMut<LoadingWorld>,
+    options: Res<Options>,
 ) {
+    if options.replay_actions().is_some() {
+        info!("Skipping the default world spawn, the scenario replay requests it explicitly");
+        return;
+    }
     if pending_load.0.is_some() {
         info!("Skipping the default world spawn, a save load is pending");
         return;
@@ -151,13 +157,30 @@ pub(crate) fn request_initial_world(
         );
         return;
     }
-    loading_world.0 = START_WORLD.to_string();
-    pending_spawns.0.push_back(SpawnWorld {
-        world_name: START_WORLD.to_string(),
+    *loading_world = LoadingWorld(START_WORLD.to_string());
+    pending_spawns.0.push_back(clean_spawn_request(START_WORLD));
+}
+
+/// Queues a spawn of `world_name` without touching script state, so it can
+/// run before the game script is loaded. Used by replay scenarios, which load
+/// no world unless they request it.
+pub(crate) fn request_world_spawn(world: &mut World, world_name: &str) {
+    let spawn = clean_spawn_request(world_name);
+    world
+        .resource_mut::<PendingWorldSpawns>()
+        .0
+        .push_back(spawn);
+    *world.resource_mut::<LoadingWorld>() = LoadingWorld(world_name.to_string());
+}
+
+/// A request for a fresh world without saved state.
+fn clean_spawn_request(world_name: &str) -> SpawnWorld {
+    SpawnWorld {
+        world_name: world_name.to_string(),
         clean_spawn: true,
         player_transform: None,
         restore: None,
-    });
+    }
 }
 
 fn restart_world(world: &mut World) {

@@ -1,4 +1,5 @@
 [
+    SpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
     OpenMainMenu(frame: 1),
     Screenshot(frame: 100, path: "main_menu.png"),
     Press(frame: 190, action: Gui(Confirm)),
