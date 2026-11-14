@@ -39,4 +39,8 @@ pub struct ZenGinModel {
     pub inverse_bindposes: Vec<Mat4>,
     pub parents: Vec<i16>,
     pub animation_bone_index: Vec<usize>,
+    /// Hierarchy root offset, in world units. The engine calls this the model
+    /// root translation; attachment points are expressed in the space this
+    /// offset belongs to.
+    pub root_translation: Vec3,
 }

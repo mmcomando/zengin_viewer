@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32};
 
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
-use crate::gameplay::objects::NpcModel;
+use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
 use crate::graphics::{
     AnimatedJoint, AnimationController, AnimationData, AnimationState, BoneAnimationData,
     FrameState, NpcAnimations,
@@ -76,6 +76,7 @@ pub(crate) fn create_skinned_mesh_data(
         end_frame: AtomicU32::new(1),
         mul_1000: AtomicU32::new(0),
         needs_update: AtomicBool::new(true),
+        root_motion: AtomicBool::new(false),
     });
 
     let add_animation = animation_data.is_good_animations();
@@ -263,6 +264,9 @@ fn spawn_npcs(
             AnimationController::new(animation_handle)
         };
         commands.entity(entity_id).insert(controller);
+        commands
+            .entity(entity_id)
+            .insert(NpcBodyRootOffset(model_data.root_translation.y));
         let head_node_index = model_data
             .node_names
             .iter()

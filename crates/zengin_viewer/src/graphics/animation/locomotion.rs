@@ -187,6 +187,12 @@ pub(crate) fn update_animations(
         if !data.frame_state.needs_update.load(Ordering::Acquire) {
             continue;
         }
+        let root_motion = controller
+            .as_ref()
+            .is_some_and(|controller| controller.root_motion());
+        data.frame_state
+            .root_motion
+            .store(root_motion, Ordering::Release);
         let Some(update) = advance_animation(&data, delta) else {
             continue;
         };
@@ -473,8 +479,8 @@ pub(crate) fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimatio
             .lerp(frame_b.rotation.inverse(), mul);
         transform.translation = frame_a.position.lerp(frame_b.position, mul);
 
-        if data.is_base_pos_bone {
-            // Root movement is applied to the entity by update_animations
+        if data.is_base_pos_bone && data.frame_state.root_motion.load(Ordering::Acquire) {
+            // The entity is moved by the root motion instead (update_animations).
             transform.translation.x = 0.0;
             transform.translation.z = 0.0;
         }

@@ -360,6 +360,7 @@ fn runl_state(movement: Option<Vec<Vec2>>) -> AnimationState {
             end_frame: AtomicU32::new(1),
             mul_1000: AtomicU32::new(0),
             needs_update: AtomicBool::new(true),
+            root_motion: AtomicBool::new(false),
         }),
         fps: 25.0,
         frames_num: 20,

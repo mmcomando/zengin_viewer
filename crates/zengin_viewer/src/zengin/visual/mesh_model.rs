@@ -146,6 +146,8 @@ fn apply_weights_hierarchy(
     let root_pos = get_world_pos(hierarchy.root_translation().to_glam());
     let root_tr = Transform::from_translation(root_pos);
 
+    model.root_translation = root_pos;
+
     let mut final_tr: Vec<Transform> = nodes
         .iter()
         .map(|node| get_world_transform(node.transform.to_glam()))

@@ -29,3 +29,9 @@ pub struct NpcModel {
     /// Body fatness (`Mdl_SetModelFatness`), applied to the torso bone
     pub model_fatness: Option<f32>,
 }
+
+/// Vertical offset from an npc entity root to its model root, in world units.
+/// Interactive mob attachment points are expressed at the model root, while
+/// the npc entity is placed at the model root minus this offset.
+#[derive(Debug, Default, Component, Clone, Copy)]
+pub struct NpcBodyRootOffset(pub f32);

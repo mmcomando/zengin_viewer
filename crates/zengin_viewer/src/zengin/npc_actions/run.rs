@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use avian3d::prelude::SpatialQuery;
 use bevy::prelude::*;
 
-use crate::gameplay::objects::NpcModel;
+use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
 use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind, SetDesiredAnimation,
 };
@@ -70,6 +70,7 @@ pub(crate) fn run_npc_actions(
         Option<&AutoAnimSequencer>,
         Option<&mut AnimationController>,
         Option<&NpcMobUse>,
+        Option<&NpcBodyRootOffset>,
     )>,
 ) {
     let mut claimed_mobs = HashSet::new();
@@ -84,6 +85,7 @@ pub(crate) fn run_npc_actions(
         sequencer,
         mut controller,
         npc_mob_use,
+        body_root_offset,
     ) in &mut npcs
     {
         let Some(action) = queue.front().cloned() else {
@@ -356,7 +358,9 @@ pub(crate) fn run_npc_actions(
                     // Attachment nodes are extracted once the model asset loads.
                     continue;
                 }
-                transform.translation = choice.use_pos + Vec3::Y * NPC_BODY_Y_OFFSET;
+                let body_y_offset = body_root_offset
+                    .map_or(NPC_BODY_Y_OFFSET, |offset| -offset.0 * transform.scale.y);
+                transform.translation = choice.use_pos + Vec3::Y * body_y_offset;
                 transform.rotation = choice.use_rot;
                 commands.entity(entity).remove::<NpcPath>();
                 commands.entity(entity).remove::<AutoAnimSequencer>();

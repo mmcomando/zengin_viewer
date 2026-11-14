@@ -46,6 +46,12 @@ pub struct FrameState {
     /// the main camera frustum. Joints skip bone computation when it is `false`.
     /// Starts as `true` so the first frame is processed before the check runs.
     pub needs_update: AtomicBool,
+    /// Whether the owning [`AnimationController`] moves the entity by the root
+    /// motion. When set, the base bone keeps only its vertical translation and
+    /// the entity is moved by the horizontal delta; when clear, the base bone
+    /// keeps the full animated root translation (mob-use poses shift the npc
+    /// sideways/forward relative to its entity root).
+    pub root_motion: AtomicBool,
 }
 
 /// Playback state of the animation currently played by a skeleton.

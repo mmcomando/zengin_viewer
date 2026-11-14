@@ -342,15 +342,25 @@ fn extract_mob_positions(
 }
 
 /// `ZS_POS*` nodes of a mob model with their model-space transforms.
+///
+/// Skinned meshes are rendered in raw hierarchy space: the joint chain uses
+/// the raw node transforms while the bind poses carry the hierarchy root
+/// translation, so the two cancel out. Attachment points therefore have to be
+/// taken without `root_translation` too, otherwise they are shifted relative
+/// to the visible mesh by that offset.
 fn mob_positions(model: &ZenGinModel) -> Vec<crate::zengin::MobPosition> {
     model
         .node_names
         .iter()
         .zip(&model.final_tr)
         .filter(|(name, _)| name.starts_with("ZS_POS"))
-        .map(|(name, transform)| crate::zengin::MobPosition {
-            name: name.clone(),
-            transform: *transform,
+        .map(|(name, transform)| {
+            let mut transform = *transform;
+            transform.translation -= model.root_translation;
+            crate::zengin::MobPosition {
+                name: name.clone(),
+                transform,
+            }
         })
         .collect()
 }
@@ -373,6 +383,25 @@ mod tests {
         assert_eq!(positions.len(), 1);
         assert_eq!(positions[0].name, "ZS_POS0_FRONT");
         assert_eq!(positions[0].transform, front);
+    }
+
+    #[test]
+    fn mob_positions_remove_the_hierarchy_root_translation() {
+        let root = Vec3::new(0.0, 0.0, 0.75);
+        let model = ZenGinModel {
+            node_names: vec!["BIP01".to_string(), "ZS_POS0".to_string()],
+            final_tr: vec![Transform::IDENTITY, Transform::from_xyz(0.0, 0.977, 0.824)],
+            root_translation: root,
+            ..Default::default()
+        };
+
+        let positions = mob_positions(&model);
+
+        assert_eq!(positions.len(), 1);
+        assert_eq!(
+            positions[0].transform.translation,
+            Vec3::new(0.0, 0.977, 0.074)
+        );
     }
 
     #[test]
