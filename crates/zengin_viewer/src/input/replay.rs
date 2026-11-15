@@ -17,7 +17,6 @@ use ron::Options as RonOptions;
 use ron::extensions::Extensions;
 
 use crate::game_state::AppState;
-use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::character_camera::camera_toggle_input;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
@@ -244,8 +243,8 @@ struct PendingLocations {
 /// free camera.
 fn apply_replay_locations(
     mut pending: ResMut<PendingLocations>,
-    mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
-    mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
+    mut player: Query<&mut Transform, (With<PlayerCharacter>, Without<Camera3d>)>,
+    mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerCharacter>)>,
 ) {
     for (translation, rotation) in pending.player.drain(..) {
         teleport_player(&mut player, translation, rotation);
@@ -546,7 +545,7 @@ fn resolve_scenario_path(workdir: &Path, path: &str) -> Option<PathBuf> {
 /// Teleports the player entity to `translation` (model root/feet) with
 /// `rotation` in axis-labeled degrees `(x = pitch, y = yaw, z = roll)`.
 fn teleport_player(
-    player: &mut Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
+    player: &mut Query<&mut Transform, (With<PlayerCharacter>, Without<Camera3d>)>,
     translation: Vec3,
     rotation: Vec3,
 ) {
@@ -561,7 +560,7 @@ fn teleport_player(
 /// Sets the camera to `translation` with `rotation` in axis labeled degrees
 /// `(x = pitch, y = yaw, z = roll)`.
 fn set_camera_location(
-    camera: &mut Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
+    camera: &mut Query<&mut Transform, (With<Camera3d>, Without<PlayerCharacter>)>,
     translation: Vec3,
     rotation: Vec3,
 ) {

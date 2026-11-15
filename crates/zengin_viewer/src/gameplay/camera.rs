@@ -7,7 +7,7 @@ use bevy::{
 };
 
 use crate::game_state::AppState;
-use crate::gameplay::character::PlayerPhysicsBodyMarker;
+use crate::gameplay::objects::PlayerCharacter;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::xr::is_xr_enabled;
 use crate::zengin::face_direction_quat;
@@ -220,8 +220,8 @@ fn spawn_camera(mut commands: Commands) {
 /// camera.
 fn apply_teleport_requests(
     mut teleports: MessageReader<TeleportToLocation>,
-    mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
-    mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
+    mut player: Query<&mut Transform, (With<PlayerCharacter>, Without<Camera3d>)>,
+    mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerCharacter>)>,
 ) {
     for teleport in teleports.read() {
         let Some(location) = TELEPORT_LOCATIONS.get(teleport.0) else {

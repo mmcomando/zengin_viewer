@@ -5,7 +5,8 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::camera::{CameraResource, CurrentCamera, EditorMode};
-use crate::gameplay::character::{PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER, PlayerPhysicsBodyMarker};
+use crate::gameplay::character::PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER;
+use crate::gameplay::objects::PlayerCharacter;
 use crate::input::{CameraSwitchedToThirdPerson, EditorAction, EditorInputMarker};
 use crate::zengin::STATIC_OBJECT;
 
@@ -19,8 +20,8 @@ pub(crate) fn use_character_camera(info: Res<CameraResource>) -> bool {
 pub(crate) fn camera_toggle_input(
     mut editor_mode: ResMut<EditorMode>,
     action_state: Single<&ActionState<EditorAction>, With<EditorInputMarker>>,
-    camera_query: Query<&GlobalTransform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
-    mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
+    camera_query: Query<&GlobalTransform, (With<Camera3d>, Without<PlayerCharacter>)>,
+    mut player: Query<&mut Transform, (With<PlayerCharacter>, Without<Camera3d>)>,
     mut switches: MessageWriter<CameraSwitchedToThirdPerson>,
 ) {
     if !action_state.just_pressed(&EditorAction::ToggleEditorMode) {
@@ -69,10 +70,10 @@ const CAM_PIVOT_HEIGHT: f32 = CAM_PIVOT_BODY_HEIGHT + PLAYER_MODEL_ROOT_TO_CAPSU
 
 #[allow(clippy::type_complexity)]
 pub fn camera_movement_system(
-    player_query: Single<(&Transform, Entity), (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
+    player_query: Single<(&Transform, Entity), (With<PlayerCharacter>, Without<Camera3d>)>,
     mut camera_transform: Single<
         &mut Transform,
-        (With<Camera3d>, Without<PlayerPhysicsBodyMarker>),
+        (With<Camera3d>, Without<PlayerCharacter>),
     >,
     spatial_query: SpatialQuery,
 ) {

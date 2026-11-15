@@ -6,7 +6,6 @@ use bevy::prelude::*;
 use bevy_rich_text3d::{Text3d, Text3dPlugin, Text3dStyling, TextAnchor, TextAtlas};
 
 use crate::game_state::AppState;
-use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::resources::{ARROW, NPC_BODY, SELECTABLE};
@@ -181,7 +180,7 @@ fn update_selection(
     gothic_script: Res<ScriptResource>,
     mut selection: ResMut<Selection>,
     spatial_query: SpatialQuery,
-    player: Query<(Entity, &GlobalTransform), With<PlayerPhysicsBodyMarker>>,
+    player: Query<(Entity, &GlobalTransform), With<PlayerCharacter>>,
     // Aiming/selection follows the camera, it feels more direct than using
     // the player model facing (which lags behind camera turns).
     camera: Query<&GlobalTransform, With<Camera3d>>,

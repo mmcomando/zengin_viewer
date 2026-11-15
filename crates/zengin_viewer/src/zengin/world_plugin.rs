@@ -5,7 +5,7 @@ use crate::game_state::AppState;
 use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
-    PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER, PlayerPhysicsBodyMarker,
+    PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER,
 };
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::game_time::{GameTime, PlayTime};
@@ -217,7 +217,7 @@ fn restart_world(world: &mut World) {
     }
 
     let player_transform = {
-        let mut query = world.query_filtered::<&Transform, With<PlayerPhysicsBodyMarker>>();
+        let mut query = world.query_filtered::<&Transform, With<PlayerCharacter>>();
         query.iter(world).next().copied()
     };
     begin_world_load(world, &world_name, player_transform, None);
@@ -623,7 +623,6 @@ fn spawn_player(
     let capsule_center = Vec3::Y * PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER;
     commands.spawn((
         Visibility::default(),
-        PlayerPhysicsBodyMarker,
         CharacterController,
         CharacterMovementSettings::default(),
         CharacterCollisions::default(),

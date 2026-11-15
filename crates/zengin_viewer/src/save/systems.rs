@@ -11,7 +11,6 @@ use image::imageops::FilterType;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::game_state::{AppState, world_is_loaded};
-use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLogEntry;
@@ -104,7 +103,7 @@ fn quick_save(
     game_time: Res<GameTime>,
     play_time: Res<PlayTime>,
     options: Res<Options>,
-    player: Query<&Transform, With<PlayerPhysicsBodyMarker>>,
+    player: Query<&Transform, With<PlayerCharacter>>,
     npcs: Query<(&GameNpc, &Transform, Option<&NpcOverlay>), Without<PlayerCharacter>>,
     items: Query<(&GameItem, &Transform)>,
     chests: Query<&GameChest>,

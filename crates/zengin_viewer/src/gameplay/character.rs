@@ -10,7 +10,6 @@ use crate::gameplay::character_camera::{
     camera_movement_system, camera_toggle_input, use_character_camera,
 };
 use crate::input::{GameplayAction, GameplayInputMarker};
-use crate::world_entity::WorldEntityMarker;
 use crate::zengin::NPC_BODY;
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
@@ -63,16 +62,6 @@ pub struct CharacterController;
 /// layer out of their query filters.
 /// See also [`crate::zengin::resources::SELECTABLE`].
 pub const QUERY_ONLY_LAYER: u32 = 1 << 3;
-
-/// The player physics body, also carrying the player's model and animation
-/// components.
-///
-/// Its origin is the model root (the feet), not the collider center; the
-/// capsule is offset up by [`PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER`] so the
-/// skeleton attaches at the origin.
-#[derive(Default, Component)]
-#[require(WorldEntityMarker)]
-pub struct PlayerPhysicsBodyMarker;
 
 /// Distance from the player entity origin (model root/feet) up to the capsule
 /// collider center.

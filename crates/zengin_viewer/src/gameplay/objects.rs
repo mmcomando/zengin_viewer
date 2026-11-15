@@ -1,7 +1,13 @@
 use bevy::ecs::component::Component;
 
-/// Marks the player entity, which is also its physics body.
+use crate::world_entity::WorldEntityMarker;
+
+/// The player entity; it is also the player's physics body.
+///
+/// Its origin is the model root (the feet), not the collider center; the
+/// capsule is offset up by `PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER`.
 #[derive(Default, Component)]
+#[require(WorldEntityMarker)]
 pub struct PlayerCharacter;
 
 /// Visual model data of an npc

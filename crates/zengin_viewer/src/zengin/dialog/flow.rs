@@ -6,7 +6,6 @@ use super::sounds::SpeechSounds;
 use super::state::{DialogLineView, DialogOptionView, DialogRequest, DialogUiState};
 use crate::audio::PlaySound;
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
-use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::OpenTrade;
 use crate::input::{GameplayAction, GameplayInputMarker};
@@ -181,10 +180,7 @@ pub(super) fn handle_dialog_requests(
     mut requests: MessageReader<DialogRequest>,
     mut dialog_ui: ResMut<DialogUiState>,
     gothic_script: Res<ScriptResource>,
-    mut npcs: Query<
-        (&mut Transform, &GlobalTransform),
-        (Without<PlayerPhysicsBodyMarker>, Without<PlayerCharacter>),
-    >,
+    mut npcs: Query<(&mut Transform, &GlobalTransform), Without<PlayerCharacter>>,
     mut player: Query<(Entity, &mut Transform, &GlobalTransform), With<PlayerCharacter>>,
 ) {
     for request in requests.read() {
@@ -320,10 +316,7 @@ fn face_dialog_characters(
     npc_entity: Entity,
     player_tr: &mut Transform,
     player_global: &GlobalTransform,
-    npcs: &mut Query<
-        (&mut Transform, &GlobalTransform),
-        (Without<PlayerPhysicsBodyMarker>, Without<PlayerCharacter>),
-    >,
+    npcs: &mut Query<(&mut Transform, &GlobalTransform), Without<PlayerCharacter>>,
 ) {
     let Ok((mut npc_tr, npc_global)) = npcs.get_mut(npc_entity) else {
         warn!("Dialog npc({npc_entity}) not found, cannot face dialog characters");

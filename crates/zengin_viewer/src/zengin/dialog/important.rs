@@ -6,7 +6,6 @@ use std::collections::{HashMap, HashSet};
 use bevy::log::info;
 use bevy::prelude::*;
 
-use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::{InventoryUiState, JournalUiState};
 use crate::zengin::GameNpc;
@@ -57,11 +56,11 @@ pub(super) fn auto_start_important_dialogs(
     inventory_ui: Res<InventoryUiState>,
     journal_ui: Res<JournalUiState>,
     mut checks: ResMut<ImportantDialogChecks>,
-    player: Query<&GlobalTransform, With<PlayerPhysicsBodyMarker>>,
+    player: Query<&GlobalTransform, With<PlayerCharacter>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
     npcs: Query<
         (Entity, &GameNpc, &GlobalTransform),
-        (Without<PlayerCharacter>, Without<PlayerPhysicsBodyMarker>),
+        Without<PlayerCharacter>,
     >,
     mut requests: MessageWriter<DialogRequest>,
 ) {
