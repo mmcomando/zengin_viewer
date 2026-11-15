@@ -631,7 +631,7 @@ fn spawn_player(
             cast_shape: Some(Collider::compound(vec![(
                 capsule_center,
                 Quat::IDENTITY,
-                Collider::capsule(0.499, 0.8),
+                Collider::capsule(0.3-0.01, 0.8),
             )])),
             max_angle: PI / 3.0,
             max_distance: 0.2,
@@ -639,7 +639,7 @@ fn spawn_player(
         Collider::compound(vec![(
             capsule_center,
             Quat::IDENTITY,
-            Collider::capsule(0.4, 1.2),
+            Collider::capsule(0.3, 1.2),
         )]),
         TransformInterpolation,
         player_transform.unwrap_or(Transform::from_xyz(-97.0, 5.0, -7.0)),

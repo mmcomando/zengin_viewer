@@ -18,7 +18,7 @@ const SELECTION_RANGE: f32 = 5.0;
 /// Selection range with a ranged weapon drawn, matching the FAI long range.
 const RANGED_SELECTION_RANGE: f32 = 20.0;
 /// Radius of the hardcoded npc selection collider capsule.
-const NPC_COLLIDER_RADIUS: f32 = 0.4;
+const NPC_COLLIDER_RADIUS: f32 = 0.3;
 /// Cylinder length of the hardcoded npc selection collider capsule, the caps
 /// add twice the radius, so the total height is 1.8 m like a human npc.
 const NPC_COLLIDER_LENGTH: f32 = 1.0;
