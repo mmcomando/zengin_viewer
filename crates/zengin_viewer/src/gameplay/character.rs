@@ -64,10 +64,19 @@ pub struct CharacterController;
 /// See also [`crate::zengin::resources::SELECTABLE`].
 pub const QUERY_ONLY_LAYER: u32 = 1 << 3;
 
-/// Marks the player physics body entity driven by [`CharacterController`].
+/// The player physics body, also carrying the player's model and animation
+/// components.
+///
+/// Its origin is the model root (the feet), not the collider center; the
+/// capsule is offset up by [`PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER`] so the
+/// skeleton attaches at the origin.
 #[derive(Default, Component)]
 #[require(WorldEntityMarker)]
 pub struct PlayerPhysicsBodyMarker;
+
+/// Distance from the player entity origin (model root/feet) up to the capsule
+/// collider center.
+pub const PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER: f32 = 1.0;
 
 /// Component for configuring movement settings for a character controller.
 #[derive(Component)]
@@ -205,7 +214,6 @@ fn movement(
         Entity,
         &CharacterMovementSettings,
         &mut LinearVelocity,
-        &Transform,
         Has<Grounded>,
     )>,
 ) {
@@ -219,7 +227,7 @@ fn movement(
     let jump_pressed = action_state.just_pressed(&GameplayAction::Jump);
     let accelerating = action_state.pressed(&GameplayAction::Accelerate);
 
-    for (entity, movement, mut linear_velocity, tr, is_grounded) in &mut controllers {
+    for (entity, movement, mut linear_velocity, is_grounded) in &mut controllers {
         // Accelerate scales the animation's root motion delta movement (read
         // by the animation system via [`AcceleratingRootMotion`]).
         if accelerating {
@@ -229,13 +237,14 @@ fn movement(
         }
 
         if is_moving {
-            let rot = tr.rotation.to_euler(EulerRot::YXZ);
+            // Input stays in world axes: the entity yaw is the model facing,
+            // so rotating the input by it would feed facing back into the
+            // movement direction.
             let dir = Vec3 {
                 x: -direction.x,
                 y: 0.0,
                 z: direction.y,
-            }
-            .rotate_y(rot.0);
+            };
             let acceleration = if accelerating {
                 movement.acceleration * ACCELERATION_MULTIPLIER
             } else {

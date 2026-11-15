@@ -31,13 +31,6 @@ use crate::zengin::{
     GameNpc, NpcSpawnNameFilter, ScriptResource, WeaponKind, grant_test_items, seed_test_journal,
 };
 
-/// Filter of the player visual model transform query.
-type PlayerVisualFilter = (
-    With<PlayerCharacter>,
-    Without<PlayerPhysicsBodyMarker>,
-    Without<Camera3d>,
-);
-
 /// Replays the actions recorded with `--save-actions`.
 pub struct ActionReplayPlugin;
 
@@ -252,11 +245,10 @@ struct PendingLocations {
 fn apply_replay_locations(
     mut pending: ResMut<PendingLocations>,
     mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
-    mut player_visual: Query<&mut Transform, PlayerVisualFilter>,
     mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
 ) {
     for (translation, rotation) in pending.player.drain(..) {
-        teleport_player(&mut player, &mut player_visual, translation, rotation);
+        teleport_player(&mut player, translation, rotation);
     }
     for (translation, rotation) in pending.camera.drain(..) {
         set_camera_location(&mut camera, translation, rotation);
@@ -551,13 +543,10 @@ fn resolve_scenario_path(workdir: &Path, path: &str) -> Option<PathBuf> {
     Some(workdir.join(path))
 }
 
-/// Teleports the player character to `translation` with `rotation` in axis
-/// labeled degrees `(x = pitch, y = yaw, z = roll)`. The rotation is applied
-/// to the visual model: the facing lives there, the physics body rotation
-/// stays identity.
+/// Teleports the player entity to `translation` (model root/feet) with
+/// `rotation` in axis-labeled degrees `(x = pitch, y = yaw, z = roll)`.
 fn teleport_player(
     player: &mut Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
-    player_visual: &mut Query<&mut Transform, PlayerVisualFilter>,
     translation: Vec3,
     rotation: Vec3,
 ) {
@@ -566,11 +555,7 @@ fn teleport_player(
         return;
     };
     transform.translation = translation;
-    let Ok(mut visual_transform) = player_visual.single_mut() else {
-        warn!("Replay teleport failed: no player visual found");
-        return;
-    };
-    visual_transform.rotation = rotation_from_degrees(rotation);
+    transform.rotation = rotation_from_degrees(rotation);
 }
 
 /// Sets the camera to `translation` with `rotation` in axis labeled degrees

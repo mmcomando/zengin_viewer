@@ -16,7 +16,6 @@ use std::path::Path;
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
-use crate::gameplay::character::PlayerPhysicsBodyMarker;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{AnimationGraph, AnimationIndex, animation_name_from_path};
 use crate::zengin::{
@@ -486,32 +485,25 @@ fn emit_melee_hits_on_optimal_frame(
     }
 }
 
-/// Rotates the model towards the stored movement direction; standing keeps
-/// the last facing. Root motion drives the horizontal position of the body,
-/// so the velocity it induces on the physics body is zeroed every frame.
+/// Rotates the entity towards its stored movement direction. The capsule is
+/// symmetric, so driving the physics body's yaw for facing is safe.
 fn update_model_facing(
     time: Res<Time>,
     mut sequencers: Query<(
         &AutoAnimSequencer,
         &mut Transform,
-        Option<&ChildOf>,
         Option<&NpcWeaponMode>,
+        Option<&mut LinearVelocity>,
     )>,
-    mut velocities: Query<
-        &mut LinearVelocity,
-        (With<PlayerPhysicsBodyMarker>, Without<AutoAnimSequencer>),
-    >,
 ) {
     let delta = time.delta_secs();
-    for (seq, mut tr, parent, weapon_mode) in &mut sequencers {
+    for (seq, mut tr, weapon_mode, velocity) in &mut sequencers {
         if let Some(direction) = seq.direction {
             let target = face_direction_quat(direction);
             let speed = model_turn_speed(seq, weapon_mode);
             tr.rotation = tr.rotation.slerp(target, (speed * delta).min(1.0));
         }
-        if let Some(parent) = parent
-            && let Ok(mut velocity) = velocities.get_mut(parent.parent())
-        {
+        if let Some(mut velocity) = velocity {
             velocity.x = 0.0;
             velocity.z = 0.0;
         }

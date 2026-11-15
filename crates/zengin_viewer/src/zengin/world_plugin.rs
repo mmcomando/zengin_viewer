@@ -5,7 +5,7 @@ use crate::game_state::AppState;
 use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
-    PlayerPhysicsBodyMarker,
+    PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER, PlayerPhysicsBodyMarker,
 };
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::game_time::{GameTime, PlayTime};
@@ -596,9 +596,11 @@ fn init_named_models(
     }
 }
 
-/// Spawns the player entity: a physics collider with the `PC_HERO` visual as a
-/// child. The player is the `PC_HERO` instance, the `hero` instance global has
-/// no data of its own (its stats come from `PC_HERO`).
+/// The spawned player's origin is the model root (feet) and its capsule
+/// collider is offset up by [`PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER`].
+///
+/// The player is the `PC_HERO` instance, the `hero` instance global has no data
+/// of its own (its stats come from `PC_HERO`).
 fn spawn_player(
     commands: &mut Commands,
     gothic_script: &mut ScriptManager,
@@ -617,7 +619,9 @@ fn spawn_player(
         return;
     };
     instance_index.insert_npc_handle(handle.clone());
-    let mut player_collider = commands.spawn((
+
+    let capsule_center = Vec3::Y * PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER;
+    commands.spawn((
         Visibility::default(),
         PlayerPhysicsBodyMarker,
         CharacterController,
@@ -625,22 +629,21 @@ fn spawn_player(
         CharacterCollisions::default(),
         GroundDetection {
             // Use a slightly smaller capsule for shape casts used for ground detection
-            cast_shape: Some(Collider::capsule(0.499, 0.8)),
+            cast_shape: Some(Collider::compound(vec![(
+                capsule_center,
+                Quat::IDENTITY,
+                Collider::capsule(0.499, 0.8),
+            )])),
             max_angle: PI / 3.0,
             max_distance: 0.2,
         },
-        Collider::capsule(0.4, 1.2),
+        Collider::compound(vec![(
+            capsule_center,
+            Quat::IDENTITY,
+            Collider::capsule(0.4, 1.2),
+        )]),
         TransformInterpolation,
-        // Mesh3d(meshes.add(Capsule3d::new(0.5, 0.8))),
-        // MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        // Transform::from_xyz(0.0, 1.5, 0.0),
-        player_transform.unwrap_or(Transform::from_xyz(-97.0, 6.0, -7.0)),
-    ));
-
-    // Player visual
-    player_collider.with_child((
-        Visibility::default(),
-        Transform::from_xyz(0.0, -1.0, 0.0),
+        player_transform.unwrap_or(Transform::from_xyz(-97.0, 5.0, -7.0)),
         PlayerCharacter,
         GameNpc::new(handle),
         NpcModel {

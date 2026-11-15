@@ -240,6 +240,8 @@ fn apply_teleport_requests(
         if let Ok(mut transform) = player.single_mut() {
             let direction =
                 (location.camera_look_at - location.camera_position).normalize_or_zero();
+            // Teleport locations place the entity origin, which is the model
+            // root (feet).
             transform.translation = location.player;
             transform.rotation = face_direction_quat(direction);
         } else {

@@ -1,6 +1,6 @@
 use bevy::ecs::component::Component;
 
-/// Marker component to inform which entity is a player
+/// Marks the player entity, which is also its physics body.
 #[derive(Default, Component)]
 pub struct PlayerCharacter;
 

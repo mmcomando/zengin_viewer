@@ -5,8 +5,7 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::camera::{CameraResource, CurrentCamera, EditorMode};
-use crate::gameplay::character::PlayerPhysicsBodyMarker;
-use crate::gameplay::objects::PlayerCharacter;
+use crate::gameplay::character::{PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER, PlayerPhysicsBodyMarker};
 use crate::input::{CameraSwitchedToThirdPerson, EditorAction, EditorInputMarker};
 use crate::zengin::STATIC_OBJECT;
 
@@ -21,15 +20,7 @@ pub(crate) fn camera_toggle_input(
     mut editor_mode: ResMut<EditorMode>,
     action_state: Single<&ActionState<EditorAction>, With<EditorInputMarker>>,
     camera_query: Query<&GlobalTransform, (With<Camera3d>, Without<PlayerPhysicsBodyMarker>)>,
-    mut player_query: Query<&mut Transform, With<PlayerPhysicsBodyMarker>>,
-    mut player_visual: Query<
-        &mut Transform,
-        (
-            With<PlayerCharacter>,
-            Without<PlayerPhysicsBodyMarker>,
-            Without<Camera3d>,
-        ),
-    >,
+    mut player: Query<&mut Transform, (With<PlayerPhysicsBodyMarker>, Without<Camera3d>)>,
     mut switches: MessageWriter<CameraSwitchedToThirdPerson>,
 ) {
     if !action_state.just_pressed(&EditorAction::ToggleEditorMode) {
@@ -41,31 +32,25 @@ pub(crate) fn camera_toggle_input(
     }
     // Player starts where the free camera was looking
     if let (Ok(camera_transform), Ok(mut player_transform)) =
-        (camera_query.single(), player_query.single_mut())
+        (camera_query.single(), player.single_mut())
     {
-        let player_visual = player_visual.single_mut().ok();
-        place_player_at_free_camera(camera_transform, &mut player_transform, player_visual);
+        place_player_at_free_camera(camera_transform, &mut player_transform);
         switches.write(CameraSwitchedToThirdPerson(*camera_transform));
     }
 }
 
-/// Moves the player to the free camera position and makes the character face
-/// the direction the free camera was looking. The visual model carries the
-/// facing, not the physics body.
+/// Places the player at the free camera position, facing the camera's look
+/// direction.
 fn place_player_at_free_camera(
     camera_transform: &GlobalTransform,
     player_transform: &mut Transform,
-    player_visual: Option<Mut<'_, Transform>>,
 ) {
     player_transform.translation = camera_transform.translation();
-    let Some(mut visual_transform) = player_visual else {
-        return;
-    };
     let forward = camera_transform.forward();
     let dir = Vec3::new(forward.x, 0.0, forward.z);
     if dir.length_squared() > f32::EPSILON {
         let dir = dir.normalize();
-        visual_transform.rotation = Quat::from_rotation_y(dir.x.atan2(dir.z));
+        player_transform.rotation = Quat::from_rotation_y(dir.x.atan2(dir.z));
     }
 }
 
@@ -77,8 +62,10 @@ const CAM_COLLISION_MARGIN: f32 = 0.3;
 /// Smallest allowed camera distance, keeps the camera from reaching the pivot
 /// when the player is very close to geometry.
 const MIN_CAM_DISTANCE: f32 = 0.5;
-/// Height of the camera pivot above the player origin.
-const CAM_PIVOT_HEIGHT: f32 = 1.3;
+/// Height of the camera pivot above the capsule center.
+const CAM_PIVOT_BODY_HEIGHT: f32 = 1.3;
+/// Height of the camera pivot above the player entity origin (model root).
+const CAM_PIVOT_HEIGHT: f32 = CAM_PIVOT_BODY_HEIGHT + PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER;
 
 #[allow(clippy::type_complexity)]
 pub fn camera_movement_system(

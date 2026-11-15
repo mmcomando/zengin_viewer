@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-use avian3d::prelude::LinearVelocity;
 use bevy::{
     camera::primitives::{Aabb, Frustum, Sphere},
     prelude::*,
@@ -143,7 +142,6 @@ pub(crate) fn update_animations(
             Entity,
             &GlobalTransform,
             Option<&Aabb>,
-            Option<&ChildOf>,
             Option<&PlayerCharacter>,
             Option<&AutoAnimSequencer>,
             &mut AnimationState,
@@ -151,7 +149,6 @@ pub(crate) fn update_animations(
         ),
         With<DistanceNear>,
     >,
-    q_vel: Query<&LinearVelocity>,
     accelerating: Query<(), With<AcceleratingRootMotion>>,
     mut transforms: Query<&mut Transform>,
     mut joints: Query<&mut BoneAnimationData>,
@@ -160,9 +157,7 @@ pub(crate) fn update_animations(
     let delta = time.delta_secs();
     let mut switches: Vec<(Entity, Arc<AnimationData>)> = Vec::new();
 
-    for (entity, global_transform, aabb, parent, player, sequencer, mut data, controller) in
-        &mut query
-    {
+    for (entity, global_transform, aabb, player, sequencer, mut data, controller) in &mut query {
         // Without a main camera (e.g. in tests) fall back to always updating.
         let needs_update = match (&frustum, aabb) {
             (Some(frustum), Some(aabb)) => {
@@ -217,10 +212,8 @@ pub(crate) fn update_animations(
         apply_root_motion(
             entity,
             global_transform,
-            parent,
             &controller,
             &update,
-            &q_vel,
             &accelerating,
             &mut transforms,
         );
@@ -308,33 +301,23 @@ pub(crate) fn update_animations(
     }
 }
 
-/// Root motion: the animation drives the position of the entity (the
-/// physics body owns the model as a child, so move that one and let
-/// move-and-slide react to the new position).
-#[allow(clippy::too_many_arguments)]
 fn apply_root_motion(
     entity: Entity,
     global_transform: &GlobalTransform,
-    parent: Option<&ChildOf>,
     controller: &AnimationController,
     update: &FrameUpdate,
-    q_vel: &Query<&LinearVelocity>,
     accelerating: &Query<(), With<AcceleratingRootMotion>>,
     transforms: &mut Query<&mut Transform>,
 ) {
     if !controller.root_motion() || update.delta_movement == Vec2::ZERO {
         return;
     }
-    let target = match parent {
-        Some(parent) if q_vel.contains(parent.parent()) => parent.parent(),
-        _ => entity,
-    };
-    let speed = if accelerating.contains(target) {
+    let speed = if accelerating.contains(entity) {
         ACCELERATION_MULTIPLIER
     } else {
         1.0
     };
-    let Ok(mut transform) = transforms.get_mut(target) else {
+    let Ok(mut transform) = transforms.get_mut(entity) else {
         return;
     };
     let delta = update.delta_movement;

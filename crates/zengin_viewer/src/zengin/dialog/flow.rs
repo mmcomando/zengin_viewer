@@ -185,12 +185,7 @@ pub(super) fn handle_dialog_requests(
         (&mut Transform, &GlobalTransform),
         (Without<PlayerPhysicsBodyMarker>, Without<PlayerCharacter>),
     >,
-    mut player_visual: Query<
-        (Entity, &mut Transform, &GlobalTransform),
-        (With<PlayerCharacter>, Without<PlayerPhysicsBodyMarker>),
-    >,
-    parents: Query<&ChildOf>,
-    global_transforms: Query<&GlobalTransform>,
+    mut player: Query<(Entity, &mut Transform, &GlobalTransform), With<PlayerCharacter>>,
 ) {
     for request in requests.read() {
         match request {
@@ -210,28 +205,18 @@ pub(super) fn handle_dialog_requests(
                     dialog_ui.close();
                     continue;
                 };
-                let Ok((player_visual_entity, mut player_visual_tr, player_visual_global)) =
-                    player_visual.single_mut()
-                else {
+                let Ok((player_entity, mut player_tr, player_global)) = player.single_mut() else {
                     continue;
                 };
                 dialog_ui.open(
                     *npc_entity,
-                    player_visual_entity,
+                    player_entity,
                     *npc_from,
                     *npc_talk_to,
                     npc_name.clone(),
                     roots.iter().map(option_view).collect(),
                 );
-                face_dialog_characters(
-                    *npc_entity,
-                    player_visual_entity,
-                    &mut player_visual_tr,
-                    player_visual_global,
-                    &mut npcs,
-                    &parents,
-                    &global_transforms,
-                );
+                face_dialog_characters(*npc_entity, &mut player_tr, player_global, &mut npcs);
             }
             DialogRequest::OpenImportant {
                 npc_entity,
@@ -254,28 +239,18 @@ pub(super) fn handle_dialog_requests(
                     warn!("No dialog_roots for npc({npc_talk_to}), player({npc_from})");
                     continue;
                 };
-                let Ok((player_visual_entity, mut player_visual_tr, player_visual_global)) =
-                    player_visual.single_mut()
-                else {
+                let Ok((player_entity, mut player_tr, player_global)) = player.single_mut() else {
                     continue;
                 };
                 dialog_ui.open(
                     *npc_entity,
-                    player_visual_entity,
+                    player_entity,
                     *npc_from,
                     *npc_talk_to,
                     npc_name,
                     roots.iter().map(option_view).collect(),
                 );
-                face_dialog_characters(
-                    *npc_entity,
-                    player_visual_entity,
-                    &mut player_visual_tr,
-                    player_visual_global,
-                    &mut npcs,
-                    &parents,
-                    &global_transforms,
-                );
+                face_dialog_characters(*npc_entity, &mut player_tr, player_global, &mut npcs);
                 // The important info is executed right away, it is not shown
                 // as a selectable option
                 script.mark_info_known(*npc_from, *info_instance_id);
@@ -340,25 +315,15 @@ pub(super) fn handle_dialog_requests(
     }
 }
 
-/// Turns the npc and the player visual toward each other when a dialog opens.
-/// The player visual model is rotated, not the physics body: the sequencer
-/// drives the model facing and the root motion direction from the model's
-/// global rotation, a stale body yaw would skew post-dialog movement off the
-/// camera direction. Facing is computed from global positions and rotations:
-/// the visual is a child of the physics body, whose initial rotation must not
-/// leak into the model's world facing.
 #[allow(clippy::type_complexity)]
 fn face_dialog_characters(
     npc_entity: Entity,
-    player_visual_entity: Entity,
-    player_visual_tr: &mut Transform,
-    player_visual_global: &GlobalTransform,
+    player_tr: &mut Transform,
+    player_global: &GlobalTransform,
     npcs: &mut Query<
         (&mut Transform, &GlobalTransform),
         (Without<PlayerPhysicsBodyMarker>, Without<PlayerCharacter>),
     >,
-    parents: &Query<&ChildOf>,
-    global_transforms: &Query<&GlobalTransform>,
 ) {
     let Ok((mut npc_tr, npc_global)) = npcs.get_mut(npc_entity) else {
         warn!("Dialog npc({npc_entity}) not found, cannot face dialog characters");
@@ -367,21 +332,11 @@ fn face_dialog_characters(
     face_towards(
         &mut npc_tr,
         npc_global.translation(),
-        player_visual_global.translation(),
+        player_global.translation(),
     );
-    let Ok(parent_global) = parents
-        .get(player_visual_entity)
-        .and_then(|parent| global_transforms.get(parent.0))
-    else {
-        warn!(
-            "Player visual({player_visual_entity}) body has no global transform, cannot face dialog npc"
-        );
-        return;
-    };
-    face_towards_world(
-        player_visual_tr,
-        parent_global,
-        player_visual_global.translation(),
+    face_towards(
+        player_tr,
+        player_global.translation(),
         npc_global.translation(),
     );
 }
@@ -467,21 +422,6 @@ fn face_towards(tr: &mut Transform, position: Vec3, target: Vec3) {
         return;
     };
     tr.rotation = rotation;
-}
-
-/// Like [`face_towards`] for a transform nested under a parent: the desired
-/// world facing is converted into a local rotation so the parent's own
-/// (possibly stale or initial) rotation does not influence the result.
-fn face_towards_world(
-    tr: &mut Transform,
-    parent_global: &GlobalTransform,
-    global_position: Vec3,
-    target: Vec3,
-) {
-    let Some(world_rotation) = horizontal_facing_rotation(global_position, target) else {
-        return;
-    };
-    tr.rotation = parent_global.rotation().inverse() * world_rotation;
 }
 
 /// Yaw rotation (+Z facing) pointing from `position` horizontally at `target`,
