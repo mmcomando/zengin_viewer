@@ -71,10 +71,7 @@ const CAM_PIVOT_HEIGHT: f32 = CAM_PIVOT_BODY_HEIGHT + PLAYER_MODEL_ROOT_TO_CAPSU
 #[allow(clippy::type_complexity)]
 pub fn camera_movement_system(
     player_query: Single<(&Transform, Entity), (With<PlayerCharacter>, Without<Camera3d>)>,
-    mut camera_transform: Single<
-        &mut Transform,
-        (With<Camera3d>, Without<PlayerCharacter>),
-    >,
+    mut camera_transform: Single<&mut Transform, (With<Camera3d>, Without<PlayerCharacter>)>,
     spatial_query: SpatialQuery,
 ) {
     let (player_transform, player_entity) = *player_query;

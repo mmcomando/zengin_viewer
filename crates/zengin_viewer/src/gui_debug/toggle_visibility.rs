@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 
-use crate::world_entity::WorldEntityMarker;
+use crate::{
+    world_entity::WorldEntityMarker,
+    zengin::{GameChest, GameItem, GameMob, GameNpc},
+};
 
 #[derive(Default)]
 pub struct ToggleVisibility;
@@ -19,9 +22,6 @@ fn insert_resources(mut commands: Commands) {
 }
 
 #[derive(Component, Default)]
-pub struct NpcVisibility {}
-
-#[derive(Component, Default)]
 #[require(WorldEntityMarker)]
 pub struct WorldMesh {}
 
@@ -35,6 +35,9 @@ pub struct ShowOptions {
     pub show_world_mesh: bool,
     pub show_static_meshes: bool,
     pub show_npcs: bool,
+    pub show_chests: bool,
+    pub show_mobs: bool,
+    pub show_items: bool,
 }
 
 impl Default for ShowOptions {
@@ -43,6 +46,9 @@ impl Default for ShowOptions {
             show_world_mesh: true,
             show_static_meshes: true,
             show_npcs: true,
+            show_chests: true,
+            show_mobs: true,
+            show_items: true,
         }
     }
 }
@@ -55,7 +61,10 @@ pub type VisibilityQueryData<'a> = (
     &'a mut Visibility,
     Option<&'a WorldMesh>,
     Option<&'a StaticMesh>,
-    Option<&'a NpcVisibility>,
+    Option<&'a GameNpc>,
+    Option<&'a GameChest>,
+    Option<&'a GameMob>,
+    Option<&'a GameItem>,
 );
 
 fn on_show_options_changed(
@@ -82,8 +91,23 @@ fn on_show_options_changed(
     } else {
         Visibility::Hidden
     };
+    let chest_vis = if options.show_chests {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+    let mob_vis = if options.show_mobs {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+    let item_vis = if options.show_items {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
 
-    for (mut visibility, world_mesh, static_mesh, npc) in &mut query {
+    for (mut visibility, world_mesh, static_mesh, npc, chest, mob, item) in &mut query {
         if world_mesh.is_some() {
             *visibility = world_mesh_vis;
         }
@@ -92,6 +116,15 @@ fn on_show_options_changed(
         }
         if npc.is_some() {
             *visibility = npc_vis;
+        }
+        if chest.is_some() {
+            *visibility = chest_vis;
+        }
+        if mob.is_some() {
+            *visibility = mob_vis;
+        }
+        if item.is_some() {
+            *visibility = item_vis;
         }
     }
 }

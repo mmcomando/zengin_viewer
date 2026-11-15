@@ -6,7 +6,6 @@ use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
-use crate::gui_debug::NpcVisibility;
 use crate::zengin::ZenginVfs;
 use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
@@ -186,7 +185,6 @@ fn reconcile_npc_armor(
     };
     commands.spawn((
         Visibility::default(),
-        NpcVisibility::default(),
         Transform::IDENTITY,
         ChildOf(entity),
         ArmorVisual {

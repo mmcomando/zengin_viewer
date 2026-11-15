@@ -12,7 +12,7 @@ use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::NpcAnimations;
 use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
-use crate::gui_debug::{NpcVisibility, StaticMesh, WorldMesh};
+use crate::gui_debug::{StaticMesh, WorldMesh};
 use crate::input::Options;
 use crate::save::PendingLoad;
 use crate::save::format::SaveGame;
@@ -482,7 +482,6 @@ fn spawn_world_data(
                 convex_colider: chest.collides,
                 ..default()
             },
-            StaticMesh::default(),
         ));
     }
 
@@ -507,8 +506,9 @@ fn spawn_world_data(
                 state: 0,
             },
             Visibility::default(),
+            Collider::sphere(0.5),
+            CollisionLayers::from_bits(SELECTABLE, 0),
             mob.tr,
-            StaticMesh::default(),
         ));
         if let Some(model_handle) = model_handle {
             let animation_handle = mob_state_animation(
@@ -631,7 +631,7 @@ fn spawn_player(
             cast_shape: Some(Collider::compound(vec![(
                 capsule_center,
                 Quat::IDENTITY,
-                Collider::capsule(0.3-0.01, 0.8),
+                Collider::capsule(0.3 - 0.01, 0.8),
             )])),
             max_angle: PI / 3.0,
             max_distance: 0.2,
@@ -838,7 +838,6 @@ fn spawn_npc_entities(
             },
             NpcAnimations::default(),
             transform,
-            NpcVisibility::default(),
         ));
         if let Some(overlay) = &spawn.overlay {
             entity.insert(NpcOverlay(Some(overlay.clone())));

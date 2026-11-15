@@ -58,10 +58,7 @@ pub(super) fn auto_start_important_dialogs(
     mut checks: ResMut<ImportantDialogChecks>,
     player: Query<&GlobalTransform, With<PlayerCharacter>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
-    npcs: Query<
-        (Entity, &GameNpc, &GlobalTransform),
-        Without<PlayerCharacter>,
-    >,
+    npcs: Query<(Entity, &GameNpc, &GlobalTransform), Without<PlayerCharacter>>,
     mut requests: MessageWriter<DialogRequest>,
 ) {
     if dialog_ui.is_open() || inventory_ui.is_open() || journal_ui.is_open() {

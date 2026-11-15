@@ -121,182 +121,229 @@ fn ui_info_system(
     egui::Window::new("Info")
         .default_open(false)
         .show(contexts.ctx_mut()?, |ui| {
-            let mut visibility_settings_changed = false;
+            let mut options_changed = info_section(
+                ui,
+                &mut game_time,
+                &mut important_dialog_options,
+                &mut render_options,
+            );
+            statistics_section(ui, &statistics, &statistics_zengin, &mut refresh_statistics);
+            options_changed |= visibility_section(ui, &mut toggle_info);
+            gizmos_section(ui, &mut gizmos_options);
+            teleport_section(ui, &mut teleports);
+            world_section(
+                ui,
+                &mut restart_world,
+                &mut quick_save,
+                &mut quick_load,
+                &mut next_app_state,
+            );
 
-            egui::Grid::new("Grid Info").num_columns(2).show(ui, |ui| {
-                ui.label("Game Time");
-                ui.add(
-                    egui::Slider::new(&mut game_time.total_hours, 0.0..=24.0)
-                        .custom_formatter(|hours, _| clock_string(hours as f32))
-                        .custom_parser(|text| parse_clock_string(text).map(f64::from)),
-                );
-                ui.end_row();
-
-                ui.label("Time Speed");
-                ui.add(egui::Slider::new(&mut game_time.speed, 0.0..=10.0).suffix("x"));
-                ui.end_row();
-
-                add_visible_elements(
-                    ui,
-                    "Zengin Models",
-                    statistics_zengin.zengin_models,
-                    statistics_zengin.zengin_models_visible,
-                );
-                add_visible_elements(
-                    ui,
-                    "Bevy Meshes",
-                    statistics.meshes,
-                    statistics.meshes_visible,
-                );
-                add_visible_elements(
-                    ui,
-                    "NPCs",
-                    statistics_zengin.npcs,
-                    statistics_zengin.npcs_visible,
-                );
-
-                add_checkbox(
-                    ui,
-                    "Important Dialogs",
-                    &mut important_dialog_options.enabled,
-                    &mut false,
-                );
-
-                ui.label("Statistics");
-                if ui.button("Refresh").clicked() {
-                    refresh_statistics.write(RefreshStatistics);
-                }
-                ui.end_row();
-
-                add_checkbox(
-                    ui,
-                    "Show World Mesh",
-                    &mut toggle_info.show_world_mesh,
-                    &mut visibility_settings_changed,
-                );
-
-                add_checkbox(
-                    ui,
-                    "Show Static Meshes",
-                    &mut toggle_info.show_static_meshes,
-                    &mut visibility_settings_changed,
-                );
-
-                add_checkbox(
-                    ui,
-                    "Show NPCs",
-                    &mut toggle_info.show_npcs,
-                    &mut visibility_settings_changed,
-                );
-                // Render options apply immediately, no message needed.
-                add_checkbox(
-                    ui,
-                    "Sun Shadow Maps",
-                    &mut render_options.sun_shadow_maps,
-                    &mut visibility_settings_changed,
-                );
-                add_checkbox(
-                    ui,
-                    "Disco Shadow Maps",
-                    &mut render_options.disco_shadow_maps,
-                    &mut visibility_settings_changed,
-                );
-            });
-
-            // Gizmo options apply immediately, no message needed. Toggles inside
-            // the group use their own changed flag instead of the visibility one.
-            ui.group(|ui| {
-                ui.label("Gizmos");
-                let mut gizmos_settings_changed = false;
-                egui::Grid::new("Grid Gizmos")
-                    .num_columns(2)
-                    .show(ui, |ui| {
-                        add_checkbox(
-                            ui,
-                            "Convex Colliders",
-                            &mut gizmos_options.convex_colliders,
-                            &mut gizmos_settings_changed,
-                        );
-                        add_checkbox(
-                            ui,
-                            "Cuboid Colliders",
-                            &mut gizmos_options.cuboid_colliders,
-                            &mut gizmos_settings_changed,
-                        );
-                        add_checkbox(
-                            ui,
-                            "Sphere Colliders",
-                            &mut gizmos_options.sphere_colliders,
-                            &mut gizmos_settings_changed,
-                        );
-                        add_checkbox(
-                            ui,
-                            "Trimesh Colliders",
-                            &mut gizmos_options.trimesh_colliders,
-                            &mut gizmos_settings_changed,
-                        );
-                        add_checkbox(
-                            ui,
-                            "Characters Colliders",
-                            &mut gizmos_options.characters_colliders,
-                            &mut gizmos_settings_changed,
-                        );
-                        add_checkbox(
-                            ui,
-                            "Bones",
-                            &mut gizmos_options.bones,
-                            &mut gizmos_settings_changed,
-                        );
-                        add_checkbox(
-                            ui,
-                            "Lights",
-                            &mut gizmos_options.lights,
-                            &mut gizmos_settings_changed,
-                        );
-                        add_checkbox(
-                            ui,
-                            "Waypoints",
-                            &mut gizmos_options.way_points,
-                            &mut gizmos_settings_changed,
-                        );
-                    });
-            });
-
-            // Graphics options apply immediately, no message needed.
-            ui.group(|ui| {
-                ui.label("Teleport");
-                ui.horizontal(|ui| {
-                    for (index, location) in TELEPORT_LOCATIONS.iter().enumerate() {
-                        if ui.button(location.name).clicked() {
-                            teleports.write(TeleportToLocation(index));
-                        }
-                    }
-                });
-            });
-
-            ui.group(|ui| {
-                ui.label("World");
-                ui.horizontal(|ui| {
-                    if ui.button("Restart World").clicked() {
-                        restart_world.write(RestartWorld);
-                    }
-                    if ui.button("Main Menu").clicked() {
-                        next_app_state.set(AppState::MainMenu);
-                    }
-                });
-                ui.horizontal(|ui| {
-                    if ui.button("Quick Save").clicked() {
-                        quick_save.write(QuickSave);
-                    }
-                    if ui.button("Quick Load").clicked() {
-                        quick_load.write(QuickLoad);
-                    }
-                });
-            });
-
-            if visibility_settings_changed {
+            if options_changed {
                 statistics_changed.write(OptionsChanged);
             }
         });
     Ok(())
+}
+
+/// Info grid with game time and render options.
+///
+/// Returns `true` when a render option that controls visibility changed.
+fn info_section(
+    ui: &mut Ui,
+    game_time: &mut GameTime,
+    important_dialog_options: &mut ImportantDialogOptions,
+    render_options: &mut RenderOptions,
+) -> bool {
+    let mut changed = false;
+    egui::Grid::new("Grid Info").num_columns(2).show(ui, |ui| {
+        ui.label("Game Time");
+        ui.add(
+            egui::Slider::new(&mut game_time.total_hours, 0.0..=24.0)
+                .custom_formatter(|hours, _| clock_string(hours as f32))
+                .custom_parser(|text| parse_clock_string(text).map(f64::from)),
+        );
+        ui.end_row();
+
+        ui.label("Time Speed");
+        ui.add(egui::Slider::new(&mut game_time.speed, 0.0..=10.0).suffix("x"));
+        ui.end_row();
+
+        add_checkbox(
+            ui,
+            "Important Dialogs",
+            &mut important_dialog_options.enabled,
+            &mut false,
+        );
+
+        // Render options apply immediately, no message needed.
+        add_checkbox(
+            ui,
+            "Sun Shadow Maps",
+            &mut render_options.sun_shadow_maps,
+            &mut changed,
+        );
+        add_checkbox(
+            ui,
+            "Disco Shadow Maps",
+            &mut render_options.disco_shadow_maps,
+            &mut changed,
+        );
+    });
+    changed
+}
+
+/// Counters of loaded vs visible meshes, with a manual refresh button.
+fn statistics_section(
+    ui: &mut Ui,
+    statistics: &Statistics,
+    statistics_zengin: &StatisticsZengin,
+    refresh_statistics: &mut MessageWriter<RefreshStatistics>,
+) {
+    egui::CollapsingHeader::new("Statistics")
+        .default_open(true)
+        .show(ui, |ui| {
+            egui::Grid::new("Grid Statistics")
+                .num_columns(2)
+                .show(ui, |ui| {
+                    add_visible_elements(
+                        ui,
+                        "Zengin Models",
+                        statistics_zengin.zengin_models,
+                        statistics_zengin.zengin_models_visible,
+                    );
+                    add_visible_elements(
+                        ui,
+                        "Bevy Meshes",
+                        statistics.meshes,
+                        statistics.meshes_visible,
+                    );
+                    add_visible_elements(
+                        ui,
+                        "NPCs",
+                        statistics_zengin.npcs,
+                        statistics_zengin.npcs_visible,
+                    );
+
+                    ui.label("Refresh");
+                    if ui.button("Refresh").clicked() {
+                        refresh_statistics.write(RefreshStatistics);
+                    }
+                    ui.end_row();
+                });
+        });
+}
+
+/// Visibility toggles for world entities, collapsed by default.
+///
+/// Returns `true` when any toggle changed.
+fn visibility_section(ui: &mut Ui, options: &mut ShowOptions) -> bool {
+    let mut changed = false;
+    egui::CollapsingHeader::new("Visibility")
+        .default_open(false)
+        .show(ui, |ui| {
+            egui::Grid::new("Grid Visibility")
+                .num_columns(2)
+                .show(ui, |ui| {
+                    add_checkbox(ui, "World Mesh", &mut options.show_world_mesh, &mut changed);
+                    add_checkbox(
+                        ui,
+                        "Static Meshes",
+                        &mut options.show_static_meshes,
+                        &mut changed,
+                    );
+                    add_checkbox(ui, "NPCs", &mut options.show_npcs, &mut changed);
+                    add_checkbox(ui, "Chests", &mut options.show_chests, &mut changed);
+                    add_checkbox(ui, "Mobs", &mut options.show_mobs, &mut changed);
+                    add_checkbox(ui, "Items", &mut options.show_items, &mut changed);
+                });
+        });
+    changed
+}
+
+/// Gizmo toggles, collapsed by default.
+fn gizmos_section(ui: &mut Ui, options: &mut GizmosOptions) {
+    let mut changed = false;
+    egui::CollapsingHeader::new("Gizmos")
+        .default_open(false)
+        .show(ui, |ui| {
+            egui::Grid::new("Grid Gizmos")
+                .num_columns(2)
+                .show(ui, |ui| {
+                    add_checkbox(
+                        ui,
+                        "Convex Colliders",
+                        &mut options.convex_colliders,
+                        &mut changed,
+                    );
+                    add_checkbox(
+                        ui,
+                        "Cuboid Colliders",
+                        &mut options.cuboid_colliders,
+                        &mut changed,
+                    );
+                    add_checkbox(
+                        ui,
+                        "Sphere Colliders",
+                        &mut options.sphere_colliders,
+                        &mut changed,
+                    );
+                    add_checkbox(
+                        ui,
+                        "Trimesh Colliders",
+                        &mut options.trimesh_colliders,
+                        &mut changed,
+                    );
+                    add_checkbox(
+                        ui,
+                        "Characters Colliders",
+                        &mut options.characters_colliders,
+                        &mut changed,
+                    );
+                    add_checkbox(ui, "Bones", &mut options.bones, &mut changed);
+                    add_checkbox(ui, "Lights", &mut options.lights, &mut changed);
+                    add_checkbox(ui, "Waypoints", &mut options.way_points, &mut changed);
+                });
+        });
+}
+
+fn teleport_section(ui: &mut Ui, teleports: &mut MessageWriter<TeleportToLocation>) {
+    egui::CollapsingHeader::new("Teleport")
+        .default_open(true)
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                for (index, location) in TELEPORT_LOCATIONS.iter().enumerate() {
+                    if ui.button(location.name).clicked() {
+                        teleports.write(TeleportToLocation(index));
+                    }
+                }
+            });
+        });
+}
+
+fn world_section(
+    ui: &mut Ui,
+    restart_world: &mut MessageWriter<RestartWorld>,
+    quick_save: &mut MessageWriter<QuickSave>,
+    quick_load: &mut MessageWriter<QuickLoad>,
+    next_app_state: &mut NextState<AppState>,
+) {
+    egui::CollapsingHeader::new("World").show(ui, |ui| {
+        ui.horizontal(|ui| {
+            if ui.button("Restart World").clicked() {
+                restart_world.write(RestartWorld);
+            }
+            if ui.button("Main Menu").clicked() {
+                next_app_state.set(AppState::MainMenu);
+            }
+        });
+        ui.horizontal(|ui| {
+            if ui.button("Quick Save").clicked() {
+                quick_save.write(QuickSave);
+            }
+            if ui.button("Quick Load").clicked() {
+                quick_load.write(QuickLoad);
+            }
+        });
+    });
 }

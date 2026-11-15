@@ -234,6 +234,7 @@ fn update_selection(
         let Ok((_, npc, item, chest, mob, is_player, tr)) = candidates.get(entity) else {
             continue;
         };
+
         // The player visual carries `GameNpc` too, it is not selectable.
         if is_player || (npc.is_none() && item.is_none() && chest.is_none() && mob.is_none()) {
             continue;
