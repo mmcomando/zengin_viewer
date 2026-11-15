@@ -219,6 +219,18 @@ fn ui_info_system(
                         );
                         add_checkbox(
                             ui,
+                            "Cuboid Colliders",
+                            &mut gizmos_options.cuboid_colliders,
+                            &mut gizmos_settings_changed,
+                        );
+                        add_checkbox(
+                            ui,
+                            "Sphere Colliders",
+                            &mut gizmos_options.sphere_colliders,
+                            &mut gizmos_settings_changed,
+                        );
+                        add_checkbox(
+                            ui,
                             "Trimesh Colliders",
                             &mut gizmos_options.trimesh_colliders,
                             &mut gizmos_settings_changed,

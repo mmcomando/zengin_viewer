@@ -17,6 +17,14 @@ impl Plugin for GizmosPlugin {
         );
         app.add_systems(
             Update,
+            draw_cuboid_gizmos.run_if(|options: Res<GizmosOptions>| options.cuboid_colliders),
+        );
+        app.add_systems(
+            Update,
+            draw_sphere_gizmos.run_if(|options: Res<GizmosOptions>| options.sphere_colliders),
+        );
+        app.add_systems(
+            Update,
             draw_bones.run_if(|options: Res<GizmosOptions>| options.bones),
         );
         app.add_systems(
@@ -44,6 +52,8 @@ impl Plugin for GizmosPlugin {
 #[allow(clippy::struct_excessive_bools)]
 pub struct GizmosOptions {
     pub convex_colliders: bool,
+    pub cuboid_colliders: bool,
+    pub sphere_colliders: bool,
     pub trimesh_colliders: bool,
     pub characters_colliders: bool,
     pub bones: bool,
@@ -71,6 +81,30 @@ fn draw_convex_hull_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &Glo
                 gizmos.line(isometry * aa, isometry * bb, tailwind::GREEN_400);
             }
         }
+    }
+}
+
+fn draw_cuboid_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &GlobalTransform)>) {
+    for (collider, transform) in &colliders {
+        let TypedShape::Cuboid(cuboid) = collider.shape().as_typed_shape() else {
+            continue;
+        };
+        let isometry = Isometry3d::new(transform.translation(), transform.rotation());
+        let half = cuboid.half_extents;
+        gizmos.primitive_3d(
+            &bevy::shape::Cuboid::new(half.x * 2.0, half.y * 2.0, half.z * 2.0),
+            isometry,
+            tailwind::BLUE_400,
+        );
+    }
+}
+
+fn draw_sphere_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &GlobalTransform)>) {
+    for (collider, transform) in &colliders {
+        let TypedShape::Ball(ball) = collider.shape().as_typed_shape() else {
+            continue;
+        };
+        gizmos.sphere(transform.translation(), ball.radius, tailwind::AMBER_400);
     }
 }
 
