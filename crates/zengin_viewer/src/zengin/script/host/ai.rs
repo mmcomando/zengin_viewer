@@ -162,7 +162,23 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     fn ai_removeweapon(&mut self, npc: i32) {
         self.set_weapon_mode(npc, WeaponMode::Fists);
     }
-    fake_impl!(ai_processinfos(_0));
+    /// Opens the npc's dialog through the dialog systems, `other` is the talk
+    /// partner bound by the calling script state.
+    fn ai_processinfos(&mut self, npc: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(other) = self.other_instance().or(self.player_instance) else {
+            warn!(
+                "AI_ProcessInfos npc({}) without a talk partner",
+                npc.value()
+            );
+            return;
+        };
+        self.messages
+            .process_infos
+            .send(ProcessInfosChange { npc, other });
+    }
     fn ai_equipbestmeleeweapon(&mut self, npc: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {
             warn!("AI_EquipBestMeleeWeapon with invalid npc instance({npc})");

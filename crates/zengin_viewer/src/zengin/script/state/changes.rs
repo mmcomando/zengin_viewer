@@ -115,6 +115,14 @@ pub struct TurnToNpcChange {
     pub target: InstanceId,
 }
 
+/// Signal that an instance requested `AI_ProcessInfos`: open the dialog of `npc`
+/// with `other` as the talk partner.
+#[derive(Debug, Clone, Message)]
+pub struct ProcessInfosChange {
+    pub npc: InstanceId,
+    pub other: InstanceId,
+}
+
 /// Signal that an instance requested `AI_Attack` (attack its current enemy).
 #[derive(Message)]
 pub struct AttackChange {

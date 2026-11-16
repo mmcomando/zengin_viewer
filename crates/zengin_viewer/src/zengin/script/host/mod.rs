@@ -3,8 +3,9 @@ use super::journal::{JournalAction, JournalChange, JournalSection, JournalStatus
 use super::state::{
     AlignToWpChange, AnimationChange, AttackChange, BS_STAND, ClearAiQueueChange, DialogChoice,
     DialogLine, ITEM_MAINFLAG_ARMOR, ImportCallState, InventoryGain, MobRoutineEntry,
-    OverlayRequest, RoutineEntry, RoutineExchange, SpawnItem, SpawnNpc, StartStateChange,
-    TurnToNpcChange, UseMobChange, WeaponKind, WeaponMode, current_body_state, has_body_flag,
+    OverlayRequest, ProcessInfosChange, RoutineEntry, RoutineExchange, SpawnItem, SpawnNpc,
+    StartStateChange, TurnToNpcChange, UseMobChange, WeaponKind, WeaponMode, current_body_state,
+    has_body_flag,
 };
 use super::string_value::StringCanon;
 use super::symbol_id::InstanceId;

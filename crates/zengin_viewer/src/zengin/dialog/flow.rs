@@ -11,11 +11,14 @@ use crate::gui::OpenTrade;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_dialog_sound_path;
+use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::interaction::selection::{Selection, SelectionKind};
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::component::{DialogTexts, ScriptResource};
 use crate::zengin::script::manager::ScriptManager;
-use crate::zengin::script::state::{DialogChoice, DialogClose, DialogLine, DialogRoot, WeaponMode};
+use crate::zengin::script::state::{
+    DialogChoice, DialogClose, DialogLine, DialogRoot, ProcessInfosChange, WeaponMode,
+};
 use crate::zengin::script::symbol_id::InstanceId;
 use bevy::log::{info, warn};
 use bevy::prelude::*;
@@ -80,10 +83,42 @@ pub(super) fn show_closest_npc_dialog(
     });
 }
 
+/// Opens the dialog requested by `AI_ProcessInfos`. The script state
+/// (`zs_talk`) decides when a dialog starts, this system only resolves the
+/// entities and forwards the request to the dialog handler.
+pub(super) fn show_requested_npc_dialog(
+    mut changes: MessageReader<ProcessInfosChange>,
+    index: Res<InstanceIndex>,
+    dialog_ui: Res<DialogUiState>,
+    gothic_script: Res<ScriptResource>,
+    mut requests: MessageWriter<DialogRequest>,
+) {
+    for change in changes.read() {
+        if dialog_ui.is_open() {
+            continue;
+        }
+        let Some(npc_entity) = index.npcs(change.npc).first().copied() else {
+            warn!("AI_ProcessInfos npc({}) has no entity", change.npc);
+            continue;
+        };
+        let npc_name = {
+            let mut script = gothic_script.lock();
+            script
+                .npc_display_name(change.npc)
+                .unwrap_or_else(|| script.call_get_name(change.npc.symbol()))
+        };
+        requests.write(DialogRequest::Open {
+            npc_entity,
+            npc_from: change.other,
+            npc_talk_to: change.npc,
+            npc_name,
+        });
+        // One requested dialog per frame
+        return;
+    }
+}
+
 /// Ends the dialog when the script asked for it via `AI_StopProcessInfos`, and
-/// applies the outputs (`AI_Output` lines, `Info_AddChoice` sub choices) of the
-/// option that was just executed. While lines are still playing a close is
-/// deferred until the playback finished, like the original engine does.
 pub(super) fn handle_dialog_outputs(
     mut lines: MessageReader<DialogLine>,
     mut closes: MessageReader<DialogClose>,

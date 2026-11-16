@@ -38,6 +38,7 @@ impl Plugin for GameDialogPlugin {
         app.add_systems(
             Update,
             (
+                flow::show_requested_npc_dialog,
                 flow::show_closest_npc_dialog,
                 important::auto_start_important_dialogs
                     .run_if(|options: Res<ImportantDialogOptions>| options.enabled),

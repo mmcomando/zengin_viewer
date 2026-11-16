@@ -9,8 +9,9 @@ pub(crate) use body_state::{
 pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
-    NpcChanged, NpcEntitiesChanged, OverlayChange, RoutineExchange, ScreenMessage, ScriptSound,
-    SpawnItem, SpawnNpc, StartStateChange, TurnToNpcChange, UseMobChange,
+    NpcChanged, NpcEntitiesChanged, OverlayChange, ProcessInfosChange, RoutineExchange,
+    ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StartStateChange, TurnToNpcChange,
+    UseMobChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -300,6 +301,8 @@ pub struct ScriptMessages {
     pub attack: ExternalMessageSender<AttackChange>,
     /// `AI_TurnToNPC` requests produced by the script.
     pub turn_to_npc: ExternalMessageSender<TurnToNpcChange>,
+    /// `AI_ProcessInfos` requests produced by the script.
+    pub process_infos: ExternalMessageSender<ProcessInfosChange>,
     /// `AI_PlayAni`/`AI_PlayAniBS` requests produced by the script.
     pub animation: ExternalMessageSender<AnimationChange>,
     /// `AI_StartState` requests produced by the script.
@@ -335,6 +338,7 @@ impl ScriptMessages {
         self.goto_fp.clear();
         self.attack.clear();
         self.turn_to_npc.clear();
+        self.process_infos.clear();
         self.animation.clear();
         self.start_state.clear();
         self.use_mob.clear();
