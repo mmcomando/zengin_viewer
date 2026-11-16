@@ -161,6 +161,9 @@ impl super::ScriptManager {
         self.apply_instances(&save.instances);
         self.restore_npc_runtimes(&save.npc_runtimes);
         self.restore_item_runtimes(&save.item_runtimes);
+        // Routines are not saved, each npc's daily routine has to register its
+        // `TA_Min` entries again.
+        self.call_npc_routines();
         self.journal_mut().replace_topics(save.journal.clone());
         self.restore_guild_attitudes(&save.guild_attitudes);
         self.store
