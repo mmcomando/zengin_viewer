@@ -161,6 +161,15 @@ impl DialogUiState {
         self.npc_entity.is_some()
     }
 
+    /// Script instance of the npc the open dialog belongs to.
+    pub(crate) fn talking_npc(&self) -> Option<InstanceId> {
+        if self.is_open() {
+            self.npc_talk_to
+        } else {
+            None
+        }
+    }
+
     /// Opens the dialog with the given npc and its root options
     pub(super) fn open(
         &mut self,

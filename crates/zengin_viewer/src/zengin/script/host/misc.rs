@@ -98,10 +98,10 @@ impl mmcomando::zengine_scripts::misc_scripts::Host for ImportCallState {
             .as_deref()
             .and_then(WeaponKind::from_symbol_name);
         let Some(kind) = kind else {
-            warn!(
-                "EquipItem: item({}) has no known weapon kind, not equipped",
-                item_raw
-            );
+            // warn!(
+            //     "EquipItem: item({}) has no known weapon kind, not equipped",
+            //     item_raw
+            // );
             return;
         };
         {

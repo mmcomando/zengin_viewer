@@ -23,9 +23,9 @@ use crate::zengin::npc_actions::{
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
     NpcRoutineCheckState, apply_look_at, apply_start_state_changes, apply_turn_to_npc,
-    end_removed_routine_entries, move_along_path, release_npc_freepoints, restore_routine_stand,
-    run_routine_loops, sync_script_freepoints, update_npc_routine_entries, update_npc_routines,
-    update_routine_executors,
+    end_removed_routine_entries, move_along_path, pause_talking_npc_routine,
+    release_npc_freepoints, restore_routine_stand, run_routine_loops, sync_script_freepoints,
+    update_npc_routine_entries, update_npc_routines, update_routine_executors,
 };
 use script_animation::apply_scripted_animations;
 use weapons::{apply_weapon_mode, update_npc_attachments};
@@ -76,6 +76,15 @@ impl Plugin for NpcRoutinesPlugin {
                     .after(clear_npc_actions),
                 enqueue_attack_actions.after(clear_npc_actions),
                 enqueue_use_mob_actions.after(clear_npc_actions),
+                pause_talking_npc_routine
+                    .after(clear_npc_actions)
+                    .after(enqueue_stand_up_actions)
+                    .after(enqueue_goto_actions)
+                    .after(enqueue_goto_fp_actions)
+                    .after(enqueue_align_actions)
+                    .after(enqueue_attack_actions)
+                    .after(enqueue_use_mob_actions)
+                    .before(run_npc_actions),
                 run_npc_actions
                     .after(update_npc_routines)
                     .after(clear_npc_actions)

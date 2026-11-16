@@ -23,6 +23,7 @@ use crate::zengin::script::state::{
 };
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph};
+use crate::zengin::{DialogUiState, InstanceId};
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.
@@ -118,6 +119,7 @@ pub(crate) fn update_npc_routine_entries(
 #[allow(clippy::type_complexity)]
 pub(crate) fn update_npc_routines(
     mut commands: Commands,
+    dialog_ui: Res<DialogUiState>,
     mut npcs: Query<
         (
             Entity,
@@ -130,13 +132,14 @@ pub(crate) fn update_npc_routines(
     >,
     mut removed: RemovedComponents<RoutineEntry>,
 ) {
+    let talking_npc = dialog_ui.talking_npc();
     for entity in removed.read() {
         // Despawned entities are fine here (e.g. a killed npc), `try_remove`
         // treats the command as a no-op for them.
         commands.entity(entity).try_remove::<NpcRoutineState>();
     }
 
-    for (entity, npc, entry, routine_state, queue) in &mut npcs {
+    for (entity, npc, entry, routine_state, mut queue) in &mut npcs {
         let Some(mut state) = routine_state else {
             // First assignment: npcs were already placed at the start hour by the
             // world load, only record the current assignment.
@@ -149,31 +152,88 @@ pub(crate) fn update_npc_routines(
             continue;
         }
         state.assigned_waypoint = entry.way_point.clone();
+        queue_routine_waypoint(
+            npc,
+            entry,
+            queue.as_deref_mut(),
+            talking_npc == Some(npc.instance_id()),
+        );
+    }
+}
 
-        let Some(mut queue) = queue else {
-            crate::warn_once!(
-                "routine npc({}) has no action queue, waypoint({})",
-                npc.instance_id(),
-                entry.way_point
-            );
-            continue;
-        };
-        if !queue.is_empty() {
-            debug!(
-                "routine npc({}) busy, waypoint({}) not queued",
-                npc.instance_id(),
-                entry.way_point
-            );
-            continue;
+/// Queues the waypoint of a changed routine entry, holding it while the npc is
+/// talking or has another action pending. The routine loop re-issues the
+/// movement once the npc is free.
+fn queue_routine_waypoint(
+    npc: &GameNpc,
+    entry: &RoutineEntry,
+    queue: Option<&mut NpcActionQueue>,
+    talking: bool,
+) {
+    if talking {
+        debug!(
+            "talking routine npc({}) waypoint({}) not queued",
+            npc.instance_id(),
+            entry.way_point
+        );
+        return;
+    }
+    let Some(queue) = queue else {
+        crate::warn_once!(
+            "routine npc({}) has no action queue, waypoint({})",
+            npc.instance_id(),
+            entry.way_point
+        );
+        return;
+    };
+    if !queue.is_empty() {
+        debug!(
+            "routine npc({}) busy, waypoint({}) not queued",
+            npc.instance_id(),
+            entry.way_point
+        );
+        return;
+    }
+    if !queue.push(NpcAction::GoToWaypoint {
+        waypoint: entry.way_point.clone(),
+    }) {
+        warn!(
+            "routine npc({}) action queue full, waypoint({}) not queued",
+            npc.instance_id(),
+            entry.way_point
+        );
+    }
+}
+
+/// Starts and ends the talk pause: when a npc starts talking its queued actions
+/// are dropped so it stops walking or using a mob, and when the dialog closes
+/// its routine entry is marked changed so [`update_routine_executors`]
+/// reconciles a schedule that moved on while the npc was talking.
+pub(crate) fn pause_talking_npc_routine(
+    dialog_ui: Res<DialogUiState>,
+    index: Res<InstanceIndex>,
+    mut last_talking: Local<Option<InstanceId>>,
+    mut queues: Query<&mut NpcActionQueue>,
+    mut entries: Query<&mut RoutineEntry>,
+) {
+    let talking = dialog_ui.talking_npc();
+    if *last_talking == talking {
+        return;
+    }
+    let previous = std::mem::replace(&mut *last_talking, talking);
+    if let Some(npc) = talking {
+        for &entity in index.npcs(npc) {
+            if let Ok(mut queue) = queues.get_mut(entity) {
+                queue.clear();
+            }
         }
-        if !queue.push(NpcAction::GoToWaypoint {
-            waypoint: entry.way_point.clone(),
-        }) {
-            warn!(
-                "routine npc({}) action queue full, waypoint({}) not queued",
-                npc.instance_id(),
-                entry.way_point
-            );
+    }
+    let Some(npc) = previous.filter(|npc| Some(*npc) != talking) else {
+        return;
+    };
+    for &entity in index.npcs(npc) {
+        if let Ok(mut entry) = entries.get_mut(entity) {
+            entry.set_changed();
         }
     }
 }
@@ -208,6 +268,7 @@ pub(crate) fn end_removed_routine_entries(
 pub(crate) fn update_routine_executors(
     mut commands: Commands,
     gothic_script: Res<ScriptResource>,
+    dialog_ui: Res<DialogUiState>,
     mut npcs: Query<
         (
             Entity,
@@ -229,8 +290,12 @@ pub(crate) fn update_routine_executors(
         if controller.is_none() {
             continue;
         }
-        let desired = entry.state_fn;
         let instance = npc.instance_id();
+        // A talking npc resumes its schedule when the dialog closes.
+        if dialog_ui.talking_npc() == Some(instance) {
+            continue;
+        }
+        let desired = entry.state_fn;
         let Some(mut executor) = executor else {
             let Some(start) = desired else {
                 continue;
@@ -398,6 +463,7 @@ pub(crate) fn run_routine_loops(
     game_time: Res<GameTime>,
     mut commands: Commands,
     gothic_script: Res<ScriptResource>,
+    dialog_ui: Res<DialogUiState>,
     mut npcs: Query<
         (
             Entity,
@@ -415,6 +481,7 @@ pub(crate) fn run_routine_loops(
 
     let delta = time.delta_secs();
     let minutes = game_time.minutes_of_day();
+    let talking_npc = dialog_ui.talking_npc();
     let mut script = gothic_script.lock();
     for (entity, npc, mut executor, entry, queue) in &mut npcs {
         // Routine entries stop at their stop time even when no next entry is
@@ -443,8 +510,10 @@ pub(crate) fn run_routine_loops(
         }
         // A daily routine runs only when the npc has no other action. The loop
         // is paused, not the entry scheduling above; it resumes once the queue
-        // drains.
-        if executor.source == RoutineSource::Routine && queue.is_some_and(|queue| !queue.is_empty())
+        // drains. Talking pauses it the same way.
+        if executor.source == RoutineSource::Routine
+            && (talking_npc == Some(npc.instance_id())
+                || queue.is_some_and(|queue| !queue.is_empty()))
         {
             continue;
         }
