@@ -12,6 +12,7 @@ use zen_kit_rs::{
 };
 
 use crate::{
+    save::format::SaveGame,
     warn_unimplemented,
     zengin::{
         common::*,
@@ -20,6 +21,7 @@ use crate::{
         script::symbol_id::InstanceId,
         visual::mesh::meshes_from_zengin_mesh,
         waypoint_graph::load_way_net_points,
+        world_spawn::{SpawnChest, SpawnMob, SpawnStaticModel, SpawnWorldMesh, WorldSpawnMessages},
     },
 };
 
@@ -29,7 +31,8 @@ pub fn load_zengin_world_data(
     vfs: &Vfs,
     world_path: &str,
     vm_state: &crate::zengin::script::state::LoadedState,
-    spawn_item: &mut MessageWriter<SpawnItem>,
+    spawns: &WorldSpawnMessages,
+    restore: Option<&SaveGame>,
 ) -> ZenGinWorldData {
     if false {
         print_nodes(&vfs.get_root(), 0);
@@ -43,10 +46,10 @@ pub fn load_zengin_world_data(
     let world_mesh = world.mesh();
     let world_bevy_meshes = meshes_from_zengin_mesh(&world_mesh);
 
-    let mut data = ZenGinWorldData {
-        world_model: world_bevy_meshes,
-        ..Default::default()
-    };
+    let mut data = ZenGinWorldData::default();
+    spawns.world_mesh.send(SpawnWorldMesh {
+        model: world_bevy_meshes,
+    });
 
     // Item instance name -> instance id, resolves world vob and armor item names
     let item_ids: HashMap<String, InstanceId> = vm_state
@@ -61,9 +64,8 @@ pub fn load_zengin_world_data(
         .collect();
 
     for obj in world.root_objects() {
-        load_objects(vfs, &mut data, &item_ids, &obj, spawn_item);
+        load_objects(vfs, &mut data, &item_ids, &obj, spawns, restore);
     }
-    info!("Loaded {} interactive mobs", data.mobs.len());
     info!(
         "Loaded {} music zones (default: {:?})",
         data.music_zones.len(),
@@ -99,30 +101,30 @@ fn load_objects(
     data: &mut ZenGinWorldData,
     item_ids: &HashMap<String, InstanceId>,
     obj: &VirtualObject,
-    spawn_item: &mut MessageWriter<SpawnItem>,
+    spawns: &WorldSpawnMessages,
+    restore: Option<&SaveGame>,
 ) {
     let visual = obj.visual();
     let has_visual = !visual.name().is_empty() && obj.show_visual();
 
     if obj.get_type() == VobType::oCMobContainer {
-        handle_container(vfs, data, item_ids, obj, has_visual);
+        handle_container(vfs, item_ids, obj, has_visual, spawns, restore);
     } else if is_interactive_mob(obj.get_type()) {
-        handle_mob(vfs, data, obj, has_visual);
+        handle_mob(vfs, obj, has_visual, spawns);
     } else if has_visual {
         assert_ne!(obj.get_type(), VobType::zCVobLight);
         if let Some(asset_path) = visual_asset_path(vfs, &visual) {
-            let tr = get_obj_tr(obj);
-            data.static_models.push(ZenGinInstance {
-                tr,
+            spawns.static_models.send(SpawnStaticModel {
+                tr: get_obj_tr(obj),
                 archetype: asset_path,
                 collides: obj.cd_dynamic(),
             });
         }
     } else {
-        handle_other_vob(data, item_ids, obj, spawn_item);
+        handle_other_vob(data, item_ids, obj, spawns);
     }
     for child in obj.children() {
-        load_objects(vfs, data, item_ids, &child, spawn_item);
+        load_objects(vfs, data, item_ids, &child, spawns, restore);
     }
 }
 
@@ -174,13 +176,13 @@ fn is_interactive_mob(type_: VobType) -> bool {
     )
 }
 
-fn handle_mob(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject, has_visual: bool) {
+fn handle_mob(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, spawns: &WorldSpawnMessages) {
     let visual = obj.visual();
     let archetype = has_visual
         .then(|| visual_asset_path(vfs, &visual))
         .flatten()
         .unwrap_or_default();
-    data.mobs.push(ZenGinMob {
+    spawns.mobs.send(SpawnMob {
         tr: get_obj_tr(obj),
         archetype,
         collides: obj.cd_dynamic(),
@@ -198,22 +200,31 @@ fn handle_mob(vfs: &Vfs, data: &mut ZenGinWorldData, obj: &VirtualObject, has_vi
 
 fn handle_container(
     vfs: &Vfs,
-    data: &mut ZenGinWorldData,
     item_ids: &HashMap<String, InstanceId>,
     obj: &VirtualObject,
     has_visual: bool,
+    spawns: &WorldSpawnMessages,
+    restore: Option<&SaveGame>,
 ) {
     let archetype = has_visual
         .then(|| visual_asset_path(vfs, &obj.visual()))
         .flatten()
         .unwrap();
-    data.chests.push(ZenGinChest {
+    let vob_id = obj.id();
+    let items = restore
+        .and_then(|save| save.chests.iter().find(|saved| saved.vob_id == vob_id))
+        .map_or_else(
+            || container_items(&obj.container_contents(), item_ids),
+            |saved| saved.items.clone(),
+        );
+    spawns.chests.send(SpawnChest {
+        vob_id,
         tr: get_obj_tr(obj),
         archetype,
         collides: obj.cd_dynamic(),
         collider_half_extents: vob_collider_half_extents(obj),
         name: obj.movable_name(),
-        items: container_items(&obj.container_contents(), item_ids),
+        items,
         locked: obj.container_locked(),
     });
 }
@@ -292,7 +303,7 @@ fn handle_other_vob(
     data: &mut ZenGinWorldData,
     item_ids: &HashMap<String, InstanceId>,
     obj: &VirtualObject,
-    spawn_item: &mut MessageWriter<SpawnItem>,
+    spawns: &WorldSpawnMessages,
 ) {
     let name = obj.name();
     let type_ = obj.get_type();
@@ -306,7 +317,7 @@ fn handle_other_vob(
                 return;
             };
 
-            spawn_item.write(SpawnItem {
+            spawns.items.send(SpawnItem {
                 instance_id,
                 location_name: None,
                 transform: Some(tr),

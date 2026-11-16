@@ -1,0 +1,19 @@
+// Recorded replay commands, replayable with --replay-actions
+[
+    SpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
+    Axis(frame: 1, action: Gameplay(Move), value: (0.0, 0.0)),
+    Axis(frame: 1, action: Gameplay(RotateCamera), value: (0.0, 0.0)),
+    Press(frame: 100, action: Editor(ToggleEditorMode)),
+    TeleportPlayer(translation: (-301.88007, 53.033978, -147.17374), rotation: (0.0, -23.815514, 0.0)),
+    SetCameraLocation(translation: (-301.88007, 53.033978, -147.17374), rotation: (-6.575797, 156.1845, 0.00000010742845)),
+    Release(action: Editor(ToggleEditorMode)),
+    Press(action: Gameplay(Interact)),
+    Release(action: Gameplay(Interact)),
+    Press(action: Gameplay(Interact)),
+    Release(action: Gameplay(Interact)),
+    Press(action: Gameplay(Interact)),
+    Release(action: Gameplay(Interact)),
+    Press(action: Gameplay(Interact)),
+    Release(action: Gameplay(Interact)),
+    Press(action: Shared(Back)),
+]

@@ -21,13 +21,18 @@ use crate::zengin::script::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
     NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage,
-    ScriptMessages, ScriptSound, SpawnItem, SpawnNpc, StartStateChange, UseMobChange, WeaponMode,
+    ScriptMessages, ScriptSound, SpawnNpc, StartStateChange, UseMobChange, WeaponMode,
 };
+use crate::zengin::world_spawn::WorldSpawnMessages;
 
 pub struct ScriptBridgePlugin;
 
 impl Plugin for ScriptBridgePlugin {
     fn build(&self, app: &mut App) {
+        // The world loader and the script share one `SpawnItem` queue; the ECS
+        // inbox is keyed by message type, so a second `add_external_message`
+        // would orphan this sender.
+        let spawn_items = app.world().resource::<WorldSpawnMessages>().items.clone();
         let messages = ScriptMessages {
             align_to_wp: app.add_external_message::<AlignToWpChange>(),
             overlay: app.add_external_message::<OverlayChange>(),
@@ -38,7 +43,7 @@ impl Plugin for ScriptBridgePlugin {
             start_state: app.add_external_message::<StartStateChange>(),
             use_mob: app.add_external_message::<UseMobChange>(),
             clear_ai_queue: app.add_external_message::<ClearAiQueueChange>(),
-            spawn_items: app.add_external_message::<SpawnItem>(),
+            spawn_items,
             spawn_npcs: app.add_external_message::<SpawnNpc>(),
             dialog_lines: app.add_external_message::<DialogLine>(),
             inventory_gains: app.add_external_message::<InventoryGain>(),

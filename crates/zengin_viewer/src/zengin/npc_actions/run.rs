@@ -758,7 +758,6 @@ mod tests {
 
     fn game_mob(scheme: &str, use_with_item: &str) -> GameMob {
         GameMob {
-            index: 0,
             vob_name: String::new(),
             focus_name: String::new(),
             scheme: scheme.to_string(),

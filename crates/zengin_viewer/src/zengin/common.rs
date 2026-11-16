@@ -8,8 +8,6 @@ use bevy::prelude::*;
 use bevy::shape::Aabb3d;
 use zen_kit_rs::vfs::VfsNode;
 
-use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::waypoint_graph::WaypointGraph;
 
 /// zenkit cords have mirrored X compared to bevy
@@ -180,13 +178,6 @@ pub fn print_nodes(node: &VfsNode, level: u8) {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct ZenGinInstance {
-    pub tr: Transform,
-    pub archetype: String,
-    pub collides: bool,
-}
-
 /// Attachment point of an interactive mob (`ZS_POS*` node of its mesh).
 #[allow(dead_code)] // consumed by the mob use action
 #[derive(Debug, Default, Clone)]
@@ -195,32 +186,6 @@ pub struct MobPosition {
     pub name: String,
     /// Node transform in the mob model space.
     pub transform: Transform,
-}
-
-/// Interactive mob vob (`oCMobInter` and its subtypes).
-#[derive(Debug, Default)]
-pub struct ZenGinMob {
-    pub tr: Transform,
-    /// Mesh asset path, empty when the vob has no visual.
-    pub archetype: String,
-    pub collides: bool,
-    /// Vob name, used by scripts and trigger targets.
-    pub vob_name: String,
-    /// In-game focus name (`oCMOB.name`), shown when the player looks at it.
-    pub focus_name: String,
-    /// `AI_UseMob` scheme derived from the visual stem.
-    pub scheme: String,
-    /// Visual file stem, the `<STEM>` of the mob's own animation set.
-    pub visual_stem: String,
-    /// Number of interaction states (`stateNum`).
-    pub state_num: i32,
-    /// Script item instance required to use the mob, empty when none.
-    pub use_with_item: String,
-    /// Script function called when the mob changes state, empty when none.
-    pub on_state_func: String,
-    /// Script condition gating use of the mob, empty when none.
-    pub condition_func: String,
-    pub rewind: bool,
 }
 
 /// `AI_UseMob` scheme of a mob visual: the mesh stem up to the first `_` or
@@ -242,19 +207,6 @@ pub fn mob_visual_stem(visual_name: &str) -> String {
     let file = visual_name.rsplit('/').next().unwrap_or(visual_name);
     let stem = file.rsplit_once('.').map_or(file, |(stem, _)| stem);
     stem.to_uppercase()
-}
-
-#[derive(Debug, Default)]
-pub struct ZenGinChest {
-    pub tr: Transform,
-    /// Archetype of the chest visual, `None` when the vob has no visual.
-    pub archetype: String,
-    pub collides: bool,
-    /// Half-size of the selection collider, converted to world units.
-    pub collider_half_extents: Vec3,
-    pub name: String,
-    pub items: Vec<(InstanceId, i32)>,
-    pub locked: bool,
 }
 
 #[allow(dead_code)] // consumed by the music director step
@@ -300,10 +252,6 @@ pub struct MusicZones {
 
 #[derive(Debug, Default)]
 pub struct ZenGinWorldData {
-    pub world_model: ZenGinModel,
-    pub static_models: Vec<ZenGinInstance>,
-    pub chests: Vec<ZenGinChest>,
-    pub mobs: Vec<ZenGinMob>,
     pub spots: HashMap<String, Transform>,
     pub way_points: HashMap<String, Transform>,
     /// Names of all files in the compiled anim archive (uppercase)

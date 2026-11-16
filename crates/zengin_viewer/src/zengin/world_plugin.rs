@@ -12,7 +12,7 @@ use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::NpcAnimations;
 use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
-use crate::gui_debug::{StaticMesh, WorldMesh};
+use crate::gui_debug::WorldMesh;
 use crate::input::Options;
 use crate::save::PendingLoad;
 use crate::save::format::SaveGame;
@@ -23,11 +23,10 @@ use crate::zengin::interaction::selection::Selection;
 use crate::zengin::loaders::vfs::{
     item_model_path, mesh_model_path, normalize_mesh_name, resolve_stand_animation,
 };
-use crate::zengin::mobs::{MobAnimation, MobRegistry, mob_state_animation};
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::resources::{
-    CachedAssetHandles, NamedModels, SELECTABLE, ZenGinInsertResources, ZenGinModelComponent,
+    CachedAssetHandles, NamedModels, ZenGinInsertResources, ZenGinModelComponent,
     ZenGinModelComponentLoaded,
 };
 use crate::zengin::script::bridge::ScriptChangesApplied;
@@ -35,12 +34,11 @@ use crate::zengin::script::component::{GameScriptLoaded, ScriptResource};
 use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::{LoadedState, SpawnItem, SpawnNpc};
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
+use crate::zengin::world_spawn::{WorldSpawnMessages, WorldSpawnPlugin};
 use crate::zengin::{
-    DialogUiState, GameChest, GameItem, GameMob, GameNpc, MusicZones, NpcActionQueue, NpcHandle,
-    NpcOverlay, ZenginVfs,
+    DialogUiState, GameItem, GameNpc, MusicZones, NpcActionQueue, NpcHandle, NpcOverlay, ZenginVfs,
 };
 use avian3d::prelude::*;
 use bevy::prelude::*;
@@ -51,6 +49,7 @@ pub struct ZenGinWorldPlugin;
 impl Plugin for ZenGinWorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ZenGinInsertResources);
+        app.add_plugins(WorldSpawnPlugin);
         app.add_plugins(GameObjectSpawnEntities);
 
         app.init_resource::<AnimationFiles>();
@@ -241,6 +240,8 @@ pub(crate) fn begin_world_load(
             .set(AppState::LoadScreen);
     }
 
+    world.resource::<WorldSpawnMessages>().clear();
+
     world.resource_mut::<InventoryUiState>().close();
     world.resource_mut::<JournalUiState>().close();
     world.resource_mut::<StatsUiState>().close();
@@ -322,7 +323,7 @@ fn spawn_world(
     vfs: Res<ZenginVfs>,
     gothic_script: Res<ScriptResource>,
     mut instance_index: ResMut<InstanceIndex>,
-    mut spawn_item: MessageWriter<SpawnItem>,
+    spawns: Res<WorldSpawnMessages>,
     mut spawn_npc: MessageWriter<SpawnNpc>,
 ) {
     if pending_spawns.0.is_empty() {
@@ -347,7 +348,7 @@ fn spawn_world(
             &vfs,
             &gothic_script,
             &mut instance_index,
-            &mut spawn_item,
+            &spawns,
             &mut spawn_npc,
         );
     }
@@ -366,7 +367,7 @@ fn spawn_world_data(
     vfs: &ZenginVfs,
     gothic_script: &ScriptResource,
     instance_index: &mut InstanceIndex,
-    spawn_item: &mut MessageWriter<SpawnItem>,
+    spawns: &WorldSpawnMessages,
     spawn_npc: &mut MessageWriter<SpawnNpc>,
 ) {
     commands.insert_resource(CurrentWorld(world_name.to_string()));
@@ -378,7 +379,7 @@ fn spawn_world_data(
     let world_path = format!("/_WORK/DATA/WORLDS/{world_name}.ZEN");
     let mut world_data = {
         let vfs = vfs.0.lock().unwrap();
-        load_zengin_world_data(&vfs, &world_path, loaded_state, spawn_item)
+        load_zengin_world_data(&vfs, &world_path, loaded_state, spawns, restore)
     };
     // Keep waypoint positions around for runtime npc routine teleporting,
     // spots take precedence over way points (same lookup order as npc placement).
@@ -407,7 +408,7 @@ fn spawn_world_data(
 
     commands.insert_resource(WayPoints { points: way_points });
     commands.insert_resource(Spots(std::mem::take(&mut world_data.spots)));
-    let animation_files = AnimationFiles(std::mem::take(&mut world_data.anim_files));
+    commands.insert_resource(AnimationFiles(std::mem::take(&mut world_data.anim_files)));
     commands.insert_resource(MusicZones {
         zones: std::mem::take(&mut world_data.music_zones),
         default: world_data.default_music_zone.take(),
@@ -426,115 +427,6 @@ fn spawn_world_data(
     );
 
     println!("\n----CREATE ENGINE ENTITIES------\n");
-
-    let world_model_handle: Handle<ZenGinModel> = asset_server.add(world_data.world_model);
-
-    commands.spawn((
-        Visibility::default(),
-        ClassifyDistance::default(),
-        ZenGinModelComponent {
-            model_handle: world_model_handle,
-            trimesh_collider: true,
-            ..default()
-        },
-        Transform::IDENTITY,
-        WorldMesh::default(),
-    ));
-
-    for instance in &world_data.static_models {
-        let model_handle = handles_map.get_model_handle(asset_server, &instance.archetype, None);
-        commands.spawn((
-            ClassifyDistance::default(),
-            ZenGinModelComponent {
-                model_handle: model_handle.clone(),
-                convex_colider: instance.collides,
-                ..default()
-            },
-            Visibility::default(),
-            instance.tr,
-            StaticMesh::default(),
-        ));
-    }
-
-    for (index, chest) in world_data.chests.into_iter().enumerate() {
-        let model_handle = handles_map.get_model_handle(asset_server, &chest.archetype, None);
-        let items = restore
-            .and_then(|save| save.chests.iter().find(|saved| saved.index == index))
-            .map_or(chest.items, |saved| saved.items.clone());
-        commands.spawn((
-            ClassifyDistance::default(),
-            GameChest {
-                index,
-                name: chest.name,
-                locked: chest.locked,
-                items,
-            },
-            Collider::cuboid(
-                chest.collider_half_extents.x * 2.0,
-                chest.collider_half_extents.y * 2.0,
-                chest.collider_half_extents.z * 2.0,
-            ),
-            CollisionLayers::from_bits(SELECTABLE, 0),
-            Visibility::default(),
-            chest.tr,
-            ZenGinModelComponent {
-                model_handle,
-                convex_colider: chest.collides,
-                ..default()
-            },
-        ));
-    }
-
-    let mut mob_registry = MobRegistry::default();
-    for (index, mob) in world_data.mobs.into_iter().enumerate() {
-        let model_handle = (!mob.archetype.is_empty())
-            .then(|| handles_map.get_model_handle(asset_server, &mob.archetype, None));
-        let mut entity = commands.spawn((
-            ClassifyDistance::default(),
-            GameMob {
-                index,
-                vob_name: mob.vob_name,
-                focus_name: mob.focus_name,
-                scheme: mob.scheme.clone(),
-                visual_stem: mob.visual_stem.clone(),
-                state_num: mob.state_num,
-                use_with_item: mob.use_with_item,
-                on_state_func: mob.on_state_func,
-                condition_func: mob.condition_func,
-                rewind: mob.rewind,
-                positions: None,
-                state: 0,
-            },
-            Visibility::default(),
-            Collider::sphere(0.5),
-            CollisionLayers::from_bits(SELECTABLE, 0),
-            mob.tr,
-        ));
-        if let Some(model_handle) = model_handle {
-            let animation_handle = mob_state_animation(
-                &animation_files,
-                handles_map,
-                asset_server,
-                &mob.visual_stem,
-                0,
-            );
-            entity.insert((
-                ZenGinModelComponent {
-                    model_handle,
-                    convex_colider: mob.collides,
-                    animation_handle,
-                    ..default()
-                },
-                MobAnimation {
-                    stem: mob.visual_stem.clone(),
-                    state: 0,
-                },
-            ));
-        }
-        mob_registry.insert(mob.scheme, entity.id());
-    }
-    commands.insert_resource(animation_files);
-    commands.insert_resource(mob_registry);
 
     if !gothic_script.has_player_instance() {
         spawn_player(
@@ -556,7 +448,7 @@ fn spawn_world_data(
             });
         }
         for item in &save.live_items {
-            spawn_item.write(SpawnItem {
+            spawns.items.send(SpawnItem {
                 instance_id: item.instance_id,
                 location_name: None,
                 transform: Some(item.transform),

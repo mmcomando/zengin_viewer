@@ -435,7 +435,6 @@ mod tests {
 
     fn test_mob(scheme: &str, stem: &str) -> GameMob {
         GameMob {
-            index: 0,
             vob_name: String::new(),
             focus_name: String::new(),
             scheme: scheme.to_string(),

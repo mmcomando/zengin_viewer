@@ -60,11 +60,14 @@ pub(super) fn use_selected_mob(
     let state = i32::from(mob.state <= 0);
     mob.state = state;
     info!(
-        "Player({}) used mob({target}) vob({}) focus({}) -> state({state})",
+        "Player({}) used mob({target}) vob({}) focus({}) condition_func({}) on_state_func({}) -> state({state})",
         player_npc.instance_id(),
         mob.vob_name,
-        mob.focus_name
+        mob.focus_name,
+        mob.condition_func,
+        mob.on_state_func,
     );
+    println!("{:?}", &mob);
     gothic_script
         .lock()
         .call_mob_state_hook(player_npc.instance_id(), &mob.on_state_func, state);

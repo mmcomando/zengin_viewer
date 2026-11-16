@@ -160,7 +160,7 @@ fn quick_save(
     let chests: Vec<SavedChest> = chests
         .iter()
         .map(|chest| SavedChest {
-            index: chest.index,
+            vob_id: chest.vob_id,
             items: chest.items.clone(),
         })
         .collect();

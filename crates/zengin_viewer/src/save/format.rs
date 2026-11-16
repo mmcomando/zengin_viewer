@@ -15,7 +15,7 @@ use crate::zengin::JournalTopic;
 use crate::zengin::{ItemRuntime, MobRoutineEntry, NpcRuntime};
 
 /// Version of the on-disk save format. Increment on any incompatible change.
-pub(crate) const SAVE_FORMAT_VERSION: u32 = 1;
+pub(crate) const SAVE_FORMAT_VERSION: u32 = 2;
 
 /// Directory containing all saves, relative to the workspace root.
 const SAVE_DIR: &str = "../../misc/saves";
@@ -174,10 +174,10 @@ pub(crate) struct SavedItemEntity {
     pub(crate) transform: Transform,
 }
 
-/// Remaining loot of one chest, keyed by its ZEN container index.
+/// Remaining loot of one chest, keyed by the vob id in the ZEN archive.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SavedChest {
-    pub(crate) index: usize,
+    pub(crate) vob_id: u32,
     pub(crate) items: Vec<(InstanceId, i32)>,
 }
 

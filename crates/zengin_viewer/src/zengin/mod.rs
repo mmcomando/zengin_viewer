@@ -21,6 +21,7 @@ mod statistics;
 mod visual;
 mod waypoint_graph;
 mod world_plugin;
+mod world_spawn;
 
 // Used to debug data, it is more like a tool than a test
 #[cfg(test)]
@@ -157,8 +158,6 @@ impl GameItem {
 #[derive(Debug, Component)]
 #[require(WorldEntityMarker)]
 pub struct GameMob {
-    /// Position in the ZEN load order.
-    pub index: usize,
     pub vob_name: String,
     /// In-game focus name (`oCMOB.name`).
     pub focus_name: String,
@@ -182,9 +181,9 @@ pub struct GameMob {
 #[derive(Debug, Component)]
 #[require(WorldEntityMarker)]
 pub struct GameChest {
-    /// Position of the container in the ZEN load order, used to match saved
-    /// loot to the same chest.
-    pub index: usize,
+    /// Index of the vob in the ZEN archive, stable across loads; used to match
+    /// saved loot to the same chest.
+    pub vob_id: u32,
     pub name: String,
     /// Vob `locked` flag, reported when the chest is opened.
     pub locked: bool,
