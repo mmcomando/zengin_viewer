@@ -396,6 +396,72 @@ impl ImportCallState {
         nearest_free_mob(self.mobs.get(scheme)?, position)
     }
 
+    /// Nearest live npc other than `npc` within `radius` (world units) matching
+    /// the filters, `None` when the filters match nothing. A `None` filter
+    /// matches every value; ties are resolved by the lower instance id.
+    pub fn nearest_npc(
+        &self,
+        npc: InstanceId,
+        radius: f32,
+        instance: Option<InstanceId>,
+        state: Option<FunctionId>,
+        guild: Option<i32>,
+        exclude_player: bool,
+    ) -> Option<InstanceId> {
+        let position = self.npc_state(npc)?.live.position?;
+        if radius <= 0.0 {
+            return None;
+        }
+        let radius_squared = radius * radius;
+        let player = self.player_instance;
+        let mut best: Option<(InstanceId, f32)> = None;
+        for (&candidate, runtime) in &self.loaded_state.npc_instances {
+            if candidate == npc {
+                continue;
+            }
+            if instance.is_some_and(|filter| filter != candidate) {
+                continue;
+            }
+            if exclude_player && Some(candidate) == player {
+                continue;
+            }
+            let runtime = runtime.read().unwrap_or_else(PoisonError::into_inner);
+            if runtime.live.dead {
+                continue;
+            }
+            let Some(candidate_position) = runtime.live.position else {
+                continue;
+            };
+            if state.is_some_and(|filter| runtime.routine.current_state != Some(filter)) {
+                continue;
+            }
+            drop(runtime);
+            if let Some(guild) = guild {
+                let candidate_guild = self
+                    .typed
+                    .npc(candidate.value() as u32)
+                    .map_or(0, |npc| npc.guild);
+                if candidate_guild != guild {
+                    continue;
+                }
+            }
+            let distance = (candidate_position - position).length_squared();
+            if distance > radius_squared {
+                continue;
+            }
+            let better = match best {
+                None => true,
+                Some((best_id, best_distance)) => {
+                    distance < best_distance || (distance == best_distance && candidate < best_id)
+                }
+            };
+            if better {
+                best = Some((candidate, distance));
+            }
+        }
+        best.map(|(instance, _)| instance)
+    }
+
     /// Canonical (lowercased) scheme of a mob name string id.
     pub fn mob_scheme(&self, raw: i32) -> Option<StringCanon> {
         let id = self.symbol_table.string(raw)?;
@@ -570,6 +636,14 @@ impl ImportCallState {
     pub fn other_instance(&self) -> Option<InstanceId> {
         let symbol = self.well_known_symbols.other_symbol?;
         InstanceId::new(self.typed.read_symbol(symbol as u32, 0))
+    }
+
+    /// Binds an instance to the `other` script global.
+    pub fn set_other(&mut self, instance: InstanceId) {
+        let Some(symbol) = self.well_known_symbols.other_symbol else {
+            return;
+        };
+        self.typed.write_symbol(symbol as u32, 0, instance.value());
     }
 
     /// Resolves both ids as npc/item instance symbols, `None` when either is
@@ -767,7 +841,7 @@ fn nearest_free_mob(mobs: &[ScriptMob], position: Vec3) -> Option<&ScriptMob> {
 
 #[cfg(test)]
 mod tests {
-    use super::instances::NpcLiveState;
+    use super::instances::{NpcLiveState, NpcRoutineState};
     use super::*;
 
     #[test]
@@ -804,6 +878,122 @@ mod tests {
         }];
 
         assert!(nearest_free_mob(&mobs, Vec3::ZERO).is_none());
+    }
+
+    fn insert_npc(
+        state: &mut ImportCallState,
+        id: i32,
+        position: Vec3,
+        dead: bool,
+        current_state: Option<FunctionId>,
+    ) -> InstanceId {
+        let id = InstanceId::new(id).expect("valid id");
+        state.loaded_state.npc_instances.insert(
+            id,
+            Arc::new(RwLock::new(NpcRuntime {
+                live: NpcLiveState {
+                    position: Some(position),
+                    dead,
+                    ..Default::default()
+                },
+                routine: NpcRoutineState {
+                    current_state,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })),
+        );
+        id
+    }
+
+    #[test]
+    fn nearest_npc_picks_the_closest_live_match() {
+        let mut state = ImportCallState::default();
+        let source = insert_npc(&mut state, 1, Vec3::ZERO, false, None);
+        insert_npc(&mut state, 2, Vec3::new(5.0, 0.0, 0.0), false, None);
+        let near = insert_npc(&mut state, 3, Vec3::new(2.0, 0.0, 0.0), false, None);
+        insert_npc(&mut state, 4, Vec3::new(1.0, 0.0, 0.0), true, None);
+
+        let found = state.nearest_npc(source, 10.0, None, None, None, false);
+
+        assert_eq!(found, Some(near));
+    }
+
+    #[test]
+    fn nearest_npc_applies_instance_state_and_radius_filters() {
+        let mut state = ImportCallState::default();
+        let source = insert_npc(&mut state, 1, Vec3::ZERO, false, None);
+        let state_fn = FunctionId::new(10).expect("valid id");
+        let other_state = FunctionId::new(11).expect("valid id");
+        let matching = insert_npc(
+            &mut state,
+            2,
+            Vec3::new(3.0, 0.0, 0.0),
+            false,
+            Some(state_fn),
+        );
+        let closest = insert_npc(
+            &mut state,
+            3,
+            Vec3::new(1.0, 0.0, 0.0),
+            false,
+            Some(other_state),
+        );
+        insert_npc(
+            &mut state,
+            4,
+            Vec3::new(50.0, 0.0, 0.0),
+            false,
+            Some(state_fn),
+        );
+
+        assert_eq!(
+            state.nearest_npc(source, 10.0, None, Some(state_fn), None, false),
+            Some(matching)
+        );
+        assert_eq!(
+            state.nearest_npc(source, 10.0, Some(closest), None, None, false),
+            Some(closest)
+        );
+        assert_eq!(
+            state.nearest_npc(source, 0.5, None, None, None, false),
+            None
+        );
+        assert_eq!(
+            state.nearest_npc(source, 10.0, None, None, None, false),
+            Some(closest)
+        );
+    }
+
+    #[test]
+    fn nearest_npc_can_exclude_the_player() {
+        let mut state = ImportCallState::default();
+        let source = insert_npc(&mut state, 1, Vec3::ZERO, false, None);
+        let player = insert_npc(&mut state, 2, Vec3::new(1.0, 0.0, 0.0), false, None);
+        let npc = insert_npc(&mut state, 3, Vec3::new(4.0, 0.0, 0.0), false, None);
+        state.player_instance = Some(player);
+
+        assert_eq!(
+            state.nearest_npc(source, 10.0, None, None, None, false),
+            Some(player)
+        );
+        assert_eq!(
+            state.nearest_npc(source, 10.0, None, None, None, true),
+            Some(npc)
+        );
+    }
+
+    #[test]
+    fn nearest_npc_breaks_ties_by_instance_id() {
+        let mut state = ImportCallState::default();
+        let source = insert_npc(&mut state, 1, Vec3::ZERO, false, None);
+        let low = insert_npc(&mut state, 2, Vec3::new(0.0, 0.0, 3.0), false, None);
+        insert_npc(&mut state, 3, Vec3::new(3.0, 0.0, 0.0), false, None);
+
+        assert_eq!(
+            state.nearest_npc(source, 10.0, None, None, None, false),
+            Some(low)
+        );
     }
 
     #[test]

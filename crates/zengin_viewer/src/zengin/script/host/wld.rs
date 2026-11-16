@@ -1,4 +1,5 @@
 use super::*;
+use crate::zengin::common::to_world_units;
 
 impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
     fn wld_insertnpc(&mut self, npc_index: i32, waypoint_string_id: i32) {
@@ -40,8 +41,22 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
     }
     fake_impl!(wld_detectitem(_0, _1) -> i32);
     fake_impl!(wld_detectplayer(_0) -> i32);
-    fake_impl!(wld_detectnpc(_0, _1, _2, _3) -> i32);
-    fake_impl!(wld_detectnpcex(_0, _1, _2, _3, _4) -> i32);
+    /// Nearest matching npc within the source npc's `senses_range` becomes the
+    /// `other` global.
+    fn wld_detectnpc(&mut self, npc: i32, instance: i32, state: i32, guild: i32) -> i32 {
+        self.detect_npc(npc, instance, state, guild, false)
+    }
+    /// Like `Wld_DetectNpc`, excluding the player when `detect_player` is zero.
+    fn wld_detectnpcex(
+        &mut self,
+        npc: i32,
+        instance: i32,
+        state: i32,
+        guild: i32,
+        detect_player: i32,
+    ) -> i32 {
+        self.detect_npc(npc, instance, state, guild, detect_player == 0)
+    }
     fake_impl!(wld_detectnpcexatt(_0, _1, _2, _3, _4, _5) -> i32);
     fn wld_setguildattitude(&mut self, guild_a: i32, guild_b: i32, attitude: i32) {
         self.guild_attitudes.insert((guild_a, guild_b), attitude);
@@ -120,4 +135,49 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
     fake_impl!(wld_getplayerportalguild() -> i32);
     fake_impl!(wld_getformerplayerportalowner() -> i32);
     fake_impl!(wld_getformerplayerportalguild() -> i32);
+}
+
+impl ImportCallState {
+    /// `-1` in `instance`, `state` and `guild` means "any", as in
+    /// `Wld_DetectNpc`.
+    fn detect_npc(
+        &mut self,
+        npc: i32,
+        instance: i32,
+        state: i32,
+        guild: i32,
+        exclude_player: bool,
+    ) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(npc_data) = self.typed.npc(npc.value() as u32) else {
+            warn!("Wld_DetectNpc: npc({}) has no C_Npc data", npc.value());
+            return 0;
+        };
+        let radius = to_world_units(npc_data.senses_range as f32);
+        let instance = if instance == -1 {
+            None
+        } else {
+            let Some(instance) = self.symbol_table.instance(instance) else {
+                return 0;
+            };
+            Some(instance)
+        };
+        let state = if state == -1 {
+            None
+        } else {
+            let Some(state) = self.symbol_table.function(state) else {
+                return 0;
+            };
+            Some(state)
+        };
+        let guild = (guild != -1).then_some(guild);
+        let Some(other) = self.nearest_npc(npc, radius, instance, state, guild, exclude_player)
+        else {
+            return 0;
+        };
+        self.set_other(other);
+        1
+    }
 }
