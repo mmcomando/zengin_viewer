@@ -767,6 +767,8 @@ mod tests {
             on_state_func: String::new(),
             condition_func: String::new(),
             rewind: false,
+            trigger_target: String::new(),
+            trigger_fired: false,
             positions: None,
             state: 0,
         }

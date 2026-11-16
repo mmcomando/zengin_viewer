@@ -16,12 +16,14 @@ use crate::{
     warn_unimplemented,
     zengin::{
         common::*,
-        loaders::{ZenginMat3ToGlam, ZenginVec3ToGlam, vfs::find_mesh_path},
+        loaders::{ZenginMat3ToGlam, ZenginQuatToGlam, ZenginVec3ToGlam, vfs::find_mesh_path},
         script::state::SpawnItem,
         script::symbol_id::InstanceId,
         visual::mesh::meshes_from_zengin_mesh,
         waypoint_graph::load_way_net_points,
-        world_spawn::{SpawnChest, SpawnMob, SpawnStaticModel, SpawnWorldMesh, WorldSpawnMessages},
+        world_spawn::{
+            SpawnChest, SpawnMob, SpawnMover, SpawnStaticModel, SpawnWorldMesh, WorldSpawnMessages,
+        },
     },
 };
 
@@ -107,7 +109,9 @@ fn load_objects(
     let visual = obj.visual();
     let has_visual = !visual.name().is_empty() && obj.show_visual();
 
-    if obj.get_type() == VobType::oCMobContainer {
+    if obj.get_type() == VobType::zCMover {
+        handle_mover(vfs, obj, has_visual, spawns);
+    } else if obj.get_type() == VobType::oCMobContainer {
         handle_container(vfs, item_ids, obj, has_visual, spawns, restore);
     } else if is_interactive_mob(obj.get_type()) {
         handle_mob(vfs, obj, has_visual, spawns);
@@ -195,6 +199,33 @@ fn handle_mob(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, spawns: &WorldSp
         on_state_func: obj.interactive_on_state_change_function(),
         condition_func: obj.interactive_condition_function(),
         rewind: obj.interactive_rewind(),
+        trigger_target: obj.interactive_target(),
+    });
+}
+
+fn handle_mover(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, spawns: &WorldSpawnMessages) {
+    let visual = obj.visual();
+    let archetype = has_visual
+        .then(|| visual_asset_path(vfs, &visual))
+        .flatten()
+        .unwrap_or_default();
+    let keyframes = obj
+        .mover_keyframes()
+        .into_iter()
+        .map(|keyframe| {
+            Transform::from_translation(get_world_pos(keyframe.position.to_glam()))
+                .with_rotation(get_world_quat(keyframe.rotation.to_glam()))
+        })
+        .collect();
+    spawns.movers.send(SpawnMover {
+        tr: get_obj_tr(obj),
+        archetype,
+        collides: obj.cd_dynamic(),
+        name: obj.name(),
+        keyframes,
+        // Archive speed is in zengin units per millisecond.
+        speed: obj.mover_speed() * 1000.0 / ZENGIN_UNITS_PER_WORLD_UNIT,
+        start_enabled: obj.trigger_start_enabled(),
     });
 }
 

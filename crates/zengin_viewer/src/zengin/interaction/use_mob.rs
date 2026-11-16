@@ -12,7 +12,7 @@ use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
-use crate::zengin::{DialogUiState, GameMob, GameNpc};
+use crate::zengin::{DialogUiState, GameMob, GameNpc, VobTrigger};
 
 /// Toggles the selected door/lever/wheel between its two states. The npc that
 /// would use it in the engine stays standing here, only the mob reacts.
@@ -25,6 +25,7 @@ pub(super) fn use_selected_mob(
     inventory_ui: Res<InventoryUiState>,
     mut mobs: Query<&mut GameMob>,
     gothic_script: Res<ScriptResource>,
+    mut vob_trigger: MessageWriter<VobTrigger>,
 ) {
     if !action_state.just_pressed(&GameplayAction::Interact) {
         return;
@@ -68,6 +69,12 @@ pub(super) fn use_selected_mob(
         mob.on_state_func,
     );
     println!("{:?}", &mob);
+    if !mob.trigger_target.is_empty() && (mob.rewind || !mob.trigger_fired) {
+        mob.trigger_fired = true;
+        vob_trigger.write(VobTrigger {
+            target: mob.trigger_target.clone(),
+        });
+    }
     gothic_script
         .lock()
         .call_mob_state_hook(player_npc.instance_id(), &mob.on_state_func, state);

@@ -147,6 +147,42 @@ impl VirtualObject<'_> {
         unsafe { ZkInteractiveObject_getRewind(self.ptr.as_ptr().cast()).to_bool() }
     }
 
+    /// Script name of the vob notified when an `oCMobInter` is used.
+    pub fn mover_behavior(&self) -> MoverBehavior {
+        unsafe { ZkMover_getBehavior(self.ptr.as_ptr().cast()) }
+    }
+
+    /// Absolute poses the mover travels between, keyframe 0 first.
+    pub fn mover_keyframes(&self) -> Vec<MoverKeyframe> {
+        unsafe {
+            let ptr = self.ptr.as_ptr().cast();
+            let count = ZkMover_getKeyframeCount(ptr);
+            (0..count)
+                .map(|i| {
+                    let sample = ZkMover_getKeyframe(ptr, i);
+                    MoverKeyframe {
+                        position: sample.position.to_own(),
+                        rotation: sample.rotation.to_own(),
+                    }
+                })
+                .collect()
+        }
+    }
+
+    /// Movement speed in the archive's units per millisecond.
+    pub fn mover_speed(&self) -> f32 {
+        unsafe { ZkMover_getSpeed(self.ptr.as_ptr().cast()) }
+    }
+
+    pub fn mover_locked(&self) -> bool {
+        unsafe { ZkMover_getIsLocked(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
+    /// Whether the mover starts enabled (`zCTrigger.flags.startEnabled`).
+    pub fn trigger_start_enabled(&self) -> bool {
+        unsafe { ZkTrigger_getStartEnabled(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
     pub fn visual(&self) -> Visual<'_> {
         unsafe {
             let ptr = ZkVirtualObject_getVisual(self.ptr.as_ptr());

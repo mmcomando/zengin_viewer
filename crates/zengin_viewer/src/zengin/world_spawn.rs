@@ -11,6 +11,7 @@ use crate::game_state::AppState;
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gui_debug::{StaticMesh, WorldMesh};
 use crate::zengin::mobs::{MobAnimation, mob_state_animation};
+use crate::zengin::movers::GameMover;
 use crate::zengin::npc_routines::AnimationFiles;
 use crate::zengin::resources::{CachedAssetHandles, SELECTABLE, ZenGinModelComponent};
 use crate::zengin::script::bridge::ScriptChangesApplied;
@@ -29,6 +30,7 @@ impl Plugin for WorldSpawnPlugin {
             static_models: app.add_external_message::<SpawnStaticModel>(),
             chests: app.add_external_message::<SpawnChest>(),
             mobs: app.add_external_message::<SpawnMob>(),
+            movers: app.add_external_message::<SpawnMover>(),
             items: app.add_external_message::<SpawnItem>(),
         };
         app.insert_resource(messages);
@@ -40,6 +42,7 @@ impl Plugin for WorldSpawnPlugin {
                 spawn_static_models,
                 spawn_chests,
                 spawn_mobs,
+                spawn_movers,
             )
                 .chain()
                 .after(ScriptChangesApplied)
@@ -103,6 +106,24 @@ pub(crate) struct SpawnMob {
     /// Script condition gating use of the mob, empty when none.
     pub(crate) condition_func: String,
     pub(crate) rewind: bool,
+    /// Script name of the vob notified (`triggerTarget`) when the mob is used.
+    pub(crate) trigger_target: String,
+}
+
+/// Moving trigger vob (`zCMover`).
+#[derive(Debug, Default, Clone, Message)]
+pub(crate) struct SpawnMover {
+    pub(crate) tr: Transform,
+    /// Mesh asset path, empty when the vob has no visual.
+    pub(crate) archetype: String,
+    pub(crate) collides: bool,
+    /// Vob name the trigger events are addressed to.
+    pub(crate) name: String,
+    /// Absolute keyframe poses, keyframe 0 first.
+    pub(crate) keyframes: Vec<Transform>,
+    /// Movement speed in meters per second.
+    pub(crate) speed: f32,
+    pub(crate) start_enabled: bool,
 }
 
 /// Queue handles the world load uses to spawn its entities.
@@ -112,6 +133,7 @@ pub(crate) struct WorldSpawnMessages {
     pub(crate) static_models: ExternalMessageSender<SpawnStaticModel>,
     pub(crate) chests: ExternalMessageSender<SpawnChest>,
     pub(crate) mobs: ExternalMessageSender<SpawnMob>,
+    pub(crate) movers: ExternalMessageSender<SpawnMover>,
     pub(crate) items: ExternalMessageSender<SpawnItem>,
 }
 
@@ -122,6 +144,7 @@ impl WorldSpawnMessages {
         self.static_models.clear();
         self.chests.clear();
         self.mobs.clear();
+        self.movers.clear();
         self.items.clear();
     }
 }
@@ -268,6 +291,8 @@ fn spawn_mobs(
                 on_state_func: mob.on_state_func,
                 condition_func: mob.condition_func,
                 rewind: mob.rewind,
+                trigger_target: mob.trigger_target,
+                trigger_fired: false,
                 positions: None,
                 state: 0,
             },
@@ -296,6 +321,42 @@ fn spawn_mobs(
                     state: 0,
                 },
             ));
+        }
+    }
+}
+
+fn spawn_movers(
+    mut spawns: MessageReader<SpawnMover>,
+    mut commands: Commands,
+    mut handles_map: ResMut<CachedAssetHandles>,
+    asset_server: Res<AssetServer>,
+    position_filter: Res<SpawnPositionFilter>,
+) {
+    for spawn in spawns.read() {
+        if !position_filter.allows(spawn.tr.translation) {
+            continue;
+        }
+        let model_handle = (!spawn.archetype.is_empty())
+            .then(|| handles_map.get_model_handle(&asset_server, &spawn.archetype, None));
+        let mut entity = commands.spawn((
+            ClassifyDistance::default(),
+            StaticMesh::default(),
+            Visibility::default(),
+            spawn.tr,
+            GameMover::new(
+                spawn.name.clone(),
+                spawn.keyframes.clone(),
+                spawn.tr,
+                spawn.speed,
+                spawn.start_enabled,
+            ),
+        ));
+        if let Some(model_handle) = model_handle {
+            entity.insert(ZenGinModelComponent {
+                model_handle,
+                convex_colider: spawn.collides,
+                ..default()
+            });
         }
     }
 }

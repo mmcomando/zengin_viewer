@@ -124,6 +124,13 @@ pub struct AxisAlignedBoundingBox {
     pub max: Vec3,
 }
 
+/// One absolute pose of a `zCMover` path.
+#[derive(Debug, Clone, Copy)]
+pub struct MoverKeyframe {
+    pub position: Vec3,
+    pub rotation: Quat,
+}
+
 #[derive(Debug, Clone)]
 pub struct SoftSkinWeightEntry {
     pub weight: f32,

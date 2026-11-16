@@ -5,6 +5,7 @@ mod instance_index;
 mod interaction;
 mod loaders;
 mod mobs;
+mod movers;
 pub(crate) use crate::zengin::common::choose_animation_scheme;
 pub(crate) use crate::zengin::interaction::{grant_test_items, seed_test_journal};
 pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
@@ -54,6 +55,7 @@ pub(crate) use crate::zengin::loaders::vdf_reader::{
 };
 pub(crate) use crate::zengin::loaders::vfs::{resolve_sound_asset, resolve_texture_asset};
 pub(crate) use crate::zengin::mobs::{MobOccupant, MobRegistry, NpcMobUse};
+pub(crate) use crate::zengin::movers::VobTrigger;
 pub(crate) use crate::zengin::npc_actions::NpcActionQueue;
 pub(crate) use crate::zengin::npc_data::NpcHandle;
 pub(crate) use crate::zengin::npc_routines::NpcHealth;
@@ -94,6 +96,7 @@ impl Plugin for ZenginPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(crate::zengin::world_plugin::ZenGinWorldPlugin);
         app.add_plugins(crate::zengin::mobs::MobsPlugin);
+        app.add_plugins(crate::zengin::movers::MoversPlugin);
         app.add_plugins(crate::zengin::npc_routines::NpcRoutinesPlugin);
         app.add_plugins(crate::zengin::interaction::selection::SelectionPlugin);
         app.add_plugins(crate::zengin::instance_index::InstanceIndexPlugin);
@@ -172,6 +175,11 @@ pub struct GameMob {
     pub on_state_func: String,
     pub condition_func: String,
     pub rewind: bool,
+    /// Script name of the vob notified (`triggerTarget`) when the mob is used.
+    pub trigger_target: String,
+    /// Whether `trigger_target` was already notified. A mob with `rewind ==
+    /// false` notifies it only once.
+    pub trigger_fired: bool,
     /// `ZS_POS*` attachment nodes, `None` until the model asset is scanned.
     pub positions: Option<Vec<MobPosition>>,
     /// State applied by `Wld_SetMobRoutine` over the day.
