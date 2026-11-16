@@ -216,7 +216,8 @@ impl super::ScriptManager {
                 order: dialog_info.order,
             });
 
-            roots.sort_by_key(|el| el.order);
+            // `scriptFn` breaks ties like the original engine does.
+            roots.sort_by_key(|el| (el.order, el.sequence_function_id.value()));
         }
     }
 

@@ -19,10 +19,11 @@ use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::{
     DialogChoice, DialogClose, DialogLine, DialogRoot, ProcessInfosChange, WeaponMode,
 };
-use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
+use std::collections::HashSet;
 
 /// Opens the dialog of the currently selected npc on demand
 #[allow(clippy::too_many_arguments)]
@@ -196,8 +197,9 @@ pub(super) fn handle_dialog_outputs(
         else {
             return;
         };
+        let except = dialog_ui.executed_functions().clone();
         let mut script = gothic_script.lock();
-        npc_dialog_roots(&mut script, npc_from, npc_talk_to)
+        npc_dialog_roots(&mut script, npc_from, npc_talk_to, &except, false)
             .map(|roots| roots.iter().map(option_view).collect::<Vec<_>>())
     };
     match options {
@@ -228,7 +230,7 @@ pub(super) fn handle_dialog_requests(
             } => {
                 let roots = {
                     let mut script = gothic_script.lock();
-                    npc_dialog_roots(&mut script, *npc_from, *npc_talk_to)
+                    npc_dialog_roots(&mut script, *npc_from, *npc_talk_to, &HashSet::new(), true)
                 };
 
                 let Some(roots) = roots else {
@@ -248,6 +250,25 @@ pub(super) fn handle_dialog_requests(
                     roots.iter().map(option_view).collect(),
                 );
                 face_dialog_characters(*npc_entity, &mut player_tr, player_global, &mut npcs);
+                // The original engine executes the first important choice which
+                // has no description instead of showing it.
+                let auto = roots
+                    .first()
+                    .filter(|root| root.important && root.description.is_empty())
+                    .cloned();
+                if let Some(root) = auto {
+                    let mut script = gothic_script.lock();
+                    execute_dialog_function(
+                        &mut script,
+                        &mut dialog_ui,
+                        *npc_from,
+                        *npc_talk_to,
+                        root.sequence_function_id,
+                        root.info_instance_id,
+                        false,
+                        root.trade,
+                    );
+                }
             }
             DialogRequest::OpenImportant {
                 npc_entity,
@@ -265,7 +286,8 @@ pub(super) fn handle_dialog_requests(
                 let npc_name = script
                     .npc_display_name(*npc_talk_to)
                     .unwrap_or_else(|| script.call_get_name((*npc_talk_to).symbol()));
-                let roots = npc_dialog_roots(&mut script, *npc_from, *npc_talk_to);
+                let roots =
+                    npc_dialog_roots(&mut script, *npc_from, *npc_talk_to, &HashSet::new(), true);
                 let Some(roots) = roots else {
                     warn!("No dialog_roots for npc({npc_talk_to}), player({npc_from})");
                     continue;
@@ -284,22 +306,25 @@ pub(super) fn handle_dialog_requests(
                 face_dialog_characters(*npc_entity, &mut player_tr, player_global, &mut npcs);
                 // The important info is executed right away, it is not shown
                 // as a selectable option
-                script.mark_info_known(*npc_from, *info_instance_id);
-                script.clear_dialog_lines();
-                script.set_self(*npc_talk_to);
-                script.set_other(*npc_from);
-                script.set_instance(*npc_talk_to);
-                script.call_dialog_sequence_function(*sequence_function_id);
-                drop(script);
-                dialog_ui.begin_output_capture(*info_instance_id, *trade);
+                execute_dialog_function(
+                    &mut script,
+                    &mut dialog_ui,
+                    *npc_from,
+                    *npc_talk_to,
+                    *sequence_function_id,
+                    *info_instance_id,
+                    false,
+                    *trade,
+                );
             }
             DialogRequest::RefreshRoots {
                 npc_from,
                 npc_talk_to,
             } => {
                 let options = {
+                    let except = dialog_ui.executed_functions().clone();
                     let mut script = gothic_script.lock();
-                    npc_dialog_roots(&mut script, *npc_from, *npc_talk_to)
+                    npc_dialog_roots(&mut script, *npc_from, *npc_talk_to, &except, false)
                         .map(|roots| roots.iter().map(option_view).collect::<Vec<_>>())
                 };
                 match options {
@@ -324,23 +349,16 @@ pub(super) fn handle_dialog_requests(
                     continue;
                 }
                 let mut script = gothic_script.lock();
-                // Only a root option is an info being played, a sub choice is
-                // a plain function of an already known info
-                if !from_sub_choices {
-                    script.mark_info_known(*npc_from, *info_instance_id);
-                }
-                if let (true, Some(info)) = (*from_sub_choices, *info_instance_id) {
-                    script.remove_sub_dialog_choice(info, *sequence_function_id);
-                }
-                script.clear_dialog_lines();
-                // Dialog functions are executed with `self` bound to the npc the
-                // dialog is open with, like the original engine does
-                script.set_self(*npc_talk_to);
-                script.set_other(*npc_from);
-                script.set_instance(*npc_talk_to);
-                script.call_dialog_sequence_function(*sequence_function_id);
-                drop(script);
-                dialog_ui.begin_output_capture(*info_instance_id, *trade);
+                execute_dialog_function(
+                    &mut script,
+                    &mut dialog_ui,
+                    *npc_from,
+                    *npc_talk_to,
+                    *sequence_function_id,
+                    *info_instance_id,
+                    *from_sub_choices,
+                    *trade,
+                );
             }
         }
     }
@@ -369,16 +387,61 @@ fn face_dialog_characters(
     );
 }
 
-/// Fetches the npc's root dialog options from the script state, filters them
-/// by their condition functions and drops the important ones
+/// Fetches the npc's condition-valid root options. When important roots are
+/// requested they replace the normal ones, matching the original choice pass;
+/// permanent important roots already executed in this session are skipped.
 fn npc_dialog_roots(
     gothic_script: &mut ScriptManager,
     npc_player: InstanceId,
     npc_talk_to: InstanceId,
+    except: &HashSet<FunctionId>,
+    include_important: bool,
 ) -> Option<Vec<DialogRoot>> {
-    let mut roots = gothic_script.refresh_npc_check_info(npc_talk_to, npc_player)?;
-    roots.retain(|root| !root.important);
-    Some(roots)
+    let roots = gothic_script.refresh_npc_check_info(npc_talk_to, npc_player)?;
+    if include_important {
+        let important: Vec<DialogRoot> = roots
+            .iter()
+            .filter(|root| root.important)
+            .filter(|root| !(root.permanent && except.contains(&root.sequence_function_id)))
+            .cloned()
+            .collect();
+        if !important.is_empty() {
+            return Some(important);
+        }
+    }
+    Some(roots.into_iter().filter(|root| !root.important).collect())
+}
+
+/// Runs a dialog choice's information function and starts capturing its outputs.
+/// A root choice marks its info known, a sub choice is a plain function of an
+/// already known info.
+#[allow(clippy::too_many_arguments)]
+fn execute_dialog_function(
+    gothic_script: &mut ScriptManager,
+    dialog_ui: &mut DialogUiState,
+    npc_from: InstanceId,
+    npc_talk_to: InstanceId,
+    sequence_function_id: FunctionId,
+    info_instance_id: Option<InstanceId>,
+    from_sub_choices: bool,
+    trade: bool,
+) {
+    if from_sub_choices {
+        if let Some(info) = info_instance_id {
+            gothic_script.remove_sub_dialog_choice(info, sequence_function_id);
+        }
+    } else {
+        gothic_script.mark_info_known(npc_from, info_instance_id);
+    }
+    dialog_ui.record_executed(sequence_function_id);
+    gothic_script.clear_dialog_lines();
+    // Dialog functions are executed with `self` bound to the npc the dialog is
+    // open with, like the original engine does
+    gothic_script.set_self(npc_talk_to);
+    gothic_script.set_other(npc_from);
+    gothic_script.set_instance(npc_talk_to);
+    gothic_script.call_dialog_sequence_function(sequence_function_id);
+    dialog_ui.begin_output_capture(info_instance_id, trade);
 }
 
 /// Strips a script dialog root down to the data the UI needs

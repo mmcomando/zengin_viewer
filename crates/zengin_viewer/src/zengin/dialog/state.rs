@@ -4,6 +4,7 @@ use crate::input::{GuiAction, GuiInputMarker};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId, StringId};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
+use std::collections::HashSet;
 use std::time::Duration;
 
 /// How long a single dialog line is displayed during playback
@@ -115,6 +116,9 @@ pub(crate) struct DialogUiState {
     /// Sub dialog choices populated by the last executed option, shown instead
     /// of `dialog_roots` when not empty
     pub(super) sub_choices: Vec<DialogOptionView>,
+    /// Root information functions executed in this dialog session, used to skip
+    /// permanent important infos on the next root refresh.
+    except: HashSet<FunctionId>,
     /// Info whose choices are shown after the executed option's outputs arrive.
     pending_info: Option<InstanceId>,
     /// Highlighted entry in options mode
@@ -165,6 +169,7 @@ impl DialogUiState {
         self.npc_talk_to = Some(npc_talk_to);
         self.dialog_roots = options;
         self.sub_choices.clear();
+        self.except.clear();
         self.reset_to_options();
         self.npc_name = npc_name;
         self.rows_dirty = true;
@@ -241,6 +246,16 @@ impl DialogUiState {
         lines.get(*index)
     }
 
+    /// Root information functions executed in this dialog session.
+    pub(super) fn executed_functions(&self) -> &HashSet<FunctionId> {
+        &self.except
+    }
+
+    /// Records a root information function as executed in this dialog session.
+    pub(super) fn record_executed(&mut self, sequence_function_id: FunctionId) {
+        self.except.insert(sequence_function_id);
+    }
+
     /// Whether root/sub options are currently shown
     pub(super) fn is_showing_options(&self) -> bool {
         matches!(self.mode, DialogUiMode::Options)
@@ -314,6 +329,7 @@ impl DialogUiState {
     pub(crate) fn close(&mut self) {
         self.npc_entity = None;
         self.sub_choices.clear();
+        self.except.clear();
         self.pending_close = false;
         self.pending_info = None;
         self.pending_trade = false;
