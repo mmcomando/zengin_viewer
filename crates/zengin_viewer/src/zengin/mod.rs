@@ -85,6 +85,7 @@ pub(crate) use crate::zengin::world_plugin::{
     CurrentWorld, LoadingWorld, NewGame, NpcSpawnNameFilter, RestartWorld, START_WORLD,
     begin_world_load, request_initial_world, request_world_spawn,
 };
+pub(crate) use crate::zengin::world_spawn::{SpawnPoint, SpawnPositionFilter};
 
 /// Plugin which provides Zengin related functionality
 pub struct ZenginPlugin;

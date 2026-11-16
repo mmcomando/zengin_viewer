@@ -4,6 +4,7 @@
 
 use avian3d::prelude::{Collider, CollisionLayers};
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
 use crate::game_state::AppState;
@@ -31,6 +32,7 @@ impl Plugin for WorldSpawnPlugin {
             items: app.add_external_message::<SpawnItem>(),
         };
         app.insert_resource(messages);
+        app.init_resource::<SpawnPositionFilter>();
         app.add_systems(
             Update,
             (
@@ -124,6 +126,34 @@ impl WorldSpawnMessages {
     }
 }
 
+/// Circle in world space (meters) used by [`SpawnPositionFilter`].
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub(crate) struct SpawnPoint {
+    pub(crate) center: Vec3,
+    /// Radius in world units.
+    pub(crate) radius: f32,
+}
+
+/// Restricts world content to the union of [`SpawnPoint`] circles. An empty
+/// list allows every position.
+#[derive(Resource, Default)]
+pub(crate) struct SpawnPositionFilter(Vec<SpawnPoint>);
+
+impl SpawnPositionFilter {
+    pub(crate) fn add(&mut self, points: &[SpawnPoint]) {
+        self.0.extend_from_slice(points);
+    }
+
+    pub(crate) fn allows(&self, position: Vec3) -> bool {
+        if self.0.is_empty() {
+            return true;
+        }
+        self.0
+            .iter()
+            .any(|point| position.distance_squared(point.center) <= point.radius * point.radius)
+    }
+}
+
 fn spawn_world_mesh(
     mut spawns: MessageMutator<SpawnWorldMesh>,
     mut commands: Commands,
@@ -150,8 +180,12 @@ fn spawn_static_models(
     mut commands: Commands,
     mut handles_map: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
+    position_filter: Res<SpawnPositionFilter>,
 ) {
     for spawn in spawns.read() {
+        if !position_filter.allows(spawn.tr.translation) {
+            continue;
+        }
         let model_handle = handles_map.get_model_handle(&asset_server, &spawn.archetype, None);
         commands.spawn((
             ClassifyDistance::default(),
@@ -172,8 +206,12 @@ fn spawn_chests(
     mut commands: Commands,
     mut handles_map: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
+    position_filter: Res<SpawnPositionFilter>,
 ) {
     for spawn in spawns.read() {
+        if !position_filter.allows(spawn.tr.translation) {
+            continue;
+        }
         let model_handle = handles_map.get_model_handle(&asset_server, &spawn.archetype, None);
         commands.spawn((
             ClassifyDistance::default(),
@@ -206,12 +244,16 @@ fn spawn_mobs(
     mut handles_map: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     animation_files: Res<AnimationFiles>,
+    position_filter: Res<SpawnPositionFilter>,
 ) {
     let mobs: Vec<SpawnMob> = spawns.read().cloned().collect();
     if mobs.is_empty() {
         return;
     }
     for mob in mobs {
+        if !position_filter.allows(mob.tr.translation) {
+            continue;
+        }
         let model_handle = (!mob.archetype.is_empty())
             .then(|| handles_map.get_model_handle(&asset_server, &mob.archetype, None));
         let mut entity = commands.spawn((
@@ -255,5 +297,43 @@ fn spawn_mobs(
                 },
             ));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn point(center: Vec3, radius: f32) -> SpawnPoint {
+        SpawnPoint { center, radius }
+    }
+
+    #[test]
+    fn empty_filter_allows_every_position() {
+        let filter = SpawnPositionFilter::default();
+        assert!(filter.allows(Vec3::new(1000.0, 0.0, 0.0)));
+    }
+
+    #[test]
+    fn position_inside_any_point_is_allowed() {
+        let mut filter = SpawnPositionFilter::default();
+        filter.add(&[
+            point(Vec3::ZERO, 10.0),
+            point(Vec3::new(100.0, 0.0, 0.0), 5.0),
+        ]);
+
+        assert!(filter.allows(Vec3::new(3.0, 0.0, 0.0)));
+        assert!(filter.allows(Vec3::new(100.0, 0.0, 0.0)));
+        assert!(filter.allows(Vec3::new(95.0, 0.0, 0.0)));
+        assert!(!filter.allows(Vec3::new(50.0, 0.0, 0.0)));
+    }
+
+    #[test]
+    fn added_points_accumulate() {
+        let mut filter = SpawnPositionFilter::default();
+        filter.add(&[point(Vec3::ZERO, 10.0)]);
+        filter.add(&[point(Vec3::new(100.0, 0.0, 0.0), 10.0)]);
+
+        assert!(filter.allows(Vec3::new(100.0, 0.0, 0.0)));
     }
 }

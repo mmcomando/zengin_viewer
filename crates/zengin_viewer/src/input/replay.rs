@@ -27,7 +27,8 @@ use crate::input::actions::{
 use crate::input::options::Options;
 use crate::input::record::{DEFAULT_FRAME_DT, RecordedAction, ReplayCommand};
 use crate::zengin::{
-    GameNpc, NpcSpawnNameFilter, ScriptResource, WeaponKind, grant_test_items, seed_test_journal,
+    GameNpc, NpcSpawnNameFilter, ScriptResource, SpawnPositionFilter, WeaponKind, grant_test_items,
+    seed_test_journal,
 };
 
 /// Replays the actions recorded with `--save-actions`.
@@ -272,6 +273,7 @@ fn replay_actions(
     mut game_log: ResMut<GameLog>,
     mut next_state: ResMut<NextState<AppState>>,
     mut npc_filter: ResMut<NpcSpawnNameFilter>,
+    mut spawn_filter: ResMut<SpawnPositionFilter>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let Some(mut replay) = replay else {
@@ -295,6 +297,7 @@ fn replay_actions(
             &mut game_log,
             &mut next_state,
             &mut npc_filter,
+            &mut spawn_filter,
             &mut exit,
         ) {
             commands.remove_resource::<ActionReplay>();
@@ -331,6 +334,7 @@ fn apply_replay_command(
     game_log: &mut GameLog,
     next_state: &mut NextState<AppState>,
     npc_filter: &mut NpcSpawnNameFilter,
+    spawn_filter: &mut SpawnPositionFilter,
     exit: &mut MessageWriter<AppExit>,
 ) -> bool {
     match command {
@@ -424,6 +428,10 @@ fn apply_replay_command(
         ReplayCommand::FilterNpcWithName { filters, .. } => {
             npc_filter.add(filters);
             info!("Replay npc spawn name filters: {filters:?}");
+        }
+        ReplayCommand::FilterSpawnWithPosition { points, .. } => {
+            spawn_filter.add(points);
+            info!("Replay spawn position filters: {points:?}");
         }
         ReplayCommand::ExitGame { .. } => {
             info!("Replay requested the game exit");

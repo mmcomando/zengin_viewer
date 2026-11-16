@@ -20,7 +20,7 @@ use crate::input::actions::{
     GuiInputMarker, SharedAction, SharedInputMarker,
 };
 use crate::input::options::Options;
-use crate::zengin::START_WORLD;
+use crate::zengin::{START_WORLD, SpawnPoint};
 
 /// Third person camera switch, carrying the free camera transform the player
 /// and camera are placed at. Recorded as `TeleportPlayer` and
@@ -172,6 +172,17 @@ pub(crate) enum ReplayCommand {
         frame_dt: Option<u64>,
         filters: Vec<String>,
     },
+    /// Restricts spawning to the union of the given circles: an entity is
+    /// spawned only when its position is within `radius` world units of a
+    /// point. Repeated commands extend the same list. The world mesh,
+    /// waypoint navigation nodes and the player are not filtered.
+    FilterSpawnWithPosition {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        points: Vec<SpawnPoint>,
+    },
     /// Exits the application.
     ExitGame {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -219,6 +230,9 @@ impl ReplayCommand {
                 frame, frame_dt, ..
             }
             | Self::FilterNpcWithName {
+                frame, frame_dt, ..
+            }
+            | Self::FilterSpawnWithPosition {
                 frame, frame_dt, ..
             }
             | Self::GiveTestItems {

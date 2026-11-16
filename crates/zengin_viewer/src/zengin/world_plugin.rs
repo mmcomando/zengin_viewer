@@ -36,7 +36,7 @@ use crate::zengin::script::state::{LoadedState, SpawnItem, SpawnNpc};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
-use crate::zengin::world_spawn::{WorldSpawnMessages, WorldSpawnPlugin};
+use crate::zengin::world_spawn::{SpawnPositionFilter, WorldSpawnMessages, WorldSpawnPlugin};
 use crate::zengin::{
     DialogUiState, GameItem, GameNpc, MusicZones, NpcActionQueue, NpcHandle, NpcOverlay, ZenginVfs,
 };
@@ -634,6 +634,7 @@ fn spawn_npc_entities(
     game_time: Res<GameTime>,
     mut instance_index: ResMut<InstanceIndex>,
     npc_filter: Res<NpcSpawnNameFilter>,
+    position_filter: Res<SpawnPositionFilter>,
 ) {
     for spawn in spawns.read() {
         let Some(script) = npc_spawn_script_data(&gothic_scripts, spawn, game_time.hour() * 60)
@@ -679,6 +680,13 @@ fn spawn_npc_entities(
             if let Some(scale) = script.model_scale {
                 transform.scale = scale;
             }
+        }
+        if !position_filter.allows(transform.translation) {
+            debug!(
+                "Skipping npc({}) {} spawn, outside the spawn position filter",
+                spawn.instance_id, script.symbol_name
+            );
+            continue;
         }
 
         let Some(body_model) = mesh_model_path(&vfs, &script.body_model) else {
@@ -749,6 +757,7 @@ fn spawn_item_entities(
     spots: Res<Spots>,
     vfs: Res<ZenginVfs>,
     mut instance_index: ResMut<InstanceIndex>,
+    position_filter: Res<SpawnPositionFilter>,
 ) {
     for spawn in spawns.read() {
         let Some(handle) = gothic_scripts.lock().item_handle(spawn.instance_id) else {
@@ -794,6 +803,14 @@ fn spawn_item_entities(
         } else {
             continue;
         };
+
+        if !position_filter.allows(waypoint_tr.translation) {
+            debug!(
+                "Skipping item({}) spawn, outside the spawn position filter",
+                spawn.instance_id
+            );
+            continue;
+        }
 
         let model_handle = handles_map.get_model_handle(&asset_server, &model, None);
 
