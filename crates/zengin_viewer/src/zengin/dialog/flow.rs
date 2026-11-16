@@ -75,7 +75,7 @@ pub(super) fn show_closest_npc_dialog(
 
     info!("Selected npc: {}", closest_npc.instance_id());
 
-    requests.write(DialogRequest::Open {
+    requests.write(DialogRequest::Talk {
         npc_entity: closest_entity,
         npc_from: player_npc.instance_id(),
         npc_talk_to: closest_npc.instance_id(),
@@ -222,53 +222,58 @@ pub(super) fn handle_dialog_requests(
 ) {
     for request in requests.read() {
         match request {
+            DialogRequest::Talk {
+                npc_entity,
+                npc_from,
+                npc_talk_to,
+                npc_name,
+            } => {
+                // A dialog opened earlier in this frame wins
+                if dialog_ui.is_open() {
+                    continue;
+                }
+                let started = {
+                    let mut script = gothic_script.lock();
+                    script.call_assesstalk(*npc_from, *npc_talk_to)
+                };
+                if started {
+                    continue;
+                }
+                warn!(
+                    "b_assesstalk is missing, opening the dialog with npc({npc_talk_to}) directly"
+                );
+                open_dialog(
+                    &mut dialog_ui,
+                    &gothic_script,
+                    &mut npcs,
+                    &mut player,
+                    *npc_entity,
+                    *npc_from,
+                    *npc_talk_to,
+                    npc_name.clone(),
+                    true,
+                );
+            }
             DialogRequest::Open {
                 npc_entity,
                 npc_from,
                 npc_talk_to,
                 npc_name,
             } => {
-                let roots = {
-                    let mut script = gothic_script.lock();
-                    npc_dialog_roots(&mut script, *npc_from, *npc_talk_to, &HashSet::new(), true)
-                };
-
-                let Some(roots) = roots else {
-                    warn!("No dialog_roots for npc({npc_talk_to}), player({npc_from})");
-                    dialog_ui.close();
+                if dialog_ui.is_open() {
                     continue;
-                };
-                let Ok((player_entity, mut player_tr, player_global)) = player.single_mut() else {
-                    continue;
-                };
-                dialog_ui.open(
+                }
+                open_dialog(
+                    &mut dialog_ui,
+                    &gothic_script,
+                    &mut npcs,
+                    &mut player,
                     *npc_entity,
-                    player_entity,
                     *npc_from,
                     *npc_talk_to,
                     npc_name.clone(),
-                    roots.iter().map(option_view).collect(),
+                    true,
                 );
-                face_dialog_characters(*npc_entity, &mut player_tr, player_global, &mut npcs);
-                // The original engine executes the first important choice which
-                // has no description instead of showing it.
-                let auto = roots
-                    .first()
-                    .filter(|root| root.important && root.description.is_empty())
-                    .cloned();
-                if let Some(root) = auto {
-                    let mut script = gothic_script.lock();
-                    execute_dialog_function(
-                        &mut script,
-                        &mut dialog_ui,
-                        *npc_from,
-                        *npc_talk_to,
-                        root.sequence_function_id,
-                        root.info_instance_id,
-                        false,
-                        root.trade,
-                    );
-                }
             }
             DialogRequest::OpenImportant {
                 npc_entity,
@@ -282,30 +287,29 @@ pub(super) fn handle_dialog_requests(
                 if dialog_ui.is_open() {
                     continue;
                 }
-                let mut script = gothic_script.lock();
-                let npc_name = script
-                    .npc_display_name(*npc_talk_to)
-                    .unwrap_or_else(|| script.call_get_name((*npc_talk_to).symbol()));
-                let roots =
-                    npc_dialog_roots(&mut script, *npc_from, *npc_talk_to, &HashSet::new(), true);
-                let Some(roots) = roots else {
-                    warn!("No dialog_roots for npc({npc_talk_to}), player({npc_from})");
-                    continue;
+                let npc_name = {
+                    let mut script = gothic_script.lock();
+                    script
+                        .npc_display_name(*npc_talk_to)
+                        .unwrap_or_else(|| script.call_get_name((*npc_talk_to).symbol()))
                 };
-                let Ok((player_entity, mut player_tr, player_global)) = player.single_mut() else {
-                    continue;
-                };
-                dialog_ui.open(
+                let opened = open_dialog(
+                    &mut dialog_ui,
+                    &gothic_script,
+                    &mut npcs,
+                    &mut player,
                     *npc_entity,
-                    player_entity,
                     *npc_from,
                     *npc_talk_to,
                     npc_name,
-                    roots.iter().map(option_view).collect(),
+                    false,
                 );
-                face_dialog_characters(*npc_entity, &mut player_tr, player_global, &mut npcs);
+                if !opened {
+                    continue;
+                }
                 // The important info is executed right away, it is not shown
                 // as a selectable option
+                let mut script = gothic_script.lock();
                 execute_dialog_function(
                     &mut script,
                     &mut dialog_ui,
@@ -362,6 +366,67 @@ pub(super) fn handle_dialog_requests(
             }
         }
     }
+}
+
+/// Resolves the npc's roots and opens the dialog UI. With `auto_important` the
+/// first undescribed important info is executed, matching the engine's dialog
+/// start.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn open_dialog(
+    dialog_ui: &mut DialogUiState,
+    gothic_script: &ScriptResource,
+    npcs: &mut Query<(&mut Transform, &GlobalTransform), Without<PlayerCharacter>>,
+    player: &mut Query<(Entity, &mut Transform, &GlobalTransform), With<PlayerCharacter>>,
+    npc_entity: Entity,
+    npc_from: InstanceId,
+    npc_talk_to: InstanceId,
+    npc_name: String,
+    auto_important: bool,
+) -> bool {
+    let roots = {
+        let mut script = gothic_script.lock();
+        npc_dialog_roots(&mut script, npc_from, npc_talk_to, &HashSet::new(), true)
+    };
+    let Some(roots) = roots else {
+        warn!("No dialog_roots for npc({npc_talk_to}), player({npc_from})");
+        dialog_ui.close();
+        return false;
+    };
+    let Ok((player_entity, mut player_tr, player_global)) = player.single_mut() else {
+        return false;
+    };
+    dialog_ui.open(
+        npc_entity,
+        player_entity,
+        npc_from,
+        npc_talk_to,
+        npc_name,
+        roots.iter().map(option_view).collect(),
+    );
+    face_dialog_characters(npc_entity, &mut player_tr, player_global, npcs);
+    if !auto_important {
+        return true;
+    }
+
+    let auto = roots
+        .first()
+        .filter(|root| root.important && root.description.is_empty())
+        .cloned();
+    let Some(root) = auto else {
+        return true;
+    };
+    let mut script = gothic_script.lock();
+    execute_dialog_function(
+        &mut script,
+        dialog_ui,
+        npc_from,
+        npc_talk_to,
+        root.sequence_function_id,
+        root.info_instance_id,
+        false,
+        root.trade,
+    );
+    true
 }
 
 #[allow(clippy::type_complexity)]

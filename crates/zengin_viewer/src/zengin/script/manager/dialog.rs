@@ -2,6 +2,7 @@ use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolK
 use super::super::state::{DialogChoice, DialogRoot, NpcCheckInfo};
 use super::super::string_value::ShowString;
 use super::super::symbol_id::{FunctionId, InstanceId, SymbolId};
+use bevy::log::warn;
 use daedalus_typed::Info;
 
 impl super::ScriptManager {
@@ -218,6 +219,26 @@ impl super::ScriptManager {
 
             // `scriptFn` breaks ties like the original engine does.
             roots.sort_by_key(|el| (el.order, el.sequence_function_id.value()));
+        }
+    }
+
+    /// Runs `b_assesstalk` with `self` bound to the npc and `other` to the
+    /// player, deciding whether the conversation starts, is refused or turns
+    /// into a fight. `false` when the script function is missing.
+    pub fn call_assesstalk(&mut self, npc_player: InstanceId, npc_talk_to: InstanceId) -> bool {
+        let Some(function) = self.try_get_function_id("b_assesstalk") else {
+            return false;
+        };
+        self.set_self(npc_talk_to);
+        self.set_other(npc_player);
+        self.set_instance(npc_talk_to);
+        self.refresh_npc_check_info(npc_talk_to, npc_player);
+        match self.try_call_function_discard(function) {
+            Ok(()) => true,
+            Err(err) => {
+                warn!("b_assesstalk npc({npc_talk_to}) error: {err:?}");
+                false
+            }
         }
     }
 

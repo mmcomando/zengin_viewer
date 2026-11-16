@@ -100,10 +100,12 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             return;
         };
         let state_name = self.symbol_table.symbol_name(state).unwrap_or_default();
-        let other = self
-            .npc_state(npc)
-            .and_then(|npc| npc.live.target)
-            .or_else(|| self.other_instance());
+        // The state's partner is the script `other` (the engine's state
+        // functions read it), the target is only a fallback.
+        let other = self.other_instance().or_else(|| {
+            let npc = self.npc_state(npc)?;
+            npc.live.target
+        });
         bevy::log::info!(
             "AI_StartState({state_name}) npc({}) other({other:?})",
             npc.value()

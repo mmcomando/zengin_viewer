@@ -51,7 +51,15 @@ pub(super) struct DialogLineView {
 /// message or correlation is needed.
 #[derive(Message)]
 pub(crate) enum DialogRequest {
-    /// Open the dialog with the npc, showing its current root options
+    /// Starts a conversation through the npc's `b_assesstalk` script function,
+    /// which decides whether the dialog opens, refuses or turns into a fight
+    Talk {
+        npc_entity: Entity,
+        npc_from: InstanceId,
+        npc_talk_to: InstanceId,
+        npc_name: String,
+    },
+    /// Opens the dialog with the npc, showing its current root options
     Open {
         npc_entity: Entity,
         npc_from: InstanceId,

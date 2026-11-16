@@ -72,8 +72,8 @@ pub struct UseMobChange {
 pub struct StartStateChange {
     pub instance_id: InstanceId,
     pub state: FunctionId,
-    /// Instance the state starts against (the npc target, else the script
-    /// `other` global).
+    /// Instance the state starts against (the script `other` global, else the
+    /// npc target).
     pub other: Option<InstanceId>,
 }
 
