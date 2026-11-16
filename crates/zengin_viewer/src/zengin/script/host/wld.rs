@@ -58,10 +58,16 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
         self.detect_npc(npc, instance, state, guild, detect_player == 0)
     }
     fake_impl!(wld_detectnpcexatt(_0, _1, _2, _3, _4, _5) -> i32);
-    fn wld_setguildattitude(&mut self, guild_a: i32, guild_b: i32, attitude: i32) {
+    fn wld_setguildattitude(&mut self, guild_a: i32, attitude: i32, guild_b: i32) {
         self.guild_attitudes.insert((guild_a, guild_b), attitude);
     }
-    fake_impl!(wld_getguildattitude(_0, _1) -> i32);
+    /// Guild matrix lookup, `ATT_HOSTILE` when the pair was never set.
+    fn wld_getguildattitude(&mut self, guild_a: i32, guild_b: i32) -> i32 {
+        self.guild_attitudes
+            .get(&(guild_a, guild_b))
+            .copied()
+            .unwrap_or(ATT_HOSTILE)
+    }
     /// `Wld_IsMobAvailable`: the npc has a free mob with the scheme nearby.
     fn wld_ismobavailable(&mut self, npc: i32, mob_name: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {

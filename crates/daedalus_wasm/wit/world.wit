@@ -331,7 +331,7 @@ interface wld-scripts {
     wld-removenpc: func(npc: s32);
     wld-sendtrigger: func(trigger: s32);
     wld-senduntrigger: func(trigger: s32);
-    wld-setguildattitude: func(guild-a: s32, guild-b: s32, attitude: s32);
+    wld-setguildattitude: func(guild-a: s32, attitude: s32, guild-b: s32);
     wld-setmobroutine: func(hour: s32, minute: s32, mob-name: s32, state: s32);
     wld-setobjectroutine: func(hour: s32, minute: s32, object-name: s32, state: s32);
     wld-settime: func(hour: s32, minute: s32);

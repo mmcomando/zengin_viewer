@@ -13,6 +13,11 @@ use crate::zengin::common::to_zengin_units;
 use bevy::log::warn;
 use bevy::math::Vec3;
 
+/// `ATT_HOSTILE` script constant, the default guild attitude.
+pub(crate) const ATT_HOSTILE: i32 = 0;
+/// `ATT_NEUTRAL` script constant.
+pub(crate) const ATT_NEUTRAL: i32 = 2;
+
 macro_rules! fake_impl {
     ($name:ident($($arg:ident),*)) => {
         fn $name(&mut self, $($arg: i32),*) {

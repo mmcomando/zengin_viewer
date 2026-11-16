@@ -434,9 +434,6 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_getportalguild(_0) -> i32);
 }
 
-/// `ATT_NEUTRAL` script constant, returned when no attitude is known.
-const ATT_NEUTRAL: i32 = 2;
-
 /// Attitude the npc holds toward `other`: the non-player side's temporary or
 /// permanent attitude, else the guild attitude matrix.
 fn npc_attitude(
