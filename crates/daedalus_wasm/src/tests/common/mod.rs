@@ -197,10 +197,17 @@ impl mmcomando::zengine_scripts::doc_scripts::Host for ImportCallState {
     count_import!(doc_mapcoordinates(_0, _1, _2, _3, _4, _5, _6, _7, _8));
 }
 
+// This probably do nothing in original game
 impl mmcomando::zengine_scripts::game_scripts::Host for ImportCallState {
-    count_import!(game_initgerman() -> i32);
-    count_import!(game_initenglish() -> i32);
-    count_import!(game_initengintl() -> i32);
+    fn game_initgerman(&mut self) -> i32 {
+        1
+    }
+    fn game_initenglish(&mut self) -> i32 {
+        1
+    }
+    fn game_initengintl(&mut self) -> i32 {
+        1
+    }
 }
 
 impl mmcomando::zengine_scripts::hlp_scripts::Host for ImportCallState {
