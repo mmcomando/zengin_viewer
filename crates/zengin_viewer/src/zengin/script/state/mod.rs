@@ -13,7 +13,7 @@ pub(crate) use changes::{
     SpawnItem, SpawnNpc, StartStateChange, TurnToNpcChange, UseMobChange,
 };
 pub(crate) use instances::{
-    DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry, RoutineFunctions,
+    DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry, RoutineFunctions,
 };
 pub(crate) use weapons::{ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponKind, WeaponMode};
 
@@ -232,6 +232,9 @@ pub struct ImportCallState {
     pub journal: JournalManager,
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,
+    /// Cached `Npc_CheckInfo` answers per npc. Refreshed before script calls
+    /// which consult it.
+    pub check_info: HashMap<InstanceId, NpcCheckInfo>,
     /// World position of every waypoint/freepoint by lowercased name, filled at
     /// world load (`Npc_GetDistToWP`).
     pub way_points: HashMap<String, Vec3>,

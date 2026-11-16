@@ -141,6 +141,7 @@ impl super::ScriptManager {
             data.player_instance = None;
             data.journal = JournalManager::default();
             data.guild_attitudes.clear();
+            data.check_info.clear();
             // Waypoints were published by the world spawn before this call and
             // must stay available to the world entry points.
             data.rng = ScriptRandom::default();

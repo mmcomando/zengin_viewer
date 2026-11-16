@@ -1,5 +1,5 @@
 use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
-use super::super::state::{DialogChoice, DialogRoot};
+use super::super::state::{DialogChoice, DialogRoot, NpcCheckInfo};
 use super::super::string_value::ShowString;
 use super::super::symbol_id::{FunctionId, InstanceId, SymbolId};
 use daedalus_typed::Info;
@@ -129,6 +129,31 @@ impl super::ScriptManager {
 
         self.filter_dialog_roots(npc_player, npc_talk_to, &mut roots);
         roots.into_iter().next()
+    }
+
+    /// Recomputes the `Npc_CheckInfo` cache of the npc from its root infos and
+    /// returns the roots whose conditions passed. Call it before a script
+    /// function which may consult `Npc_CheckInfo`, a host import cannot evaluate
+    /// the conditions itself.
+    pub fn refresh_npc_check_info(
+        &mut self,
+        npc_instance_id: InstanceId,
+        player_instance_id: InstanceId,
+    ) -> Option<Vec<DialogRoot>> {
+        let mut roots = self
+            .npc_state(npc_instance_id)
+            .and_then(|npc| npc.dialog.roots.clone())?;
+
+        self.filter_dialog_roots(player_instance_id, npc_instance_id, &mut roots);
+        let check_info = NpcCheckInfo {
+            important: roots.iter().any(|root| root.important),
+            normal: roots.iter().any(|root| !root.important),
+        };
+        self.store
+            .data_mut()
+            .check_info
+            .insert(npc_instance_id, check_info);
+        Some(roots)
     }
 
     pub fn get_dialog_info(&mut self, symbol_id: SymbolId) -> Option<Info> {

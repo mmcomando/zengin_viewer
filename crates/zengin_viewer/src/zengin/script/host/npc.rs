@@ -335,7 +335,26 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
                 .is_some_and(|npc| npc.dialog.known_infos.contains(&info)),
         )
     }
-    fake_impl!(npc_checkinfo(_0, _1) -> i32);
+    /// Answers from the cache refreshed before the calling script function, a
+    /// host import cannot evaluate info conditions.
+    fn npc_checkinfo(&mut self, npc: i32, important: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(cached) = self.check_info.get(&npc) else {
+            crate::warn_once!(
+                "Npc_CheckInfo npc({}) called before the cache was refreshed",
+                npc.value()
+            );
+            return 0;
+        };
+        let valid = if important != 0 {
+            cached.important
+        } else {
+            cached.normal
+        };
+        i32::from(valid)
+    }
     fake_impl!(npc_giveinfo(_0, _1) -> i32);
     fn npc_gettalentskill(&mut self, npc: i32, talent: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {

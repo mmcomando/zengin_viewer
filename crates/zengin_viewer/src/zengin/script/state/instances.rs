@@ -154,6 +154,14 @@ pub struct NpcDialogState {
     pub known_infos: HashSet<InstanceId>,
 }
 
+/// Cached `Npc_CheckInfo` answers: whether the npc has any info of that
+/// importance whose condition passes.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct NpcCheckInfo {
+    pub important: bool,
+    pub normal: bool,
+}
+
 /// Attitude values of an npc.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NpcSocialState {

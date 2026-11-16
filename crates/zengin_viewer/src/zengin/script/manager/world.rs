@@ -24,6 +24,7 @@ impl ScriptManager {
             data.player_instance = None;
             data.journal = JournalManager::default();
             data.guild_attitudes.clear();
+            data.check_info.clear();
             data.way_points.clear();
             data.rng = ScriptRandom::default();
         }
@@ -79,6 +80,7 @@ impl ScriptManager {
         data.messages.spawn_npcs.clear();
         data.loaded_state.mob_routines.clear();
         data.guild_attitudes.clear();
+        data.check_info.clear();
         for npc in data.loaded_state.npc_instances.values() {
             npc.write()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
