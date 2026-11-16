@@ -34,6 +34,8 @@ impl Plugin for MobsPlugin {
         app.add_systems(
             Update,
             (
+                index_added_mobs,
+                unindex_removed_mobs,
                 extract_mob_positions,
                 release_despawned_mob_uses,
                 sync_npc_body_state,
@@ -55,6 +57,13 @@ pub struct MobRegistry {
 impl MobRegistry {
     pub fn insert(&mut self, scheme: String, entity: Entity) {
         self.by_scheme.entry(scheme).or_default().push(entity);
+    }
+
+    pub fn remove_entity(&mut self, entity: Entity) {
+        self.by_scheme.retain(|_, entities| {
+            entities.retain(|mob| *mob != entity);
+            !entities.is_empty()
+        });
     }
 
     pub fn mobs(&self, scheme: &str) -> &[Entity] {
@@ -87,6 +96,26 @@ pub struct MobAnimation {
     pub stem: String,
     /// State the animation handle of the model belongs to.
     pub state: i32,
+}
+
+/// Registers freshly spawned mobs under their `AI_UseMob` scheme.
+fn index_added_mobs(
+    mut registry: ResMut<MobRegistry>,
+    added: Query<(Entity, &GameMob), Added<GameMob>>,
+) {
+    for (entity, mob) in &added {
+        registry.insert(mob.scheme.clone(), entity);
+    }
+}
+
+/// Drops despawned mobs from the scheme index.
+fn unindex_removed_mobs(
+    mut registry: ResMut<MobRegistry>,
+    mut removed: RemovedComponents<GameMob>,
+) {
+    for entity in removed.read() {
+        registry.remove_entity(entity);
+    }
 }
 
 /// Releases mob points held by despawned npcs.

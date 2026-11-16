@@ -9,7 +9,7 @@ use crate::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
 use crate::game_state::AppState;
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gui_debug::{StaticMesh, WorldMesh};
-use crate::zengin::mobs::{MobAnimation, MobRegistry, mob_state_animation};
+use crate::zengin::mobs::{MobAnimation, mob_state_animation};
 use crate::zengin::npc_routines::AnimationFiles;
 use crate::zengin::resources::{CachedAssetHandles, SELECTABLE, ZenGinModelComponent};
 use crate::zengin::script::bridge::ScriptChangesApplied;
@@ -206,13 +206,11 @@ fn spawn_mobs(
     mut handles_map: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     animation_files: Res<AnimationFiles>,
-    mut mob_registry: ResMut<MobRegistry>,
 ) {
     let mobs: Vec<SpawnMob> = spawns.read().cloned().collect();
     if mobs.is_empty() {
         return;
     }
-    *mob_registry = MobRegistry::default();
     for mob in mobs {
         let model_handle = (!mob.archetype.is_empty())
             .then(|| handles_map.get_model_handle(&asset_server, &mob.archetype, None));
@@ -221,7 +219,7 @@ fn spawn_mobs(
             GameMob {
                 vob_name: mob.vob_name,
                 focus_name: mob.focus_name,
-                scheme: mob.scheme.clone(),
+                scheme: mob.scheme,
                 visual_stem: mob.visual_stem.clone(),
                 state_num: mob.state_num,
                 use_with_item: mob.use_with_item,
@@ -257,6 +255,5 @@ fn spawn_mobs(
                 },
             ));
         }
-        mob_registry.insert(mob.scheme, entity.id());
     }
 }
