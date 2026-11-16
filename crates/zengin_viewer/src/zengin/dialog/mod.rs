@@ -16,6 +16,7 @@ use crate::game_state::AppState;
 use crate::gameplay::camera::EditorMode;
 use crate::input::InputMode;
 use crate::zengin::script::bridge::ScriptChangesApplied;
+use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::DialogLine;
 use bevy::prelude::*;
 
@@ -59,6 +60,12 @@ impl Plugin for GameDialogPlugin {
         );
         app.add_systems(
             Update,
+            sync_script_dialog_state
+                .in_set(ScriptChangesApplied)
+                .run_if(in_state(AppState::InGame)),
+        );
+        app.add_systems(
+            Update,
             (
                 flow::handle_dialog_outputs,
                 camera::aim_dialog_camera,
@@ -75,6 +82,11 @@ impl Plugin for GameDialogPlugin {
                 .after(crate::gui::ChapterScreenUpdated),
         );
     }
+}
+
+/// Exposes the dialog session to the script (`InfoManager_HasFinished`).
+fn sync_script_dialog_state(dialog_ui: Res<DialogUiState>, gothic_script: Res<ScriptResource>) {
+    gothic_script.lock().set_dialog_active(dialog_ui.is_open());
 }
 
 /// While editor mode is active in game the input mode is editor, while a

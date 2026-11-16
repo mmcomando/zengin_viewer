@@ -138,6 +138,7 @@ impl super::ScriptManager {
             data.loaded_state = LoadedState::default();
             data.pending = PendingChanges::default();
             data.close_dialog = false;
+            data.dialog_active = false;
             data.player_instance = None;
             data.journal = JournalManager::default();
             data.guild_attitudes.clear();

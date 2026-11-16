@@ -122,6 +122,11 @@ impl super::ScriptManager {
         std::mem::take(&mut self.store.data_mut().close_dialog)
     }
 
+    /// Sets whether a dialog session is open (`InfoManager_HasFinished`).
+    pub fn set_dialog_active(&mut self, active: bool) {
+        self.store.data_mut().dialog_active = active;
+    }
+
     /// Fills the waypoint position table, keys must be lowercased.
     pub fn set_way_points(&mut self, way_points: HashMap<String, Vec3>) {
         self.store.data_mut().way_points = way_points;

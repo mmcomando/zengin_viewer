@@ -217,6 +217,8 @@ pub struct ImportCallState {
     pub well_known_symbols: WellKnownSymbols,
     pub loaded_state: LoadedState,
     pub close_dialog: bool,
+    /// A dialog session is open (`InfoManager_HasFinished`).
+    pub dialog_active: bool,
     /// Kind of every symbol, used to verify typed symbol ids
     pub symbol_table: SymbolTable,
     pub messages: ScriptMessages,

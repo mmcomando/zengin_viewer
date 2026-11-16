@@ -21,6 +21,7 @@ impl ScriptManager {
             data.pending = PendingChanges::default();
             data.messages.clear();
             data.close_dialog = false;
+            data.dialog_active = false;
             data.player_instance = None;
             data.journal = JournalManager::default();
             data.guild_attitudes.clear();

@@ -112,7 +112,10 @@ impl mmcomando::zengine_scripts::misc_scripts::Host for ImportCallState {
             }
         }
     }
-    fake_impl!(infomanager_hasfinished() -> i32);
+    /// True while no dialog session is open (`InfoManager_HasFinished`).
+    fn infomanager_hasfinished(&mut self) -> i32 {
+        i32::from(!self.dialog_active)
+    }
     fake_impl!(tal_configure(_0, _1));
     fake_impl!(rtn_exchange(_0, _1));
     fake_impl!(perc_setrange(_0, _1));
