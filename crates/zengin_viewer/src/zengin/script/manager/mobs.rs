@@ -35,6 +35,32 @@ impl ScriptManager {
         debug!("npc({npc}) ran mob state function({name})");
     }
 
+    /// Runs a mob `conditionFunc` with the user bound as `self`. An absent
+    /// function allows the interaction; a missing or failing function does not.
+    pub fn mob_condition_allows(&mut self, npc: InstanceId, condition_func: &str) -> bool {
+        if condition_func.is_empty() {
+            return true;
+        }
+        let name = condition_func.to_lowercase();
+        let Some(symbol) = self.try_get_symbol_id(&name) else {
+            warn!("mob condition function({name}) is not declared");
+            return false;
+        };
+        let Some(function) = self.store.data().symbol_table.function(symbol.value()) else {
+            warn!("mob condition function({name}) is not a function");
+            return false;
+        };
+        self.set_self(npc);
+        self.set_instance(npc);
+        match self.try_call_function_bool(function) {
+            Ok(allowed) => allowed,
+            Err(err) => {
+                warn!("mob condition function({name}) failed: {err:?}");
+                false
+            }
+        }
+    }
+
     fn mob_state_function(&mut self, name: &str) -> Option<FunctionId> {
         let Some(symbol) = self.try_get_symbol_id(name) else {
             warn!("mob state function({name}) is not declared");

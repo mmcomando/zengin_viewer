@@ -59,16 +59,22 @@ pub(super) fn use_selected_mob(
         return;
     }
     let state = i32::from(mob.state <= 0);
+    let player = player_npc.instance_id();
+    if !gothic_script
+        .lock()
+        .mob_condition_allows(player, &mob.condition_func)
+    {
+        info!(
+            "Player({player}) mob({target}) use denied by condition_func({})",
+            mob.condition_func
+        );
+        return;
+    }
     mob.state = state;
     info!(
-        "Player({}) used mob({target}) vob({}) focus({}) condition_func({}) on_state_func({}) -> state({state})",
-        player_npc.instance_id(),
-        mob.vob_name,
-        mob.focus_name,
-        mob.condition_func,
-        mob.on_state_func,
+        "Player({player}) used mob({target}) vob({}) focus({}) condition_func({}) on_state_func({}) -> state({state})",
+        mob.vob_name, mob.focus_name, mob.condition_func, mob.on_state_func,
     );
-    println!("{:?}", &mob);
     if !mob.trigger_target.is_empty() && (mob.rewind || !mob.trigger_fired) {
         mob.trigger_fired = true;
         vob_trigger.write(VobTrigger {
@@ -77,5 +83,5 @@ pub(super) fn use_selected_mob(
     }
     gothic_script
         .lock()
-        .call_mob_state_hook(player_npc.instance_id(), &mob.on_state_func, state);
+        .call_mob_state_hook(player, &mob.on_state_func, state);
 }
