@@ -16,9 +16,10 @@ use crate::graphics::AutoAnimSequencerSet;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 
 use crate::zengin::npc_actions::{
-    advance_npc_attack_swings, clear_npc_actions, enqueue_align_actions, enqueue_attack_actions,
-    enqueue_goto_actions, enqueue_goto_fp_actions, enqueue_stand_up_actions,
-    enqueue_use_mob_actions, run_npc_actions,
+    advance_item_use_animations, advance_npc_attack_swings, clear_npc_actions,
+    enqueue_align_actions, enqueue_attack_actions, enqueue_goto_actions, enqueue_goto_fp_actions,
+    enqueue_stand_up_actions, enqueue_use_item_state_actions, enqueue_use_mob_actions,
+    run_npc_actions, sync_npc_item_body_state,
 };
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
@@ -65,7 +66,10 @@ impl Plugin for NpcRoutinesPlugin {
                     .after(run_routine_loops)
                     .after(end_removed_routine_entries)
                     .after(apply_start_state_changes)
-                    .after(apply_scripted_animations),
+                    .after(apply_scripted_animations)
+                    // A stale item-pose restore must not win over the stand reset
+                    // when the state (and the item use) ends.
+                    .after(advance_item_use_animations),
                 (
                     enqueue_stand_up_actions,
                     enqueue_goto_actions,
@@ -76,6 +80,7 @@ impl Plugin for NpcRoutinesPlugin {
                     .after(clear_npc_actions),
                 enqueue_attack_actions.after(clear_npc_actions),
                 enqueue_use_mob_actions.after(clear_npc_actions),
+                enqueue_use_item_state_actions.after(clear_npc_actions),
                 pause_talking_npc_routine
                     .after(clear_npc_actions)
                     .after(enqueue_stand_up_actions)
@@ -84,6 +89,7 @@ impl Plugin for NpcRoutinesPlugin {
                     .after(enqueue_align_actions)
                     .after(enqueue_attack_actions)
                     .after(enqueue_use_mob_actions)
+                    .after(enqueue_use_item_state_actions)
                     .before(run_npc_actions),
                 run_npc_actions
                     .after(update_npc_routines)
@@ -92,7 +98,8 @@ impl Plugin for NpcRoutinesPlugin {
                     .after(enqueue_goto_fp_actions)
                     .after(enqueue_align_actions)
                     .after(enqueue_attack_actions)
-                    .after(enqueue_use_mob_actions),
+                    .after(enqueue_use_mob_actions)
+                    .after(enqueue_use_item_state_actions),
                 advance_npc_attack_swings
                     .after(run_npc_actions)
                     .after(AutoAnimSequencerSet),
@@ -123,6 +130,19 @@ impl Plugin for NpcRoutinesPlugin {
         app.add_systems(
             Update,
             sync_script_freepoints
+                .after(ScriptChangesApplied)
+                .run_if(in_state(AppState::InGame)),
+        );
+        app.add_systems(
+            Update,
+            advance_item_use_animations
+                .after(run_npc_actions)
+                .after(AutoAnimSequencerSet)
+                .run_if(in_state(AppState::InGame)),
+        );
+        app.add_systems(
+            Update,
+            sync_npc_item_body_state
                 .after(ScriptChangesApplied)
                 .run_if(in_state(AppState::InGame)),
         );

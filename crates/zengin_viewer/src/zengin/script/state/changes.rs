@@ -65,6 +65,19 @@ pub struct UseMobChange {
     pub state: i32,
 }
 
+/// Signal that a script requested `AI_UseItemToState`: an npc should hold/use
+/// `item` in the item-state animation identified by `scheme`, `state` >= 0
+/// enters that state and `state` < 0 releases it.
+#[derive(Debug, Clone, Message)]
+pub struct UseItemStateChange {
+    pub instance_id: InstanceId,
+    /// Item instance symbol used by the npc.
+    pub item: InstanceId,
+    /// Item `scemename`, e.g. `LUTE` or `FOOD`, used as the animation scheme.
+    pub scheme: StringCanon,
+    pub state: i32,
+}
+
 /// Signal that a script requested `AI_StandUp` (or `AI_StandUpQuick`): the npc
 /// should stop what it is doing and stand up idle, releasing any mob use.
 #[derive(Debug, Clone, Message)]

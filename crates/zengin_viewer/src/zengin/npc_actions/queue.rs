@@ -29,6 +29,11 @@ impl NpcActionQueue {
             NpcAction::GoToWaypoint { waypoint } => self.push_goto(waypoint),
             NpcAction::Attack { target } => self.push_attack(target),
             NpcAction::UseMob { scheme, state } => self.push_use_mob(scheme, state),
+            NpcAction::UseItemState {
+                item,
+                scheme,
+                state,
+            } => self.push_use_item_state(item, scheme, state),
             NpcAction::StandUp => self.push_stand_up(),
         }
     }
@@ -75,6 +80,29 @@ impl NpcActionQueue {
             return false;
         }
         self.actions.push_back(NpcAction::UseMob { scheme, state });
+        true
+    }
+
+    /// Only an identical `AI_UseItemToState` request is deduplicated: routine
+    /// loops re-issue it until the script flips its position flag, while two
+    /// distinct states in one script call (firespit `5` then `0`) are both
+    /// queued.
+    fn push_use_item_state(&mut self, item: InstanceId, scheme: StringCanon, state: i32) -> bool {
+        let queued = self.actions.iter().any(|action| {
+            matches!(action, NpcAction::UseItemState { item: queued_item, state: queued_state, .. }
+                if *queued_item == item && *queued_state == state)
+        });
+        if queued {
+            return true;
+        }
+        if self.actions.len() >= MAX_QUEUED_ACTIONS {
+            return false;
+        }
+        self.actions.push_back(NpcAction::UseItemState {
+            item,
+            scheme,
+            state,
+        });
         true
     }
 
@@ -184,6 +212,13 @@ pub(crate) enum NpcAction {
         scheme: StringCanon,
         state: i32,
     },
+    /// `AI_UseItemToState`: hold/use an inventory item in the item-state
+    /// animation of its scheme, or release it when `state` is negative.
+    UseItemState {
+        item: InstanceId,
+        scheme: StringCanon,
+        state: i32,
+    },
     /// `AI_StandUp`/`AI_StandUpQuick`: stop what the npc is doing and stand up
     /// idle, releasing any mob use.
     StandUp,
@@ -285,6 +320,41 @@ mod tests {
             queue.front(),
             Some(NpcAction::UseMob { state: -1, .. })
         ));
+    }
+
+    fn item(item: i32) -> InstanceId {
+        InstanceId::new(item).expect("valid item instance id")
+    }
+
+    #[test]
+    fn use_item_state_dedupes_the_same_request() {
+        let mut queue = NpcActionQueue::default();
+        let action = NpcAction::UseItemState {
+            item: item(1),
+            scheme: StringCanon::new("LUTE"),
+            state: 1,
+        };
+        assert!(queue.push(action.clone()));
+        assert!(queue.push(action));
+
+        assert_eq!(queue.actions.len(), 1);
+    }
+
+    #[test]
+    fn use_item_state_keeps_distinct_states() {
+        let mut queue = NpcActionQueue::default();
+        queue.push(NpcAction::UseItemState {
+            item: item(1),
+            scheme: StringCanon::new("FIRESPIT"),
+            state: 5,
+        });
+        queue.push(NpcAction::UseItemState {
+            item: item(1),
+            scheme: StringCanon::new("FIRESPIT"),
+            state: 0,
+        });
+
+        assert_eq!(queue.actions.len(), 2);
     }
 
     #[test]

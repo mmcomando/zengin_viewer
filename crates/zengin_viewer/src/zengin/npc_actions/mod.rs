@@ -4,13 +4,16 @@
 mod attack;
 mod enqueue;
 mod goto;
+mod item_state;
 mod queue;
 mod run;
 
 pub(crate) use attack::advance_npc_attack_swings;
 pub(crate) use enqueue::{
     clear_npc_actions, enqueue_align_actions, enqueue_attack_actions, enqueue_goto_actions,
-    enqueue_goto_fp_actions, enqueue_stand_up_actions, enqueue_use_mob_actions,
+    enqueue_goto_fp_actions, enqueue_stand_up_actions, enqueue_use_item_state_actions,
+    enqueue_use_mob_actions,
 };
+pub(crate) use item_state::{NpcItemUse, advance_item_use_animations, sync_npc_item_body_state};
 pub(crate) use queue::{NpcAction, NpcActionQueue};
 pub(crate) use run::run_npc_actions;

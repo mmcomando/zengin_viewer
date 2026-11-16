@@ -291,7 +291,41 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     fake_impl!(ai_finishingmove(_0, _1));
     fake_impl!(ai_dodge(_0));
     fake_impl!(ai_useitem(_0, _1));
-    fake_impl!(ai_useitemtostate(_0, _1, _2));
+    /// Requests an item-state animation on the npc. The item symbol resolves
+    /// the animation scheme (`scemename`), a negative state releases the pose.
+    fn ai_useitemtostate(&mut self, npc: i32, item: i32, state: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("AI_UseItemToState with invalid npc instance({npc})");
+            return;
+        };
+        // Item arguments are instance symbols, not string ids.
+        let Some(item) = self.symbol_table.instance(item) else {
+            warn!(
+                "AI_UseItemToState npc({}) with invalid item instance({item})",
+                npc.value()
+            );
+            return;
+        };
+        let Some(scheme) = self
+            .typed
+            .item(item.value() as u32)
+            .and_then(|data| data.scemename)
+            .and_then(|id| self.get_show_string(id))
+        else {
+            bevy::log::debug!(
+                "AI_UseItemToState npc({}) item({}) has no scemename",
+                npc.value(),
+                item.value()
+            );
+            return;
+        };
+        self.messages.use_item_state.send(UseItemStateChange {
+            instance_id: npc,
+            item,
+            scheme: StringCanon::new(scheme.string()),
+            state,
+        });
+    }
     fake_impl!(ai_ask(_0, _1, _2));
     fake_impl!(ai_asktext(_0, _1, _2, _3, _4));
     fake_impl!(ai_waitforquestion(_0, _1));

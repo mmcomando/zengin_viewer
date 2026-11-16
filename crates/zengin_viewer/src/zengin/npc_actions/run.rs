@@ -5,13 +5,15 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
 use crate::graphics::{
-    AnimationController, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind, SetDesiredAnimation,
+    AnimationController, AnimationGraph, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind,
+    SetDesiredAnimation,
 };
 use crate::zengin::common::face_direction_quat;
 use crate::zengin::common::{MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS};
 use crate::zengin::npc_actions::attack::begin_attack_move;
 use crate::zengin::npc_actions::goto::start_goto;
 use crate::zengin::npc_actions::queue::{NpcAction, NpcActionQueue};
+use crate::zengin::npc_actions::{NpcItemUse, item_state::run_item_use_state_action};
 use crate::zengin::npc_routines::{
     AnimationFiles, NPC_BODY_Y_OFFSET, NpcHealth, NpcOverlay, NpcPath, WayPoints,
     queue_named_animation, queue_stand_animation,
@@ -45,6 +47,7 @@ pub(crate) fn run_npc_actions(
     gothic_script: Res<ScriptResource>,
     fight_ai: Res<FightAiResource>,
     files: Res<AnimationFiles>,
+    animation_graph: Option<Res<AnimationGraph>>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut desired: MessageWriter<SetDesiredAnimation>,
@@ -68,6 +71,7 @@ pub(crate) fn run_npc_actions(
         Option<&mut AnimationController>,
         Option<&NpcMobUse>,
         Option<&NpcBodyRootOffset>,
+        Option<&mut NpcItemUse>,
     )>,
 ) {
     let mut claimed_mobs = HashSet::new();
@@ -83,6 +87,7 @@ pub(crate) fn run_npc_actions(
         controller,
         npc_mob_use,
         body_root_offset,
+        item_use,
     ) in &mut npcs
     {
         let Some(action) = queue.front().cloned() else {
@@ -106,6 +111,16 @@ pub(crate) fn run_npc_actions(
             }
             continue;
         };
+
+        // These actions replace an item pose; drop it so the npc cannot keep
+        // holding an item while fighting, sitting or standing up.
+        if matches!(
+            &action,
+            NpcAction::Attack { .. } | NpcAction::UseMob { .. } | NpcAction::StandUp
+        ) && item_use.is_some()
+        {
+            commands.entity(entity).remove::<NpcItemUse>();
+        }
 
         match action {
             NpcAction::GoToWaypoint { waypoint } => run_goto_action(
@@ -161,6 +176,30 @@ pub(crate) fn run_npc_actions(
                 &mob_registry,
                 &mut mobs,
                 &mut claimed_mobs,
+            ),
+            NpcAction::UseItemState {
+                item,
+                scheme,
+                state,
+            } => run_item_use_state_action(
+                &mut commands,
+                entity,
+                npc,
+                item,
+                &scheme,
+                state,
+                &mut queue,
+                item_use,
+                controller,
+                model,
+                overlay,
+                path.is_some() || sequencer.is_some(),
+                npc_mob_use.is_some(),
+                &gothic_script,
+                &files,
+                animation_graph.as_deref(),
+                &mut handles,
+                &asset_server,
             ),
             NpcAction::StandUp => run_stand_up_action(
                 &mut commands,

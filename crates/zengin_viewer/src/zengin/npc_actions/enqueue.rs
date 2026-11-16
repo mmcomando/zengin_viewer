@@ -6,7 +6,7 @@ use crate::zengin::npc_routines::NpcRoutineState;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
     AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange, GotoFpChange, StandUpChange,
-    UseMobChange,
+    UseItemStateChange, UseMobChange,
 };
 use crate::zengin::script::symbol_id::StringId;
 
@@ -205,6 +205,41 @@ pub(crate) fn enqueue_use_mob_actions(
                 warn!(
                     "AI_UseMob npc({}) scheme({}) not queued: action queue is full",
                     change.instance_id, change.mob_name
+                );
+            }
+        }
+    }
+}
+
+/// Turns `AI_UseItemToState` requests into queued actions.
+pub(crate) fn enqueue_use_item_state_actions(
+    mut changes: MessageReader<UseItemStateChange>,
+    index: Res<InstanceIndex>,
+    mut action_queues: Query<&mut NpcActionQueue>,
+) {
+    for change in changes.read() {
+        let entities = index.npcs(change.instance_id);
+        if entities.is_empty() {
+            warn!(
+                "AI_UseItemToState npc({}) item({}) ignored: instance has no entity",
+                change.instance_id,
+                change.item.value()
+            );
+            continue;
+        }
+        for &entity in entities {
+            let Ok(mut queue) = action_queues.get_mut(entity) else {
+                continue;
+            };
+            if !queue.push(NpcAction::UseItemState {
+                item: change.item,
+                scheme: change.scheme.clone(),
+                state: change.state,
+            }) {
+                warn!(
+                    "AI_UseItemToState npc({}) item({}) not queued: action queue is full",
+                    change.instance_id,
+                    change.item.value()
                 );
             }
         }

@@ -4,14 +4,15 @@ mod instances;
 mod weapons;
 
 pub(crate) use body_state::{
-    BS_STAND, MobSchemeLists, body_state_for_scheme, current_body_state, has_body_flag,
+    BS_ITEMINTERACT, BS_STAND, MobSchemeLists, body_state_for_scheme, current_body_state,
+    has_body_flag,
 };
 pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
     NpcChanged, NpcEntitiesChanged, OverlayChange, ProcessInfosChange, RoutineExchange,
     ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StandUpChange, StartStateChange,
-    TurnToNpcChange, UseMobChange,
+    TurnToNpcChange, UseItemStateChange, UseMobChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -309,6 +310,8 @@ pub struct ScriptMessages {
     pub start_state: ExternalMessageSender<StartStateChange>,
     /// `AI_UseMob` requests produced by the script.
     pub use_mob: ExternalMessageSender<UseMobChange>,
+    /// `AI_UseItemToState` requests produced by the script.
+    pub use_item_state: ExternalMessageSender<UseItemStateChange>,
     /// `AI_StandUp`/`AI_StandUpQuick` requests produced by the script.
     pub stand_up: ExternalMessageSender<StandUpChange>,
     /// `Npc_ClearAIQueue` requests produced by the script.
@@ -344,6 +347,7 @@ impl ScriptMessages {
         self.animation.clear();
         self.start_state.clear();
         self.use_mob.clear();
+        self.use_item_state.clear();
         self.stand_up.clear();
         self.clear_ai_queue.clear();
         self.spawn_items.clear();

@@ -11,12 +11,13 @@ use crate::graphics::{AnimationController, AnimationData};
 use crate::zengin::GameMob;
 use crate::zengin::GameNpc;
 use crate::zengin::common::{animation_file_name, get_animation_path};
+use crate::zengin::npc_actions::NpcItemUse;
 use crate::zengin::npc_routines::AnimationFiles;
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::resources::{SELECTABLE, ZenGinModelComponent, ZenGinModelComponentLoaded};
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::MobRoutineEntry;
 use crate::zengin::script::state::ScriptMob;
+use crate::zengin::script::state::{BS_ITEMINTERACT, MobRoutineEntry};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
 
@@ -138,7 +139,7 @@ fn sync_npc_body_state(
     gothic_script: Option<Res<ScriptResource>>,
     added: Query<(&GameNpc, &NpcMobUse), Added<NpcMobUse>>,
     mut removed: RemovedComponents<NpcMobUse>,
-    npcs: Query<(&GameNpc, Option<&NpcMobUse>)>,
+    npcs: Query<(&GameNpc, Option<&NpcMobUse>, Option<&NpcItemUse>)>,
 ) {
     let Some(gothic_script) = gothic_script else {
         return;
@@ -147,10 +148,15 @@ fn sync_npc_body_state(
     for entity in removed.read() {
         // Despawned npcs keep no script state, and a switched mob still has its
         // component here and is handled below.
-        let Ok((npc, current)) = npcs.get(entity) else {
+        let Ok((npc, current, item_use)) = npcs.get(entity) else {
             continue;
         };
         if current.is_some() {
+            continue;
+        }
+        // An item pose keeps its body state; only a plain npc returns to stand.
+        if item_use.is_some() {
+            script.set_npc_body_state(npc.instance_id(), Some(BS_ITEMINTERACT));
             continue;
         }
         debug!("npc({}) body state cleared", npc.instance_id());

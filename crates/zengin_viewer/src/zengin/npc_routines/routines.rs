@@ -14,7 +14,7 @@ use crate::graphics::{
 use crate::zengin::GameNpc;
 use crate::zengin::common::{choose_animation_scheme, face_direction_quat, get_animation_path};
 use crate::zengin::instance_index::InstanceIndex;
-use crate::zengin::npc_actions::{NpcAction, NpcActionQueue};
+use crate::zengin::npc_actions::{NpcAction, NpcActionQueue, NpcItemUse};
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
@@ -556,12 +556,18 @@ pub(crate) fn run_routine_loops(
 /// through the script bridge.
 #[allow(clippy::type_complexity)]
 pub(crate) fn restore_routine_stand(
+    mut commands: Commands,
     files: Res<AnimationFiles>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut removed: RemovedComponents<RoutineExecutor>,
     mut changed: Query<
-        (&NpcModel, Option<&NpcOverlay>, &mut AnimationController),
+        (
+            Entity,
+            &NpcModel,
+            Option<&NpcOverlay>,
+            &mut AnimationController,
+        ),
         (Changed<RoutineExecutor>, With<RoutineExecutor>),
     >,
     mut removed_npcs: Query<
@@ -569,7 +575,10 @@ pub(crate) fn restore_routine_stand(
         Without<RoutineExecutor>,
     >,
 ) {
-    for (model, overlay, mut controller) in &mut changed {
+    for (entity, model, overlay, mut controller) in &mut changed {
+        // A new routine state drops the previous item pose (`Npc::clearState`
+        // does `putState(0,0)`), the standing idle follows below.
+        commands.entity(entity).remove::<NpcItemUse>();
         queue_stand_animation(
             &mut controller,
             model,
@@ -581,8 +590,10 @@ pub(crate) fn restore_routine_stand(
     }
     for entity in removed.read() {
         let Ok((model, overlay, mut controller)) = removed_npcs.get_mut(entity) else {
+            // Despawned npcs drop their item pose with the entity.
             continue;
         };
+        commands.entity(entity).remove::<NpcItemUse>();
         queue_stand_animation(
             &mut controller,
             model,

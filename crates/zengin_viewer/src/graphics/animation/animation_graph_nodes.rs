@@ -123,6 +123,21 @@ impl AnimationGraph {
         self.names.iter().map(String::as_str)
     }
 
+    /// Animations that list `name` among their successors (reverse edges).
+    /// Used to recover a pose state from one of its transitions, e.g. when an
+    /// item scheme only has a release transition and no entry animation.
+    pub fn predecessors(&self, name: &str) -> Vec<&str> {
+        let Some(target) = self.indices.get(name).copied() else {
+            return Vec::new();
+        };
+        self.names
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| self.next[*index].contains(&target))
+            .map(|(_, node)| node.as_str())
+            .collect()
+    }
+
     /// Next animation to play to reach the `desired` animation from the
     /// `current` one. Both are animation indices (see
     /// [`Self::animation_index`]).
