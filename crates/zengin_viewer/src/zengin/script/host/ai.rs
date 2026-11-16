@@ -163,7 +163,26 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         self.set_weapon_mode(npc, WeaponMode::Fists);
     }
     fake_impl!(ai_processinfos(_0));
-    fake_impl!(ai_equipbestmeleeweapon(_0) -> i32);
+    fn ai_equipbestmeleeweapon(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("AI_EquipBestMeleeWeapon with invalid npc instance({npc})");
+            return 0;
+        };
+        let Some(item) = self.best_melee_weapon(npc) else {
+            bevy::log::debug!(
+                "AI_EquipBestMeleeWeapon npc({}) has no melee weapon in its inventory",
+                npc.value()
+            );
+            return 0;
+        };
+        bevy::log::info!(
+            "AI_EquipBestMeleeWeapon npc({}) equips item({})",
+            npc.value(),
+            item.value()
+        );
+        self.npc_state_mut(npc).equipment.melee = Some(item);
+        0
+    }
     fake_impl!(ai_equipbestrangedweapon(_0) -> i32);
     fake_impl!(ai_equipbestarmor(_0));
     fake_impl!(ai_unequipweapons(_0));
@@ -267,4 +286,32 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     fake_impl!(ai_stopfx(_0, _1));
     fake_impl!(ai_takemob(_0, _1));
     fake_impl!(ai_dropmob(_0));
+}
+
+impl ImportCallState {
+    /// Highest total damage melee weapon in the npc's inventory. Ties are
+    /// broken by value, then by the lower instance id so the pick does not
+    /// depend on the unordered inventory map.
+    ///
+    /// Item conditions (`cond_atr`/`cond_value`) are not evaluated because the
+    /// runtime state does not track the required attributes.
+    fn best_melee_weapon(&self, npc: InstanceId) -> Option<InstanceId> {
+        let items = self.npc_state(npc)?.inventory.items();
+        items
+            .into_iter()
+            .filter(|(item, _)| {
+                self.symbol_table
+                    .symbol_name(item.value())
+                    .is_some_and(|name| {
+                        WeaponKind::from_symbol_name(&name) == Some(WeaponKind::Melee)
+                    })
+            })
+            .max_by_key(|(item, _)| {
+                let data = self.typed.item(item.value() as u32);
+                let damage = data.as_ref().map_or(0, |data| data.damage_total);
+                let value = data.as_ref().map_or(0, |data| data.value);
+                (damage, value, std::cmp::Reverse(item.value()))
+            })
+            .map(|(item, _)| item)
+    }
 }
