@@ -97,6 +97,11 @@ impl NpcActionQueue {
         self.actions.front()
     }
 
+    /// Whether any action is pending, including the one being executed.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.actions.is_empty()
+    }
+
     pub(super) fn pop_front(&mut self) {
         self.actions.pop_front();
         self.started = false;

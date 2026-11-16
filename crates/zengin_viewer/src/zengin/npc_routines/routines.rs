@@ -158,6 +158,14 @@ pub(crate) fn update_npc_routines(
             );
             continue;
         };
+        if !queue.is_empty() {
+            debug!(
+                "routine npc({}) busy, waypoint({}) not queued",
+                npc.instance_id(),
+                entry.way_point
+            );
+            continue;
+        }
         if !queue.push(NpcAction::GoToWaypoint {
             waypoint: entry.way_point.clone(),
         }) {
@@ -207,7 +215,6 @@ pub(crate) fn update_routine_executors(
             &RoutineEntry,
             Option<&AnimationController>,
             Option<&mut RoutineExecutor>,
-            Option<&mut NpcActionQueue>,
         ),
         (
             Or<(Changed<RoutineEntry>, Added<AnimationController>)>,
@@ -218,7 +225,7 @@ pub(crate) fn update_routine_executors(
     >,
 ) {
     let mut script = gothic_script.lock();
-    for (entity, npc, entry, controller, executor, queue) in &mut npcs {
+    for (entity, npc, entry, controller, executor) in &mut npcs {
         if controller.is_none() {
             continue;
         }
@@ -254,13 +261,9 @@ pub(crate) fn update_routine_executors(
             continue;
         }
 
-        // A state start drops the pending actions (engine `startState`),
-        // otherwise the routine loop and the re-issued `AI_GotoWP` stack faster
-        // than the queue drains. Done before the end hook so the hook's own
-        // `AI_UseMob(-1)` release survives.
-        if let Some(mut queue) = queue {
-            queue.clear();
-        }
+        // A state start does not clear the queue: routine requests are only
+        // produced while it is empty, so there is nothing routine-specific to
+        // drop here and explicit actions must survive a routine entry change.
         script.call_routine_end(instance, executor.functions);
         let Some(start) = desired else {
             commands.entity(entity).remove::<RoutineExecutor>();
@@ -401,6 +404,7 @@ pub(crate) fn run_routine_loops(
             &GameNpc,
             &mut RoutineExecutor,
             Option<&RoutineEntry>,
+            Option<&NpcActionQueue>,
         ),
         With<AnimationController>,
     >,
@@ -412,7 +416,7 @@ pub(crate) fn run_routine_loops(
     let delta = time.delta_secs();
     let minutes = game_time.minutes_of_day();
     let mut script = gothic_script.lock();
-    for (entity, npc, mut executor, entry) in &mut npcs {
+    for (entity, npc, mut executor, entry, queue) in &mut npcs {
         // Routine entries stop at their stop time even when no next entry is
         // active yet; the end hook releases a used mob or path.
         if executor.source == RoutineSource::Routine
@@ -435,6 +439,13 @@ pub(crate) fn run_routine_loops(
             executor.next_loop_in -= delta;
         }
         if executor.next_loop_in > 0.0 {
+            continue;
+        }
+        // A daily routine runs only when the npc has no other action. The loop
+        // is paused, not the entry scheduling above; it resumes once the queue
+        // drains.
+        if executor.source == RoutineSource::Routine && queue.is_some_and(|queue| !queue.is_empty())
+        {
             continue;
         }
         executor.bypass_change_detection().next_loop_in = ROUTINE_LOOP_INTERVAL_SECS;
