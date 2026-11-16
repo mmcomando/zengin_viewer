@@ -10,8 +10,8 @@ pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
     NpcChanged, NpcEntitiesChanged, OverlayChange, ProcessInfosChange, RoutineExchange,
-    ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StartStateChange, TurnToNpcChange,
-    UseMobChange,
+    ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StandUpChange, StartStateChange,
+    TurnToNpcChange, UseMobChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -309,6 +309,8 @@ pub struct ScriptMessages {
     pub start_state: ExternalMessageSender<StartStateChange>,
     /// `AI_UseMob` requests produced by the script.
     pub use_mob: ExternalMessageSender<UseMobChange>,
+    /// `AI_StandUp`/`AI_StandUpQuick` requests produced by the script.
+    pub stand_up: ExternalMessageSender<StandUpChange>,
     /// `Npc_ClearAIQueue` requests produced by the script.
     pub clear_ai_queue: ExternalMessageSender<ClearAiQueueChange>,
     /// Item spawn requests queued by the world load and `wld_insertitem`.
@@ -342,6 +344,7 @@ impl ScriptMessages {
         self.animation.clear();
         self.start_state.clear();
         self.use_mob.clear();
+        self.stand_up.clear();
         self.clear_ai_queue.clear();
         self.spawn_items.clear();
         self.spawn_npcs.clear();

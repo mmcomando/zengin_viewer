@@ -250,8 +250,12 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     fake_impl!(ai_pointat(_0, _1));
     fake_impl!(ai_pointatnpc(_0, _1));
     fake_impl!(ai_stoppointat(_0));
-    fake_impl!(ai_standup(_0));
-    fake_impl!(ai_standupquick(_0));
+    fn ai_standup(&mut self, npc: i32) {
+        self.request_standup(npc);
+    }
+    fn ai_standupquick(&mut self, npc: i32) {
+        self.request_standup(npc);
+    }
     fake_impl!(ai_flee(_0));
     fake_impl!(ai_aimat(_0, _1));
     fake_impl!(ai_stopaim(_0));
@@ -307,6 +311,22 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
 }
 
 impl ImportCallState {
+    /// The queued action releases any mob use and restores the standing pose;
+    /// the body state is cleared right away so the same script call sees the
+    /// npc as standing.
+    fn request_standup(&mut self, npc: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        if self.npc_state(npc).is_none() {
+            return;
+        }
+        self.npc_state_mut(npc).live.body_state = None;
+        self.messages
+            .stand_up
+            .send(StandUpChange { instance_id: npc });
+    }
+
     /// Highest total damage melee weapon in the npc's inventory. Ties are
     /// broken by value, then by the lower instance id so the pick does not
     /// depend on the unordered inventory map.

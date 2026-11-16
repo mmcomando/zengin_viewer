@@ -176,7 +176,30 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_getheighttoitem(_0, _1) -> i32);
     fake_impl!(npc_getdisttoplayer(_0) -> i32);
     fake_impl!(npc_getdisttoitem(_0, _1) -> i32);
-    fake_impl!(npc_canseenpc(_0, _1) -> i32);
+    /// Distance check only: the engine casts a ray, but the host has no access
+    /// to the physics world, so facing and occlusion are not modelled.
+    fn npc_canseenpc(&mut self, npc: i32, other: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(other) = self.symbol_table.instance(other) else {
+            return 0;
+        };
+        let positions = (
+            self.npc_state(npc).and_then(|npc| npc.live.position),
+            self.npc_state(other).and_then(|npc| npc.live.position),
+        );
+        let (Some(npc_position), Some(other_position)) = positions else {
+            return 0;
+        };
+        let range = self
+            .typed
+            .npc(npc.value() as u32)
+            .map(|npc| to_world_units(npc.senses_range as f32))
+            .filter(|range| *range > 0.0)
+            .unwrap_or(DEFAULT_SIGHT_RANGE_METERS);
+        i32::from((npc_position - other_position).length() <= range)
+    }
     fake_impl!(npc_canseenpcfreelos(_0, _1) -> i32);
     fake_impl!(npc_canseeitem(_0, _1) -> i32);
     /// True when the npc is the recorded player instance (`PC_Hero`).
@@ -452,6 +475,11 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_getportalowner(_0) -> i32);
     fake_impl!(npc_getportalguild(_0) -> i32);
 }
+
+/// Sight distance when the npc has no `senses_range`, in meters:
+/// `PERC_DIST_ACTIVE_MAX` is 2000 Gothic units and the viewer uses 100 Gothic
+/// units per meter.
+const DEFAULT_SIGHT_RANGE_METERS: f32 = 20.0;
 
 /// Attitude the npc holds toward `other`: the non-player side's temporary or
 /// permanent attitude, else the guild attitude matrix.

@@ -162,6 +162,20 @@ pub(crate) fn run_npc_actions(
                 &mut mobs,
                 &mut claimed_mobs,
             ),
+            NpcAction::StandUp => run_stand_up_action(
+                &mut commands,
+                entity,
+                &mut queue,
+                controller,
+                model,
+                overlay,
+                sequencer.is_some(),
+                npc_mob_use,
+                &files,
+                &mut handles,
+                &asset_server,
+                &mut mobs,
+            ),
         }
     }
 }
@@ -506,6 +520,50 @@ fn run_use_mob_action(
         choice.focus_name,
         animation
     );
+    queue.pop_front();
+}
+
+/// Frees any used mob and stops locomotion so the npc stands idle.
+#[allow(clippy::too_many_arguments)]
+fn run_stand_up_action(
+    commands: &mut Commands,
+    entity: Entity,
+    queue: &mut NpcActionQueue,
+    mut controller: Option<Mut<AnimationController>>,
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    had_sequencer: bool,
+    npc_mob_use: Option<&NpcMobUse>,
+    files: &AnimationFiles,
+    handles: &mut CachedAssetHandles,
+    asset_server: &AssetServer,
+    mobs: &mut Query<(
+        &mut GameMob,
+        &GlobalTransform,
+        Option<&MobOccupant>,
+        Option<&ZenGinModelComponent>,
+    )>,
+) {
+    if let Some(mob_use) = npc_mob_use
+        && let Ok((mut mob, ..)) = mobs.get_mut(mob_use.mob)
+    {
+        mob.state = 0;
+    }
+    release_mob_use(
+        commands,
+        entity,
+        npc_mob_use,
+        controller.as_deref_mut(),
+        model,
+        overlay,
+        files,
+        handles,
+        asset_server,
+    );
+    if had_sequencer {
+        commands.entity(entity).remove::<AutoAnimSequencer>();
+    }
+    commands.entity(entity).remove::<NpcPath>();
     queue.pop_front();
 }
 

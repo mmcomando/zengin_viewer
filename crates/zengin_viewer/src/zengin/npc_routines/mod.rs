@@ -17,7 +17,8 @@ use crate::zengin::script::bridge::ScriptChangesApplied;
 
 use crate::zengin::npc_actions::{
     advance_npc_attack_swings, clear_npc_actions, enqueue_align_actions, enqueue_attack_actions,
-    enqueue_goto_actions, enqueue_goto_fp_actions, enqueue_use_mob_actions, run_npc_actions,
+    enqueue_goto_actions, enqueue_goto_fp_actions, enqueue_stand_up_actions,
+    enqueue_use_mob_actions, run_npc_actions,
 };
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
@@ -65,9 +66,14 @@ impl Plugin for NpcRoutinesPlugin {
                     .after(end_removed_routine_entries)
                     .after(apply_start_state_changes)
                     .after(apply_scripted_animations),
-                enqueue_goto_actions.after(clear_npc_actions),
-                enqueue_goto_fp_actions.after(clear_npc_actions),
-                enqueue_align_actions.after(clear_npc_actions),
+                (
+                    enqueue_stand_up_actions,
+                    enqueue_goto_actions,
+                    enqueue_goto_fp_actions,
+                    enqueue_align_actions,
+                )
+                    .chain()
+                    .after(clear_npc_actions),
                 enqueue_attack_actions.after(clear_npc_actions),
                 enqueue_use_mob_actions.after(clear_npc_actions),
                 run_npc_actions

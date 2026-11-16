@@ -29,6 +29,7 @@ impl NpcActionQueue {
             NpcAction::GoToWaypoint { waypoint } => self.push_goto(waypoint),
             NpcAction::Attack { target } => self.push_attack(target),
             NpcAction::UseMob { scheme, state } => self.push_use_mob(scheme, state),
+            NpcAction::StandUp => self.push_stand_up(),
         }
     }
 
@@ -74,6 +75,23 @@ impl NpcActionQueue {
             return false;
         }
         self.actions.push_back(NpcAction::UseMob { scheme, state });
+        true
+    }
+
+    /// A repeated `AI_StandUp` is a no-op: the engine just retries the queued
+    /// action, so an already-queued standup is kept as-is.
+    fn push_stand_up(&mut self) -> bool {
+        if self
+            .actions
+            .iter()
+            .any(|action| matches!(action, NpcAction::StandUp))
+        {
+            return true;
+        }
+        if self.actions.len() >= MAX_QUEUED_ACTIONS {
+            return false;
+        }
+        self.actions.push_back(NpcAction::StandUp);
         true
     }
 
@@ -166,6 +184,9 @@ pub(crate) enum NpcAction {
         scheme: StringCanon,
         state: i32,
     },
+    /// `AI_StandUp`/`AI_StandUpQuick`: stop what the npc is doing and stand up
+    /// idle, releasing any mob use.
+    StandUp,
 }
 
 /// Upper bound of queued actions, including the action at the front.
@@ -264,6 +285,15 @@ mod tests {
             queue.front(),
             Some(NpcAction::UseMob { state: -1, .. })
         ));
+    }
+
+    #[test]
+    fn stand_up_does_not_stack() {
+        let mut queue = NpcActionQueue::default();
+        assert!(queue.push(NpcAction::StandUp));
+        assert!(queue.push(NpcAction::StandUp));
+
+        assert_eq!(queue.actions.len(), 1);
     }
 
     #[test]

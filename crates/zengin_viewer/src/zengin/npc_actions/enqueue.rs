@@ -5,7 +5,8 @@ use crate::zengin::npc_actions::queue::{NpcAction, NpcActionQueue};
 use crate::zengin::npc_routines::NpcRoutineState;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
-    AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange, GotoFpChange, UseMobChange,
+    AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange, GotoFpChange, StandUpChange,
+    UseMobChange,
 };
 use crate::zengin::script::symbol_id::StringId;
 
@@ -89,6 +90,35 @@ pub(crate) fn enqueue_goto_fp_actions(
                 warn!(
                     "AI_GotoFP freepoint({}) was not queued, npc({}) action queue is full",
                     change.point_name, change.instance_id
+                );
+            }
+        }
+    }
+}
+
+/// Turns `AI_StandUp`/`AI_StandUpQuick` requests into queued actions.
+pub(crate) fn enqueue_stand_up_actions(
+    mut changes: MessageReader<StandUpChange>,
+    index: Res<InstanceIndex>,
+    mut action_queues: Query<&mut NpcActionQueue>,
+) {
+    for change in changes.read() {
+        let entities = index.npcs(change.instance_id);
+        if entities.is_empty() {
+            warn!(
+                "AI_StandUp npc({}) ignored: instance has no entity",
+                change.instance_id
+            );
+            continue;
+        }
+        for &entity in entities {
+            let Ok(mut queue) = action_queues.get_mut(entity) else {
+                continue;
+            };
+            if !queue.push(NpcAction::StandUp) {
+                warn!(
+                    "AI_StandUp npc({}) not queued: action queue is full",
+                    change.instance_id
                 );
             }
         }
