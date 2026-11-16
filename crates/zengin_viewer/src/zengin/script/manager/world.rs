@@ -74,11 +74,13 @@ impl ScriptManager {
     }
 
     /// Drops the per-world script bookkeeping so reloading a world does not
-    /// accumulate routine entries, mob routines or pending spawns.
+    /// accumulate routine entries or mob routines.
+    ///
+    /// Spawn queues outlive this reset: the world load request clears them, and
+    /// the ZEN loader refills the shared `SpawnItem` queue before `load_world`
+    /// runs.
     fn reset_world_state(&mut self) {
         let data = self.store.data_mut();
-        data.messages.spawn_items.clear();
-        data.messages.spawn_npcs.clear();
         data.loaded_state.mob_routines.clear();
         data.guild_attitudes.clear();
         data.check_info.clear();
