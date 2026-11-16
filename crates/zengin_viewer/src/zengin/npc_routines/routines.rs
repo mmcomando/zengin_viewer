@@ -19,7 +19,7 @@ use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
-    RoutineEntry, RoutineFunctions, ScriptFreePoint, StartStateChange,
+    RoutineEntry, RoutineFunctions, ScriptFreePoint, StartStateChange, TurnToNpcChange,
 };
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph};
@@ -545,6 +545,37 @@ pub(crate) fn apply_look_at(
             continue;
         }
         tr.rotation = face_direction_quat(direction);
+    }
+}
+
+/// Rotates npcs once to face their `AI_TurnToNPC` target, including the player.
+pub(crate) fn apply_turn_to_npc(
+    mut changes: MessageReader<TurnToNpcChange>,
+    index: Res<InstanceIndex>,
+    mut npcs: Query<(&GlobalTransform, &mut Transform)>,
+    targets: Query<&GlobalTransform>,
+) {
+    for change in changes.read() {
+        let Some(target_entity) = index.npcs(change.target).first().copied() else {
+            warn!(
+                "AI_TurnToNPC target({}) has no entity, npc({})",
+                change.target, change.instance_id
+            );
+            continue;
+        };
+        let Ok(target) = targets.get(target_entity) else {
+            continue;
+        };
+        for &entity in index.npcs(change.instance_id) {
+            let Ok((npc_global, mut tr)) = npcs.get_mut(entity) else {
+                continue;
+            };
+            let direction = target.translation() - npc_global.translation();
+            if direction.length_squared() < 1e-4 {
+                continue;
+            }
+            tr.rotation = face_direction_quat(direction);
+        }
     }
 }
 

@@ -105,8 +105,24 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
         };
         self.npc_state_mut(npc).social.temp_attitude = Some(attitude);
     }
-    fake_impl!(npc_getattitude(_0, _1) -> i32);
-    fake_impl!(npc_getpermattitude(_0, _1) -> i32);
+    fn npc_getattitude(&mut self, npc: i32, other: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return ATT_NEUTRAL;
+        };
+        let Some(other) = self.symbol_table.instance(other) else {
+            return ATT_NEUTRAL;
+        };
+        npc_attitude(self, npc, other, true)
+    }
+    fn npc_getpermattitude(&mut self, npc: i32, other: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return ATT_NEUTRAL;
+        };
+        let Some(other) = self.symbol_table.instance(other) else {
+            return ATT_NEUTRAL;
+        };
+        npc_attitude(self, npc, other, false)
+    }
     /// Sets an npc attribute (`Npc_ChangeAttribute`). Only the hitpoints
     /// attributes are tracked, other attributes are ignored.
     fn npc_changeattribute(&mut self, npc: i32, atr: i32, value: i32) {
@@ -362,8 +378,24 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_getequippedrangedweapon(_0) -> i32);
     fake_impl!(npc_getequippedarmor(_0) -> i32);
     fake_impl!(npc_hasspell(_0, _1) -> i32);
-    fake_impl!(npc_refusetalk(_0) -> i32);
-    fake_impl!(npc_setrefusetalk(_0, _1));
+    fn npc_refusetalk(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let refusing = self
+            .npc_state(npc)
+            .and_then(|npc| npc.social.refuse_talk_until)
+            .is_some_and(|until| self.world_seconds < until);
+        i32::from(refusing)
+    }
+    /// `seconds` <= 0 clears the refusal.
+    fn npc_setrefusetalk(&mut self, npc: i32, seconds: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let until = (seconds > 0).then(|| self.world_seconds + f64::from(seconds));
+        self.npc_state_mut(npc).social.refuse_talk_until = until;
+    }
     fake_impl!(npc_canseesource(_0) -> i32);
     fake_impl!(npc_checkavailablemission(_0, _1, _2) -> i32);
     fake_impl!(npc_checkrunningmission(_0, _1) -> i32);
@@ -400,4 +432,51 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_wasplayerinmyroom(_0) -> i32);
     fake_impl!(npc_getportalowner(_0) -> i32);
     fake_impl!(npc_getportalguild(_0) -> i32);
+}
+
+/// `ATT_NEUTRAL` script constant, returned when no attitude is known.
+const ATT_NEUTRAL: i32 = 2;
+
+/// Attitude the npc holds toward `other`: the non-player side's temporary or
+/// permanent attitude, else the guild attitude matrix.
+fn npc_attitude(
+    state: &ImportCallState,
+    npc: InstanceId,
+    other: InstanceId,
+    temporary: bool,
+) -> i32 {
+    let player = state.player_instance;
+    let speaker = match (Some(npc) == player, Some(other) == player) {
+        (false, true) => Some(npc),
+        (true, false) => Some(other),
+        _ => None,
+    };
+    if let Some(speaker) = speaker {
+        let attitudes = state
+            .npc_state(speaker)
+            .map(|speaker| (speaker.social.temp_attitude, speaker.social.attitude));
+        if let Some((temp_attitude, attitude)) = attitudes {
+            if temporary && let Some(attitude) = temp_attitude {
+                return attitude;
+            }
+            if let Some(attitude) = attitude {
+                return attitude;
+            }
+        }
+    }
+
+    let guild = |instance: InstanceId| {
+        state
+            .typed
+            .npc(instance.value() as u32)
+            .map(|npc| npc.guild)
+    };
+    match (guild(npc), guild(other)) {
+        (Some(guild_npc), Some(guild_other)) => state
+            .guild_attitudes
+            .get(&(guild_npc, guild_other))
+            .copied()
+            .unwrap_or(ATT_NEUTRAL),
+        _ => ATT_NEUTRAL,
+    }
 }

@@ -174,7 +174,19 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     }
     fake_impl!(ai_readyrangedweapon(_0));
     fake_impl!(ai_turnaway(_0, _1));
-    fake_impl!(ai_turntonpc(_0, _1));
+    /// Rotates the npc to face the target, applied by the ECS side.
+    fn ai_turntonpc(&mut self, npc: i32, target: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(target) = self.symbol_table.instance(target) else {
+            return;
+        };
+        self.messages.turn_to_npc.send(TurnToNpcChange {
+            instance_id: npc,
+            target,
+        });
+    }
     fake_impl!(ai_whirlaround(_0, _1));
     fake_impl!(ai_whirlaroundtosource(_0));
     fake_impl!(ai_turntosound(_0));

@@ -161,6 +161,10 @@ pub struct NpcSocialState {
     pub attitude: Option<i32>,
     /// Temporary attitude (`Npc_SetTempAttitude`).
     pub temp_attitude: Option<i32>,
+    /// World time until which the npc refuses talk (`Npc_SetRefuseTalk`),
+    /// seconds. Ephemeral, so not saved.
+    #[serde(skip)]
+    pub refuse_talk_until: Option<f64>,
 }
 
 /// Live world facts shared with the ECS side.

@@ -10,7 +10,7 @@ pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
     NpcChanged, NpcEntitiesChanged, OverlayChange, RoutineExchange, ScreenMessage, ScriptSound,
-    SpawnItem, SpawnNpc, StartStateChange, UseMobChange,
+    SpawnItem, SpawnNpc, StartStateChange, TurnToNpcChange, UseMobChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -225,6 +225,9 @@ pub struct ImportCallState {
     pub player_instance: Option<InstanceId>,
     /// Current game day reported by `Wld_GetDay`, 0 on the first day.
     pub game_day: u32,
+    /// Running clock in seconds, used by time limited script state such as
+    /// `Npc_SetRefuseTalk`.
+    pub world_seconds: f64,
     /// Journal (quest log) topics, filled by the `Log_*` host functions.
     pub journal: JournalManager,
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
@@ -290,6 +293,8 @@ pub struct ScriptMessages {
     pub goto_fp: ExternalMessageSender<GotoFpChange>,
     /// `AI_Attack` requests produced by the script.
     pub attack: ExternalMessageSender<AttackChange>,
+    /// `AI_TurnToNPC` requests produced by the script.
+    pub turn_to_npc: ExternalMessageSender<TurnToNpcChange>,
     /// `AI_PlayAni`/`AI_PlayAniBS` requests produced by the script.
     pub animation: ExternalMessageSender<AnimationChange>,
     /// `AI_StartState` requests produced by the script.
@@ -324,6 +329,7 @@ impl ScriptMessages {
         self.goto.clear();
         self.goto_fp.clear();
         self.attack.clear();
+        self.turn_to_npc.clear();
         self.animation.clear();
         self.start_state.clear();
         self.use_mob.clear();

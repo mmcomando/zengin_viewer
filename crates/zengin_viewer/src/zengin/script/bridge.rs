@@ -21,7 +21,8 @@ use crate::zengin::script::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
     NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest, RoutineEntry, ScreenMessage,
-    ScriptMessages, ScriptSound, SpawnNpc, StartStateChange, UseMobChange, WeaponMode,
+    ScriptMessages, ScriptSound, SpawnNpc, StartStateChange, TurnToNpcChange, UseMobChange,
+    WeaponMode,
 };
 use crate::zengin::world_spawn::WorldSpawnMessages;
 
@@ -39,6 +40,7 @@ impl Plugin for ScriptBridgePlugin {
             goto: app.add_external_message::<GotoChange>(),
             goto_fp: app.add_external_message::<GotoFpChange>(),
             attack: app.add_external_message::<AttackChange>(),
+            turn_to_npc: app.add_external_message::<TurnToNpcChange>(),
             animation: app.add_external_message::<AnimationChange>(),
             start_state: app.add_external_message::<StartStateChange>(),
             use_mob: app.add_external_message::<UseMobChange>(),
@@ -62,7 +64,7 @@ impl Plugin for ScriptBridgePlugin {
         app.add_systems(
             Update,
             (
-                sync_game_day,
+                sync_script_clock,
                 apply_script_requests,
                 send_npc_changes,
                 expand_npc_changes,
@@ -94,11 +96,16 @@ impl Plugin for ScriptBridgePlugin {
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ScriptChangesApplied;
 
-/// Exposes the running clock to the script host (`Wld_GetDay`).
-fn sync_game_day(game_time: Res<GameTime>, gothic_script: Res<ScriptResource>) {
-    gothic_script
-        .lock()
-        .set_game_day(game_time.day.saturating_sub(1));
+/// Exposes the running clock to the script host (`Wld_GetDay` and the refuse
+/// talk deadline).
+fn sync_script_clock(
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+    gothic_script: Res<ScriptResource>,
+) {
+    let mut script = gothic_script.lock();
+    script.set_game_day(game_time.day.saturating_sub(1));
+    script.set_world_seconds(time.elapsed_secs_f64());
 }
 
 /// Applies the script requests that cannot be a plain message: closing the

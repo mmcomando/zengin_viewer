@@ -108,6 +108,13 @@ pub struct AlignToWpChange {
     pub instance_id: InstanceId,
 }
 
+/// Signal that an instance requested `AI_TurnToNPC` (turn to face another npc).
+#[derive(Debug, Clone, Message)]
+pub struct TurnToNpcChange {
+    pub instance_id: InstanceId,
+    pub target: InstanceId,
+}
+
 /// Signal that an instance requested `AI_Attack` (attack its current enemy).
 #[derive(Message)]
 pub struct AttackChange {

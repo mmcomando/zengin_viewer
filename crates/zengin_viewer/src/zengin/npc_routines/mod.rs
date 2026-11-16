@@ -21,9 +21,9 @@ use crate::zengin::npc_actions::{
 };
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
-    NpcRoutineCheckState, apply_look_at, apply_start_state_changes, end_removed_routine_entries,
-    move_along_path, release_npc_freepoints, restore_routine_stand, run_routine_loops,
-    sync_script_freepoints, update_npc_routine_entries, update_npc_routines,
+    NpcRoutineCheckState, apply_look_at, apply_start_state_changes, apply_turn_to_npc,
+    end_removed_routine_entries, move_along_path, release_npc_freepoints, restore_routine_stand,
+    run_routine_loops, sync_script_freepoints, update_npc_routine_entries, update_npc_routines,
     update_routine_executors,
 };
 use script_animation::apply_scripted_animations;
@@ -81,7 +81,9 @@ impl Plugin for NpcRoutinesPlugin {
                 advance_npc_attack_swings
                     .after(run_npc_actions)
                     .after(AutoAnimSequencerSet),
-                apply_look_at.after(update_npc_routines),
+                (apply_turn_to_npc, apply_look_at)
+                    .chain()
+                    .after(update_npc_routines),
                 apply_weapon_mode.after(apply_scripted_animations),
                 update_npc_attachments,
                 (sync_npc_armor_visual, materialize_armor_visuals).chain(),
