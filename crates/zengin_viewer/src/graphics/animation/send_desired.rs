@@ -20,9 +20,9 @@ use super::controller::AnimationController;
 /// Writes the desired animation of the player every frame from the move
 /// input, resolved camera relative (forward input moves away from the camera;
 /// holds for every camera mode). Sideways input takes priority and strafes
-/// without turning the model. Firing (ranged weapon drawn and attack pressed)
-/// wins over movement; the model aims at the target. A directional attack press
-/// wins over both for one swing.
+/// while the model keeps facing the camera direction. Firing (ranged weapon
+/// drawn and attack pressed) wins over movement; the model aims at the target.
+/// A directional attack press wins over both for one swing.
 #[allow(clippy::type_complexity)]
 pub(super) fn send_desired_animations(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
@@ -97,9 +97,10 @@ pub(super) fn send_desired_animations(
     }
 
     // Sideways input wins over forward/backward (like OpenGothic): the model
-    // keeps its facing and the strafe loop carries it to the side.
+    // keeps facing the camera direction, like while running forward, and the
+    // strafe loop carries it to the side.
     if direction.x.abs() >= STRAFE_DEADZONE {
-        set_strafe_animation(entity, direction.x, &mut writer);
+        set_strafe_animation(entity, direction.x, &camera, &mut writer);
         return;
     }
 
@@ -257,11 +258,13 @@ fn set_run_animation(
     });
 }
 
-/// Writes the sideways run loop matching `side` (negative is left), the model
-/// keeps its facing and the animation root motion carries it to the side.
+/// Writes the sideways run loop matching `side` (negative is left). The model
+/// faces the camera direction, like while running forward, so turning the
+/// camera turns the character and the strafe root motion stays relative to it.
 fn set_strafe_animation(
     entity: Entity,
     side: f32,
+    camera: &Transform,
     writer: &mut MessageWriter<SetDesiredAnimation>,
 ) {
     let animation = if side < 0.0 {
@@ -269,10 +272,17 @@ fn set_strafe_animation(
     } else {
         DesiredAnimation::StrafeRight
     };
+    let forward = horizontal(*camera.forward());
+    let direction = if forward.length_squared() < 0.0001 {
+        warn!("Strafe input but no horizontal camera direction");
+        None
+    } else {
+        Some(forward)
+    };
     writer.write(SetDesiredAnimation {
         who: entity,
         animation,
-        direction: None,
+        direction,
         force_change: true,
     });
 }
