@@ -208,10 +208,12 @@ fn queue_routine_waypoint(
 }
 
 /// Starts and ends the talk pause: when a npc starts talking its queued actions
-/// are dropped so it stops walking or using a mob, and when the dialog closes
-/// its routine entry is marked changed so [`update_routine_executors`]
-/// reconciles a schedule that moved on while the npc was talking.
+/// are dropped and its executing action is canceled so it stops walking or
+/// using a mob, and when the dialog closes its routine entry is marked changed
+/// so [`update_routine_executors`] reconciles a schedule that moved on while the
+/// npc was talking.
 pub(crate) fn pause_talking_npc_routine(
+    mut commands: Commands,
     dialog_ui: Res<DialogUiState>,
     index: Res<InstanceIndex>,
     mut last_talking: Local<Option<InstanceId>>,
@@ -228,6 +230,9 @@ pub(crate) fn pause_talking_npc_routine(
             if let Ok(mut queue) = queues.get_mut(entity) {
                 queue.clear();
             }
+            // Removing the marker cancels the running action and its end
+            // system stops the locomotion.
+            commands.entity(entity).remove::<ExecutingActionMarker>();
         }
     }
     let Some(npc) = previous.filter(|npc| Some(*npc) != talking) else {
