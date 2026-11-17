@@ -682,3 +682,26 @@ fn real_const_string_arrays_have_values() {
     let guild = executor.read_string_by_id(values[0]).unwrap();
     assert_eq!(guild, "Brak przyn.");
 }
+
+/// `zs_runtowp_end` is declared `func void` in the scripts but the compiled
+/// DAT marks it as returning a value. The wasm signature follows that flag, so
+/// a void `call-function` on it traps with a type mismatch while the discard
+/// path works.
+#[test]
+fn real_void_declared_end_hook_marked_as_returning() {
+    let data = get_main_script_data();
+    let signature = data
+        .symbols
+        .iter()
+        .find(|symbol| symbol.name == "zs_runtowp_end")
+        .and_then(|symbol| symbol.function.as_ref())
+        .map(|function| function.call_signature)
+        .expect("zs_runtowp_end function");
+    assert!(signature.returns, "compiled DAT lost the returns flag");
+
+    let path = gothic2_main_script_path();
+    let wasm_bytes = convert_daedalus_script(&path);
+    let mut executor = WasmExecutor::new(&wasm_bytes);
+    let symbol = executor.get_symbol_id("zs_runtowp_end");
+    executor.call_function_discard(symbol);
+}

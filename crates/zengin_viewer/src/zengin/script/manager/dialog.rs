@@ -233,7 +233,7 @@ impl super::ScriptManager {
         self.set_other(npc_player);
         self.set_instance(npc_talk_to);
         self.refresh_npc_check_info(npc_talk_to, npc_player);
-        match self.try_call_function_discard(function) {
+        match self.try_call_function(function) {
             Ok(()) => true,
             Err(err) => {
                 warn!("b_assesstalk npc({npc_talk_to}) error: {err:?}");
@@ -244,7 +244,7 @@ impl super::ScriptManager {
 
     pub fn call_dialog_sequence_function(&mut self, sequence_function_id: FunctionId) {
         self.store.data_mut().close_dialog = false;
-        match self.try_call_function_discard(sequence_function_id) {
+        match self.try_call_function(sequence_function_id) {
             Ok(()) => {}
             Err(err) => {
                 println!("call_dialog_sequence_function({sequence_function_id:?}) error: {err:?}");

@@ -144,18 +144,13 @@ impl ScriptManager {
         self.script_fingerprint
     }
 
+    /// Calls a function ignoring its result. The declared return type cannot be
+    /// trusted to match how the engine calls a function: dialog `_info`
+    /// functions are `func int` while the dialog code expects void, and some
+    /// routine hooks declared `func void` (for example `zs_runtowp_end`) are
+    /// compiled with the returns flag set. The guest picks the indirect call
+    /// type from the symbol's flag instead.
     pub(super) fn try_call_function(&mut self, symbol_id: FunctionId) -> wasmtime::Result<()> {
-        let guest = self.instance.mmcomando_zengine_scripts_manage();
-        guest.call_call_function(&mut self.store, symbol_id.value())
-    }
-
-    /// Calls a function ignoring its result. Dialog functions can be declared
-    /// `func int` while the dialog code expects void, so the guest picks the
-    /// indirect call type based on the symbol's return flag.
-    pub(super) fn try_call_function_discard(
-        &mut self,
-        symbol_id: FunctionId,
-    ) -> wasmtime::Result<()> {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest.call_call_function_discard(&mut self.store, symbol_id.value())
     }
@@ -174,7 +169,7 @@ impl ScriptManager {
     pub fn call_function(&mut self, symbol_id: FunctionId) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
-            .call_call_function(&mut self.store, symbol_id.value())
+            .call_call_function_discard(&mut self.store, symbol_id.value())
             .unwrap();
     }
 
@@ -212,7 +207,7 @@ impl ScriptManager {
             guest.call_set_self(&mut self.store, index as i32).unwrap();
             if has_function {
                 guest
-                    .call_call_function(&mut self.store, index as i32)
+                    .call_call_function_discard(&mut self.store, index as i32)
                     .unwrap();
             }
         }
