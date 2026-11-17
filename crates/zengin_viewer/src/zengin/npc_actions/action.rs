@@ -13,6 +13,7 @@ use crate::zengin::npc_actions::use_mob::UseMobAction;
 pub(crate) struct ExecutingActionMarker;
 
 /// Drops an item pose when an action that cannot hold one starts.
+#[allow(clippy::type_complexity)]
 pub(crate) fn drop_item_pose_for_action(
     mut commands: Commands,
     npcs: Query<
@@ -76,7 +77,11 @@ pub(crate) fn warn_direct_action_removal<A: Component>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::zengin::npc_actions::item_state::{NpcItemUse, UseItemStateAction};
+    use crate::zengin::npc_actions::stand_up::StandUpAction;
+    use crate::zengin::npc_actions::use_mob::UseMobAction;
     use crate::zengin::script::string_value::StringCanon;
+    use crate::zengin::script::symbol_id::InstanceId;
 
     fn world() -> World {
         let mut world = World::new();
@@ -118,5 +123,47 @@ mod tests {
 
         assert!(world.get::<GoToWaypointAction>(entity).is_none());
         assert!(world.get::<Transform>(entity).is_some());
+    }
+
+    #[test]
+    fn removing_the_marker_removes_every_action_component() {
+        let mut world = world();
+        let item = InstanceId::new(1).expect("valid item instance id");
+        let entity = world
+            .spawn((
+                GoToWaypointAction {
+                    waypoint: StringCanon::new("wp0"),
+                },
+                AttackAction::new(Entity::PLACEHOLDER),
+                UseMobAction {
+                    scheme: StringCanon::new("BENCH"),
+                    state: 1,
+                },
+                UseItemStateAction {
+                    item,
+                    scheme: StringCanon::new("LUTE"),
+                    state: 1,
+                },
+                StandUpAction,
+                NpcItemUse {
+                    item,
+                    scheme: StringCanon::new("LUTE"),
+                    state: 0,
+                    target: 1,
+                    expected: None,
+                },
+            ))
+            .id();
+
+        world.entity_mut(entity).remove::<ExecutingActionMarker>();
+        world.flush();
+
+        assert!(world.get::<GoToWaypointAction>(entity).is_none());
+        assert!(world.get::<AttackAction>(entity).is_none());
+        assert!(world.get::<UseMobAction>(entity).is_none());
+        assert!(world.get::<UseItemStateAction>(entity).is_none());
+        assert!(world.get::<StandUpAction>(entity).is_none());
+        // Effect components are not actions and stay.
+        assert!(world.get::<NpcItemUse>(entity).is_some());
     }
 }

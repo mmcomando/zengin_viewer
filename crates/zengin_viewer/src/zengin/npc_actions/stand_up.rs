@@ -13,7 +13,7 @@ use crate::zengin::{GameMob, NpcMobUse};
 #[require(ExecutingActionMarker)]
 pub(crate) struct StandUpAction;
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn start_stand_up_action(
     mut commands: Commands,
     files: Res<AnimationFiles>,
@@ -44,7 +44,7 @@ pub(crate) fn start_stand_up_action(
             entity,
             npc_mob_use,
             controller.as_deref_mut(),
-            sequencer.as_mut().map(|sequencer| &mut **sequencer),
+            sequencer.as_deref_mut(),
             model,
             overlay,
             &files,
@@ -55,7 +55,7 @@ pub(crate) fn start_stand_up_action(
             controller.set_root_motion(false);
             queue_stand_animation(
                 &mut controller,
-                sequencer.as_mut().map(|sequencer| &mut **sequencer),
+                sequencer.as_deref_mut(),
                 model,
                 overlay,
                 &files,

@@ -51,7 +51,7 @@ impl AttackAction {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn start_attack_action(
     mut commands: Commands,
     gothic_script: Res<ScriptResource>,
@@ -90,7 +90,7 @@ pub(crate) fn start_attack_action(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn run_attack_action(
     mut commands: Commands,
     targets: Query<(&GlobalTransform, Option<&NpcHealth>)>,
@@ -163,6 +163,7 @@ pub(crate) fn run_attack_action(
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) fn end_attack_action(
     mut removed: RemovedComponents<AttackAction>,
     files: Res<AnimationFiles>,
@@ -291,11 +292,7 @@ pub(super) fn begin_attack_move(
     Some(chosen)
 }
 
-fn attack_rng<'a>(
-    action: &'a mut AttackAction,
-    instance: InstanceId,
-    entity: Entity,
-) -> &'a mut Mt {
+fn attack_rng(action: &mut AttackAction, instance: InstanceId, entity: Entity) -> &mut Mt {
     if !action.rng_seeded {
         action.rng_seeded = true;
         let seed = entity.to_bits() as u32 ^ instance.value() as u32;

@@ -82,7 +82,7 @@ impl NpcActionQueue {
 
     /// Attacks always append; the `AiState` loop gate prevents duplicates.
     pub(crate) fn push_attack(&mut self, target: Entity) -> bool {
-        self.push_back(QueuedAction::Attack(AttackAction::new(target)))
+        self.push_back(QueuedAction::Attack(Box::new(AttackAction::new(target))))
     }
 
     fn push_back(&mut self, action: QueuedAction) -> bool {
@@ -117,7 +117,7 @@ impl NpcActionQueue {
 
 pub(crate) enum QueuedAction {
     GoTo(GoToWaypointAction),
-    Attack(AttackAction),
+    Attack(Box<AttackAction>),
     UseMob(UseMobAction),
     UseItemState(UseItemStateAction),
     StandUp(StandUpAction),

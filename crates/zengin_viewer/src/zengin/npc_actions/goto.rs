@@ -70,6 +70,7 @@ pub(crate) fn run_goto_action(
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) fn end_goto_action(
     mut commands: Commands,
     mut removed: RemovedComponents<GoToWaypointAction>,

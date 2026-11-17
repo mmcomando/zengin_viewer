@@ -52,7 +52,7 @@ pub(crate) struct UseItemStateAction {
 }
 
 /// Executes the `AI_UseItemToState` action at the front of the queue.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn run_use_item_state_action(
     mut commands: Commands,
     gothic_script: Res<ScriptResource>,
@@ -401,6 +401,7 @@ fn continue_release(
 }
 
 /// Advances the item-state machine when one of its animations ends.
+#[allow(clippy::type_complexity)]
 pub(crate) fn advance_item_use_animations(
     mut commands: Commands,
     mut ends: MessageReader<AnimationEnds>,

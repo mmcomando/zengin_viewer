@@ -52,7 +52,7 @@ pub(crate) fn start_use_mob_action(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn run_use_mob_action(
     mut commands: Commands,
     gothic_script: Res<ScriptResource>,
@@ -217,7 +217,7 @@ pub(crate) fn run_use_mob_action(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 pub(crate) fn end_use_mob_action(
     mut removed: RemovedComponents<UseMobAction>,
     files: Res<AnimationFiles>,
