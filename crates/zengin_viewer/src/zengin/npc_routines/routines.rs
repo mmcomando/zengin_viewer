@@ -760,10 +760,13 @@ pub(crate) fn move_along_path(
         };
         transform.rotation = face_direction_quat(direction);
 
+        // The sequencer outlives a single action, so root motion has to be
+        // re-enabled here every time a new path starts.
+        controller.set_root_motion(true);
+
         if sequencer.is_none() {
             // Prepare the sequencer first, the desired animation message can
             // only be consumed once the component is actually inserted
-            controller.set_root_motion(true);
             commands.entity(entity).insert(AutoAnimSequencer::default());
             continue;
         }

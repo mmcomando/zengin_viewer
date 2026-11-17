@@ -118,12 +118,14 @@ pub(crate) fn run_attack_action(
             continue;
         };
 
+        // The sequencer outlives a single action, so root motion has to be
+        // re-enabled here every time the npc has to catch up to its target.
+        controller.set_root_motion(true);
         if sequencer.is_none() {
             debug!(
                 "npc({}) attack inserts the animation sequencer",
                 npc.instance_id()
             );
-            controller.set_root_motion(true);
             commands.entity(entity).insert(AutoAnimSequencer::default());
             continue;
         }

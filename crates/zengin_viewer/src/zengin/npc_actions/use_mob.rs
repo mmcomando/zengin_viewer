@@ -148,8 +148,10 @@ pub(crate) fn run_use_mob_action(
         let horizontal = Vec3::new(horizontal.x, 0.0, horizontal.z);
         if horizontal.length() > MOB_USE_DISTANCE {
             transform.rotation = face_direction_quat(horizontal);
+            // The sequencer outlives a single action, so root motion has to be
+            // re-enabled here every time the npc walks up to the mob.
+            controller.set_root_motion(true);
             if sequencer.is_none() {
-                controller.set_root_motion(true);
                 commands.entity(entity).insert(AutoAnimSequencer::default());
                 continue;
             }
