@@ -18,9 +18,12 @@ use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::npc_actions::{
     AttackAction, GoToWaypointAction, StandUpAction, UseItemStateAction, UseMobAction,
     advance_item_use_animations, advance_npc_attack_swings, clear_npc_actions,
+    drop_item_pose_for_action, end_attack_action, end_goto_action, end_use_mob_action,
     enqueue_align_actions, enqueue_attack_actions, enqueue_goto_actions, enqueue_goto_fp_actions,
     enqueue_stand_up_actions, enqueue_use_item_state_actions, enqueue_use_mob_actions,
-    remove_actions_on_marker_removed, run_npc_actions, sync_npc_item_body_state,
+    flush_npc_action_queue, remove_actions_on_marker_removed, run_attack_action, run_goto_action,
+    run_use_item_state_action, run_use_mob_action, start_attack_action, start_goto_action,
+    start_stand_up_action, start_use_mob_action, sync_npc_item_body_state,
     warn_direct_action_removal,
 };
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
@@ -84,38 +87,38 @@ impl Plugin for NpcRoutinesPlugin {
                     // when the state (and the item use) ends.
                     .after(advance_item_use_animations),
                 (
-                    enqueue_stand_up_actions,
-                    enqueue_goto_actions,
-                    enqueue_goto_fp_actions,
-                    enqueue_align_actions,
+                    (
+                        enqueue_stand_up_actions,
+                        enqueue_goto_actions,
+                        enqueue_goto_fp_actions,
+                        enqueue_align_actions,
+                        enqueue_attack_actions,
+                        enqueue_use_mob_actions,
+                        enqueue_use_item_state_actions,
+                        pause_talking_npc_routine,
+                    )
+                        .chain()
+                        .after(clear_npc_actions),
+                    (end_goto_action, end_attack_action, end_use_mob_action),
+                    flush_npc_action_queue,
+                    (
+                        drop_item_pose_for_action,
+                        start_goto_action,
+                        start_attack_action,
+                        start_use_mob_action,
+                        start_stand_up_action,
+                    ),
+                    (
+                        run_goto_action,
+                        run_attack_action,
+                        run_use_mob_action,
+                        run_use_item_state_action,
+                    ),
+                    advance_npc_attack_swings.after(AutoAnimSequencerSet),
                 )
                     .chain()
-                    .after(clear_npc_actions),
-                enqueue_attack_actions.after(clear_npc_actions),
-                enqueue_use_mob_actions.after(clear_npc_actions),
-                enqueue_use_item_state_actions.after(clear_npc_actions),
-                pause_talking_npc_routine
-                    .after(clear_npc_actions)
-                    .after(enqueue_stand_up_actions)
-                    .after(enqueue_goto_actions)
-                    .after(enqueue_goto_fp_actions)
-                    .after(enqueue_align_actions)
-                    .after(enqueue_attack_actions)
-                    .after(enqueue_use_mob_actions)
-                    .after(enqueue_use_item_state_actions)
-                    .before(run_npc_actions),
-                run_npc_actions
                     .after(update_npc_routines)
-                    .after(clear_npc_actions)
-                    .after(enqueue_goto_actions)
-                    .after(enqueue_goto_fp_actions)
-                    .after(enqueue_align_actions)
-                    .after(enqueue_attack_actions)
-                    .after(enqueue_use_mob_actions)
-                    .after(enqueue_use_item_state_actions),
-                advance_npc_attack_swings
-                    .after(run_npc_actions)
-                    .after(AutoAnimSequencerSet),
+                    .after(clear_npc_actions),
                 (apply_turn_to_npc, apply_look_at)
                     .chain()
                     .after(update_npc_routines),
@@ -123,7 +126,8 @@ impl Plugin for NpcRoutinesPlugin {
                 update_npc_attachments,
                 (sync_npc_armor_visual, materialize_armor_visuals).chain(),
                 move_along_path
-                    .after(run_npc_actions)
+                    .after(run_goto_action)
+                    .after(run_attack_action)
                     .after(apply_scripted_animations)
                     .before(AutoAnimSequencerSet),
             )
@@ -149,7 +153,7 @@ impl Plugin for NpcRoutinesPlugin {
         app.add_systems(
             Update,
             advance_item_use_animations
-                .after(run_npc_actions)
+                .after(run_use_item_state_action)
                 .after(AutoAnimSequencerSet)
                 .run_if(in_state(AppState::InGame)),
         );

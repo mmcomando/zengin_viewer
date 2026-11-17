@@ -3,6 +3,7 @@ use bevy::prelude::*;
 
 use crate::zengin::npc_actions::attack::AttackAction;
 use crate::zengin::npc_actions::goto::GoToWaypointAction;
+use crate::zengin::npc_actions::item_state::NpcItemUse;
 use crate::zengin::npc_actions::item_state::UseItemStateAction;
 use crate::zengin::npc_actions::stand_up::StandUpAction;
 use crate::zengin::npc_actions::use_mob::UseMobAction;
@@ -10,6 +11,24 @@ use crate::zengin::npc_actions::use_mob::UseMobAction;
 /// The npc currently executes an action. Removed to cancel the action.
 #[derive(Component, Default)]
 pub(crate) struct ExecutingActionMarker;
+
+/// Drops an item pose when an action that cannot hold one starts.
+pub(crate) fn drop_item_pose_for_action(
+    mut commands: Commands,
+    npcs: Query<
+        Entity,
+        (
+            Added<ExecutingActionMarker>,
+            Or<(With<AttackAction>, With<UseMobAction>, With<StandUpAction>)>,
+            With<NpcItemUse>,
+        ),
+    >,
+) {
+    for entity in &npcs {
+        debug!("entity({entity}) action replaces the item pose");
+        commands.entity(entity).remove::<NpcItemUse>();
+    }
+}
 
 /// Removes every action component when the marker is removed.
 pub(crate) fn remove_actions_on_marker_removed(
@@ -35,9 +54,14 @@ pub(crate) fn remove_actions_on_marker_removed(
 /// marker that blocks the queue.
 pub(crate) fn warn_direct_action_removal<A: Component>(
     mut removed: RemovedComponents<A>,
+    mut markers_removed: RemovedComponents<ExecutingActionMarker>,
     markers: Query<(), With<ExecutingActionMarker>>,
 ) {
+    let cancelled: Vec<Entity> = markers_removed.read().collect();
     for entity in removed.read() {
+        if cancelled.contains(&entity) {
+            continue;
+        }
         if markers.get(entity).is_err() {
             continue;
         }

@@ -1,23 +1,47 @@
 use bevy::prelude::*;
 
 use crate::zengin::instance_index::InstanceIndex;
-use crate::zengin::npc_actions::queue::{NpcAction, NpcActionQueue};
+use crate::zengin::npc_actions::action::ExecutingActionMarker;
+use crate::zengin::npc_actions::goto::GoToWaypointAction;
+use crate::zengin::npc_actions::item_state::UseItemStateAction;
+use crate::zengin::npc_actions::queue::NpcActionQueue;
+use crate::zengin::npc_actions::use_mob::UseMobAction;
 use crate::zengin::npc_routines::NpcRoutineState;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
     AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange, GotoFpChange, StandUpChange,
     UseItemStateChange, UseMobChange,
 };
+use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::StringId;
+
+/// Queues a goto and cancels a goto that is already executing.
+fn queue_goto(
+    commands: &mut Commands,
+    entity: Entity,
+    waypoint: StringCanon,
+    queue: &mut NpcActionQueue,
+    executing: &Query<&GoToWaypointAction>,
+) -> bool {
+    if !queue.push_goto(waypoint) {
+        return false;
+    }
+    if executing.get(entity).is_ok() {
+        commands.entity(entity).remove::<ExecutingActionMarker>();
+    }
+    true
+}
 
 /// Turns `AI_GoToWP` requests into queued actions. The waypoint name is resolved
 /// through the script vm here because a host import cannot safely call into the
 /// guest while it is running.
 #[allow(clippy::cognitive_complexity)]
 pub(crate) fn enqueue_goto_actions(
+    mut commands: Commands,
     mut changes: MessageReader<GotoChange>,
     index: Res<InstanceIndex>,
     gothic_script: Res<ScriptResource>,
+    executing: Query<&GoToWaypointAction>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
     if changes.is_empty() {
@@ -50,9 +74,13 @@ pub(crate) fn enqueue_goto_actions(
             let Ok(mut queue) = action_queues.get_mut(entity) else {
                 continue;
             };
-            queued |= queue.push(NpcAction::GoToWaypoint {
-                waypoint: waypoint.clone(),
-            });
+            queued |= queue_goto(
+                &mut commands,
+                entity,
+                waypoint.clone(),
+                &mut queue,
+                &executing,
+            );
         }
         if !queued {
             warn!(
@@ -67,8 +95,10 @@ pub(crate) fn enqueue_goto_actions(
 /// is resolved by the script host, the name is a way-net point the action queue
 /// can walk to.
 pub(crate) fn enqueue_goto_fp_actions(
+    mut commands: Commands,
     mut changes: MessageReader<GotoFpChange>,
     index: Res<InstanceIndex>,
+    executing: Query<&GoToWaypointAction>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
     for change in changes.read() {
@@ -84,9 +114,13 @@ pub(crate) fn enqueue_goto_fp_actions(
             let Ok(mut queue) = action_queues.get_mut(entity) else {
                 continue;
             };
-            if !queue.push(NpcAction::GoToWaypoint {
-                waypoint: change.point_name.clone(),
-            }) {
+            if !queue_goto(
+                &mut commands,
+                entity,
+                change.point_name.clone(),
+                &mut queue,
+                &executing,
+            ) {
                 warn!(
                     "AI_GotoFP freepoint({}) was not queued, npc({}) action queue is full",
                     change.point_name, change.instance_id
@@ -115,7 +149,7 @@ pub(crate) fn enqueue_stand_up_actions(
             let Ok(mut queue) = action_queues.get_mut(entity) else {
                 continue;
             };
-            if !queue.push(NpcAction::StandUp) {
+            if !queue.push_stand_up() {
                 warn!(
                     "AI_StandUp npc({}) not queued: action queue is full",
                     change.instance_id
@@ -129,8 +163,10 @@ pub(crate) fn enqueue_stand_up_actions(
 /// assigned routine waypoint. The action completes without walking when the npc
 /// already stands on the waypoint.
 pub(crate) fn enqueue_align_actions(
+    mut commands: Commands,
     mut changes: MessageReader<AlignToWpChange>,
     index: Res<InstanceIndex>,
+    executing: Query<&GoToWaypointAction>,
     mut npcs: Query<(&NpcRoutineState, &mut NpcActionQueue)>,
 ) {
     for change in changes.read() {
@@ -138,9 +174,13 @@ pub(crate) fn enqueue_align_actions(
             let Ok((routine, mut queue)) = npcs.get_mut(entity) else {
                 continue;
             };
-            if !queue.push(NpcAction::GoToWaypoint {
-                waypoint: routine.assigned_waypoint().clone(),
-            }) {
+            if !queue_goto(
+                &mut commands,
+                entity,
+                routine.assigned_waypoint().clone(),
+                &mut queue,
+                &executing,
+            ) {
                 warn!(
                     "AI_AlignToWP waypoint({}) was not queued, npc({}) action queue is full",
                     routine.assigned_waypoint(),
@@ -183,6 +223,7 @@ pub(crate) fn clear_npc_actions(
 pub(crate) fn enqueue_use_mob_actions(
     mut changes: MessageReader<UseMobChange>,
     index: Res<InstanceIndex>,
+    mut executing: Query<&mut UseMobAction>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
     for change in changes.read() {
@@ -198,10 +239,13 @@ pub(crate) fn enqueue_use_mob_actions(
             let Ok(mut queue) = action_queues.get_mut(entity) else {
                 continue;
             };
-            if !queue.push(NpcAction::UseMob {
-                scheme: change.mob_name.clone(),
-                state: change.state,
-            }) {
+            if let Ok(mut action) = executing.get_mut(entity)
+                && action.scheme == change.mob_name
+            {
+                action.state = change.state;
+                continue;
+            }
+            if !queue.push_use_mob(change.mob_name.clone(), change.state) {
                 warn!(
                     "AI_UseMob npc({}) scheme({}) not queued: action queue is full",
                     change.instance_id, change.mob_name
@@ -215,6 +259,7 @@ pub(crate) fn enqueue_use_mob_actions(
 pub(crate) fn enqueue_use_item_state_actions(
     mut changes: MessageReader<UseItemStateChange>,
     index: Res<InstanceIndex>,
+    executing: Query<&UseItemStateAction>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
     for change in changes.read() {
@@ -231,11 +276,13 @@ pub(crate) fn enqueue_use_item_state_actions(
             let Ok(mut queue) = action_queues.get_mut(entity) else {
                 continue;
             };
-            if !queue.push(NpcAction::UseItemState {
-                item: change.item,
-                scheme: change.scheme.clone(),
-                state: change.state,
-            }) {
+            if let Ok(action) = executing.get(entity)
+                && action.item == change.item
+                && action.state == change.state
+            {
+                continue;
+            }
+            if !queue.push_use_item_state(change.item, change.scheme.clone(), change.state) {
                 warn!(
                     "AI_UseItemToState npc({}) item({}) not queued: action queue is full",
                     change.instance_id,
@@ -285,7 +332,7 @@ pub(crate) fn enqueue_attack_actions(
                 );
                 continue;
             };
-            queue.push(NpcAction::Attack { target });
+            queue.push_attack(target);
             info!(
                 "AI_Attack npc({}) queued against target({}) entity({entity})",
                 change.instance_id, change.target

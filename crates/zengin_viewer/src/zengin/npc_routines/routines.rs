@@ -14,7 +14,7 @@ use crate::graphics::{
 use crate::zengin::GameNpc;
 use crate::zengin::common::{choose_animation_scheme, face_direction_quat, get_animation_path};
 use crate::zengin::instance_index::InstanceIndex;
-use crate::zengin::npc_actions::{NpcAction, NpcActionQueue, NpcItemUse};
+use crate::zengin::npc_actions::{NpcActionQueue, NpcItemUse};
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
@@ -194,9 +194,7 @@ fn queue_routine_waypoint(
         );
         return;
     }
-    if !queue.push(NpcAction::GoToWaypoint {
-        waypoint: entry.way_point.clone(),
-    }) {
+    if !queue.push_goto(entry.way_point.clone()) {
         warn!(
             "routine npc({}) action queue full, waypoint({}) not queued",
             npc.instance_id(),
@@ -566,21 +564,28 @@ pub(crate) fn restore_routine_stand(
             Entity,
             &NpcModel,
             Option<&NpcOverlay>,
+            Option<&mut AutoAnimSequencer>,
             &mut AnimationController,
         ),
         (Changed<RoutineExecutor>, With<RoutineExecutor>),
     >,
     mut removed_npcs: Query<
-        (&NpcModel, Option<&NpcOverlay>, &mut AnimationController),
+        (
+            &NpcModel,
+            Option<&NpcOverlay>,
+            Option<&mut AutoAnimSequencer>,
+            &mut AnimationController,
+        ),
         Without<RoutineExecutor>,
     >,
 ) {
-    for (entity, model, overlay, mut controller) in &mut changed {
+    for (entity, model, overlay, mut sequencer, mut controller) in &mut changed {
         // A new routine state drops the previous item pose (`Npc::clearState`
         // does `putState(0,0)`), the standing idle follows below.
         commands.entity(entity).remove::<NpcItemUse>();
         queue_stand_animation(
             &mut controller,
+            sequencer.as_deref_mut(),
             model,
             overlay,
             &files,
@@ -589,13 +594,15 @@ pub(crate) fn restore_routine_stand(
         );
     }
     for entity in removed.read() {
-        let Ok((model, overlay, mut controller)) = removed_npcs.get_mut(entity) else {
+        let Ok((model, overlay, mut sequencer, mut controller)) = removed_npcs.get_mut(entity)
+        else {
             // Despawned npcs drop their item pose with the entity.
             continue;
         };
         commands.entity(entity).remove::<NpcItemUse>();
         queue_stand_animation(
             &mut controller,
+            sequencer.as_deref_mut(),
             model,
             overlay,
             &files,
@@ -718,26 +725,26 @@ pub(crate) fn move_along_path(
         &mut NpcPath,
         &NpcModel,
         Option<&NpcOverlay>,
-        Option<&AutoAnimSequencer>,
+        Option<&mut AutoAnimSequencer>,
         &mut AnimationController,
     )>,
 ) {
-    for (entity, mut transform, mut path, model, overlay, sequencer, mut controller) in &mut npcs {
+    for (entity, mut transform, mut path, model, overlay, mut sequencer, mut controller) in
+        &mut npcs
+    {
         let Some(direction) = direction_to_next_node(&mut transform, &mut path, &graph) else {
             // The path is done, restore the standing idle
             commands.entity(entity).remove::<NpcPath>();
-            commands.entity(entity).remove::<AutoAnimSequencer>();
             controller.set_root_motion(false);
-            if sequencer.is_some() {
-                queue_stand_animation(
-                    &mut controller,
-                    model,
-                    overlay,
-                    &files,
-                    &mut handles,
-                    &asset_server,
-                );
-            }
+            queue_stand_animation(
+                &mut controller,
+                sequencer.as_deref_mut(),
+                model,
+                overlay,
+                &files,
+                &mut handles,
+                &asset_server,
+            );
             continue;
         };
         transform.rotation = face_direction_quat(direction);
@@ -813,12 +820,17 @@ pub(crate) fn queue_named_animation(
 /// Switches the npc back to its standing idle after a path.
 pub(crate) fn queue_stand_animation(
     controller: &mut AnimationController,
+    sequencer: Option<&mut AutoAnimSequencer>,
     model: &NpcModel,
     overlay: Option<&NpcOverlay>,
     files: &AnimationFiles,
     handles: &mut CachedAssetHandles,
     asset_server: &AssetServer,
 ) {
+    if let Some(sequencer) = sequencer {
+        sequencer.set_desired_now(DesiredAnimation::Stand);
+        return;
+    }
     let animation = model
         .stand_animation
         .as_deref()

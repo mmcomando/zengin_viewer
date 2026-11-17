@@ -1,227 +1,135 @@
 use std::collections::VecDeque;
 
 use bevy::prelude::*;
-use daedalus_wasm::daedalus::FightAiMove;
-use rand_mt::Mt;
 
-use crate::graphics::MeleeAttackKind;
+use crate::zengin::npc_actions::attack::AttackAction;
+use crate::zengin::npc_actions::goto::GoToWaypointAction;
+use crate::zengin::npc_actions::item_state::UseItemStateAction;
+use crate::zengin::npc_actions::stand_up::StandUpAction;
+use crate::zengin::npc_actions::use_mob::UseMobAction;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::InstanceId;
 
-/// The action at the front is executed every frame until it is done.
+/// Queued actions, the front one is moved onto the npc when it is free.
 #[derive(Component, Default)]
 pub(crate) struct NpcActionQueue {
-    actions: VecDeque<NpcAction>,
-    /// Front action has already been started (its `NpcPath` was inserted).
-    started: bool,
-    attack: NpcAttackTrace,
-    /// Attack randomness, seeded per npc on first use so replays stay
-    /// deterministic while clones of one instance do not attack in lockstep.
-    rng: Mt,
-    rng_seeded: bool,
+    actions: VecDeque<QueuedAction>,
 }
 
 impl NpcActionQueue {
-    /// Appends an action, `false` when the queue is full. A `GoToWaypoint`
-    /// replaces the `GoToWaypoint` at the back instead of stacking on it.
-    pub(crate) fn push(&mut self, action: NpcAction) -> bool {
-        match action {
-            NpcAction::GoToWaypoint { waypoint } => self.push_goto(waypoint),
-            NpcAction::Attack { target } => self.push_attack(target),
-            NpcAction::UseMob { scheme, state } => self.push_use_mob(scheme, state),
-            NpcAction::UseItemState {
-                item,
-                scheme,
-                state,
-            } => self.push_use_item_state(item, scheme, state),
-            NpcAction::StandUp => self.push_stand_up(),
-        }
-    }
-
     /// A new destination replaces the queued one instead of stacking behind it.
-    /// Routine entry changes re-issue `AI_GoToWP` while an earlier walk may
-    /// still be pending.
-    fn push_goto(&mut self, waypoint: StringCanon) -> bool {
+    pub(crate) fn push_goto(&mut self, waypoint: StringCanon) -> bool {
         let queued = self
             .actions
             .iter()
-            .rposition(|action| matches!(action, NpcAction::GoToWaypoint { .. }));
+            .rposition(|action| matches!(action, QueuedAction::GoTo(_)));
         if let Some(index) = queued {
-            if let Some(NpcAction::GoToWaypoint { waypoint: last }) = self.actions.get_mut(index) {
-                *last = waypoint;
-            }
-            // The replaced action was the active front, its path must be replanned.
-            if index == 0 {
-                self.started = false;
+            if let Some(QueuedAction::GoTo(action)) = self.actions.get_mut(index) {
+                action.waypoint = waypoint;
             }
             return true;
         }
-        if self.actions.len() >= MAX_QUEUED_ACTIONS {
-            return false;
-        }
-        self.actions.push_back(NpcAction::GoToWaypoint { waypoint });
-        true
+        self.push_back(QueuedAction::GoTo(GoToWaypointAction { waypoint }))
     }
 
-    /// Only the latest `AI_UseMob` request for a scheme matters: the routine
-    /// loop re-issues it every second until the body state changes, so a
-    /// repeated request updates the queued one instead of stacking.
-    fn push_use_mob(&mut self, scheme: StringCanon, state: i32) -> bool {
+    /// Only the latest request for a mob scheme matters; the routine loop
+    /// re-issues it until the body state changes.
+    pub(crate) fn push_use_mob(&mut self, scheme: StringCanon, state: i32) -> bool {
         let queued = self.actions.iter().position(
-            |action| matches!(action, NpcAction::UseMob { scheme: queued, .. } if *queued == scheme),
+            |action| matches!(action, QueuedAction::UseMob(queued) if queued.scheme == scheme),
         );
         if let Some(index) = queued {
-            if let Some(NpcAction::UseMob { state: last, .. }) = self.actions.get_mut(index) {
-                *last = state;
+            if let Some(QueuedAction::UseMob(action)) = self.actions.get_mut(index) {
+                action.state = state;
             }
             return true;
         }
-        if self.actions.len() >= MAX_QUEUED_ACTIONS {
-            return false;
-        }
-        self.actions.push_back(NpcAction::UseMob { scheme, state });
-        true
+        self.push_back(QueuedAction::UseMob(UseMobAction { scheme, state }))
     }
 
-    /// Only an identical `AI_UseItemToState` request is deduplicated: routine
-    /// loops re-issue it until the script flips its position flag, while two
-    /// distinct states in one script call (firespit `5` then `0`) are both
-    /// queued.
-    fn push_use_item_state(&mut self, item: InstanceId, scheme: StringCanon, state: i32) -> bool {
+    /// Only an identical `AI_UseItemToState` request is deduplicated.
+    pub(crate) fn push_use_item_state(
+        &mut self,
+        item: InstanceId,
+        scheme: StringCanon,
+        state: i32,
+    ) -> bool {
         let queued = self.actions.iter().any(|action| {
-            matches!(action, NpcAction::UseItemState { item: queued_item, state: queued_state, .. }
-                if *queued_item == item && *queued_state == state)
+            matches!(action, QueuedAction::UseItemState(queued)
+                if queued.item == item && queued.state == state)
         });
         if queued {
             return true;
         }
-        if self.actions.len() >= MAX_QUEUED_ACTIONS {
-            return false;
-        }
-        self.actions.push_back(NpcAction::UseItemState {
+        self.push_back(QueuedAction::UseItemState(UseItemStateAction {
             item,
             scheme,
             state,
-        });
-        true
+        }))
     }
 
-    /// A repeated `AI_StandUp` is a no-op: the engine just retries the queued
-    /// action, so an already-queued standup is kept as-is.
-    fn push_stand_up(&mut self) -> bool {
+    /// A repeated `AI_StandUp` is a no-op.
+    pub(crate) fn push_stand_up(&mut self) -> bool {
         if self
             .actions
             .iter()
-            .any(|action| matches!(action, NpcAction::StandUp))
+            .any(|action| matches!(action, QueuedAction::StandUp(_)))
         {
             return true;
         }
+        self.push_back(QueuedAction::StandUp(StandUpAction))
+    }
+
+    /// Attacks always append; the `AiState` loop gate prevents duplicates.
+    pub(crate) fn push_attack(&mut self, target: Entity) -> bool {
+        self.push_back(QueuedAction::Attack(AttackAction::new(target)))
+    }
+
+    fn push_back(&mut self, action: QueuedAction) -> bool {
         if self.actions.len() >= MAX_QUEUED_ACTIONS {
             return false;
         }
-        self.actions.push_back(NpcAction::StandUp);
+        self.actions.push_back(action);
         true
     }
 
-    /// An attack preempts everything else: it clears the queue and starts right
-    /// away. A repeated request for the attack already at the front is a no-op
-    /// so an ongoing swing is not restarted.
-    fn push_attack(&mut self, target: Entity) -> bool {
-        if let Some(NpcAction::Attack { target: current }) = self.actions.front()
-            && *current == target
-        {
-            return true;
-        }
-        self.actions.clear();
-        self.started = false;
-        self.attack.swings.clear();
-        self.actions.push_back(NpcAction::Attack { target });
-        true
+    /// Whether the front action can be moved onto the npc now.
+    pub(super) fn can_flush_front(&self, has_controller: bool) -> bool {
+        self.actions
+            .front()
+            .is_some_and(|action| !action.needs_animation_controller() || has_controller)
     }
 
-    pub(super) fn front(&self) -> Option<&NpcAction> {
-        self.actions.front()
-    }
-
-    /// Whether any action is pending, including the one being executed.
+    /// Whether any action is pending.
     pub(crate) fn is_empty(&self) -> bool {
         self.actions.is_empty()
     }
 
-    pub(super) fn pop_front(&mut self) {
-        self.actions.pop_front();
-        self.started = false;
-        self.attack.swings.clear();
+    pub(super) fn pop_front(&mut self) -> Option<QueuedAction> {
+        self.actions.pop_front()
     }
 
     /// Drops every queued action (`Npc_ClearAIQueue`).
     pub(crate) fn clear(&mut self) {
         self.actions.clear();
-        self.started = false;
-        self.attack.swings.clear();
-    }
-
-    pub(super) fn started(&self) -> bool {
-        self.started
-    }
-
-    pub(super) fn mark_started(&mut self) {
-        self.started = true;
-    }
-
-    pub(super) fn attack(&self) -> &NpcAttackTrace {
-        &self.attack
-    }
-
-    pub(super) fn attack_mut(&mut self) -> &mut NpcAttackTrace {
-        &mut self.attack
-    }
-
-    /// Per-npc attack generator, seeded from the instance and entity.
-    pub(super) fn attack_rng(&mut self, instance: InstanceId, entity: Entity) -> &mut Mt {
-        if !self.rng_seeded {
-            self.rng_seeded = true;
-            let seed = entity.to_bits() as u32 ^ instance.value() as u32;
-            self.rng = Mt::new(seed);
-        }
-        &mut self.rng
     }
 }
 
-/// Swings of the active attack action, the front one is playing.
-#[derive(Debug, Default)]
-pub(super) struct NpcAttackTrace {
-    pub(super) swings: VecDeque<MeleeAttackKind>,
-    /// FAI move the swings were expanded from; a repeat pick is avoided.
-    pub(super) last_move: Option<FightAiMove>,
+pub(crate) enum QueuedAction {
+    GoTo(GoToWaypointAction),
+    Attack(AttackAction),
+    UseMob(UseMobAction),
+    UseItemState(UseItemStateAction),
+    StandUp(StandUpAction),
 }
 
-#[derive(Clone, Debug)]
-pub(crate) enum NpcAction {
-    GoToWaypoint {
-        waypoint: StringCanon,
-    },
-    /// Chase and melee the target entity until it dies, the target is gone or
-    /// it is farther away than the attack abandonment distance.
-    Attack {
-        target: Entity,
-    },
-    /// Use the nearest available mob with the given `AI_UseMob` scheme, or
-    /// release the current mob when `state` is not positive.
-    UseMob {
-        scheme: StringCanon,
-        state: i32,
-    },
-    /// `AI_UseItemToState`: hold/use an inventory item in the item-state
-    /// animation of its scheme, or release it when `state` is negative.
-    UseItemState {
-        item: InstanceId,
-        scheme: StringCanon,
-        state: i32,
-    },
-    /// `AI_StandUp`/`AI_StandUpQuick`: stop what the npc is doing and stand up
-    /// idle, releasing any mob use.
-    StandUp,
+impl QueuedAction {
+    fn needs_animation_controller(&self) -> bool {
+        matches!(
+            self,
+            QueuedAction::Attack(_) | QueuedAction::UseMob(_) | QueuedAction::UseItemState(_)
+        )
+    }
 }
 
 /// Upper bound of queued actions, including the action at the front.
@@ -231,95 +139,8 @@ const MAX_QUEUED_ACTIONS: usize = 8;
 mod tests {
     use super::*;
 
-    #[test]
-    fn queue_replaces_the_last_goto() {
-        let mut queue = NpcActionQueue::default();
-        assert!(queue.push(waypoint("wp0")));
-        assert!(queue.push(waypoint("wp1")));
-
-        assert_eq!(queue.actions.len(), 1);
-        let Some(NpcAction::GoToWaypoint { waypoint }) = queue.front() else {
-            panic!("front action missing");
-        };
-        assert_eq!(waypoint.as_str(), "wp1");
-    }
-
-    #[test]
-    fn replacing_the_active_goto_restarts_it() {
-        let mut queue = NpcActionQueue::default();
-        queue.push(waypoint("wp0"));
-        queue.mark_started();
-
-        queue.push(waypoint("wp1"));
-
-        assert!(!queue.started());
-        let Some(NpcAction::GoToWaypoint { waypoint }) = queue.front() else {
-            panic!("front action missing");
-        };
-        assert_eq!(waypoint.as_str(), "wp1");
-    }
-
-    #[test]
-    fn attack_preempts_queued_actions() {
-        let mut queue = NpcActionQueue::default();
-        queue.push(waypoint("wp0"));
-
-        assert!(queue.push(NpcAction::Attack {
-            target: Entity::PLACEHOLDER,
-        }));
-
-        assert_eq!(queue.actions.len(), 1);
-        assert!(matches!(queue.front(), Some(NpcAction::Attack { .. })));
-        assert!(!queue.started());
-    }
-
-    #[test]
-    fn repeated_attack_does_not_restart() {
-        let mut queue = NpcActionQueue::default();
-        let target = Entity::PLACEHOLDER;
-        queue.push(NpcAction::Attack { target });
-        queue.mark_started();
-
-        assert!(queue.push(NpcAction::Attack { target }));
-
-        assert_eq!(queue.actions.len(), 1);
-        assert!(queue.started());
-    }
-
-    #[test]
-    fn use_mob_dedupes_the_last_request() {
-        let mut queue = NpcActionQueue::default();
-        assert!(queue.push(NpcAction::UseMob {
-            scheme: StringCanon::new("BENCH"),
-            state: 1,
-        }));
-        assert!(queue.push(NpcAction::UseMob {
-            scheme: StringCanon::new("BENCH"),
-            state: 1,
-        }));
-
-        assert_eq!(queue.actions.len(), 1);
-    }
-
-    #[test]
-    fn use_mob_replaces_the_queued_state_of_its_scheme() {
-        let mut queue = NpcActionQueue::default();
-        queue.push(NpcAction::UseMob {
-            scheme: StringCanon::new("BENCH"),
-            state: 1,
-        });
-        queue.push(waypoint("wp0"));
-
-        assert!(queue.push(NpcAction::UseMob {
-            scheme: StringCanon::new("BENCH"),
-            state: -1,
-        }));
-
-        assert_eq!(queue.actions.len(), 2);
-        assert!(matches!(
-            queue.front(),
-            Some(NpcAction::UseMob { state: -1, .. })
-        ));
+    fn waypoint(name: &str) -> StringCanon {
+        StringCanon::new(name)
     }
 
     fn item(item: i32) -> InstanceId {
@@ -327,15 +148,57 @@ mod tests {
     }
 
     #[test]
+    fn queue_replaces_the_last_goto() {
+        let mut queue = NpcActionQueue::default();
+        assert!(queue.push_goto(waypoint("wp0")));
+        assert!(queue.push_goto(waypoint("wp1")));
+
+        assert_eq!(queue.actions.len(), 1);
+        let Some(QueuedAction::GoTo(action)) = queue.actions.front() else {
+            panic!("front action missing");
+        };
+        assert_eq!(action.waypoint.as_str(), "wp1");
+    }
+
+    #[test]
+    fn attack_always_appends() {
+        let mut queue = NpcActionQueue::default();
+        let target = Entity::PLACEHOLDER;
+        assert!(queue.push_attack(target));
+        assert!(queue.push_attack(target));
+
+        assert_eq!(queue.actions.len(), 2);
+    }
+
+    #[test]
+    fn use_mob_dedupes_the_last_request() {
+        let mut queue = NpcActionQueue::default();
+        assert!(queue.push_use_mob(waypoint("BENCH"), 1));
+        assert!(queue.push_use_mob(waypoint("BENCH"), 1));
+
+        assert_eq!(queue.actions.len(), 1);
+    }
+
+    #[test]
+    fn use_mob_replaces_the_queued_state_of_its_scheme() {
+        let mut queue = NpcActionQueue::default();
+        queue.push_use_mob(waypoint("BENCH"), 1);
+        queue.push_goto(waypoint("wp0"));
+
+        assert!(queue.push_use_mob(waypoint("BENCH"), -1));
+
+        assert_eq!(queue.actions.len(), 2);
+        assert!(matches!(
+            queue.actions.front(),
+            Some(QueuedAction::UseMob(action)) if action.state == -1
+        ));
+    }
+
+    #[test]
     fn use_item_state_dedupes_the_same_request() {
         let mut queue = NpcActionQueue::default();
-        let action = NpcAction::UseItemState {
-            item: item(1),
-            scheme: StringCanon::new("LUTE"),
-            state: 1,
-        };
-        assert!(queue.push(action.clone()));
-        assert!(queue.push(action));
+        assert!(queue.push_use_item_state(item(1), waypoint("LUTE"), 1));
+        assert!(queue.push_use_item_state(item(1), waypoint("LUTE"), 1));
 
         assert_eq!(queue.actions.len(), 1);
     }
@@ -343,16 +206,8 @@ mod tests {
     #[test]
     fn use_item_state_keeps_distinct_states() {
         let mut queue = NpcActionQueue::default();
-        queue.push(NpcAction::UseItemState {
-            item: item(1),
-            scheme: StringCanon::new("FIRESPIT"),
-            state: 5,
-        });
-        queue.push(NpcAction::UseItemState {
-            item: item(1),
-            scheme: StringCanon::new("FIRESPIT"),
-            state: 0,
-        });
+        queue.push_use_item_state(item(1), waypoint("FIRESPIT"), 5);
+        queue.push_use_item_state(item(1), waypoint("FIRESPIT"), 0);
 
         assert_eq!(queue.actions.len(), 2);
     }
@@ -360,8 +215,8 @@ mod tests {
     #[test]
     fn stand_up_does_not_stack() {
         let mut queue = NpcActionQueue::default();
-        assert!(queue.push(NpcAction::StandUp));
-        assert!(queue.push(NpcAction::StandUp));
+        assert!(queue.push_stand_up());
+        assert!(queue.push_stand_up());
 
         assert_eq!(queue.actions.len(), 1);
     }
@@ -369,62 +224,48 @@ mod tests {
     #[test]
     fn goto_replaces_a_queued_goto_behind_other_actions() {
         let mut queue = NpcActionQueue::default();
-        queue.push(NpcAction::UseMob {
-            scheme: StringCanon::new("BENCH"),
-            state: 1,
-        });
-        queue.push(waypoint("wp0"));
-        queue.mark_started();
+        queue.push_use_mob(waypoint("BENCH"), 1);
+        queue.push_goto(waypoint("wp0"));
 
-        assert!(queue.push(waypoint("wp1")));
+        assert!(queue.push_goto(waypoint("wp1")));
 
         assert_eq!(queue.actions.len(), 2);
         assert!(matches!(
             queue.actions.back(),
-            Some(NpcAction::GoToWaypoint { waypoint }) if waypoint.as_str() == "wp1"
+            Some(QueuedAction::GoTo(action)) if action.waypoint.as_str() == "wp1"
         ));
     }
 
     #[test]
-    fn clear_drops_every_action_and_resets_started() {
+    fn clear_drops_every_action() {
         let mut queue = NpcActionQueue::default();
-        queue.push(waypoint("wp0"));
-        queue.push(NpcAction::Attack {
-            target: Entity::PLACEHOLDER,
-        });
-        queue.mark_started();
+        queue.push_goto(waypoint("wp0"));
+        queue.push_attack(Entity::PLACEHOLDER);
 
         queue.clear();
 
-        assert!(queue.front().is_none());
-        assert!(!queue.started());
+        assert!(queue.actions.front().is_none());
     }
 
     #[test]
-    fn attack_swings_are_dropped_with_the_action() {
+    fn queue_is_capped() {
         let mut queue = NpcActionQueue::default();
-        queue.push(NpcAction::Attack {
-            target: Entity::PLACEHOLDER,
-        });
-        queue.attack_mut().swings.push_back(MeleeAttackKind::Left);
+        for _ in 0..MAX_QUEUED_ACTIONS {
+            assert!(queue.push_attack(Entity::PLACEHOLDER));
+        }
 
-        queue.pop_front();
-
-        assert!(queue.attack().swings.is_empty());
-
-        queue.push(NpcAction::Attack {
-            target: Entity::PLACEHOLDER,
-        });
-        queue.attack_mut().swings.push_back(MeleeAttackKind::Right);
-
-        queue.clear();
-
-        assert!(queue.attack().swings.is_empty());
+        assert!(!queue.push_attack(Entity::PLACEHOLDER));
     }
 
-    fn waypoint(name: &str) -> NpcAction {
-        NpcAction::GoToWaypoint {
-            waypoint: StringCanon::new(name),
-        }
+    #[test]
+    fn flush_waits_for_the_animation_controller() {
+        let mut queue = NpcActionQueue::default();
+        queue.push_attack(Entity::PLACEHOLDER);
+        assert!(!queue.can_flush_front(false));
+        assert!(queue.can_flush_front(true));
+
+        queue.clear();
+        queue.push_goto(waypoint("wp0"));
+        assert!(queue.can_flush_front(false));
     }
 }

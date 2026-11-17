@@ -11,13 +11,12 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
 use crate::graphics::{
-    AnimationController, AnimationEnds, AnimationGraph, animation_name_from_path,
+    AnimationController, AnimationEnds, AnimationGraph, AutoAnimSequencer, animation_name_from_path,
 };
 use crate::zengin::common::{animation_file_name, choose_animation_scheme};
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
-use crate::zengin::npc_actions::queue::NpcActionQueue;
 use crate::zengin::npc_routines::{
-    AnimationFiles, NpcOverlay, queue_named_animation, queue_stand_animation,
+    AnimationFiles, NpcOverlay, NpcPath, queue_named_animation, queue_stand_animation,
 };
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
@@ -54,16 +53,75 @@ pub(crate) struct UseItemStateAction {
 
 /// Executes the `AI_UseItemToState` action at the front of the queue.
 #[allow(clippy::too_many_arguments)]
-pub(super) fn run_item_use_state_action(
+pub(crate) fn run_use_item_state_action(
+    mut commands: Commands,
+    gothic_script: Res<ScriptResource>,
+    files: Res<AnimationFiles>,
+    mut handles: ResMut<CachedAssetHandles>,
+    asset_server: Res<AssetServer>,
+    graph: Option<Res<AnimationGraph>>,
+    mut npcs: Query<(
+        Entity,
+        &GameNpc,
+        &UseItemStateAction,
+        Option<&mut NpcItemUse>,
+        Option<&mut AnimationController>,
+        &NpcModel,
+        Option<&NpcOverlay>,
+        Option<&NpcPath>,
+        Option<&mut AutoAnimSequencer>,
+        Option<&NpcMobUse>,
+    )>,
+) {
+    for (
+        entity,
+        npc,
+        action,
+        item_use,
+        controller,
+        model,
+        overlay,
+        path,
+        mut sequencer,
+        npc_mob_use,
+    ) in &mut npcs
+    {
+        let moving = path.is_some() || sequencer.is_some();
+        let busy_with_mob = npc_mob_use.is_some();
+        run_item_use_state(
+            &mut commands,
+            entity,
+            npc,
+            action.item,
+            &action.scheme,
+            action.state,
+            item_use,
+            controller,
+            sequencer.as_deref_mut(),
+            model,
+            overlay,
+            moving,
+            busy_with_mob,
+            &gothic_script,
+            &files,
+            graph.as_deref(),
+            &mut handles,
+            &asset_server,
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_item_use_state(
     commands: &mut Commands,
     entity: Entity,
     npc: &GameNpc,
     item: InstanceId,
     scheme: &StringCanon,
     state: i32,
-    queue: &mut NpcActionQueue,
     mut item_use: Option<Mut<'_, NpcItemUse>>,
     controller: Option<Mut<AnimationController>>,
+    sequencer: Option<&mut AutoAnimSequencer>,
     model: &NpcModel,
     overlay: Option<&NpcOverlay>,
     moving: bool,
@@ -93,13 +151,14 @@ pub(super) fn run_item_use_state_action(
             entity,
             item_use.as_deref_mut(),
             &mut controller,
+            sequencer,
             model,
             overlay,
             files,
             handles,
             asset_server,
         );
-        queue.pop_front();
+        commands.entity(entity).remove::<ExecutingActionMarker>();
         return;
     }
 
@@ -109,7 +168,7 @@ pub(super) fn run_item_use_state_action(
         if let Some(item_use) = item_use.as_deref_mut() {
             item_use.target = state;
         }
-        queue.pop_front();
+        commands.entity(entity).remove::<ExecutingActionMarker>();
         return;
     }
 
@@ -124,7 +183,7 @@ pub(super) fn run_item_use_state_action(
             npc.instance_id(),
             item.value()
         );
-        queue.pop_front();
+        commands.entity(entity).remove::<ExecutingActionMarker>();
         return;
     }
 
@@ -156,7 +215,7 @@ pub(super) fn run_item_use_state_action(
         item.value(),
         state
     );
-    queue.pop_front();
+    commands.entity(entity).remove::<ExecutingActionMarker>();
 }
 
 /// Starts the item pose and returns the animation name that was queued.
@@ -251,6 +310,7 @@ fn release_item_use(
     entity: Entity,
     item_use: Option<&mut NpcItemUse>,
     controller: &mut AnimationController,
+    sequencer: Option<&mut AutoAnimSequencer>,
     model: &NpcModel,
     overlay: Option<&NpcOverlay>,
     files: &AnimationFiles,
@@ -273,7 +333,15 @@ fn release_item_use(
             asset_server,
         );
     if finished {
-        queue_stand_animation(controller, model, overlay, files, handles, asset_server);
+        queue_stand_animation(
+            controller,
+            sequencer,
+            model,
+            overlay,
+            files,
+            handles,
+            asset_server,
+        );
         commands.entity(entity).remove::<NpcItemUse>();
     }
 }
@@ -343,11 +411,14 @@ pub(crate) fn advance_item_use_animations(
         &mut AnimationController,
         &NpcModel,
         Option<&NpcOverlay>,
+        Option<&mut AutoAnimSequencer>,
         &mut NpcItemUse,
     )>,
 ) {
     for end in ends.read() {
-        let Ok((mut controller, model, overlay, mut item_use)) = npcs.get_mut(end.who) else {
+        let Ok((mut controller, model, overlay, mut sequencer, mut item_use)) =
+            npcs.get_mut(end.who)
+        else {
             continue;
         };
         if controller.current() != &end.what_animation {
@@ -396,6 +467,7 @@ pub(crate) fn advance_item_use_animations(
             if finished {
                 queue_stand_animation(
                     &mut controller,
+                    sequencer.as_deref_mut(),
                     model,
                     overlay,
                     &files,

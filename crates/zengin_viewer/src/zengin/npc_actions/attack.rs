@@ -12,13 +12,21 @@ use rand_mt::Mt;
 
 use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind,
-    is_melee_attack_animation,
+    SetDesiredAnimation, is_melee_attack_animation,
 };
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
-use crate::zengin::npc_actions::queue::{NpcAction, NpcActionQueue};
+use crate::zengin::npc_routines::{AnimationFiles, NpcHealth, NpcOverlay, queue_stand_animation};
+use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{FightAiResource, GameNpc};
+
+/// Horizontal distance within which an attacking npc stops chasing and swings.
+const ATTACK_RANGE: f32 = 1.0;
+
+/// Horizontal distance beyond which an attack action is abandoned.
+const ATTACK_MAX_DISTANCE: f32 = 100.0;
 
 /// Chases and melees the target entity.
 #[derive(Component)]
@@ -31,6 +39,162 @@ pub(crate) struct AttackAction {
     rng_seeded: bool,
 }
 
+impl AttackAction {
+    pub(crate) fn new(target: Entity) -> Self {
+        Self {
+            target,
+            swings: VecDeque::new(),
+            last_move: None,
+            rng: Mt::default(),
+            rng_seeded: false,
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn start_attack_action(
+    mut commands: Commands,
+    gothic_script: Res<ScriptResource>,
+    fight_ai: Res<FightAiResource>,
+    targets: Query<(&GlobalTransform, Option<&NpcHealth>)>,
+    mut npcs: Query<
+        (
+            Entity,
+            &GameNpc,
+            &mut AttackAction,
+            &Transform,
+            &mut AnimationController,
+        ),
+        Added<AttackAction>,
+    >,
+) {
+    for (entity, npc, mut action, transform, mut controller) in &mut npcs {
+        if !target_is_valid(npc.instance_id(), action.target, transform, &targets) {
+            commands.entity(entity).remove::<ExecutingActionMarker>();
+            continue;
+        }
+        draw_melee_weapon(&gothic_script, npc.instance_id());
+        let fai_move = begin_attack_move(
+            &mut action,
+            npc.instance_id(),
+            entity,
+            &fight_ai,
+            &gothic_script,
+        );
+        debug!(
+            "npc({}) attack starts FAI move({fai_move:?})",
+            npc.instance_id(),
+        );
+        controller.set_root_motion(true);
+        commands.entity(entity).insert(AutoAnimSequencer::default());
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn run_attack_action(
+    mut commands: Commands,
+    targets: Query<(&GlobalTransform, Option<&NpcHealth>)>,
+    mut desired: MessageWriter<SetDesiredAnimation>,
+    mut npcs: Query<(
+        Entity,
+        &GameNpc,
+        &mut AttackAction,
+        &Transform,
+        Option<&AutoAnimSequencer>,
+        Option<&mut AnimationController>,
+    )>,
+) {
+    for (entity, npc, action, transform, sequencer, controller) in &mut npcs {
+        if !target_is_valid(npc.instance_id(), action.target, transform, &targets) {
+            commands.entity(entity).remove::<ExecutingActionMarker>();
+            continue;
+        }
+
+        let Some(mut controller) = controller else {
+            crate::warn_once!(
+                "npc({}) attack waits for its animation controller (visual not spawned)",
+                npc.instance_id()
+            );
+            continue;
+        };
+
+        if sequencer.is_none() {
+            debug!(
+                "npc({}) attack inserts the animation sequencer",
+                npc.instance_id()
+            );
+            controller.set_root_motion(true);
+            commands.entity(entity).insert(AutoAnimSequencer::default());
+            continue;
+        }
+
+        let target_tr = targets
+            .get(action.target)
+            .map(|(target_tr, _)| target_tr)
+            .ok();
+        let Some(target_tr) = target_tr else {
+            continue;
+        };
+        let to_target = target_tr.translation() - transform.translation;
+        let horizontal = Vec3::new(to_target.x, 0.0, to_target.z);
+        let distance = horizontal.length();
+        let direction = horizontal.normalize_or_zero();
+        let direction = (direction.length_squared() > 0.0).then_some(direction);
+        let swing = action
+            .swings
+            .front()
+            .copied()
+            .unwrap_or(MeleeAttackKind::Default);
+        let animation = if distance <= ATTACK_RANGE {
+            DesiredAnimation::MeleeAttack(swing)
+        } else {
+            DesiredAnimation::Run
+        };
+        trace!(
+            "npc({}) attack desires {animation:?} at {distance:.2}m",
+            npc.instance_id()
+        );
+        desired.write(SetDesiredAnimation {
+            who: entity,
+            animation,
+            force_change: true,
+            direction,
+        });
+    }
+}
+
+pub(crate) fn end_attack_action(
+    mut removed: RemovedComponents<AttackAction>,
+    files: Res<AnimationFiles>,
+    mut handles: ResMut<CachedAssetHandles>,
+    asset_server: Res<AssetServer>,
+    mut npcs: Query<(
+        Option<&mut AutoAnimSequencer>,
+        Option<&mut AnimationController>,
+        &crate::gameplay::objects::NpcModel,
+        Option<&NpcOverlay>,
+    )>,
+) {
+    for entity in removed.read() {
+        let Ok((mut sequencer, controller, model, overlay)) = npcs.get_mut(entity) else {
+            continue;
+        };
+        let Some(mut controller) = controller else {
+            continue;
+        };
+        controller.set_root_motion(false);
+        queue_stand_animation(
+            &mut controller,
+            sequencer.as_deref_mut(),
+            model,
+            overlay,
+            &files,
+            &mut handles,
+            &asset_server,
+        );
+    }
+}
+
 pub(crate) fn advance_npc_attack_swings(
     mut ends: MessageReader<AnimationEnds>,
     gothic_script: Res<ScriptResource>,
@@ -38,7 +202,7 @@ pub(crate) fn advance_npc_attack_swings(
     mut npcs: Query<(
         Entity,
         &GameNpc,
-        &mut NpcActionQueue,
+        &mut AttackAction,
         &AnimationController,
         &mut AutoAnimSequencer,
     )>,
@@ -47,20 +211,17 @@ pub(crate) fn advance_npc_attack_swings(
         if !is_melee_attack_animation(&end.what_animation) {
             continue;
         }
-        let Ok((entity, npc, mut queue, controller, mut sequencer)) = npcs.get_mut(end.who) else {
+        let Ok((entity, npc, mut action, controller, mut sequencer)) = npcs.get_mut(end.who) else {
             continue;
         };
-        if !matches!(queue.front(), Some(NpcAction::Attack { .. })) {
-            continue;
-        }
         if controller.current() != &end.what_animation {
             continue;
         }
 
-        queue.attack_mut().swings.pop_front();
-        if queue.attack().swings.is_empty() {
+        action.swings.pop_front();
+        if action.swings.is_empty() {
             let Some(fai_move) = begin_attack_move(
-                &mut queue,
+                &mut action,
                 npc.instance_id(),
                 entity,
                 &fight_ai,
@@ -71,17 +232,44 @@ pub(crate) fn advance_npc_attack_swings(
             debug!("npc({}) next attack move({fai_move:?})", npc.instance_id());
         }
 
-        let Some(swing) = queue.attack().swings.front().copied() else {
+        let Some(swing) = action.swings.front().copied() else {
             continue;
         };
         sequencer.set_desired_now(DesiredAnimation::MeleeAttack(swing));
     }
 }
 
+fn target_is_valid(
+    instance: InstanceId,
+    target: Entity,
+    transform: &Transform,
+    targets: &Query<(&GlobalTransform, Option<&NpcHealth>)>,
+) -> bool {
+    let Ok((target_tr, target_health)) = targets.get(target) else {
+        warn!("npc({instance}) attack target({target}) is gone, dropping action");
+        return false;
+    };
+    if target_health.is_some_and(|health| health.hitpoints <= 0) {
+        warn!("npc({instance}) attack target({target}) is dead, dropping action");
+        return false;
+    }
+    let to_target = target_tr.translation() - transform.translation;
+    let horizontal = Vec3::new(to_target.x, 0.0, to_target.z);
+    let distance = horizontal.length();
+    if distance > ATTACK_MAX_DISTANCE {
+        warn!(
+            "npc({instance}) attack target is {distance:.1}m away (> {ATTACK_MAX_DISTANCE}m), \
+             dropping action"
+        );
+        return false;
+    }
+    true
+}
+
 /// Adds the swings of a freshly picked FAI move and returns it. `None` when the
 /// tactic has no attack entry.
 pub(super) fn begin_attack_move(
-    queue: &mut NpcActionQueue,
+    action: &mut AttackAction,
     instance: InstanceId,
     entity: Entity,
     fight_ai: &FightAiResource,
@@ -89,18 +277,31 @@ pub(super) fn begin_attack_move(
 ) -> Option<FightAiMove> {
     let tactic = gothic_script.lock().npc_fight_tactic(instance);
     let pool = tactic.map_or(&[][..], |tactic| fight_ai.0.focus_moves(tactic));
-    let previous = queue.attack().last_move;
+    let previous = action.last_move;
     let chosen = {
-        let rng = queue.attack_rng(instance, entity);
+        let rng = attack_rng(action, instance, entity);
         pick_focus_move(pool, previous, rng)
     }?;
     let swings = {
-        let rng = queue.attack_rng(instance, entity);
+        let rng = attack_rng(action, instance, entity);
         expand_fai_move(chosen, rng)
     };
-    queue.attack_mut().last_move = Some(chosen);
-    queue.attack_mut().swings.extend(swings);
+    action.last_move = Some(chosen);
+    action.swings.extend(swings);
     Some(chosen)
+}
+
+fn attack_rng<'a>(
+    action: &'a mut AttackAction,
+    instance: InstanceId,
+    entity: Entity,
+) -> &'a mut Mt {
+    if !action.rng_seeded {
+        action.rng_seeded = true;
+        let seed = entity.to_bits() as u32 ^ instance.value() as u32;
+        action.rng = Mt::new(seed);
+    }
+    &mut action.rng
 }
 
 /// Never returns the previous move when the pool has another attack; `None`
@@ -168,6 +369,25 @@ fn random_side(rng: &mut Mt) -> MeleeAttackKind {
     } else {
         MeleeAttackKind::Right
     }
+}
+
+/// Draws the melee weapon of an npc when it has one sheathed, unarmed npcs keep
+/// their fists.
+fn draw_melee_weapon(gothic_script: &ScriptResource, npc: InstanceId) {
+    let mut script = gothic_script.lock();
+    let (has_melee, mode) = script.npc_state(npc).map_or((false, None), |npc| {
+        (npc.equipment.melee.is_some(), npc.equipment.weapon_mode)
+    });
+    if !has_melee {
+        debug!("npc({npc}) has no melee weapon, attacking unarmed");
+        return;
+    }
+    if mode == Some(WeaponMode::Melee) {
+        trace!("npc({npc}) melee weapon already drawn");
+        return;
+    }
+    info!("npc({npc}) drawing its melee weapon for the attack");
+    script.draw_weapon(npc, false);
 }
 
 #[cfg(test)]
