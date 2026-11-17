@@ -14,7 +14,7 @@ use crate::graphics::{
 use crate::zengin::GameNpc;
 use crate::zengin::common::{choose_animation_scheme, face_direction_quat, get_animation_path};
 use crate::zengin::instance_index::InstanceIndex;
-use crate::zengin::npc_actions::{NpcActionQueue, NpcItemUse};
+use crate::zengin::npc_actions::{ExecutingActionMarker, NpcActionQueue, NpcItemUse};
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
@@ -127,6 +127,7 @@ pub(crate) fn update_npc_routines(
             &RoutineEntry,
             Option<&mut NpcRoutineState>,
             Option<&mut NpcActionQueue>,
+            Has<ExecutingActionMarker>,
         ),
         (Changed<RoutineEntry>, Without<ChildOf>),
     >,
@@ -139,7 +140,7 @@ pub(crate) fn update_npc_routines(
         commands.entity(entity).try_remove::<NpcRoutineState>();
     }
 
-    for (entity, npc, entry, routine_state, mut queue) in &mut npcs {
+    for (entity, npc, entry, routine_state, mut queue, executing) in &mut npcs {
         let Some(mut state) = routine_state else {
             // First assignment: npcs were already placed at the start hour by the
             // world load, only record the current assignment.
@@ -151,12 +152,14 @@ pub(crate) fn update_npc_routines(
         if state.assigned_waypoint == entry.way_point {
             continue;
         }
+        let busy = queue.as_ref().is_some_and(|queue| !queue.is_empty()) || executing;
         state.assigned_waypoint = entry.way_point.clone();
         queue_routine_waypoint(
             npc,
             entry,
             queue.as_deref_mut(),
             talking_npc == Some(npc.instance_id()),
+            busy,
         );
     }
 }
@@ -169,6 +172,7 @@ fn queue_routine_waypoint(
     entry: &RoutineEntry,
     queue: Option<&mut NpcActionQueue>,
     talking: bool,
+    busy: bool,
 ) {
     if talking {
         debug!(
@@ -186,7 +190,7 @@ fn queue_routine_waypoint(
         );
         return;
     };
-    if !queue.is_empty() {
+    if busy {
         debug!(
             "routine npc({}) busy, waypoint({}) not queued",
             npc.instance_id(),
@@ -469,6 +473,7 @@ pub(crate) fn run_routine_loops(
             &mut RoutineExecutor,
             Option<&RoutineEntry>,
             Option<&NpcActionQueue>,
+            Has<ExecutingActionMarker>,
         ),
         With<AnimationController>,
     >,
@@ -481,7 +486,7 @@ pub(crate) fn run_routine_loops(
     let minutes = game_time.minutes_of_day();
     let talking_npc = dialog_ui.talking_npc();
     let mut script = gothic_script.lock();
-    for (entity, npc, mut executor, entry, queue) in &mut npcs {
+    for (entity, npc, mut executor, entry, queue, executing) in &mut npcs {
         // Routine entries stop at their stop time even when no next entry is
         // active yet; the end hook releases a used mob or path.
         if executor.source == RoutineSource::Routine
@@ -506,13 +511,14 @@ pub(crate) fn run_routine_loops(
         if executor.next_loop_in > 0.0 {
             continue;
         }
-        // A daily routine runs only when the npc has no other action. The loop
-        // is paused, not the entry scheduling above; it resumes once the queue
-        // drains. Talking pauses it the same way.
-        if executor.source == RoutineSource::Routine
-            && (talking_npc == Some(npc.instance_id())
-                || queue.is_some_and(|queue| !queue.is_empty()))
-        {
+        // An executing action or a pending one pauses every loop, routine or
+        // AI state. The action queue drains and the loop resumes on its next
+        // tick. Talking pauses only daily routine loops.
+        let busy = queue.is_some_and(|queue| !queue.is_empty()) || executing;
+        if busy {
+            continue;
+        }
+        if executor.source == RoutineSource::Routine && talking_npc == Some(npc.instance_id()) {
             continue;
         }
         executor.bypass_change_detection().next_loop_in = ROUTINE_LOOP_INTERVAL_SECS;

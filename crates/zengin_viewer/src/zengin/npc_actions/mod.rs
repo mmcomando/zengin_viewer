@@ -12,7 +12,8 @@ mod stand_up;
 mod use_mob;
 
 pub(crate) use action::{
-    drop_item_pose_for_action, remove_actions_on_marker_removed, warn_direct_action_removal,
+    ExecutingActionMarker, drop_item_pose_for_action, remove_actions_on_marker_removed,
+    warn_direct_action_removal,
 };
 pub(crate) use attack::{
     AttackAction, advance_npc_attack_swings, end_attack_action, run_attack_action,
