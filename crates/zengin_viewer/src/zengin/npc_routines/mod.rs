@@ -113,9 +113,12 @@ impl Plugin for NpcRoutinesPlugin {
                         run_attack_action,
                         run_use_mob_action,
                         run_use_item_state_action,
-                    ),
+                    )
+                        .before(AutoAnimSequencerSet),
                     advance_npc_attack_swings.after(AutoAnimSequencerSet),
                 )
+                    // Enqueue -> end -> flush -> start -> run. `chain` inserts the
+                    // deferred-command sync points the transitions rely on.
                     .chain()
                     .after(update_npc_routines)
                     .after(clear_npc_actions),
