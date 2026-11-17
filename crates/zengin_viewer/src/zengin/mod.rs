@@ -1,4 +1,5 @@
 mod common;
+mod debug_npc;
 pub(crate) mod dialog;
 mod fight_ai;
 mod instance_index;
@@ -108,6 +109,7 @@ impl Plugin for ZenginPlugin {
         app.add_plugins(crate::graphics::AnimationTriggersPlugin);
         app.add_plugins(crate::zengin::script::component::GothicScriptsPlugin);
         app.add_plugins(crate::zengin::dialog::GameDialogPlugin);
+        app.add_plugins(crate::zengin::debug_npc::DebugNpcPlugin);
     }
 }
 
