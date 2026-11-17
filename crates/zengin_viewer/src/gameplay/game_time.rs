@@ -26,8 +26,8 @@ impl Plugin for GameTimePlugin {
     }
 }
 
-/// 24 in-game hours pass in 5 minutes of real time.
-const HOURS_PER_SECOND: f32 = 24.0 / (5.0 * 60.0);
+/// 24 in-game hours pass in 10 minutes of real time.
+const HOURS_PER_SECOND: f32 = 24.0 / (10.0 * 60.0);
 
 /// Current time of day of the running game.
 #[derive(Resource, Debug, Clone, Copy, Serialize, Deserialize)]
