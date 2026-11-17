@@ -1,10 +1,18 @@
 use avian3d::prelude::SpatialQuery;
 use bevy::prelude::*;
 
+use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::queue::NpcActionQueue;
 use crate::zengin::npc_routines::{NPC_BODY_Y_OFFSET, NpcPath, WayPoints};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::waypoint_graph::{WaypointGraph, WaypointNodeIndex, nearest_waypoint_node};
+
+/// Walks the npc to a named waypoint.
+#[derive(Component)]
+#[require(ExecutingActionMarker)]
+pub(crate) struct GoToWaypointAction {
+    pub(crate) waypoint: StringCanon,
+}
 
 #[allow(clippy::too_many_arguments, clippy::cognitive_complexity)]
 pub(super) fn start_goto(

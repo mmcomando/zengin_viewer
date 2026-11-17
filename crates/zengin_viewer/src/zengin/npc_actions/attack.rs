@@ -4,6 +4,8 @@
 //! picked, expanded into the engine's swing trace and played; when the trace is
 //! used up the next move is picked.
 
+use std::collections::VecDeque;
+
 use bevy::prelude::*;
 use daedalus_wasm::daedalus::FightAiMove;
 use rand_mt::Mt;
@@ -12,10 +14,22 @@ use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind,
     is_melee_attack_animation,
 };
+use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::queue::{NpcAction, NpcActionQueue};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{FightAiResource, GameNpc};
+
+/// Chases and melees the target entity.
+#[derive(Component)]
+#[require(ExecutingActionMarker)]
+pub(crate) struct AttackAction {
+    pub(crate) target: Entity,
+    pub(crate) swings: VecDeque<MeleeAttackKind>,
+    pub(crate) last_move: Option<FightAiMove>,
+    rng: Mt,
+    rng_seeded: bool,
+}
 
 pub(crate) fn advance_npc_attack_swings(
     mut ends: MessageReader<AnimationEnds>,

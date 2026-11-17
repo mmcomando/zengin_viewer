@@ -14,6 +14,7 @@ use crate::graphics::{
     AnimationController, AnimationEnds, AnimationGraph, animation_name_from_path,
 };
 use crate::zengin::common::{animation_file_name, choose_animation_scheme};
+use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::queue::NpcActionQueue;
 use crate::zengin::npc_routines::{
     AnimationFiles, NpcOverlay, queue_named_animation, queue_stand_animation,
@@ -40,6 +41,15 @@ pub(crate) struct NpcItemUse {
     /// ends are only advanced when they match it, so unrelated scripted
     /// animations are ignored.
     pub expected: Option<String>,
+}
+
+/// Holds or releases an inventory item pose.
+#[derive(Component)]
+#[require(ExecutingActionMarker)]
+pub(crate) struct UseItemStateAction {
+    pub(crate) item: InstanceId,
+    pub(crate) scheme: StringCanon,
+    pub(crate) state: i32,
 }
 
 /// Executes the `AI_UseItemToState` action at the front of the queue.

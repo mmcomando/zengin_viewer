@@ -16,10 +16,12 @@ use crate::graphics::AutoAnimSequencerSet;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 
 use crate::zengin::npc_actions::{
+    AttackAction, GoToWaypointAction, StandUpAction, UseItemStateAction, UseMobAction,
     advance_item_use_animations, advance_npc_attack_swings, clear_npc_actions,
     enqueue_align_actions, enqueue_attack_actions, enqueue_goto_actions, enqueue_goto_fp_actions,
     enqueue_stand_up_actions, enqueue_use_item_state_actions, enqueue_use_mob_actions,
-    run_npc_actions, sync_npc_item_body_state,
+    remove_actions_on_marker_removed, run_npc_actions, sync_npc_item_body_state,
+    warn_direct_action_removal,
 };
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
@@ -47,6 +49,17 @@ pub struct NpcRoutinesPlugin;
 impl Plugin for NpcRoutinesPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<NpcRoutineCheckState>();
+        app.add_observer(remove_actions_on_marker_removed);
+        app.add_systems(
+            Update,
+            (
+                warn_direct_action_removal::<GoToWaypointAction>,
+                warn_direct_action_removal::<AttackAction>,
+                warn_direct_action_removal::<UseMobAction>,
+                warn_direct_action_removal::<UseItemStateAction>,
+                warn_direct_action_removal::<StandUpAction>,
+            ),
+        );
         app.add_systems(
             Update,
             (
