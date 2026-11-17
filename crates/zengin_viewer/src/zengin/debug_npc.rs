@@ -17,7 +17,7 @@ use crate::zengin::script::symbol_id::InstanceId;
 
 /// Case-insensitive substring of the script symbol name of the npc to trace.
 /// Set it by hand when debugging, `None` disables the trace.
-pub(crate) static DEBUG_NPC: Option<&'static str> = Some("harad");
+pub(crate) static DEBUG_NPC: Option<&'static str> = Some("412_harad");
 
 /// Adds the [`DEBUG_NPC`] trace systems.
 pub struct DebugNpcPlugin;
@@ -101,7 +101,8 @@ fn log_animation_changes(mut npcs: Query<(Entity, &AnimationController, &mut Deb
         let next = controller
             .next()
             .map_or_else(|| "-".to_string(), |next| animation_label(next.path()));
-        let signature = format!("current={current} next={next}");
+        let root_motion = controller.root_motion();
+        let signature = format!("current={current} next={next} root_motion={root_motion}");
         if trace.animation == signature {
             continue;
         }
