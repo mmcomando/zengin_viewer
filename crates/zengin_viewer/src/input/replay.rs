@@ -18,6 +18,7 @@ use ron::extensions::Extensions;
 
 use crate::game_state::AppState;
 use crate::gameplay::character_camera::camera_toggle_input;
+use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::input::actions::{
@@ -269,6 +270,7 @@ fn replay_actions(
     mut editor: Query<&mut ActionState<EditorAction>, With<EditorInputMarker>>,
     gothic_script: Option<Res<ScriptResource>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+    mut game_time: ResMut<GameTime>,
     mut pending: ResMut<PendingLocations>,
     mut game_log: ResMut<GameLog>,
     mut next_state: ResMut<NextState<AppState>>,
@@ -292,6 +294,7 @@ fn replay_actions(
             &command,
             gothic_script.as_deref(),
             &player_npc,
+            &mut game_time,
             &mut pending,
             &mut commands,
             &mut game_log,
@@ -329,6 +332,7 @@ fn apply_replay_command(
     command: &ReplayCommand,
     gothic_script: Option<&ScriptResource>,
     player_npc: &Query<&GameNpc, With<PlayerCharacter>>,
+    game_time: &mut GameTime,
     pending: &mut PendingLocations,
     commands: &mut Commands,
     game_log: &mut GameLog,
@@ -365,6 +369,10 @@ fn apply_replay_command(
             ..
         } => {
             pending.camera.push((*translation, *rotation));
+        }
+        ReplayCommand::SetGameTimeSpeed { speed, .. } => {
+            game_time.speed = *speed;
+            info!("Replay set the in-game time speed multiplier to {speed}");
         }
         ReplayCommand::EquipWeapon { item, .. } => {
             let Some(gothic_script) = gothic_script else {
@@ -739,6 +747,18 @@ mod tests {
                 .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
         }
         assert!(found > 0);
+    }
+
+    #[test]
+    fn time_speed_command_parses_and_schedules() {
+        let commands =
+            parse("[SetGameTimeSpeed(frame: 4, speed: 2.5), Screenshot(path: \"shot.png\")]")
+                .unwrap();
+        assert_eq!(frames(&commands), [4, 9]);
+        assert!(matches!(
+            commands[0].command,
+            ReplayCommand::SetGameTimeSpeed { speed, .. } if speed == 2.5
+        ));
     }
 
     #[test]

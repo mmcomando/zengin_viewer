@@ -1,11 +1,11 @@
 // Recorded replay commands, replayable with --replay-actions
 [
-FilterSpawnWithPosition(frame: 0, points: [(center: (-60.6, 6.1, -21.9), radius: 20.0)]),
+    SetGameTimeSpeed(speed: 1.0),
+    FilterSpawnWithPosition(frame: 0, points: [(center: (-60.6, 6.1, -21.9), radius: 20.0)]),
     FilterNpcWithName(filters: ["harad"]),
     SpawnWorld(world: "NEWWORLD/NEWWORLD"),
 //
     TeleportPlayer(frame: 50, translation: (-60.610947, 6.082156, -21.910109), rotation: (0.0, 36.09063, 0.0)),
     SetCameraLocation(translation: (-60.610947, 6.082156, -21.910109), rotation: (-13.38763, -143.90936, -0.0000013164334)),
-    Screenshot(frame_dt: 100, path: "brian_position.png"),
-    // ExitGame(frame_dt: 20),
+    ExitGame(frame: 700),
 ]

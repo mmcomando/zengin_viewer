@@ -114,6 +114,15 @@ pub(crate) enum ReplayCommand {
         frame_dt: Option<u64>,
         item: String,
     },
+    /// Sets the in-game time speed multiplier, `0.0` pauses the time. Replays
+    /// start with a multiplier of `0.0`.
+    SetGameTimeSpeed {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        speed: f32,
+    },
     /// Toggles the armor item with the given (case-insensitive) instance symbol
     /// name on the player.
     ToggleArmor {
@@ -218,6 +227,9 @@ impl ReplayCommand {
                 frame, frame_dt, ..
             }
             | Self::EquipWeapon {
+                frame, frame_dt, ..
+            }
+            | Self::SetGameTimeSpeed {
                 frame, frame_dt, ..
             }
             | Self::ToggleArmor {
