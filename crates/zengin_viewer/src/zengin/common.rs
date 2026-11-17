@@ -107,6 +107,12 @@ pub fn get_world_dir_quat(dir_2d: Vec2) -> Quat {
     get_world_quat(Quat::from_rotation_y(-yaw))
 }
 
+/// Offset from `from` to `to` with the vertical component dropped.
+pub fn horizontal_offset(from: Vec3, to: Vec3) -> Vec3 {
+    let offset = to - from;
+    Vec3::new(offset.x, 0.0, offset.z)
+}
+
 /// Rotation making an npc model face the given Bevy-space horizontal direction
 /// (from the npc toward its target). Uses the same convention as waypoint
 /// placement, so it only produces a yaw.

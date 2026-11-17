@@ -759,26 +759,15 @@ pub(crate) fn move_along_path(
             continue;
         };
         transform.rotation = face_direction_quat(direction);
-
-        // The sequencer outlives a single action, so root motion has to be
-        // re-enabled here every time a new path starts.
-        controller.set_root_motion(true);
-
-        if sequencer.is_none() {
-            // Prepare the sequencer first, the desired animation message can
-            // only be consumed once the component is actually inserted
-            commands.entity(entity).insert(AutoAnimSequencer::default());
-            continue;
-        }
-
-        // `force_change` cuts the current animation immediately and re-queues
-        // every frame, which also covers animations still loading
-        desired.write(SetDesiredAnimation {
-            who: entity,
-            animation: DesiredAnimation::Run,
-            force_change: true,
-            direction: None,
-        });
+        queue_root_motion_animation(
+            &mut commands,
+            &mut desired,
+            entity,
+            &mut controller,
+            sequencer.as_deref(),
+            DesiredAnimation::Run,
+            None,
+        );
     }
 }
 
@@ -858,4 +847,34 @@ pub(crate) fn queue_stand_animation(
         asset_server,
         animation,
     );
+}
+
+/// Enables root motion and requests `animation`, which is re-issued every frame
+/// with `force_change` so animations that are still loading are not skipped.
+///
+/// The sequencer is inserted on first use, in which case the request only takes
+/// effect on the next frame: a desired animation message cannot be consumed
+/// before the component exists.
+pub(crate) fn queue_root_motion_animation(
+    commands: &mut Commands,
+    desired: &mut MessageWriter<SetDesiredAnimation>,
+    entity: Entity,
+    controller: &mut AnimationController,
+    sequencer: Option<&AutoAnimSequencer>,
+    animation: DesiredAnimation,
+    direction: Option<Vec3>,
+) {
+    // The sequencer outlives a single action, so root motion has to be
+    // re-enabled every time the npc starts moving again.
+    controller.set_root_motion(true);
+    if sequencer.is_none() {
+        commands.entity(entity).insert(AutoAnimSequencer::default());
+        return;
+    }
+    desired.write(SetDesiredAnimation {
+        who: entity,
+        animation,
+        force_change: true,
+        direction,
+    });
 }

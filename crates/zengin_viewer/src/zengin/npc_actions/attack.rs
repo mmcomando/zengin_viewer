@@ -14,8 +14,11 @@ use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind,
     SetDesiredAnimation, is_melee_attack_animation,
 };
+use crate::zengin::common::horizontal_offset;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
-use crate::zengin::npc_routines::{AnimationFiles, NpcHealth, NpcOverlay, queue_stand_animation};
+use crate::zengin::npc_routines::{
+    AnimationFiles, NpcHealth, NpcOverlay, queue_root_motion_animation, queue_stand_animation,
+};
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
@@ -118,18 +121,6 @@ pub(crate) fn run_attack_action(
             continue;
         };
 
-        // The sequencer outlives a single action, so root motion has to be
-        // re-enabled here every time the npc has to catch up to its target.
-        controller.set_root_motion(true);
-        if sequencer.is_none() {
-            debug!(
-                "npc({}) attack inserts the animation sequencer",
-                npc.instance_id()
-            );
-            commands.entity(entity).insert(AutoAnimSequencer::default());
-            continue;
-        }
-
         let target_tr = targets
             .get(action.target)
             .map(|(target_tr, _)| target_tr)
@@ -137,8 +128,7 @@ pub(crate) fn run_attack_action(
         let Some(target_tr) = target_tr else {
             continue;
         };
-        let to_target = target_tr.translation() - transform.translation;
-        let horizontal = Vec3::new(to_target.x, 0.0, to_target.z);
+        let horizontal = horizontal_offset(transform.translation, target_tr.translation());
         let distance = horizontal.length();
         let direction = horizontal.normalize_or_zero();
         let direction = (direction.length_squared() > 0.0).then_some(direction);
@@ -156,12 +146,15 @@ pub(crate) fn run_attack_action(
             "npc({}) attack desires {animation:?} at {distance:.2}m",
             npc.instance_id()
         );
-        desired.write(SetDesiredAnimation {
-            who: entity,
+        queue_root_motion_animation(
+            &mut commands,
+            &mut desired,
+            entity,
+            &mut controller,
+            sequencer,
             animation,
-            force_change: true,
             direction,
-        });
+        );
     }
 }
 

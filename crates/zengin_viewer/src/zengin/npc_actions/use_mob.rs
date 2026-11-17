@@ -6,10 +6,13 @@ use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
 use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
 };
-use crate::zengin::common::{MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, face_direction_quat};
+use crate::zengin::common::{
+    MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, face_direction_quat, horizontal_offset,
+};
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{
-    AnimationFiles, NPC_BODY_Y_OFFSET, NpcOverlay, queue_named_animation, queue_stand_animation,
+    AnimationFiles, NPC_BODY_Y_OFFSET, NpcOverlay, queue_named_animation,
+    queue_root_motion_animation, queue_stand_animation,
 };
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
@@ -144,23 +147,18 @@ pub(crate) fn run_use_mob_action(
         };
         claimed_mobs.insert(choice.mob);
 
-        let horizontal = choice.use_pos - transform.translation;
-        let horizontal = Vec3::new(horizontal.x, 0.0, horizontal.z);
+        let horizontal = horizontal_offset(transform.translation, choice.use_pos);
         if horizontal.length() > MOB_USE_DISTANCE {
             transform.rotation = face_direction_quat(horizontal);
-            // The sequencer outlives a single action, so root motion has to be
-            // re-enabled here every time the npc walks up to the mob.
-            controller.set_root_motion(true);
-            if sequencer.is_none() {
-                commands.entity(entity).insert(AutoAnimSequencer::default());
-                continue;
-            }
-            desired.write(SetDesiredAnimation {
-                who: entity,
-                animation: DesiredAnimation::Run,
-                force_change: true,
-                direction: Some(horizontal.normalize_or_zero()),
-            });
+            queue_root_motion_animation(
+                &mut commands,
+                &mut desired,
+                entity,
+                &mut controller,
+                sequencer.as_deref(),
+                DesiredAnimation::Run,
+                Some(horizontal.normalize_or_zero()),
+            );
             continue;
         }
 
