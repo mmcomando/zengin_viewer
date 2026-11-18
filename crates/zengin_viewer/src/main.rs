@@ -160,7 +160,11 @@ fn main() {
     } else if app.world().resource::<Options>().renderless() {
         crate::input::add_renderless_default_plugins(&mut app, window_plugin_options);
     } else {
-        app.add_plugins(DefaultPlugins.set(window_plugin_options));
+        app.add_plugins(
+            DefaultPlugins
+                .set(window_plugin_options)
+                .set(crate::input::scenario_log_plugin()),
+        );
     }
     let initial_state = if app.world().resource::<Options>().main_menu() {
         AppState::MainMenu

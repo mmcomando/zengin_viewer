@@ -9788,6 +9788,7 @@ dependencies = [
  "openxr",
  "pathfinding",
  "rand_mt",
+ "regex",
  "rodio",
  "ron",
  "serde",

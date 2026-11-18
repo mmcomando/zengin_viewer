@@ -19,6 +19,7 @@ use leafwing_input_manager::action_state::ActionKindData;
 use leafwing_input_manager::buttonlike::ButtonState;
 use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::{ActionState, Actionlike};
+use regex::Regex;
 use ron::Options as RonOptions;
 use ron::extensions::Extensions;
 
@@ -31,6 +32,7 @@ use crate::input::actions::{
     EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker, GuiAction,
     GuiInputMarker, SharedAction, SharedInputMarker, update_input_mode,
 };
+use crate::input::log_capture::LogBuffer;
 use crate::input::options::Options;
 use crate::input::record::{DEFAULT_FRAME_DT, RecordedAction, ReplayCommand};
 use crate::zengin::{
@@ -79,6 +81,9 @@ const COMPARE_CELL_THRESHOLD: f32 = 16.0 / 255.0;
 
 /// Fraction of changed grid cells that is still accepted as the same image.
 const COMPARE_MAX_CHANGED_FRACTION: f32 = 0.02;
+
+/// Number of trailing log lines reported when `LogExists` does not match.
+const LOG_EXISTS_TAIL_LINES: usize = 50;
 
 /// Workdir of the replay named by its file: contains all outputs (screenshots)
 /// of the replay under `misc/scenario_output/<file stem>/`.
@@ -332,6 +337,7 @@ fn replay_actions(
     mut next_state: ResMut<NextState<AppState>>,
     mut npc_filter: ResMut<NpcSpawnNameFilter>,
     mut spawn_filter: ResMut<SpawnPositionFilter>,
+    log_buffer: Option<Res<LogBuffer>>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let Some(mut replay) = replay else {
@@ -357,6 +363,7 @@ fn replay_actions(
             &mut next_state,
             &mut npc_filter,
             &mut spawn_filter,
+            log_buffer.as_deref(),
             &mut exit,
         ) {
             commands.remove_resource::<ActionReplay>();
@@ -395,6 +402,7 @@ fn apply_replay_command(
     next_state: &mut NextState<AppState>,
     npc_filter: &mut NpcSpawnNameFilter,
     spawn_filter: &mut SpawnPositionFilter,
+    log_buffer: Option<&LogBuffer>,
     exit: &mut MessageWriter<AppExit>,
 ) -> bool {
     match command {
@@ -515,6 +523,21 @@ fn apply_replay_command(
         ReplayCommand::ZenginFilterSpawnWithPosition { points, .. } => {
             spawn_filter.add(points);
             info!("Replay spawn position filters: {points:?}");
+        }
+        ReplayCommand::ClearLogBuffer { .. } => {
+            let Some(log_buffer) = log_buffer else {
+                warn!("ClearLogBuffer replay command ignored: log capture is not enabled");
+                return false;
+            };
+            log_buffer.clear();
+            info!("Replay cleared the captured log buffer");
+        }
+        ReplayCommand::LogExists { regex, .. } => {
+            let Some(log_buffer) = log_buffer else {
+                warn!("LogExists replay command ignored: log capture is not enabled");
+                return false;
+            };
+            check_log_exists(log_buffer, regex);
         }
         ReplayCommand::ExitGame { .. } => {
             if replay.reference.is_some() {
@@ -836,6 +859,38 @@ fn rotation_from_degrees(rotation: Vec3) -> Quat {
     )
 }
 
+/// Panics when no buffered log line matches `pattern`.
+fn check_log_exists(log_buffer: &LogBuffer, pattern: &str) {
+    let regex = match Regex::new(pattern) {
+        Ok(regex) => regex,
+        Err(error) => panic!("LogExists has an invalid regex {pattern:?}: {error}"),
+    };
+    let lines = log_buffer.snapshot();
+    if let Some(line) = matching_log_line(&lines, &regex) {
+        info!("LogExists matched {pattern:?} on line: {line}");
+        return;
+    }
+    let tail = lines
+        .iter()
+        .rev()
+        .take(LOG_EXISTS_TAIL_LINES)
+        .rev()
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n");
+    panic!(
+        "LogExists did not match {pattern:?} in {} captured log line(s). Last lines:\n{tail}",
+        lines.len()
+    );
+}
+
+fn matching_log_line<'a>(lines: &'a [String], regex: &Regex) -> Option<&'a str> {
+    lines
+        .iter()
+        .find(|line| regex.is_match(line))
+        .map(String::as_str)
+}
+
 /// Resolves a relative path inside the scenario workdir.
 ///
 /// Returns `None` for absolute paths, which abort the whole replay.
@@ -970,12 +1025,13 @@ fn toggle_player_armor(
 #[cfg(test)]
 mod tests {
     use image::{DynamicImage, Rgb, RgbImage};
+    use regex::Regex;
     use ron::Options as RonOptions;
     use ron::extensions::Extensions;
 
     use super::{
         COMPARE_MAX_CHANGED_FRACTION, ReplayCommand, ScheduledCommand, compare_images, diff_path,
-        schedule_commands,
+        matching_log_line, schedule_commands,
     };
 
     fn parse(commands: &str) -> Result<Vec<ScheduledCommand>, String> {
@@ -1136,5 +1192,27 @@ mod tests {
             diff_path(std::path::Path::new("workdir/screens/shot.png")),
             std::path::Path::new("workdir/screens/shot.diff.png")
         );
+    }
+
+    #[test]
+    fn log_commands_parse_and_schedule() {
+        let commands =
+            parse(r#"[ClearLogBuffer(frame: 2), LogExists(frame: 4, regex: "WARN.*missing")]"#)
+                .unwrap();
+        assert_eq!(frames(&commands), [2, 4]);
+        assert!(matches!(
+            &commands[1].command,
+            ReplayCommand::LogExists { regex, .. } if regex == "WARN.*missing"
+        ));
+    }
+
+    #[test]
+    fn log_exists_regex_matches_buffered_lines() {
+        let lines = vec![
+            "INFO zengin_viewer: loaded".to_string(),
+            "WARN zengin_viewer::npc: missing texture".to_string(),
+        ];
+        assert!(matching_log_line(&lines, &Regex::new("missing texture").unwrap()).is_some());
+        assert!(matching_log_line(&lines, &Regex::new("^ERROR").unwrap()).is_none());
     }
 }

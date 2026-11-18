@@ -219,6 +219,21 @@ pub(crate) enum ReplayCommand {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame_dt: Option<u64>,
     },
+    /// Panics when no captured log line matches the regex.
+    LogExists {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        regex: String,
+    },
+    /// Clears the captured log lines.
+    ClearLogBuffer {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+    },
 }
 
 /// Default offset used when a command has neither `frame` nor `frame_dt`.
@@ -280,6 +295,12 @@ impl ReplayCommand {
                 frame, frame_dt, ..
             }
             | Self::OpenMainMenu {
+                frame, frame_dt, ..
+            }
+            | Self::LogExists {
+                frame, frame_dt, ..
+            }
+            | Self::ClearLogBuffer {
                 frame, frame_dt, ..
             }
             | Self::ExitGame {

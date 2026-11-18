@@ -167,6 +167,7 @@ pub fn add_renderless_default_plugins(app: &mut App, window_plugin_options: Wind
     app.add_plugins(
         DefaultPlugins
             .set(window_plugin_options)
+            .set(crate::input::scenario_log_plugin())
             .disable::<bevy::winit::WinitPlugin>()
             .disable::<bevy::picking::input::PointerInputPlugin>()
             .disable::<bevy::window::WindowPlugin>()

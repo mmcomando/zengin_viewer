@@ -46,6 +46,7 @@ impl Plugin for XrPlugin {
             // the views are updated right before rendering so they are as accurate as possible
             DefaultPlugins
                 .set(options)
+                .set(crate::input::scenario_log_plugin())
                 .build()
                 .disable::<PipelinedRenderingPlugin>(),
         ));
