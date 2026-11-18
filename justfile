@@ -13,7 +13,7 @@ record-replay name:
 
 # Replay the commands from the given scenario
 run-replay name:
-    cargo run --  --replay-actions misc/scenarios/{{name}}.ron
+    cargo run -- --fixed-time --no-debug-gui --replay-actions misc/scenarios/{{name}}.ron
 
 # Replay a scenario that starts in the main menu instead of a new game.
 run-replay-menu name:
@@ -33,6 +33,7 @@ all-test-scenarios:
     just test-scenario stats
     just test-scenario journal
     just test-scenario dialog_lares
+    just test-scenario wolf_combat
 
 # Headless CPU profile: writes a ~1GB chrome trace, then prints heaviest spans.
 trace-chrome:

@@ -276,6 +276,16 @@ pub(crate) enum ReplayCommand {
         frame_dt: Option<u64>,
         regex: String,
     },
+    /// Panics when a captured log line matches the regex, the negative of
+    /// [`Self::LogExists`]. Usually paired with [`Self::ClearLogBuffer`] so it
+    /// only checks the events of the observed time window.
+    LogNotExists {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        regex: String,
+    },
     /// Clears the captured log lines.
     ClearLogBuffer {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -359,6 +369,9 @@ impl ReplayCommand {
                 frame, frame_dt, ..
             }
             | Self::LogExists {
+                frame, frame_dt, ..
+            }
+            | Self::LogNotExists {
                 frame, frame_dt, ..
             }
             | Self::ClearLogBuffer {

@@ -206,13 +206,22 @@ fn diff_path_keeps_the_screenshot_directory() {
 
 #[test]
 fn log_commands_parse_and_schedule() {
-    let commands =
-        parse(r#"[ClearLogBuffer(frame: 2), LogExists(frame: 4, regex: "WARN.*missing")]"#)
-            .unwrap();
-    assert_eq!(frames(&commands), [2, 4]);
+    let commands = parse(
+        r#"[
+            ClearLogBuffer(frame: 2),
+            LogExists(frame: 4, regex: "WARN.*missing"),
+            LogNotExists(frame: 6, regex: "ERROR.*missing"),
+        ]"#,
+    )
+    .unwrap();
+    assert_eq!(frames(&commands), [2, 4, 6]);
     assert!(matches!(
         &commands[1].command,
         ReplayCommand::LogExists { regex, .. } if regex == "WARN.*missing"
+    ));
+    assert!(matches!(
+        &commands[2].command,
+        ReplayCommand::LogNotExists { regex, .. } if regex == "ERROR.*missing"
     ));
 }
 

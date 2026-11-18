@@ -37,3 +37,19 @@ pub(super) fn matching_log_line<'a>(lines: &'a [String], regex: &Regex) -> Optio
         .find(|line| regex.is_match(line))
         .map(String::as_str)
 }
+
+/// Panics when a buffered log line matches `pattern`.
+pub(super) fn check_log_not_exists(log_buffer: &LogBuffer, pattern: &str) {
+    let regex = match Regex::new(pattern) {
+        Ok(regex) => regex,
+        Err(error) => panic!("LogNotExists has an invalid regex {pattern:?}: {error}"),
+    };
+    let lines = log_buffer.snapshot();
+    if let Some(line) = matching_log_line(&lines, &regex) {
+        panic!("LogNotExists matched {pattern:?} on line: {line}");
+    }
+    info!(
+        "LogNotExists matched no line in {} captured log line(s)",
+        lines.len()
+    );
+}
