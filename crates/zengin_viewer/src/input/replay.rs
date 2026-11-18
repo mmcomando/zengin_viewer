@@ -36,8 +36,8 @@ use crate::input::log_capture::LogBuffer;
 use crate::input::options::Options;
 use crate::input::record::{DEFAULT_FRAME_DT, RecordedAction, ReplayCommand};
 use crate::zengin::{
-    GameNpc, NpcSpawnNameFilter, ScriptResource, SpawnPositionFilter, WeaponKind, grant_test_items,
-    seed_test_journal,
+    DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptResource, SpawnPositionFilter, WeaponKind,
+    grant_test_items, seed_test_journal,
 };
 
 /// Replays the actions recorded with `--save-actions`.
@@ -523,6 +523,13 @@ fn apply_replay_command(
         ReplayCommand::ZenginFilterSpawnWithPosition { points, .. } => {
             spawn_filter.add(points);
             info!("Replay spawn position filters: {points:?}");
+        }
+        ReplayCommand::ZenginSetDebugNpc { name, .. } => {
+            info!("Replay debug npc filter: {name:?}");
+            let name = name.clone();
+            commands.queue(move |world: &mut World| {
+                world.resource_mut::<DebugNpc>().set(&name);
+            });
         }
         ReplayCommand::ClearLogBuffer { .. } => {
             let Some(log_buffer) = log_buffer else {
@@ -1135,6 +1142,16 @@ mod tests {
         assert!(matches!(
             &commands[0].command,
             ReplayCommand::TestWorld { name, .. } if name == "simple"
+        ));
+    }
+
+    #[test]
+    fn debug_npc_command_parses_and_schedules() {
+        let commands = parse("[ZenginSetDebugNpc(frame: 3, name: \"lares\")]").unwrap();
+        assert_eq!(frames(&commands), [3]);
+        assert!(matches!(
+            &commands[0].command,
+            ReplayCommand::ZenginSetDebugNpc { name, .. } if name == "lares"
         ));
     }
 

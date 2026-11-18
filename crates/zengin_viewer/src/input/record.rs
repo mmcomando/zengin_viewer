@@ -203,6 +203,16 @@ pub(crate) enum ReplayCommand {
         frame_dt: Option<u64>,
         points: Vec<SpawnPoint>,
     },
+    /// Selects the npc traced by the debug npc trace, matched as a
+    /// case-insensitive substring of its script symbol name. A blank `name`
+    /// disables the trace.
+    ZenginSetDebugNpc {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        name: String,
+    },
     /// Spawns the test world `name` defined in code, with its own camera.
     /// Does not load a zengin world archive.
     TestWorld {
@@ -283,6 +293,9 @@ impl ReplayCommand {
                 frame, frame_dt, ..
             }
             | Self::ZenginFilterSpawnWithPosition {
+                frame, frame_dt, ..
+            }
+            | Self::ZenginSetDebugNpc {
                 frame, frame_dt, ..
             }
             | Self::ZenginGiveTestItems {

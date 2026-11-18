@@ -1,5 +1,5 @@
 //! Manual per-npc trace: animations, position, weapons and actions of the npc
-//! selected by [`DEBUG_NPC`].
+//! selected by [`DebugNpc`].
 
 use bevy::asset::AssetPath;
 use bevy::prelude::*;
@@ -15,16 +15,12 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::symbol_id::InstanceId;
 
-/// Case-insensitive substring of the script symbol name of the npc to trace.
-/// Set it by hand when debugging, `None` disables the trace.
-// pub(crate) static DEBUG_NPC: Option<&'static str> = Some("lares");
-pub(crate) static DEBUG_NPC: Option<&'static str> = None;
-
-/// Adds the [`DEBUG_NPC`] trace systems.
+/// Adds the [`DebugNpc`] trace systems.
 pub struct DebugNpcPlugin;
 
 impl Plugin for DebugNpcPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<DebugNpc>();
         app.add_systems(
             Update,
             (
@@ -35,6 +31,23 @@ impl Plugin for DebugNpcPlugin {
             )
                 .run_if(debug_npc_configured),
         );
+    }
+}
+
+/// Case-insensitive substring of the script symbol name of the npc to trace.
+/// `None` disables the trace.
+#[derive(Resource, Default)]
+pub(crate) struct DebugNpc(Option<String>);
+
+impl DebugNpc {
+    /// Selects the traced npc; a blank `name` disables the trace.
+    pub(crate) fn set(&mut self, name: &str) {
+        let name = name.trim().to_lowercase();
+        self.0 = (!name.is_empty()).then_some(name);
+    }
+
+    fn filter(&self) -> Option<&str> {
+        self.0.as_deref()
     }
 }
 
@@ -56,43 +69,55 @@ impl Default for DebugNpcTrace {
     }
 }
 
-fn debug_npc_configured() -> bool {
-    DEBUG_NPC.is_some_and(|filter| !filter.trim().is_empty())
+fn debug_npc_configured(debug_npc: Res<DebugNpc>) -> bool {
+    debug_npc.filter().is_some()
 }
 
-fn debug_npc_filter() -> Option<String> {
-    let filter = DEBUG_NPC?.trim().to_lowercase();
-    (!filter.is_empty()).then_some(filter)
-}
-
-#[allow(clippy::type_complexity)]
 fn mark_debug_npc(
     mut commands: Commands,
     scripts: Option<Res<ScriptResource>>,
-    npcs: Query<(Entity, &GameNpc), (Added<GameNpc>, Without<DebugNpcTrace>)>,
+    debug_npc: Res<DebugNpc>,
+    npcs: Query<(Entity, &GameNpc, Has<DebugNpcTrace>)>,
+    spawned: Query<Entity, Added<GameNpc>>,
 ) {
-    let Some(filter) = debug_npc_filter() else {
+    let Some(filter) = debug_npc.filter() else {
         return;
     };
     let Some(scripts) = scripts else {
         return;
     };
+    // A changed filter has to be re-evaluated for npcs marked by the old one,
+    // otherwise only newly spawned npcs need to be considered.
+    let rescan = debug_npc.is_changed();
     let scripts = scripts.lock();
-    for (entity, npc) in &npcs {
-        let Some(name) = scripts
-            .symbol_table()
-            .symbol_name(npc.instance_id().value())
-        else {
-            continue;
-        };
-        if !name.to_lowercase().contains(&filter) {
+    for (entity, npc, traced) in &npcs {
+        if !rescan && (traced || !spawned.contains(entity)) {
             continue;
         }
-        info!(
-            "DebugNPC: tracing npc({name}) instance({}) entity({entity})",
-            npc.instance_id()
-        );
-        commands.entity(entity).insert(DebugNpcTrace::default());
+        let name = scripts
+            .symbol_table()
+            .symbol_name(npc.instance_id().value());
+        let matches = name
+            .as_deref()
+            .is_some_and(|name| name.to_lowercase().contains(filter));
+        match (matches, traced) {
+            (true, false) => {
+                info!(
+                    "DebugNPC: tracing npc({}) instance({}) entity({entity})",
+                    name.as_deref().unwrap_or_default(),
+                    npc.instance_id()
+                );
+                commands.entity(entity).insert(DebugNpcTrace::default());
+            }
+            (false, true) => {
+                info!(
+                    "DebugNPC: stopped tracing entity({entity}) instance({})",
+                    npc.instance_id()
+                );
+                commands.entity(entity).remove::<DebugNpcTrace>();
+            }
+            _ => {}
+        }
     }
 }
 
