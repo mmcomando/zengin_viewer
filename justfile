@@ -32,6 +32,7 @@ update-test-scenario name:
 all-test-scenarios:
     just test-scenario stats
     just test-scenario journal
+    just test-scenario dialog_lares
 
 # Headless CPU profile: writes a ~1GB chrome trace, then prints heaviest spans.
 trace-chrome:

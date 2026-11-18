@@ -521,6 +521,19 @@ fn apply_replay_command(
                 crate::zengin::request_world_spawn(world, &world_name);
             });
         }
+        ReplayCommand::ZenginScriptStartup {
+            world, clean_world, ..
+        } => {
+            let Some(gothic_script) = gothic_script else {
+                panic!("ZenginScriptStartup replay command: game script is not loaded");
+            };
+            info!("Replay running the script entry points of {world}");
+            let started = gothic_script.lock().run_world_scripts(world, *clean_world);
+            assert!(
+                started,
+                "ZenginScriptStartup replay command: no script name for world({world})"
+            );
+        }
         ReplayCommand::TestWorld { name, .. } => {
             info!("Replay requested the test world {name}");
             let name = name.clone();
@@ -1190,6 +1203,30 @@ mod tests {
         assert!(matches!(
             &commands[0].command,
             ReplayCommand::TestWorld { name, .. } if name == "simple"
+        ));
+    }
+
+    #[test]
+    fn script_startup_command_parses_and_schedules() {
+        let commands =
+            parse("[ZenginScriptStartup(frame: 3, world: \"NEWWORLD/NEWWORLD\")]").unwrap();
+        assert_eq!(frames(&commands), [3]);
+        assert!(matches!(
+            &commands[0].command,
+            ReplayCommand::ZenginScriptStartup { world, clean_world: false, .. }
+                if world == "NEWWORLD/NEWWORLD"
+        ));
+
+        let commands = parse(
+            "[ZenginScriptStartup(frame: 3, clean_world: true, world: \"NEWWORLD/NEWWORLD\")]",
+        )
+        .unwrap();
+        assert!(matches!(
+            &commands[0].command,
+            ReplayCommand::ZenginScriptStartup {
+                clean_world: true,
+                ..
+            }
         ));
     }
 

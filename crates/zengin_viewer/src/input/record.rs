@@ -191,6 +191,24 @@ pub(crate) enum ReplayCommand {
         frame_dt: Option<u64>,
         world: String,
     },
+    /// Runs the world script entry points of `world` without loading its
+    /// zengin world. Replay runs skip the default world spawn, so a test world
+    /// scenario needs this to get the game state a new game sets up (e.g. the
+    /// `KAPITEL` chapter used by dialog conditions). `world` uses the same
+    /// format as [`Self::ZenginSpawnWorld`].
+    ///
+    /// `clean_world` also runs the `startup_*` entry points, which assume an
+    /// empty world and insert its npcs/items. Only set it when the scenario
+    /// loads the matching zengin world too.
+    ZenginScriptStartup {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        world: String,
+        #[serde(default)]
+        clean_world: bool,
+    },
     /// Adds name filters for npc spawning. An npc is spawned when its script
     /// symbol name or display name contains any of `filters`
     /// (case-insensitive). Repeated commands extend the same list.
@@ -311,6 +329,9 @@ impl ReplayCommand {
                 frame, frame_dt, ..
             }
             | Self::ZenginSpawnWorld {
+                frame, frame_dt, ..
+            }
+            | Self::ZenginScriptStartup {
                 frame, frame_dt, ..
             }
             | Self::ZenginFilterNpcWithName {

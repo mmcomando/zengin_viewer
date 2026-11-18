@@ -102,6 +102,11 @@ impl ScriptManager {
         }
     }
 
+    /// Runs the world script entry points without loading the world itself.
+    pub fn run_world_scripts(&mut self, world_name: &str, clean_world: bool) -> bool {
+        self.run_world_entry_points(world_name, clean_world)
+    }
+
     fn call_optional_function(&mut self, name: &str) {
         let Some(function) = self.try_get_function_id(name) else {
             warn!("Script function({name}) is missing, skipped");
