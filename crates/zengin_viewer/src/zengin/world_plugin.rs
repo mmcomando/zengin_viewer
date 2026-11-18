@@ -61,10 +61,14 @@ impl Plugin for ZenGinWorldPlugin {
         app.init_resource::<LoadingWorld>();
         app.init_resource::<PendingWorldSpawns>();
         app.init_resource::<NpcSpawnNameFilter>();
+        app.init_resource::<LoadScreenElapsed>();
 
         app.add_message::<RestartWorld>();
         app.add_message::<NewGame>();
-        app.add_systems(OnEnter(AppState::LoadScreen), request_initial_world);
+        app.add_systems(
+            OnEnter(AppState::LoadScreen),
+            (reset_load_screen_elapsed, request_initial_world),
+        );
         app.add_systems(First, restart_world.run_if(on_message::<RestartWorld>));
         app.add_systems(First, new_game.run_if(on_message::<NewGame>));
         app.add_systems(
@@ -134,6 +138,10 @@ impl Default for LoadingWorld {
         Self(START_WORLD.to_string())
     }
 }
+
+/// Total time spent in [`AppState::LoadScreen`].
+#[derive(Resource, Default)]
+struct LoadScreenElapsed(f32);
 
 /// Case-insensitive substring filters matched against an npc's script symbol
 /// and display names. An empty list matches every npc.
@@ -297,20 +305,37 @@ pub(crate) fn begin_world_load(
         });
 }
 
+/// Fallback for a world mesh that never produces a collider, so a broken asset
+/// cannot trap the app on the loading screen.
+const LOAD_TIMEOUT: f32 = 10.0;
+
+fn reset_load_screen_elapsed(mut elapsed: ResMut<LoadScreenElapsed>) {
+    elapsed.0 = 0.0;
+}
+
 /// Marks the world ready once the world mesh collider entities exist. Physics
-/// and the character controller stay paused until then.
+/// and the character controller stay paused until then, but [`LOAD_TIMEOUT`]
+/// resumes them anyway so a missing collider does not block the game forever.
 fn finish_world_load(
+    time: Res<Time>,
+    mut elapsed: ResMut<LoadScreenElapsed>,
     world_mesh: Query<&Children, (With<WorldMesh>, With<ZenGinModelComponentLoaded>)>,
     colliders: Query<(), With<Collider>>,
     mut load_state: ResMut<NextState<AppState>>,
 ) {
+    elapsed.0 += time.delta_secs();
     let has_collider = world_mesh
         .iter()
         .any(|children| children.iter().any(|child| colliders.contains(child)));
-    if !has_collider {
+    if has_collider {
+        info!("World mesh colliders ready, resuming physics");
+    } else if elapsed.0 >= LOAD_TIMEOUT {
+        warn!(
+            "World mesh colliders still missing after {LOAD_TIMEOUT}s, resuming physics without them"
+        );
+    } else {
         return;
     }
-    info!("World mesh colliders ready, resuming physics");
     load_state.set(AppState::InGame);
 }
 
