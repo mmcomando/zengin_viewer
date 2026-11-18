@@ -4,18 +4,18 @@ use crate::graphics::AnimationController;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::queue::{NpcActionQueue, QueuedAction};
 
-/// Moves the front queued action onto an npc that is not executing anything.
+/// Moves the front queued action onto an npc that is not executing anything and
+/// has an animation controller, i.e. is animated. Far npcs that were never near
+/// keep their actions queued.
+#[allow(clippy::type_complexity)]
 pub(crate) fn flush_npc_action_queue(
     mut commands: Commands,
     mut npcs: Query<
-        (Entity, &mut NpcActionQueue, Option<&AnimationController>),
-        Without<ExecutingActionMarker>,
+        (Entity, &mut NpcActionQueue),
+        (With<AnimationController>, Without<ExecutingActionMarker>),
     >,
 ) {
-    for (entity, mut queue, controller) in &mut npcs {
-        if !queue.can_flush_front(controller.is_some()) {
-            continue;
-        }
+    for (entity, mut queue) in &mut npcs {
         let Some(action) = queue.pop_front() else {
             continue;
         };
@@ -46,7 +46,7 @@ mod tests {
     }
 
     #[test]
-    fn goto_flushes_without_a_controller() {
+    fn nothing_flushes_without_an_animation_controller() {
         let mut app = app();
         let mut queue = NpcActionQueue::default();
         assert!(queue.push_goto(StringCanon::new("wp0")));
@@ -54,10 +54,9 @@ mod tests {
 
         app.update();
 
-        assert!(app.world().get::<GoToWaypointAction>(entity).is_some());
-        assert!(app.world().get::<ExecutingActionMarker>(entity).is_some());
+        assert!(app.world().get::<GoToWaypointAction>(entity).is_none());
         assert!(
-            app.world()
+            !app.world()
                 .get::<NpcActionQueue>(entity)
                 .unwrap()
                 .is_empty()
@@ -65,7 +64,7 @@ mod tests {
     }
 
     #[test]
-    fn attack_waits_for_the_animation_controller() {
+    fn attack_flushes_once_the_animation_controller_appears() {
         let mut app = app();
         let mut queue = NpcActionQueue::default();
         assert!(queue.push_attack(Entity::PLACEHOLDER));

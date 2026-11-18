@@ -1,13 +1,9 @@
 use avian3d::prelude::SpatialQuery;
 use bevy::prelude::*;
 
-use crate::gameplay::objects::NpcModel;
 use crate::graphics::{AnimationController, AutoAnimSequencer};
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
-use crate::zengin::npc_routines::{
-    AnimationFiles, NPC_BODY_Y_OFFSET, NpcOverlay, NpcPath, WayPoints, queue_stand_animation,
-};
-use crate::zengin::resources::CachedAssetHandles;
+use crate::zengin::npc_routines::{NPC_BODY_Y_OFFSET, NpcPath, WayPoints, queue_stand_animation};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::waypoint_graph::{WaypointGraph, WaypointNodeIndex, nearest_waypoint_node};
 
@@ -74,19 +70,14 @@ pub(crate) fn run_goto_action(
 pub(crate) fn end_goto_action(
     mut commands: Commands,
     mut removed: RemovedComponents<GoToWaypointAction>,
-    files: Res<AnimationFiles>,
-    mut handles: ResMut<CachedAssetHandles>,
-    asset_server: Res<AssetServer>,
     mut npcs: Query<(
         Option<&NpcPath>,
-        Option<&mut AutoAnimSequencer>,
-        Option<&mut AnimationController>,
-        &NpcModel,
-        Option<&NpcOverlay>,
+        &mut AutoAnimSequencer,
+        &mut AnimationController,
     )>,
 ) {
     for entity in removed.read() {
-        let Ok((path, mut sequencer, controller, model, overlay)) = npcs.get_mut(entity) else {
+        let Ok((path, mut sequencer, mut controller)) = npcs.get_mut(entity) else {
             continue;
         };
         // A path means `move_along_path` did not finish, the action was canceled.
@@ -94,19 +85,8 @@ pub(crate) fn end_goto_action(
             continue;
         }
         commands.entity(entity).remove::<NpcPath>();
-        let Some(mut controller) = controller else {
-            continue;
-        };
         controller.set_root_motion(false);
-        queue_stand_animation(
-            &mut controller,
-            sequencer.as_deref_mut(),
-            model,
-            overlay,
-            &files,
-            &mut handles,
-            &asset_server,
-        );
+        queue_stand_animation(&mut sequencer);
     }
 }
 

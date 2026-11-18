@@ -31,7 +31,7 @@ pub(super) fn send_desired_animations(
             Entity,
             Option<&NpcWeaponMode>,
             &GlobalTransform,
-            Option<&AnimationController>,
+            &AnimationController,
         ),
         (With<PlayerCharacter>, With<AutoAnimSequencer>),
     >,
@@ -51,7 +51,7 @@ pub(super) fn send_desired_animations(
     // swing is played or queued, so mashing does not chain swings.
     if let Some(kind) = directional_attack(&action_state)
         && mode == WeaponMode::Melee
-        && !controller.is_some_and(swing_is_playing)
+        && !swing_is_playing(controller)
     {
         set_attack_animation(
             entity,

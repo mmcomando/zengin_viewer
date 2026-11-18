@@ -93,13 +93,6 @@ impl NpcActionQueue {
         true
     }
 
-    /// Whether the front action can be moved onto the npc now.
-    pub(super) fn can_flush_front(&self, has_controller: bool) -> bool {
-        self.actions
-            .front()
-            .is_some_and(|action| !action.needs_animation_controller() || has_controller)
-    }
-
     /// Whether any action is pending.
     pub(crate) fn is_empty(&self) -> bool {
         self.actions.is_empty()
@@ -121,15 +114,6 @@ pub(crate) enum QueuedAction {
     UseMob(UseMobAction),
     UseItemState(UseItemStateAction),
     StandUp(StandUpAction),
-}
-
-impl QueuedAction {
-    fn needs_animation_controller(&self) -> bool {
-        matches!(
-            self,
-            QueuedAction::Attack(_) | QueuedAction::UseMob(_) | QueuedAction::UseItemState(_)
-        )
-    }
 }
 
 /// Upper bound of queued actions, including the action at the front.
@@ -255,17 +239,5 @@ mod tests {
         }
 
         assert!(!queue.push_attack(Entity::PLACEHOLDER));
-    }
-
-    #[test]
-    fn flush_waits_for_the_animation_controller() {
-        let mut queue = NpcActionQueue::default();
-        queue.push_attack(Entity::PLACEHOLDER);
-        assert!(!queue.can_flush_front(false));
-        assert!(queue.can_flush_front(true));
-
-        queue.clear();
-        queue.push_goto(waypoint("wp0"));
-        assert!(queue.can_flush_front(false));
     }
 }

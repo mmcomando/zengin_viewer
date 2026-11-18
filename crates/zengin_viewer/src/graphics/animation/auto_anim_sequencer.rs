@@ -55,7 +55,7 @@ impl Plugin for AutoAnimSequencerPlugin {
         app.add_systems(
             Update,
             (
-                add_auto_anim_sequencer,
+                enable_player_root_motion,
                 send_desired_animations,
                 apply_desired_animations,
                 apply_forced_change,
@@ -242,22 +242,28 @@ impl AutoAnimSequencer {
         self.desired = Some(animation);
         self.force_change = true;
     }
+
+    /// Stops the graph from driving the animation. A directly queued animation
+    /// (scripted, item or mob pose) is left to play and loop on its own.
+    pub fn suspend(&mut self) {
+        self.desired = None;
+        self.force_change = false;
+        self.direction = None;
+    }
 }
 
-/// Adds the sequencer to the player animation model and enables root motion
-/// driven movement. Survives visual respawns.
-#[allow(clippy::type_complexity)]
-fn add_auto_anim_sequencer(
-    mut commands: Commands,
+/// Enables root motion driven movement of the player visual. The sequencer is
+/// inserted together with the [`AnimationController`] by the near-distance npc
+/// spawn; this only has to survive visual respawns, which re-insert the
+/// controller.
+fn enable_player_root_motion(
     mut players: Query<
-        (Entity, &mut AnimationController),
+        &mut AnimationController,
         (Added<AnimationController>, With<PlayerCharacter>),
     >,
 ) {
-    for (entity, mut controller) in &mut players {
-        // The sequencer drives the player by root motion
+    for mut controller in &mut players {
         controller.set_root_motion(true);
-        commands.entity(entity).insert(AutoAnimSequencer::default());
     }
 }
 
@@ -409,20 +415,29 @@ fn advance_sequencer_on_end(
     handles: &mut CachedAssetHandles,
     asset_server: &AssetServer,
 ) {
-    let Some(current) = animation_index(graph, controller.current()) else {
-        warn!(
-            "AutoAnimSequencer({entity}) current animation missing from the graph, desired({:?}) unreachable",
-            seq.desired
-        );
-        return;
-    };
     let Some(desired) = seq.desired else {
-        warn!("AutoAnimSequencer({entity}) animation end without a desired animation");
+        // Passive sequencer: the animation is driven directly (scripted, item
+        // or mob pose), leave it alone.
         return;
     };
     let Some(desired_index) = resolve_animation(graph, scheme, desired, weapon_mode) else {
         warn!(
             "AutoAnimSequencer({entity}) scheme({scheme}) has no animation for desired({desired:?})"
+        );
+        return;
+    };
+    let Some(current) = animation_index(graph, controller.current()) else {
+        // The current animation is not a graph node (a pose of another scheme),
+        // so there is no path to walk: cut straight to the desired one.
+        debug!(
+            "AutoAnimSequencer({entity}) current animation not in the graph, cutting to desired({desired:?})"
+        );
+        queue_animation(
+            controller,
+            handles,
+            asset_server,
+            graph.animation_name(desired_index),
+            seq.force_change && !is_hit_reaction(controller.current()),
         );
         return;
     };

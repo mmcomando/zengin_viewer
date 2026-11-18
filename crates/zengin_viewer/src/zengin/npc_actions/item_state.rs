@@ -52,7 +52,7 @@ pub(crate) struct UseItemStateAction {
 }
 
 /// Executes the `AI_UseItemToState` action at the front of the queue.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+#[allow(clippy::type_complexity)]
 pub(crate) fn run_use_item_state_action(
     mut commands: Commands,
     gothic_script: Res<ScriptResource>,
@@ -65,11 +65,11 @@ pub(crate) fn run_use_item_state_action(
         &GameNpc,
         &UseItemStateAction,
         Option<&mut NpcItemUse>,
-        Option<&mut AnimationController>,
+        &mut AnimationController,
         &NpcModel,
         Option<&NpcOverlay>,
         Option<&NpcPath>,
-        Option<&mut AutoAnimSequencer>,
+        &mut AutoAnimSequencer,
         Option<&NpcMobUse>,
     )>,
 ) {
@@ -78,7 +78,7 @@ pub(crate) fn run_use_item_state_action(
         npc,
         action,
         item_use,
-        controller,
+        mut controller,
         model,
         overlay,
         path,
@@ -86,7 +86,9 @@ pub(crate) fn run_use_item_state_action(
         npc_mob_use,
     ) in &mut npcs
     {
-        let moving = path.is_some() || sequencer.is_some();
+        // The pose belongs to a standing npc: a leftover path is a canceled walk
+        // and root motion means the walk has not settled yet.
+        let moving = path.is_some() || controller.root_motion();
         let busy_with_mob = npc_mob_use.is_some();
         run_item_use_state(
             &mut commands,
@@ -96,8 +98,8 @@ pub(crate) fn run_use_item_state_action(
             &action.scheme,
             action.state,
             item_use,
-            controller,
-            sequencer.as_deref_mut(),
+            &mut controller,
+            &mut sequencer,
             model,
             overlay,
             moving,
@@ -120,8 +122,8 @@ fn run_item_use_state(
     scheme: &StringCanon,
     state: i32,
     mut item_use: Option<Mut<'_, NpcItemUse>>,
-    controller: Option<Mut<AnimationController>>,
-    sequencer: Option<&mut AutoAnimSequencer>,
+    controller: &mut AnimationController,
+    sequencer: &mut AutoAnimSequencer,
     model: &NpcModel,
     overlay: Option<&NpcOverlay>,
     moving: bool,
@@ -136,21 +138,13 @@ fn run_item_use_state(
     if moving || busy_with_mob {
         return;
     }
-    let Some(mut controller) = controller else {
-        crate::warn_once!(
-            "npc({}) AI_UseItemToState({}) waits for its animation controller",
-            npc.instance_id(),
-            scheme
-        );
-        return;
-    };
 
     if state < 0 {
         release_item_use(
             commands,
             entity,
             item_use.as_deref_mut(),
-            &mut controller,
+            controller,
             sequencer,
             model,
             overlay,
@@ -192,8 +186,11 @@ fn run_item_use_state(
     // alias through the animation graph before giving up.
     let resolved = resolve_scheme(model, overlay, files, graph, scheme.as_str());
     let scheme = resolved.map_or_else(|| scheme.clone(), StringCanon::new);
+    // The pose loops on its own; the sequencer must not switch it back to the
+    // standing idle when the pose animation ends.
+    sequencer.suspend();
     let expected = start_animation(
-        &mut controller,
+        controller,
         model,
         overlay,
         files,
@@ -310,7 +307,7 @@ fn release_item_use(
     entity: Entity,
     item_use: Option<&mut NpcItemUse>,
     controller: &mut AnimationController,
-    sequencer: Option<&mut AutoAnimSequencer>,
+    sequencer: &mut AutoAnimSequencer,
     model: &NpcModel,
     overlay: Option<&NpcOverlay>,
     files: &AnimationFiles,
@@ -333,15 +330,7 @@ fn release_item_use(
             asset_server,
         );
     if finished {
-        queue_stand_animation(
-            controller,
-            sequencer,
-            model,
-            overlay,
-            files,
-            handles,
-            asset_server,
-        );
+        queue_stand_animation(sequencer);
         commands.entity(entity).remove::<NpcItemUse>();
     }
 }
@@ -412,7 +401,7 @@ pub(crate) fn advance_item_use_animations(
         &mut AnimationController,
         &NpcModel,
         Option<&NpcOverlay>,
-        Option<&mut AutoAnimSequencer>,
+        &mut AutoAnimSequencer,
         &mut NpcItemUse,
     )>,
 ) {
@@ -466,15 +455,7 @@ pub(crate) fn advance_item_use_animations(
                 &asset_server,
             );
             if finished {
-                queue_stand_animation(
-                    &mut controller,
-                    sequencer.as_deref_mut(),
-                    model,
-                    overlay,
-                    &files,
-                    &mut handles,
-                    &asset_server,
-                );
+                queue_stand_animation(&mut sequencer);
                 commands.entity(end.who).remove::<NpcItemUse>();
                 debug!(
                     "npc({}) item({}) released, standing idle",

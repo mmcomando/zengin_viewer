@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
-use crate::graphics::AnimationController;
+use crate::graphics::{AnimationController, AutoAnimSequencer};
 use crate::zengin::common::{choose_animation_scheme, get_animation_path};
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
@@ -21,11 +21,16 @@ pub(crate) fn apply_scripted_animations(
     files: Res<AnimationFiles>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
-    mut npcs: Query<(&NpcModel, Option<&NpcOverlay>, &mut AnimationController)>,
+    mut npcs: Query<(
+        &NpcModel,
+        Option<&NpcOverlay>,
+        &mut AnimationController,
+        &mut AutoAnimSequencer,
+    )>,
 ) {
     for change in changes.read() {
         for &entity in index.npcs(change.instance_id) {
-            let Ok((model, overlay, mut controller)) = npcs.get_mut(entity) else {
+            let Ok((model, overlay, mut controller, mut sequencer)) = npcs.get_mut(entity) else {
                 continue;
             };
             let Some(scheme) = model.animation_scheme.as_deref() else {
@@ -39,6 +44,9 @@ pub(crate) fn apply_scripted_animations(
             let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
             let scheme = choose_animation_scheme(scheme, overlay, &animation, &files.0);
             let path = get_animation_path(scheme, &animation);
+            // A scripted pose loops on its own; the graph must not switch it
+            // back to the standing idle when it ends.
+            sequencer.suspend();
             controller.queue_next(handles.get_animation_handle(&asset_server, &path), true);
         }
     }

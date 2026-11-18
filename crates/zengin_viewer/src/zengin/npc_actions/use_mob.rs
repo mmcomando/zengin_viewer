@@ -77,8 +77,8 @@ pub(crate) fn run_use_mob_action(
         &mut Transform,
         Option<&NpcModel>,
         Option<&NpcOverlay>,
-        Option<&mut AutoAnimSequencer>,
-        Option<&mut AnimationController>,
+        &mut AutoAnimSequencer,
+        &mut AnimationController,
         Option<&NpcMobUse>,
         Option<&NpcBodyRootOffset>,
     )>,
@@ -110,25 +110,12 @@ pub(crate) fn run_use_mob_action(
                 &mut commands,
                 entity,
                 npc_mob_use,
-                controller.as_deref_mut(),
-                sequencer.as_deref_mut(),
-                model,
-                overlay,
-                &files,
-                &mut handles,
-                &asset_server,
+                &mut controller,
+                &mut sequencer,
             );
             commands.entity(entity).remove::<ExecutingActionMarker>();
             continue;
         }
-        let Some(mut controller) = controller else {
-            crate::warn_once!(
-                "npc({}) AI_UseMob({}) waits for its animation controller",
-                npc.instance_id(),
-                action.scheme
-            );
-            continue;
-        };
 
         let Some(choice) = select_mob(
             &mut mobs,
@@ -151,11 +138,9 @@ pub(crate) fn run_use_mob_action(
         if horizontal.length() > MOB_USE_DISTANCE {
             transform.rotation = face_direction_quat(horizontal);
             queue_root_motion_animation(
-                &mut commands,
                 &mut desired,
                 entity,
                 &mut controller,
-                sequencer.as_deref(),
                 DesiredAnimation::Run,
                 Some(horizontal.normalize_or_zero()),
             );
@@ -170,10 +155,7 @@ pub(crate) fn run_use_mob_action(
             body_root_offset.map_or(NPC_BODY_Y_OFFSET, |offset| -offset.0 * transform.scale.y);
         transform.translation = choice.use_pos + Vec3::Y * body_y_offset;
         transform.rotation = choice.use_rot;
-        if let Some(mut sequencer) = sequencer {
-            sequencer.desired = None;
-            sequencer.force_change = false;
-        }
+        sequencer.suspend();
         controller.set_root_motion(false);
         let animation = mob_animation_name(
             action.scheme.as_str(),
@@ -220,54 +202,31 @@ pub(crate) fn run_use_mob_action(
 #[allow(clippy::type_complexity)]
 pub(crate) fn end_use_mob_action(
     mut removed: RemovedComponents<UseMobAction>,
-    files: Res<AnimationFiles>,
-    mut handles: ResMut<CachedAssetHandles>,
-    asset_server: Res<AssetServer>,
     mut npcs: Query<(
         Option<&NpcMobUse>,
-        Option<&mut AutoAnimSequencer>,
-        Option<&mut AnimationController>,
-        &NpcModel,
-        Option<&NpcOverlay>,
+        &mut AutoAnimSequencer,
+        &mut AnimationController,
     )>,
 ) {
     for entity in removed.read() {
-        let Ok((npc_mob_use, mut sequencer, controller, model, overlay)) = npcs.get_mut(entity)
-        else {
+        let Ok((npc_mob_use, mut sequencer, mut controller)) = npcs.get_mut(entity) else {
             continue;
         };
         // The action committed the mob use, the pose belongs to `NpcMobUse` now.
         if npc_mob_use.is_some() {
             continue;
         }
-        let Some(mut controller) = controller else {
-            continue;
-        };
         controller.set_root_motion(false);
-        queue_stand_animation(
-            &mut controller,
-            sequencer.as_deref_mut(),
-            model,
-            overlay,
-            &files,
-            &mut handles,
-            &asset_server,
-        );
+        queue_stand_animation(&mut sequencer);
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn release_mob_use(
     commands: &mut Commands,
     npc_entity: Entity,
     mob_use: Option<&NpcMobUse>,
-    controller: Option<&mut AnimationController>,
-    sequencer: Option<&mut AutoAnimSequencer>,
-    model: &NpcModel,
-    overlay: Option<&NpcOverlay>,
-    files: &AnimationFiles,
-    handles: &mut CachedAssetHandles,
-    asset_server: &AssetServer,
+    controller: &mut AnimationController,
+    sequencer: &mut AutoAnimSequencer,
 ) {
     let Some(mob_use) = mob_use else {
         return;
@@ -275,19 +234,8 @@ pub(super) fn release_mob_use(
     debug!("npc({npc_entity}) released mob({})", mob_use.mob);
     commands.entity(mob_use.mob).remove::<MobOccupant>();
     commands.entity(npc_entity).remove::<NpcMobUse>();
-    let Some(controller) = controller else {
-        return;
-    };
     controller.set_root_motion(false);
-    queue_stand_animation(
-        controller,
-        sequencer,
-        model,
-        overlay,
-        files,
-        handles,
-        asset_server,
-    );
+    queue_stand_animation(sequencer);
 }
 
 fn release_mob_occupancy(

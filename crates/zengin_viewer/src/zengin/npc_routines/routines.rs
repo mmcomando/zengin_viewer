@@ -281,11 +281,11 @@ pub(crate) fn update_routine_executors(
             Entity,
             &GameNpc,
             &RoutineEntry,
-            Option<&AnimationController>,
             Option<&mut RoutineExecutor>,
         ),
         (
             Or<(Changed<RoutineEntry>, Added<AnimationController>)>,
+            With<AnimationController>,
             // Routine npcs are world root entities, this also excludes the player visual
             // entity which is a child of the player controller and also carries `GameNpc`.
             Without<ChildOf>,
@@ -293,10 +293,7 @@ pub(crate) fn update_routine_executors(
     >,
 ) {
     let mut script = gothic_script.lock();
-    for (entity, npc, entry, controller, executor) in &mut npcs {
-        if controller.is_none() {
-            continue;
-        }
+    for (entity, npc, entry, executor) in &mut npcs {
         let instance = npc.instance_id();
         // A talking npc resumes its schedule when the dialog closes.
         if dialog_ui.talking_npc() == Some(instance) {
@@ -359,11 +356,7 @@ pub(crate) fn apply_start_state_changes(
     gothic_script: Res<ScriptResource>,
     mut changes: MessageReader<StartStateChange>,
     index: Res<InstanceIndex>,
-    mut npcs: Query<(
-        Entity,
-        Option<&AnimationController>,
-        Option<&mut RoutineExecutor>,
-    )>,
+    mut npcs: Query<(Entity, Option<&mut RoutineExecutor>), With<AnimationController>>,
 ) {
     if changes.is_empty() {
         return;
@@ -372,12 +365,9 @@ pub(crate) fn apply_start_state_changes(
     let mut script = gothic_script.lock();
     for change in changes.read() {
         for &entity in index.npcs(change.instance_id) {
-            let Ok((entity, controller, executor)) = npcs.get_mut(entity) else {
+            let Ok((entity, executor)) = npcs.get_mut(entity) else {
                 continue;
             };
-            if controller.is_none() {
-                continue;
-            }
             let functions = script.resolve_routine_functions(change.state);
             if let Some(mut executor) = executor {
                 if executor.source == RoutineSource::AiState
@@ -566,60 +556,26 @@ pub(crate) fn run_routine_loops(
 #[allow(clippy::type_complexity)]
 pub(crate) fn restore_routine_stand(
     mut commands: Commands,
-    files: Res<AnimationFiles>,
-    mut handles: ResMut<CachedAssetHandles>,
-    asset_server: Res<AssetServer>,
     mut removed: RemovedComponents<RoutineExecutor>,
     mut changed: Query<
-        (
-            Entity,
-            &NpcModel,
-            Option<&NpcOverlay>,
-            Option<&mut AutoAnimSequencer>,
-            &mut AnimationController,
-        ),
+        (Entity, &mut AutoAnimSequencer),
         (Changed<RoutineExecutor>, With<RoutineExecutor>),
     >,
-    mut removed_npcs: Query<
-        (
-            &NpcModel,
-            Option<&NpcOverlay>,
-            Option<&mut AutoAnimSequencer>,
-            &mut AnimationController,
-        ),
-        Without<RoutineExecutor>,
-    >,
+    mut removed_npcs: Query<&mut AutoAnimSequencer, Without<RoutineExecutor>>,
 ) {
-    for (entity, model, overlay, mut sequencer, mut controller) in &mut changed {
+    for (entity, mut sequencer) in &mut changed {
         // A new routine state drops the previous item pose (`Npc::clearState`
         // does `putState(0,0)`), the standing idle follows below.
         commands.entity(entity).remove::<NpcItemUse>();
-        queue_stand_animation(
-            &mut controller,
-            sequencer.as_deref_mut(),
-            model,
-            overlay,
-            &files,
-            &mut handles,
-            &asset_server,
-        );
+        queue_stand_animation(&mut sequencer);
     }
     for entity in removed.read() {
-        let Ok((model, overlay, mut sequencer, mut controller)) = removed_npcs.get_mut(entity)
-        else {
+        let Ok(mut sequencer) = removed_npcs.get_mut(entity) else {
             // Despawned npcs drop their item pose with the entity.
             continue;
         };
         commands.entity(entity).remove::<NpcItemUse>();
-        queue_stand_animation(
-            &mut controller,
-            sequencer.as_deref_mut(),
-            model,
-            overlay,
-            &files,
-            &mut handles,
-            &asset_server,
-        );
+        queue_stand_animation(&mut sequencer);
     }
 }
 
@@ -716,55 +672,36 @@ impl NpcPath {
     }
 }
 
-/// Moves npcs along their [`NpcPath`]. Npcs with an animation controller are
-/// moved by the root motion of the run animation through the
-/// [`AutoAnimSequencer`]; npcs whose visual was never spawned are stepped
-/// directly. The npc faces the next node, keeps its height from the path
-/// nodes and restores the standing idle on arrival. The body offset matches npc
-/// placement, otherwise they would float above the ground while moving.
-#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+/// Moves npcs along their [`NpcPath`]. The npc is moved by the root motion of
+/// the run animation through the [`AutoAnimSequencer`]. The npc faces the next
+/// node, keeps its height from the path nodes and restores the standing idle on
+/// arrival. The body offset matches npc placement, otherwise they would float
+/// above the ground while moving.
 pub(crate) fn move_along_path(
     graph: Res<WaypointGraph>,
-    files: Res<AnimationFiles>,
-    mut handles: ResMut<CachedAssetHandles>,
-    asset_server: Res<AssetServer>,
     mut commands: Commands,
     mut desired: MessageWriter<SetDesiredAnimation>,
     mut npcs: Query<(
         Entity,
         &mut Transform,
         &mut NpcPath,
-        &NpcModel,
-        Option<&NpcOverlay>,
-        Option<&mut AutoAnimSequencer>,
+        &mut AutoAnimSequencer,
         &mut AnimationController,
     )>,
 ) {
-    for (entity, mut transform, mut path, model, overlay, mut sequencer, mut controller) in
-        &mut npcs
-    {
+    for (entity, mut transform, mut path, mut sequencer, mut controller) in &mut npcs {
         let Some(direction) = direction_to_next_node(&mut transform, &mut path, &graph) else {
             // The path is done, restore the standing idle
             commands.entity(entity).remove::<NpcPath>();
             controller.set_root_motion(false);
-            queue_stand_animation(
-                &mut controller,
-                sequencer.as_deref_mut(),
-                model,
-                overlay,
-                &files,
-                &mut handles,
-                &asset_server,
-            );
+            queue_stand_animation(&mut sequencer);
             continue;
         };
         transform.rotation = face_direction_quat(direction);
         queue_root_motion_animation(
-            &mut commands,
             &mut desired,
             entity,
             &mut controller,
-            sequencer.as_deref(),
             DesiredAnimation::Run,
             None,
         );
@@ -821,56 +758,22 @@ pub(crate) fn queue_named_animation(
 }
 
 /// Switches the npc back to its standing idle after a path.
-pub(crate) fn queue_stand_animation(
-    controller: &mut AnimationController,
-    sequencer: Option<&mut AutoAnimSequencer>,
-    model: &NpcModel,
-    overlay: Option<&NpcOverlay>,
-    files: &AnimationFiles,
-    handles: &mut CachedAssetHandles,
-    asset_server: &AssetServer,
-) {
-    if let Some(sequencer) = sequencer {
-        sequencer.set_desired_now(DesiredAnimation::Stand);
-        return;
-    }
-    let animation = model
-        .stand_animation
-        .as_deref()
-        .unwrap_or(STANDING_ANIMATION);
-    queue_named_animation(
-        controller,
-        model,
-        overlay,
-        files,
-        handles,
-        asset_server,
-        animation,
-    );
+pub(crate) fn queue_stand_animation(sequencer: &mut AutoAnimSequencer) {
+    sequencer.set_desired_now(DesiredAnimation::Stand);
 }
 
 /// Enables root motion and requests `animation`, which is re-issued every frame
 /// with `force_change` so animations that are still loading are not skipped.
-///
-/// The sequencer is inserted on first use, in which case the request only takes
-/// effect on the next frame: a desired animation message cannot be consumed
-/// before the component exists.
 pub(crate) fn queue_root_motion_animation(
-    commands: &mut Commands,
     desired: &mut MessageWriter<SetDesiredAnimation>,
     entity: Entity,
     controller: &mut AnimationController,
-    sequencer: Option<&AutoAnimSequencer>,
     animation: DesiredAnimation,
     direction: Option<Vec3>,
 ) {
     // The sequencer outlives a single action, so root motion has to be
     // re-enabled every time the npc starts moving again.
     controller.set_root_motion(true);
-    if sequencer.is_none() {
-        commands.entity(entity).insert(AutoAnimSequencer::default());
-        return;
-    }
     desired.write(SetDesiredAnimation {
         who: entity,
         animation,

@@ -16,10 +16,7 @@ use crate::graphics::{
 };
 use crate::zengin::common::horizontal_offset;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
-use crate::zengin::npc_routines::{
-    AnimationFiles, NpcHealth, NpcOverlay, queue_root_motion_animation, queue_stand_animation,
-};
-use crate::zengin::resources::CachedAssetHandles;
+use crate::zengin::npc_routines::{NpcHealth, queue_root_motion_animation, queue_stand_animation};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
@@ -89,7 +86,6 @@ pub(crate) fn start_attack_action(
             npc.instance_id(),
         );
         controller.set_root_motion(true);
-        commands.entity(entity).insert(AutoAnimSequencer::default());
     }
 }
 
@@ -103,23 +99,14 @@ pub(crate) fn run_attack_action(
         &GameNpc,
         &mut AttackAction,
         &Transform,
-        Option<&AutoAnimSequencer>,
-        Option<&mut AnimationController>,
+        &mut AnimationController,
     )>,
 ) {
-    for (entity, npc, action, transform, sequencer, controller) in &mut npcs {
+    for (entity, npc, action, transform, mut controller) in &mut npcs {
         if !target_is_valid(npc.instance_id(), action.target, transform, &targets) {
             commands.entity(entity).remove::<ExecutingActionMarker>();
             continue;
         }
-
-        let Some(mut controller) = controller else {
-            crate::warn_once!(
-                "npc({}) attack waits for its animation controller (visual not spawned)",
-                npc.instance_id()
-            );
-            continue;
-        };
 
         let target_tr = targets
             .get(action.target)
@@ -146,48 +133,20 @@ pub(crate) fn run_attack_action(
             "npc({}) attack desires {animation:?} at {distance:.2}m",
             npc.instance_id()
         );
-        queue_root_motion_animation(
-            &mut commands,
-            &mut desired,
-            entity,
-            &mut controller,
-            sequencer,
-            animation,
-            direction,
-        );
+        queue_root_motion_animation(&mut desired, entity, &mut controller, animation, direction);
     }
 }
 
-#[allow(clippy::type_complexity)]
 pub(crate) fn end_attack_action(
     mut removed: RemovedComponents<AttackAction>,
-    files: Res<AnimationFiles>,
-    mut handles: ResMut<CachedAssetHandles>,
-    asset_server: Res<AssetServer>,
-    mut npcs: Query<(
-        Option<&mut AutoAnimSequencer>,
-        Option<&mut AnimationController>,
-        &crate::gameplay::objects::NpcModel,
-        Option<&NpcOverlay>,
-    )>,
+    mut npcs: Query<(&mut AutoAnimSequencer, &mut AnimationController)>,
 ) {
     for entity in removed.read() {
-        let Ok((mut sequencer, controller, model, overlay)) = npcs.get_mut(entity) else {
-            continue;
-        };
-        let Some(mut controller) = controller else {
+        let Ok((mut sequencer, mut controller)) = npcs.get_mut(entity) else {
             continue;
         };
         controller.set_root_motion(false);
-        queue_stand_animation(
-            &mut controller,
-            sequencer.as_deref_mut(),
-            model,
-            overlay,
-            &files,
-            &mut handles,
-            &asset_server,
-        );
+        queue_stand_animation(&mut sequencer);
     }
 }
 

@@ -4,8 +4,8 @@ use std::sync::atomic::{AtomicBool, AtomicU32};
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
 use crate::graphics::{
-    AnimatedJoint, AnimationController, AnimationData, AnimationState, BoneAnimationData,
-    FrameState, NpcAnimations,
+    AnimatedJoint, AnimationController, AnimationData, AnimationState, AutoAnimSequencer,
+    BoneAnimationData, FrameState, NpcAnimations,
 };
 use crate::warn_once;
 use crate::zengin::GameNpc;
@@ -24,6 +24,9 @@ pub struct GameObjectSpawnEntities;
 
 impl Plugin for GameObjectSpawnEntities {
     fn build(&self, app: &mut App) {
+        // The controller has to be on the entity before the visual spawn, the
+        // spawn query requires it.
+        app.add_systems(Update, add_npc_animation_components.before(spawn_npcs));
         app.add_systems(Update, spawn_npcs);
 
         app.add_systems(Update, add_classify_distance);
@@ -139,6 +142,54 @@ pub(crate) fn create_skinned_mesh_data(
     });
 }
 
+/// Gives every npc that entered the near distance its animation controller and
+/// locomotion sequencer, so gameplay systems can drive npc animation without
+/// checking for the components. The visual skeleton may still be loading; the
+/// controller starts on the animation the visual spawn would start on.
+#[allow(clippy::type_complexity)]
+fn add_npc_animation_components(
+    mut commands: Commands,
+    mut handles: ResMut<CachedAssetHandles>,
+    asset_server: Res<AssetServer>,
+    npcs: Query<
+        (Entity, &GameNpc, &NpcModel, &NpcAnimations),
+        (
+            With<DistanceNear>,
+            Or<(Without<AnimationController>, Without<AutoAnimSequencer>)>,
+        ),
+    >,
+) {
+    for (entity, npc, model, animations) in &npcs {
+        let animation = initial_animation_path(npc, model, animations);
+        let handle = handles.get_animation_handle(&asset_server, &animation);
+        commands
+            .entity(entity)
+            .insert_if_new(AnimationController::new(handle))
+            .insert_if_new(AutoAnimSequencer::default());
+    }
+}
+
+/// Animation an npc starts on: the configured one, otherwise the standing
+/// animation of the model scheme (e.g. a wolf stands in `WOLF-S_FISTRUN`).
+fn initial_animation_path(npc: &GameNpc, model: &NpcModel, animations: &NpcAnimations) -> String {
+    animations
+        .animation
+        .clone()
+        .or_else(|| {
+            let scheme = model.animation_scheme.as_deref()?;
+            let stand = model.stand_animation.as_deref()?;
+            Some(get_animation_path(scheme, stand))
+        })
+        .unwrap_or_else(|| {
+            warn_once!(
+                "NPC({}), body({}) doesn't have idle animation",
+                npc.instance_id(),
+                &model.body_model
+            );
+            EXAMPLE_ANIMATION.to_string()
+        })
+}
+
 #[allow(clippy::type_complexity)]
 fn spawn_npcs(
     models: ResMut<Assets<ZenGinModel>>,
@@ -147,42 +198,17 @@ fn spawn_npcs(
     mut commands: Commands,
     mut handles_map: ResMut<CachedAssetHandles>,
     mut query: Query<
-        (
-            Entity,
-            &GameNpc,
-            &NpcModel,
-            &NpcAnimations,
-            Option<&AnimationController>,
-        ),
+        (Entity, &NpcModel, &AnimationController),
         (With<DistanceNear>, Without<ObjectEntitiesSpawned>),
     >,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
-    for (entity_id, game_npc, npc_model, npc_animations, existing_controller) in &mut query {
-        // Plays the configured animation, otherwise the standing animation
-        // of the model scheme (e.g. a wolf stands in `WOLF-S_FISTRUN`)
-        let animation_path = npc_animations
-            .animation
-            .clone()
-            .or_else(|| {
-                let scheme = npc_model.animation_scheme.as_deref()?;
-                let stand = npc_model.stand_animation.as_deref()?;
-                Some(get_animation_path(scheme, stand))
-            })
-            .unwrap_or_else(|| {
-                warn_once!(
-                    "NPC({}), body({}) doesn't have idle animation",
-                    game_npc.instance_id(),
-                    &npc_model.body_model
-                );
-                EXAMPLE_ANIMATION.to_string()
-            });
+    for (entity_id, npc_model, controller) in &mut query {
         let body_handle = handles_map.get_model_handle(
             &asset_server,
             &npc_model.body_model,
             npc_model.hierarchy.as_deref(),
         );
-        let animation_handle = handles_map.get_animation_handle(&asset_server, &animation_path);
 
         if asset_server.load_state(body_handle.id()).is_failed() {
             let mut entity = commands.entity(entity_id);
@@ -194,7 +220,10 @@ fn spawn_npcs(
         let Some(model_data) = models.get(&body_handle) else {
             continue;
         };
-        let Some(animation_data) = animations.get(&animation_handle) else {
+        // The skeleton starts on whatever animation the controller is on, so a
+        // visual respawn resumes the animation playback state instead of
+        // resetting it to the spawn animation.
+        let Some(animation_data) = animations.get(controller.current()) else {
             continue;
         };
 
@@ -248,22 +277,10 @@ fn spawn_npcs(
             }
         }
 
-        // A re-spawned visual (e.g. after the far-distance despawn) must
-        // not reset playback state: re-inserting over an existing
-        // component does not fire `Added`, so the player's sequencer
-        // would never re-enable root motion and the character would stop
-        // being moved by animations. Preserve the controller state.
-        let controller = if let Some(existing) = existing_controller {
-            let mut controller = AnimationController::new(existing.current().clone());
-            if let Some(next) = existing.next() {
-                controller.queue_next(next.clone(), existing.interrupt_current());
-            }
-            controller.set_root_motion(existing.root_motion());
-            controller
-        } else {
-            AnimationController::new(animation_handle)
-        };
-        commands.entity(entity_id).insert(controller);
+        // A re-spawned visual (e.g. after the far-distance despawn) keeps its
+        // controller: the skeleton is built from the controller animation, so
+        // playback resumes where it stopped instead of resetting to the spawn
+        // animation.
         commands
             .entity(entity_id)
             .insert(NpcBodyRootOffset(model_data.root_translation.y));
