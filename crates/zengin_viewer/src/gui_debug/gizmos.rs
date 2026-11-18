@@ -2,7 +2,7 @@ use avian3d::parry::shape::TypedShape;
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
-use crate::graphics::{AnimatedJoint, DrawGizmo};
+use crate::graphics::AnimatedJoint;
 use crate::zengin::WaypointGraph;
 
 pub struct GizmosPlugin;
@@ -38,10 +38,6 @@ impl Plugin for GizmosPlugin {
         );
         app.add_systems(
             Update,
-            draw_lights.run_if(|options: Res<GizmosOptions>| options.lights),
-        );
-        app.add_systems(
-            Update,
             draw_waypoints.run_if(|options: Res<GizmosOptions>| options.way_points),
         );
     }
@@ -57,7 +53,6 @@ pub struct GizmosOptions {
     pub trimesh_colliders: bool,
     pub characters_colliders: bool,
     pub bones: bool,
-    pub lights: bool,
     pub way_points: bool,
 }
 
@@ -167,12 +162,6 @@ fn draw_bones(
             //     Color::srgb(1.0, 0.0, 0.0), // Red joints
             // );
         }
-    }
-}
-
-fn draw_lights(mut gizmos: Gizmos, query: Query<(&GlobalTransform, &DrawGizmo)>) {
-    for (tr, draw_gizmo) in query {
-        gizmos.sphere(tr.translation(), 0.1, draw_gizmo.color);
     }
 }
 

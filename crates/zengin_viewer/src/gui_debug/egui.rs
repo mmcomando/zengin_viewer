@@ -183,12 +183,6 @@ fn info_section(
             &mut render_options.sun_shadow_maps,
             &mut changed,
         );
-        add_checkbox(
-            ui,
-            "Disco Shadow Maps",
-            &mut render_options.disco_shadow_maps,
-            &mut changed,
-        );
     });
     changed
 }
@@ -301,7 +295,6 @@ fn gizmos_section(ui: &mut Ui, options: &mut GizmosOptions) {
                         &mut changed,
                     );
                     add_checkbox(ui, "Bones", &mut options.bones, &mut changed);
-                    add_checkbox(ui, "Lights", &mut options.lights, &mut changed);
                     add_checkbox(ui, "Waypoints", &mut options.way_points, &mut changed);
                 });
         });

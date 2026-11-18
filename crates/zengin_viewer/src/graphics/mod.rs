@@ -1,5 +1,4 @@
 mod animation;
-mod disco_lamp;
 pub(crate) use crate::graphics::animation::{
     NpcHitReaction, npc_hit_reaction_end, play_hit_reaction,
 };
@@ -13,7 +12,6 @@ pub(crate) use crate::graphics::animation::{
     MeleeAttackKind, NpcAnimations, SetDesiredAnimation, SkeletalAnimations,
     animation_name_from_path, is_melee_attack_animation,
 };
-pub(crate) use crate::graphics::disco_lamp::{DiscoLamp, DrawGizmo};
 pub(crate) use crate::graphics::lighting::LightingPlugin;
 pub(crate) use crate::graphics::skybox::SkyBoxPlugin;
 
@@ -24,15 +22,12 @@ use bevy::prelude::*;
 pub struct RenderOptions {
     /// Enable sun shadow maps.
     pub sun_shadow_maps: bool,
-    /// Enables shadow maps for the disco lamp point lights (very heavy).
-    pub disco_shadow_maps: bool,
 }
 
 impl Default for RenderOptions {
     fn default() -> Self {
         Self {
             sun_shadow_maps: true,
-            disco_shadow_maps: false,
         }
     }
 }

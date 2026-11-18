@@ -4,6 +4,7 @@
 use std::collections::VecDeque;
 
 use avian3d::prelude::*;
+use bevy::dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin, InfiniteGridSettings};
 use bevy::prelude::*;
 
 use crate::game_state::AppState;
@@ -17,6 +18,7 @@ impl Plugin for TestWorldPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PendingTestWorldSpawns>();
         app.init_resource::<TestWorldRoot>();
+        app.add_plugins(InfiniteGridPlugin);
         app.add_systems(
             Update,
             spawn_test_world
@@ -58,10 +60,19 @@ struct TestCube {
     color: Color,
 }
 
-const ROOM_HALF_SIZE: f32 = 30.0;
-const ROOM_HEIGHT: f32 = 20.0;
+const ROOM_HALF_SIZE: f32 = 120.0;
+const ROOM_HEIGHT: f32 = 80.0;
 const WALL_THICKNESS: f32 = 1.0;
 const FLOOR_THICKNESS: f32 = 1.0;
+
+/// Spacing of the floor debug grid lines.
+const GRID_CELL_SIZE: f32 = 10.0;
+/// Grid is lifted off the floor surface to avoid z-fighting with it.
+const GRID_HEIGHT: f32 = 0.02;
+const GRID_MINOR_LINE_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.35);
+const GRID_MAJOR_LINE_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.6);
+const GRID_X_AXIS_COLOR: Color = Color::srgb(0.9, 0.15, 0.15);
+const GRID_Z_AXIS_COLOR: Color = Color::srgb(0.15, 0.3, 0.9);
 
 /// Wall centers sit outside the room, so the `ROOM_HALF_SIZE` planes are the
 /// inner wall faces.
@@ -77,27 +88,27 @@ const SIMPLE_ROOM_CUBES: &[TestCube] = &[
     TestCube {
         center: Vec3::new(0.0, WALL_HEIGHT_MIDDLE, -WALL_OFFSET),
         size: Vec3::new(WALL_OFFSET * 2.0, ROOM_HEIGHT, WALL_THICKNESS),
-        color: Color::srgb(0.85, 0.85, 0.85),
+        color: Color::srgb(0.95, 0.95, 0.95),
     },
     TestCube {
         center: Vec3::new(WALL_OFFSET, WALL_HEIGHT_MIDDLE, 0.0),
         size: Vec3::new(WALL_THICKNESS, ROOM_HEIGHT, WALL_OFFSET * 2.0),
-        color: Color::srgb(0.7, 0.7, 0.7),
+        color: Color::srgb(0.93, 0.93, 0.93),
     },
     TestCube {
         center: Vec3::new(0.0, WALL_HEIGHT_MIDDLE, WALL_OFFSET),
         size: Vec3::new(WALL_OFFSET * 2.0, ROOM_HEIGHT, WALL_THICKNESS),
-        color: Color::srgb(0.55, 0.55, 0.55),
+        color: Color::srgb(0.9, 0.9, 0.9),
     },
     TestCube {
         center: Vec3::new(-WALL_OFFSET, WALL_HEIGHT_MIDDLE, 0.0),
         size: Vec3::new(WALL_THICKNESS, ROOM_HEIGHT, WALL_OFFSET * 2.0),
-        color: Color::srgb(0.4, 0.4, 0.4),
+        color: Color::srgb(0.88, 0.88, 0.88),
     },
     TestCube {
         center: Vec3::new(0.0, ROOM_HEIGHT + FLOOR_THICKNESS * 0.5, 0.0),
         size: Vec3::new(WALL_OFFSET * 2.0, FLOOR_THICKNESS, WALL_OFFSET * 2.0),
-        color: Color::srgb(0.75, 0.85, 1.0),
+        color: Color::srgb(0.9, 0.95, 1.0),
     },
 ];
 
@@ -118,13 +129,32 @@ fn spawn_test_world(
         let world_root = if name == TEST_WORLD_SIMPLE {
             create_simple_test_world(&mut commands, &mut meshes, &mut materials, &mut cameras)
         } else {
-            warn!("Unknown test world({name})");
-            continue;
+            panic!("Unknown test world({name})");
         };
         despawn_test_world(&mut commands, &mut root);
         root.0 = Some(world_root);
         info!("Spawned test world({name})");
     }
+}
+
+fn spawn_floor_grid(commands: &mut Commands) -> Entity {
+    commands
+        .spawn((
+            InfiniteGrid,
+            InfiniteGridSettings {
+                x_axis_color: GRID_X_AXIS_COLOR,
+                z_axis_color: GRID_Z_AXIS_COLOR,
+                minor_line_color: GRID_MINOR_LINE_COLOR,
+                major_line_color: GRID_MAJOR_LINE_COLOR,
+                // The shader scales plane coordinates, so the cell distance is 1/scale.
+                scale: 1.0 / GRID_CELL_SIZE,
+                // The room diagonal seen from the default camera is shorter than this.
+                fadeout_distance: ROOM_HALF_SIZE * 2.0,
+                ..default()
+            },
+            Transform::from_xyz(0.0, GRID_HEIGHT, 0.0),
+        ))
+        .id()
 }
 
 fn create_simple_test_world(
@@ -133,10 +163,11 @@ fn create_simple_test_world(
     materials: &mut Assets<StandardMaterial>,
     cameras: &mut Query<&mut Transform, With<Camera3d>>,
 ) -> Entity {
-    let children: Vec<Entity> = SIMPLE_ROOM_CUBES
+    let mut children: Vec<Entity> = SIMPLE_ROOM_CUBES
         .iter()
         .map(|cube| spawn_cube(commands, meshes, materials, cube))
         .collect();
+    children.push(spawn_floor_grid(commands));
     place_camera(
         cameras,
         TEST_WORLD_SIMPLE,

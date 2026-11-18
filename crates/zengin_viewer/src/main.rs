@@ -129,9 +129,7 @@ use crate::gameplay::camera::CameraPlugin;
 use crate::gameplay::character::CharacterControllerPlugin;
 use crate::gameplay::distance::DistancePlugin;
 use crate::gameplay::game_time::GameTimePlugin;
-use crate::graphics::{
-    DiscoLamp, LightingPlugin, RenderOptionsPlugin, SkeletalAnimations, SkyBoxPlugin,
-};
+use crate::graphics::{LightingPlugin, RenderOptionsPlugin, SkeletalAnimations, SkyBoxPlugin};
 use crate::gui::GameLogPlugin;
 use crate::gui_debug::GuiDebugPlugin;
 use crate::input::{ActionsPlugin, Options};
@@ -185,7 +183,6 @@ fn main() {
         // Environment
         .add_plugins(SkyBoxPlugin)
         .add_plugins(LightingPlugin)
-        .add_plugins(DiscoLamp)
         // Gameplay
         .add_plugins(CharacterControllerPlugin)
         .add_plugins(CameraPlugin)

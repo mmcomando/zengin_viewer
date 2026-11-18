@@ -13,7 +13,7 @@ record-replay name:
 
 # Replay the commands from the given scenario
 run-replay name:
-    cargo run -- --fixed-time --replay-actions misc/scenarios/{{name}}.ron
+    cargo run --  --replay-actions misc/scenarios/{{name}}.ron
 
 # Replay a scenario that starts in the main menu instead of a new game.
 run-replay-menu name:

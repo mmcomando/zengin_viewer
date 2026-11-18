@@ -3,5 +3,5 @@
     ZenginSpawnPlayerCharacter(frame: 1, translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
     // The screenshot waits for the load hand-off and the character visual.
     Screenshot(frame: 200, path: "screen_test_world_simple.png"),
-    ExitGame(frame: 210),
+    // ExitGame(frame: 210),
 ]
