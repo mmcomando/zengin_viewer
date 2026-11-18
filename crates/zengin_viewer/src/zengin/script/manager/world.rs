@@ -25,6 +25,8 @@ impl ScriptManager {
             data.player_instance = None;
             data.journal = JournalManager::default();
             data.guild_attitudes.clear();
+            data.perc_ranges.clear();
+            data.reset_npc_copies();
             data.check_info.clear();
             data.way_points.clear();
             data.rng = ScriptRandom::default();
@@ -61,6 +63,8 @@ impl ScriptManager {
             return false;
         };
 
+        self.load_guild_attitudes();
+
         if clean_spawn && !self.global_startup_done {
             self.call_optional_function("startup_global");
             self.global_startup_done = true;
@@ -70,6 +74,9 @@ impl ScriptManager {
         }
         self.call_optional_function("init_global");
         self.call_optional_function(&format!("init_{script_name}"));
+        // Perception ranges are global script state, the engine calls this once
+        // per session.
+        self.call_optional_function("initperceptions");
         true
     }
 
@@ -83,6 +90,8 @@ impl ScriptManager {
         let data = self.store.data_mut();
         data.loaded_state.mob_routines.clear();
         data.guild_attitudes.clear();
+        data.perc_ranges.clear();
+        data.reset_npc_copies();
         data.check_info.clear();
         for npc in data.loaded_state.npc_instances.values() {
             npc.write()
@@ -100,6 +109,23 @@ impl ScriptManager {
         };
         info!("Call script {name} function");
         self.call_function(function);
+    }
+
+    /// Rebuilds the guild attitude matrix from the `GIL_ATTITUDES` table, the
+    /// engine does it once per session before the world entry points run.
+    fn load_guild_attitudes(&mut self) {
+        let Some(symbol) = self
+            .store
+            .data()
+            .symbol_table
+            .symbol_id_by_name("gil_attitudes")
+        else {
+            warn!("Script table GIL_ATTITUDES is missing");
+            return;
+        };
+        self.store
+            .data_mut()
+            .exchange_guild_attitudes(symbol as u32);
     }
 }
 

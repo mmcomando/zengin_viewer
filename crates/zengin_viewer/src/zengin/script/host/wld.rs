@@ -3,18 +3,22 @@ use crate::zengin::common::to_world_units;
 
 impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
     fn wld_insertnpc(&mut self, npc_index: i32, waypoint_string_id: i32) {
-        let Some(npc_index) = self.symbol_table.instance(npc_index) else {
+        let Some(source) = self.symbol_table.instance(npc_index) else {
             return;
         };
         let Some(waypoint_string_id) = self.symbol_table.string(waypoint_string_id) else {
             return;
         };
+        // The same instance can be inserted several times (`ywolf` and friends).
+        // Every call is a separate script object, only the first one keeps the
+        // symbol id.
+        let object = self.allocate_npc_object(source);
         // println!(
         //     "NEW wld_insertnpc npc_index({npc_index}), waypoint_string_id({waypoint_string_id})"
         // );
 
         self.messages.spawn_npcs.send(SpawnNpc {
-            instance_id: npc_index,
+            instance_id: object,
             transform: None,
             exact_transform: false,
             overlay: None,
@@ -97,7 +101,24 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
         self.available_mob(npc, scheme.as_str())
             .map_or(-1, |mob| mob.state.max(0))
     }
-    fake_impl!(wld_istime(_0, _1, _2, _3) -> i32);
+    /// In-game time window check, the range may wrap over midnight.
+    fn wld_istime(
+        &mut self,
+        hour_start: i32,
+        minute_start: i32,
+        hour_end: i32,
+        minute_end: i32,
+    ) -> i32 {
+        let begin = hour_start * 60 + minute_start;
+        let end = hour_end * 60 + minute_end;
+        let now = (self.game_minutes_of_day % (24 * 60)) as i32;
+        let inside = if begin <= end {
+            begin <= now && now < end
+        } else {
+            now < end || begin <= now
+        };
+        i32::from(inside)
+    }
     /// Day counted from 0 on the first day.
     fn wld_getday(&mut self) -> i32 {
         self.game_day as i32
@@ -111,7 +132,20 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
     fake_impl!(wld_insertnpcandrespawn(_0, _1, _2));
     fake_impl!(wld_insertobject(_0, _1));
     fake_impl!(wld_removeitem(_0) -> i32);
-    fake_impl!(wld_exchangeguildattitudes(_0));
+    /// Rebuilds the guild attitude matrix from a square script array symbol
+    /// (`Wld_ExchangeGuildAttitudes("GIL_ATTITUDES")`), the engine calls it once
+    /// at session start.
+    fn wld_exchangeguildattitudes(&mut self, name: i32) {
+        let Some(name) = self.canon_string_arg(name) else {
+            warn!("Wld_ExchangeGuildAttitudes with invalid name({name})");
+            return;
+        };
+        let Some(symbol) = self.symbol_table.symbol_id_by_name(name.as_str()) else {
+            warn!("Wld_ExchangeGuildAttitudes symbol({name}) not found");
+            return;
+        };
+        self.exchange_guild_attitudes(symbol as u32);
+    }
     fake_impl!(wld_setobjectroutine(_0, _1, _2, _3));
     /// Records the mob state assignment for the world side, which applies it at
     /// the scheduled time

@@ -41,6 +41,7 @@ impl super::ScriptManager {
         };
         self.npc_state_mut(npc).routine.entries.clear();
         self.set_self(npc);
+        self.set_state_other(None);
         if let Err(error) = self.try_call_function(function) {
             warn!("Routine function({symbol_name}) failed: {error:?}");
         }
@@ -67,10 +68,34 @@ impl super::ScriptManager {
         self.write_well_known("other", instance_index);
     }
 
+    /// Clears the `other` global for subsequent script calls.
+    pub fn clear_other(&mut self) {
+        self.write_well_known_value("other", 0);
+    }
+
+    /// Binds the `other` global of a state hook call, clearing it when the state
+    /// has no partner.
+    pub fn set_state_other(&mut self, other: Option<InstanceId>) {
+        match other {
+            Some(other) => self.set_other(other),
+            None => self.clear_other(),
+        }
+    }
+
+    /// Binds the given instance as `victim` for subsequent script calls, `None`
+    /// clears it.
+    pub fn set_victim(&mut self, instance_index: Option<InstanceId>) {
+        self.write_well_known_value("victim", instance_index.map_or(0, InstanceId::value));
+    }
+
     /// Writes a well known instance variable into the host symbol store, the
     /// guest export only updates its cached instance id used by
     /// `SetInstance(self)`.
     fn write_well_known(&mut self, name: &str, instance_index: InstanceId) {
+        self.write_well_known_value(name, instance_index.value());
+    }
+
+    fn write_well_known_value(&mut self, name: &str, value: i32) {
         let well_known = self.store.data().well_known_symbols;
         let symbol = match name {
             "self" => well_known.self_symbol,
@@ -86,7 +111,7 @@ impl super::ScriptManager {
         self.store
             .data_mut()
             .typed
-            .write_symbol(symbol as u32, 0, instance_index.value());
+            .write_symbol(symbol as u32, 0, value);
     }
 
     pub fn call_npc_routine(&mut self, instance_index: InstanceId) {

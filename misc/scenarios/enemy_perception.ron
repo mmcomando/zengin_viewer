@@ -1,0 +1,7 @@
+[
+    // FilterSpawnWithPosition(frame: 0, points: [(center: (-287.2,   42.5, -200.7), radius: 20.0)]),
+    SpawnWorld(world: "NEWWORLD/NEWWORLD"),
+    TeleportPlayer(translation: (-278.6,   37.7, -202.6), rotation: (-24.3, -64.0,   0.0)),
+    SetCameraLocation(translation: (-287.2,   42.5, -200.7), rotation: (-24.3, -64.0,   0.0)),
+    ExitGame(frame: 900),
+]

@@ -78,6 +78,22 @@ impl super::ScriptManager {
             info!("Save sanitized {sanitized_dynamic_strings} dynamic string ids to empty strings");
         }
 
+        // Runtime copies of duplicated spawns live outside the symbol id range;
+        // their source symbol name is kept so the copy can be recreated on load.
+        for copy in typed.copy_ids() {
+            let Some(values) = typed.snapshot_copy(copy) else {
+                continue;
+            };
+            let Ok(id) = i32::try_from(copy) else {
+                continue;
+            };
+            let name = typed
+                .copy_source(copy)
+                .and_then(|source| typed.name(source).map(|name| name.to_string()))
+                .unwrap_or_default();
+            instances.push(SavedValues { id, name, values });
+        }
+
         let mut npc_runtimes: Vec<(InstanceId, NpcRuntime)> = data
             .loaded_state
             .npc_instances
@@ -142,6 +158,8 @@ impl super::ScriptManager {
             data.player_instance = None;
             data.journal = JournalManager::default();
             data.guild_attitudes.clear();
+            data.perc_ranges.clear();
+            data.reset_npc_copies();
             data.check_info.clear();
             // Waypoints were published by the world spawn before this call and
             // must stay available to the world entry points.
@@ -158,6 +176,7 @@ impl super::ScriptManager {
         self.reset_unsaved_symbols(save);
         // Saved state wins over initialization and `init_*` writes.
         self.apply_globals(&save.globals);
+        self.restore_npc_copies(&save.instances);
         self.apply_instances(&save.instances);
         self.restore_npc_runtimes(&save.npc_runtimes);
         self.restore_item_runtimes(&save.item_runtimes);
@@ -233,7 +252,60 @@ impl super::ScriptManager {
             if data.typed.is_const(symbol) {
                 continue;
             }
+            if data.typed.is_copy(symbol) {
+                data.typed.restore_copy(symbol, &saved.values);
+                continue;
+            }
             data.typed.restore_values(symbol, &saved.values);
+        }
+    }
+
+    /// Recreates the runtime copies of duplicated spawns recorded in a save. The
+    /// saved entry name is the source instance symbol.
+    pub(in crate::zengin::script) fn restore_npc_copies(&mut self, values: &[SavedValues]) {
+        let data = self.store.data_mut();
+        let copy_base = data.symbol_table.copy_instance_base();
+        for saved in values {
+            if saved.id < copy_base {
+                continue;
+            }
+            let Ok(id) = u32::try_from(saved.id) else {
+                continue;
+            };
+            if data.typed.is_copy(id) {
+                continue;
+            }
+            let Some(source_symbol) = data.symbol_table.symbol_id_by_name(&saved.name) else {
+                info!(
+                    "Save npc copy({}) references unknown symbol({}), skipped",
+                    saved.id, saved.name
+                );
+                continue;
+            };
+            let Ok(source) = u32::try_from(source_symbol) else {
+                continue;
+            };
+            if !data.typed.copy_instance(source, id) {
+                info!(
+                    "Save npc copy({}) source({source_symbol}) has no typed record, skipped",
+                    saved.id
+                );
+                continue;
+            }
+            data.symbol_table
+                .register_instance_copy(saved.id, source_symbol);
+            data.next_copy_instance_id = Some(
+                data.next_copy_instance_id
+                    .map_or(saved.id + 1, |next| next.max(saved.id + 1)),
+            );
+            if let Some(source_id) = InstanceId::new(source_symbol)
+                && let Some(copy_id) = InstanceId::new(saved.id)
+            {
+                data.spawned_npcs
+                    .entry(source_id)
+                    .or_insert_with(|| vec![source_id])
+                    .push(copy_id);
+            }
         }
     }
 

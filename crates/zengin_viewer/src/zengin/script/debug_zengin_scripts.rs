@@ -115,6 +115,56 @@ fn debug_exchange_routine() {
     assert_ne!(entries, 0, "rtn_start_100 did not register routine entries");
 }
 
+/// Verifies the save/restore of duplicated-spawn copies against the real script.
+#[test]
+#[ignore = "manual script VM debug tool"]
+fn debug_npc_copy_save_restore() {
+    let script_path = gothic_dat_path();
+    let wasm_bytes = convert_daedalus_script(&script_path);
+    let mut executor = ScriptManager::new(&wasm_bytes, ScriptMessages::default());
+    executor.load_symbol_table();
+    executor.initialize_instances();
+
+    let source = executor
+        .symbol_instance("ywolf")
+        .expect("ywolf should be an instance symbol");
+    let first = executor.store.data_mut().allocate_npc_object(source);
+    assert_eq!(first, source, "the first spawn keeps the symbol id");
+    let copy = executor.store.data_mut().allocate_npc_object(source);
+    assert_ne!(copy, source, "the second spawn is a separate object");
+    assert!(
+        executor.symbol_table().instance(copy.value()).is_some(),
+        "copy id resolves as an instance"
+    );
+
+    let snapshot = executor.snapshot_save();
+    assert!(
+        snapshot
+            .instances
+            .iter()
+            .any(|values| values.id == copy.value()),
+        "copy typed words are saved in the instances section"
+    );
+
+    let mut restored = ScriptManager::new(&wasm_bytes, ScriptMessages::default());
+    restored.load_symbol_table();
+    restored.initialize_instances();
+    restored.restore_npc_copies(&snapshot.instances);
+
+    let copy_id = u32::try_from(copy.value()).expect("copy id");
+    assert!(restored.store.data().typed.is_copy(copy_id));
+    assert_eq!(
+        restored.store.data().typed.copy_source(copy_id),
+        Some(u32::try_from(source.value()).expect("source id"))
+    );
+    assert!(restored.store.data().typed.npc(copy_id).is_some());
+    println!(
+        "npc copy({}) restored from source({})",
+        copy.value(),
+        source.value()
+    );
+}
+
 /// Prints the hitpoints of a npc instance, verifying the `get-npc-info` export
 #[test]
 #[ignore = "manual script VM debug tool"]

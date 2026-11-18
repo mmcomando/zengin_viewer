@@ -18,6 +18,8 @@ use bevy::math::Vec3;
 pub(crate) const ATT_HOSTILE: i32 = 0;
 /// `ATT_NEUTRAL` script constant.
 pub(crate) const ATT_NEUTRAL: i32 = 2;
+/// `ATT_FRIENDLY` script constant.
+pub(crate) const ATT_FRIENDLY: i32 = 3;
 
 macro_rules! fake_impl {
     ($name:ident($($arg:ident),*)) => {

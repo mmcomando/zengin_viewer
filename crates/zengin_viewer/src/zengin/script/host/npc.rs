@@ -112,7 +112,7 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
         let Some(other) = self.symbol_table.instance(other) else {
             return ATT_NEUTRAL;
         };
-        npc_attitude(self, npc, other, true)
+        self.npc_attitude(npc, other, true)
     }
     fn npc_getpermattitude(&mut self, npc: i32, other: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {
@@ -121,7 +121,7 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
         let Some(other) = self.symbol_table.instance(other) else {
             return ATT_NEUTRAL;
         };
-        npc_attitude(self, npc, other, false)
+        self.npc_attitude(npc, other, false)
     }
     /// Sets an npc attribute (`Npc_ChangeAttribute`). Only the hitpoints
     /// attributes are tracked, other attributes are ignored.
@@ -200,7 +200,11 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             .unwrap_or(DEFAULT_SIGHT_RANGE_METERS);
         i32::from((npc_position - other_position).length() <= range)
     }
-    fake_impl!(npc_canseenpcfreelos(_0, _1) -> i32);
+    /// Distance check only: the engine casts a visibility ray, the host has no
+    /// access to the physics world.
+    fn npc_canseenpcfreelos(&mut self, npc: i32, other: i32) -> i32 {
+        self.npc_canseenpc(npc, other)
+    }
     fake_impl!(npc_canseeitem(_0, _1) -> i32);
     /// True when the npc is the recorded player instance (`PC_Hero`).
     fn npc_isplayer(&mut self, npc: i32) -> i32 {
@@ -279,7 +283,25 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             .and_then(|npc| npc.live.target)
             .map_or(0, InstanceId::value)
     }
-    fake_impl!(npc_getnexttarget(_0) -> i32);
+    /// Nearest enemy the npc can sense, bound as its target and as the `other`
+    /// script global (`Npc_GetNextTarget`). Returns `0` when none is found.
+    fn npc_getnexttarget(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(enemy) = self.nearest_enemy(npc) else {
+            self.clear_other();
+            return 0;
+        };
+        self.npc_state_mut(npc).live.target = Some(enemy);
+        self.set_other(enemy);
+        bevy::log::debug!(
+            "Npc_GetNextTarget npc({}) enemy({})",
+            npc.value(),
+            enemy.value()
+        );
+        1
+    }
     /// Npc currently looked at, `0` when none.
     fn npc_getlookattarget(&mut self, npc: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {
@@ -463,9 +485,49 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             routine_name: name,
         });
     }
-    fake_impl!(npc_setperctime(_0, _1));
-    fake_impl!(npc_percenable(_0, _1, _2));
-    fake_impl!(npc_percdisable(_0, _1));
+    /// Senses interval of the npc's perception scans in seconds.
+    fn npc_setperctime(&mut self, npc: i32, time: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("Npc_SetPercTime with invalid npc instance({npc})");
+            return;
+        };
+        let interval = f32::from_bits(time as u32);
+        self.npc_state_mut(npc).perception.interval = (interval > 0.0).then_some(interval);
+    }
+    /// Registers the script callback the engine calls when the npc perceives
+    /// `perception` (`Npc_PercEnable`). Only `PERC_ASSESSENEMY` is scanned for
+    /// now, the other ids are stored but never fired.
+    fn npc_percenable(&mut self, npc: i32, perception: i32, function: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("Npc_PercEnable with invalid npc instance({npc})");
+            return;
+        };
+        let Some(function) = self.symbol_table.function(function) else {
+            warn!(
+                "Npc_PercEnable npc({}) with invalid function({function})",
+                npc.value()
+            );
+            return;
+        };
+        self.npc_state_mut(npc)
+            .perception
+            .callbacks
+            .insert(perception, function);
+        bevy::log::debug!(
+            "Npc_PercEnable npc({}) perception({perception}) function({})",
+            npc.value(),
+            function.value()
+        );
+    }
+    fn npc_percdisable(&mut self, npc: i32, perception: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        self.npc_state_mut(npc)
+            .perception
+            .callbacks
+            .remove(&perception);
+    }
     fake_impl!(npc_sendpassiveperc(_0, _1, _2, _3));
     fake_impl!(npc_sendsingleperc(_0, _1, _2));
     fake_impl!(npc_perceiveall(_0));
@@ -480,47 +542,3 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
 /// `PERC_DIST_ACTIVE_MAX` is 2000 Gothic units and the viewer uses 100 Gothic
 /// units per meter.
 const DEFAULT_SIGHT_RANGE_METERS: f32 = 20.0;
-
-/// Attitude the npc holds toward `other`: the non-player side's temporary or
-/// permanent attitude, else the guild attitude matrix.
-fn npc_attitude(
-    state: &ImportCallState,
-    npc: InstanceId,
-    other: InstanceId,
-    temporary: bool,
-) -> i32 {
-    let player = state.player_instance;
-    let speaker = match (Some(npc) == player, Some(other) == player) {
-        (false, true) => Some(npc),
-        (true, false) => Some(other),
-        _ => None,
-    };
-    if let Some(speaker) = speaker {
-        let attitudes = state
-            .npc_state(speaker)
-            .map(|speaker| (speaker.social.temp_attitude, speaker.social.attitude));
-        if let Some((temp_attitude, attitude)) = attitudes {
-            if temporary && let Some(attitude) = temp_attitude {
-                return attitude;
-            }
-            if let Some(attitude) = attitude {
-                return attitude;
-            }
-        }
-    }
-
-    let guild = |instance: InstanceId| {
-        state
-            .typed
-            .npc(instance.value() as u32)
-            .map(|npc| npc.guild)
-    };
-    match (guild(npc), guild(other)) {
-        (Some(guild_npc), Some(guild_other)) => state
-            .guild_attitudes
-            .get(&(guild_npc, guild_other))
-            .copied()
-            .unwrap_or(ATT_NEUTRAL),
-        _ => ATT_NEUTRAL,
-    }
-}

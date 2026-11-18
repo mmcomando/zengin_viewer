@@ -137,6 +137,11 @@ impl super::ScriptManager {
         self.store.data_mut().game_day = day;
     }
 
+    /// Sets the in-game minute of the day used by `Wld_IsTime`.
+    pub fn set_game_minutes_of_day(&mut self, minutes: u32) {
+        self.store.data_mut().game_minutes_of_day = minutes;
+    }
+
     /// Sets the running clock used by time limited script state.
     pub fn set_world_seconds(&mut self, seconds: f64) {
         self.store.data_mut().world_seconds = seconds;

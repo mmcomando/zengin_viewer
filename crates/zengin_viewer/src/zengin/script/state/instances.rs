@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use bevy::{
     math::Vec3,
@@ -62,6 +62,8 @@ pub struct NpcRuntime {
     pub talents: NpcTalents,
     pub social: NpcSocialState,
     pub live: NpcLiveState,
+    #[serde(default)]
+    pub perception: NpcPerceptionState,
 }
 
 /// Visual state set by the model functions and resolved at load time.
@@ -173,6 +175,19 @@ pub struct NpcSocialState {
     /// seconds. Ephemeral, so not saved.
     #[serde(skip)]
     pub refuse_talk_until: Option<f64>,
+}
+
+/// Perception callbacks and cadence of an npc.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct NpcPerceptionState {
+    /// Script function registered for a `PERC_*` id via `Npc_PercEnable`.
+    /// Rebuilt by every routine state start hook, so not saved.
+    #[serde(skip)]
+    pub callbacks: BTreeMap<i32, FunctionId>,
+    /// Seconds between perception scans (`Npc_SetPercTime`), `None` for the
+    /// engine default. Rebuilt by the state start hooks, so not saved.
+    #[serde(skip)]
+    pub interval: Option<f32>,
 }
 
 /// Live world facts shared with the ECS side.

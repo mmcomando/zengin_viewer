@@ -307,7 +307,7 @@ pub(crate) fn begin_world_load(
 
 /// Fallback for a world mesh that never produces a collider, so a broken asset
 /// cannot trap the app on the loading screen.
-const LOAD_TIMEOUT: f32 = 10.0;
+const LOAD_TIMEOUT: f32 = 100.0;
 
 fn reset_load_screen_elapsed(mut elapsed: ResMut<LoadScreenElapsed>) {
     elapsed.0 = 0.0;

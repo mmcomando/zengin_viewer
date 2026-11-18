@@ -78,7 +78,7 @@ fn camera_info_overlay(context: &egui::Context, camera: &GlobalTransform) {
     // Printed in axis labeled order (x = pitch, y = yaw, z = roll) to match
     // the rotation format of replay location commands.
     let text = format!(
-        "pos: {:6.1}, {:6.1}, {:6.1}\nrot: {:5.1} {:5.1} {:5.1}",
+        "pos: {:6.1}, {:6.1}, {:6.1}\nrot: {:5.1}, {:5.1}, {:5.1}",
         position.x,
         position.y,
         position.z,

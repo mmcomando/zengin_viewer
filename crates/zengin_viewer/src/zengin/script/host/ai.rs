@@ -119,6 +119,18 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             state: state_fn,
             other,
         });
+        // `zs_attack_loop` is the retail trigger for the fight, but it can end
+        // before reaching `AI_Attack` when the ai variables
+        // (`AIV_FIGHTDISTCANCEL`, `AIV_MM_FOLLOWTIME`) are not initialised, so
+        // the attack is requested together with the state.
+        if state_name.eq_ignore_ascii_case("zs_attack")
+            && let Some(target) = other
+        {
+            self.messages.attack.send(AttackChange {
+                instance_id: npc,
+                target,
+            });
+        }
     }
     fake_impl!(ai_continueroutine(_0));
     fake_impl!(ai_outputsvm(_0, _1, _2));

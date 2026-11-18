@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
+use crate::zengin::npc_actions::attack::AttackAction;
 use crate::zengin::npc_actions::goto::GoToWaypointAction;
 use crate::zengin::npc_actions::item_state::UseItemStateAction;
 use crate::zengin::npc_actions::queue::NpcActionQueue;
@@ -294,11 +295,14 @@ pub(crate) fn enqueue_use_item_state_actions(
 }
 
 /// Turns `AI_Attack` requests into queued actions on their `Npc_SetTarget`
-/// target.
+/// target. An attack already running or queued on the same target is a no-op, so
+/// a state start and its `zs_attack_loop` may both request it.
 #[allow(clippy::cognitive_complexity)]
 pub(crate) fn enqueue_attack_actions(
     mut changes: MessageReader<AttackChange>,
     index: Res<InstanceIndex>,
+    executing: Query<&AttackAction>,
+    transforms: Query<&Transform>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
     for change in changes.read() {
@@ -309,13 +313,14 @@ pub(crate) fn enqueue_attack_actions(
             );
             continue;
         }
-        let Some(&target) = index.npcs(change.target).first() else {
+        let target_entities = index.npcs(change.target);
+        if target_entities.is_empty() {
             warn!(
                 "AI_Attack npc({}) ignored: target({}) has no entity",
                 change.instance_id, change.target
             );
             continue;
-        };
+        }
         let entities = index.npcs(change.instance_id);
         if entities.is_empty() {
             warn!(
@@ -332,6 +337,20 @@ pub(crate) fn enqueue_attack_actions(
                 );
                 continue;
             };
+            // Several entities can share one script instance (`Wld_InsertNpc`
+            // spawns the same wolf instance many times), so attack the closest
+            // one instead of the first one the index returns.
+            let target =
+                nearest_target(entity, target_entities, &transforms).unwrap_or(target_entities[0]);
+            if executing
+                .get(entity)
+                .is_ok_and(|attack| attack.target == target)
+            {
+                continue;
+            }
+            if queue.has_attack(target) {
+                continue;
+            }
             queue.push_attack(target);
             info!(
                 "AI_Attack npc({}) queued against target({}) entity({entity})",
@@ -339,4 +358,21 @@ pub(crate) fn enqueue_attack_actions(
             );
         }
     }
+}
+
+fn nearest_target(
+    from: Entity,
+    targets: &[Entity],
+    transforms: &Query<&Transform>,
+) -> Option<Entity> {
+    let from = transforms.get(from).ok()?.translation;
+    targets.iter().copied().min_by(|left, right| {
+        let left = transforms.get(*left).map_or(f32::MAX, |transform| {
+            (transform.translation - from).length_squared()
+        });
+        let right = transforms.get(*right).map_or(f32::MAX, |transform| {
+            (transform.translation - from).length_squared()
+        });
+        left.total_cmp(&right)
+    })
 }

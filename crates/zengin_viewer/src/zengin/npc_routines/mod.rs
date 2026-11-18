@@ -30,8 +30,9 @@ use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
     NpcRoutineCheckState, apply_look_at, apply_start_state_changes, apply_turn_to_npc,
     end_removed_routine_entries, move_along_path, pause_talking_npc_routine,
-    release_npc_freepoints, restore_routine_stand, run_routine_loops, sync_script_freepoints,
-    update_npc_routine_entries, update_npc_routines, update_routine_executors,
+    release_npc_freepoints, restore_routine_stand, run_routine_loops, start_npc_start_ai_states,
+    sync_script_freepoints, update_npc_routine_entries, update_npc_routines,
+    update_routine_executors,
 };
 use script_animation::apply_scripted_animations;
 use weapons::{apply_weapon_mode, update_npc_attachments, update_npc_mob_use_items};
@@ -69,6 +70,9 @@ impl Plugin for NpcRoutinesPlugin {
                 (update_npc_routine_entries, update_npc_routines).chain(),
                 clear_npc_actions,
                 apply_start_state_changes.after(clear_npc_actions),
+                start_npc_start_ai_states
+                    .after(apply_start_state_changes)
+                    .after(update_routine_executors),
                 end_removed_routine_entries.after(update_npc_routine_entries),
                 update_routine_executors
                     .after(update_npc_routine_entries)

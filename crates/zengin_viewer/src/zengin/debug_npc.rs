@@ -17,7 +17,8 @@ use crate::zengin::script::symbol_id::InstanceId;
 
 /// Case-insensitive substring of the script symbol name of the npc to trace.
 /// Set it by hand when debugging, `None` disables the trace.
-pub(crate) static DEBUG_NPC: Option<&'static str> = Some("412_harad");
+// pub(crate) static DEBUG_NPC: Option<&'static str> = Some("lares");
+pub(crate) static DEBUG_NPC: Option<&'static str> = None;
 
 /// Adds the [`DEBUG_NPC`] trace systems.
 pub struct DebugNpcPlugin;

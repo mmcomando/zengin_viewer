@@ -1,5 +1,6 @@
 //! Typed script-class registry and VM access dispatch.
 
+use std::collections::HashMap;
 use std::sync::{Arc, PoisonError, RwLock};
 
 use super::access::ScriptVmAccess;
@@ -223,6 +224,27 @@ impl TypedInstance {
             Self::Generic(variable) => variable.set(offset / 4 + element, value),
         }
     }
+
+    /// Independent copy of the stored record, typed class handles get a new lock
+    /// and a cloned payload.
+    fn deep_copy(&self) -> Option<Self> {
+        match self {
+            Self::Npc(handle) => Some(Self::Npc(Arc::new(RwLock::new(read_lock(handle).clone())))),
+            Self::Item(handle) => {
+                Some(Self::Item(Arc::new(RwLock::new(read_lock(handle).clone()))))
+            }
+            Self::Menu(handle) => {
+                Some(Self::Menu(Arc::new(RwLock::new(read_lock(handle).clone()))))
+            }
+            Self::MenuItem(handle) => Some(Self::MenuItem(Arc::new(RwLock::new(
+                read_lock(handle).clone(),
+            )))),
+            Self::Info(handle) => {
+                Some(Self::Info(Arc::new(RwLock::new(read_lock(handle).clone()))))
+            }
+            Self::Generic(variable) => Some(Self::Generic(variable.clone())),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -243,6 +265,12 @@ struct SymbolEntry {
 pub struct TypedRegistry {
     symbols: Vec<SymbolEntry>,
     instances: Vec<Option<TypedInstance>>,
+    /// Runtime copies of instance symbols, used for duplicated spawns of the
+    /// same instance (each spawned object gets its own record). Keyed by ids
+    /// outside the symbol id range.
+    copies: HashMap<u32, TypedInstance>,
+    /// Source symbol of every runtime copy id.
+    copy_sources: HashMap<u32, u32>,
     /// Value slot word 0 of instance symbols. For classes whose members start
     /// past offset 0 it holds the instance reference (for example `self`/`other`
     /// values); for other classes it is unused.
@@ -416,8 +444,61 @@ impl TypedRegistry {
     #[must_use]
     pub fn instance(&self, instance: u32) -> Option<&TypedInstance> {
         self.instances
-            .get(usize::try_from(instance).ok()?)?
-            .as_ref()
+            .get(usize::try_from(instance).ok()?)
+            .and_then(Option::as_ref)
+            .or_else(|| self.copies.get(&instance))
+    }
+
+    /// Mutable value storage of a symbol or runtime copy.
+    pub fn instance_mut(&mut self, instance: u32) -> Option<&mut TypedInstance> {
+        if self
+            .instances
+            .get(usize::try_from(instance).ok()?)
+            .is_some_and(Option::is_some)
+        {
+            return self
+                .instances
+                .get_mut(usize::try_from(instance).ok()?)
+                .and_then(Option::as_mut);
+        }
+        self.copies.get_mut(&instance)
+    }
+
+    /// Creates an independent runtime copy of an instance record under a new id.
+    /// Returns `false` when the source has no typed instance storage.
+    pub fn copy_instance(&mut self, source: u32, instance: u32) -> bool {
+        if self.copies.contains_key(&instance) {
+            return true;
+        }
+        let Some(copy) = self.instance(source).and_then(TypedInstance::deep_copy) else {
+            return false;
+        };
+        self.copies.insert(instance, copy);
+        self.copy_sources.insert(instance, source);
+        true
+    }
+
+    /// Whether the id is a runtime copy created by [`Self::copy_instance`].
+    #[must_use]
+    pub fn is_copy(&self, instance: u32) -> bool {
+        self.copies.contains_key(&instance)
+    }
+
+    /// Source symbol of a runtime copy id.
+    #[must_use]
+    pub fn copy_source(&self, instance: u32) -> Option<u32> {
+        self.copy_sources.get(&instance).copied()
+    }
+
+    /// Ids of every runtime copy.
+    pub fn copy_ids(&self) -> impl Iterator<Item = u32> + '_ {
+        self.copies.keys().copied()
+    }
+
+    /// Drops every runtime copy, the symbol records stay untouched.
+    pub fn clear_copies(&mut self) {
+        self.copies.clear();
+        self.copy_sources.clear();
     }
 
     /// Typed class of an instance, `None` without a typed model.
@@ -640,6 +721,9 @@ impl TypedRegistry {
             return -1;
         };
         if element == 0 && class.uses_reference_word() {
+            if self.is_copy(symbol) {
+                return i32::try_from(symbol).unwrap_or_default();
+            }
             return self
                 .references
                 .get(usize::try_from(symbol).unwrap_or(usize::MAX))
@@ -667,23 +751,18 @@ impl TypedRegistry {
     /// defaults of const globals.
     fn write_symbol_unchecked(&mut self, symbol: u32, element: u32, value: i32) {
         let symbol_index = usize::try_from(symbol).unwrap_or(usize::MAX);
-        let reference_class = self
-            .instances
-            .get(symbol_index)
-            .and_then(Option::as_ref)
-            .and_then(TypedInstance::class);
-        if element == 0
-            && reference_class.is_some_and(ClassKind::uses_reference_word)
-            && let Some(reference) = self.references.get_mut(symbol_index)
-        {
-            *reference = value;
-            return;
+        let reference_class = self.instance(symbol).and_then(TypedInstance::class);
+        if element == 0 && reference_class.is_some_and(ClassKind::uses_reference_word) {
+            if self.is_copy(symbol) {
+                // A copy id is its own reference, the source word stays untouched.
+                return;
+            }
+            if let Some(reference) = self.references.get_mut(symbol_index) {
+                *reference = value;
+                return;
+            }
         }
-        let Some(instance) = self
-            .instances
-            .get_mut(symbol_index)
-            .and_then(Option::as_mut)
-        else {
+        let Some(instance) = self.instance_mut(symbol) else {
             println!("error: write of symbol({symbol}) without a value slot");
             return;
         };
@@ -786,6 +865,72 @@ impl TypedRegistry {
                 if let Some(reference) = self.references.get_mut(symbol_index) {
                     *reference = *value;
                 }
+                continue;
+            }
+            let Ok(index) = u32::try_from(index) else {
+                continue;
+            };
+            let Some(byte_offset) = index.checked_mul(4) else {
+                continue;
+            };
+            let Some((slot, element)) = flat_word_slot(class, byte_offset) else {
+                continue;
+            };
+            storage.write(slot.offset, element, *value);
+        }
+    }
+
+    /// Snapshot of a runtime copy. The reference word holds the copy id, the
+    /// remaining words follow [`Self::snapshot_values`].
+    #[must_use]
+    pub fn snapshot_copy(&self, instance: u32) -> Option<Vec<i32>> {
+        let storage = self.copies.get(&instance)?;
+        if let TypedInstance::Generic(variable) = storage {
+            return Some(variable.words().to_vec());
+        }
+        let class = storage.class()?;
+        let mut values = vec![0; typed_words_len(class)];
+        if class.uses_reference_word()
+            && let Some(first) = values.first_mut()
+        {
+            *first = i32::try_from(instance).unwrap_or_default();
+        }
+        for (index, value) in values.iter_mut().enumerate() {
+            let byte_offset = u32::try_from(index).ok()?.checked_mul(4)?;
+            if byte_offset == 0 && class.uses_reference_word() {
+                continue;
+            }
+            let Some((slot, element)) = flat_word_slot(class, byte_offset) else {
+                continue;
+            };
+            if let Some(stored) = storage.read(slot.offset, element) {
+                *value = stored;
+            }
+        }
+        Some(values)
+    }
+
+    /// Restores a word vector produced by [`Self::snapshot_copy`]. The reference
+    /// word is the copy id and is not written into the record.
+    pub fn restore_copy(&mut self, instance: u32, values: &[i32]) {
+        let Some(storage) = self.copies.get_mut(&instance) else {
+            println!("error: restore of missing copy({instance})");
+            return;
+        };
+        if let TypedInstance::Generic(variable) = storage {
+            for (index, value) in values.iter().enumerate() {
+                if let Ok(index) = u32::try_from(index) {
+                    variable.set(index, *value);
+                }
+            }
+            return;
+        }
+        let Some(class) = storage.class() else {
+            return;
+        };
+        let uses_reference = class.uses_reference_word();
+        for (index, value) in values.iter().enumerate() {
+            if index == 0 && uses_reference {
                 continue;
             }
             let Ok(index) = u32::try_from(index) else {
@@ -943,11 +1088,7 @@ impl TypedRegistry {
         };
         let offset = entry.address_or_offset;
         let name = member_name(entry).to_owned();
-        let Some(storage) = self
-            .instances
-            .get_mut(usize::try_from(instance).unwrap_or(usize::MAX))
-            .and_then(Option::as_mut)
-        else {
+        let Some(storage) = self.instance_mut(instance) else {
             println!("error: write of instance({instance}) without a value slot");
             return;
         };
@@ -1078,7 +1219,8 @@ impl TypedRegistry {
     }
 
     fn class_symbol_of(&self, symbol: u32) -> Option<u32> {
-        let mut current = symbol;
+        // Runtime copies resolve through their source symbol.
+        let mut current = self.copy_sources.get(&symbol).copied().unwrap_or(symbol);
         // Prototypes can form a chain, the class is somewhere at its end.
         for _ in 0..16 {
             let entry = self.symbols.get(usize::try_from(current).ok()?)?;
@@ -1270,6 +1412,37 @@ mod tests {
         defaults[1084 / 4] = 1;
         registry.write_values(instance, &defaults);
         (registry, instance)
+    }
+
+    #[test]
+    fn runtime_copy_is_an_independent_npc_record() {
+        let (mut registry, instance) = npc_registry();
+        let copy = 1_000_000u32;
+        assert!(registry.copy_instance(instance, copy));
+        assert!(registry.is_copy(copy));
+        assert_eq!(registry.copy_source(copy), Some(instance));
+
+        let attribute = registry
+            .find_member_id("c_npc", "attribute")
+            .expect("member");
+        let original_hitpoints = registry.read_member(instance, attribute, 0);
+        registry.write_member(copy, attribute, 0, 5);
+        assert_eq!(registry.read_member(copy, attribute, 0), 5);
+        assert_eq!(
+            registry.read_member(instance, attribute, 0),
+            original_hitpoints
+        );
+        assert_eq!(registry.npc(copy).expect("copy npc").guild, 6);
+        assert_eq!(registry.read_symbol(copy, 0), copy as i32);
+
+        let values = registry.snapshot_copy(copy).expect("copy snapshot");
+        registry.write_member(copy, attribute, 0, 9);
+        registry.restore_copy(copy, &values);
+        assert_eq!(registry.read_member(copy, attribute, 0), 5);
+
+        registry.clear_copies();
+        assert!(!registry.is_copy(copy));
+        assert!(registry.npc(copy).is_none());
     }
 
     #[test]

@@ -85,6 +85,13 @@ impl NpcActionQueue {
         self.push_back(QueuedAction::Attack(Box::new(AttackAction::new(target))))
     }
 
+    /// Whether an attack on `target` is already queued.
+    pub(crate) fn has_attack(&self, target: Entity) -> bool {
+        self.actions
+            .iter()
+            .any(|action| matches!(action, QueuedAction::Attack(queued) if queued.target == target))
+    }
+
     fn push_back(&mut self, action: QueuedAction) -> bool {
         if self.actions.len() >= MAX_QUEUED_ACTIONS {
             return false;

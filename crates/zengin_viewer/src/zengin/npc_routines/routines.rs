@@ -1,7 +1,7 @@
 //! Waypoint routines: active routine entries, their waypoint targets, routine
 //! state execution and `AI_GoToWP` path following.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::PoisonError;
 
 use bevy::prelude::*;
@@ -71,6 +71,10 @@ pub(crate) struct RoutineExecutor {
     /// changed waypoint restarts the state even when the state function is the
     /// same, so its end hook releases the previous mob or path.
     way_point: StringCanon,
+    /// Script `other` partner of the state (attack target, perception actor).
+    /// The global is shared between all script calls, so it is bound before
+    /// every hook.
+    other: Option<InstanceId>,
     /// Seconds since the state started or was last reset by `NPC_SetStateTime`.
     state_time: f32,
     /// Seconds until the next loop hook call.
@@ -262,6 +266,7 @@ pub(crate) fn end_removed_routine_entries(
         if executor.source == RoutineSource::AiState {
             continue;
         }
+        script.set_state_other(executor.other);
         script.call_routine_end(npc.instance_id(), executor.functions);
         commands.entity(entity).remove::<RoutineExecutor>();
     }
@@ -305,11 +310,13 @@ pub(crate) fn update_routine_executors(
                 continue;
             };
             let functions = script.resolve_routine_functions(start);
+            script.set_state_other(None);
             script.call_routine_start(instance, functions);
             commands.entity(entity).insert(RoutineExecutor {
                 functions,
                 source: RoutineSource::Routine,
                 way_point: entry.way_point.clone(),
+                other: None,
                 state_time: 0.0,
                 // The engine runs the first loop on the next tick, the loop
                 // system picks it up on the next update.
@@ -333,12 +340,15 @@ pub(crate) fn update_routine_executors(
         // A state start does not clear the queue: routine requests are only
         // produced while it is empty, so there is nothing routine-specific to
         // drop here and explicit actions must survive a routine entry change.
+        script.set_state_other(executor.other);
         script.call_routine_end(instance, executor.functions);
         let Some(start) = desired else {
             commands.entity(entity).remove::<RoutineExecutor>();
             continue;
         };
         let functions = script.resolve_routine_functions(start);
+        executor.other = None;
+        script.set_state_other(executor.other);
         script.call_routine_start(instance, functions);
         executor.functions = functions;
         executor.source = RoutineSource::Routine;
@@ -364,41 +374,123 @@ pub(crate) fn apply_start_state_changes(
 
     let mut script = gothic_script.lock();
     for change in changes.read() {
-        for &entity in index.npcs(change.instance_id) {
-            let Ok((entity, executor)) = npcs.get_mut(entity) else {
+        let entities = index.npcs(change.instance_id);
+        // The state functions run per script instance; duplicated spawns share
+        // one instance, so only one entity owns the executor.
+        let owner = entities.iter().copied().find(|&entity| {
+            npcs.get(entity)
+                .is_ok_and(|(_, executor)| executor.is_some())
+        });
+        if let Some(entity) = owner {
+            let Ok((_, Some(mut executor))) = npcs.get_mut(entity) else {
                 continue;
             };
-            let functions = script.resolve_routine_functions(change.state);
-            if let Some(mut executor) = executor {
-                if executor.source == RoutineSource::AiState
-                    && executor.functions.start == change.state
-                {
-                    continue;
-                }
-                script.call_routine_end(change.instance_id, executor.functions);
-                if let Some(other) = change.other {
-                    script.set_other(other);
-                }
-                script.call_routine_start(change.instance_id, functions);
-                executor.functions = functions;
-                executor.source = RoutineSource::AiState;
-                executor.way_point = StringCanon::default();
-                executor.state_time = 0.0;
-                executor.next_loop_in = 0.0;
-            } else {
-                if let Some(other) = change.other {
-                    script.set_other(other);
-                }
-                script.call_routine_start(change.instance_id, functions);
-                commands.entity(entity).insert(RoutineExecutor {
-                    functions,
-                    source: RoutineSource::AiState,
-                    way_point: StringCanon::default(),
-                    state_time: 0.0,
-                    next_loop_in: 0.0,
-                });
+            if executor.source == RoutineSource::AiState && executor.functions.start == change.state
+            {
+                continue;
             }
+            script.set_state_other(executor.other);
+            script.call_routine_end(change.instance_id, executor.functions);
+            let functions = script.resolve_routine_functions(change.state);
+            executor.other = change.other;
+            script.set_state_other(executor.other);
+            script.call_routine_start(change.instance_id, functions);
+            executor.functions = functions;
+            executor.source = RoutineSource::AiState;
+            executor.way_point = StringCanon::default();
+            executor.state_time = 0.0;
+            executor.next_loop_in = 0.0;
+            continue;
         }
+        // No executor yet: start it on the first near entity.
+        let Some(entity) = entities
+            .iter()
+            .copied()
+            .find(|&entity| npcs.get(entity).is_ok())
+        else {
+            continue;
+        };
+        let functions = script.resolve_routine_functions(change.state);
+        script.set_state_other(change.other);
+        script.call_routine_start(change.instance_id, functions);
+        commands.entity(entity).insert(RoutineExecutor {
+            functions,
+            source: RoutineSource::AiState,
+            way_point: StringCanon::default(),
+            other: change.other,
+            state_time: 0.0,
+            next_loop_in: 0.0,
+        });
+    }
+}
+
+/// Starts the `C_Npc.start_aistate` state of npcs without a daily routine
+/// (monsters). Their state is not scheduled by `TA_Min`, so without this the
+/// script never registers perceptions or runs any monster AI.
+#[allow(clippy::type_complexity)]
+pub(crate) fn start_npc_start_ai_states(
+    mut commands: Commands,
+    gothic_script: Res<ScriptResource>,
+    index: Res<InstanceIndex>,
+    npcs: Query<
+        (Entity, &GameNpc, Option<&RoutineExecutor>),
+        (
+            Added<AnimationController>,
+            Without<RoutineEntry>,
+            Without<ChildOf>,
+        ),
+    >,
+) {
+    if npcs.is_empty() {
+        return;
+    }
+    let mut script = gothic_script.lock();
+    let mut started = HashSet::new();
+    for (entity, npc, executor) in &npcs {
+        if executor.is_some() {
+            continue;
+        }
+        let instance = npc.instance_id();
+        // Duplicated spawns share one script instance, only one of them runs
+        // the state.
+        let owned_elsewhere = index.npcs(instance).iter().copied().any(|other| {
+            other != entity
+                && npcs
+                    .get(other)
+                    .is_ok_and(|(_, _, executor)| executor.is_some())
+        });
+        if owned_elsewhere {
+            continue;
+        }
+        let state = npc
+            .handle()
+            .typed()
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .start_aistate;
+        let Some(state) = state else {
+            continue;
+        };
+        // Several entities of one instance activate in the same frame and the
+        // executors inserted above are deferred, so dedupe within this run too.
+        if !started.insert(instance) {
+            continue;
+        }
+        debug!(
+            "npc({instance}) starting start_aistate state({})",
+            state.value()
+        );
+        let functions = script.resolve_routine_functions(state);
+        script.set_state_other(None);
+        script.call_routine_start(instance, functions);
+        commands.entity(entity).insert(RoutineExecutor {
+            functions,
+            source: RoutineSource::AiState,
+            way_point: StringCanon::default(),
+            other: None,
+            state_time: 0.0,
+            next_loop_in: 0.0,
+        });
     }
 }
 
@@ -492,6 +584,7 @@ pub(crate) fn run_routine_loops(
                 "npc({}) routine entry stopped at minute {minutes}",
                 npc.instance_id()
             );
+            script.set_state_other(executor.other);
             script.call_routine_end(npc.instance_id(), executor.functions);
             commands.entity(entity).remove::<RoutineExecutor>();
             continue;
@@ -521,6 +614,7 @@ pub(crate) fn run_routine_loops(
         let instance = npc.instance_id();
         let state_time = executor.state_time as i32;
         script.set_routine_state_time(instance, state_time);
+        script.set_state_other(executor.other);
         let ended = script.call_routine_loop(instance, executor.functions);
         if let Some(actual) = script.routine_state_time(instance)
             && actual != state_time
@@ -529,6 +623,7 @@ pub(crate) fn run_routine_loops(
             executor.bypass_change_detection().state_time = actual as f32;
         }
         if ended {
+            script.set_state_other(executor.other);
             script.call_routine_end(instance, executor.functions);
             if executor.source == RoutineSource::AiState
                 && let Some(entry) = entry
@@ -537,6 +632,8 @@ pub(crate) fn run_routine_loops(
             {
                 // The AI state returned control, resume the scheduled routine.
                 let functions = script.resolve_routine_functions(start);
+                executor.other = None;
+                script.set_state_other(executor.other);
                 script.call_routine_start(instance, functions);
                 executor.functions = functions;
                 executor.source = RoutineSource::Routine;

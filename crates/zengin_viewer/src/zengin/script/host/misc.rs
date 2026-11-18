@@ -118,5 +118,9 @@ impl mmcomando::zengine_scripts::misc_scripts::Host for ImportCallState {
     }
     fake_impl!(tal_configure(_0, _1));
     fake_impl!(rtn_exchange(_0, _1));
-    fake_impl!(perc_setrange(_0, _1));
+    /// Stores the global perception range in engine units (`Perc_SetRange`),
+    /// used by the engine scan instead of the npc's `senses_range`.
+    fn perc_setrange(&mut self, perception: i32, range: i32) {
+        self.perc_ranges.insert(perception, range);
+    }
 }

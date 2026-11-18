@@ -9,6 +9,7 @@ mod inventory;
 mod menu;
 mod mobs;
 mod npc;
+mod perception;
 mod save;
 mod strings;
 mod world;

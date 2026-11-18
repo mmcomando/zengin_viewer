@@ -108,6 +108,7 @@ fn sync_script_clock(
 ) {
     let mut script = gothic_script.lock();
     script.set_game_day(game_time.day.saturating_sub(1));
+    script.set_game_minutes_of_day(game_time.minutes_of_day());
     script.set_world_seconds(time.elapsed_secs_f64());
 }
 

@@ -33,8 +33,13 @@ use super::journal::{JournalChange, JournalManager};
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 use crate::external_messages::ExternalMessageSender;
-use crate::zengin::common::{FREEPOINT_SEARCH_RADIUS, MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS};
+use crate::zengin::common::{
+    FREEPOINT_SEARCH_RADIUS, MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, to_world_units,
+};
 use bevy::ecs::resource::Resource;
+
+/// `PERC_ASSESSENEMY` script constant, the perception that starts a fight.
+pub const PERC_ASSESSENEMY: i32 = 2;
 
 /// A mob state assignment scheduled by `Wld_SetMobRoutine`: the mob with
 /// `mob_name` should be switched to `state` when the game time reaches
@@ -84,6 +89,12 @@ pub struct SymbolTable {
     /// should be resolved through `string_content` right after the dynamic
     /// string was created.
     dynamic_strings: Vec<Vec<u8>>,
+    /// Symbol ids by lowercased name, for host functions which receive a
+    /// symbol name as a script string argument.
+    names: HashMap<String, i32>,
+    /// Runtime instance copies created for duplicated spawns, copy id -> source
+    /// symbol id. Copy ids live above the whole string id range.
+    copies: HashMap<i32, i32>,
 }
 
 /// Number of `DYN_STRINGS` ring slots, must match the guest (`base_module.wat`)
@@ -91,13 +102,37 @@ const DYN_STRINGS_SLOTS_NUM: usize = 64;
 
 impl SymbolTable {
     pub fn new(kinds: HashMap<i32, SymbolKind>, symbols_count: i32, strings: Vec<String>) -> Self {
+        let names = strings
+            .iter()
+            .take(usize::try_from(symbols_count).unwrap_or_default())
+            .enumerate()
+            .map(|(index, name)| (name.to_lowercase(), index as i32))
+            .collect();
         Self {
             kinds,
             symbols_count,
             dynamic_strings_base: strings.len() as i32,
             strings,
             dynamic_strings: Vec::new(),
+            names,
+            copies: HashMap::new(),
         }
+    }
+
+    /// First instance copy id. Copies must not collide with symbol ids, static
+    /// string literals or the dynamic string ring.
+    pub fn copy_instance_base(&self) -> i32 {
+        self.dynamic_strings_base + DYN_STRINGS_SLOTS_NUM as i32 + 1
+    }
+
+    /// Marks `copy` as a runtime copy of the instance symbol `source`.
+    pub fn register_instance_copy(&mut self, copy: i32, source: i32) {
+        self.copies.insert(copy, source);
+    }
+
+    /// Drops every runtime instance copy registration.
+    pub fn clear_copies(&mut self) {
+        self.copies.clear();
     }
 
     fn verified(&self, raw: i32, expected: SymbolKind) -> Option<SymbolId> {
@@ -108,6 +143,9 @@ impl SymbolTable {
     }
 
     pub fn instance(&self, raw: i32) -> Option<InstanceId> {
+        if self.copies.contains_key(&raw) {
+            return InstanceId::new(raw);
+        }
         self.verified(raw, SymbolKind::Instance)
             .map(InstanceId::from_symbol)
     }
@@ -128,10 +166,19 @@ impl SymbolTable {
     /// when the id is out of range. Reads the preloaded string table, so it is
     /// safe to call from import handlers (no guest re-entry).
     pub fn symbol_name(&self, raw: i32) -> Option<String> {
+        if let Some(source) = self.copies.get(&raw) {
+            return self.symbol_name(*source);
+        }
         if raw < 0 || raw >= self.symbols_count {
             return None;
         }
         self.string_content(raw)
+    }
+
+    /// Raw symbol id of a lowercased symbol name, `None` when the name is
+    /// unknown. Safe to call from import handlers (no guest re-entry).
+    pub fn symbol_id_by_name(&self, name: &str) -> Option<i32> {
+        self.names.get(name).copied()
     }
 
     /// String literals are not symbols, their ids are indices into the strings
@@ -229,6 +276,8 @@ pub struct ImportCallState {
     pub player_instance: Option<InstanceId>,
     /// Current game day reported by `Wld_GetDay`, 0 on the first day.
     pub game_day: u32,
+    /// Current in-game minute of the day, `Wld_IsTime` range checks.
+    pub game_minutes_of_day: u32,
     /// Running clock in seconds, used by time limited script state such as
     /// `Npc_SetRefuseTalk`.
     pub world_seconds: f64,
@@ -236,6 +285,15 @@ pub struct ImportCallState {
     pub journal: JournalManager,
     /// Guild to guild attitude matrix (`Wld_SetGuildAttitude`).
     pub guild_attitudes: HashMap<(i32, i32), i32>,
+    /// Perception ranges in engine units (`Perc_SetRange`), set once by the
+    /// script `initperceptions` at world load.
+    pub perc_ranges: HashMap<i32, i32>,
+    /// Spawned object ids per instance symbol. `Wld_InsertNpc` may spawn the
+    /// same instance several times, later spawns become runtime copies with
+    /// their own typed record and runtime state.
+    pub spawned_npcs: HashMap<InstanceId, Vec<InstanceId>>,
+    /// Next runtime copy instance id, `None` until the first copy is allocated.
+    pub next_copy_instance_id: Option<i32>,
     /// Cached `Npc_CheckInfo` answers per npc. Refreshed before script calls
     /// which consult it.
     pub check_info: HashMap<InstanceId, NpcCheckInfo>,
@@ -662,6 +720,216 @@ impl ImportCallState {
         self.typed.write_symbol(symbol as u32, 0, instance.value());
     }
 
+    /// Clears the `other` script global.
+    pub fn clear_other(&mut self) {
+        let Some(symbol) = self.well_known_symbols.other_symbol else {
+            return;
+        };
+        self.typed.write_symbol(symbol as u32, 0, 0);
+    }
+
+    /// Perception range in engine units, `default` when the script did not set
+    /// one (`Perc_SetRange` runs from `initperceptions` at world load).
+    pub fn perc_range(&self, perception: i32, default: i32) -> i32 {
+        self.perc_ranges
+            .get(&perception)
+            .copied()
+            .unwrap_or(default)
+    }
+
+    /// Rebuilds the guild attitude matrix from a square table symbol
+    /// (`GIL_ATTITUDES`): entry `i * side + j` is the attitude of guild `i`
+    /// toward guild `j`.
+    pub fn exchange_guild_attitudes(&mut self, symbol: u32) {
+        let Some(values) = self
+            .typed
+            .variable(symbol)
+            .map(|values| values.words().to_vec())
+        else {
+            warn!("guild attitude table symbol({symbol}) has no value slot");
+            return;
+        };
+        let side = (values.len() as f64).sqrt() as usize;
+        if side == 0 || side * side != values.len() {
+            warn!(
+                "guild attitude table symbol({symbol}) is not a square table({})",
+                values.len()
+            );
+            return;
+        }
+        self.guild_attitudes.clear();
+        for guild in 0..side {
+            for other in 0..side {
+                self.guild_attitudes
+                    .insert((guild as i32, other as i32), values[guild * side + other]);
+            }
+        }
+        bevy::log::info!("Guild attitude matrix {side}x{side} from symbol({symbol})");
+    }
+
+    /// Allocates the script object id for one `Wld_InsertNpc` call. The first
+    /// spawn of an instance keeps the symbol id, later spawns get an independent
+    /// runtime copy with its own typed `C_Npc` record and runtime state.
+    pub fn allocate_npc_object(&mut self, source: InstanceId) -> InstanceId {
+        let already_spawned = self
+            .spawned_npcs
+            .get(&source)
+            .is_some_and(|spawned| !spawned.is_empty());
+        if !already_spawned {
+            self.spawned_npcs.entry(source).or_default().push(source);
+            return source;
+        }
+        let next = self
+            .next_copy_instance_id
+            .unwrap_or_else(|| self.symbol_table.copy_instance_base());
+        let Some(copy) = InstanceId::new(next) else {
+            warn!(
+                "Cannot allocate a copy of npc({}) at id({next}), spawning the shared instance",
+                source.value()
+            );
+            return source;
+        };
+        self.next_copy_instance_id = Some(copy.value() + 1);
+        let runtime = self
+            .npc_state(source)
+            .map(|npc| npc.clone())
+            .unwrap_or_default();
+        if !self
+            .typed
+            .copy_instance(source.value() as u32, copy.value() as u32)
+        {
+            warn!(
+                "No typed C_Npc data for npc({}), spawning the shared instance",
+                source.value()
+            );
+            return source;
+        }
+        self.symbol_table
+            .register_instance_copy(copy.value(), source.value());
+        *self.npc_state_mut(copy) = runtime;
+        self.spawned_npcs.entry(source).or_default().push(copy);
+        bevy::log::info!(
+            "Wld_InsertNpc npc({}) spawned again as copy({})",
+            source.value(),
+            copy.value()
+        );
+        copy
+    }
+
+    /// Drops every duplicated-spawn registration, runtime instance copy and the
+    /// copy runtime state.
+    pub fn reset_npc_copies(&mut self) {
+        let copies: Vec<InstanceId> = self
+            .typed
+            .copy_ids()
+            .filter_map(|id| i32::try_from(id).ok())
+            .filter_map(InstanceId::new)
+            .collect();
+        for copy in copies {
+            self.loaded_state.npc_instances.remove(&copy);
+        }
+        self.spawned_npcs.clear();
+        self.next_copy_instance_id = None;
+        self.symbol_table.clear_copies();
+        self.typed.clear_copies();
+    }
+
+    /// Attitude `npc` holds toward `other`: the non-player side's temporary or
+    /// permanent attitude, else the guild attitude matrix.
+    pub fn npc_attitude(&self, npc: InstanceId, other: InstanceId, temporary: bool) -> i32 {
+        let player = self.player_instance;
+        let speaker = match (Some(npc) == player, Some(other) == player) {
+            (false, true) => Some(npc),
+            (true, false) => Some(other),
+            _ => None,
+        };
+        if let Some(speaker) = speaker {
+            let attitudes = self
+                .npc_state(speaker)
+                .map(|speaker| (speaker.social.temp_attitude, speaker.social.attitude));
+            if let Some((temp_attitude, attitude)) = attitudes {
+                if temporary && let Some(attitude) = temp_attitude {
+                    return attitude;
+                }
+                if let Some(attitude) = attitude {
+                    return attitude;
+                }
+            }
+        }
+
+        let guild =
+            |instance: InstanceId| self.typed.npc(instance.value() as u32).map(|npc| npc.guild);
+        match (guild(npc), guild(other)) {
+            (Some(guild_npc), Some(guild_other)) => {
+                // Guilds outside the human guild table (monsters) have no row:
+                // same guild is friendly, anything else hostile.
+                let same_guild = guild_npc == guild_other;
+                self.guild_attitudes
+                    .get(&(guild_npc, guild_other))
+                    .copied()
+                    .unwrap_or(if same_guild {
+                        super::host::ATT_FRIENDLY
+                    } else {
+                        super::host::ATT_HOSTILE
+                    })
+            }
+            _ => super::host::ATT_NEUTRAL,
+        }
+    }
+
+    /// Whether `npc` considers `other` hostile (`Npc::isEnemy`).
+    pub fn is_enemy(&self, npc: InstanceId, other: InstanceId) -> bool {
+        self.npc_attitude(npc, other, true) == super::host::ATT_HOSTILE
+    }
+
+    /// Nearest live npc `npc` is hostile to and can sense within its
+    /// `PERC_ASSESSENEMY` range, the way `Npc::updateNearestEnemy` picks one.
+    /// Sight is distance only, facing and occlusion are not modelled.
+    pub fn nearest_enemy(&self, npc: InstanceId) -> Option<InstanceId> {
+        let position = self.npc_state(npc)?.live.position?;
+        let senses_range = self
+            .typed
+            .npc(npc.value() as u32)
+            .map_or(0, |npc| npc.senses_range);
+        let range = self.perc_range(PERC_ASSESSENEMY, senses_range);
+        if range <= 0 {
+            return None;
+        }
+        let range_squared = to_world_units(range as f32).powi(2);
+        let mut best: Option<(InstanceId, f32)> = None;
+        for (&candidate, runtime) in &self.loaded_state.npc_instances {
+            if candidate == npc {
+                continue;
+            }
+            let candidate_position = {
+                let runtime = runtime.read().unwrap_or_else(PoisonError::into_inner);
+                if runtime.live.dead {
+                    continue;
+                }
+                let Some(candidate_position) = runtime.live.position else {
+                    continue;
+                };
+                candidate_position
+            };
+            let distance = (candidate_position - position).length_squared();
+            if distance > range_squared || !self.is_enemy(npc, candidate) {
+                continue;
+            }
+            let better = match best {
+                None => true,
+                Some((best_id, best_distance)) => match distance.total_cmp(&best_distance) {
+                    std::cmp::Ordering::Less => true,
+                    std::cmp::Ordering::Equal => candidate < best_id,
+                    std::cmp::Ordering::Greater => false,
+                },
+            };
+            if better {
+                best = Some((candidate, distance));
+            }
+        }
+        best.map(|(instance, _)| instance)
+    }
+
     /// Resolves both ids as npc/item instance symbols, `None` when either is
     /// not valid.
     pub(crate) fn npc_item_pair(&self, npc: i32, item: i32) -> Option<(InstanceId, InstanceId)> {
@@ -1056,5 +1324,69 @@ mod tests {
         state.assign_freepoint(npc, "fp_near_b");
         assert!(state.available_freepoint(npc, "fp_", true).is_none());
         assert!(state.available_freepoint(npc, "fp_", false).is_some());
+    }
+
+    #[test]
+    fn enemy_selection_uses_the_attitude_toward_the_player() {
+        use crate::zengin::script::host::{ATT_FRIENDLY, ATT_HOSTILE};
+
+        let mut state = ImportCallState::default();
+        let npc = insert_npc(&mut state, 1, Vec3::ZERO, false, None);
+        let player = insert_npc(&mut state, 2, Vec3::new(5.0, 0.0, 0.0), false, None);
+        state.player_instance = Some(player);
+        state.perc_ranges.insert(PERC_ASSESSENEMY, 2000);
+
+        state.npc_state_mut(npc).social.attitude = Some(ATT_HOSTILE);
+        assert_eq!(state.nearest_enemy(npc), Some(player));
+
+        state.npc_state_mut(npc).social.attitude = Some(ATT_FRIENDLY);
+        assert_eq!(state.nearest_enemy(npc), None);
+    }
+
+    #[test]
+    fn enemy_selection_skips_dead_and_distant_npcs() {
+        use crate::zengin::script::host::ATT_HOSTILE;
+
+        let mut state = ImportCallState::default();
+        let npc = insert_npc(&mut state, 1, Vec3::ZERO, false, None);
+        let player = insert_npc(&mut state, 2, Vec3::new(50.0, 0.0, 0.0), false, None);
+        state.player_instance = Some(player);
+        state.perc_ranges.insert(PERC_ASSESSENEMY, 1000);
+        state.npc_state_mut(npc).social.attitude = Some(ATT_HOSTILE);
+
+        assert_eq!(state.nearest_enemy(npc), None);
+
+        state.npc_state_mut(player).live.position = Some(Vec3::new(5.0, 0.0, 0.0));
+        assert_eq!(state.nearest_enemy(npc), Some(player));
+
+        state.npc_state_mut(player).live.dead = true;
+        assert_eq!(state.nearest_enemy(npc), None);
+    }
+
+    #[test]
+    fn guild_attitude_table_is_read_as_a_square_matrix() {
+        use daedalus_typed::{SymbolDecl, SymbolKind};
+
+        let mut registry = TypedRegistry::new();
+        let symbol = registry.add_symbol(SymbolDecl {
+            name: "gil_attitudes",
+            kind: SymbolKind::Int,
+            is_const: true,
+            is_class_member: false,
+            address_or_offset: 0,
+            element_count: 4,
+            has_function: false,
+            parent: None,
+        });
+        registry.finish();
+        registry.write_values(symbol, &[0, 3, 2, 3]);
+
+        let mut state = ImportCallState::default();
+        state.typed = registry;
+        state.exchange_guild_attitudes(symbol);
+
+        assert_eq!(state.guild_attitudes.get(&(0, 1)), Some(&3));
+        assert_eq!(state.guild_attitudes.get(&(1, 0)), Some(&2));
+        assert_eq!(state.guild_attitudes.len(), 4);
     }
 }
