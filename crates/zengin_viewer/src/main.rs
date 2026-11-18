@@ -203,8 +203,8 @@ fn main() {
         .add_plugins(crate::gui::ScreenMessagesPlugin)
         .add_plugins(crate::gui::StatsUiPlugin);
 
-    // The egui debug UI and gizmos are skipped for scenario replays so
-    // screenshots contain no debug overlays, GuiDebugPlugin handles that.
+    // The debug UI and gizmos are disabled with `--no-debug-gui`, GuiDebugPlugin
+    // handles that.
     app.add_plugins(GuiDebugPlugin);
 
     // Run

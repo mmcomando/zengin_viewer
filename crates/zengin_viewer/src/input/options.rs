@@ -71,6 +71,9 @@ pub struct Options {
     /// Use a fixed frame delta instead of the real clock.
     #[arg(long)]
     fixed_time: bool,
+    /// Disable the debug GUI (egui window, gizmos and FPS overlay).
+    #[arg(long)]
+    no_debug_gui: bool,
 }
 
 impl Options {
@@ -96,6 +99,10 @@ impl Options {
 
     pub fn fixed_time(&self) -> bool {
         self.fixed_time
+    }
+
+    pub fn no_debug_gui(&self) -> bool {
+        self.no_debug_gui
     }
 }
 

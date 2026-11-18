@@ -17,23 +17,21 @@ use crate::input::Options;
 pub(crate) use crate::gui_debug::toggle_visibility::{StaticMesh, WorldMesh};
 
 /// Adds all debug UI plugins (visibility toggles, egui debug window, gizmos,
-/// statistics, FPS overlay). Configuration comes from the `Options` resource:
-/// scenario replays get no debug overlays so screenshots stay clean, and the
-/// FPS overlay is skipped in renderless mode.
+/// statistics, FPS overlay). The debug UI can be disabled with `--no-debug-gui`,
+/// and the FPS overlay is skipped in renderless mode.
 pub struct GuiDebugPlugin;
 
 impl Plugin for GuiDebugPlugin {
     fn build(&self, app: &mut App) {
-        // TODO Add option in options.rs to completely disable this plugin
-        let overlays_hidden = app.world().resource::<Options>().replay_actions().is_some();
+        let no_debug_gui = app.world().resource::<Options>().no_debug_gui();
         let renderless = app.world().resource::<Options>().renderless();
 
         app.add_plugins(ToggleVisibility);
-        if !overlays_hidden {
+        if !no_debug_gui {
             app.add_plugins(GameDebugUI).add_plugins(GizmosPlugin);
         }
         app.add_plugins(StatisticsPlugin);
-        if !renderless && !overlays_hidden {
+        if !renderless && !no_debug_gui {
             app.add_plugins(fps_overlay_plugin());
         }
     }
