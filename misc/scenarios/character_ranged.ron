@@ -1,6 +1,7 @@
 [
-  SpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
-  EquipWeapon(frame: 160, item: "itrw_bow_h_01"),
+  ZenginSpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
+  ZenginSpawnPlayerCharacter(frame: 1, translation: (-97.0, 5.0, -7.0), rotation: (0.0, 0.0, 0.0)),
+  ZenginEquipWeapon(frame: 160, item: "itrw_bow_h_01"),
   TeleportPlayer(frame: 170, translation: (6, -0, 27), rotation: (5, -30, 0)),
   SetCameraLocation(frame: 180, translation: (2, 0, 30), rotation: (-5, -60, 0)),
   Screenshot(frame: 240, path: "screen_step1_bow.png"),

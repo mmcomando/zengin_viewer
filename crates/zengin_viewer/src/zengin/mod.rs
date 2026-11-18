@@ -64,7 +64,9 @@ pub(crate) use crate::zengin::npc_routines::NpcHealth;
 pub(crate) use crate::zengin::npc_routines::NpcWeaponMode;
 pub(crate) use crate::zengin::resources::CachedAssetHandles;
 pub(crate) use crate::zengin::resources::NPC_BODY;
-pub(crate) use crate::zengin::resources::STATIC_OBJECT;
+pub(crate) use crate::zengin::resources::{
+    DYNAMIC_OBJECT, STATIC_OBJECT, ZenGinModelComponentLoaded,
+};
 pub(crate) use crate::zengin::script::bridge::ScriptChangesApplied;
 pub(crate) use crate::zengin::script::component::ScriptResource;
 pub(crate) use crate::zengin::script::journal::{JournalSection, JournalStatus, JournalTopic};
@@ -87,7 +89,7 @@ pub(crate) use crate::zengin::statistics::StatisticsZengin;
 pub(crate) use crate::zengin::waypoint_graph::WaypointGraph;
 pub(crate) use crate::zengin::world_plugin::{
     CurrentWorld, LoadingWorld, NewGame, NpcSpawnNameFilter, RestartWorld, START_WORLD,
-    begin_world_load, request_initial_world, request_world_spawn,
+    begin_world_load, request_initial_world, request_player_spawn, request_world_spawn,
 };
 pub(crate) use crate::zengin::world_spawn::{SpawnPoint, SpawnPositionFilter};
 

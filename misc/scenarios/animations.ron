@@ -1,13 +1,14 @@
 // Recorded replay commands, replayable with --replay-actions
 [
-    SpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
+    ZenginSpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
+    ZenginSpawnPlayerCharacter(frame: 1, translation: (-97.0, 5.0, -7.0), rotation: (0.0, 0.0, 0.0)),
     Axis(frame: 1, action: Gameplay(Move), value: (0.0, 0.0)),
     Axis(frame: 1, action: Gameplay(RotateCamera), value: (0.0, 0.0)),
     Press(frame: 127, action: Editor(ToggleEditorMode)),
     Release(frame: 134, action: Editor(ToggleEditorMode)),
     Axis(frame: 177, action: Gameplay(Move), value: (0.0, 1.0)),
     Axis(frame: 214, action: Gameplay(Move), value: (0.0, 0.0)),
-    GiveTestItems(frame: 768),
+    ZenginGiveTestItems(frame: 768),
     Press(frame: 812, action: Shared(Inventory)),
     Release(frame: 829, action: Shared(Inventory)),
     Press(frame: 878, action: Gui(Down)),

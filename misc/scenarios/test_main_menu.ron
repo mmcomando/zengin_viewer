@@ -1,9 +1,12 @@
 [
-    SpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
+    ZenginSpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
+    ZenginSpawnPlayerCharacter(frame: 1, translation: (-97.0, 5.0, -7.0), rotation: (0.0, 0.0, 0.0)),
     OpenMainMenu(frame: 1),
     Screenshot(frame: 100, path: "main_menu.png"),
     Press(frame: 190, action: Gui(Confirm)),
     Release(frame: 195, action: Gui(Confirm)),
+    // New Game rebuilds the world and drops the character spawned at frame 1.
+    ZenginSpawnPlayerCharacter(frame: 210, translation: (-97.0, 5.0, -7.0), rotation: (0.0, 0.0, 0.0)),
     Screenshot(frame: 260, path: "main_menu_closed_ingame.png"),
     ExitGame(frame: 300),
 ]

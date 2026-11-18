@@ -1,5 +1,6 @@
 [
-  SpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
+  ZenginSpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
+  ZenginSpawnPlayerCharacter(frame: 1, translation: (-97.0, 5.0, -7.0), rotation: (0.0, 0.0, 0.0)),
   Axis(frame:1,action:Gameplay(Move),value:(0.0,0.0)),
   Press(frame:180,action:Shared(Stats)),
   Release(frame:184,action:Shared(Stats)),

@@ -1,7 +1,8 @@
 // Recorded replay commands, replayable with --replay-actions
 [
-    FilterNpcWithName(filters: ["brian"]),
-    SpawnWorld(world: "NEWWORLD/NEWWORLD"),
+    ZenginFilterNpcWithName(filters: ["brian"]),
+    ZenginSpawnWorld(world: "NEWWORLD/NEWWORLD"),
+    ZenginSpawnPlayerCharacter(frame: 1, translation: (-97.0, 5.0, -7.0), rotation: (0.0, 0.0, 0.0)),
 //
     TeleportPlayer(frame: 50, translation: (-60.6, 6.1, -21.9), rotation: (0.0, 36.09063, 0.0)),
     SetCameraLocation(translation: (-60.610947, 6.082156, -21.910109), rotation: (-13.38763, -143.90936, -0.0000013164334)),

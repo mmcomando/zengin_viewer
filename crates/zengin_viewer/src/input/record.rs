@@ -107,7 +107,7 @@ pub(crate) enum ReplayCommand {
     },
     /// Equips the item with the given (case-insensitive) instance symbol name
     /// on the player as a drawn weapon.
-    EquipWeapon {
+    ZenginEquipWeapon {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -116,7 +116,7 @@ pub(crate) enum ReplayCommand {
     },
     /// Sets the in-game time speed multiplier, `0.0` pauses the time. Replays
     /// start with a multiplier of `0.0`.
-    SetGameTimeSpeed {
+    ZenginSetGameTimeSpeed {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -125,7 +125,7 @@ pub(crate) enum ReplayCommand {
     },
     /// Toggles the armor item with the given (case-insensitive) instance symbol
     /// name on the player.
-    ToggleArmor {
+    ZenginToggleArmor {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -141,14 +141,14 @@ pub(crate) enum ReplayCommand {
         path: String,
     },
     /// Grants the hardcoded test items to the player.
-    GiveTestItems {
+    ZenginGiveTestItems {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
         frame_dt: Option<u64>,
     },
     /// Seeds the hardcoded test journal topics.
-    GiveTestJournal {
+    ZenginGiveTestJournal {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -161,10 +161,21 @@ pub(crate) enum ReplayCommand {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame_dt: Option<u64>,
     },
-    /// Spawns the world `world` (path relative to the worlds directory
+    /// Spawns the player character at `translation` with `rotation` in axis
+    /// labeled degrees `(x = pitch, y = yaw, z = roll)`, matching the camera
+    /// info overlay.
+    ZenginSpawnPlayerCharacter {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        translation: Vec3,
+        rotation: Vec3,
+    },
+    /// Spawns the zengin world `world` (path relative to the worlds directory
     /// without the `.ZEN` extension). Replays load no world unless they
     /// request it with this command.
-    SpawnWorld {
+    ZenginSpawnWorld {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -174,7 +185,7 @@ pub(crate) enum ReplayCommand {
     /// Adds name filters for npc spawning. An npc is spawned when its script
     /// symbol name or display name contains any of `filters`
     /// (case-insensitive). Repeated commands extend the same list.
-    FilterNpcWithName {
+    ZenginFilterNpcWithName {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -185,12 +196,21 @@ pub(crate) enum ReplayCommand {
     /// spawned only when its position is within `radius` world units of a
     /// point. Repeated commands extend the same list. The world mesh,
     /// waypoint navigation nodes and the player are not filtered.
-    FilterSpawnWithPosition {
+    ZenginFilterSpawnWithPosition {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
         frame_dt: Option<u64>,
         points: Vec<SpawnPoint>,
+    },
+    /// Spawns the test world `name` defined in code, with its own camera.
+    /// Does not load a zengin world archive.
+    TestWorld {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        name: String,
     },
     /// Exits the application.
     ExitGame {
@@ -226,31 +246,37 @@ impl ReplayCommand {
             | Self::SetCameraLocation {
                 frame, frame_dt, ..
             }
-            | Self::EquipWeapon {
+            | Self::ZenginEquipWeapon {
                 frame, frame_dt, ..
             }
-            | Self::SetGameTimeSpeed {
+            | Self::ZenginSetGameTimeSpeed {
                 frame, frame_dt, ..
             }
-            | Self::ToggleArmor {
+            | Self::ZenginToggleArmor {
                 frame, frame_dt, ..
             }
             | Self::Screenshot {
                 frame, frame_dt, ..
             }
-            | Self::SpawnWorld {
+            | Self::ZenginSpawnPlayerCharacter {
                 frame, frame_dt, ..
             }
-            | Self::FilterNpcWithName {
+            | Self::ZenginSpawnWorld {
                 frame, frame_dt, ..
             }
-            | Self::FilterSpawnWithPosition {
+            | Self::ZenginFilterNpcWithName {
                 frame, frame_dt, ..
             }
-            | Self::GiveTestItems {
+            | Self::ZenginFilterSpawnWithPosition {
                 frame, frame_dt, ..
             }
-            | Self::GiveTestJournal {
+            | Self::ZenginGiveTestItems {
+                frame, frame_dt, ..
+            }
+            | Self::ZenginGiveTestJournal {
+                frame, frame_dt, ..
+            }
+            | Self::TestWorld {
                 frame, frame_dt, ..
             }
             | Self::OpenMainMenu {
@@ -294,7 +320,7 @@ fn open_recording_file(options: Res<Options>, mut commands: Commands) {
         path: path.clone(),
         frame: 0,
         // Recorded scenarios need an explicit world spawn to replay in a world.
-        commands: vec![ReplayCommand::SpawnWorld {
+        commands: vec![ReplayCommand::ZenginSpawnWorld {
             frame: Some(0),
             frame_dt: None,
             world: START_WORLD.to_string(),

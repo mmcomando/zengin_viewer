@@ -363,20 +363,20 @@ fn apply_replay_command(
         } => {
             pending.camera.push((*translation, *rotation));
         }
-        ReplayCommand::SetGameTimeSpeed { speed, .. } => {
+        ReplayCommand::ZenginSetGameTimeSpeed { speed, .. } => {
             game_time.speed = *speed;
             info!("Replay set the in-game time speed multiplier to {speed}");
         }
-        ReplayCommand::EquipWeapon { item, .. } => {
+        ReplayCommand::ZenginEquipWeapon { item, .. } => {
             let Some(gothic_script) = gothic_script else {
-                warn!("EquipWeapon replay command: game script is not loaded");
+                warn!("ZenginEquipWeapon replay command: game script is not loaded");
                 return false;
             };
             equip_player_weapon(gothic_script, player_npc, item);
         }
-        ReplayCommand::ToggleArmor { item, .. } => {
+        ReplayCommand::ZenginToggleArmor { item, .. } => {
             let Some(gothic_script) = gothic_script else {
-                warn!("ToggleArmor replay command: game script is not loaded");
+                warn!("ZenginToggleArmor replay command: game script is not loaded");
                 return false;
             };
             toggle_player_armor(gothic_script, player_npc, item);
@@ -384,13 +384,13 @@ fn apply_replay_command(
         ReplayCommand::Screenshot { path, .. } => {
             return apply_replay_screenshot(replay, path, commands);
         }
-        ReplayCommand::GiveTestItems { .. } => {
+        ReplayCommand::ZenginGiveTestItems { .. } => {
             let Some(gothic_script) = gothic_script else {
-                warn!("GiveTestItems replay command: game script is not loaded");
+                warn!("ZenginGiveTestItems replay command: game script is not loaded");
                 return false;
             };
             let Ok(player_npc) = player_npc.single() else {
-                warn!("GiveTestItems replay command: player npc is not spawned");
+                warn!("ZenginGiveTestItems replay command: player npc is not spawned");
                 return false;
             };
             let player_id = player_npc.instance_id();
@@ -405,9 +405,9 @@ fn apply_replay_command(
                 player_id
             );
         }
-        ReplayCommand::GiveTestJournal { .. } => {
+        ReplayCommand::ZenginGiveTestJournal { .. } => {
             let Some(gothic_script) = gothic_script else {
-                warn!("GiveTestJournal replay command: game script is not loaded");
+                warn!("ZenginGiveTestJournal replay command: game script is not loaded");
                 return false;
             };
             let mut script = gothic_script.lock();
@@ -419,18 +419,37 @@ fn apply_replay_command(
             info!("Replay opened the main menu");
             next_state.set(AppState::MainMenu);
         }
-        ReplayCommand::SpawnWorld { world, .. } => {
-            info!("Replay requested the world spawn of {world}");
+        ReplayCommand::ZenginSpawnPlayerCharacter {
+            translation,
+            rotation,
+            ..
+        } => {
+            let transform = Transform::from_translation(*translation)
+                .with_rotation(rotation_from_degrees(*rotation));
+            info!("Replay requested the player character spawn at {translation}");
+            commands.queue(move |world: &mut World| {
+                crate::zengin::request_player_spawn(world, transform);
+            });
+        }
+        ReplayCommand::ZenginSpawnWorld { world, .. } => {
+            info!("Replay requested the zengin world spawn of {world}");
             let world_name = world.clone();
             commands.queue(move |world: &mut World| {
                 crate::zengin::request_world_spawn(world, &world_name);
             });
         }
-        ReplayCommand::FilterNpcWithName { filters, .. } => {
+        ReplayCommand::TestWorld { name, .. } => {
+            info!("Replay requested the test world {name}");
+            let name = name.clone();
+            commands.queue(move |world: &mut World| {
+                crate::test_world::request_test_world_spawn(world, &name);
+            });
+        }
+        ReplayCommand::ZenginFilterNpcWithName { filters, .. } => {
             npc_filter.add(filters);
             info!("Replay npc spawn name filters: {filters:?}");
         }
-        ReplayCommand::FilterSpawnWithPosition { points, .. } => {
+        ReplayCommand::ZenginFilterSpawnWithPosition { points, .. } => {
             spawn_filter.add(points);
             info!("Replay spawn position filters: {points:?}");
         }
@@ -706,18 +725,18 @@ mod tests {
 
     #[test]
     fn missing_timing_defaults_to_frame_dt_5() {
-        let commands = parse("[ExitGame(frame: 10), EquipWeapon(item: \"sword\")]").unwrap();
+        let commands = parse("[ExitGame(frame: 10), ZenginEquipWeapon(item: \"sword\")]").unwrap();
         assert_eq!(frames(&commands), [10, 15]);
     }
 
     #[test]
     fn command_with_both_frames_is_rejected() {
-        assert!(parse("[EquipWeapon(frame: 1, frame_dt: 1, item: \"sword\")]").is_err());
+        assert!(parse("[ZenginEquipWeapon(frame: 1, frame_dt: 1, item: \"sword\")]").is_err());
     }
 
     #[test]
     fn first_command_frame_dt_is_relative_to_zero() {
-        let commands = parse("[EquipWeapon(frame_dt: 2, item: \"sword\")]").unwrap();
+        let commands = parse("[ZenginEquipWeapon(frame_dt: 2, item: \"sword\")]").unwrap();
         assert_eq!(frames(&commands), [2]);
     }
 
@@ -745,12 +764,22 @@ mod tests {
     #[test]
     fn time_speed_command_parses_and_schedules() {
         let commands =
-            parse("[SetGameTimeSpeed(frame: 4, speed: 2.5), Screenshot(path: \"shot.png\")]")
+            parse("[ZenginSetGameTimeSpeed(frame: 4, speed: 2.5), Screenshot(path: \"shot.png\")]")
                 .unwrap();
         assert_eq!(frames(&commands), [4, 9]);
         assert!(matches!(
             commands[0].command,
-            ReplayCommand::SetGameTimeSpeed { speed, .. } if speed == 2.5
+            ReplayCommand::ZenginSetGameTimeSpeed { speed, .. } if speed == 2.5
+        ));
+    }
+
+    #[test]
+    fn world_command_parses_and_schedules() {
+        let commands = parse("[TestWorld(frame: 3, name: \"simple\")]").unwrap();
+        assert_eq!(frames(&commands), [3]);
+        assert!(matches!(
+            &commands[0].command,
+            ReplayCommand::TestWorld { name, .. } if name == "simple"
         ));
     }
 

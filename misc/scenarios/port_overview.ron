@@ -1,5 +1,6 @@
 [
-  SpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
+  ZenginSpawnWorld(frame: 0, world: "NEWWORLD/NEWWORLD"),
+  ZenginSpawnPlayerCharacter(frame: 1, translation: (-97.0, 5.0, -7.0), rotation: (0.0, 0.0, 0.0)),
   Axis(frame:1,action:Gameplay(Move),value:(0.0,0.0)),
   TeleportPlayer(frame: 100, translation: (225.0, -63.0, -1433.0), rotation: (0.0, 180.0, 0.0)),
   SetCameraLocation(frame: 160, translation: (168.0, 78.0, 56.0), rotation: (-26.0, 65.0, 0.0)),

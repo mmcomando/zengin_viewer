@@ -60,6 +60,7 @@ impl Plugin for ZenGinWorldPlugin {
         app.init_resource::<CurrentWorld>();
         app.init_resource::<LoadingWorld>();
         app.init_resource::<PendingWorldSpawns>();
+        app.init_resource::<PendingPlayerSpawns>();
         app.init_resource::<NpcSpawnNameFilter>();
         app.init_resource::<LoadScreenElapsed>();
 
@@ -73,6 +74,13 @@ impl Plugin for ZenGinWorldPlugin {
         app.add_systems(First, new_game.run_if(on_message::<NewGame>));
         app.add_systems(
             Update,
+            spawn_requested_player
+                .after(GameScriptLoaded)
+                .run_if(resource_exists::<ScriptResource>)
+                .run_if(in_state(AppState::LoadScreen).or_else(in_state(AppState::InGame))),
+        );
+        app.add_systems(
+            Update,
             spawn_world
                 .after(GameScriptLoaded)
                 .before(ScriptChangesApplied)
@@ -82,7 +90,10 @@ impl Plugin for ZenGinWorldPlugin {
         );
         app.add_systems(
             PostUpdate,
-            finish_world_load.run_if(in_state(AppState::LoadScreen)),
+            finish_world_load
+                .run_if(in_state(AppState::LoadScreen))
+                // In-game systems assume the game script exists.
+                .run_if(resource_exists::<ScriptResource>),
         );
         app.add_systems(
             Update,
@@ -112,6 +123,11 @@ pub struct SpawnWorld {
 /// [`spawn_world`].
 #[derive(Resource, Default)]
 pub(crate) struct PendingWorldSpawns(VecDeque<SpawnWorld>);
+
+/// Explicit player character spawn requests, drained by
+/// [`spawn_requested_player`].
+#[derive(Resource, Default)]
+struct PendingPlayerSpawns(VecDeque<Transform>);
 
 /// Set by the debug UI to tear down and respawn the current world.
 #[derive(Message)]
@@ -206,6 +222,15 @@ pub(crate) fn request_world_spawn(world: &mut World, world_name: &str) {
     *world.resource_mut::<LoadingWorld>() = LoadingWorld(world_name.to_string());
 }
 
+/// Queues an explicit player character spawn, so it can run before the game
+/// script is loaded.
+pub(crate) fn request_player_spawn(world: &mut World, transform: Transform) {
+    world
+        .resource_mut::<PendingPlayerSpawns>()
+        .0
+        .push_back(transform);
+}
+
 /// A request for a fresh world without saved state.
 fn clean_spawn_request(world_name: &str) -> SpawnWorld {
     SpawnWorld {
@@ -232,6 +257,34 @@ fn restart_world(world: &mut World) {
 
 fn new_game(world: &mut World) {
     begin_world_load(world, START_WORLD, None, None);
+}
+
+fn spawn_requested_player(
+    mut pending: ResMut<PendingPlayerSpawns>,
+    mut commands: Commands,
+    scripts: Res<ScriptResource>,
+    mut instance_index: ResMut<InstanceIndex>,
+    players: Query<(), With<PlayerCharacter>>,
+) {
+    if pending.0.is_empty() {
+        return;
+    }
+    let mut player_exists = players.iter().next().is_some();
+    for transform in pending.0.drain(..) {
+        if player_exists {
+            warn!("Player character spawn requested, but the player already exists");
+            continue;
+        }
+        let mut script = scripts.lock();
+        spawn_player(
+            &mut commands,
+            &mut script,
+            &mut instance_index,
+            Some(transform),
+        );
+        player_exists = true;
+        info!("Spawned the player character on request");
+    }
 }
 
 /// Tears the current world down and requests the next spawn. `restore` carries
@@ -350,10 +403,14 @@ fn spawn_world(
     mut instance_index: ResMut<InstanceIndex>,
     spawns: Res<WorldSpawnMessages>,
     mut spawn_npc: MessageWriter<SpawnNpc>,
+    options: Res<Options>,
 ) {
     if pending_spawns.0.is_empty() {
         return;
     }
+    // Scenario replays spawn the player character explicitly, an interactive
+    // run gets it with the world.
+    let spawn_default_player = options.replay_actions().is_none();
     for SpawnWorld {
         world_name,
         clean_spawn,
@@ -366,6 +423,7 @@ fn spawn_world(
             clean_spawn,
             player_transform,
             restore.as_deref(),
+            spawn_default_player,
             &mut commands,
             &mut handles_map,
             &mut named_models,
@@ -385,6 +443,7 @@ fn spawn_world_data(
     clean_spawn: bool,
     player_transform: Option<Transform>,
     restore: Option<&SaveGame>,
+    spawn_default_player: bool,
     commands: &mut Commands,
     handles_map: &mut CachedAssetHandles,
     named_models: &mut NamedModels,
@@ -396,6 +455,8 @@ fn spawn_world_data(
     spawn_npc: &mut MessageWriter<SpawnNpc>,
 ) {
     commands.insert_resource(CurrentWorld(world_name.to_string()));
+    // A test world cannot be part of a zengin world spawn, drop its geometry.
+    commands.queue(crate::test_world::clear_test_world);
     let _span = info_span!("spawn_world").entered();
     println!("\n-----SCRIPTS VM-----\n");
     let mut gothic_script = gothic_script.lock();
@@ -453,7 +514,12 @@ fn spawn_world_data(
 
     println!("\n----CREATE ENGINE ENTITIES------\n");
 
-    if !gothic_script.has_player_instance() {
+    // Scenarios spawn the player character explicitly with
+    // `ZenginSpawnPlayerCharacter`. A restored or restarted world gets the
+    // player it was saved with.
+    if (spawn_default_player || restore.is_some() || player_transform.is_some())
+        && !gothic_script.has_player_instance()
+    {
         spawn_player(
             commands,
             &mut gothic_script,
@@ -518,7 +584,7 @@ fn init_named_models(
 ///
 /// The player is the `PC_HERO` instance, the `hero` instance global has no data
 /// of its own (its stats come from `PC_HERO`).
-fn spawn_player(
+pub(crate) fn spawn_player(
     commands: &mut Commands,
     gothic_script: &mut ScriptManager,
     instance_index: &mut InstanceIndex,

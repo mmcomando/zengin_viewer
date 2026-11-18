@@ -109,6 +109,7 @@ mod gui;
 mod gui_debug;
 mod input;
 mod save;
+mod test_world;
 mod ui_kit;
 mod world_entity;
 mod xr;
@@ -191,6 +192,7 @@ fn main() {
         .add_plugins(DistancePlugin)
         .add_plugins(GameTimePlugin)
         .add_plugins(SkeletalAnimations)
+        .add_plugins(crate::test_world::TestWorldPlugin)
         // Presentation and UI
         .add_plugins(RenderOptionsPlugin)
         .add_plugins(SoundPlugin)
