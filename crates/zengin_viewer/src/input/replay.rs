@@ -115,9 +115,7 @@ fn load_replay_file(options: Res<Options>, mut commands: Commands) {
     let Some(path) = options.replay_actions() else {
         return;
     };
-    let Some(replay) = prepare_replay(path) else {
-        return;
-    };
+    let replay = prepare_replay(path);
     info!(
         "Replaying {} recorded replay command(s) from {path:?}",
         replay.commands.len()
@@ -168,24 +166,19 @@ fn remove_scenario_output(path: &Path) {
     }
 }
 
-/// Resets the scenario workdir and parses the replay file. Returns `None`
-/// (with a warning logged) when the workdir cannot be prepared or the replay
-/// file is unreadable, disabling the replay.
+/// Resets the scenario workdir and parses the replay file.
 ///
-/// Panics when the scenario file itself does not exist, since that is a broken
-/// invocation rather than a degraded replay.
-fn prepare_replay(path: &Path) -> Option<ActionReplay> {
+/// Panics when the scenario file is missing, unreadable or malformed, since
+/// that is a broken invocation rather than a degraded replay.
+fn prepare_replay(path: &Path) -> ActionReplay {
     if !path.exists() {
         panic!("Scenario file {} does not exist", path.display());
     }
     let workdir = scenario_workdir(path);
     reset_scenario_workdir(&workdir);
     match read_replay(&workdir, path) {
-        Ok(replay) => Some(replay),
-        Err(error) => {
-            warn!("Replaying actions disabled: {error}");
-            None
-        }
+        Ok(replay) => replay,
+        Err(error) => panic!("Failed to prepare scenario replay: {error}"),
     }
 }
 
