@@ -4,7 +4,7 @@ use bevy::ecs::entity::Entities;
 use bevy::prelude::*;
 
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
-use crate::graphics::AnimationController;
+use crate::graphics::{AnimationController, AnimationTriggers};
 use crate::zengin::ZenginVfs;
 use crate::zengin::common::{choose_animation_scheme, get_animation_path};
 use crate::zengin::loaders::vfs::item_model_path;
@@ -13,6 +13,7 @@ use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{WeaponKind, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::{GameMob, NpcMobUse};
 
 /// Weapon mode of the npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI),
 /// maintained by the script bridge.
@@ -88,6 +89,20 @@ impl NpcWeaponSlots {
             (WeaponKind::Bow, true) => self.left_hand,
             (WeaponKind::Bow, false) => self.bow,
             (WeaponKind::Crossbow, false) => self.crossbow,
+        }
+    }
+
+    /// Slot entity by its skeleton node name, e.g. `ZS_RIGHTHAND`. Unknown
+    /// names (mob slots like `ZS_SLOT`) resolve to `None`.
+    fn slot_by_name(&self, name: &str) -> Option<Entity> {
+        match name.to_uppercase().as_str() {
+            "ZS_RIGHTHAND" => self.hand,
+            "ZS_LEFTHAND" => self.left_hand,
+            "ZS_SWORD" => self.sword,
+            "ZS_LONGSWORD" => self.longsword,
+            "ZS_BOW" => self.bow,
+            "ZS_CROSSBOW" => self.crossbow,
+            _ => None,
         }
     }
 }
@@ -232,6 +247,209 @@ fn sync_npc_attachments(
 
     if attachments.as_deref() != Some(&tracked) {
         commands.entity(entity).try_insert(tracked);
+    }
+}
+
+/// Items held in the npc's hands while it uses a mob: the mob's `useWithItem`
+/// and items created by the mob-use animation events, managed by
+/// [`update_npc_mob_use_items`].
+#[derive(Component, Default, Clone, PartialEq)]
+pub struct NpcMobUseItems {
+    pub items: Vec<NpcAttachment>,
+}
+
+/// One item the mob-use transition places into a skeleton slot.
+struct HeldItemRequest {
+    item: String,
+    slot: String,
+}
+
+/// Keeps the items the current mob use places into the npc's hands. The events
+/// live on the mob-use transition animation (`T_<SCHEME>_S0_2_S<n>`), which the
+/// viewer does not play, so they are applied when the npc attaches and dropped
+/// when it releases the mob.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub(crate) fn update_npc_mob_use_items(
+    mut commands: Commands,
+    gothic_scripts: Res<ScriptResource>,
+    vfs: Res<ZenginVfs>,
+    mut handles: ResMut<CachedAssetHandles>,
+    asset_server: Res<AssetServer>,
+    entities: &Entities,
+    triggers: Res<AnimationTriggers>,
+    candidates: Query<Entity, Or<(Changed<NpcMobUse>, Changed<NpcWeaponSlots>)>>,
+    mut removed: RemovedComponents<NpcMobUse>,
+    mobs: Query<&GameMob>,
+    mut npcs: Query<(
+        &NpcWeaponSlots,
+        Option<&NpcMobUse>,
+        Option<&mut NpcMobUseItems>,
+    )>,
+) {
+    let removed = removed.read();
+    for entity in candidates.iter().chain(removed) {
+        let Ok((slots, mob_use, tracked)) = npcs.get_mut(entity) else {
+            continue;
+        };
+        let requests = match mob_use {
+            Some(mob_use) => mobs
+                .get(mob_use.mob)
+                .map(|mob| mob_use_held_items(&triggers, mob, mob_use))
+                .unwrap_or_default(),
+            None => Vec::new(),
+        };
+        sync_mob_use_items(
+            &mut commands,
+            entities,
+            &gothic_scripts,
+            &vfs,
+            &mut handles,
+            &asset_server,
+            entity,
+            slots,
+            tracked,
+            requests,
+        );
+    }
+}
+
+/// Transition animation whose events place the held items,
+/// `T_<SCHEME>[_<POS>]_S0_2_S<n>`.
+fn mob_use_transition_name(mob_use: &NpcMobUse) -> String {
+    let scheme = mob_use.scheme.as_str().to_uppercase();
+    let state = mob_use.state.max(1);
+    match mob_use.position_tag.as_deref() {
+        Some(tag) => format!("T_{scheme}_{tag}_S0_2_S{state}"),
+        None => format!("T_{scheme}_S0_2_S{state}"),
+    }
+}
+
+/// Items the mob-use transition places into the hands. `ITEM_INSERT` takes the
+/// mob's `useWithItem`, `ITEM_CREATE`/`ITEM_EXCHANGE` take the event item.
+fn mob_use_held_items(
+    triggers: &AnimationTriggers,
+    mob: &GameMob,
+    mob_use: &NpcMobUse,
+) -> Vec<HeldItemRequest> {
+    let animation = mob_use_transition_name(mob_use);
+    let mut requests: Vec<HeldItemRequest> = Vec::new();
+    for event in triggers.item_events(&animation) {
+        match event.kind.as_str() {
+            "ITEM_INSERT" => {
+                if !mob.use_with_item.is_empty() {
+                    requests.retain(|request| request.slot != event.slot);
+                    requests.push(HeldItemRequest {
+                        item: mob.use_with_item.clone(),
+                        slot: event.slot.clone(),
+                    });
+                }
+            }
+            "ITEM_CREATE" | "ITEM_EXCHANGE" => {
+                if !event.item.is_empty() {
+                    requests.retain(|request| request.slot != event.slot);
+                    requests.push(HeldItemRequest {
+                        item: event.item.clone(),
+                        slot: event.slot.clone(),
+                    });
+                }
+            }
+            "ITEM_REMOVE" | "ITEM_DESTROY" => {
+                requests.retain(|request| request.slot != event.slot);
+            }
+            _ => {}
+        }
+    }
+    requests
+}
+
+/// Syncs the mob-use item children of one npc with the requested items/slots.
+#[allow(clippy::too_many_arguments)]
+fn sync_mob_use_items(
+    commands: &mut Commands,
+    entities: &Entities,
+    gothic_scripts: &ScriptResource,
+    vfs: &ZenginVfs,
+    handles: &mut CachedAssetHandles,
+    asset_server: &Res<AssetServer>,
+    entity: Entity,
+    slots: &NpcWeaponSlots,
+    tracked: Option<Mut<'_, NpcMobUseItems>>,
+    requests: Vec<HeldItemRequest>,
+) {
+    let previous = tracked.as_deref().cloned();
+    let mut retained = previous
+        .as_ref()
+        .map_or_else(Vec::new, |tracked| tracked.items.clone());
+
+    // Resolve the requested items to instances and slots
+    let mut desired: Vec<(InstanceId, Entity)> = Vec::new();
+    {
+        let mut script = gothic_scripts.lock();
+        for request in requests {
+            let Some(slot) = slots
+                .slot_by_name(&request.slot)
+                .filter(|slot| entities.contains(*slot))
+            else {
+                debug!(
+                    "mob use item({}) slot({}) is not available on the model",
+                    request.item, request.slot
+                );
+                continue;
+            };
+            let Some(symbol) = script.try_get_symbol_id(&request.item.to_lowercase()) else {
+                warn!(
+                    "mob use item({}) is not declared in the scripts",
+                    request.item
+                );
+                continue;
+            };
+            let Some(item) = InstanceId::new(symbol.value()) else {
+                continue;
+            };
+            desired.push((item, slot));
+        }
+    }
+
+    // Drop children whose slot is no longer requested
+    let mut remaining = Vec::new();
+    for mut attachment in retained.drain(..) {
+        if desired
+            .iter()
+            .any(|(_, slot)| attachment.slot == Some(*slot))
+        {
+            remaining.push(attachment);
+        } else {
+            detach_attachment(commands, entities, &mut attachment);
+        }
+    }
+
+    // Create or update the requested children
+    for (item, slot) in desired {
+        let mut attachment = match remaining
+            .iter()
+            .position(|attachment| attachment.slot == Some(slot))
+        {
+            Some(index) => remaining.remove(index),
+            None => NpcAttachment::default(),
+        };
+        update_attachment(
+            commands,
+            entities,
+            &mut attachment,
+            Some(item),
+            Some(slot),
+            gothic_scripts,
+            vfs,
+            handles,
+            asset_server,
+        );
+        remaining.push(attachment);
+    }
+
+    remaining.sort_by_key(|attachment| attachment.slot);
+    let updated = NpcMobUseItems { items: remaining };
+    if previous.as_ref() != Some(&updated) {
+        commands.entity(entity).try_insert(updated);
     }
 }
 

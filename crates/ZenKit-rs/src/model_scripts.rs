@@ -325,6 +325,16 @@ impl EventTag<'_> {
         unsafe { ZkEventTag_getItem(self.ptr.as_ptr()).to_string() }
     }
 
+    /// Skeleton slot name of the event, empty when the event has none.
+    pub fn slot(&self) -> String {
+        unsafe { ZkEventTag_getSlot(self.ptr.as_ptr(), 0).to_string() }
+    }
+
+    /// Second skeleton slot name (e.g. the target of an item exchange).
+    pub fn slot2(&self) -> String {
+        unsafe { ZkEventTag_getSlot(self.ptr.as_ptr(), 1).to_string() }
+    }
+
     /// Explicit frame list, used when [`Self::frame`] is -1 (e.g. hit limbs over
     /// multiple frames).
     pub fn frames(&self) -> Vec<i32> {

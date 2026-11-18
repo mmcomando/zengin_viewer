@@ -84,6 +84,10 @@ impl MobRegistry {
 pub struct NpcMobUse {
     pub mob: Entity,
     pub scheme: StringCanon,
+    /// Mob state the npc uses the mob in.
+    pub state: i32,
+    /// `FRONT`/`BACK` of the attachment point, if it has one.
+    pub position_tag: Option<String>,
 }
 
 /// Npc entity occupying a mob interaction point.

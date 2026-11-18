@@ -133,7 +133,7 @@ fn root_displacement(movement: &[Vec2], total: Vec2, progress: f32) -> Vec2 {
 pub(crate) fn update_animations(
     time: Res<Time>,
     animations: Res<Assets<AnimationData>>,
-    triggers: Option<Res<AnimationTriggers>>,
+    triggers: Res<AnimationTriggers>,
     mut ends: MessageWriter<AnimationEnds>,
     mut animation_triggers: MessageWriter<AnimationTrigger>,
     mut animation_sounds: MessageWriter<AnimationSound>,
@@ -243,7 +243,7 @@ pub(crate) fn update_animations(
 
         write_sequencer_triggers(
             player.is_some() || sequencer.is_some(),
-            triggers.as_deref(),
+            &triggers,
             &controller,
             &update,
             entity,
@@ -251,7 +251,7 @@ pub(crate) fn update_animations(
         );
 
         write_animation_sounds(
-            triggers.as_deref(),
+            &triggers,
             &controller,
             &update,
             entity,
@@ -328,15 +328,15 @@ fn apply_root_motion(
 /// which consumes them, e.g. to emit the melee hit on the impact frame.
 fn write_sequencer_triggers(
     emit: bool,
-    triggers: Option<&AnimationTriggers>,
+    triggers: &AnimationTriggers,
     controller: &AnimationController,
     update: &FrameUpdate,
     entity: Entity,
     animation_triggers: &mut MessageWriter<AnimationTrigger>,
 ) {
-    let (true, Some(triggers)) = (emit, triggers) else {
+    if !emit {
         return;
-    };
+    }
     let Some(path) = controller.current().path() else {
         return;
     };
@@ -361,16 +361,13 @@ fn write_sequencer_triggers(
 }
 
 fn write_animation_sounds(
-    triggers: Option<&AnimationTriggers>,
+    triggers: &AnimationTriggers,
     controller: &AnimationController,
     update: &FrameUpdate,
     entity: Entity,
     position: Vec3,
     animation_sounds: &mut MessageWriter<AnimationSound>,
 ) {
-    let Some(triggers) = triggers else {
-        return;
-    };
     let Some(path) = controller.current().path() else {
         return;
     };

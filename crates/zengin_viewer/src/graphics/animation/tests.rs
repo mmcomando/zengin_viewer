@@ -6,7 +6,7 @@ use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
 use super::animation_triggers::{
-    AnimationSoundDef, AnimationTriggerDef, crossed_sounds, crossed_triggers,
+    AnimationSoundDef, AnimationTriggerDef, AnimationTriggers, crossed_sounds, crossed_triggers,
 };
 use super::components::{AnimationEnds, AnimationState, AnimationTrigger, FrameState};
 use super::controller::AnimationController;
@@ -72,6 +72,7 @@ fn lateral_root_movement_moves_entity_sideways() {
     world.init_resource::<Messages<AnimationEnds>>();
     world.init_resource::<Messages<AnimationTrigger>>();
     world.init_resource::<Messages<super::components::AnimationSound>>();
+    world.init_resource::<AnimationTriggers>();
 
     let lateral: Vec<Vec2> = runl_movement()
         .iter()
@@ -402,6 +403,7 @@ fn run_update_animations(
     world.init_resource::<Messages<AnimationEnds>>();
     world.init_resource::<Messages<AnimationTrigger>>();
     world.init_resource::<Messages<super::components::AnimationSound>>();
+    world.init_resource::<AnimationTriggers>();
     let model = world
         .spawn((
             DistanceNear::default(),

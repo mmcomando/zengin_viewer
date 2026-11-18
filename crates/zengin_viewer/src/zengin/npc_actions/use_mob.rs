@@ -175,6 +175,8 @@ pub(crate) fn run_use_mob_action(
         commands.entity(entity).insert(NpcMobUse {
             mob: choice.mob,
             scheme: action.scheme.clone(),
+            state: action.state.max(0),
+            position_tag: choice.position_tag.clone(),
         });
         // The mob switches to the state the npc uses it in, which plays
         // its own `<STEM>-S_S<n>` animation.

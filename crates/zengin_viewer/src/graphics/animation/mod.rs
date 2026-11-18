@@ -21,7 +21,9 @@ use locomotion::{compute_animations, update_animations};
 
 pub(crate) use animation_graph_nodes::{AnimationGraph, AnimationIndex};
 pub(crate) use animation_sounds::play_animation_sounds;
-pub(crate) use animation_triggers::{AnimationTriggersPlugin, animation_name_from_path};
+pub(crate) use animation_triggers::{
+    AnimationTriggers, AnimationTriggersPlugin, animation_name_from_path,
+};
 pub(crate) use auto_anim_sequencer::{
     AutoAnimSequencer, AutoAnimSequencerSet, DesiredAnimation, MeleeAttackKind,
     SetDesiredAnimation, is_melee_attack_animation,

@@ -20,6 +20,9 @@ pub struct AnimationTriggersPlugin;
 
 impl Plugin for AnimationTriggersPlugin {
     fn build(&self, app: &mut App) {
+        // Present from the start so systems can require it; the startup loader
+        // replaces it with the parsed model script data.
+        app.init_resource::<AnimationTriggers>();
         app.add_systems(Startup, load_human_animation_data);
     }
 }
@@ -42,6 +45,7 @@ pub struct AnimationTriggerDef {
 pub struct AnimationTriggers {
     animations: HashMap<String, Vec<AnimationTriggerDef>>,
     sounds: HashMap<String, Vec<AnimationSoundDef>>,
+    items: HashMap<String, Vec<AnimationItemEventDef>>,
 }
 
 impl AnimationTriggers {
@@ -56,6 +60,23 @@ impl AnimationTriggers {
             .get(&animation.to_uppercase())
             .map_or(&[], |sounds| sounds)
     }
+
+    /// Item slot events (`ITEM_CREATE`, `ITEM_INSERT`, ...) of an animation.
+    pub fn item_events(&self, animation: &str) -> &[AnimationItemEventDef] {
+        self.items
+            .get(&animation.to_uppercase())
+            .map_or(&[], |events| events)
+    }
+}
+
+/// One item slot event: the event `kind` runs at `frame`, placing `item` into
+/// the skeleton `slot`. `kind` is the event type name (e.g. `ITEM_INSERT`).
+#[derive(Debug, Clone)]
+pub struct AnimationItemEventDef {
+    pub frame: u32,
+    pub kind: String,
+    pub item: String,
+    pub slot: String,
 }
 
 /// One sound effect of an animation: the sound definition `name` plays when the
@@ -172,10 +193,12 @@ fn load_script_triggers(bytes: &[u8]) -> Option<AnimationTriggers> {
     let script = ModelScript::load(&read)?;
     let mut animations = HashMap::new();
     let mut sounds = HashMap::new();
+    let mut items = HashMap::new();
 
     for animation in script.animations() {
         let mut triggers = Vec::new();
         let mut animation_sounds = Vec::new();
+        let mut animation_items = Vec::new();
         // Model script sound frames are absolute animation frames, while the
         // playback progress runs from 0 within the played animation.
         let first_frame = animation.first_frame();
@@ -192,7 +215,26 @@ fn load_script_triggers(bytes: &[u8]) -> Option<AnimationTriggers> {
         }
 
         for tag in animation.event_tags() {
-            let name = format!("{:?}_{}", tag.event_type(), tag.item());
+            let kind = format!("{:?}", tag.event_type());
+            let item = tag.item();
+            let slot = tag.slot();
+            if slot.is_empty() {
+                if kind.starts_with("ITEM_") {
+                    debug!(
+                        "Animation({}) item event({kind}, item={item}) has no slot, skipped",
+                        animation.name()
+                    );
+                }
+            } else {
+                let frame = (tag.frame() - first_frame).max(0) as u32;
+                animation_items.push(AnimationItemEventDef {
+                    frame,
+                    kind: kind.clone(),
+                    item,
+                    slot,
+                });
+            }
+            let name = format!("{kind}_{}", tag.item());
             // Tags with a frame list carry frames relative to the animation
             // start; the single frame form uses absolute model script frames.
             let frames = tag.frames();
@@ -215,10 +257,16 @@ fn load_script_triggers(bytes: &[u8]) -> Option<AnimationTriggers> {
 
         triggers.sort_by_key(|trigger| trigger.frame);
         animation_sounds.sort_by_key(|sound| sound.frame);
+        animation_items.sort_by_key(|event| event.frame);
         let name = animation.name().to_uppercase();
         animations.insert(name.clone(), triggers);
-        sounds.insert(name, animation_sounds);
+        sounds.insert(name.clone(), animation_sounds);
+        items.insert(name, animation_items);
     }
 
-    Some(AnimationTriggers { animations, sounds })
+    Some(AnimationTriggers {
+        animations,
+        sounds,
+        items,
+    })
 }
