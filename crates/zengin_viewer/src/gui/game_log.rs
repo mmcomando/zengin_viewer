@@ -25,7 +25,7 @@ impl Plugin for GameLogPlugin {
 }
 
 /// How long a single entry stays visible.
-const ENTRY_LIFETIME: f32 = 5.0;
+const ENTRY_LIFETIME: f32 = 0.5;
 /// Maximum number of entries kept, oldest are dropped first.
 const MAX_ENTRIES: usize = 8;
 /// Font size of a log line in logical pixels.

@@ -74,6 +74,11 @@ const GRID_MAJOR_LINE_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.6);
 const GRID_X_AXIS_COLOR: Color = Color::srgb(0.9, 0.15, 0.15);
 const GRID_Z_AXIS_COLOR: Color = Color::srgb(0.15, 0.3, 0.9);
 
+/// Green distance markers along the X axis, starting at the origin.
+const AXIS_SPHERE_COUNT: usize = 10;
+const AXIS_SPHERE_RADIUS: f32 = 0.2;
+const AXIS_SPHERE_SPACING: f32 = 5.0;
+
 /// Wall centers sit outside the room, so the `ROOM_HALF_SIZE` planes are the
 /// inner wall faces.
 const WALL_OFFSET: f32 = ROOM_HALF_SIZE + WALL_THICKNESS * 0.5;
@@ -157,6 +162,31 @@ fn spawn_floor_grid(commands: &mut Commands) -> Entity {
         .id()
 }
 
+fn spawn_axis_spheres(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) -> Vec<Entity> {
+    let mesh = meshes.add(Sphere::new(AXIS_SPHERE_RADIUS).mesh().uv(16, 8));
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.0, 0.8, 0.0),
+        perceptual_roughness: 1.0,
+        metallic: 0.0,
+        ..default()
+    });
+    (0..AXIS_SPHERE_COUNT)
+        .map(|index| {
+            commands
+                .spawn((
+                    Mesh3d(mesh.clone()),
+                    MeshMaterial3d(material.clone()),
+                    Transform::from_xyz((index + 1) as f32 * AXIS_SPHERE_SPACING, 0.0, 0.0),
+                ))
+                .id()
+        })
+        .collect()
+}
+
 fn create_simple_test_world(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
@@ -167,12 +197,13 @@ fn create_simple_test_world(
         .iter()
         .map(|cube| spawn_cube(commands, meshes, materials, cube))
         .collect();
+    children.extend(spawn_axis_spheres(commands, meshes, materials));
     children.push(spawn_floor_grid(commands));
     place_camera(
         cameras,
         TEST_WORLD_SIMPLE,
-        Vec3::new(10.0, 10.0, 10.0),
-        Vec3::ZERO,
+        Vec3::new(0.0, 6.0, -8.0),
+        Vec3::new(0.0, 0.0, 10.0),
     );
     spawn_world_root(commands, &children)
 }
