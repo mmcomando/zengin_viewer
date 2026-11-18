@@ -15,14 +15,14 @@ impl Plugin for OptionsPlugin {
         }
         // Recording or replaying runs with a fixed frame delta, so frame numbers
         // map to the same simulated time and physics steps in every run.
-        if options.deterministic_time() {
+        if options.fixed_time() {
             app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-                SCENARIO_FRAME_DELTA,
+                FIXED_FRAME_DELTA,
             ));
             app.init_resource::<bevy::time::Time<bevy::time::Fixed>>();
             app.world_mut()
                 .resource_mut::<bevy::time::Time<bevy::time::Fixed>>()
-                .set_timestep(SCENARIO_FRAME_DELTA);
+                .set_timestep(FIXED_FRAME_DELTA);
         }
     }
 }
@@ -68,6 +68,9 @@ pub struct Options {
     /// Start in the main menu instead of starting a new game immediately.
     #[arg(long)]
     main_menu: bool,
+    /// Use a fixed frame delta instead of the real clock.
+    #[arg(long)]
+    fixed_time: bool,
 }
 
 impl Options {
@@ -91,15 +94,14 @@ impl Options {
         self.main_menu
     }
 
-    /// Recording or replaying requires deterministic frame timing.
-    pub fn deterministic_time(&self) -> bool {
-        self.save_actions.is_some() || self.replay_actions.is_some()
+    pub fn fixed_time(&self) -> bool {
+        self.fixed_time
     }
 }
 
-/// Fixed frame delta used when recording or replaying, so recorded frame
-/// numbers map to the same simulated time across runs.
-pub const SCENARIO_FRAME_DELTA: std::time::Duration = std::time::Duration::from_millis(20);
+/// Fixed frame delta used with `--fixed-time`, so frame numbers map to the same
+/// simulated time across runs.
+pub const FIXED_FRAME_DELTA: std::time::Duration = std::time::Duration::from_millis(20);
 
 #[derive(Resource)]
 struct FrameLimit(u64);

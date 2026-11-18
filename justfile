@@ -9,15 +9,15 @@ run-renderless:
 
 # Record actions into the scenario replay file of the given scenario name.
 record-replay name:
-    cargo run -- --save-actions misc/scenarios/{{name}}.ron
+    cargo run -- --fixed-time --save-actions misc/scenarios/{{name}}.ron
 
 # Replay the commands from the given scenario
 run-replay name:
-    cargo run -- --replay-actions misc/scenarios/{{name}}.ron
+    cargo run -- --fixed-time --replay-actions misc/scenarios/{{name}}.ron
 
 # Replay a scenario that starts in the main menu instead of a new game.
 run-replay-menu name:
-    cargo run -- --main-menu --replay-actions misc/scenarios/{{name}}.ron --frames 1000
+    cargo run -- --fixed-time --main-menu --replay-actions misc/scenarios/{{name}}.ron --frames 1000
 
 # Headless CPU profile: writes a ~1GB chrome trace, then prints heaviest spans.
 trace-chrome:
