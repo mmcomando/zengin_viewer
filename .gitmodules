@@ -13,3 +13,7 @@
 [submodule "crates/dmusic-sys/vendor/dmusic"]
 	path = crates/dmusic-sys/vendor/dmusic
 	url = https://github.com/GothicKit/dmusic.git
+
+[submodule "misc/test_scenarios"]
+	path = misc/test_scenarios
+	url = https://github.com/mmcomando/zengin_viewer_tests.git

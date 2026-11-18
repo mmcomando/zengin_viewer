@@ -3,6 +3,7 @@
 /.zed
 /.cargo
 /misc/scenario_output
+/misc/test_scenarios/*/workdir
 /misc/workdir_tmp
 /misc/saves
 /zengin_viewer/misc/scenario_output

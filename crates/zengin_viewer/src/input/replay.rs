@@ -1,14 +1,20 @@
-//! Replay of recorded commands from a RON file, enabled by `--replay-actions`.
+//! Replay of recorded commands from a RON file, enabled by `--replay-actions`
+//! or `--test-scenario`.
 //!
 //! The file can live anywhere; paths inside it (screenshots) are resolved
-//! relative to `misc/scenario_output/<file stem>/` and must not be absolute.
+//! relative to `misc/scenario_output/<file stem>/` for a plain replay, or to
+//! `<test scenario dir>/workdir/` for a test scenario, and must not be absolute.
+//! A test scenario additionally compares every screenshot with the same path
+//! under `<test scenario dir>/reference/`.
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use bevy::prelude::*;
-use bevy::render::view::window::screenshot::{Screenshot, save_to_disk};
+use bevy::render::view::window::screenshot::{Screenshot, ScreenshotCaptured};
+use image::imageops::FilterType;
+use image::{DynamicImage, GenericImageView, ImageFormat};
 use leafwing_input_manager::action_state::ActionKindData;
 use leafwing_input_manager::buttonlike::ButtonState;
 use leafwing_input_manager::plugin::InputManagerSystem;
@@ -51,6 +57,7 @@ impl Plugin for ActionReplayPlugin {
         // switch sync point overrides the toggle's placement at the drifted
         // free camera.
         app.add_systems(PreUpdate, apply_replay_locations.after(camera_toggle_input));
+        app.add_systems(Update, finish_test_scenario);
         app.init_resource::<PendingLocations>();
     }
 }
@@ -60,6 +67,18 @@ const SCENARIO_DIR: &str = "misc/scenario_output";
 
 /// Resolution used for scenario runs.
 const SCENARIO_WINDOW_RESOLUTION: (u32, u32) = (1024, 768);
+
+/// Size the screenshots are downscaled to before comparison. Coarse enough to
+/// ignore anti-aliasing and GPU noise, fine enough to catch UI and lighting
+/// changes.
+const COMPARE_GRID: (u32, u32) = (64, 48);
+
+/// Mean absolute channel difference (in `0..=1`) a grid cell needs to reach to
+/// count as changed.
+const COMPARE_CELL_THRESHOLD: f32 = 16.0 / 255.0;
+
+/// Fraction of changed grid cells that is still accepted as the same image.
+const COMPARE_MAX_CHANGED_FRACTION: f32 = 0.02;
 
 /// Workdir of the replay named by its file: contains all outputs (screenshots)
 /// of the replay under `misc/scenario_output/<file stem>/`.
@@ -88,16 +107,54 @@ struct ScheduledCommand {
     command: ReplayCommand,
 }
 
+/// Where a scenario run reads its commands from and writes its outputs to.
+struct ScenarioLayout {
+    /// RON file with the replay commands.
+    scenario_file: PathBuf,
+    /// Directory relative screenshot paths resolve against, cleared on start.
+    workdir: PathBuf,
+    /// Reference screenshots of a test scenario, `None` for a plain replay.
+    reference: Option<PathBuf>,
+    /// Copy produced screenshots into the reference instead of comparing.
+    update_reference: bool,
+}
+
+/// Resolves the scenario layout from the command line options.
+fn scenario_layout(options: &Options) -> Option<ScenarioLayout> {
+    if let Some(dir) = options.test_scenario() {
+        return Some(ScenarioLayout {
+            scenario_file: dir.join("scenario.ron"),
+            workdir: dir.join("workdir"),
+            reference: Some(dir.join("reference")),
+            update_reference: options.update_reference(),
+        });
+    }
+    let path = options.replay_actions()?;
+    Some(ScenarioLayout {
+        scenario_file: path.clone(),
+        workdir: scenario_workdir(path),
+        reference: None,
+        update_reference: false,
+    })
+}
+
 /// Replay schedule loaded from the scenario file plus the replay state.
 #[derive(Resource)]
 struct ActionReplay {
     /// Workdir used to resolve relative paths inside the commands.
     workdir: PathBuf,
+    /// Reference screenshots to compare with, `None` for a plain replay.
+    reference: Option<PathBuf>,
+    /// Copy produced screenshots into the reference instead of comparing.
+    update_reference: bool,
     /// Commands with resolved frames, sorted by frame.
     commands: Vec<ScheduledCommand>,
     /// Index of the next event to apply.
     next: usize,
     frame: u64,
+    /// `ExitGame` was requested but the test run still has to finish capturing
+    /// and comparing screenshots before the app can exit.
+    exit_requested: bool,
     /// Buttons currently held by the replay.
     held_buttons: HashSet<RecordedAction>,
     /// Buttons whose press event was processed this frame; these get a real
@@ -107,18 +164,18 @@ struct ActionReplay {
     held_axes: HashMap<RecordedAction, Vec2>,
 }
 
-/// Loads and prepares the replay file.
+/// Loads and prepares the scenario file named by the command line options.
 ///
-/// Outputs of the replay (screenshots) resolve against the scenario workdir
-/// named after the replay file.
+/// Outputs of the replay (screenshots) resolve against the scenario workdir.
 fn load_replay_file(options: Res<Options>, mut commands: Commands) {
-    let Some(path) = options.replay_actions() else {
+    let Some(layout) = scenario_layout(&options) else {
         return;
     };
-    let replay = prepare_replay(path);
+    let replay = prepare_replay(&layout);
     info!(
-        "Replaying {} recorded replay command(s) from {path:?}",
-        replay.commands.len()
+        "Replaying {} recorded replay command(s) from {:?}",
+        replay.commands.len(),
+        layout.scenario_file
     );
     commands.insert_resource(replay);
 }
@@ -170,19 +227,22 @@ fn remove_scenario_output(path: &Path) {
 ///
 /// Panics when the scenario file is missing, unreadable or malformed, since
 /// that is a broken invocation rather than a degraded replay.
-fn prepare_replay(path: &Path) -> ActionReplay {
-    if !path.exists() {
-        panic!("Scenario file {} does not exist", path.display());
+fn prepare_replay(layout: &ScenarioLayout) -> ActionReplay {
+    if !layout.scenario_file.exists() {
+        panic!(
+            "Scenario file {} does not exist",
+            layout.scenario_file.display()
+        );
     }
-    let workdir = scenario_workdir(path);
-    reset_scenario_workdir(&workdir);
-    match read_replay(&workdir, path) {
+    reset_scenario_workdir(&layout.workdir);
+    match read_replay(layout) {
         Ok(replay) => replay,
         Err(error) => panic!("Failed to prepare scenario replay: {error}"),
     }
 }
 
-fn read_replay(workdir: &Path, path: &Path) -> Result<ActionReplay, String> {
+fn read_replay(layout: &ScenarioLayout) -> Result<ActionReplay, String> {
+    let path = &layout.scenario_file;
     let contents = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     let commands: Vec<ReplayCommand> = RonOptions::default()
@@ -191,10 +251,13 @@ fn read_replay(workdir: &Path, path: &Path) -> Result<ActionReplay, String> {
         .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
     let commands = schedule_commands(commands)?;
     Ok(ActionReplay {
-        workdir: workdir.to_path_buf(),
+        workdir: layout.workdir.clone(),
+        reference: layout.reference.clone(),
+        update_reference: layout.update_reference,
         commands,
         next: 0,
         frame: 0,
+        exit_requested: false,
         held_buttons: HashSet::new(),
         started_buttons: HashSet::new(),
         held_axes: HashMap::new(),
@@ -454,8 +517,13 @@ fn apply_replay_command(
             info!("Replay spawn position filters: {points:?}");
         }
         ReplayCommand::ExitGame { .. } => {
-            info!("Replay requested the game exit");
-            exit.write(AppExit::Success);
+            if replay.reference.is_some() {
+                info!("Replay requested the game exit after the screenshots are compared");
+                replay.exit_requested = true;
+            } else {
+                info!("Replay requested the game exit");
+                exit.write(AppExit::Success);
+            }
         }
     }
     false
@@ -477,10 +545,219 @@ fn apply_replay_screenshot(replay: &ActionReplay, path: &String, commands: &mut 
     {
         warn!("Failed to create screenshot dir {parent:?}: {error}");
     }
+    let reference = replay.reference.as_ref().map(|root| root.join(path));
     commands
         .spawn(Screenshot::primary_window())
-        .observe(save_to_disk(file_path.to_string_lossy().into_owned()));
+        .observe(save_scenario_screenshot(
+            file_path,
+            reference,
+            replay.update_reference,
+        ));
     false
+}
+
+/// Saves the captured screenshot into the scenario workdir and, in a test
+/// scenario run, compares it with the reference screenshot or, with
+/// `--update-reference`, blesses it.
+fn save_scenario_screenshot(
+    file_path: PathBuf,
+    reference: Option<PathBuf>,
+    update_reference: bool,
+) -> impl FnMut(On<ScreenshotCaptured>) {
+    move |captured: On<ScreenshotCaptured>| {
+        let Ok(image) = captured.image.clone().try_into_dynamic() else {
+            panic!(
+                "Failed to convert the screenshot for {} to an image",
+                file_path.display()
+            );
+        };
+        if let Err(error) = image.save_with_format(&file_path, ImageFormat::Png) {
+            panic!("Failed to save screenshot {}: {error}", file_path.display());
+        }
+        let Some(reference) = &reference else {
+            return;
+        };
+        if update_reference {
+            bless_reference(&file_path, reference);
+            return;
+        }
+        compare_with_reference(&image, &file_path, reference);
+    }
+}
+
+/// Copies a produced screenshot over its reference screenshot.
+fn bless_reference(file_path: &Path, reference: &Path) {
+    if let Some(parent) = reference.parent()
+        && let Err(error) = fs::create_dir_all(parent)
+    {
+        panic!(
+            "Failed to create reference dir {}: {error}",
+            parent.display()
+        );
+    }
+    if let Err(error) = fs::copy(file_path, reference) {
+        panic!(
+            "Failed to copy {} to reference {}: {error}",
+            file_path.display(),
+            reference.display()
+        );
+    }
+    info!("Updated reference screenshot {}", reference.display());
+}
+
+/// Compares a produced screenshot with its reference and panics when they
+/// differ too much. A match only logs the difference so passing runs stay
+/// quiet.
+fn compare_with_reference(actual: &DynamicImage, actual_path: &Path, reference: &Path) {
+    let expected = match image::open(reference) {
+        Ok(image) => image,
+        Err(error) => panic!(
+            "Reference screenshot {} is missing or unreadable ({error}). \
+             Run with --update-reference to create it",
+            reference.display()
+        ),
+    };
+    let report = compare_images(actual, &expected);
+    if report.changed_fraction <= COMPARE_MAX_CHANGED_FRACTION {
+        info!(
+            "Screenshot {} matches its reference (changed cells {:.2}%, mean diff {:.2}/255)",
+            actual_path.display(),
+            report.changed_fraction * 100.0,
+            report.mean_diff * 255.0
+        );
+        return;
+    }
+    let diff_path = diff_path(actual_path);
+    if let Err(error) = report
+        .diff_image
+        .save_with_format(&diff_path, ImageFormat::Png)
+    {
+        warn!(
+            "Failed to save screenshot difference {}: {error}",
+            diff_path.display()
+        );
+    }
+    panic!(
+        "Screenshot {} differs from the reference {}: changed cells {:.1}% (threshold {:.1}%), \
+         mean diff {:.1}/255. See {}",
+        actual_path.display(),
+        reference.display(),
+        report.changed_fraction * 100.0,
+        COMPARE_MAX_CHANGED_FRACTION * 100.0,
+        report.mean_diff * 255.0,
+        diff_path.display()
+    );
+}
+
+/// Result of comparing two screenshots on the coarse comparison grid.
+struct CompareReport {
+    /// Fraction of grid cells whose mean channel difference exceeded the cell
+    /// threshold.
+    changed_fraction: f32,
+    /// Mean absolute channel difference over all grid cells, `0..=1`.
+    mean_diff: f32,
+    /// Full resolution absolute difference, for debugging a mismatch.
+    diff_image: DynamicImage,
+}
+
+/// Compares two same-sized screenshots.
+///
+/// Both images are downscaled to a coarse grid before the difference is
+/// computed, so anti-aliasing and minor GPU noise do not count as a change,
+/// while UI, geometry and lighting changes do. Panics on a size mismatch,
+/// which is a large change by itself.
+fn compare_images(actual: &DynamicImage, expected: &DynamicImage) -> CompareReport {
+    if actual.dimensions() != expected.dimensions() {
+        panic!(
+            "Screenshot size {:?} does not match the reference size {:?}",
+            actual.dimensions(),
+            expected.dimensions()
+        );
+    }
+    let diff_image = difference_image(actual, expected);
+    let (width, height) = COMPARE_GRID;
+    let actual_grid = actual
+        .resize_exact(width, height, FilterType::Triangle)
+        .to_rgb8();
+    let expected_grid = expected
+        .resize_exact(width, height, FilterType::Triangle)
+        .to_rgb8();
+    let mut changed = 0u32;
+    let mut diff_sum = 0.0f32;
+    for (actual_pixel, expected_pixel) in actual_grid.pixels().zip(expected_grid.pixels()) {
+        let cell_diff = actual_pixel
+            .0
+            .iter()
+            .zip(expected_pixel.0.iter())
+            .map(|(actual, expected)| f32::from(actual.abs_diff(*expected)))
+            .sum::<f32>()
+            / (3.0 * 255.0);
+        diff_sum += cell_diff;
+        if cell_diff > COMPARE_CELL_THRESHOLD {
+            changed += 1;
+        }
+    }
+    let cells = width.saturating_mul(height);
+    CompareReport {
+        changed_fraction: changed as f32 / cells as f32,
+        mean_diff: diff_sum / cells as f32,
+        diff_image,
+    }
+}
+
+/// Builds a full resolution absolute difference image.
+fn difference_image(actual: &DynamicImage, expected: &DynamicImage) -> DynamicImage {
+    let actual = actual.to_rgb8();
+    let expected = expected.to_rgb8();
+    let mut diff = actual.clone();
+    for (output, (actual, expected)) in diff
+        .pixels_mut()
+        .zip(actual.pixels().zip(expected.pixels()))
+    {
+        for (output, (actual, expected)) in output
+            .0
+            .iter_mut()
+            .zip(actual.0.iter().zip(expected.0.iter()))
+        {
+            *output = actual.abs_diff(*expected);
+        }
+    }
+    DynamicImage::ImageRgb8(diff)
+}
+
+/// Difference image path next to the workdir screenshot: `screen.png` becomes
+/// `screen.diff.png`.
+fn diff_path(path: &Path) -> PathBuf {
+    let stem = path.file_stem().map_or_else(
+        || "screenshot".to_string(),
+        |stem| stem.to_string_lossy().into_owned(),
+    );
+    path.with_file_name(format!("{stem}.diff.png"))
+}
+
+/// Exits a test scenario run after an explicit `ExitGame` once all screenshots
+/// were captured and compared, so comparisons are never skipped by leaving
+/// early. Plain replays exit through `ExitGame` or the frame limit.
+fn finish_test_scenario(
+    replay: Option<Res<ActionReplay>>,
+    screenshots: Query<(), With<Screenshot>>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    let Some(replay) = replay else {
+        return;
+    };
+    if replay.reference.is_none() || !screenshots.is_empty() {
+        return;
+    }
+    if !replay.exit_requested {
+        return;
+    }
+    if replay.update_reference {
+        info!("Test scenario finished, screenshots written to the reference directory");
+    } else {
+        info!("Test scenario finished, all screenshots match their references");
+    }
+    exit.write(AppExit::Success);
 }
 
 /// Presses a recorded button on its input map's action state.
@@ -692,10 +969,14 @@ fn toggle_player_armor(
 
 #[cfg(test)]
 mod tests {
+    use image::{DynamicImage, Rgb, RgbImage};
     use ron::Options as RonOptions;
     use ron::extensions::Extensions;
 
-    use super::{ReplayCommand, ScheduledCommand, schedule_commands};
+    use super::{
+        COMPARE_MAX_CHANGED_FRACTION, ReplayCommand, ScheduledCommand, compare_images, diff_path,
+        schedule_commands,
+    };
 
     fn parse(commands: &str) -> Result<Vec<ScheduledCommand>, String> {
         let commands: Vec<ReplayCommand> = RonOptions::default()
@@ -750,15 +1031,33 @@ mod tests {
                 continue;
             }
             found += 1;
-            let contents = std::fs::read_to_string(&path).unwrap();
-            let commands: Vec<ReplayCommand> = RonOptions::default()
-                .with_default_extension(Extensions::IMPLICIT_SOME)
-                .from_str(&contents)
-                .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
-            schedule_commands(commands)
-                .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+            parse_scenario_file(&path);
         }
         assert!(found > 0);
+    }
+
+    #[test]
+    fn bundled_test_scenarios_parse() {
+        let dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../misc/test_scenarios");
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            return;
+        };
+        for entry in entries {
+            let scenario = entry.unwrap().path().join("scenario.ron");
+            if scenario.exists() {
+                parse_scenario_file(&scenario);
+            }
+        }
+    }
+
+    fn parse_scenario_file(path: &std::path::Path) {
+        let contents = std::fs::read_to_string(path).unwrap();
+        let commands: Vec<ReplayCommand> = RonOptions::default()
+            .with_default_extension(Extensions::IMPLICIT_SOME)
+            .from_str(&contents)
+            .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+        schedule_commands(commands).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
     }
 
     #[test]
@@ -796,5 +1095,46 @@ mod tests {
         assert!(text.contains("frame: 3"));
         assert!(!text.contains("Some("));
         assert!(!text.contains("frame_dt"));
+    }
+
+    fn test_image(color: [u8; 3]) -> DynamicImage {
+        DynamicImage::ImageRgb8(RgbImage::from_pixel(128, 96, Rgb(color)))
+    }
+
+    #[test]
+    fn identical_screenshots_match() {
+        let image = test_image([20, 40, 60]);
+        let report = compare_images(&image, &image.clone());
+        assert!(report.changed_fraction < f32::EPSILON);
+        assert!(report.mean_diff < f32::EPSILON);
+    }
+
+    #[test]
+    fn large_change_is_detected() {
+        let black = test_image([0, 0, 0]);
+        let white = test_image([255, 255, 255]);
+        let report = compare_images(&black, &white);
+        assert!(report.changed_fraction > COMPARE_MAX_CHANGED_FRACTION);
+    }
+
+    #[test]
+    fn small_local_noise_is_accepted() {
+        let image = test_image([100, 100, 100]);
+        let mut noisy = image.clone().to_rgb8();
+        for x in 0..12 {
+            for y in 0..12 {
+                noisy.put_pixel(x, y, Rgb([120, 120, 120]));
+            }
+        }
+        let report = compare_images(&image, &DynamicImage::ImageRgb8(noisy));
+        assert!(report.changed_fraction <= COMPARE_MAX_CHANGED_FRACTION);
+    }
+
+    #[test]
+    fn diff_path_keeps_the_screenshot_directory() {
+        assert_eq!(
+            diff_path(std::path::Path::new("workdir/screens/shot.png")),
+            std::path::Path::new("workdir/screens/shot.diff.png")
+        );
     }
 }

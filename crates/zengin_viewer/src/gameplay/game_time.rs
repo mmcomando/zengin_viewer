@@ -9,7 +9,7 @@ pub struct GameTimePlugin;
 
 impl Plugin for GameTimePlugin {
     fn build(&self, app: &mut App) {
-        if app.world().resource::<Options>().replay_actions().is_some() {
+        if app.world().resource::<Options>().replay_enabled() {
             // Repeatable replays: fixed game time, no progression. Inserting
             // before init_resource keeps the preset, init_resource does not
             // overwrite an existing resource.

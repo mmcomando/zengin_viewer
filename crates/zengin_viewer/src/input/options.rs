@@ -9,6 +9,12 @@ impl Plugin for OptionsPlugin {
     fn build(&self, app: &mut App) {
         let options = Options::parse();
         info!("Command line options: {options:?}");
+        if options.renderless() && options.test_scenario().is_some() {
+            panic!(
+                "--test-scenario needs rendering to capture screenshots, it cannot be \
+                 combined with --renderless"
+            );
+        }
         app.insert_resource(options.clone());
         if let Some(frames) = options.frames() {
             app.add_plugins(FrameLimitPlugin(frames));
@@ -65,6 +71,19 @@ pub struct Options {
     /// `misc/scenario_output/<file stem>/` and must not be absolute.
     #[arg(long = "replay-actions", value_name = "PATH")]
     replay_actions: Option<PathBuf>,
+    /// Run the test scenario in this directory: replay `<dir>/scenario.ron`,
+    /// write screenshots to `<dir>/workdir/` and compare them with the
+    /// references in `<dir>/reference/`, panicking on mismatch.
+    #[arg(
+        long = "test-scenario",
+        value_name = "DIR",
+        conflicts_with = "replay_actions"
+    )]
+    test_scenario: Option<PathBuf>,
+    /// In a test scenario run, copy the produced screenshots into the
+    /// reference directory instead of comparing them.
+    #[arg(long = "update-reference", requires = "test_scenario")]
+    update_reference: bool,
     /// Start in the main menu instead of starting a new game immediately.
     #[arg(long)]
     main_menu: bool,
@@ -91,6 +110,20 @@ impl Options {
 
     pub fn replay_actions(&self) -> Option<&PathBuf> {
         self.replay_actions.as_ref()
+    }
+
+    pub fn test_scenario(&self) -> Option<&PathBuf> {
+        self.test_scenario.as_ref()
+    }
+
+    pub fn update_reference(&self) -> bool {
+        self.update_reference
+    }
+
+    /// Whether the run replays a scenario, either a plain replay or a test
+    /// scenario. Scenario runs use a hidden window with a fixed resolution.
+    pub fn replay_enabled(&self) -> bool {
+        self.replay_actions.is_some() || self.test_scenario.is_some()
     }
 
     pub fn main_menu(&self) -> bool {

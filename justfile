@@ -19,6 +19,20 @@ run-replay name:
 run-replay-menu name:
     cargo run -- --fixed-time --no-debug-gui --main-menu --replay-actions misc/scenarios/{{name}}.ron --frames 1000
 
+test-scenario-gameplay name:
+    cargo run -- --test-scenario misc/test_scenarios/{{name}}
+# Run a test scenario, comparing its screenshots with the reference directory.
+test-scenario name:
+    cargo run -- --fixed-time --no-debug-gui --test-scenario misc/test_scenarios/{{name}}
+
+# Bless the screenshots of a test scenario into its reference directory.
+update-test-scenario name:
+    cargo run -- --fixed-time --no-debug-gui --test-scenario misc/test_scenarios/{{name}} --update-reference
+
+all-test-scenarios:
+    just test-scenario stats
+    just test-scenario journal
+
 # Headless CPU profile: writes a ~1GB chrome trace, then prints heaviest spans.
 trace-chrome:
     cargo run --release --features trace_chrome -- --renderless --replay-actions misc/scenarios/walk_through_city.ron --frames 600

@@ -192,8 +192,8 @@ pub(crate) fn request_initial_world(
     mut loading_world: ResMut<LoadingWorld>,
     options: Res<Options>,
 ) {
-    if options.replay_actions().is_some() {
-        info!("Skipping the default world spawn, the scenario replay requests it explicitly");
+    if options.replay_enabled() {
+        info!("Skipping the default world spawn, the scenario run requests it explicitly");
         return;
     }
     if pending_load.0.is_some() {
@@ -408,9 +408,9 @@ fn spawn_world(
     if pending_spawns.0.is_empty() {
         return;
     }
-    // Scenario replays spawn the player character explicitly, an interactive
+    // Scenario runs spawn the player character explicitly, an interactive
     // run gets it with the world.
-    let spawn_default_player = options.replay_actions().is_none();
+    let spawn_default_player = !options.replay_enabled();
     for SpawnWorld {
         world_name,
         clean_spawn,
