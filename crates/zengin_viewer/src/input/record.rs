@@ -74,6 +74,15 @@ pub(crate) enum ReplayCommand {
         frame_dt: Option<u64>,
         action: RecordedAction,
     },
+    /// Button was pressed and released again before the next frame; it
+    /// reports `just_pressed` on this frame without staying held.
+    PressRelease {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        action: RecordedAction,
+    },
     /// Dual axis value changed to `value`.
     Axis {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -213,6 +222,18 @@ pub(crate) enum ReplayCommand {
         frame_dt: Option<u64>,
         name: String,
     },
+    /// Spawns the npc instance `name` (case-insensitive script symbol name) at
+    /// `translation` with `rotation` in axis labeled degrees
+    /// `(x = pitch, y = yaw, z = roll)`, matching the camera info overlay.
+    ZenginSpawnNpc {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        name: String,
+        translation: Vec3,
+        rotation: Vec3,
+    },
     /// Spawns the test world `name` defined in code, with its own camera.
     /// Does not load a zengin world archive.
     TestWorld {
@@ -262,6 +283,9 @@ impl ReplayCommand {
             | Self::Release {
                 frame, frame_dt, ..
             }
+            | Self::PressRelease {
+                frame, frame_dt, ..
+            }
             | Self::Axis {
                 frame, frame_dt, ..
             }
@@ -296,6 +320,9 @@ impl ReplayCommand {
                 frame, frame_dt, ..
             }
             | Self::ZenginSetDebugNpc {
+                frame, frame_dt, ..
+            }
+            | Self::ZenginSpawnNpc {
                 frame, frame_dt, ..
             }
             | Self::ZenginGiveTestItems {
@@ -492,13 +519,25 @@ fn record_buttons<A: Actionlike + Copy>(
         return;
     };
     for action in state.get_just_pressed() {
-        if held.insert(action) {
+        if !held.insert(action) {
+            continue;
+        }
+        if state.pressed(&action) {
             commands.push(ReplayCommand::Press {
                 frame: Some(frame),
                 frame_dt: None,
                 action: to_recorded(action),
             });
+            continue;
         }
+        // Released again before the next frame, a separate `Release` would
+        // cancel the press before the replay ever applies it.
+        held.remove(&action);
+        commands.push(ReplayCommand::PressRelease {
+            frame: Some(frame),
+            frame_dt: None,
+            action: to_recorded(action),
+        });
     }
     held.retain(|action| {
         if state.pressed(action) {

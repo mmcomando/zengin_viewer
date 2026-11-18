@@ -36,8 +36,8 @@ use crate::input::log_capture::LogBuffer;
 use crate::input::options::Options;
 use crate::input::record::{DEFAULT_FRAME_DT, RecordedAction, ReplayCommand};
 use crate::zengin::{
-    DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptResource, SpawnPositionFilter, WeaponKind,
-    grant_test_items, seed_test_journal,
+    DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptResource, SpawnNpc, SpawnPositionFilter,
+    WeaponKind, grant_test_items, seed_test_journal,
 };
 
 /// Replays the actions recorded with `--save-actions`.
@@ -165,6 +165,9 @@ struct ActionReplay {
     /// Buttons whose press event was processed this frame; these get a real
     /// `JustPressed` press, later held frames only keep the pressed state.
     started_buttons: HashSet<RecordedAction>,
+    /// Buttons released again right after their press frame, so a
+    /// `PressRelease` stays held for exactly one frame.
+    released_buttons: HashSet<RecordedAction>,
     /// Latest dual axis values applied by the replay.
     held_axes: HashMap<RecordedAction, Vec2>,
 }
@@ -265,6 +268,7 @@ fn read_replay(layout: &ScenarioLayout) -> Result<ActionReplay, String> {
         exit_requested: false,
         held_buttons: HashSet::new(),
         started_buttons: HashSet::new(),
+        released_buttons: HashSet::new(),
         held_axes: HashMap::new(),
     })
 }
@@ -345,6 +349,9 @@ fn replay_actions(
     };
     replay.frame += 1;
     replay.started_buttons.clear();
+    for action in std::mem::take(&mut replay.released_buttons) {
+        replay.held_buttons.remove(&action);
+    }
 
     while replay.next < replay.commands.len() && replay.commands[replay.next].frame <= replay.frame
     {
@@ -409,6 +416,11 @@ fn apply_replay_command(
         ReplayCommand::Press { action, .. } => {
             replay.started_buttons.insert(*action);
             replay.held_buttons.insert(*action);
+        }
+        ReplayCommand::PressRelease { action, .. } => {
+            replay.started_buttons.insert(*action);
+            replay.held_buttons.insert(*action);
+            replay.released_buttons.insert(*action);
         }
         ReplayCommand::Release { action, .. } => {
             replay.held_buttons.remove(action);
@@ -529,6 +541,41 @@ fn apply_replay_command(
             let name = name.clone();
             commands.queue(move |world: &mut World| {
                 world.resource_mut::<DebugNpc>().set(&name);
+            });
+        }
+        ReplayCommand::ZenginSpawnNpc {
+            name,
+            translation,
+            rotation,
+            ..
+        } => {
+            info!("Replay spawning npc {name:?} at {translation:?}");
+            let Some(gothic_script) = gothic_script else {
+                warn!("ZenginSpawnNpc replay command: game script is not loaded");
+                return false;
+            };
+            let instance_id = gothic_script.lock().symbol_instance(name);
+            let Some(instance_id) = instance_id else {
+                warn!("ZenginSpawnNpc replay command: no npc instance named {name:?}");
+                return false;
+            };
+            let transform = Transform {
+                translation: *translation,
+                rotation: rotation_from_degrees(*rotation),
+                scale: Vec3::ONE,
+            };
+            commands.queue(move |world: &mut World| {
+                let Some(mut spawns) = world.get_resource_mut::<Messages<SpawnNpc>>() else {
+                    warn!("ZenginSpawnNpc replay command: npc spawn messages are not registered");
+                    return;
+                };
+                spawns.write(SpawnNpc {
+                    instance_id,
+                    location_name: None,
+                    transform: Some(transform),
+                    exact_transform: true,
+                    overlay: None,
+                });
             });
         }
         ReplayCommand::ClearLogBuffer { .. } => {
@@ -1031,14 +1078,15 @@ fn toggle_player_armor(
 
 #[cfg(test)]
 mod tests {
+    use bevy::prelude::Vec3;
     use image::{DynamicImage, Rgb, RgbImage};
     use regex::Regex;
     use ron::Options as RonOptions;
     use ron::extensions::Extensions;
 
     use super::{
-        COMPARE_MAX_CHANGED_FRACTION, ReplayCommand, ScheduledCommand, compare_images, diff_path,
-        matching_log_line, schedule_commands,
+        COMPARE_MAX_CHANGED_FRACTION, GameplayAction, RecordedAction, ReplayCommand,
+        ScheduledCommand, compare_images, diff_path, matching_log_line, schedule_commands,
     };
 
     fn parse(commands: &str) -> Result<Vec<ScheduledCommand>, String> {
@@ -1152,6 +1200,33 @@ mod tests {
         assert!(matches!(
             &commands[0].command,
             ReplayCommand::ZenginSetDebugNpc { name, .. } if name == "lares"
+        ));
+    }
+
+    #[test]
+    fn press_release_command_parses_and_schedules() {
+        let commands = parse("[PressRelease(frame: 4, action: Gameplay(Jump))]").unwrap();
+        assert_eq!(frames(&commands), [4]);
+        assert!(matches!(
+            commands[0].command,
+            ReplayCommand::PressRelease {
+                action: RecordedAction::Gameplay(GameplayAction::Jump),
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn spawn_npc_command_parses_and_schedules() {
+        let commands = parse(
+            "[ZenginSpawnNpc(name: \"lares\", translation: (1.0, 2.0, 3.0), rotation: (0.0, 90.0, 0.0))]",
+        )
+        .unwrap();
+        assert_eq!(frames(&commands), [5]);
+        assert!(matches!(
+            &commands[0].command,
+            ReplayCommand::ZenginSpawnNpc { name, translation, .. }
+                if name == "lares" && *translation == Vec3::new(1.0, 2.0, 3.0)
         ));
     }
 
