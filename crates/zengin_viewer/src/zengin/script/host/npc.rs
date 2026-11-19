@@ -230,7 +230,27 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     }
     fake_impl!(npc_knowsplayer(_0, _1) -> i32);
     fake_impl!(npc_setknowsplayer(_0, _1));
-    fake_impl!(npc_isinfightmode(_0, _1) -> i32);
+    /// Compares the npc weapon state with a script `FMODE_*` id: `NONE` 0,
+    /// `FIST` 1, `MELEE` 2, `FAR` 5, `MAGIC` 7. Magic is never active in the
+    /// viewer, so it always answers `0`.
+    fn npc_isinfightmode(&mut self, npc: i32, fight_mode: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(npc) = self.npc_state(npc) else {
+            return 0;
+        };
+        let weapon_mode = npc.equipment.weapon_mode;
+        let matches = match fight_mode {
+            0 => weapon_mode.is_none(),
+            1 => weapon_mode == Some(WeaponMode::Fists),
+            2 => weapon_mode == Some(WeaponMode::Melee),
+            5 => weapon_mode == Some(WeaponMode::Ranged),
+            7 => false,
+            _ => false,
+        };
+        i32::from(matches)
+    }
     fake_impl!(npc_isaiming(_0, _1) -> i32);
     fake_impl!(npc_startitemreactmodules(_0, _1, _2) -> i32);
     fake_impl!(npc_hasoffered(_0, _1, _2) -> i32);
