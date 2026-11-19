@@ -21,6 +21,7 @@ pub(crate) fn flush_npc_action_queue(
         };
         match action {
             QueuedAction::GoTo(action) => commands.entity(entity).insert(action),
+            QueuedAction::GoToNpc(action) => commands.entity(entity).insert(action),
             QueuedAction::Attack(action) => commands.entity(entity).insert(*action),
             QueuedAction::UseMob(action) => commands.entity(entity).insert(action),
             QueuedAction::UseItemState(action) => commands.entity(entity).insert(action),

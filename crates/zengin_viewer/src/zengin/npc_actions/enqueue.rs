@@ -4,14 +4,15 @@ use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::attack::AttackAction;
 use crate::zengin::npc_actions::goto::GoToWaypointAction;
+use crate::zengin::npc_actions::goto_npc::GoToNpcAction;
 use crate::zengin::npc_actions::item_state::UseItemStateAction;
 use crate::zengin::npc_actions::queue::NpcActionQueue;
 use crate::zengin::npc_actions::use_mob::UseMobAction;
 use crate::zengin::npc_routines::NpcRoutineState;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
-    AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange, GotoFpChange, StandUpChange,
-    UseItemStateChange, UseMobChange, WaitChange,
+    AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange, GotoFpChange, GotoNpcChange,
+    StandUpChange, UseItemStateChange, UseMobChange, WaitChange,
 };
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::StringId;
@@ -128,6 +129,95 @@ pub(crate) fn enqueue_goto_fp_actions(
                 );
             }
         }
+    }
+}
+
+/// Turns `AI_GotoNpc` requests into queued actions on the target entity. The
+/// target instance may have several entities (duplicated spawns), the closest
+/// one is followed.
+pub(crate) fn enqueue_goto_npc_actions(
+    mut changes: MessageReader<GotoNpcChange>,
+    index: Res<InstanceIndex>,
+    executing: Query<&GoToNpcAction>,
+    transforms: Query<&Transform>,
+    mut action_queues: Query<&mut NpcActionQueue>,
+) {
+    for change in changes.read() {
+        enqueue_goto_npc_change(change, &index, &executing, &transforms, &mut action_queues);
+    }
+}
+
+#[allow(clippy::cognitive_complexity)]
+fn enqueue_goto_npc_change(
+    change: &GotoNpcChange,
+    index: &InstanceIndex,
+    executing: &Query<&GoToNpcAction>,
+    transforms: &Query<&Transform>,
+    action_queues: &mut Query<&mut NpcActionQueue>,
+) {
+    if change.instance_id == change.target {
+        warn!(
+            "AI_GotoNpc npc({}) ignored: it targets itself",
+            change.instance_id
+        );
+        return;
+    }
+    let target_entities = index.npcs(change.target);
+    if target_entities.is_empty() {
+        warn!(
+            "AI_GotoNpc npc({}) ignored: target({}) has no entity",
+            change.instance_id, change.target
+        );
+        return;
+    }
+    let entities = index.npcs(change.instance_id);
+    if entities.is_empty() {
+        warn!(
+            "AI_GotoNpc npc({}) ignored: instance has no entity",
+            change.instance_id
+        );
+        return;
+    }
+    for &entity in entities {
+        let Ok(mut queue) = action_queues.get_mut(entity) else {
+            warn!(
+                "AI_GotoNpc npc({}) on entity({entity}) ignored: no action queue",
+                change.instance_id
+            );
+            continue;
+        };
+        enqueue_goto_npc_for_entity(
+            *change,
+            entity,
+            target_entities,
+            executing,
+            transforms,
+            &mut queue,
+        );
+    }
+}
+
+/// Picks the closest target entity and queues it unless it is already followed.
+fn enqueue_goto_npc_for_entity(
+    change: GotoNpcChange,
+    entity: Entity,
+    target_entities: &[Entity],
+    executing: &Query<&GoToNpcAction>,
+    transforms: &Query<&Transform>,
+    queue: &mut NpcActionQueue,
+) {
+    let target = nearest_target(entity, target_entities, transforms).unwrap_or(target_entities[0]);
+    if executing
+        .get(entity)
+        .is_ok_and(|action| action.target == target)
+    {
+        return;
+    }
+    if !queue.push_goto_npc(target) {
+        warn!(
+            "AI_GotoNpc npc({}) target({}) not queued: action queue is full",
+            change.instance_id, change.target
+        );
     }
 }
 

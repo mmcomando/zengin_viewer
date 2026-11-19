@@ -6,6 +6,7 @@ mod attack;
 mod enqueue;
 mod flush;
 mod goto;
+mod goto_npc;
 mod item_state;
 mod queue;
 mod stand_up;
@@ -22,11 +23,14 @@ pub(crate) use attack::{
 };
 pub(crate) use enqueue::{
     clear_npc_actions, enqueue_align_actions, enqueue_attack_actions, enqueue_goto_actions,
-    enqueue_goto_fp_actions, enqueue_stand_up_actions, enqueue_use_item_state_actions,
-    enqueue_use_mob_actions, enqueue_wait_actions,
+    enqueue_goto_fp_actions, enqueue_goto_npc_actions, enqueue_stand_up_actions,
+    enqueue_use_item_state_actions, enqueue_use_mob_actions, enqueue_wait_actions,
 };
 pub(crate) use flush::flush_npc_action_queue;
 pub(crate) use goto::{GoToWaypointAction, end_goto_action, run_goto_action, start_goto_action};
+pub(crate) use goto_npc::{
+    GoToNpcAction, end_goto_npc_action, run_goto_npc_action, start_goto_npc_action,
+};
 pub(crate) use item_state::{
     NpcItemUse, UseItemStateAction, advance_item_use_animations, run_use_item_state_action,
     sync_npc_item_body_state,

@@ -212,7 +212,23 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     }
     fake_impl!(ai_teleport(_0, _1));
     fake_impl!(ai_gotoitem(_0, _1));
-    fake_impl!(ai_gotonpc(_0, _1));
+    /// Walks to another npc; the ECS side resolves the target instance to its
+    /// entity and follows it until in reach.
+    fn ai_gotonpc(&mut self, npc: i32, target: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return;
+        };
+        let Some(target) = self.symbol_table.instance(target) else {
+            return;
+        };
+        if npc == target {
+            return;
+        }
+        self.messages.goto_npc.send(GotoNpcChange {
+            instance_id: npc,
+            target,
+        });
+    }
     /// The walk to the freepoint already orients the npc, nothing to align.
     fn ai_aligntofp(&mut self, _npc: i32) {}
     /// Picks the nearest free freepoint matching the name and orders a walk to

@@ -9,10 +9,11 @@ pub(crate) use body_state::{
 };
 pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
-    DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
-    NpcChanged, NpcEntitiesChanged, OverlayChange, PassivePerception, ProcessInfosChange,
-    RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StandUpChange,
-    StartStateChange, SvmLine, TurnToNpcChange, UseItemStateChange, UseMobChange, WaitChange,
+    DialogLine, GotoChange, GotoFpChange, GotoNpcChange, InventoryGain, ItemChanged,
+    ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, PassivePerception,
+    ProcessInfosChange, RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc,
+    StandUpChange, StartStateChange, SvmLine, TurnToNpcChange, UseItemStateChange, UseMobChange,
+    WaitChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -360,6 +361,8 @@ pub struct ScriptMessages {
     pub goto: ExternalMessageSender<GotoChange>,
     /// `AI_GotoFP`/`AI_GotoNextFP` requests produced by the script host.
     pub goto_fp: ExternalMessageSender<GotoFpChange>,
+    /// `AI_GotoNpc` requests produced by the script.
+    pub goto_npc: ExternalMessageSender<GotoNpcChange>,
     /// `AI_Attack` requests produced by the script.
     pub attack: ExternalMessageSender<AttackChange>,
     /// `AI_TurnToNPC` requests produced by the script.
@@ -409,6 +412,7 @@ impl ScriptMessages {
         self.overlay.clear();
         self.goto.clear();
         self.goto_fp.clear();
+        self.goto_npc.clear();
         self.attack.clear();
         self.turn_to_npc.clear();
         self.process_infos.clear();

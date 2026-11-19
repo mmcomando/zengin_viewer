@@ -122,6 +122,13 @@ pub struct GotoFpChange {
     pub point_name: StringCanon,
 }
 
+/// Signal that an instance requested `AI_GotoNpc` (walk to another npc).
+#[derive(Debug, Clone, Copy, Message)]
+pub struct GotoNpcChange {
+    pub instance_id: InstanceId,
+    pub target: InstanceId,
+}
+
 /// Signal that an instance requested an overlay change
 /// (`Mdl_ApplyOverlayMds`/`Mdl_ApplyOverlayMdsTimed`/`Mdl_RemoveOverlayMds`).
 #[derive(Message)]

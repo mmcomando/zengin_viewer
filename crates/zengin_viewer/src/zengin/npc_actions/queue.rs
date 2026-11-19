@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 use crate::zengin::npc_actions::attack::AttackAction;
 use crate::zengin::npc_actions::goto::GoToWaypointAction;
+use crate::zengin::npc_actions::goto_npc::GoToNpcAction;
 use crate::zengin::npc_actions::item_state::UseItemStateAction;
 use crate::zengin::npc_actions::stand_up::StandUpAction;
 use crate::zengin::npc_actions::use_mob::UseMobAction;
@@ -31,6 +32,17 @@ impl NpcActionQueue {
             return true;
         }
         self.push_back(QueuedAction::GoTo(GoToWaypointAction { waypoint }))
+    }
+
+    /// Repeated `AI_GotoNpc` requests for the same target do not stack.
+    pub(crate) fn push_goto_npc(&mut self, target: Entity) -> bool {
+        let queued = self.actions.iter().any(
+            |action| matches!(action, QueuedAction::GoToNpc(queued) if queued.target == target),
+        );
+        if queued {
+            return true;
+        }
+        self.push_back(QueuedAction::GoToNpc(GoToNpcAction { target }))
     }
 
     /// Only the latest request for a mob scheme matters; the routine loop
@@ -123,6 +135,7 @@ impl NpcActionQueue {
 
 pub(crate) enum QueuedAction {
     GoTo(GoToWaypointAction),
+    GoToNpc(GoToNpcAction),
     Attack(Box<AttackAction>),
     UseMob(UseMobAction),
     UseItemState(UseItemStateAction),
@@ -166,6 +179,16 @@ mod tests {
         assert!(queue.push_attack(target));
 
         assert_eq!(queue.actions.len(), 2);
+    }
+
+    #[test]
+    fn goto_npc_does_not_stack_the_same_target() {
+        let mut queue = NpcActionQueue::default();
+        let target = Entity::PLACEHOLDER;
+        assert!(queue.push_goto_npc(target));
+        assert!(queue.push_goto_npc(target));
+
+        assert_eq!(queue.actions.len(), 1);
     }
 
     #[test]

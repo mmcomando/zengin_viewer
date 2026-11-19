@@ -3,6 +3,7 @@ use bevy::prelude::*;
 
 use crate::zengin::npc_actions::attack::AttackAction;
 use crate::zengin::npc_actions::goto::GoToWaypointAction;
+use crate::zengin::npc_actions::goto_npc::GoToNpcAction;
 use crate::zengin::npc_actions::item_state::NpcItemUse;
 use crate::zengin::npc_actions::item_state::UseItemStateAction;
 use crate::zengin::npc_actions::stand_up::StandUpAction;
@@ -42,6 +43,7 @@ pub(crate) fn remove_actions_on_marker_removed(
         .queue_silenced(|mut entity: EntityWorldMut| {
             entity.remove::<(
                 GoToWaypointAction,
+                GoToNpcAction,
                 AttackAction,
                 UseMobAction,
                 UseItemStateAction,

@@ -19,11 +19,11 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
 use crate::zengin::script::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
-    DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
-    NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest, PassivePerception,
-    ProcessInfosChange, RoutineEntry, ScreenMessage, ScriptMessages, ScriptSound, SpawnNpc,
-    StandUpChange, StartStateChange, SvmLine, TurnToNpcChange, UseItemStateChange, UseMobChange,
-    WaitChange, WeaponMode,
+    DialogLine, GotoChange, GotoFpChange, GotoNpcChange, InventoryGain, ItemChanged,
+    ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest,
+    PassivePerception, ProcessInfosChange, RoutineEntry, ScreenMessage, ScriptMessages,
+    ScriptSound, SpawnNpc, StandUpChange, StartStateChange, SvmLine, TurnToNpcChange,
+    UseItemStateChange, UseMobChange, WaitChange, WeaponMode,
 };
 use crate::zengin::world_spawn::WorldSpawnMessages;
 
@@ -40,6 +40,7 @@ impl Plugin for ScriptBridgePlugin {
             overlay: app.add_external_message::<OverlayChange>(),
             goto: app.add_external_message::<GotoChange>(),
             goto_fp: app.add_external_message::<GotoFpChange>(),
+            goto_npc: app.add_external_message::<GotoNpcChange>(),
             attack: app.add_external_message::<AttackChange>(),
             turn_to_npc: app.add_external_message::<TurnToNpcChange>(),
             process_infos: app.add_external_message::<ProcessInfosChange>(),

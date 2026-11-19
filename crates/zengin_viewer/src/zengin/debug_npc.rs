@@ -7,8 +7,8 @@ use bevy::prelude::*;
 use crate::graphics::AnimationController;
 use crate::zengin::GameNpc;
 use crate::zengin::npc_actions::{
-    AttackAction, GoToWaypointAction, NpcActionQueue, StandUpAction, UseItemStateAction,
-    UseMobAction,
+    AttackAction, GoToNpcAction, GoToWaypointAction, NpcActionQueue, StandUpAction,
+    UseItemStateAction, UseMobAction,
 };
 use crate::zengin::npc_routines::{NpcEquippedWeapon, NpcWeaponMode};
 use crate::zengin::script::component::ScriptResource;
@@ -143,19 +143,23 @@ fn log_action_changes(
         &mut DebugNpcTrace,
         Option<&AttackAction>,
         Option<&GoToWaypointAction>,
+        Option<&GoToNpcAction>,
         Option<&UseMobAction>,
         Option<&UseItemStateAction>,
         Option<&StandUpAction>,
         Option<&NpcActionQueue>,
     )>,
 ) {
-    for (mut trace, attack, go_to, use_mob, use_item, stand_up, queue) in &mut npcs {
+    for (mut trace, attack, go_to, go_to_npc, use_mob, use_item, stand_up, queue) in &mut npcs {
         let mut actions: Vec<String> = Vec::new();
         if let Some(action) = attack {
             actions.push(format!("Attack(target={})", action.target));
         }
         if let Some(action) = go_to {
             actions.push(format!("GoTo({})", action.waypoint.as_str()));
+        }
+        if let Some(action) = go_to_npc {
+            actions.push(format!("GoToNpc(target={})", action.target));
         }
         if let Some(action) = use_mob {
             actions.push(format!(
