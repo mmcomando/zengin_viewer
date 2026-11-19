@@ -148,6 +148,28 @@ pub fn mesh_model_path(vfs: &ZenginVfs, name: &str) -> Option<String> {
     resolve_mesh_path_quiet(&vfs, name)
 }
 
+/// Resolved skinned body mesh path of an npc.
+///
+/// Prefers `.MDM`, which only stores skin weights and relies on the visual
+/// `.MDH` hierarchy (`Mdl_SetVisual`, e.g. `SHEEP.MDH`). That is also the
+/// hierarchy the `.MAN` node indices refer to. A `.MDL` embeds its own
+/// hierarchy (with extra `*NUB` bones, e.g. 37 vs 31 nodes for the sheep), so
+/// its node indices do not line up with the animation samples and the npc
+/// animates the wrong bones.
+pub fn mesh_body_path(vfs: &ZenginVfs, name: &str) -> Option<String> {
+    let vfs = vfs.0.lock().unwrap();
+    let name = normalize_mesh_name(name);
+    let asset_paths: Vec<String> = vec![
+        format!("/_WORK/DATA/ANIMS/_COMPILED/{name}.MDM"),
+        format!("/_WORK/DATA/MESHES/_COMPILED/{name}.MDM"),
+        format!("/_WORK/DATA/ANIMS/_COMPILED/{name}.MDL"),
+        format!("/_WORK/DATA/MESHES/_COMPILED/{name}.MDL"),
+    ];
+    try_load_mesh(&vfs, &asset_paths)
+        .map(|path| to_asset_path(&path))
+        .or_else(|| resolve_mesh_path_quiet(&vfs, &name))
+}
+
 fn try_load_mesh(vfs: &Vfs, asset_paths: &[String]) -> Option<String> {
     for asset_path in asset_paths {
         if vfs.resolve_path(asset_path).is_some() {
@@ -178,6 +200,19 @@ pub(crate) fn resolve_mesh_path_quiet(vfs: &Vfs, name: &str) -> Option<String> {
 mod tests {
     use super::*;
     use crate::zengin::loaders::vdf_reader::create_zengin_vfs;
+
+    #[test]
+    #[ignore = "requires a Gothic 2 install"]
+    fn body_mesh_prefers_the_weight_only_mdm() {
+        let vfs = ZenginVfs(create_zengin_vfs());
+        // Both `HAMMEL_BODY.MDL` (own 37-bone hierarchy) and `.MDM` exist; the
+        // animation hierarchy `SHEEP.MDH` has 31 bones, so the `.MDM` is the
+        // only representation whose node indices match the `.MAN` files.
+        assert_eq!(
+            mesh_body_path(&vfs, "Hammel_Body").as_deref(),
+            Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HAMMEL_BODY.MDM")
+        );
+    }
 
     #[test]
     #[ignore = "requires a Gothic 2 install"]

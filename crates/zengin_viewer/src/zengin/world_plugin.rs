@@ -21,7 +21,7 @@ use crate::zengin::common::get_full_texture_path;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::interaction::selection::Selection;
 use crate::zengin::loaders::vfs::{
-    item_model_path, mesh_model_path, normalize_mesh_name, resolve_stand_animation,
+    item_model_path, mesh_body_path, mesh_model_path, normalize_mesh_name, resolve_stand_animation,
 };
 use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
@@ -780,7 +780,7 @@ fn spawn_npc_entities(
             continue;
         }
 
-        let Some(body_model) = mesh_model_path(&vfs, &script.body_model) else {
+        let Some(body_model) = mesh_body_path(&vfs, &script.body_model) else {
             warn!(
                 "No mesh for npc({}) body model({})",
                 spawn.instance_id, script.body_model
