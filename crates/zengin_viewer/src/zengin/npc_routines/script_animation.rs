@@ -11,7 +11,7 @@ use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::state::AnimationChange;
 use crate::zengin::script::string_value::StringCanon;
 
-use super::routines::STANDING_ANIMATION;
+use super::routines::{STANDING_ANIMATION, has_animation};
 
 /// Applies the `AI_PlayAni(BS)` requests drained by the script bridge. Requests
 /// are applied in order, so a later one overrides an earlier one.
@@ -41,6 +41,16 @@ pub(crate) fn apply_scripted_animations(
                 .as_deref()
                 .unwrap_or(STANDING_ANIMATION);
             let animation = choose_script_animation(&change.animation, stand_animation);
+            if !has_animation(model, overlay, &files, &animation) {
+                // Scripts request animations for every scheme, not all of them
+                // exist in the archive (e.g. `SHADOW-T_PERCEPTION`). The engine
+                // silently ignores such a request.
+                warn!(
+                    "npc({}) scripted animation({animation}) is not in the anim archive, skipped",
+                    change.instance_id
+                );
+                continue;
+            }
             let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
             let scheme = choose_animation_scheme(scheme, overlay, &animation, &files.0);
             let path = get_animation_path(scheme, &animation);

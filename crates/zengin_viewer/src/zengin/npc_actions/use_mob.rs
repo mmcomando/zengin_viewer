@@ -11,7 +11,7 @@ use crate::zengin::common::{
 };
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{
-    AnimationFiles, NPC_BODY_Y_OFFSET, NpcOverlay, queue_named_animation,
+    AnimationFiles, NPC_BODY_Y_OFFSET, NpcOverlay, has_animation, queue_named_animation,
     queue_root_motion_animation, queue_stand_animation,
 };
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
@@ -158,6 +158,9 @@ pub(crate) fn run_use_mob_action(
         sequencer.suspend();
         controller.set_root_motion(false);
         let animation = mob_animation_name(
+            model,
+            overlay,
+            &files,
             action.scheme.as_str(),
             choice.position_tag.as_deref(),
             action.state,
@@ -378,12 +381,27 @@ fn position_tag(name: &str) -> Option<&'static str> {
 }
 
 /// Npc-side mob animation name, e.g. `S_BENCH_S1` or `S_BEDHIGH_FRONT_S1`.
-fn mob_animation_name(scheme: &str, position_tag: Option<&str>, state: i32) -> String {
+///
+/// Only beds ship position-tagged poses; other mobs (e.g. `BAUMSAEGE`) have the
+/// attachment node but only the untagged animation, so the tag is used only
+/// when the archive has it.
+fn mob_animation_name(
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    files: &AnimationFiles,
+    scheme: &str,
+    position_tag: Option<&str>,
+    state: i32,
+) -> String {
     let state = state.max(1);
-    match position_tag {
-        Some(tag) => format!("S_{}_{}_S{state}", scheme.to_uppercase(), tag),
-        None => format!("S_{}_S{state}", scheme.to_uppercase()),
+    let scheme = scheme.to_uppercase();
+    let tagged = position_tag.map(|tag| format!("S_{scheme}_{tag}_S{state}"));
+    if let Some(tagged) = tagged
+        && has_animation(model, overlay, files, &tagged)
+    {
+        return tagged;
     }
+    format!("S_{scheme}_S{state}")
 }
 
 #[cfg(test)]
@@ -464,5 +482,26 @@ mod tests {
         let (app, _) = app_with_mob("", Some(Entity::PLACEHOLDER));
 
         assert_eq!(app.world().resource::<Selected>().0, None);
+    }
+
+    #[test]
+    fn mob_animation_uses_the_position_tag_only_when_it_exists() {
+        let model = NpcModel {
+            animation_scheme: Some("HUMANS".to_string()),
+            ..Default::default()
+        };
+
+        let beds = AnimationFiles(HashSet::from(["HUMANS-S_BEDHIGH_BACK_S1.MAN".to_string()]));
+        assert_eq!(
+            mob_animation_name(&model, None, &beds, "BEDHIGH", Some("BACK"), 1),
+            "S_BEDHIGH_BACK_S1"
+        );
+
+        // The sawmill has a `_BACK` attachment node but only an untagged pose.
+        let sawmill = AnimationFiles(HashSet::from(["HUMANS-S_BAUMSAEGE_S1.MAN".to_string()]));
+        assert_eq!(
+            mob_animation_name(&model, None, &sawmill, "BAUMSAEGE", Some("BACK"), 1),
+            "S_BAUMSAEGE_S1"
+        );
     }
 }

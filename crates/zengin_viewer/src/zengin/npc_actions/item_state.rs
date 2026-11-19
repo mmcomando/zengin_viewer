@@ -13,10 +13,11 @@ use crate::gameplay::objects::NpcModel;
 use crate::graphics::{
     AnimationController, AnimationEnds, AnimationGraph, AutoAnimSequencer, animation_name_from_path,
 };
-use crate::zengin::common::{animation_file_name, choose_animation_scheme};
+use crate::zengin::common::choose_animation_scheme;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{
-    AnimationFiles, NpcOverlay, NpcPath, queue_named_animation, queue_stand_animation,
+    AnimationFiles, NpcOverlay, NpcPath, has_animation, queue_named_animation,
+    queue_stand_animation,
 };
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
@@ -564,20 +565,6 @@ fn queue(
         asset_server,
         animation,
     );
-}
-
-fn has_animation(
-    model: &NpcModel,
-    overlay: Option<&NpcOverlay>,
-    files: &AnimationFiles,
-    animation: &str,
-) -> bool {
-    let Some(base) = model.animation_scheme.as_deref() else {
-        return false;
-    };
-    let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
-    let scheme = choose_animation_scheme(base, overlay, animation, &files.0);
-    files.0.contains(&animation_file_name(scheme, animation))
 }
 
 fn start_animation_name(scheme: &str) -> String {

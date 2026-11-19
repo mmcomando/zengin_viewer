@@ -12,7 +12,9 @@ use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
 };
 use crate::zengin::GameNpc;
-use crate::zengin::common::{choose_animation_scheme, face_direction_quat, get_animation_path};
+use crate::zengin::common::{
+    animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
+};
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::{ExecutingActionMarker, NpcActionQueue, NpcItemUse};
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
@@ -858,6 +860,23 @@ pub(crate) fn queue_named_animation(
     let scheme = choose_animation_scheme(scheme, overlay, animation, &files.0);
     let path = get_animation_path(scheme, animation);
     controller.queue_next(handles.get_animation_handle(asset_server, &path), true);
+}
+
+/// True when the npc scheme (or its overlay scheme) has `animation` in the
+/// compiled anim archive. Scripts request animations unconditionally, not every
+/// scheme ships every variant (e.g. `SHADOW` has no `T_PERCEPTION`).
+pub(crate) fn has_animation(
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    files: &AnimationFiles,
+    animation: &str,
+) -> bool {
+    let Some(base) = model.animation_scheme.as_deref() else {
+        return false;
+    };
+    let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
+    let scheme = choose_animation_scheme(base, overlay, animation, &files.0);
+    files.0.contains(&animation_file_name(scheme, animation))
 }
 
 /// Switches the npc back to its standing idle after a path.
