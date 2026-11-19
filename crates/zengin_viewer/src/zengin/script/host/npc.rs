@@ -246,7 +246,7 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             1 => weapon_mode == Some(WeaponMode::Fists),
             2 => weapon_mode == Some(WeaponMode::Melee),
             5 => weapon_mode == Some(WeaponMode::Ranged),
-            7 => false,
+            // `MAGIC` and unknown modes are never active in the viewer.
             _ => false,
         };
         i32::from(matches)

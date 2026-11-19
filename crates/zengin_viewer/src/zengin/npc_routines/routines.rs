@@ -779,6 +779,7 @@ impl NpcPath {
 /// node, keeps its height from the path nodes and restores the standing idle on
 /// arrival. The body offset matches npc placement, otherwise they would float
 /// above the ground while moving.
+#[allow(clippy::type_complexity)]
 pub(crate) fn move_along_path(
     graph: Res<WaypointGraph>,
     mut commands: Commands,

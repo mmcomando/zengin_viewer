@@ -144,7 +144,24 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     }
     fake_impl!(ai_playcutscene(_0, _1));
     fake_impl!(ai_canseenpc(_0, _1, _2));
-    fake_impl!(ai_wait(_0, _1));
+    /// Queues an idle pause of `seconds` before the next ai action. The float
+    /// is passed as its bit pattern; non-positive or non-finite values are
+    /// ignored.
+    fn ai_wait(&mut self, npc: i32, seconds: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("AI_Wait with invalid npc instance({npc})");
+            return;
+        };
+        let seconds = f32::from_bits(seconds as u32);
+        if !seconds.is_finite() || seconds <= 0.0 {
+            return;
+        }
+        let milliseconds = (seconds * 1000.0).min(i32::MAX as f32) as i32;
+        self.messages.wait.send(WaitChange {
+            instance_id: npc,
+            milliseconds,
+        });
+    }
     /// Queues an idle pause of `milliseconds` before the next ai action.
     fn ai_waitms(&mut self, npc: i32, milliseconds: i32) {
         let Some(npc) = self.symbol_table.instance(npc) else {
