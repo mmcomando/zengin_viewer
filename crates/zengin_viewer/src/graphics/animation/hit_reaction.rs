@@ -5,7 +5,8 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
 use crate::zengin::{
-    AnimationFiles, CachedAssetHandles, NpcOverlay, choose_animation_scheme, get_animation_path,
+    AnimationFiles, CachedAssetHandles, NpcOverlay, animation_file_name, choose_animation_scheme,
+    get_animation_path,
 };
 
 use super::{AnimationController, AnimationData, AnimationEnds};
@@ -44,6 +45,11 @@ pub(crate) fn play_hit_reaction(
     // Base scheme reaction: the weapon overlays have no own `T_GOTHIT`
     let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
     let scheme = choose_animation_scheme(scheme, overlay, "T_GOTHIT", &files.0);
+    // Only humans and stone guardians ship a hit reaction; the engine plays
+    // nothing for the other schemes instead of failing to load a missing file.
+    if !files.0.contains(&animation_file_name(scheme, "T_GOTHIT")) {
+        return;
+    }
     let path = get_animation_path(scheme, "T_GOTHIT");
     let resume = controller.current().clone();
     controller.queue_next(handles.get_animation_handle(asset_server, &path), true);
