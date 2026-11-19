@@ -19,7 +19,18 @@ impl mmcomando::zengine_scripts::hlp_scripts::Host for ImportCallState {
             _ => 0,
         }
     }
-    fake_impl!(hlp_isitem(_0, _1) -> i32);
+    /// `1` when both arguments are the same item instance symbol. The viewer
+    /// stores inventory items as their class instance id, so this is an id
+    /// equality check.
+    fn hlp_isitem(&mut self, item: i32, instance_symbol: i32) -> i32 {
+        let Some(item) = self.symbol_table.instance(item) else {
+            return 0;
+        };
+        let Some(instance) = self.symbol_table.instance(instance_symbol) else {
+            return 0;
+        };
+        i32::from(item == instance)
+    }
     /// `-1` when the argument is not an instance symbol.
     fn hlp_getinstanceid(&mut self, instance: i32) -> i32 {
         self.symbol_table

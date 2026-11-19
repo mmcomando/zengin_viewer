@@ -482,7 +482,16 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_getreadiedweapon(_0) -> i32);
     fake_impl!(npc_getequippedmeleeweapon(_0) -> i32);
     fake_impl!(npc_getequippedrangedweapon(_0) -> i32);
-    fake_impl!(npc_getequippedarmor(_0) -> i32);
+    /// Instance symbol of the equipped armor, `0` when the npc wears none.
+    fn npc_getequippedarmor(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(state) = self.npc_state(npc) else {
+            return 0;
+        };
+        state.equipment.armor.map_or(0, InstanceId::value)
+    }
     fake_impl!(npc_hasspell(_0, _1) -> i32);
     fn npc_refusetalk(&mut self, npc: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {
