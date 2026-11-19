@@ -28,8 +28,7 @@ impl Plugin for AnimationTriggersPlugin {
 }
 
 /// Compiled model script of the human visual scheme. In Gothic 2 compiled
-/// `.MDS` scripts are stored with the `.MSB` extension (see `OpenGothic`'s
-/// `Resources::implLoadAnimation`).
+/// `.MDS` scripts are stored with the `.MSB` extension.
 const HUMANS_MODEL_SCRIPT: &str = "_WORK/DATA/ANIMS/_COMPILED/HUMANS.MSB";
 
 /// One animation event: `name` fires when the animation reaches `frame`.

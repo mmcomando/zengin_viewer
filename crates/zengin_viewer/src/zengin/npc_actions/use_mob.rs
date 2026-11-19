@@ -19,7 +19,6 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{GameMob, GameNpc, MobOccupant, MobRegistry, NpcMobUse};
 
-/// `OpenGothic` `MAX_AI_USE_DISTANCE`, in world units (meters).
 const MOB_USE_DISTANCE: f32 = MAX_AI_USE_DISTANCE;
 
 /// Uses the nearest mob with the given `AI_UseMob` scheme.

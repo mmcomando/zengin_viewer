@@ -9,6 +9,7 @@ use crate::zengin::ZenginVfs;
 use crate::zengin::common::{choose_animation_scheme, get_animation_path};
 use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
+use crate::zengin::npc_routines::routines::has_animation;
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{WeaponKind, WeaponMode};
@@ -47,23 +48,36 @@ pub(crate) fn apply_weapon_mode(
             continue;
         };
         let animation = match weapon_mode.0 {
-            WeaponMode::Melee => "S_1H".to_string(),
+            WeaponMode::Melee => armed_idle(model, overlay, &files, "S_1H"),
             // Approximation: both ranged kinds use the bow idle, a per-kind
             // scheme choice needs the weapon kind, not only the mode
-            WeaponMode::Ranged => "S_BOW".to_string(),
-            WeaponMode::Fists => {
-                // No resolved standing idle, keep the current animation
-                let Some(stand) = model.stand_animation.clone() else {
-                    continue;
-                };
-                stand
-            }
+            WeaponMode::Ranged => armed_idle(model, overlay, &files, "S_BOW"),
+            WeaponMode::Fists => model.stand_animation.clone(),
+        };
+        // No resolved standing idle, keep the current animation
+        let Some(animation) = animation else {
+            continue;
         };
         let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
         let scheme = choose_animation_scheme(scheme, overlay, &animation, &files.0);
         let path = get_animation_path(scheme, &animation);
         controller.queue_next(handles.get_animation_handle(&asset_server, &path), true);
     }
+}
+
+/// Armed idle for the scheme when the archive has it (`S_1H`, `S_BOW`), the
+/// scheme standing idle otherwise. Many creatures have no armed idle of their
+/// own (e.g. `GOBBO` has no `S_1H`), so the missing file is not requested.
+fn armed_idle(
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    files: &AnimationFiles,
+    armed: &str,
+) -> Option<String> {
+    if has_animation(model, overlay, files, armed) {
+        return Some(armed.to_string());
+    }
+    model.stand_animation.clone()
 }
 
 /// Engine weapon slot nodes of an npc model. Melee weapons sheathe at
@@ -553,4 +567,37 @@ fn detach_attachment(commands: &mut Commands, entities: &Entities, attachment: &
     }
     attachment.item = None;
     attachment.slot = None;
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::*;
+
+    fn model(scheme: &str, stand: &str) -> NpcModel {
+        NpcModel {
+            animation_scheme: Some(scheme.to_string()),
+            stand_animation: Some(stand.to_string()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn armed_idle_is_used_when_the_scheme_has_it() {
+        let files = AnimationFiles(HashSet::from(["HUMANS-S_1H.MAN".to_string()]));
+
+        let idle = armed_idle(&model("HUMANS", "S_RUN"), None, &files, "S_1H");
+
+        assert_eq!(idle.as_deref(), Some("S_1H"));
+    }
+
+    #[test]
+    fn missing_armed_idle_falls_back_to_the_standing_idle() {
+        let files = AnimationFiles(HashSet::from(["GOBBO-S_FISTRUN.MAN".to_string()]));
+
+        let idle = armed_idle(&model("GOBBO", "S_FISTRUN"), None, &files, "S_1H");
+
+        assert_eq!(idle.as_deref(), Some("S_FISTRUN"));
+    }
 }

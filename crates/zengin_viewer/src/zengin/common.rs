@@ -32,11 +32,10 @@ pub fn to_world_units(zengin_units: f32) -> f32 {
 pub const MOB_SEARCH_RADIUS: f32 = 10.0;
 
 /// Distance within which an npc counts as using a mob or standing on a
-/// freepoint, in world units (meters). `OpenGothic` `MAX_AI_USE_DISTANCE`.
+/// freepoint, in world units (meters).
 pub const MAX_AI_USE_DISTANCE: f32 = 1.5;
 
-/// Radius within which an npc may pick a freepoint, in world units (meters).
-/// `OpenGothic` searches 820 engine units around the npc.
+/// Radius within which an npc may pick a freepoint.
 pub const FREEPOINT_SEARCH_RADIUS: f32 = 8.2;
 
 pub fn gothic2_dir() -> String {
