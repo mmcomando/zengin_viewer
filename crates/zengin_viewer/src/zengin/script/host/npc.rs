@@ -267,7 +267,14 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             .map_or(0, |npc| i32::from(npc.equipment.melee.is_some()))
     }
     fake_impl!(npc_hasequippedrangedweapon(_0) -> i32);
-    fake_impl!(npc_hasequippedarmor(_0) -> i32);
+    /// Whether the npc has an armor item equipped (`EquipItem`/`Mdl_SetVisualBody`).
+    fn npc_hasequippedarmor(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        self.npc_state(npc)
+            .map_or(0, |npc| i32::from(npc.equipment.armor.is_some()))
+    }
     fake_impl!(npc_hasreadiedweapon(_0) -> i32);
     fake_impl!(npc_hasreadiedmeleeweapon(_0) -> i32);
     fake_impl!(npc_hasreadiedrangedweapon(_0) -> i32);
