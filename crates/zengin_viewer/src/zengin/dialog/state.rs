@@ -416,6 +416,7 @@ impl DialogUiState {
         self.camera_shot_serial = self.camera_shot_serial.wrapping_add(1);
         sounds.write(PlaySound {
             asset_path: line.sound_path.clone(),
+            position: None,
         });
     }
 

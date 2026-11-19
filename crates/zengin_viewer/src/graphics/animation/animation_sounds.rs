@@ -50,8 +50,9 @@ pub(crate) fn play_animation_sounds(
         };
         play_sound.write(PlaySound {
             asset_path: format!("zengin://{file}"),
+            position: Some(sound.position),
         });
-        info!(
+        debug!(
             "AnimationSound play: sound={}, file={file}, entity={:?}, distance={:.0}, range={range:.0}",
             sound.sound_name,
             sound.who,

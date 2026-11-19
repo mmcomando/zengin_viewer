@@ -15,6 +15,9 @@ const SVM_TALK_RANGE: f32 = 20.0;
 #[derive(Message)]
 pub struct PlaySound {
     pub asset_path: String,
+    /// World position of a spatial sound. `None` plays the sound globally, e.g.
+    /// a UI cue or a dialog voice.
+    pub position: Option<Vec3>,
 }
 
 /// Plays sounds requested by other systems
@@ -81,7 +84,12 @@ pub(crate) fn handle_play_sound_messages(
 ) {
     for message in messages.read() {
         let audio_handle = asset_server.load(&message.asset_path);
-        sound_manager.play_sound(&mut commands, audio_handle);
+        match message.position {
+            Some(position) => {
+                SoundManager::play_positional_sound(&mut commands, audio_handle, position);
+            }
+            None => sound_manager.play_sound(&mut commands, audio_handle),
+        }
     }
 }
 

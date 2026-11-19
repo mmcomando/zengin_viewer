@@ -142,7 +142,10 @@ fn play_chapter_sound(
         );
         return;
     };
-    sounds.write(PlaySound { asset_path: path });
+    sounds.write(PlaySound {
+        asset_path: path,
+        position: None,
+    });
 }
 
 fn spawn_chapter_image(
