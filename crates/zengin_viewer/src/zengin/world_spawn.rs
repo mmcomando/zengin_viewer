@@ -41,6 +41,7 @@ impl Plugin for WorldSpawnPlugin {
                 spawn_world_mesh,
                 spawn_static_models,
                 spawn_chests,
+                sync_script_containers,
                 spawn_mobs,
                 spawn_movers,
             )
@@ -77,6 +78,8 @@ pub(crate) struct SpawnChest {
     pub(crate) collides: bool,
     /// Half-size of the selection collider, converted to world units.
     pub(crate) collider_half_extents: Vec3,
+    /// Plain vob name, the container key used by `Mob_HasItems`.
+    pub(crate) vob_name: String,
     pub(crate) name: String,
     pub(crate) items: Vec<(InstanceId, i32)>,
     pub(crate) locked: bool,
@@ -240,6 +243,7 @@ fn spawn_chests(
             ClassifyDistance::default(),
             GameChest {
                 vob_id: spawn.vob_id,
+                vob_name: spawn.vob_name.clone(),
                 name: spawn.name.clone(),
                 locked: spawn.locked,
                 items: spawn.items.clone(),
@@ -259,6 +263,33 @@ fn spawn_chests(
             },
         ));
     }
+}
+
+/// Publishes named container contents for `Mob_HasItems`. Unnamed chests are
+/// skipped, they have no key the scripts could use.
+fn sync_script_containers(
+    gothic_script: Option<Res<ScriptResource>>,
+    chests: Query<&GameChest>,
+    added: Query<(), Added<GameChest>>,
+    changed: Query<(), Changed<GameChest>>,
+    mut removed: RemovedComponents<GameChest>,
+    mut initialized: Local<bool>,
+) {
+    let dirty =
+        !*initialized || !added.is_empty() || !changed.is_empty() || removed.read().count() > 0;
+    if !dirty {
+        return;
+    }
+    let Some(gothic_script) = gothic_script else {
+        return;
+    };
+    let containers = chests
+        .iter()
+        .filter(|chest| !chest.vob_name.is_empty())
+        .map(|chest| (chest.vob_name.to_lowercase(), chest.items.clone()))
+        .collect();
+    gothic_script.lock().set_containers(containers);
+    *initialized = true;
 }
 
 fn spawn_mobs(

@@ -203,6 +203,9 @@ pub struct GameChest {
     /// Index of the vob in the ZEN archive, stable across loads; used to match
     /// saved loot to the same chest.
     pub vob_id: u32,
+    /// Plain vob name from the ZEN, the key `Mob_HasItems` looks the container
+    /// up by. Empty for roughly half of the G2 chests.
+    pub vob_name: String,
     pub name: String,
     /// Vob `locked` flag, reported when the chest is opened.
     pub locked: bool,

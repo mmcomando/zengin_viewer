@@ -308,6 +308,10 @@ pub struct ImportCallState {
     /// Interactive mobs by lowercased scheme, refreshed by the world side when
     /// the mob set or their occupancy changes.
     pub mobs: HashMap<String, Vec<ScriptMob>>,
+    /// Container contents by lowercased vob name (`Mob_HasItems`), refreshed by
+    /// the world side when the chests spawn or their loot changes. Unnamed
+    /// chests are absent, the engine cannot look them up either.
+    pub containers: HashMap<String, Vec<(InstanceId, i32)>>,
     /// Way-net freepoints, filled at world load.
     pub freepoints: Vec<ScriptFreePoint>,
     /// Npc currently heading to or standing on a freepoint, by point name.
@@ -485,6 +489,17 @@ impl ImportCallState {
             npc.live.position?
         };
         nearest_free_mob(self.mobs.get(scheme)?, position)
+    }
+
+    /// Count of `item` in the named container, `0` when the container or the
+    /// item is unknown. `name` has to be canonical (lowercased).
+    pub fn container_item_count(&self, name: &str, item: InstanceId) -> i32 {
+        self.containers.get(name).map_or(0, |items| {
+            items
+                .iter()
+                .find(|(entry, _)| *entry == item)
+                .map_or(0, |(_, count)| *count)
+        })
     }
 
     /// Nearest live npc other than `npc` within `radius` (world units) matching
@@ -1217,6 +1232,24 @@ mod tests {
         let mob = nearest_free_mob(&mobs, Vec3::ZERO).expect("a free mob is in range");
 
         assert_eq!(mob.state, 1);
+    }
+
+    #[test]
+    fn container_item_count_resolves_by_name_and_item() {
+        let mut state = ImportCallState::default();
+        let gold = InstanceId::new(10).expect("valid id");
+        let bread = InstanceId::new(11).expect("valid id");
+        state
+            .containers
+            .insert("chest_lobart".to_string(), vec![(gold, 2), (bread, 1)]);
+
+        assert_eq!(state.container_item_count("chest_lobart", gold), 2);
+        assert_eq!(state.container_item_count("chest_lobart", bread), 1);
+        assert_eq!(
+            state.container_item_count("chest_lobart", InstanceId::new(12).unwrap()),
+            0
+        );
+        assert_eq!(state.container_item_count("chest_rukhars", gold), 0);
     }
 
     #[test]

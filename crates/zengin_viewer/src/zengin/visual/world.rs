@@ -254,6 +254,7 @@ fn handle_container(
         archetype,
         collides: obj.cd_dynamic(),
         collider_half_extents: vob_collider_half_extents(obj),
+        vob_name: obj.name(),
         name: obj.movable_name(),
         items,
         locked: obj.container_locked(),

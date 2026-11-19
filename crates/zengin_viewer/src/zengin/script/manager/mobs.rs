@@ -16,6 +16,16 @@ impl ScriptManager {
         self.store.data_mut().mobs = by_scheme;
     }
 
+    /// Replaces the container contents table. Keys must be lowercased vob
+    /// names. A name shared by several chests resolves to the first one.
+    pub fn set_containers(&mut self, containers: Vec<(String, Vec<(InstanceId, i32)>)>) {
+        let mut by_name = std::collections::HashMap::new();
+        for (name, items) in containers {
+            by_name.entry(name).or_insert(items);
+        }
+        self.store.data_mut().containers = by_name;
+    }
+
     /// Runs the `<onStateFunc>_S<state>` hook of a mob when an npc reaches the
     /// mob's final state.
     pub fn call_mob_state_hook(&mut self, npc: InstanceId, on_state_func: &str, state: i32) {
