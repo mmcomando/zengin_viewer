@@ -172,7 +172,22 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
         let distance = to_zengin_units((aa - bb).length());
         distance.min(i32::MAX as f32) as i32
     }
-    fake_impl!(npc_getheighttonpc(_0, _1) -> i32);
+    /// Vertical distance between two npcs in engine units, `i32::MAX` when
+    /// either has no entity (unknown or dead).
+    fn npc_getheighttonpc(&mut self, npc_a: i32, npc_b: i32) -> i32 {
+        let Some(npc_a) = self.symbol_table.instance(npc_a) else {
+            return i32::MAX;
+        };
+        let Some(npc_b) = self.symbol_table.instance(npc_b) else {
+            return i32::MAX;
+        };
+        let aa = self.npc_state(npc_a).and_then(|npc| npc.live.position);
+        let bb = self.npc_state(npc_b).and_then(|npc| npc.live.position);
+        let (Some(aa), Some(bb)) = (aa, bb) else {
+            return i32::MAX;
+        };
+        to_zengin_units((aa.y - bb.y).abs()).min(i32::MAX as f32) as i32
+    }
     fake_impl!(npc_getheighttoitem(_0, _1) -> i32);
     fake_impl!(npc_getdisttoplayer(_0) -> i32);
     fake_impl!(npc_getdisttoitem(_0, _1) -> i32);
