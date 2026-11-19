@@ -15,7 +15,7 @@ use crate::gui_debug::{
     toggle_visibility::{OptionsChanged, ShowOptions},
 };
 use crate::save::{QuickLoad, QuickSave};
-use crate::zengin::{ImportantDialogOptions, RestartWorld, StatisticsZengin};
+use crate::zengin::{NpcAutoTalkOptions, RestartWorld, StatisticsZengin};
 
 pub struct GameDebugUI;
 impl Plugin for GameDebugUI {
@@ -105,7 +105,7 @@ fn ui_info_system(
     mut game_time: ResMut<GameTime>,
     mut render_options: ResMut<RenderOptions>,
     mut gizmos_options: ResMut<GizmosOptions>,
-    mut important_dialog_options: ResMut<ImportantDialogOptions>,
+    mut auto_talk_options: ResMut<NpcAutoTalkOptions>,
     mut restart_world: MessageWriter<RestartWorld>,
     mut quick_save: MessageWriter<QuickSave>,
     mut quick_load: MessageWriter<QuickLoad>,
@@ -124,7 +124,7 @@ fn ui_info_system(
             let mut options_changed = info_section(
                 ui,
                 &mut game_time,
-                &mut important_dialog_options,
+                &mut auto_talk_options,
                 &mut render_options,
             );
             statistics_section(ui, &statistics, &statistics_zengin, &mut refresh_statistics);
@@ -152,7 +152,7 @@ fn ui_info_system(
 fn info_section(
     ui: &mut Ui,
     game_time: &mut GameTime,
-    important_dialog_options: &mut ImportantDialogOptions,
+    auto_talk_options: &mut NpcAutoTalkOptions,
     render_options: &mut RenderOptions,
 ) -> bool {
     let mut changed = false;
@@ -171,8 +171,8 @@ fn info_section(
 
         add_checkbox(
             ui,
-            "Important Dialogs",
-            &mut important_dialog_options.enabled,
+            "Npc Auto Talk",
+            &mut auto_talk_options.enabled,
             &mut false,
         );
 

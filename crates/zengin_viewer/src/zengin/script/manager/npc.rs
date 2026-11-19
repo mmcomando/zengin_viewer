@@ -278,6 +278,7 @@ impl super::ScriptManager {
     /// Hitpoints and hitpoints max of an npc, read from the typed `C_Npc` model
     /// (`ATR_HITPOINTS` and `ATR_HITPOINTS_MAX`), `None` when the id is not an
     /// npc instance.
+    #[cfg(test)]
     pub fn hitpoints(&mut self, npc: InstanceId) -> Option<(i32, i32)> {
         let npc = self.npc_data(npc.value() as u32)?;
         Some((npc.hitpoints, npc.hitpoints_max))

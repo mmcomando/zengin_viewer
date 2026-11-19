@@ -66,17 +66,6 @@ pub(crate) enum DialogRequest {
         npc_talk_to: InstanceId,
         npc_name: String,
     },
-    /// Open the dialog with the npc and immediately play one of its important
-    /// infos, used by the npc initiated dialogs
-    OpenImportant {
-        npc_entity: Entity,
-        npc_from: InstanceId,
-        npc_talk_to: InstanceId,
-        sequence_function_id: FunctionId,
-        info_instance_id: Option<InstanceId>,
-        trade: bool,
-    },
-    /// Refresh the root options, e.g. after a line finished playing
     RefreshRoots {
         npc_from: InstanceId,
         npc_talk_to: InstanceId,

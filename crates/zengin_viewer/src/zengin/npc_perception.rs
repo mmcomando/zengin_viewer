@@ -10,8 +10,10 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::graphics::AnimationController;
+use crate::gui::{InventoryUiState, JournalUiState};
 use crate::updater::{Periodic, PeriodicAppExt, PeriodicKind, PeriodicUpdate};
 use crate::zengin::GameNpc;
+use crate::zengin::dialog::DialogUiState;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::ScriptResource;
 
@@ -19,6 +21,7 @@ pub(crate) struct NpcPerceptionPlugin;
 
 impl Plugin for NpcPerceptionPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<NpcAutoTalkOptions>();
         app.add_periodic_updates::<NpcPerceptionKind>();
         app.add_systems(
             Update,
@@ -30,6 +33,13 @@ impl Plugin for NpcPerceptionPlugin {
                 .run_if(in_state(AppState::InGame)),
         );
     }
+}
+
+/// Runtime toggle of the `PERC_ASSESSPLAYER` dispatch, changed in the debug UI.
+/// Disabled by default because npc started dialogs interrupt development.
+#[derive(Resource, Default)]
+pub(crate) struct NpcAutoTalkOptions {
+    pub(crate) enabled: bool,
 }
 
 /// Selects the npc perception update stream.
@@ -60,11 +70,20 @@ fn seed_npc_perception_tasks(
 fn run_npc_perceptions(
     mut updates: MessageReader<PeriodicUpdate<NpcPerceptionKind>>,
     gothic_script: Res<ScriptResource>,
+    auto_talk: Res<NpcAutoTalkOptions>,
+    dialog_ui: Res<DialogUiState>,
+    inventory_ui: Res<InventoryUiState>,
+    journal_ui: Res<JournalUiState>,
     npcs: Query<&GameNpc, (With<AnimationController>, Without<ChildOf>)>,
 ) {
     if updates.is_empty() {
         return;
     }
+    // Npc initiated dialogs do not interrupt an open dialog or menu
+    let auto_talk = auto_talk.enabled
+        && !dialog_ui.is_open()
+        && !inventory_ui.is_open()
+        && !journal_ui.is_open();
     let mut script = gothic_script.lock();
     for update in updates.read() {
         let start = Instant::now();
@@ -77,7 +96,7 @@ fn run_npc_perceptions(
         update.control.set_period(Duration::from_secs_f32(
             interval.max(MIN_PERCEPTION_INTERVAL_SECS),
         ));
-        script.run_perception(instance);
+        script.run_perception(instance, auto_talk);
         update
             .control
             .update_effort(start.elapsed().as_micros() as u64);

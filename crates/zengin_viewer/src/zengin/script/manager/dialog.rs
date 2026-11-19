@@ -80,58 +80,6 @@ impl super::ScriptManager {
         });
     }
 
-    /// Whether the npc has important roots which could still run: either not
-    /// played yet, or permanent. Cheap, it does not evaluate condition functions.
-    pub fn npc_has_pending_important_dialog(
-        &self,
-        npc_player: InstanceId,
-        npc_talk_to: InstanceId,
-    ) -> bool {
-        let roots = self
-            .npc_state(npc_talk_to)
-            .and_then(|state| state.dialog.roots.clone());
-        let Some(roots) = roots else {
-            return false;
-        };
-        let known_infos = self
-            .npc_state(npc_player)
-            .map(|state| state.dialog.known_infos.clone());
-
-        roots.iter().any(|root| {
-            root.important
-                && (root.permanent
-                    || root.info_instance_id.is_none_or(|info| {
-                        !known_infos
-                            .as_ref()
-                            .is_some_and(|known| known.contains(&info))
-                    }))
-        })
-    }
-
-    /// Evaluates the conditions of the important roots and returns the first
-    /// matching root in order. Played non-permanent roots are filtered out.
-    pub fn npc_ready_important_dialog(
-        &mut self,
-        npc_player: InstanceId,
-        npc_talk_to: InstanceId,
-    ) -> Option<DialogRoot> {
-        let mut roots: Vec<DialogRoot> = {
-            let state = self.npc_state(npc_talk_to)?;
-            let roots = state.dialog.roots.as_ref()?;
-            roots
-                .iter()
-                .filter(|root| root.important)
-                .cloned()
-                .collect()
-        };
-        if roots.is_empty() {
-            return None;
-        }
-
-        self.filter_dialog_roots(npc_player, npc_talk_to, &mut roots);
-        roots.into_iter().next()
-    }
-
     /// Recomputes the `Npc_CheckInfo` cache of the npc from its root infos and
     /// returns the roots whose conditions passed. Call it before a script
     /// function which may consult `Npc_CheckInfo`, a host import cannot evaluate

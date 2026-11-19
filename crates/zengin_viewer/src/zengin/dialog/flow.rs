@@ -251,7 +251,6 @@ pub(super) fn handle_dialog_requests(
                     *npc_from,
                     *npc_talk_to,
                     npc_name.clone(),
-                    true,
                 );
             }
             DialogRequest::Open {
@@ -272,53 +271,6 @@ pub(super) fn handle_dialog_requests(
                     *npc_from,
                     *npc_talk_to,
                     npc_name.clone(),
-                    true,
-                );
-            }
-            DialogRequest::OpenImportant {
-                npc_entity,
-                npc_from,
-                npc_talk_to,
-                sequence_function_id,
-                info_instance_id,
-                trade,
-            } => {
-                // A manual open processed earlier in this frame wins
-                if dialog_ui.is_open() {
-                    continue;
-                }
-                let npc_name = {
-                    let mut script = gothic_script.lock();
-                    script
-                        .npc_display_name(*npc_talk_to)
-                        .unwrap_or_else(|| script.call_get_name((*npc_talk_to).symbol()))
-                };
-                let opened = open_dialog(
-                    &mut dialog_ui,
-                    &gothic_script,
-                    &mut npcs,
-                    &mut player,
-                    *npc_entity,
-                    *npc_from,
-                    *npc_talk_to,
-                    npc_name,
-                    false,
-                );
-                if !opened {
-                    continue;
-                }
-                // The important info is executed right away, it is not shown
-                // as a selectable option
-                let mut script = gothic_script.lock();
-                execute_dialog_function(
-                    &mut script,
-                    &mut dialog_ui,
-                    *npc_from,
-                    *npc_talk_to,
-                    *sequence_function_id,
-                    *info_instance_id,
-                    false,
-                    *trade,
                 );
             }
             DialogRequest::RefreshRoots {
@@ -368,9 +320,8 @@ pub(super) fn handle_dialog_requests(
     }
 }
 
-/// Resolves the npc's roots and opens the dialog UI. With `auto_important` the
-/// first undescribed important info is executed, matching the engine's dialog
-/// start.
+/// Resolves the npc's roots and opens the dialog UI. The first undescribed
+/// important info is executed immediately, matching the engine's dialog start.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn open_dialog(
     dialog_ui: &mut DialogUiState,
@@ -381,7 +332,6 @@ fn open_dialog(
     npc_from: InstanceId,
     npc_talk_to: InstanceId,
     npc_name: String,
-    auto_important: bool,
 ) -> bool {
     let roots = {
         let mut script = gothic_script.lock();
@@ -392,6 +342,12 @@ fn open_dialog(
         dialog_ui.close();
         return false;
     };
+    bevy::log::debug!(
+        "Dialog open npc({}) player({}) roots({})",
+        npc_talk_to.value(),
+        npc_from.value(),
+        roots.len()
+    );
     let Ok((player_entity, mut player_tr, player_global)) = player.single_mut() else {
         return false;
     };
@@ -404,9 +360,6 @@ fn open_dialog(
         roots.iter().map(option_view).collect(),
     );
     face_dialog_characters(npc_entity, &mut player_tr, player_global, npcs);
-    if !auto_important {
-        return true;
-    }
 
     let auto = roots
         .first()

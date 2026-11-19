@@ -1,11 +1,9 @@
 mod camera;
 mod flow;
-mod important;
 mod sounds;
 mod state;
 mod ui;
 
-pub(crate) use important::ImportantDialogOptions;
 pub(crate) use sounds::SpeechSounds;
 
 pub(crate) use state::DialogRequest;
@@ -26,7 +24,6 @@ impl Plugin for GameDialogPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DialogUiState>();
         app.init_resource::<camera::DialogCameraShots>();
-        app.add_plugins(important::ImportantDialogsPlugin);
         app.add_message::<DialogRequest>();
         app.add_systems(Startup, ui::override_default_font);
         app.add_systems(Startup, ui::spawn_dialog_ui);
@@ -40,8 +37,6 @@ impl Plugin for GameDialogPlugin {
             (
                 flow::show_requested_npc_dialog,
                 flow::show_closest_npc_dialog,
-                important::auto_start_important_dialogs
-                    .run_if(|options: Res<ImportantDialogOptions>| options.enabled),
                 state::handle_dialog_input,
                 state::advance_dialog_playback,
                 flow::handle_dialog_requests,

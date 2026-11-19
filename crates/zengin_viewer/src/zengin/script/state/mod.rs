@@ -38,6 +38,10 @@ use crate::zengin::common::{
 };
 use bevy::ecs::resource::Resource;
 
+/// `PERC_ASSESSPLAYER` script constant, the perception whose callback
+/// (`b_assessplayer`) starts npc initiated dialogs.
+pub const PERC_ASSESSPLAYER: i32 = 1;
+
 /// `PERC_ASSESSENEMY` script constant, the perception that starts a fight.
 pub const PERC_ASSESSENEMY: i32 = 2;
 

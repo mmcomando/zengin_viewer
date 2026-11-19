@@ -192,6 +192,11 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         self.messages
             .process_infos
             .send(ProcessInfosChange { npc, other });
+        bevy::log::debug!(
+            "AI_ProcessInfos npc({}) other({})",
+            npc.value(),
+            other.value()
+        );
     }
     fn ai_equipbestmeleeweapon(&mut self, npc: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {
