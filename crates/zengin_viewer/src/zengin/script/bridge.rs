@@ -22,7 +22,8 @@ use crate::zengin::script::state::{
     DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
     NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest, ProcessInfosChange,
     RoutineEntry, ScreenMessage, ScriptMessages, ScriptSound, SpawnNpc, StandUpChange,
-    StartStateChange, TurnToNpcChange, UseItemStateChange, UseMobChange, WaitChange, WeaponMode,
+    StartStateChange, SvmLine, TurnToNpcChange, UseItemStateChange, UseMobChange, WaitChange,
+    WeaponMode,
 };
 use crate::zengin::world_spawn::WorldSpawnMessages;
 
@@ -55,6 +56,7 @@ impl Plugin for ScriptBridgePlugin {
             inventory_gains: app.add_external_message::<InventoryGain>(),
             screen_messages: app.add_external_message::<ScreenMessage>(),
             sounds: app.add_external_message::<ScriptSound>(),
+            svm: app.add_external_message::<SvmLine>(),
             journal_changes: app.add_external_message::<JournalChange>(),
         };
         app.insert_resource(messages);

@@ -2,6 +2,8 @@ use bevy::prelude::*;
 
 use crate::audio::SoundDefinitions;
 use crate::zengin::ScriptSound;
+use crate::zengin::SvmLine;
+use crate::zengin::get_dialog_sound_path;
 
 /// Asset path of the sound which should be played
 #[derive(Message)]
@@ -71,6 +73,30 @@ pub(crate) fn handle_play_sound_messages(
     for message in messages.read() {
         let audio_handle = asset_server.load(&message.asset_path);
         sound_manager.play_sound(&mut commands, audio_handle);
+    }
+}
+
+/// Plays the voice lines requested by `AI_OutputSVM`/`AI_OutputSVM_Overlay`,
+/// positional at the speaking npc.
+pub(crate) fn handle_svm_lines(
+    mut lines: MessageReader<SvmLine>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    for line in lines.read() {
+        let path = get_dialog_sound_path(&line.sound);
+        let audio_handle = asset_server.load(&path);
+        match line.position {
+            Some(position) => {
+                SoundManager::play_positional_sound(&mut commands, audio_handle, position);
+            }
+            None => SoundManager::play_global_sound(&mut commands, audio_handle),
+        }
+        debug!(
+            "Script svm({}) -> {path}, positional={}",
+            line.sound,
+            line.position.is_some()
+        );
     }
 }
 

@@ -133,8 +133,15 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
         }
     }
     fake_impl!(ai_continueroutine(_0));
-    fake_impl!(ai_outputsvm(_0, _1, _2));
-    fake_impl!(ai_outputsvm_overlay(_0, _1, _2));
+    /// Plays the NPC voice line named by the `$`-key (`b_say`). `target` has no
+    /// consumer, the speech is positional at the speaking npc.
+    fn ai_outputsvm(&mut self, npc: i32, _target: i32, svm_name: i32) {
+        self.push_svm_line(npc, svm_name);
+    }
+    /// Same as [`Self::ai_outputsvm`], the engine only adds an output barrier.
+    fn ai_outputsvm_overlay(&mut self, npc: i32, _target: i32, svm_name: i32) {
+        self.push_svm_line(npc, svm_name);
+    }
     fake_impl!(ai_playcutscene(_0, _1));
     fake_impl!(ai_canseenpc(_0, _1, _2));
     fake_impl!(ai_wait(_0, _1));

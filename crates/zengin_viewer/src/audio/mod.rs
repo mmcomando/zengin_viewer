@@ -26,6 +26,7 @@ impl Plugin for SoundPlugin {
             (load_sound_definitions, load_music_definitions).chain(),
         );
         app.add_systems(Update, sound_manager::handle_play_sound_messages);
+        app.add_systems(Update, sound_manager::handle_svm_lines);
         app.add_systems(
             Update,
             sound_manager::handle_script_sounds

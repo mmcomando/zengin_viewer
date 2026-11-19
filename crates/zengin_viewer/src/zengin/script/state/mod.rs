@@ -11,7 +11,7 @@ pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
     NpcChanged, NpcEntitiesChanged, OverlayChange, ProcessInfosChange, RoutineExchange,
-    ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StandUpChange, StartStateChange,
+    ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StandUpChange, StartStateChange, SvmLine,
     TurnToNpcChange, UseItemStateChange, UseMobChange, WaitChange,
 };
 pub(crate) use instances::{
@@ -394,6 +394,8 @@ pub struct ScriptMessages {
     /// Sounds requested by `Snd_Play`/`Snd_Play3D` and the `AI_Snd_Play*`
     /// variants.
     pub sounds: ExternalMessageSender<ScriptSound>,
+    /// Speech lines requested by `AI_OutputSVM`/`AI_OutputSVM_Overlay`.
+    pub svm: ExternalMessageSender<SvmLine>,
     /// Journal changes produced by the script (`Log_*` host functions).
     pub journal_changes: ExternalMessageSender<JournalChange>,
 }
@@ -421,6 +423,7 @@ impl ScriptMessages {
         self.inventory_gains.clear();
         self.screen_messages.clear();
         self.sounds.clear();
+        self.svm.clear();
         self.journal_changes.clear();
     }
 }
@@ -1034,6 +1037,50 @@ impl ImportCallState {
             );
         }
         self.push_sound(sound, position);
+    }
+
+    /// Queues an `AI_OutputSVM` line. The name is a `$`-prefixed text key that
+    /// the `C_SVM` instance of the speaking voice maps to a speech file.
+    pub(crate) fn push_svm_line(&mut self, npc: i32, svm_name: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("AI_OutputSVM with invalid npc instance({npc})");
+            return;
+        };
+        let Some(svm_id) = self.symbol_table.string(svm_name) else {
+            warn!("AI_OutputSVM with invalid name({svm_name})");
+            return;
+        };
+        let Some(svm) = self.get_string_non_0(svm_id.value()) else {
+            return;
+        };
+        let Some(sound) = self.svm_sound(npc, &svm) else {
+            bevy::log::debug!(
+                "AI_OutputSVM npc({}) has no C_SVM entry for({svm})",
+                npc.value()
+            );
+            return;
+        };
+        let position = self.npc_state(npc).and_then(|state| state.live.position);
+        self.messages.svm.send(SvmLine { sound, position });
+    }
+
+    /// Resolves a `$`-prefixed SVM key through the `C_SVM` instance of the
+    /// npc voice: `$IGETYOUSTILL` + voice 1 -> `SVM_1_IGetYouStill`.
+    fn svm_sound(&self, npc: InstanceId, svm: &str) -> Option<String> {
+        let key = svm.strip_prefix('$')?;
+        let voice = self.typed.npc(npc.value() as u32)?.voice;
+        if voice < 0 {
+            return None;
+        }
+        let instance = self
+            .symbol_table
+            .symbol_id_by_name(&format!("svm_{voice}"))?;
+        let member = self
+            .symbol_table
+            .symbol_id_by_name(&format!("c_svm.{}", key.to_ascii_lowercase()))?;
+        let raw = self.typed.read_member(instance as u32, member as u32, 0);
+        let string_id = self.symbol_table.string(raw)?;
+        self.get_string_non_0(string_id.value())
     }
 
     /// Queues a chapter splash for the ECS bridge. A newer request replaces an

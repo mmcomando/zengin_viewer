@@ -226,6 +226,15 @@ pub struct ChapterIntro {
     pub time_ms: i32,
 }
 
+/// Speech line requested by `AI_OutputSVM`/`AI_OutputSVM_Overlay`. `sound` is
+/// the `C_SVM` file name (e.g. `SVM_1_IGetYouStill`) resolved for the speaking
+/// npc voice, `position` is its world position in meters.
+#[derive(Debug, Clone, Message)]
+pub struct SvmLine {
+    pub sound: String,
+    pub position: Option<Vec3>,
+}
+
 /// Sound requested by `Snd_Play`/`Snd_Play3D` and the `AI_Snd_Play*` variants.
 /// The name is the uppercased `C_SFX` instance name, the position is the world
 /// position in meters for the 3D variants and `None` for global playback.
