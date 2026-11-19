@@ -111,6 +111,7 @@ mod input;
 mod save;
 mod test_world;
 mod ui_kit;
+mod updater;
 mod world_entity;
 mod xr;
 mod zengin;
@@ -194,6 +195,7 @@ fn main() {
         .add_plugins(GameTimePlugin)
         .add_plugins(SkeletalAnimations)
         .add_plugins(crate::test_world::TestWorldPlugin)
+        .add_plugins(crate::updater::AmortizedExecutorPlugin)
         // Presentation and UI
         .add_plugins(RenderOptionsPlugin)
         .add_plugins(SoundPlugin)
