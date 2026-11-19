@@ -38,6 +38,7 @@ use crate::world_entity::WorldEntityMarker;
 // Expose only what is needed for outside modules
 pub(crate) use crate::zengin::common::MobPosition;
 pub(crate) use crate::zengin::common::MusicZones;
+pub(crate) use crate::zengin::common::animation_file_name;
 pub(crate) use crate::zengin::common::face_direction_quat;
 pub(crate) use crate::zengin::common::get_animation_path;
 pub(crate) use crate::zengin::common::get_dialog_sound_path;

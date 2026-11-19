@@ -46,8 +46,8 @@ pub(crate) fn apply_scripted_animations(
                 // exist in the archive (e.g. `SHADOW-T_PERCEPTION`). The engine
                 // silently ignores such a request.
                 warn!(
-                    "npc({}) scripted animation({animation}) is not in the anim archive, skipped",
-                    change.instance_id
+                    "npc({}) scripted animation({animation})({}) is not in the anim archive, skipped, scheme({scheme})",
+                    change.instance_id, change.animation
                 );
                 continue;
             }
