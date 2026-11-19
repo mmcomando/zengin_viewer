@@ -1,6 +1,7 @@
 //! Chapter splash shown by `IntroduceChapter`: a centered 800x600 background
 //! texture with the chapter title near its top and the subtitle near its
-//! bottom. The overlay blocks gameplay input but does not pause the world.
+//! bottom. The overlay blocks gameplay input and pauses the game clock, so the
+//! world does not advance behind it. The auto-close timer runs on real time.
 
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -33,6 +34,11 @@ impl Plugin for ChapterScreenPlugin {
                 show_chapter_screen.in_set(ChapterScreenUpdated),
                 tick_chapter_screen.run_if(is_chapter_open),
                 sync_chapter_visibility.run_if(resource_changed::<ChapterScreenState>),
+                // Applied after the transitions above, so a splash opened or
+                // auto-closed this frame is paused or resumed the same frame.
+                sync_time_pause
+                    .after(show_chapter_screen)
+                    .after(tick_chapter_screen),
             ),
         );
     }
@@ -209,7 +215,7 @@ fn chapter_text(text: &str, font_size: f32, scale: f32) -> UiText {
 }
 
 fn tick_chapter_screen(
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     mut state: ResMut<ChapterScreenState>,
     mut root: Single<&mut Visibility, With<ChapterRootMarker>>,
 ) {
@@ -223,6 +229,25 @@ fn tick_chapter_screen(
     }
     state.close();
     set_visibility(&mut root, false);
+}
+
+/// Pauses the game clock while the splash is visible. Pausing [`Time<Virtual>`]
+/// also freezes fixed-step physics, so the whole world stands still; the splash
+/// timer is unaffected because it uses [`Time<Real>`].
+fn sync_time_pause(
+    state: Res<ChapterScreenState>,
+    mut was_open: Local<bool>,
+    mut time: ResMut<Time<Virtual>>,
+) {
+    if state.open == *was_open {
+        return;
+    }
+    *was_open = state.open;
+    if state.open {
+        time.pause();
+    } else {
+        time.unpause();
+    }
 }
 
 /// Applies closes performed outside the timer system (the Back key).
