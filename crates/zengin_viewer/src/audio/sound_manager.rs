@@ -1,9 +1,15 @@
 use bevy::prelude::*;
 
 use crate::audio::SoundDefinitions;
+use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::ScriptSound;
+use crate::zengin::SpeechSounds;
 use crate::zengin::SvmLine;
 use crate::zengin::get_dialog_sound_path;
+
+/// `WorldSound::talkRange` in engine units (2000) expressed in meters: speech
+/// outside this distance from the listener is not played.
+const SVM_TALK_RANGE: f32 = 20.0;
 
 /// Asset path of the sound which should be played
 #[derive(Message)]
@@ -16,6 +22,9 @@ pub struct PlaySound {
 pub struct SoundManager {
     /// Entity of the most recently spawned sound
     active: Option<Entity>,
+    /// World time in seconds until which `AI_OutputSVM_Overlay` lines are
+    /// suppressed because the previous overlay line is still playing.
+    svm_barrier_until: f64,
 }
 
 impl SoundManager {
@@ -77,14 +86,40 @@ pub(crate) fn handle_play_sound_messages(
 }
 
 /// Plays the voice lines requested by `AI_OutputSVM`/`AI_OutputSVM_Overlay`,
-/// positional at the speaking npc.
+/// positional at the speaking npc. Overlay lines are suppressed while the
+/// previous overlay line plays, and lines outside the listener range are
+/// skipped (the barrier is still set, matching the engine).
 pub(crate) fn handle_svm_lines(
+    time: Res<Time>,
     mut lines: MessageReader<SvmLine>,
     asset_server: Res<AssetServer>,
+    speech_sounds: Option<Res<SpeechSounds>>,
+    players: Query<&GlobalTransform, With<PlayerCharacter>>,
+    mut sound_manager: ResMut<SoundManager>,
     mut commands: Commands,
 ) {
+    let listener = players
+        .iter()
+        .next()
+        .map(|transform| transform.translation());
     for line in lines.read() {
         let path = get_dialog_sound_path(&line.sound);
+        if !overlay_allowed(
+            line,
+            &path,
+            time.elapsed_secs_f64(),
+            speech_sounds.as_deref(),
+            &mut sound_manager,
+        ) {
+            continue;
+        }
+        if !in_listener_range(listener, line.position) {
+            debug!(
+                "Script svm({}) skipped, outside the listener range ({SVM_TALK_RANGE} m)",
+                line.sound
+            );
+            continue;
+        }
         let audio_handle = asset_server.load(&path);
         match line.position {
             Some(position) => {
@@ -97,6 +132,42 @@ pub(crate) fn handle_svm_lines(
             line.sound,
             line.position.is_some()
         );
+    }
+}
+
+/// Overlay lines are suppressed while the previous overlay line plays. The
+/// barrier is set from the sound duration even when the line is later skipped
+/// for being out of range, matching the engine.
+fn overlay_allowed(
+    line: &SvmLine,
+    path: &str,
+    now: f64,
+    speech_sounds: Option<&SpeechSounds>,
+    sound_manager: &mut SoundManager,
+) -> bool {
+    if !line.overlay {
+        return true;
+    }
+    if now < sound_manager.svm_barrier_until {
+        debug!(
+            "Script svm overlay({}) skipped, the previous line still plays",
+            line.sound
+        );
+        return false;
+    }
+    let duration = speech_sounds
+        .and_then(|speech| speech.duration(path))
+        .unwrap_or(0.0);
+    sound_manager.svm_barrier_until = now + f64::from(duration);
+    true
+}
+
+/// A line without a position is global, and a missing listener disables the
+/// range gate (e.g. before the player exists).
+fn in_listener_range(listener: Option<Vec3>, position: Option<Vec3>) -> bool {
+    match (listener, position) {
+        (Some(listener), Some(position)) => listener.distance(position) <= SVM_TALK_RANGE,
+        _ => true,
     }
 }
 
@@ -245,5 +316,52 @@ mod tests {
     fn garbage_bytes_are_rejected() {
         assert_eq!(wav_duration(&[]), None);
         assert_eq!(wav_duration(b"not a wav file at all...."), None);
+    }
+
+    fn line(overlay: bool) -> SvmLine {
+        SvmLine {
+            sound: "SVM_1_Test".to_string(),
+            position: Some(Vec3::ZERO),
+            overlay,
+        }
+    }
+
+    #[test]
+    fn overlay_line_blocks_the_next_one_until_the_barrier() {
+        let mut manager = SoundManager::default();
+        let overlay = line(true);
+
+        assert!(overlay_allowed(&overlay, "path", 1.0, None, &mut manager));
+        assert!(!overlay_allowed(&overlay, "path", 0.5, None, &mut manager));
+        assert!(overlay_allowed(&overlay, "path", 1.0, None, &mut manager));
+    }
+
+    #[test]
+    fn regular_line_does_not_set_the_overlay_barrier() {
+        let mut manager = SoundManager::default();
+
+        assert!(overlay_allowed(
+            &line(false),
+            "path",
+            1.0,
+            None,
+            &mut manager
+        ));
+        assert_eq!(manager.svm_barrier_until, 0.0);
+    }
+
+    #[test]
+    fn listener_gate_skips_only_distant_positional_lines() {
+        let listener = Vec3::ZERO;
+        assert!(in_listener_range(
+            Some(listener),
+            Some(Vec3::new(5.0, 0.0, 0.0))
+        ));
+        assert!(!in_listener_range(
+            Some(listener),
+            Some(Vec3::new(25.0, 0.0, 0.0))
+        ));
+        assert!(in_listener_range(Some(listener), None));
+        assert!(in_listener_range(None, Some(Vec3::new(25.0, 0.0, 0.0))));
     }
 }

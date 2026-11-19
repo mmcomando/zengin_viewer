@@ -226,6 +226,17 @@ pub struct ChapterIntro {
     pub time_ms: i32,
 }
 
+/// Perception broadcast requested by `Npc_SendPassivePerc`: nearby npcs sense
+/// `source` (position/range) with `other` and `victim` bound for their
+/// registered callback of `perception`.
+#[derive(Debug, Clone, Copy, Message)]
+pub struct PassivePerception {
+    pub source: InstanceId,
+    pub other: InstanceId,
+    pub victim: Option<InstanceId>,
+    pub perception: i32,
+}
+
 /// Speech line requested by `AI_OutputSVM`/`AI_OutputSVM_Overlay`. `sound` is
 /// the `C_SVM` file name (e.g. `SVM_1_IGetYouStill`) resolved for the speaking
 /// npc voice, `position` is its world position in meters.
@@ -233,6 +244,9 @@ pub struct ChapterIntro {
 pub struct SvmLine {
     pub sound: String,
     pub position: Option<Vec3>,
+    /// `AI_OutputSVM_Overlay`: the engine blocks further overlay lines while
+    /// the previous one plays.
+    pub overlay: bool,
 }
 
 /// Sound requested by `Snd_Play`/`Snd_Play3D` and the `AI_Snd_Play*` variants.

@@ -20,10 +20,10 @@ use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSectio
 use crate::zengin::script::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
-    NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest, ProcessInfosChange,
-    RoutineEntry, ScreenMessage, ScriptMessages, ScriptSound, SpawnNpc, StandUpChange,
-    StartStateChange, SvmLine, TurnToNpcChange, UseItemStateChange, UseMobChange, WaitChange,
-    WeaponMode,
+    NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest, PassivePerception,
+    ProcessInfosChange, RoutineEntry, ScreenMessage, ScriptMessages, ScriptSound, SpawnNpc,
+    StandUpChange, StartStateChange, SvmLine, TurnToNpcChange, UseItemStateChange, UseMobChange,
+    WaitChange, WeaponMode,
 };
 use crate::zengin::world_spawn::WorldSpawnMessages;
 
@@ -57,6 +57,7 @@ impl Plugin for ScriptBridgePlugin {
             screen_messages: app.add_external_message::<ScreenMessage>(),
             sounds: app.add_external_message::<ScriptSound>(),
             svm: app.add_external_message::<SvmLine>(),
+            passive_perception: app.add_external_message::<PassivePerception>(),
             journal_changes: app.add_external_message::<JournalChange>(),
         };
         app.insert_resource(messages);

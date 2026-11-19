@@ -49,6 +49,61 @@ impl ScriptManager {
         }
     }
 
+    /// Dispatches a passive perception broadcast by `source`
+    /// (`Npc_SendPassivePerc`) to `receiver` when it has the callback
+    /// registered for `perception` and the source is within its perception
+    /// range. The receiver must be alive and not the player; the caller gates
+    /// on the `AiNormal` policy and runs this for every nearby npc.
+    pub fn run_passive_perception(
+        &mut self,
+        receiver: InstanceId,
+        source: InstanceId,
+        other: InstanceId,
+        victim: Option<InstanceId>,
+        perception: i32,
+    ) {
+        if Some(receiver) == self.store.data().player_instance {
+            return;
+        }
+        let Some(callback) = self.perception_callback(receiver, perception) else {
+            return;
+        };
+        let (receiver_position, source_position, senses_range) = {
+            let data = self.store.data();
+            let Some(state) = data.npc_state(receiver) else {
+                return;
+            };
+            if state.live.dead {
+                return;
+            }
+            let Some(receiver_position) = state.live.position else {
+                return;
+            };
+            let Some(source_position) = data.npc_state(source).and_then(|npc| npc.live.position)
+            else {
+                return;
+            };
+            let senses_range = data
+                .typed
+                .npc(receiver.value() as u32)
+                .map_or(0, |npc| npc.senses_range);
+            (receiver_position, source_position, senses_range)
+        };
+        let range = self.store.data().perc_range(perception, senses_range);
+        let range = to_world_units(range as f32);
+        let distance_squared = (source_position - receiver_position).length_squared();
+        if range <= 0.0 || distance_squared > range * range {
+            return;
+        }
+        bevy::log::debug!(
+            "passive perception receiver({}) perception({perception}) source({}) distance({:.2})",
+            receiver.value(),
+            source.value(),
+            distance_squared.sqrt(),
+        );
+        self.call_perception(receiver, other, victim, callback);
+    }
+
     /// Dispatches `PERC_ASSESSPLAYER` when the player is within the npc senses
     /// range. Conditions of the dialog infos are evaluated only inside the
     /// dialog distance, matching the short-circuit in `b_assessplayer`.
@@ -103,7 +158,7 @@ impl ScriptManager {
             player.value(),
             distance_squared.sqrt(),
         );
-        self.call_perception(npc, player, callback);
+        self.call_perception(npc, player, None, callback);
     }
 
     /// Dispatches `PERC_ASSESSENEMY` when the npc senses an enemy.
@@ -152,7 +207,7 @@ impl ScriptManager {
             npc.value(),
             enemy.value(),
         );
-        self.call_perception(npc, enemy, callback);
+        self.call_perception(npc, enemy, None, callback);
     }
 
     fn perception_callback(&self, npc: InstanceId, perception: i32) -> Option<FunctionId> {
@@ -161,12 +216,18 @@ impl ScriptManager {
     }
 
     /// Binds the perception scope (`self`, `other`, `victim`) and runs the
-    /// callback, the way the engine dispatches a passive perception.
-    fn call_perception(&mut self, npc: InstanceId, other: InstanceId, function: FunctionId) {
+    /// callback, the way the engine dispatches a perception.
+    fn call_perception(
+        &mut self,
+        npc: InstanceId,
+        other: InstanceId,
+        victim: Option<InstanceId>,
+        function: FunctionId,
+    ) {
         self.set_self(npc);
         self.set_instance(npc);
         self.set_other(other);
-        self.set_victim(None);
+        self.set_victim(victim);
         if let Err(error) = self.try_call_function(function) {
             warn!(
                 "Perception npc({}) other({}) function({}) failed: {error:?}",

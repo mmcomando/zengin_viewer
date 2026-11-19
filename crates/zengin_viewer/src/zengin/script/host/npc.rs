@@ -570,7 +570,28 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             .callbacks
             .remove(&perception);
     }
-    fake_impl!(npc_sendpassiveperc(_0, _1, _2, _3));
+    /// Broadcasts a perception from `npc` to nearby npcs. `victim` is optional:
+    /// the engine sends without it when the argument is not a valid instance.
+    fn npc_sendpassiveperc(&mut self, npc: i32, perception: i32, victim: i32, other: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("Npc_SendPassivePerc with invalid npc instance({npc})");
+            return;
+        };
+        let Some(other) = self.symbol_table.instance(other) else {
+            warn!(
+                "Npc_SendPassivePerc npc({}) with invalid other({other})",
+                npc.value()
+            );
+            return;
+        };
+        let victim = self.symbol_table.instance(victim);
+        self.messages.passive_perception.send(PassivePerception {
+            source: npc,
+            other,
+            victim,
+            perception,
+        });
+    }
     fake_impl!(npc_sendsingleperc(_0, _1, _2));
     /// The engine `Npc_PerceiveAll` is a no-op:
     /// perceptions are delivered by the periodic scan, not by this call.

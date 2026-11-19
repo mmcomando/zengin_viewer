@@ -16,6 +16,7 @@ use crate::zengin::GameNpc;
 use crate::zengin::dialog::DialogUiState;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::state::PassivePerception;
 
 pub(crate) struct NpcPerceptionPlugin;
 
@@ -27,6 +28,7 @@ impl Plugin for NpcPerceptionPlugin {
             Update,
             (
                 seed_npc_perception_tasks,
+                dispatch_passive_perceptions.after(ScriptChangesApplied),
                 run_npc_perceptions.after(ScriptChangesApplied),
             )
                 .chain()
@@ -64,6 +66,37 @@ fn seed_npc_perception_tasks(
             .insert(Periodic::<NpcPerceptionKind>::new(
                 INITIAL_PERCEPTION_INTERVAL,
             ));
+    }
+}
+
+/// Delivers `Npc_SendPassivePerc` broadcasts to the nearby npcs that have the
+/// perception callback registered. Only animated (near player, `AiNormal`)
+/// npcs receive broadcasts, matching the engine process policy.
+fn dispatch_passive_perceptions(
+    mut changes: MessageReader<PassivePerception>,
+    gothic_script: Res<ScriptResource>,
+    npcs: Query<&GameNpc, (With<AnimationController>, Without<ChildOf>)>,
+) {
+    if changes.is_empty() {
+        return;
+    }
+    // Collect before locking, the reader borrow ends here.
+    let changes: Vec<PassivePerception> = changes.read().copied().collect();
+    let mut script = gothic_script.lock();
+    for change in changes {
+        for npc in &npcs {
+            let receiver = npc.instance_id();
+            if receiver == change.source {
+                continue;
+            }
+            script.run_passive_perception(
+                receiver,
+                change.source,
+                change.other,
+                change.victim,
+                change.perception,
+            );
+        }
     }
 }
 

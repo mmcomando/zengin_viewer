@@ -10,9 +10,9 @@ pub(crate) use body_state::{
 pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, InventoryGain, ItemChanged, ItemEntitiesChanged,
-    NpcChanged, NpcEntitiesChanged, OverlayChange, ProcessInfosChange, RoutineExchange,
-    ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StandUpChange, StartStateChange, SvmLine,
-    TurnToNpcChange, UseItemStateChange, UseMobChange, WaitChange,
+    NpcChanged, NpcEntitiesChanged, OverlayChange, PassivePerception, ProcessInfosChange,
+    RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc, StandUpChange,
+    StartStateChange, SvmLine, TurnToNpcChange, UseItemStateChange, UseMobChange, WaitChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -396,6 +396,8 @@ pub struct ScriptMessages {
     pub sounds: ExternalMessageSender<ScriptSound>,
     /// Speech lines requested by `AI_OutputSVM`/`AI_OutputSVM_Overlay`.
     pub svm: ExternalMessageSender<SvmLine>,
+    /// `Npc_SendPassivePerc` broadcasts produced by the script.
+    pub passive_perception: ExternalMessageSender<PassivePerception>,
     /// Journal changes produced by the script (`Log_*` host functions).
     pub journal_changes: ExternalMessageSender<JournalChange>,
 }
@@ -424,6 +426,7 @@ impl ScriptMessages {
         self.screen_messages.clear();
         self.sounds.clear();
         self.svm.clear();
+        self.passive_perception.clear();
         self.journal_changes.clear();
     }
 }
@@ -1041,7 +1044,7 @@ impl ImportCallState {
 
     /// Queues an `AI_OutputSVM` line. The name is a `$`-prefixed text key that
     /// the `C_SVM` instance of the speaking voice maps to a speech file.
-    pub(crate) fn push_svm_line(&mut self, npc: i32, svm_name: i32) {
+    pub(crate) fn push_svm_line(&mut self, npc: i32, svm_name: i32, overlay: bool) {
         let Some(npc) = self.symbol_table.instance(npc) else {
             warn!("AI_OutputSVM with invalid npc instance({npc})");
             return;
@@ -1061,7 +1064,11 @@ impl ImportCallState {
             return;
         };
         let position = self.npc_state(npc).and_then(|state| state.live.position);
-        self.messages.svm.send(SvmLine { sound, position });
+        self.messages.svm.send(SvmLine {
+            sound,
+            position,
+            overlay,
+        });
     }
 
     /// Resolves a `$`-prefixed SVM key through the `C_SVM` instance of the
