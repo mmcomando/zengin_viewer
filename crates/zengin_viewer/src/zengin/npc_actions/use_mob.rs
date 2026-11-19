@@ -190,13 +190,13 @@ pub(crate) fn run_use_mob_action(
             &choice.on_state_func,
             action.state,
         );
-        info!(
-            "npc({}) uses mob({}) focus({}) animation({})",
-            npc.instance_id(),
-            choice.mob,
-            choice.focus_name,
-            animation
-        );
+        // info!(
+        //     "npc({}) uses mob({}) focus({}) animation({})",
+        //     npc.instance_id(),
+        //     choice.mob,
+        //     choice.focus_name,
+        //     animation
+        // );
         commands.entity(entity).remove::<ExecutingActionMarker>();
     }
 }

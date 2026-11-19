@@ -821,11 +821,11 @@ impl ImportCallState {
             .register_instance_copy(copy.value(), source.value());
         *self.npc_state_mut(copy) = runtime;
         self.spawned_npcs.entry(source).or_default().push(copy);
-        bevy::log::info!(
-            "Wld_InsertNpc npc({}) spawned again as copy({})",
-            source.value(),
-            copy.value()
-        );
+        // bevy::log::info!(
+        //     "Wld_InsertNpc npc({}) spawned again as copy({})",
+        //     source.value(),
+        //     copy.value()
+        // );
         copy
     }
 

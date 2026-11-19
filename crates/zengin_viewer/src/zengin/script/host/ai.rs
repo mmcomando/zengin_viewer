@@ -106,10 +106,10 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             let npc = self.npc_state(npc)?;
             npc.live.target
         });
-        bevy::log::info!(
-            "AI_StartState({state_name}) npc({}) other({other:?})",
-            npc.value()
-        );
+        // bevy::log::info!(
+        //     "AI_StartState({state_name}) npc({}) other({other:?})",
+        //     npc.value()
+        // );
         // The engine drops the ai action queue when a state starts.
         self.messages
             .clear_ai_queue

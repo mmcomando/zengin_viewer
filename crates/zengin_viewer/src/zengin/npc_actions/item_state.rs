@@ -205,13 +205,13 @@ fn run_item_use_state(
         target: state,
         expected,
     });
-    info!(
-        "npc({}) starts item state scheme({}) item({}) target({})",
-        npc.instance_id(),
-        scheme,
-        item.value(),
-        state
-    );
+    // info!(
+    //     "npc({}) starts item state scheme({}) item({}) target({})",
+    //     npc.instance_id(),
+    //     scheme,
+    //     item.value(),
+    //     state
+    // );
     commands.entity(entity).remove::<ExecutingActionMarker>();
 }
 
