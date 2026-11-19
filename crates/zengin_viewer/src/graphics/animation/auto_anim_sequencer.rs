@@ -112,6 +112,10 @@ pub enum DesiredAnimation {
     Stand,
     /// Run loop.
     Run,
+    /// Walk loop (`AI_SetWalkMode` with `NPC_WALK`).
+    Walk,
+    /// Sneak loop (`AI_SetWalkMode` with `NPC_SNEAK`).
+    Sneak,
     /// Bow fire: the reload loop, an arrow shot on every wrap.
     Fire,
     /// Melee attack: the swing, a hit on every loop (wrap). Held while
@@ -180,12 +184,34 @@ impl DesiredAnimation {
         match self {
             DesiredAnimation::Stand => &["S_RUN", "S_FISTRUN", "S_FISTRUNL", "S_FISTWALK"],
             DesiredAnimation::Run => &["S_RUNL", "S_FISTRUNL", "S_FISTRUN", "S_FISTWALK"],
+            DesiredAnimation::Walk => walk_candidates(weapon_mode),
+            DesiredAnimation::Sneak => sneak_candidates(weapon_mode),
             DesiredAnimation::Fire => &["T_BOWRELOAD"],
             DesiredAnimation::MeleeAttack(kind) => kind.candidates(),
             DesiredAnimation::Turn(direction) => direction.candidates(),
             DesiredAnimation::StrafeLeft => strafe_candidates("L", weapon_mode),
             DesiredAnimation::StrafeRight => strafe_candidates("R", weapon_mode),
         }
+    }
+}
+
+/// Walk loop candidates for the drawn weapon, then the unarmed and fist
+/// fallbacks (humans use `S_WALKL`, creatures `S_FISTWALKL`).
+fn walk_candidates(weapon_mode: WeaponMode) -> &'static [&'static str] {
+    match weapon_mode {
+        WeaponMode::Melee => &["S_1HWALKL", "S_2HWALKL", "S_WALKL", "S_FISTWALKL"],
+        WeaponMode::Ranged => &["S_BOWWALKL", "S_CBOWWALKL", "S_WALKL", "S_FISTWALKL"],
+        WeaponMode::Fists => &["S_WALKL", "S_FISTWALKL"],
+    }
+}
+
+/// Sneak loop candidates for the drawn weapon, then the unarmed and fist
+/// fallbacks (humans use `S_SNEAKL`, creatures `S_FISTSNEAKL`).
+fn sneak_candidates(weapon_mode: WeaponMode) -> &'static [&'static str] {
+    match weapon_mode {
+        WeaponMode::Melee => &["S_1HSNEAKL", "S_2HSNEAKL", "S_SNEAKL", "S_FISTSNEAKL"],
+        WeaponMode::Ranged => &["S_BOWSNEAKL", "S_CBOWSNEAKL", "S_SNEAKL", "S_FISTSNEAKL"],
+        WeaponMode::Fists => &["S_SNEAKL", "S_FISTSNEAKL"],
     }
 }
 
@@ -537,6 +563,8 @@ fn model_turn_speed(seq: &AutoAnimSequencer, weapon_mode: Option<&NpcWeaponMode>
         }
         Some(
             DesiredAnimation::Run
+            | DesiredAnimation::Walk
+            | DesiredAnimation::Sneak
             | DesiredAnimation::Fire
             | DesiredAnimation::MeleeAttack(_)
             | DesiredAnimation::StrafeLeft

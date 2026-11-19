@@ -741,6 +741,11 @@ pub(crate) fn apply_turn_to_npc(
     }
 }
 
+/// Walk mode requested by the script (`AI_SetWalkMode`), mirrored from the
+/// script runtime state by the bridge. `0` run, `1` walk, `2` sneak.
+#[derive(Component, Clone, Copy, Default)]
+pub struct NpcWalkMode(pub i32);
+
 /// Distance to the next path node under which the npc advances along the path.
 const PATH_NODE_REACHED_DISTANCE: f32 = 0.5;
 
@@ -784,9 +789,10 @@ pub(crate) fn move_along_path(
         &mut NpcPath,
         &mut AutoAnimSequencer,
         &mut AnimationController,
+        Option<&NpcWalkMode>,
     )>,
 ) {
-    for (entity, mut transform, mut path, mut sequencer, mut controller) in &mut npcs {
+    for (entity, mut transform, mut path, mut sequencer, mut controller, walk_mode) in &mut npcs {
         let Some(direction) = direction_to_next_node(&mut transform, &mut path, &graph) else {
             // The path is done, restore the standing idle
             commands.entity(entity).remove::<NpcPath>();
@@ -795,13 +801,12 @@ pub(crate) fn move_along_path(
             continue;
         };
         transform.rotation = face_direction_quat(direction);
-        queue_root_motion_animation(
-            &mut desired,
-            entity,
-            &mut controller,
-            DesiredAnimation::Run,
-            None,
-        );
+        let animation = match walk_mode.map_or(0, |mode| mode.0) {
+            1 => DesiredAnimation::Walk,
+            2 => DesiredAnimation::Sneak,
+            _ => DesiredAnimation::Run,
+        };
+        queue_root_motion_animation(&mut desired, entity, &mut controller, animation, None);
     }
 }
 

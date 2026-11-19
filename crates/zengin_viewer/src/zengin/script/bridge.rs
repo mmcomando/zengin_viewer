@@ -12,7 +12,7 @@ use crate::gui::GameLogEntry;
 use crate::zengin::GameNpc;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{
-    NpcArmorItem, NpcEquippedWeapon, NpcHealth, NpcLookAt, NpcOverlay, NpcWeaponMode,
+    NpcArmorItem, NpcEquippedWeapon, NpcHealth, NpcLookAt, NpcOverlay, NpcWalkMode, NpcWeaponMode,
     overlay_scheme,
 };
 use crate::zengin::script::component::ScriptResource;
@@ -79,6 +79,7 @@ impl Plugin for ScriptBridgePlugin {
                 sync_npc_routine_entry,
                 sync_npc_look_at,
                 sync_npc_weapon_mode,
+                sync_npc_walk_mode,
                 sync_npc_equipped_weapon,
                 sync_npc_armor,
                 sync_npc_health,
@@ -377,6 +378,29 @@ fn sync_npc_weapon_mode(
     }
 }
 
+/// Refreshes the walk mode component of the entities of a changed npc.
+fn sync_npc_walk_mode(
+    mut commands: Commands,
+    mut changes: MessageReader<NpcEntitiesChanged>,
+    npcs: Query<&NpcWalkMode>,
+) {
+    for change in changes.read() {
+        let mode = change
+            .handle
+            .runtime()
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .live
+            .walk_mode;
+        for &entity in &change.entities {
+            if npcs.get(entity).is_ok_and(|current| current.0 == mode) {
+                continue;
+            }
+            commands.entity(entity).try_insert(NpcWalkMode(mode));
+        }
+    }
+}
+
 /// Inserts the weapon mode on the entity, or removes the component when the npc
 /// has no weapon mode.
 fn set_weapon_mode(commands: &mut Commands, entity: Entity, mode: Option<WeaponMode>) {
@@ -561,6 +585,9 @@ fn seed_npc_components_on_add(
             .and_then(|id| index.npcs(id).first().copied());
         set_look_at(&mut commands, entity, target);
         set_weapon_mode(&mut commands, entity, instance.equipment.weapon_mode);
+        commands
+            .entity(entity)
+            .try_insert(NpcWalkMode(instance.live.walk_mode));
         commands
             .entity(entity)
             .try_insert(NpcArmorItem(instance.equipment.armor));

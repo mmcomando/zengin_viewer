@@ -207,6 +207,11 @@ pub struct NpcLiveState {
     /// load, so it is not saved.
     #[serde(skip)]
     pub body_state: Option<i32>,
+    /// Walk mode set by `AI_SetWalkMode`: `0` run, `1` walk, `2` sneak.
+    /// Rebuilt by the routine state start hooks, so a missing field defaults to
+    /// running.
+    #[serde(default)]
+    pub walk_mode: i32,
 }
 
 impl NpcRuntime {

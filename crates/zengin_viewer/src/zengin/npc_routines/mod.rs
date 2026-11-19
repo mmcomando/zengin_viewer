@@ -42,8 +42,8 @@ pub(crate) use health::NpcHealth;
 pub(crate) use overlay::overlay_scheme;
 pub(crate) use overlay::{AnimationFiles, NpcOverlay};
 pub(crate) use routines::{
-    NPC_BODY_Y_OFFSET, NpcLookAt, NpcPath, NpcRoutineState, WayPoints, queue_named_animation,
-    queue_root_motion_animation, queue_stand_animation,
+    NPC_BODY_Y_OFFSET, NpcLookAt, NpcPath, NpcRoutineState, NpcWalkMode, WayPoints,
+    queue_named_animation, queue_root_motion_animation, queue_stand_animation,
 };
 pub(crate) use weapons::{NpcEquippedWeapon, NpcWeaponMode, NpcWeaponSlots};
 

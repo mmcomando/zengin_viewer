@@ -149,7 +149,24 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             .align_to_wp
             .send(AlignToWpChange { instance_id: npc });
     }
-    fake_impl!(ai_setwalkmode(_0, _1));
+    /// Stores the walk mode (`0` run, `1` walk, `2` sneak). Bit `0x80` is the
+    /// weapon flag in the script constants and is masked out; other modes are
+    /// ignored, like the engine.
+    fn ai_setwalkmode(&mut self, npc: i32, walk_mode: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("AI_SetWalkMode with invalid npc instance({npc})");
+            return;
+        };
+        let mode = walk_mode & !0x80;
+        if !(0..=3).contains(&mode) {
+            warn!(
+                "AI_SetWalkMode npc({}) with unsupported mode({walk_mode})",
+                npc.value()
+            );
+            return;
+        }
+        self.npc_state_mut(npc).live.walk_mode = mode;
+    }
     /// Records a `AI_GoToWP` request; the waypoint name is stored as a raw string
     /// id and resolved by the ECS side (see `ai_applyoverlay` for why).
     fn ai_gotowp(&mut self, npc: i32, waypoint: i32) {
