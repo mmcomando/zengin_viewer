@@ -260,7 +260,7 @@ fn release_mob_occupancy(
 /// Available mob selected for an `AI_UseMob` request.
 struct MobChoice {
     mob: Entity,
-    focus_name: String,
+    // focus_name: String,
     /// Script hook run when the npc reaches the mob's final state.
     on_state_func: String,
     use_pos: Vec3,
@@ -318,7 +318,7 @@ fn select_mob(
         {
             best = Some(MobChoice {
                 mob: mob_entity,
-                focus_name: mob.focus_name.clone(),
+                // focus_name: mob.focus_name.clone(),
                 on_state_func: mob.on_state_func.clone(),
                 use_pos,
                 use_rot,

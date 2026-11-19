@@ -320,7 +320,17 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_hasreadiedweapon(_0) -> i32);
     fake_impl!(npc_hasreadiedmeleeweapon(_0) -> i32);
     fake_impl!(npc_hasreadiedrangedweapon(_0) -> i32);
-    fake_impl!(npc_gettrueguild(_0) -> i32);
+    /// `C_Npc.guild`. The viewer has no separate engine-side true guild, and
+    /// the scripts set the guild when they change it, so this is also the true
+    /// guild.
+    fn npc_gettrueguild(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        self.typed
+            .npc(npc.value() as u32)
+            .map_or(0, |npc| npc.guild)
+    }
     fake_impl!(npc_settrueguild(_0, _1) -> i32);
     fake_impl!(npc_arewestronger(_0, _1) -> i32);
     /// Target the ai currently attacks (`Npc_SetTarget`), `0` when none.
