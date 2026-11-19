@@ -1069,6 +1069,7 @@ impl ImportCallState {
         };
         let position = self.npc_state(npc).and_then(|state| state.live.position);
         self.messages.svm.send(SvmLine {
+            speaker: npc,
             sound,
             position,
             overlay,

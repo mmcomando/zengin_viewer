@@ -11,8 +11,35 @@ use crate::gui::InventoryUiState;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::WeaponMode;
+use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{DialogUiState, GameMob, GameNpc, VobTrigger};
+
+/// Runs the mob's script-side use conditions and logs the reason when the
+/// player is not allowed to interact.
+fn mob_use_denied(
+    script: &mut ScriptManager,
+    player: InstanceId,
+    target: Entity,
+    mob: &GameMob,
+) -> bool {
+    if !script.mob_condition_allows(player, &mob.condition_func) {
+        info!(
+            "Player({player}) mob({target}) use denied by condition_func({})",
+            mob.condition_func
+        );
+        return true;
+    }
+    if script.refuse_missing_mob_item(player, &mob.use_with_item) {
+        info!(
+            "Player({player}) mob({target}) use denied: missing item({})",
+            mob.use_with_item
+        );
+        return true;
+    }
+    false
+}
 
 /// Toggles the selected door/lever/wheel between its two states. The npc that
 /// would use it in the engine stays standing here, only the mob reacts.
@@ -60,15 +87,11 @@ pub(super) fn use_selected_mob(
     }
     let state = i32::from(mob.state <= 0);
     let player = player_npc.instance_id();
-    if !gothic_script
-        .lock()
-        .mob_condition_allows(player, &mob.condition_func)
     {
-        info!(
-            "Player({player}) mob({target}) use denied by condition_func({})",
-            mob.condition_func
-        );
-        return;
+        let mut script = gothic_script.lock();
+        if mob_use_denied(&mut script, player, target, &mob) {
+            return;
+        }
     }
     mob.state = state;
     info!(

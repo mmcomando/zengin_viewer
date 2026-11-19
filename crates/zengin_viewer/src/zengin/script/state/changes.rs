@@ -249,10 +249,11 @@ pub struct PassivePerception {
 /// npc voice, `position` is its world position in meters.
 #[derive(Debug, Clone, Message)]
 pub struct SvmLine {
+    pub speaker: InstanceId,
     pub sound: String,
     pub position: Option<Vec3>,
-    /// `AI_OutputSVM_Overlay`: the engine blocks further overlay lines while
-    /// the previous one plays.
+    /// `AI_OutputSVM_Overlay`: the engine blocks further overlay lines from the
+    /// same speaker while the previous one plays.
     pub overlay: bool,
 }
 

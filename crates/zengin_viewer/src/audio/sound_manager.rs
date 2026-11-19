@@ -1,7 +1,11 @@
+use std::collections::HashMap;
+
+use bevy::audio::SpatialScale;
 use bevy::prelude::*;
 
 use crate::audio::SoundDefinitions;
 use crate::gameplay::objects::PlayerCharacter;
+use crate::zengin::InstanceId;
 use crate::zengin::ScriptSound;
 use crate::zengin::SpeechSounds;
 use crate::zengin::SvmLine;
@@ -10,6 +14,13 @@ use crate::zengin::get_dialog_sound_path;
 /// `WorldSound::talkRange` in engine units (2000) expressed in meters: speech
 /// outside this distance from the listener is not played.
 const SVM_TALK_RANGE: f32 = 20.0;
+
+/// Bevy's spatial mixer attenuates with `1/distance²` in world units. The
+/// third-person camera sits up to 6 m from the player, which would reduce a
+/// voice emitted at the player to a few percent of its volume. Scaling the
+/// emitter and listener positions keeps normal gameplay distances at full
+/// volume while sounds still fade toward the talk range.
+const SPATIAL_SCALE: f32 = 0.15;
 
 /// Asset path of the sound which should be played
 #[derive(Message)]
@@ -25,9 +36,10 @@ pub struct PlaySound {
 pub struct SoundManager {
     /// Entity of the most recently spawned sound
     active: Option<Entity>,
-    /// World time in seconds until which `AI_OutputSVM_Overlay` lines are
-    /// suppressed because the previous overlay line is still playing.
-    svm_barrier_until: f64,
+    /// World time in seconds until which `AI_OutputSVM_Overlay` lines of each
+    /// speaker are suppressed because that speaker's previous overlay line is
+    /// still playing.
+    svm_barriers: HashMap<InstanceId, f64>,
 }
 
 impl SoundManager {
@@ -67,7 +79,10 @@ impl SoundManager {
         audio_handle: Handle<AudioSource>,
         position: Option<Vec3>,
     ) -> Entity {
-        let settings = PlaybackSettings::DESPAWN.with_spatial(position.is_some());
+        let mut settings = PlaybackSettings::DESPAWN.with_spatial(position.is_some());
+        if position.is_some() {
+            settings = settings.with_spatial_scale(SpatialScale::new(SPATIAL_SCALE));
+        }
         let mut entity = commands.spawn((AudioPlayer::new(audio_handle), settings));
         if let Some(position) = position {
             entity.insert(Transform::from_translation(position));
@@ -94,9 +109,9 @@ pub(crate) fn handle_play_sound_messages(
 }
 
 /// Plays the voice lines requested by `AI_OutputSVM`/`AI_OutputSVM_Overlay`,
-/// positional at the speaking npc. Overlay lines are suppressed while the
-/// previous overlay line plays, and lines outside the listener range are
-/// skipped (the barrier is still set, matching the engine).
+/// positional at the speaking npc. Overlay lines are suppressed while the same
+/// speaker's previous overlay line plays, and lines outside the listener range
+/// are skipped (the barrier is still set, matching the engine).
 pub(crate) fn handle_svm_lines(
     time: Res<Time>,
     mut lines: MessageReader<SvmLine>,
@@ -143,9 +158,9 @@ pub(crate) fn handle_svm_lines(
     }
 }
 
-/// Overlay lines are suppressed while the previous overlay line plays. The
-/// barrier is set from the sound duration even when the line is later skipped
-/// for being out of range, matching the engine.
+/// Overlay lines are suppressed while the same speaker's previous overlay line
+/// plays. The barrier is set from the sound duration even when the line is
+/// later skipped for being out of range, matching the engine.
 fn overlay_allowed(
     line: &SvmLine,
     path: &str,
@@ -156,9 +171,13 @@ fn overlay_allowed(
     if !line.overlay {
         return true;
     }
-    if now < sound_manager.svm_barrier_until {
+    if sound_manager
+        .svm_barriers
+        .get(&line.speaker)
+        .is_some_and(|until| now < *until)
+    {
         debug!(
-            "Script svm overlay({}) skipped, the previous line still plays",
+            "Script svm overlay({}) skipped, the speaker's previous line still plays",
             line.sound
         );
         return false;
@@ -166,7 +185,9 @@ fn overlay_allowed(
     let duration = speech_sounds
         .and_then(|speech| speech.duration(path))
         .unwrap_or(0.0);
-    sound_manager.svm_barrier_until = now + f64::from(duration);
+    sound_manager
+        .svm_barriers
+        .insert(line.speaker, now + f64::from(duration));
     true
 }
 
@@ -328,6 +349,7 @@ mod tests {
 
     fn line(overlay: bool) -> SvmLine {
         SvmLine {
+            speaker: InstanceId::new(1).unwrap(),
             sound: "SVM_1_Test".to_string(),
             position: Some(Vec3::ZERO),
             overlay,
@@ -345,6 +367,17 @@ mod tests {
     }
 
     #[test]
+    fn overlay_line_of_another_speaker_is_not_blocked() {
+        let mut manager = SoundManager::default();
+        let first = line(true);
+        let mut second = line(true);
+        second.speaker = InstanceId::new(2).unwrap();
+
+        assert!(overlay_allowed(&first, "path", 1.0, None, &mut manager));
+        assert!(overlay_allowed(&second, "path", 0.5, None, &mut manager));
+    }
+
+    #[test]
     fn regular_line_does_not_set_the_overlay_barrier() {
         let mut manager = SoundManager::default();
 
@@ -355,7 +388,7 @@ mod tests {
             None,
             &mut manager
         ));
-        assert_eq!(manager.svm_barrier_until, 0.0);
+        assert!(manager.svm_barriers.is_empty());
     }
 
     #[test]

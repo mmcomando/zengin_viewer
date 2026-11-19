@@ -35,6 +35,38 @@ impl ScriptManager {
         debug!("npc({npc}) ran mob state function({name})");
     }
 
+    /// Checks a mob's `useWithItem` against the npc's inventory and runs the
+    /// `player_mob_missing_item` refusal when the item is absent. Returns
+    /// `true` when the interaction was refused.
+    pub fn refuse_missing_mob_item(&mut self, npc: InstanceId, use_with_item: &str) -> bool {
+        if use_with_item.is_empty() {
+            return false;
+        }
+        let Some(item) = self.symbol_instance(&use_with_item.to_lowercase()) else {
+            warn!("mob useWithItem({use_with_item}) is not a script instance");
+            return false;
+        };
+        if self
+            .inventory(npc)
+            .iter()
+            .any(|(held, count)| *held == item && *count > 0)
+        {
+            return false;
+        }
+        let Some(function) = self.try_get_function_id("player_mob_missing_item") else {
+            warn!(
+                "mob useWithItem({use_with_item}) is missing but player_mob_missing_item is not declared"
+            );
+            return true;
+        };
+        self.set_self(npc);
+        self.set_instance(npc);
+        if let Err(err) = self.try_call_function(function) {
+            warn!("player_mob_missing_item npc({npc}) failed: {err:?}");
+        }
+        true
+    }
+
     /// Runs a mob `conditionFunc` with the user bound as `self`. An absent
     /// function allows the interaction; a missing or failing function does not.
     pub fn mob_condition_allows(&mut self, npc: InstanceId, condition_func: &str) -> bool {
