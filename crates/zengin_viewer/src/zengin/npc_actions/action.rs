@@ -7,6 +7,7 @@ use crate::zengin::npc_actions::item_state::NpcItemUse;
 use crate::zengin::npc_actions::item_state::UseItemStateAction;
 use crate::zengin::npc_actions::stand_up::StandUpAction;
 use crate::zengin::npc_actions::use_mob::UseMobAction;
+use crate::zengin::npc_actions::wait::WaitAction;
 
 /// The npc currently executes an action. Removed to cancel the action.
 #[derive(Component, Default)]
@@ -44,6 +45,7 @@ pub(crate) fn remove_actions_on_marker_removed(
                 AttackAction,
                 UseMobAction,
                 UseItemStateAction,
+                WaitAction,
                 StandUpAction,
             )>();
         });

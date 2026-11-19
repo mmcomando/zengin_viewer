@@ -11,7 +11,7 @@ use crate::zengin::npc_routines::NpcRoutineState;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
     AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange, GotoFpChange, StandUpChange,
-    UseItemStateChange, UseMobChange,
+    UseItemStateChange, UseMobChange, WaitChange,
 };
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::StringId;
@@ -125,6 +125,37 @@ pub(crate) fn enqueue_goto_fp_actions(
                 warn!(
                     "AI_GotoFP freepoint({}) was not queued, npc({}) action queue is full",
                     change.point_name, change.instance_id
+                );
+            }
+        }
+    }
+}
+
+/// Turns `AI_WaitMS` requests into queued wait actions. The host drops
+/// non-positive durations, so no second guard is needed here.
+pub(crate) fn enqueue_wait_actions(
+    mut changes: MessageReader<WaitChange>,
+    index: Res<InstanceIndex>,
+    mut action_queues: Query<&mut NpcActionQueue>,
+) {
+    for change in changes.read() {
+        let entities = index.npcs(change.instance_id);
+        if entities.is_empty() {
+            warn!(
+                "AI_WaitMS npc({}) ignored: instance has no entity",
+                change.instance_id
+            );
+            continue;
+        }
+        let remaining = change.milliseconds as f32 / 1000.0;
+        for &entity in entities {
+            let Ok(mut queue) = action_queues.get_mut(entity) else {
+                continue;
+            };
+            if !queue.push_wait(remaining) {
+                warn!(
+                    "AI_WaitMS npc({}) not queued: action queue is full",
+                    change.instance_id
                 );
             }
         }

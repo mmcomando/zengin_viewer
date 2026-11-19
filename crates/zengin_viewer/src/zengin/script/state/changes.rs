@@ -78,6 +78,14 @@ pub struct UseItemStateChange {
     pub state: i32,
 }
 
+/// Signal that a script requested `AI_WaitMS`: the npc should idle for the
+/// given time before the next queued action starts.
+#[derive(Debug, Clone, Copy, Message)]
+pub struct WaitChange {
+    pub instance_id: InstanceId,
+    pub milliseconds: i32,
+}
+
 /// Signal that a script requested `AI_StandUp` (or `AI_StandUpQuick`): the npc
 /// should stop what it is doing and stand up idle, releasing any mob use.
 #[derive(Debug, Clone, Message)]

@@ -7,6 +7,7 @@ use crate::zengin::npc_actions::goto::GoToWaypointAction;
 use crate::zengin::npc_actions::item_state::UseItemStateAction;
 use crate::zengin::npc_actions::stand_up::StandUpAction;
 use crate::zengin::npc_actions::use_mob::UseMobAction;
+use crate::zengin::npc_actions::wait::WaitAction;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::InstanceId;
 
@@ -68,6 +69,11 @@ impl NpcActionQueue {
         }))
     }
 
+    /// Waits always append; several waits in a row are legitimate.
+    pub(crate) fn push_wait(&mut self, remaining: f32) -> bool {
+        self.push_back(QueuedAction::Wait(WaitAction { remaining }))
+    }
+
     /// A repeated `AI_StandUp` is a no-op.
     pub(crate) fn push_stand_up(&mut self) -> bool {
         if self
@@ -120,6 +126,7 @@ pub(crate) enum QueuedAction {
     Attack(Box<AttackAction>),
     UseMob(UseMobAction),
     UseItemState(UseItemStateAction),
+    Wait(WaitAction),
     StandUp(StandUpAction),
 }
 

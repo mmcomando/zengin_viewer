@@ -4,8 +4,8 @@ use super::state::{
     AlignToWpChange, AnimationChange, AttackChange, BS_STAND, ClearAiQueueChange, DialogChoice,
     DialogLine, ITEM_MAINFLAG_ARMOR, ImportCallState, InventoryGain, MobRoutineEntry,
     OverlayRequest, ProcessInfosChange, RoutineEntry, RoutineExchange, SpawnItem, SpawnNpc,
-    StandUpChange, StartStateChange, TurnToNpcChange, UseItemStateChange, UseMobChange, WeaponKind,
-    WeaponMode, current_body_state, has_body_flag,
+    StandUpChange, StartStateChange, TurnToNpcChange, UseItemStateChange, UseMobChange, WaitChange,
+    WeaponKind, WeaponMode, current_body_state, has_body_flag,
 };
 use super::string_value::StringCanon;
 use super::symbol_id::InstanceId;

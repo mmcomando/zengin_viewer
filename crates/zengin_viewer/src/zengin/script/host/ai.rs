@@ -138,7 +138,20 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     fake_impl!(ai_playcutscene(_0, _1));
     fake_impl!(ai_canseenpc(_0, _1, _2));
     fake_impl!(ai_wait(_0, _1));
-    fake_impl!(ai_waitms(_0, _1));
+    /// Queues an idle pause of `milliseconds` before the next ai action.
+    fn ai_waitms(&mut self, npc: i32, milliseconds: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("AI_WaitMS with invalid npc instance({npc})");
+            return;
+        };
+        if milliseconds <= 0 {
+            return;
+        }
+        self.messages.wait.send(WaitChange {
+            instance_id: npc,
+            milliseconds,
+        });
+    }
     fake_impl!(ai_waittillend(_0, _1));
     /// Requests that the npc faces its routine waypoint, applied by the ECS side.
     fn ai_aligntowp(&mut self, npc: i32) {

@@ -15,16 +15,17 @@ use crate::gameplay::game_time::advance_game_time;
 use crate::graphics::AutoAnimSequencerSet;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 
+use crate::zengin::npc_actions::WaitAction;
 use crate::zengin::npc_actions::{
     AttackAction, GoToWaypointAction, StandUpAction, UseItemStateAction, UseMobAction,
     advance_item_use_animations, advance_npc_attack_swings, clear_npc_actions,
     drop_item_pose_for_action, end_attack_action, end_goto_action, end_use_mob_action,
     enqueue_align_actions, enqueue_attack_actions, enqueue_goto_actions, enqueue_goto_fp_actions,
     enqueue_stand_up_actions, enqueue_use_item_state_actions, enqueue_use_mob_actions,
-    flush_npc_action_queue, remove_actions_on_marker_removed, run_attack_action, run_goto_action,
-    run_use_item_state_action, run_use_mob_action, start_attack_action, start_goto_action,
-    start_stand_up_action, start_use_mob_action, sync_npc_item_body_state,
-    warn_direct_action_removal,
+    enqueue_wait_actions, flush_npc_action_queue, remove_actions_on_marker_removed,
+    run_attack_action, run_goto_action, run_use_item_state_action, run_use_mob_action,
+    run_wait_action, start_attack_action, start_goto_action, start_stand_up_action,
+    start_use_mob_action, sync_npc_item_body_state, warn_direct_action_removal,
 };
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
 use routines::{
@@ -61,6 +62,7 @@ impl Plugin for NpcRoutinesPlugin {
                 warn_direct_action_removal::<AttackAction>,
                 warn_direct_action_removal::<UseMobAction>,
                 warn_direct_action_removal::<UseItemStateAction>,
+                warn_direct_action_removal::<WaitAction>,
                 warn_direct_action_removal::<StandUpAction>,
             ),
         );
@@ -99,6 +101,7 @@ impl Plugin for NpcRoutinesPlugin {
                         enqueue_attack_actions,
                         enqueue_use_mob_actions,
                         enqueue_use_item_state_actions,
+                        enqueue_wait_actions,
                         pause_talking_npc_routine,
                     )
                         .chain()
@@ -117,6 +120,7 @@ impl Plugin for NpcRoutinesPlugin {
                         run_attack_action,
                         run_use_mob_action,
                         run_use_item_state_action,
+                        run_wait_action,
                     )
                         .before(AutoAnimSequencerSet),
                     advance_npc_attack_swings.after(AutoAnimSequencerSet),
