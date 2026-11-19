@@ -530,7 +530,9 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     }
     fake_impl!(npc_sendpassiveperc(_0, _1, _2, _3));
     fake_impl!(npc_sendsingleperc(_0, _1, _2));
-    fake_impl!(npc_perceiveall(_0));
+    /// The engine `Npc_PerceiveAll` is a no-op:
+    /// perceptions are delivered by the periodic scan, not by this call.
+    fn npc_perceiveall(&mut self, _npc: i32) {}
     fake_impl!(npc_isplayerinmyroom(_0) -> i32);
     fake_impl!(npc_isinplayersroom(_0) -> i32);
     fake_impl!(npc_wasplayerinmyroom(_0) -> i32);
