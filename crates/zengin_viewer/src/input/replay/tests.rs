@@ -271,6 +271,21 @@ fn log_exists_regex_matches_buffered_lines() {
     assert!(matching_log_line(&lines, &Regex::new("^ERROR").unwrap()).is_none());
 }
 
+#[test]
+fn log_checks_ignore_replay_infrastructure_lines() {
+    let lines = vec![
+        "INFO zengin_viewer::input::replay::actions: Replay triggered command: TestLogNotExists { regex: \"missing texture\" }".to_string(),
+        "WARN zengin_viewer::npc: missing texture".to_string(),
+    ];
+    let regex = Regex::new("missing texture").unwrap();
+
+    assert_eq!(
+        matching_log_line(&lines, &regex),
+        Some("WARN zengin_viewer::npc: missing texture")
+    );
+    assert!(matching_log_line(&lines[..1], &regex).is_none());
+}
+
 fn parse(commands: &str) -> Result<Vec<ScheduledCommand>, String> {
     let commands: Vec<ReplayCommand> = RonOptions::default()
         .with_default_extension(Extensions::IMPLICIT_SOME)

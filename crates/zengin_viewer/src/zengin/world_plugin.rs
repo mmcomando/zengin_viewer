@@ -23,7 +23,7 @@ use crate::zengin::interaction::selection::Selection;
 use crate::zengin::loaders::vfs::{
     item_model_path, mesh_body_path, mesh_model_path, normalize_mesh_name, resolve_stand_animation,
 };
-use crate::zengin::npc_routines::{AnimationFiles, WayPoints};
+use crate::zengin::npc_routines::WayPoints;
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::resources::{
     CachedAssetHandles, NamedModels, ZenGinInsertResources, ZenGinModelComponent,
@@ -52,7 +52,6 @@ impl Plugin for ZenGinWorldPlugin {
         app.add_plugins(WorldSpawnPlugin);
         app.add_plugins(GameObjectSpawnEntities);
 
-        app.init_resource::<AnimationFiles>();
         app.init_resource::<WayPoints>();
         app.init_resource::<Spots>();
         app.init_resource::<MusicZones>();
@@ -494,7 +493,6 @@ fn spawn_world_data(
 
     commands.insert_resource(WayPoints { points: way_points });
     commands.insert_resource(Spots(std::mem::take(&mut world_data.spots)));
-    commands.insert_resource(AnimationFiles(std::mem::take(&mut world_data.anim_files)));
     commands.insert_resource(MusicZones {
         zones: std::mem::take(&mut world_data.music_zones),
         default: world_data.default_music_zone.take(),

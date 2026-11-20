@@ -14,6 +14,7 @@ use crate::game_state::AppState;
 use crate::gameplay::game_time::advance_game_time;
 use crate::graphics::AutoAnimSequencerSet;
 use crate::zengin::script::bridge::ScriptChangesApplied;
+use crate::zengin::{ZenginVfs, loaders::vfs::animation_file_names};
 
 use crate::zengin::npc_actions::WaitAction;
 use crate::zengin::npc_actions::{
@@ -54,6 +55,8 @@ pub struct NpcRoutinesPlugin;
 
 impl Plugin for NpcRoutinesPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<AnimationFiles>();
+        app.add_systems(Startup, load_animation_files);
         app.init_resource::<NpcRoutineCheckState>();
         app.add_observer(remove_actions_on_marker_removed);
         app.add_systems(
@@ -186,4 +189,11 @@ impl Plugin for NpcRoutinesPlugin {
                 .run_if(in_state(AppState::InGame)),
         );
     }
+}
+
+/// Fills the anim archive inventory from the vfs once. It does not depend on a
+/// loaded world, so scenarios that spawn npcs without one still resolve their
+/// scripted animations.
+fn load_animation_files(vfs: Res<ZenginVfs>, mut files: ResMut<AnimationFiles>) {
+    files.0 = animation_file_names(&vfs);
 }

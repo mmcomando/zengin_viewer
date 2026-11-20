@@ -1,6 +1,8 @@
 //! Helpers resolving zengin asset paths against the vfs: mesh names, item and
 //! npc model paths and stand animations.
 
+use std::collections::HashSet;
+
 use bevy::log::warn;
 use bevy::prelude::*;
 use zen_kit_rs::vfs::Vfs;
@@ -38,6 +40,21 @@ pub(crate) fn find_mesh_path(vfs: &Vfs, name: &str) -> Option<String> {
 
     let asset_path = to_asset_path(&asset_path);
     return Some(asset_path);
+}
+
+/// Names of all files in the compiled anim archive, uppercased. The archive
+/// contents are a property of the vfs, not of a loaded world, so this is
+/// resolved once at startup.
+pub fn animation_file_names(vfs: &ZenginVfs) -> HashSet<String> {
+    let vfs = vfs.0.lock().unwrap();
+    let Some(dir) = vfs.resolve_path("/_WORK/DATA/ANIMS/_COMPILED") else {
+        warn!("Compiled anim archive directory not found, scripted animations cannot be resolved");
+        return HashSet::new();
+    };
+    dir.enumerate_children()
+        .into_iter()
+        .map(|child| child.name().to_uppercase())
+        .collect()
 }
 
 /// Standing body state animation of an animation scheme. `S_RUN` is the human

@@ -259,8 +259,6 @@ pub struct MusicZones {
 pub struct ZenGinWorldData {
     pub spots: HashMap<String, Transform>,
     pub way_points: HashMap<String, Transform>,
-    /// Names of all files in the compiled anim archive (uppercase)
-    pub anim_files: HashSet<String>,
     /// Waypoint navigation graph built from the world way net
     pub waypoint_graph: WaypointGraph,
     pub music_zones: Vec<MusicZone>,

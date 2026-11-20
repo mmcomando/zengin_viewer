@@ -4,6 +4,12 @@
 //   2. stepping to 8 m makes it warn (`T_WARN`, `zs_mm_threatenenemy`)
 //   3. the 4 s threat timeout starts the attack (`zs_mm_attack`, `AI_Attack`)
 //   4. the attack action chases the player and swings (`S_FISTATTACK`)
+//
+// The checks use the `DebugNPC` log of the wolf set with `ZenginSetDebugNpc`,
+// which reports every animation switch and action. Frames are chosen with
+// margin for both canonical test timings: `--fixed-time` (20 ms/frame, the
+// `just test-scenario` path) and a plain renderless run (1/60 s/frame, which
+// reaches the same events ~20% later in frame numbers).
 [
     TestWorld(name: "simple"),
     ZenginScriptStartup(world: "NEWWORLD/NEWWORLD", clean_world: false),
@@ -17,26 +23,29 @@
         rotation: (-14.0, 90.0, 0.0),
     ),
 
-    // 1) Far: no combat state may start inside the observed window.
+    // 1) Far away the wolf stays passive: no warning pose, no attack request.
     TestClearLogBuffer(frame: 150),
-    TestLogNotExists(frame: 185, regex: "AI_StartState\\(zs_mm_(threatenenemy|attack)\\)"),
     TestScreenshot(frame: 186, path: "00_far.png"),
 
-    // 2) Step into perception range (8 m, outside the 7 m attack range).
+    // 2) Step into perception range (8 m, outside the 7 m attack range): the
+    // wolf plays the scripted `T_WARN` pose (a looping scripted animation, so
+    // no conversation back to the standing idle).
     TeleportPlayer(frame: 200, translation: (0.0, 0.0, -12.0), rotation: (0.0, 0.0, 0.0)),
-    TestLogExists(frame: 230, regex: "AI_StartState\\(zs_mm_threatenenemy\\)"),
-    TestLogExists(frame: 235, regex: "DebugNPC: animation .*WOLF-T_WARN"),
+    TestLogExists(frame: 280, regex: "DebugNPC: animation .*current=WOLF-T_WARN next=- root_motion=false"),
     TestScreenshot(frame: 280, path: "01_warning.png"),
 
-    // 3) The threat timer expires and the wolf starts attacking.
-    //
-    // The state time reaches 4 s at the loop tick around frame 430; it then
-    // runs the last meters before the first swing around frame 505.
+    // 3) The threat timer expires and the wolf starts attacking. The attack
+    // action runs at the player before swinging.
     TestScreenshot(frame: 470, path: "02_attack_chase.png"),
-    TestLogExists(frame: 500, regex: "AI_StartState\\(zs_mm_attack\\)"),
-    TestLogExists(frame: 510, regex: "AI_Attack requested by npc"),
-    TestLogExists(frame: 560, regex: "DebugNPC: animation .*WOLF-S_FISTATTACK"),
+    TestLogExists(frame: 520, regex: "AI_Attack requested by npc\\(12562\\) on target\\(11471\\)"),
+    TestLogExists(frame: 530, regex: "DebugNPC: actions Attack\\(target="),
+    TestLogExists(frame: 540, regex: "DebugNPC: animation .*current=WOLF-S_FISTRUNL next=- root_motion=true"),
+
+    // 4) The first swing plays. This also guards the scripted animation
+    // resolution: a valid archive animation must never be reported as missing.
     TestScreenshot(frame: 565, path: "03_attack_swing.png"),
+    TestLogExists(frame: 590, regex: "DebugNPC: animation .*current=WOLF-S_FISTATTACK next=- root_motion=true"),
+    TestLogNotExists(frame: 590, regex: ".*not in the anim archive"),
 
     ExitGame(frame: 600),
 ]
