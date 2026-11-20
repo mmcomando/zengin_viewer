@@ -57,6 +57,14 @@ impl mmcomando::zengine_scripts::hlp_scripts::Host for ImportCallState {
     fn hlp_isvalidnpc(&mut self, npc: i32) -> i32 {
         i32::from(self.symbol_table.instance(npc).is_some())
     }
-    fake_impl!(hlp_isvaliditem(_0) -> i32);
+    /// An item argument is valid when it resolves to a `C_Item` class instance.
+    /// The viewer has no spawned item handles, inventory items are stored by
+    /// their class instance id, so the class kind is the only validity signal.
+    fn hlp_isvaliditem(&mut self, item: i32) -> i32 {
+        let Some(item) = self.symbol_table.instance(item) else {
+            return 0;
+        };
+        i32::from(self.typed.class_of(item.value() as u32) == Some(daedalus_typed::ClassKind::Item))
+    }
     fake_impl!(hlp_cutsceneplayed(_0) -> i32);
 }
