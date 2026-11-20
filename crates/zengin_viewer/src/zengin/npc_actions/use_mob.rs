@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use bevy::prelude::*;
 
-use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
+use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel, PlayerCharacter};
 use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
 };
@@ -21,12 +21,54 @@ use crate::zengin::{GameMob, GameNpc, MobOccupant, MobRegistry, NpcMobUse};
 
 const MOB_USE_DISTANCE: f32 = MAX_AI_USE_DISTANCE;
 
-/// Uses the nearest mob with the given `AI_UseMob` scheme.
+/// Uses a mob with the given `AI_UseMob` scheme.
 #[derive(Component)]
 #[require(ExecutingActionMarker)]
 pub(crate) struct UseMobAction {
     pub(crate) scheme: StringCanon,
     pub(crate) state: i32,
+    /// Use exactly this mob instead of the nearest one of `scheme`.
+    pub(crate) target: Option<Entity>,
+    /// Snap to the attachment point instead of walking to it.
+    pub(crate) snap: bool,
+    /// Player switch use (lever/button/wheel/door): pose and mob state to apply.
+    /// `state` stays positive so this is not treated as a detach request.
+    pub(crate) switch_state: Option<i32>,
+}
+
+impl UseMobAction {
+    /// `AI_UseMob` request of an npc: nearest free mob of the scheme.
+    pub(crate) fn npc(scheme: StringCanon, state: i32) -> Self {
+        Self {
+            scheme,
+            state,
+            target: None,
+            snap: false,
+            switch_state: None,
+        }
+    }
+
+    /// Player request for a selected mob.
+    pub(crate) fn player(target: Entity, scheme: StringCanon, state: i32) -> Self {
+        Self {
+            scheme,
+            state,
+            target: Some(target),
+            snap: true,
+            switch_state: None,
+        }
+    }
+
+    /// Player use of a switch-like mob: `state` is the toggled state (0 or 1).
+    pub(crate) fn player_switch(target: Entity, scheme: StringCanon, state: i32) -> Self {
+        Self {
+            scheme,
+            state: state.max(1),
+            target: Some(target),
+            snap: true,
+            switch_state: Some(state),
+        }
+    }
 }
 
 /// Releases the current mob use when it is superseded or canceled.
@@ -80,6 +122,7 @@ pub(crate) fn run_use_mob_action(
         &mut AnimationController,
         Option<&NpcMobUse>,
         Option<&NpcBodyRootOffset>,
+        Has<PlayerCharacter>,
     )>,
 ) {
     let mut claimed_mobs = HashSet::new();
@@ -94,6 +137,7 @@ pub(crate) fn run_use_mob_action(
         mut controller,
         npc_mob_use,
         body_root_offset,
+        is_player,
     ) in &mut npcs
     {
         let Some(model) = model else {
@@ -115,6 +159,8 @@ pub(crate) fn run_use_mob_action(
             commands.entity(entity).remove::<ExecutingActionMarker>();
             continue;
         }
+        // A switch use can request state 0 while still attaching.
+        let use_state = action.switch_state.unwrap_or(action.state).max(0);
 
         let Some(choice) = select_mob(
             &mut mobs,
@@ -122,6 +168,7 @@ pub(crate) fn run_use_mob_action(
             &claimed_mobs,
             action.scheme.as_str(),
             transform.translation,
+            action.target,
         ) else {
             debug!(
                 "npc({}) AI_UseMob({}) found no available mob within {MOB_SEARCH_RADIUS}m",
@@ -134,7 +181,7 @@ pub(crate) fn run_use_mob_action(
         claimed_mobs.insert(choice.mob);
 
         let horizontal = horizontal_offset(transform.translation, choice.use_pos);
-        if horizontal.length() > MOB_USE_DISTANCE {
+        if !action.snap && horizontal.length() > MOB_USE_DISTANCE {
             transform.rotation = face_direction_quat(horizontal);
             queue_root_motion_animation(
                 &mut desired,
@@ -150,9 +197,17 @@ pub(crate) fn run_use_mob_action(
             // Attachment nodes are extracted once the model asset loads.
             continue;
         }
-        let body_y_offset =
-            body_root_offset.map_or(NPC_BODY_Y_OFFSET, |offset| -offset.0 * transform.scale.y);
-        transform.translation = choice.use_pos + Vec3::Y * body_y_offset;
+        // Doors are used from where the player stands. Regular pose mobs snap
+        // to the attachment point; a `ZS_POS*` node marks the model root, while
+        // the vob-transform fallback already sits on the ground.
+        if !choice.no_move {
+            let body_y_offset = if choice.attached {
+                body_root_offset.map_or(NPC_BODY_Y_OFFSET, |offset| -offset.0 * transform.scale.y)
+            } else {
+                0.0
+            };
+            transform.translation = choice.use_pos + Vec3::Y * body_y_offset;
+        }
         transform.rotation = choice.use_rot;
         sequencer.suspend();
         controller.set_root_motion(false);
@@ -162,8 +217,19 @@ pub(crate) fn run_use_mob_action(
             &files,
             action.scheme.as_str(),
             choice.position_tag.as_deref(),
-            action.state,
+            use_state,
         );
+        if is_player {
+            info!(
+                "Player({}) uses mob({}) vob({}) scheme({}) state({}) animation({})",
+                npc.instance_id(),
+                choice.mob,
+                choice.vob_name,
+                action.scheme,
+                use_state,
+                animation
+            );
+        }
         queue_named_animation(
             &mut controller,
             model,
@@ -177,28 +243,21 @@ pub(crate) fn run_use_mob_action(
         commands.entity(entity).insert(NpcMobUse {
             mob: choice.mob,
             scheme: action.scheme.clone(),
-            state: action.state.max(0),
+            state: use_state,
             position_tag: choice.position_tag.clone(),
         });
         // The mob switches to the state the npc uses it in, which plays
         // its own `<STEM>-S_S<n>` animation.
         if let Ok((mut mob, ..)) = mobs.get_mut(choice.mob)
-            && mob.state != action.state.max(0)
+            && mob.state != use_state
         {
-            mob.state = action.state.max(0);
+            mob.state = use_state;
         }
         gothic_script.lock().call_mob_state_hook(
             npc.instance_id(),
             &choice.on_state_func,
-            action.state,
+            use_state,
         );
-        // info!(
-        //     "npc({}) uses mob({}) focus({}) animation({})",
-        //     npc.instance_id(),
-        //     choice.mob,
-        //     choice.focus_name,
-        //     animation
-        // );
         commands.entity(entity).remove::<ExecutingActionMarker>();
     }
 }
@@ -225,7 +284,7 @@ pub(crate) fn end_use_mob_action(
     }
 }
 
-pub(super) fn release_mob_use(
+pub(crate) fn release_mob_use(
     commands: &mut Commands,
     npc_entity: Entity,
     mob_use: Option<&NpcMobUse>,
@@ -262,7 +321,7 @@ fn release_mob_occupancy(
 /// Available mob selected for an `AI_UseMob` request.
 struct MobChoice {
     mob: Entity,
-    // focus_name: String,
+    vob_name: String,
     /// Script hook run when the npc reaches the mob's final state.
     on_state_func: String,
     use_pos: Vec3,
@@ -272,9 +331,15 @@ struct MobChoice {
     distance_squared: f32,
     /// Attachment nodes were extracted, the npc can attach.
     ready: bool,
+    /// The position comes from a `ZS_POS*` node and marks the model root;
+    /// the vob-transform fallback sits on the ground instead.
+    attached: bool,
+    /// Door: the user plays the pose from where they stand.
+    no_move: bool,
 }
 
-/// Nearest free mob with the requested scheme within [`MOB_SEARCH_RADIUS`].
+/// Nearest free mob with the requested scheme within [`MOB_SEARCH_RADIUS`], or
+/// exactly `target` when one is requested (the player's selected mob).
 ///
 /// Mob requirements (`useWithItem`, `conditionFunc`) are not checked here: the
 /// engine only enforces them for the player, npcs use a mob by scheme and a
@@ -290,7 +355,11 @@ fn select_mob(
     claimed: &HashSet<Entity>,
     scheme: &str,
     npc_pos: Vec3,
+    target: Option<Entity>,
 ) -> Option<MobChoice> {
+    if let Some(target) = target {
+        return mob_choice(mobs, target, npc_pos);
+    }
     // Script strings are canonical lowercased, the registry uses the uppercased
     // scheme derived from the visual name.
     let scheme = scheme.to_uppercase();
@@ -305,7 +374,7 @@ fn select_mob(
         if occupant.is_some() {
             continue;
         }
-        let Some((use_pos, use_rot, position_tag, ready)) =
+        let Some((use_pos, use_rot, position_tag, ready, attached)) =
             mob_use_transform(&mob, mob_tr, npc_pos, model.is_some())
         else {
             continue;
@@ -320,34 +389,80 @@ fn select_mob(
         {
             best = Some(MobChoice {
                 mob: mob_entity,
-                // focus_name: mob.focus_name.clone(),
+                vob_name: mob.vob_name.clone(),
                 on_state_func: mob.on_state_func.clone(),
                 use_pos,
                 use_rot,
                 position_tag,
                 distance_squared,
                 ready,
+                attached,
+                no_move: mob.no_move,
             });
         }
     }
     best
 }
 
+/// Choice for one specific mob, used by player requests. A mob that is gone or
+/// occupied yields `None`.
+fn mob_choice(
+    mobs: &mut Query<(
+        &mut GameMob,
+        &GlobalTransform,
+        Option<&MobOccupant>,
+        Option<&ZenGinModelComponent>,
+    )>,
+    mob_entity: Entity,
+    npc_pos: Vec3,
+) -> Option<MobChoice> {
+    let Ok((mob, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
+        return None;
+    };
+    if occupant.is_some() {
+        return None;
+    }
+    let (use_pos, use_rot, position_tag, ready, attached) =
+        mob_use_transform(&mob, mob_tr, npc_pos, model.is_some())?;
+    Some(MobChoice {
+        mob: mob_entity,
+        vob_name: mob.vob_name.clone(),
+        on_state_func: mob.on_state_func.clone(),
+        use_pos,
+        use_rot,
+        position_tag,
+        distance_squared: use_pos.distance_squared(npc_pos),
+        ready,
+        attached,
+        no_move: mob.no_move,
+    })
+}
+
 /// World transform the npc should use for the mob, using the nearest `ZS_POS*`
 /// node. Mobs without attachment nodes fall back to the vob transform.
+///
+/// The last tuple element is `true` when the position is a `ZS_POS*` node: it
+/// marks the model root, so the actor has to subtract its body-root offset.
+/// The vob-transform fallback sits on the ground and needs no offset.
 fn mob_use_transform(
     mob: &GameMob,
     mob_tr: &GlobalTransform,
     npc_pos: Vec3,
     has_model: bool,
-) -> Option<(Vec3, Quat, Option<String>, bool)> {
+) -> Option<(Vec3, Quat, Option<String>, bool, bool)> {
     let Some(positions) = mob.positions.as_ref() else {
         // A model without extracted nodes is still loading; the npc waits at
         // the vob transform and attaches once the asset is scanned.
-        return Some((mob_tr.translation(), mob_tr.rotation(), None, !has_model));
+        return Some((
+            mob_tr.translation(),
+            mob_tr.rotation(),
+            None,
+            !has_model,
+            false,
+        ));
     };
     if positions.is_empty() {
-        return Some((mob_tr.translation(), mob_tr.rotation(), None, true));
+        return Some((mob_tr.translation(), mob_tr.rotation(), None, true, false));
     }
     let mut best: Option<(GlobalTransform, Option<String>, f32)> = None;
     for position in positions {
@@ -365,7 +480,7 @@ fn mob_use_transform(
         }
     }
     let (world, tag, _) = best?;
-    Some((world.translation(), world.rotation(), tag, true))
+    Some((world.translation(), world.rotation(), tag, true, true))
 }
 
 /// `FRONT`/`BACK` animation suffix of a `ZS_POS*` node name.
@@ -379,12 +494,12 @@ fn position_tag(name: &str) -> Option<&'static str> {
     }
 }
 
-/// Npc-side mob animation name, e.g. `S_BENCH_S1` or `S_BEDHIGH_FRONT_S1`.
+/// Mob-use pose animation name, e.g. `S_BENCH_S1` or `S_BEDHIGH_FRONT_S1`.
 ///
 /// Only beds ship position-tagged poses; other mobs (e.g. `BAUMSAEGE`) have the
 /// attachment node but only the untagged animation, so the tag is used only
 /// when the archive has it.
-fn mob_animation_name(
+pub(crate) fn mob_animation_name(
     model: &NpcModel,
     overlay: Option<&NpcOverlay>,
     files: &AnimationFiles,
@@ -392,7 +507,7 @@ fn mob_animation_name(
     position_tag: Option<&str>,
     state: i32,
 ) -> String {
-    let state = state.max(1);
+    let state = state.max(0);
     let scheme = scheme.to_uppercase();
     let tagged = position_tag.map(|tag| format!("S_{scheme}_{tag}_S{state}"));
     if let Some(tagged) = tagged
@@ -403,6 +518,29 @@ fn mob_animation_name(
     format!("S_{scheme}_S{state}")
 }
 
+/// Whether the archive has a player pose for the mob scheme, tagged or not.
+///
+/// Used by the player interaction to decide between attaching to the mob and
+/// the plain state toggle of doors/levers/wheels. The exact tag is resolved
+/// when the attachment nodes are available (`mob_animation_name`).
+pub(crate) fn mob_scheme_has_player_pose(
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    files: &AnimationFiles,
+    scheme: &str,
+    state: i32,
+) -> bool {
+    let state = state.max(0);
+    let scheme = scheme.to_uppercase();
+    [None, Some("FRONT"), Some("BACK")].into_iter().any(|tag| {
+        let name = match tag {
+            Some(tag) => format!("S_{scheme}_{tag}_S{state}"),
+            None => format!("S_{scheme}_S{state}"),
+        };
+        has_animation(model, overlay, files, &name)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -410,10 +548,31 @@ mod tests {
     #[derive(Resource, Default)]
     struct Selected(Option<Entity>);
 
+    #[derive(Resource, Default)]
+    struct Requested(Option<Entity>);
+
     fn select(mut selected: ResMut<Selected>, registry: Res<MobRegistry>, mut mobs: MobQuery) {
         let claimed = HashSet::new();
-        selected.0 = select_mob(&mut mobs, &registry, &claimed, "bsanvil", Vec3::ZERO)
+        selected.0 = select_mob(&mut mobs, &registry, &claimed, "bsanvil", Vec3::ZERO, None)
             .map(|choice| choice.mob);
+    }
+
+    fn select_requested(
+        mut selected: ResMut<Selected>,
+        registry: Res<MobRegistry>,
+        requested: Res<Requested>,
+        mut mobs: MobQuery,
+    ) {
+        let claimed = HashSet::new();
+        selected.0 = select_mob(
+            &mut mobs,
+            &registry,
+            &claimed,
+            "bsanvil",
+            Vec3::ZERO,
+            requested.0,
+        )
+        .map(|choice| choice.mob);
     }
 
     type MobQuery<'w, 's> = Query<
@@ -462,6 +621,8 @@ mod tests {
             rewind: false,
             trigger_target: String::new(),
             trigger_fired: false,
+            auto_end: false,
+            no_move: false,
             positions: None,
             state: 0,
         }
@@ -481,6 +642,114 @@ mod tests {
         let (app, _) = app_with_mob("", Some(Entity::PLACEHOLDER));
 
         assert_eq!(app.world().resource::<Selected>().0, None);
+    }
+
+    #[test]
+    fn requested_mob_wins_over_a_nearer_one() {
+        let mut app = App::new();
+        app.init_resource::<MobRegistry>();
+        app.init_resource::<Selected>();
+        app.init_resource::<Requested>();
+        app.add_systems(Update, select_requested);
+
+        let near = app
+            .world_mut()
+            .spawn((
+                game_mob("BSANVIL", ""),
+                Transform::IDENTITY,
+                GlobalTransform::IDENTITY,
+            ))
+            .id();
+        let far = app
+            .world_mut()
+            .spawn((
+                game_mob("BSANVIL", ""),
+                Transform::from_xyz(5.0, 0.0, 0.0),
+                GlobalTransform::from_xyz(5.0, 0.0, 0.0),
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<MobRegistry>()
+            .insert("BSANVIL".to_string(), far);
+        app.world_mut()
+            .resource_mut::<MobRegistry>()
+            .insert("BSANVIL".to_string(), near);
+        app.world_mut().resource_mut::<Requested>().0 = Some(far);
+        app.update();
+
+        assert_eq!(app.world().resource::<Selected>().0, Some(far));
+    }
+
+    #[test]
+    fn requested_occupied_mob_is_rejected() {
+        let mut app = App::new();
+        app.init_resource::<MobRegistry>();
+        app.init_resource::<Selected>();
+        app.init_resource::<Requested>();
+        app.add_systems(Update, select_requested);
+
+        let mob = app
+            .world_mut()
+            .spawn((
+                game_mob("BSANVIL", ""),
+                Transform::IDENTITY,
+                GlobalTransform::IDENTITY,
+                MobOccupant(Entity::PLACEHOLDER),
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<MobRegistry>()
+            .insert("BSANVIL".to_string(), mob);
+        app.world_mut().resource_mut::<Requested>().0 = Some(mob);
+        app.update();
+
+        assert_eq!(app.world().resource::<Selected>().0, None);
+    }
+
+    #[test]
+    fn player_pose_detection_covers_tagged_untagged_and_doors() {
+        let model = NpcModel {
+            animation_scheme: Some("HUMANS".to_string()),
+            ..Default::default()
+        };
+        let files = AnimationFiles(HashSet::from([
+            "HUMANS-S_CHAIR_S1.MAN".to_string(),
+            "HUMANS-S_BEDHIGH_BACK_S1.MAN".to_string(),
+        ]));
+
+        assert!(mob_scheme_has_player_pose(&model, None, &files, "CHAIR", 1));
+        assert!(mob_scheme_has_player_pose(
+            &model, None, &files, "BEDHIGH", 1
+        ));
+        assert!(!mob_scheme_has_player_pose(&model, None, &files, "DOOR", 1));
+    }
+
+    #[test]
+    fn player_pose_detection_accepts_the_switch_state_zero() {
+        let model = NpcModel {
+            animation_scheme: Some("HUMANS".to_string()),
+            ..Default::default()
+        };
+        let files = AnimationFiles(HashSet::from([
+            "HUMANS-S_LEVER_S0.MAN".to_string(),
+            "HUMANS-S_LEVER_S1.MAN".to_string(),
+        ]));
+
+        assert!(mob_scheme_has_player_pose(&model, None, &files, "LEVER", 0));
+        assert!(mob_scheme_has_player_pose(&model, None, &files, "LEVER", 1));
+        assert_eq!(
+            mob_animation_name(&model, None, &files, "LEVER", None, 0),
+            "S_LEVER_S0"
+        );
+    }
+
+    #[test]
+    fn player_switch_stays_an_attach_request_at_state_zero() {
+        let action = UseMobAction::player_switch(Entity::PLACEHOLDER, StringCanon::new("LEVER"), 0);
+
+        assert!(action.state > 0, "state 0 must not mean detach");
+        assert_eq!(action.switch_state, Some(0));
+        assert!(action.snap);
     }
 
     #[test]

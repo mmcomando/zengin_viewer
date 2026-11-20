@@ -10,7 +10,7 @@ use crate::gameplay::character_camera::{
     camera_movement_system, camera_toggle_input, use_character_camera,
 };
 use crate::input::{GameplayAction, GameplayInputMarker};
-use crate::zengin::NPC_BODY;
+use crate::zengin::{NPC_BODY, NpcMobUse};
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
 /// with support for ground detection and configurable movement settings.
@@ -148,7 +148,7 @@ pub struct CharacterCollision {
 /// Updates the [`Grounded`] status for character controllers.
 fn update_grounded(
     mut commands: Commands,
-    mut query: Query<(Entity, &GroundDetection, &GlobalTransform)>,
+    mut query: Query<(Entity, &GroundDetection, &GlobalTransform), Without<NpcMobUse>>,
     spatial_query: SpatialQuery,
 ) {
     for (entity, ground_detection, global_transform) in &mut query {
@@ -199,12 +199,15 @@ fn movement(
     time: Res<Time>,
     mut commands: Commands,
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
-    mut controllers: Query<(
-        Entity,
-        &CharacterMovementSettings,
-        &mut LinearVelocity,
-        Has<Grounded>,
-    )>,
+    mut controllers: Query<
+        (
+            Entity,
+            &CharacterMovementSettings,
+            &mut LinearVelocity,
+            Has<Grounded>,
+        ),
+        Without<NpcMobUse>,
+    >,
 ) {
     let delta_secs = time.delta_secs();
 
@@ -252,7 +255,7 @@ fn movement(
 /// Applies gravity to character controllers.
 fn apply_gravity(
     time: Res<Time>,
-    mut controllers: Query<(&CharacterMovementSettings, &mut LinearVelocity)>,
+    mut controllers: Query<(&CharacterMovementSettings, &mut LinearVelocity), Without<NpcMobUse>>,
 ) {
     let delta_secs = time.delta_secs();
 
@@ -280,7 +283,7 @@ fn apply_gravity(
 
 /// Slows down movement in the XZ plane.
 fn apply_movement_damping(
-    mut query: Query<(&CharacterMovementSettings, &mut LinearVelocity)>,
+    mut query: Query<(&CharacterMovementSettings, &mut LinearVelocity), Without<NpcMobUse>>,
     time: Res<Time>,
 ) {
     let delta_secs = time.delta_secs();
@@ -309,7 +312,7 @@ pub fn move_and_slide(
             &mut LinearVelocity,
             &Collider,
         ),
-        With<CharacterController>,
+        (With<CharacterController>, Without<NpcMobUse>),
     >,
     move_and_slide: MoveAndSlide,
     time: Res<Time>,

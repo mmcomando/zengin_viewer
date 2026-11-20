@@ -139,10 +139,7 @@ mod tests {
                     waypoint: StringCanon::new("wp0"),
                 },
                 AttackAction::new(Entity::PLACEHOLDER),
-                UseMobAction {
-                    scheme: StringCanon::new("BENCH"),
-                    state: 1,
-                },
+                UseMobAction::npc(StringCanon::new("BENCH"), 1),
                 UseItemStateAction {
                     item,
                     scheme: StringCanon::new("LUTE"),

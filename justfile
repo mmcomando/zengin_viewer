@@ -32,6 +32,9 @@ all-test-scenarios:
     just test-scenario tests/journal
     just test-scenario tests/dialog_lares
     just test-scenario tests/wolf_combat
+    just test-scenario tests/player_use_chair
+    just test-scenario tests/player_use_lever
+    just test-scenario tests/player_use_door
 
 # Headless CPU profile: writes a ~1GB chrome trace, then prints heaviest spans.
 trace-chrome:

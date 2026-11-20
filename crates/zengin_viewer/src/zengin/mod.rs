@@ -191,6 +191,12 @@ pub struct GameMob {
     /// Whether `trigger_target` was already notified. A mob with `rewind ==
     /// false` notifies it only once.
     pub trigger_fired: bool,
+    /// Switch-like vob (lever, button, wheel, door): using it toggles the state
+    /// and the player stands up automatically after the use animation.
+    pub auto_end: bool,
+    /// Door: use from where the player stands instead of snapping to the
+    /// attachment point.
+    pub no_move: bool,
     /// `ZS_POS*` attachment nodes, `None` until the model asset is scanned.
     pub positions: Option<Vec<MobPosition>>,
     /// State applied by `Wld_SetMobRoutine` over the day.

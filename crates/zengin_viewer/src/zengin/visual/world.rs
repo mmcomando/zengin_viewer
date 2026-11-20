@@ -179,20 +179,31 @@ fn handle_mob(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, spawns: &WorldSp
         .then(|| visual_asset_path(vfs, &visual))
         .flatten()
         .unwrap_or_default();
+    let scheme = mob_scheme(&visual.name());
+    // Switch-like vobs end the player's use automatically; the scheme fallback
+    // covers mods that use an `oCMobInter` class for a lever/button visual.
+    let auto_end = matches!(
+        obj.get_type(),
+        VobType::oCMobSwitch | VobType::oCMobWheel | VobType::oCMobDoor
+    ) || is_switch_mob_scheme(&scheme);
+    let no_move =
+        matches!(obj.get_type(), VobType::oCMobDoor) || scheme.eq_ignore_ascii_case("DOOR");
     spawns.mobs.send(SpawnMob {
         tr: get_obj_tr(obj),
         archetype,
         collides: obj.cd_dynamic(),
         vob_name: obj.name(),
         focus_name: obj.movable_name(),
-        scheme: mob_scheme(&visual.name()),
         visual_stem: mob_visual_stem(&visual.name()),
+        scheme,
         state_num: obj.interactive_state(),
         use_with_item: obj.interactive_use_with_item(),
         on_state_func: obj.interactive_on_state_change_function(),
         condition_func: obj.interactive_condition_function(),
         rewind: obj.interactive_rewind(),
         trigger_target: obj.interactive_target(),
+        auto_end,
+        no_move,
     });
 }
 

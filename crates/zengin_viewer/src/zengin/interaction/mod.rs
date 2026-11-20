@@ -7,6 +7,7 @@ mod actions;
 mod combat;
 mod debug;
 mod loot;
+mod player_mob;
 mod use_mob;
 
 use bevy::prelude::*;
@@ -36,6 +37,13 @@ impl Plugin for PlayerInteractionPlugin {
                 actions::handle_transfer_items,
                 actions::pickup_selected_item,
                 loot::open_selected_chest,
+                player_mob::start_auto_end_release
+                    .before(player_mob::stand_up_player_from_mob)
+                    .before(player_mob::advance_player_mob_release),
+                player_mob::stand_up_player_from_mob,
+                player_mob::advance_player_mob_release,
+                player_mob::sync_player_mob_physics
+                    .before(crate::gameplay::character::move_and_slide),
                 use_mob::use_selected_mob,
                 actions::toggle_player_weapons,
                 debug::debug_equipment_on_start,

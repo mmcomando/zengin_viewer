@@ -485,6 +485,8 @@ mod tests {
             rewind: false,
             trigger_target: String::new(),
             trigger_fired: false,
+            auto_end: false,
+            no_move: false,
             positions: None,
             state: 0,
         }

@@ -38,6 +38,7 @@ pub(crate) use item_state::{
 pub(crate) use queue::NpcActionQueue;
 pub(crate) use stand_up::{StandUpAction, start_stand_up_action};
 pub(crate) use use_mob::{
-    UseMobAction, end_use_mob_action, run_use_mob_action, start_use_mob_action,
+    UseMobAction, end_use_mob_action, mob_animation_name, mob_scheme_has_player_pose,
+    release_mob_use, run_use_mob_action, start_use_mob_action,
 };
 pub(crate) use wait::{WaitAction, run_wait_action};

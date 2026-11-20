@@ -9,7 +9,7 @@ use leafwing_input_manager::prelude::ActionState;
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::input::{GameplayAction, GameplayInputMarker};
-use crate::zengin::{NpcWeaponMode, Selection, WeaponMode};
+use crate::zengin::{NpcMobUse, NpcWeaponMode, Selection, WeaponMode};
 
 use super::auto_anim_sequencer::{
     AutoAnimSequencer, DesiredAnimation, MeleeAttackKind, SetDesiredAnimation, TurnDirection,
@@ -32,6 +32,7 @@ pub(super) fn send_desired_animations(
             Option<&NpcWeaponMode>,
             &GlobalTransform,
             &AnimationController,
+            Option<&NpcMobUse>,
         ),
         (With<PlayerCharacter>, With<AutoAnimSequencer>),
     >,
@@ -41,9 +42,14 @@ pub(super) fn send_desired_animations(
     transforms: Query<&GlobalTransform>,
     mut writer: MessageWriter<SetDesiredAnimation>,
 ) {
-    let Ok((entity, weapon_mode, player_tr, controller)) = players.single() else {
+    let Ok((entity, weapon_mode, player_tr, controller, mob_use)) = players.single() else {
         return;
     };
+    // The mob pose is queued directly by the shared npc `UseMobAction`; the
+    // player's input driven animation must not override it.
+    if mob_use.is_some() {
+        return;
+    }
 
     let mode = weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0);
 

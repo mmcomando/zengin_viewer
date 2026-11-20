@@ -206,6 +206,14 @@ pub fn mob_scheme(visual_name: &str) -> String {
         .to_uppercase()
 }
 
+/// Schemes of switch-like mobs: levers, buttons, wheels, doors. Using one
+/// toggles its state and ends the player's use automatically.
+pub fn is_switch_mob_scheme(scheme: &str) -> bool {
+    ["DOOR", "LEVER", "TOUCHPLATE", "TURNSWITCH", "VWHEEL"]
+        .iter()
+        .any(|name| scheme.eq_ignore_ascii_case(name))
+}
+
 /// File stem of a mob visual, the `<STEM>` of its `<STEM>-S_S<n>.MAN`
 /// animations (`BSFIRE_OC.MDM` -> `BSFIRE_OC`).
 pub fn mob_visual_stem(visual_name: &str) -> String {
@@ -283,6 +291,16 @@ mod tests {
         assert_eq!(mob_scheme("BEDHIGH_PC.ASC"), "BEDHIGH");
         assert_eq!(mob_scheme("chair"), "CHAIR");
         assert_eq!(mob_scheme(""), "");
+    }
+
+    #[test]
+    fn switch_mob_schemes_are_recognised_case_insensitively() {
+        for scheme in ["DOOR", "lever", "ToUcHpLaTe", "turnsWITCH", "vwheel"] {
+            assert!(is_switch_mob_scheme(scheme), "{scheme} is a switch");
+        }
+        for scheme in ["BENCH", "CHAIR", "BSANVIL", ""] {
+            assert!(!is_switch_mob_scheme(scheme), "{scheme} is not a switch");
+        }
     }
 
     #[test]

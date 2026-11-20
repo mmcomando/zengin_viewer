@@ -10,7 +10,7 @@ use crate::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
 use crate::game_state::AppState;
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gui_debug::{StaticMesh, WorldMesh};
-use crate::zengin::common::{mob_scheme, mob_visual_stem};
+use crate::zengin::common::{is_switch_mob_scheme, mob_scheme, mob_visual_stem};
 use crate::zengin::loaders::vdf_reader::ZenginVfs;
 use crate::zengin::loaders::vfs::find_mesh_path;
 use crate::zengin::mobs::{MobAnimation, mob_state_animation};
@@ -89,6 +89,7 @@ pub(crate) struct SpawnChest {
 }
 
 /// Interactive mob vob (`oCMobInter` and its subtypes).
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default, Clone, Message)]
 pub(crate) struct SpawnMob {
     pub(crate) tr: Transform,
@@ -114,6 +115,11 @@ pub(crate) struct SpawnMob {
     pub(crate) rewind: bool,
     /// Script name of the vob notified (`triggerTarget`) when the mob is used.
     pub(crate) trigger_target: String,
+    /// Switch-like vob: using it toggles the state and ends automatically.
+    pub(crate) auto_end: bool,
+    /// Door: the player uses it from where they stand instead of snapping to
+    /// the attachment point.
+    pub(crate) no_move: bool,
 }
 
 /// Moving trigger vob (`zCMover`).
@@ -183,6 +189,10 @@ pub(crate) fn request_mob_spawn(
         return;
     };
     let scheme = mob_scheme(visual);
+    // The debug spawn has no vob type; derive the switch/door behaviour from
+    // the scheme so a spawned lever/door matches the world objects.
+    let auto_end = is_switch_mob_scheme(&scheme);
+    let no_move = scheme.eq_ignore_ascii_case("DOOR");
     mobs.send(SpawnMob {
         tr,
         archetype,
@@ -192,6 +202,8 @@ pub(crate) fn request_mob_spawn(
         visual_stem: mob_visual_stem(visual),
         scheme,
         state_num: state_num.unwrap_or(1),
+        auto_end,
+        no_move,
         ..default()
     });
 }
@@ -368,6 +380,8 @@ fn spawn_mobs(
                 rewind: mob.rewind,
                 trigger_target: mob.trigger_target,
                 trigger_fired: false,
+                auto_end: mob.auto_end,
+                no_move: mob.no_move,
                 positions: None,
                 state: 0,
             },

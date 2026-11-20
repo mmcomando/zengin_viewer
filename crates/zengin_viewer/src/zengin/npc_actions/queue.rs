@@ -57,7 +57,7 @@ impl NpcActionQueue {
             }
             return true;
         }
-        self.push_back(QueuedAction::UseMob(UseMobAction { scheme, state }))
+        self.push_back(QueuedAction::UseMob(UseMobAction::npc(scheme, state)))
     }
 
     /// Only an identical `AI_UseItemToState` request is deduplicated.
