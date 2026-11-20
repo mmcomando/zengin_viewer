@@ -14,3 +14,6 @@
 	path = crates/dmusic-sys/vendor/dmusic
 	url = https://github.com/GothicKit/dmusic.git
 
+[submodule "misc/scenario_test_references"]
+	path = misc/scenario_test_references
+	url = https://github.com/mmcomando/zengin_viewer_tests.git
