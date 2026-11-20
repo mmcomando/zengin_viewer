@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use bevy::prelude::*;
 use bevy::render::view::window::screenshot::Screenshot;
@@ -12,8 +12,12 @@ use crate::input::record::{DEFAULT_FRAME_DT, ReplayCommand};
 
 use super::state::ActionReplay;
 
-/// Root directory of all scenario workdirs.
-const SCENARIO_DIR: &str = "misc/scenario_output";
+/// Root directory of the scenario files.
+const SCENARIO_ROOT: &str = "misc/scenario";
+/// Root directory of the scenario workdirs.
+const SCENARIO_OUTPUT_ROOT: &str = "misc/scenario_output";
+/// Root directory of the reference screenshots compared by `TestScreenshot`.
+const SCENARIO_REFERENCE_ROOT: &str = "misc/scenario_test_references";
 
 /// Resolution used for scenario runs.
 const SCENARIO_WINDOW_RESOLUTION: (u32, u32) = (1024, 768);
@@ -26,31 +30,67 @@ pub(super) struct ScheduledCommand {
 }
 
 /// Where a scenario run reads its commands from and writes its outputs to.
-struct ScenarioLayout {
+pub(super) struct ScenarioLayout {
     /// RON file with the replay commands.
-    scenario_file: PathBuf,
+    pub(super) scenario_file: PathBuf,
+    /// Scenario ID without the `.ron` extension, e.g. `tests/dialog/lares`.
+    pub(super) id: PathBuf,
     /// Directory relative screenshot paths resolve against, cleared on start.
-    workdir: PathBuf,
-    /// Reference screenshots of a test scenario, `None` for a plain replay.
-    reference: Option<PathBuf>,
-    /// Copy produced screenshots into the reference instead of comparing.
-    update_reference: bool,
+    pub(super) workdir: PathBuf,
+    /// Root directory of the `TestScreenshot` reference screenshots.
+    pub(super) reference_root: PathBuf,
+    /// Copy produced test screenshots into the reference instead of comparing.
+    pub(super) update_reference: bool,
 }
 
-/// Workdir of the replay named by its file: contains all outputs (screenshots)
-/// of the replay under `misc/scenario_output/<file stem>/`.
-fn scenario_workdir(replay_path: &Path) -> PathBuf {
-    let name = replay_path.file_stem().map_or_else(
-        || "replay".to_string(),
-        |stem| stem.to_string_lossy().into_owned(),
-    );
-    Path::new(SCENARIO_DIR).join(name)
+impl ScenarioLayout {
+    /// Resolves a scenario ID (a path under [`SCENARIO_ROOT`], with or without
+    /// the `.ron` extension) to its file, workdir and reference directory.
+    pub(super) fn from_id(id: &Path, update_reference: bool) -> Self {
+        let id = normalize_scenario_id(id);
+        let mut scenario_file = Path::new(SCENARIO_ROOT).join(&id);
+        if scenario_file.extension().is_none_or(|ext| ext != "ron") {
+            scenario_file.set_extension("ron");
+        }
+        let id = scenario_file
+            .strip_prefix(SCENARIO_ROOT)
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|_| id.clone())
+            .with_extension("");
+        Self {
+            workdir: Path::new(SCENARIO_OUTPUT_ROOT).join(&id),
+            reference_root: Path::new(SCENARIO_REFERENCE_ROOT).join(&id),
+            id,
+            scenario_file,
+            update_reference,
+        }
+    }
 }
 
-/// Applies the scenario window settings for replay runs: hidden window with a
-/// fixed resolution, so screenshots are reproducible.
-pub(crate) fn apply_scenario_window_settings(window: &mut Window, replay_enabled: bool) {
-    if !replay_enabled {
+/// Rejects scenario IDs that would escape the scenario root. A path that
+/// starts with the root itself is accepted, so both `tests/foo` and
+/// `misc/scenario/tests/foo.ron` name the same scenario.
+fn normalize_scenario_id(id: &Path) -> PathBuf {
+    let id = id.strip_prefix(SCENARIO_ROOT).unwrap_or(id);
+    if id.as_os_str().is_empty() {
+        panic!("--scenario needs a scenario ID under {SCENARIO_ROOT}");
+    }
+    for component in id.components() {
+        match component {
+            Component::Normal(_) | Component::CurDir => {}
+            _ => panic!(
+                "--scenario {id:?} must be a relative path under {SCENARIO_ROOT} \
+                 without `..` components"
+            ),
+        }
+    }
+    id.to_path_buf()
+}
+
+/// Applies the scenario window settings for scenario runs: hidden window with
+/// a fixed resolution, so screenshots are reproducible.
+pub(crate) fn apply_scenario_window_settings(window: &mut Window, scenario_enabled: bool) {
+    if !scenario_enabled {
         return;
     }
     window.visible = false;
@@ -59,35 +99,23 @@ pub(crate) fn apply_scenario_window_settings(window: &mut Window, replay_enabled
 
 /// Resolves the scenario layout from the command line options.
 fn scenario_layout(options: &Options) -> Option<ScenarioLayout> {
-    if let Some(dir) = options.test_scenario() {
-        return Some(ScenarioLayout {
-            scenario_file: dir.join("scenario.ron"),
-            workdir: dir.join("workdir"),
-            reference: Some(dir.join("reference")),
-            update_reference: options.update_reference(),
-        });
-    }
-    let path = options.replay_actions()?;
-    Some(ScenarioLayout {
-        scenario_file: path.clone(),
-        workdir: scenario_workdir(path),
-        reference: None,
-        update_reference: false,
-    })
+    let id = options.scenario()?;
+    Some(ScenarioLayout::from_id(id, options.update_reference()))
 }
 
 /// Loads and prepares the scenario file named by the command line options.
 ///
-/// Outputs of the replay (screenshots) resolve against the scenario workdir.
-pub(super) fn load_replay_file(options: Res<Options>, mut commands: Commands) {
+/// Outputs of the scenario (screenshots) resolve against the scenario workdir.
+pub(super) fn load_scenario(options: Res<Options>, mut commands: Commands) {
     let Some(layout) = scenario_layout(&options) else {
         return;
     };
-    let replay = prepare_replay(&layout);
+    let replay = prepare_replay(&layout, options.renderless());
     info!(
-        "Replaying {} recorded replay command(s) from {:?}",
+        "Replaying {} scenario command(s) from {:?} (id {:?})",
         replay.commands.len(),
-        layout.scenario_file
+        layout.scenario_file,
+        layout.id
     );
     commands.insert_resource(replay);
 }
@@ -135,25 +163,25 @@ fn remove_scenario_output(path: &Path) {
     }
 }
 
-/// Resets the scenario workdir and parses the replay file.
+/// Resets the scenario workdir and parses the scenario file.
 ///
 /// Panics when the scenario file is missing, unreadable or malformed, since
 /// that is a broken invocation rather than a degraded replay.
-fn prepare_replay(layout: &ScenarioLayout) -> ActionReplay {
+fn prepare_replay(layout: &ScenarioLayout, renderless: bool) -> ActionReplay {
     if !layout.scenario_file.exists() {
         panic!(
-            "Scenario file {} does not exist",
+            "Scenario file {} does not exist; scenario IDs are paths under {SCENARIO_ROOT}",
             layout.scenario_file.display()
         );
     }
     reset_scenario_workdir(&layout.workdir);
-    match read_replay(layout) {
+    match read_replay(layout, renderless) {
         Ok(replay) => replay,
-        Err(error) => panic!("Failed to prepare scenario replay: {error}"),
+        Err(error) => panic!("Failed to prepare scenario: {error}"),
     }
 }
 
-fn read_replay(layout: &ScenarioLayout) -> Result<ActionReplay, String> {
+fn read_replay(layout: &ScenarioLayout, renderless: bool) -> Result<ActionReplay, String> {
     let path = &layout.scenario_file;
     let contents = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
@@ -164,8 +192,9 @@ fn read_replay(layout: &ScenarioLayout) -> Result<ActionReplay, String> {
     let commands = schedule_commands(commands)?;
     Ok(ActionReplay {
         workdir: layout.workdir.clone(),
-        reference: layout.reference.clone(),
+        reference_root: layout.reference_root.clone(),
         update_reference: layout.update_reference,
+        renderless,
         commands,
         next: 0,
         frame: 0,
@@ -203,10 +232,10 @@ pub(super) fn schedule_commands(
     Ok(scheduled)
 }
 
-/// Exits a test scenario run after an explicit `ExitGame` once all screenshots
-/// were captured and compared, so comparisons are never skipped by leaving
-/// early. Plain replays exit through `ExitGame` or the frame limit.
-pub(super) fn finish_test_scenario(
+/// Exits a scenario run after an explicit `ExitGame` once all pending
+/// screenshots were captured and compared, so comparisons are never skipped by
+/// leaving early. The frame limit exits a run without `ExitGame`.
+pub(super) fn finish_scenario(
     replay: Option<Res<ActionReplay>>,
     screenshots: Query<(), With<Screenshot>>,
     mut exit: MessageWriter<AppExit>,
@@ -214,16 +243,65 @@ pub(super) fn finish_test_scenario(
     let Some(replay) = replay else {
         return;
     };
-    if replay.reference.is_none() || !screenshots.is_empty() {
-        return;
-    }
     if !replay.exit_requested {
         return;
     }
+    if !screenshots.is_empty() {
+        return;
+    }
     if replay.update_reference {
-        info!("Test scenario finished, screenshots written to the reference directory");
+        info!("Scenario finished, test screenshots written to the reference directory");
     } else {
-        info!("Test scenario finished, all screenshots match their references");
+        info!("Scenario finished");
     }
     exit.write(AppExit::Success);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ScenarioLayout;
+    use std::path::{Path, PathBuf};
+
+    fn layout(id: &str) -> ScenarioLayout {
+        ScenarioLayout::from_id(Path::new(id), false)
+    }
+
+    #[test]
+    fn nested_id_resolves_to_the_workdir_and_reference_dirs() {
+        let layout = layout("tests/dialog/lares");
+        assert_eq!(
+            layout.scenario_file,
+            PathBuf::from("misc/scenario/tests/dialog/lares.ron")
+        );
+        assert_eq!(layout.id, PathBuf::from("tests/dialog/lares"));
+        assert_eq!(
+            layout.workdir,
+            PathBuf::from("misc/scenario_output/tests/dialog/lares")
+        );
+        assert_eq!(
+            layout.reference_root,
+            PathBuf::from("misc/scenario_test_references/tests/dialog/lares")
+        );
+    }
+
+    #[test]
+    fn ron_extension_and_root_prefix_are_optional() {
+        let with_extension = layout("tests/dialog/lares.ron");
+        let with_root = layout("misc/scenario/tests/dialog/lares.ron");
+        assert_eq!(with_extension.scenario_file, with_root.scenario_file);
+        assert_eq!(with_extension.id, with_root.id);
+        assert_eq!(with_extension.workdir, with_root.workdir);
+    }
+
+    #[test]
+    #[should_panic(expected = "must be a relative path")]
+    fn parent_dir_is_rejected() {
+        layout("../outside");
+    }
+
+    #[test]
+    #[should_panic(expected = "must be a relative path")]
+    fn absolute_path_is_rejected() {
+        layout("/tmp/scenario");
+    }
 }

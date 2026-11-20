@@ -1,7 +1,7 @@
 //! Recording of triggered actions into a RON file, enabled by `--save-actions`.
 //!
 //! The recording is a frame-indexed command stream (`ReplayCommand`) that can
-//! be replayed later with `--replay-actions` (see `input/replay.rs`).
+//! be replayed later with `--scenario` (see `input/replay.rs`).
 
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
@@ -149,6 +149,17 @@ pub(crate) enum ReplayCommand {
         frame_dt: Option<u64>,
         path: String,
     },
+    /// Save a screenshot of the primary window to `path` and compare it with
+    /// the reference screenshot at the same relative path under
+    /// `misc/scenario_test_references/<scenario id>/`. With `--update-reference`
+    /// the produced screenshot is copied into the reference directory instead.
+    TestScreenshot {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        path: String,
+    },
     /// Grants the hardcoded test items to the player.
     ZenginGiveTestItems {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -288,7 +299,7 @@ pub(crate) enum ReplayCommand {
         frame_dt: Option<u64>,
     },
     /// Panics when no captured log line matches the regex.
-    LogExists {
+    TestLogExists {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -296,9 +307,9 @@ pub(crate) enum ReplayCommand {
         regex: String,
     },
     /// Panics when a captured log line matches the regex, the negative of
-    /// [`Self::LogExists`]. Usually paired with [`Self::ClearLogBuffer`] so it
-    /// only checks the events of the observed time window.
-    LogNotExists {
+    /// [`Self::TestLogExists`]. Usually paired with [`Self::TestClearLogBuffer`]
+    /// so it only checks the events of the observed time window.
+    TestLogNotExists {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -306,7 +317,7 @@ pub(crate) enum ReplayCommand {
         regex: String,
     },
     /// Clears the captured log lines.
-    ClearLogBuffer {
+    TestClearLogBuffer {
         #[serde(skip_serializing_if = "Option::is_none")]
         frame: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -354,6 +365,9 @@ impl ReplayCommand {
             | Self::Screenshot {
                 frame, frame_dt, ..
             }
+            | Self::TestScreenshot {
+                frame, frame_dt, ..
+            }
             | Self::ZenginSpawnPlayerCharacter {
                 frame, frame_dt, ..
             }
@@ -390,13 +404,13 @@ impl ReplayCommand {
             | Self::OpenMainMenu {
                 frame, frame_dt, ..
             }
-            | Self::LogExists {
+            | Self::TestLogExists {
                 frame, frame_dt, ..
             }
-            | Self::LogNotExists {
+            | Self::TestLogNotExists {
                 frame, frame_dt, ..
             }
-            | Self::ClearLogBuffer {
+            | Self::TestClearLogBuffer {
                 frame, frame_dt, ..
             }
             | Self::ExitGame {
@@ -428,6 +442,11 @@ fn open_recording_file(options: Res<Options>, mut commands: Commands) {
     let Some(path) = options.save_actions() else {
         return;
     };
+    if let Some(parent) = path.parent()
+        && let Err(error) = fs::create_dir_all(parent)
+    {
+        warn!("Failed to create action recording dir {parent:?}: {error}");
+    }
     if let Err(error) = fs::remove_file(path)
         && error.kind() != std::io::ErrorKind::NotFound
     {
@@ -700,7 +719,7 @@ fn save_recording(recording: &ActionRecording) {
     let result = File::create(&recording.path).and_then(|mut file| {
         writeln!(
             file,
-            "// Recorded replay commands, replayable with --replay-actions"
+            "// Recorded replay commands, replayable with --scenario <id>"
         )?;
         writeln!(file, "{contents}")
     });

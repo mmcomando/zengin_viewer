@@ -1,0 +1,54 @@
+[
+    // Setup
+    ZenginFilterSpawnWithPosition(frame: 0, points: [(center: (0,0,0), radius: 10.0)]),
+    ZenginFilterNpcWithName(filters: ["lares"]),
+    // ZenginSetDebugNpc(name: "lares"),
+    TestWorld(name: "simple"),
+    ZenginScriptStartup(world: "NEWWORLD/NEWWORLD", clean_world: false),
+    ZenginSpawnPlayerCharacter(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    ZenginSpawnNpc(name:"vlk_449_lares",translation: (0.0, 0.0, -3.0), rotation: (0.0, 0.0, 0.0)),
+    SetCameraLocation(translation: (0.0, 0.0, 0.0), rotation: (-30.0, 0.0, 0.0)),
+    Press(action:Editor(ToggleEditorMode)),
+    Release(action:Editor(ToggleEditorMode)),
+
+    // Before dialog
+    TestScreenshot(frame_dt: 50, path: "00_before_dialog.png"),
+
+    // Start dialog
+    PressRelease(action:Gameplay(Interact)),
+    // Important dialog plays by itself: How there?
+    PressRelease(action:Shared(SkipDialog)),
+    PressRelease(action:Shared(SkipDialog)),
+    PressRelease(action:Shared(SkipDialog)),
+    TestScreenshot(path: "01_first_option.png"),
+    // Hi Lares
+    PressRelease(action:Gui(Confirm)),
+    PressRelease(action:Shared(SkipDialog)),
+    PressRelease(action:Shared(SkipDialog)),
+    PressRelease(action:Shared(SkipDialog)),
+    // Do you know Lee?
+    PressRelease(action:Gui(Down)),
+    TestScreenshot(path: "02_do_you_know_lee.png"),
+    PressRelease(action:Gui(Confirm)),
+    PressRelease(action:Shared(SkipDialog)),
+    PressRelease(action:Shared(SkipDialog)),
+    PressRelease(action:Shared(SkipDialog)),
+    PressRelease(action:Shared(SkipDialog)),
+    PressRelease(action:Shared(SkipDialog)),
+    // Can you teach me?
+    PressRelease(action:Gui(Down)),
+    PressRelease(action:Gui(Down)),
+    TestScreenshot(path: "03_teach_me.png"),
+    PressRelease(action:Gui(Confirm)),
+    PressRelease(action:Shared(SkipDialog)),
+    PressRelease(action:Shared(SkipDialog)),
+    PressRelease(action:Shared(SkipDialog)),
+    // Teach Me
+    PressRelease(action:Gui(Down)),
+    PressRelease(action:Gui(Down)),
+    PressRelease(action:Gui(Confirm)),
+    PressRelease(action:Shared(SkipDialog)),
+    TestScreenshot(path: "04_teach.png"),
+
+    ExitGame(),
+]

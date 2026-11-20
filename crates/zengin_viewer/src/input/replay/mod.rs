@@ -1,11 +1,10 @@
-//! Replay of recorded commands from a RON file, enabled by `--replay-actions`
-//! or `--test-scenario`.
+//! Replay of a scenario file, enabled by `--scenario`.
 //!
-//! The file can live anywhere; paths inside it (screenshots) are resolved
-//! relative to `misc/scenario_output/<file stem>/` for a plain replay, or to
-//! `<test scenario dir>/workdir/` for a test scenario, and must not be absolute.
-//! A test scenario additionally compares every screenshot with the same path
-//! under `<test scenario dir>/reference/`.
+//! A scenario ID is a path under `misc/scenario`, with or without the `.ron`
+//! extension. Screenshot paths inside the file are resolved relative to
+//! `misc/scenario_output/<id>/` and must not be absolute. `TestScreenshot`
+//! additionally compares with (or, with `--update-reference`, copies into)
+//! `misc/scenario_test_references/<id>/`.
 
 mod actions;
 mod command;
@@ -28,7 +27,7 @@ use crate::input::actions::update_input_mode;
 
 use actions::replay_actions;
 use command::apply_replay_locations;
-use scenario::{finish_test_scenario, load_replay_file};
+use scenario::{finish_scenario, load_scenario};
 use state::PendingLocations;
 
 /// Replays the actions recorded with `--save-actions`.
@@ -36,7 +35,7 @@ pub struct ActionReplayPlugin;
 
 impl Plugin for ActionReplayPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, load_replay_file);
+        app.add_systems(Startup, load_scenario);
         // Synthetic actions must be applied in the `ManualControl` set, after
         // the input manager recomputed the action states from raw device
         // input, otherwise they are overridden before consumers read them.
@@ -50,7 +49,7 @@ impl Plugin for ActionReplayPlugin {
         // switch sync point overrides the toggle's placement at the drifted
         // free camera.
         app.add_systems(PreUpdate, apply_replay_locations.after(camera_toggle_input));
-        app.add_systems(Update, finish_test_scenario);
+        app.add_systems(Update, finish_scenario);
         app.init_resource::<PendingLocations>();
     }
 }

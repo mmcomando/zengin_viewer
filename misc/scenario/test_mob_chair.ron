@@ -31,17 +31,17 @@
 
     // `Interact` flips the chair to its used state.
     ZenginSetDebugNpc(name: "lares"),
-    ClearLogBuffer(frame: 150),
+    TestClearLogBuffer(frame: 150),
     Press(frame: 170, action: Gameplay(Interact)),
     Release(frame: 172, action: Gameplay(Interact)),
-    // LogExists(frame: 200, regex: "used mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\) focus\\(CHAIR\\)"),
-    // LogExists(frame: 205, regex: "-> state\\(1\\)"),
+    TestLogExists(frame: 200, regex: "used mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\) focus\\(CHAIR\\)"),
+    TestLogExists(frame: 205, regex: "-> state\\(1\\)"),
     Screenshot(frame: 210, path: "01_used.png"),
 
     // A second `Interact` toggles it back.
-    // Press(frame: 240, action: Gameplay(Interact)),
-    // Release(frame: 242, action: Gameplay(Interact)),
-    // LogExists(frame: 270, regex: "used mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\).* -> state\\(0\\)"),
+    Press(frame: 240, action: Gameplay(Interact)),
+    Release(frame: 242, action: Gameplay(Interact)),
+    TestLogExists(frame: 270, regex: "used mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\).* -> state\\(0\\)"),
     // Screenshot(frame: 280, path: "02_released.png"),
 
     ExitGame(frame: 320),

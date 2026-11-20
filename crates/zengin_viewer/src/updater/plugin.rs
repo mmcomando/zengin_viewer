@@ -10,7 +10,7 @@ pub(crate) struct AmortizedExecutorPlugin;
 
 impl Plugin for AmortizedExecutorPlugin {
     fn build(&self, app: &mut App) {
-        let executor = if app.world().resource::<Options>().replay_enabled() {
+        let executor = if app.world().resource::<Options>().scenario_enabled() {
             AmortizedExecutor::new_unlimited()
         } else {
             AmortizedExecutor::default()

@@ -12,10 +12,12 @@ use super::scenario::ScheduledCommand;
 pub(super) struct ActionReplay {
     /// Workdir used to resolve relative paths inside the commands.
     pub(super) workdir: PathBuf,
-    /// Reference screenshots to compare with, `None` for a plain replay.
-    pub(super) reference: Option<PathBuf>,
-    /// Copy produced screenshots into the reference instead of comparing.
+    /// Root directory of the `TestScreenshot` reference screenshots.
+    pub(super) reference_root: PathBuf,
+    /// Copy produced test screenshots into the reference instead of comparing.
     pub(super) update_reference: bool,
+    /// Screenshots need rendering, so they are skipped in renderless runs.
+    pub(super) renderless: bool,
     /// Commands with resolved frames, sorted by frame.
     pub(super) commands: Vec<ScheduledCommand>,
     /// Index of the next event to apply.

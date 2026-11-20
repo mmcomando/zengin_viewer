@@ -9,12 +9,6 @@ impl Plugin for OptionsPlugin {
     fn build(&self, app: &mut App) {
         let options = Options::parse();
         info!("Command line options: {options:?}");
-        if options.renderless() && options.test_scenario().is_some() {
-            panic!(
-                "--test-scenario needs rendering to capture screenshots, it cannot be \
-                 combined with --renderless"
-            );
-        }
         app.insert_resource(options.clone());
         if let Some(frames) = options.frames() {
             app.add_plugins(FrameLimitPlugin(frames));
@@ -66,23 +60,15 @@ pub struct Options {
     /// An existing file is removed at startup so recording starts clean.
     #[arg(long = "save-actions", value_name = "PATH")]
     save_actions: Option<PathBuf>,
-    /// Replay the commands from this RON file (any location). Paths inside
-    /// the file (screenshots) are resolved relative to
-    /// `misc/scenario_output/<file stem>/` and must not be absolute.
-    #[arg(long = "replay-actions", value_name = "PATH")]
-    replay_actions: Option<PathBuf>,
-    /// Run the test scenario in this directory: replay `<dir>/scenario.ron`,
-    /// write screenshots to `<dir>/workdir/` and compare them with the
-    /// references in `<dir>/reference/`, panicking on mismatch.
-    #[arg(
-        long = "test-scenario",
-        value_name = "DIR",
-        conflicts_with = "replay_actions"
-    )]
-    test_scenario: Option<PathBuf>,
-    /// In a test scenario run, copy the produced screenshots into the
-    /// reference directory instead of comparing them.
-    #[arg(long = "update-reference", requires = "test_scenario")]
+    /// Run the scenario with this ID. The ID is a path under `misc/scenario`,
+    /// with or without the `.ron` extension (e.g. `tests/dialog/lares`).
+    /// Screenshots go to `misc/scenario_output/<id>/`, `TestScreenshot`
+    /// references live in `misc/scenario_test_references/<id>/`.
+    #[arg(long = "scenario", value_name = "ID")]
+    scenario: Option<PathBuf>,
+    /// Copy the screenshots produced by `TestScreenshot` into the reference
+    /// directory instead of comparing them.
+    #[arg(long = "update-reference", requires = "scenario")]
     update_reference: bool,
     /// Start in the main menu instead of starting a new game immediately.
     #[arg(long)]
@@ -108,22 +94,18 @@ impl Options {
         self.save_actions.as_ref()
     }
 
-    pub fn replay_actions(&self) -> Option<&PathBuf> {
-        self.replay_actions.as_ref()
-    }
-
-    pub fn test_scenario(&self) -> Option<&PathBuf> {
-        self.test_scenario.as_ref()
+    pub fn scenario(&self) -> Option<&PathBuf> {
+        self.scenario.as_ref()
     }
 
     pub fn update_reference(&self) -> bool {
         self.update_reference
     }
 
-    /// Whether the run replays a scenario, either a plain replay or a test
-    /// scenario. Scenario runs use a hidden window with a fixed resolution.
-    pub fn replay_enabled(&self) -> bool {
-        self.replay_actions.is_some() || self.test_scenario.is_some()
+    /// Whether the run replays a scenario. Scenario runs use a hidden window
+    /// with a fixed resolution.
+    pub fn scenario_enabled(&self) -> bool {
+        self.scenario.is_some()
     }
 
     pub fn main_menu(&self) -> bool {

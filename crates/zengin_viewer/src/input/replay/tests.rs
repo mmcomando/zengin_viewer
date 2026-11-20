@@ -44,29 +44,24 @@ fn first_command_frame_dt_is_relative_to_zero() {
 
 #[test]
 fn bundled_scenarios_parse() {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../misc/scenarios");
-    let mut found = 0;
-    for entry in std::fs::read_dir(&dir).unwrap() {
-        let path = entry.unwrap().path();
-        if path.extension().and_then(|ext| ext.to_str()) != Some("ron") {
-            continue;
-        }
-        found += 1;
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../misc/scenario");
+    let mut files = Vec::new();
+    collect_scenario_files(&dir, &mut files);
+    assert!(!files.is_empty());
+    for path in files {
         parse_scenario_file(&path);
     }
-    assert!(found > 0);
 }
 
-#[test]
-fn bundled_test_scenarios_parse() {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../misc/test_scenarios");
-    let Ok(entries) = std::fs::read_dir(&dir) else {
-        return;
-    };
+fn collect_scenario_files(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
+    let entries = std::fs::read_dir(dir)
+        .unwrap_or_else(|error| panic!("Failed to read scenario dir {}: {error}", dir.display()));
     for entry in entries {
-        let scenario = entry.unwrap().path().join("scenario.ron");
-        if scenario.exists() {
-            parse_scenario_file(&scenario);
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            collect_scenario_files(&path, files);
+        } else if path.extension().and_then(|ext| ext.to_str()) == Some("ron") {
+            files.push(path);
         }
     }
 }
@@ -233,20 +228,36 @@ fn diff_path_keeps_the_screenshot_directory() {
 fn log_commands_parse_and_schedule() {
     let commands = parse(
         r#"[
-            ClearLogBuffer(frame: 2),
-            LogExists(frame: 4, regex: "WARN.*missing"),
-            LogNotExists(frame: 6, regex: "ERROR.*missing"),
+            TestClearLogBuffer(frame: 2),
+            TestLogExists(frame: 4, regex: "WARN.*missing"),
+            TestLogNotExists(frame: 6, regex: "ERROR.*missing"),
         ]"#,
     )
     .unwrap();
     assert_eq!(frames(&commands), [2, 4, 6]);
     assert!(matches!(
         &commands[1].command,
-        ReplayCommand::LogExists { regex, .. } if regex == "WARN.*missing"
+        ReplayCommand::TestLogExists { regex, .. } if regex == "WARN.*missing"
     ));
     assert!(matches!(
         &commands[2].command,
-        ReplayCommand::LogNotExists { regex, .. } if regex == "ERROR.*missing"
+        ReplayCommand::TestLogNotExists { regex, .. } if regex == "ERROR.*missing"
+    ));
+}
+
+#[test]
+fn test_screenshot_command_parses_and_schedules() {
+    let commands = parse(
+        "[Screenshot(frame: 2, path: \"plain.png\"), TestScreenshot(frame: 4, path: \"tested.png\")]",
+    )
+    .unwrap();
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::Screenshot { path, .. } if path == "plain.png"
+    ));
+    assert!(matches!(
+        &commands[1].command,
+        ReplayCommand::TestScreenshot { path, .. } if path == "tested.png"
     ));
 }
 

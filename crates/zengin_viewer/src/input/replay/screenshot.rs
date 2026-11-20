@@ -20,13 +20,27 @@ const COMPARE_CELL_THRESHOLD: f32 = 16.0 / 255.0;
 /// Fraction of changed grid cells that is still accepted as the same image.
 pub(super) const COMPARE_MAX_CHANGED_FRACTION: f32 = 0.02;
 
-/// Schedules a screenshot save into the scenario workdir. Returns `true` when
-/// the screenshot path is invalid and the replay must be disabled.
+/// Schedules a screenshot save into the scenario workdir. A `test` screenshot
+/// additionally compares with (or blesses) the matching reference screenshot.
+/// Returns `true` when the screenshot path is invalid and the replay must be
+/// disabled.
 pub(super) fn apply_replay_screenshot(
     replay: &ActionReplay,
     path: &String,
     commands: &mut Commands,
+    test: bool,
 ) -> bool {
+    if replay.renderless {
+        if test {
+            warn!(
+                "Skipping TestScreenshot {path:?}: test screenshots need rendering, \
+                 no comparison was done"
+            );
+        } else {
+            warn!("Skipping Screenshot {path:?}: screenshots need rendering");
+        }
+        return false;
+    }
     let Some(file_path) = resolve_scenario_path(&replay.workdir, path) else {
         warn!(
             "Replay disabled: screenshot path {path:?} must be relative to the \
@@ -40,7 +54,7 @@ pub(super) fn apply_replay_screenshot(
     {
         warn!("Failed to create screenshot dir {parent:?}: {error}");
     }
-    let reference = replay.reference.as_ref().map(|root| root.join(path));
+    let reference = test.then(|| replay.reference_root.join(path));
     commands
         .spawn(Screenshot::primary_window())
         .observe(save_scenario_screenshot(

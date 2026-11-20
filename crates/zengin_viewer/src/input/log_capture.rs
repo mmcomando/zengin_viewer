@@ -1,5 +1,5 @@
-//! Capture of tracing events during scenario runs, backing the `LogExists` and
-//! `ClearLogBuffer` replay commands.
+//! Capture of tracing events during scenario runs, backing the `TestLogExists`
+//! and `TestClearLogBuffer` replay commands.
 
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
@@ -96,11 +96,11 @@ pub(crate) fn scenario_log_plugin() -> LogPlugin {
 }
 
 fn scenario_capture_layer(app: &mut App) -> Option<BoxedLayer> {
-    let replay_enabled = app
+    let scenario_enabled = app
         .world()
         .get_resource::<Options>()
-        .is_some_and(|options| options.replay_enabled());
-    if !replay_enabled {
+        .is_some_and(|options| options.scenario_enabled());
+    if !scenario_enabled {
         return None;
     }
     let buffer = LogBuffer::default();

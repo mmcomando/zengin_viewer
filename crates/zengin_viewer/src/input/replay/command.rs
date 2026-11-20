@@ -51,7 +51,6 @@ pub(super) fn apply_replay_command(
     npc_filter: &mut NpcSpawnNameFilter,
     spawn_filter: &mut SpawnPositionFilter,
     log_buffer: Option<&LogBuffer>,
-    exit: &mut MessageWriter<AppExit>,
 ) -> bool {
     match command {
         ReplayCommand::Press { action, .. } => {
@@ -106,7 +105,10 @@ pub(super) fn apply_replay_command(
             toggle_player_armor(gothic_script, player_npc, item);
         }
         ReplayCommand::Screenshot { path, .. } => {
-            return apply_replay_screenshot(replay, path, commands);
+            return apply_replay_screenshot(replay, path, commands, false);
+        }
+        ReplayCommand::TestScreenshot { path, .. } => {
+            return apply_replay_screenshot(replay, path, commands, true);
         }
         ReplayCommand::ZenginGiveTestItems { .. } => {
             let Some(gothic_script) = gothic_script else {
@@ -259,36 +261,31 @@ pub(super) fn apply_replay_command(
                 );
             });
         }
-        ReplayCommand::ClearLogBuffer { .. } => {
+        ReplayCommand::TestClearLogBuffer { .. } => {
             let Some(log_buffer) = log_buffer else {
-                warn!("ClearLogBuffer replay command ignored: log capture is not enabled");
+                warn!("TestClearLogBuffer replay command ignored: log capture is not enabled");
                 return false;
             };
             log_buffer.clear();
             info!("Replay cleared the captured log buffer");
         }
-        ReplayCommand::LogExists { regex, .. } => {
+        ReplayCommand::TestLogExists { regex, .. } => {
             let Some(log_buffer) = log_buffer else {
-                warn!("LogExists replay command ignored: log capture is not enabled");
+                warn!("TestLogExists replay command ignored: log capture is not enabled");
                 return false;
             };
             check_log_exists(log_buffer, regex);
         }
-        ReplayCommand::LogNotExists { regex, .. } => {
+        ReplayCommand::TestLogNotExists { regex, .. } => {
             let Some(log_buffer) = log_buffer else {
-                warn!("LogNotExists replay command ignored: log capture is not enabled");
+                warn!("TestLogNotExists replay command ignored: log capture is not enabled");
                 return false;
             };
             check_log_not_exists(log_buffer, regex);
         }
         ReplayCommand::ExitGame { .. } => {
-            if replay.reference.is_some() {
-                info!("Replay requested the game exit after the screenshots are compared");
-                replay.exit_requested = true;
-            } else {
-                info!("Replay requested the game exit");
-                exit.write(AppExit::Success);
-            }
+            info!("Replay requested the game exit after the screenshots are captured");
+            replay.exit_requested = true;
         }
     }
     false

@@ -18,25 +18,25 @@
     ),
 
     // 1) Far: no combat state may start inside the observed window.
-    ClearLogBuffer(frame: 150),
-    LogNotExists(frame: 185, regex: "AI_StartState\\(zs_mm_(threatenenemy|attack)\\)"),
-    Screenshot(frame: 186, path: "00_far.png"),
+    TestClearLogBuffer(frame: 150),
+    TestLogNotExists(frame: 185, regex: "AI_StartState\\(zs_mm_(threatenenemy|attack)\\)"),
+    TestScreenshot(frame: 186, path: "00_far.png"),
 
     // 2) Step into perception range (8 m, outside the 7 m attack range).
     TeleportPlayer(frame: 200, translation: (0.0, 0.0, -12.0), rotation: (0.0, 0.0, 0.0)),
-    LogExists(frame: 230, regex: "AI_StartState\\(zs_mm_threatenenemy\\)"),
-    LogExists(frame: 235, regex: "DebugNPC: animation .*WOLF-T_WARN"),
-    Screenshot(frame: 280, path: "01_warning.png"),
+    TestLogExists(frame: 230, regex: "AI_StartState\\(zs_mm_threatenenemy\\)"),
+    TestLogExists(frame: 235, regex: "DebugNPC: animation .*WOLF-T_WARN"),
+    TestScreenshot(frame: 280, path: "01_warning.png"),
 
     // 3) The threat timer expires and the wolf starts attacking.
     //
     // The state time reaches 4 s at the loop tick around frame 430; it then
     // runs the last meters before the first swing around frame 505.
-    Screenshot(frame: 470, path: "02_attack_chase.png"),
-    LogExists(frame: 500, regex: "AI_StartState\\(zs_mm_attack\\)"),
-    LogExists(frame: 510, regex: "AI_Attack requested by npc"),
-    LogExists(frame: 560, regex: "DebugNPC: animation .*WOLF-S_FISTATTACK"),
-    Screenshot(frame: 565, path: "03_attack_swing.png"),
+    TestScreenshot(frame: 470, path: "02_attack_chase.png"),
+    TestLogExists(frame: 500, regex: "AI_StartState\\(zs_mm_attack\\)"),
+    TestLogExists(frame: 510, regex: "AI_Attack requested by npc"),
+    TestLogExists(frame: 560, regex: "DebugNPC: animation .*WOLF-S_FISTATTACK"),
+    TestScreenshot(frame: 565, path: "03_attack_swing.png"),
 
     ExitGame(frame: 600),
 ]

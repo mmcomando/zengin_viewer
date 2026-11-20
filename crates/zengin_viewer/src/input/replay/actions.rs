@@ -39,7 +39,6 @@ pub(super) fn replay_actions(
     mut npc_filter: ResMut<NpcSpawnNameFilter>,
     mut spawn_filter: ResMut<SpawnPositionFilter>,
     log_buffer: Option<Res<LogBuffer>>,
-    mut exit: MessageWriter<AppExit>,
 ) {
     let Some(mut replay) = replay else {
         return;
@@ -68,7 +67,6 @@ pub(super) fn replay_actions(
             &mut npc_filter,
             &mut spawn_filter,
             log_buffer.as_deref(),
-            &mut exit,
         ) {
             commands.remove_resource::<ActionReplay>();
             return;

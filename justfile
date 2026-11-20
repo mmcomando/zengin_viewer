@@ -7,42 +7,40 @@ run:
 run-renderless:
     cargo run -- --renderless --frames 600
 
-# Record actions into the scenario replay file of the given scenario name.
-record-replay name:
-    cargo run -- --fixed-time --save-actions misc/scenarios/{{name}}.ron
+# Record actions into the scenario file of the given scenario ID (without .ron).
+record-replay id:
+    cargo run -- --fixed-time --save-actions misc/scenario/{{id}}.ron
 
-# Replay the commands from the given scenario
-run-replay name:
-    cargo run -- --fixed-time --no-debug-gui --replay-actions misc/scenarios/{{name}}.ron
+# Replay the scenario with the given ID (a path under misc/scenario).
+run-scenario id:
+    cargo run -- --fixed-time --no-debug-gui --scenario {{id}}
 
 # Replay a scenario that starts in the main menu instead of a new game.
-run-replay-menu name:
-    cargo run -- --fixed-time --no-debug-gui --main-menu --replay-actions misc/scenarios/{{name}}.ron --frames 1000
+run-scenario-menu id:
+    cargo run -- --fixed-time --no-debug-gui --main-menu --scenario {{id}} --frames 1000
 
-test-scenario-gameplay name:
-    cargo run -- --test-scenario misc/test_scenarios/{{name}}
-# Run a test scenario, comparing its screenshots with the reference directory.
-test-scenario name:
-    cargo run -- --fixed-time --no-debug-gui --test-scenario misc/test_scenarios/{{name}}
+# Run a scenario containing Test commands, comparing TestScreenshot references.
+test-scenario id:
+    cargo run -- --fixed-time --no-debug-gui --scenario {{id}}
 
-# Bless the screenshots of a test scenario into its reference directory.
-update-test-scenario name:
-    cargo run -- --fixed-time --no-debug-gui --test-scenario misc/test_scenarios/{{name}} --update-reference
+# Bless the TestScreenshot references of a scenario.
+update-test-scenario id:
+    cargo run -- --fixed-time --no-debug-gui --scenario {{id}} --update-reference
 
 all-test-scenarios:
-    just test-scenario stats
-    just test-scenario journal
-    just test-scenario dialog_lares
-    just test-scenario wolf_combat
+    just test-scenario tests/stats
+    just test-scenario tests/journal
+    just test-scenario tests/dialog_lares
+    just test-scenario tests/wolf_combat
 
 # Headless CPU profile: writes a ~1GB chrome trace, then prints heaviest spans.
 trace-chrome:
-    cargo run --release --features trace_chrome -- --renderless --replay-actions misc/scenarios/walk_through_city.ron --frames 600
+    cargo run --release --features trace_chrome -- --renderless --scenario walk_through_city --frames 600
     python3 misc/scripts/analyze_trace.py "$(ls -t trace-*.json | head -n1)"
 
 # Profile a headless run to target/flamegraph.svg (skips 4s startup; needs perf+cargo-flamegraph).
 flamegraph frames="4000":
-    perf record -F 299 --call-graph fp -D 4000 -o target/perf.data -- cargo run -- --renderless --replay-actions misc/scenarios/walk_through_city.ron --frames {{frames}}
+    perf record -F 299 --call-graph fp -D 4000 -o target/perf.data -- cargo run -- --renderless --scenario walk_through_city --frames {{frames}}
     flamegraph --perfdata target/perf.data -o target/flamegraph.svg
 
 export-symbol-names:
