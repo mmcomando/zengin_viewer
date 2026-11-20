@@ -94,6 +94,11 @@ pub struct SymbolTable {
     /// should be resolved through `string_content` right after the dynamic
     /// string was created.
     dynamic_strings: Vec<Vec<u8>>,
+    /// Total number of dynamic strings recorded so far, mirrors the guest's
+    /// unbounded `dyn_strings_next_slot` cursor. `dynamic_strings` only stores
+    /// the ring slots, so its length stops growing at `DYN_STRINGS_SLOTS_NUM`
+    /// and cannot be used to derive the current slot.
+    dynamic_strings_recorded: u64,
     /// Symbol ids by lowercased name, for host functions which receive a
     /// symbol name as a script string argument.
     names: HashMap<String, i32>,
@@ -119,6 +124,7 @@ impl SymbolTable {
             dynamic_strings_base: strings.len() as i32,
             strings,
             dynamic_strings: Vec::new(),
+            dynamic_strings_recorded: 0,
             names,
             copies: HashMap::new(),
         }
@@ -210,12 +216,12 @@ impl SymbolTable {
     /// mirror ring in sync with the guest ring cursor. Must be called exactly
     /// once per string-returning external invocation, in call order.
     pub fn record_dynamic_string(&mut self, content: Vec<u8>) {
-        if self.dynamic_strings.len() < DYN_STRINGS_SLOTS_NUM {
-            self.dynamic_strings.push(content);
-        } else {
-            let slot = self.dynamic_strings.len() % DYN_STRINGS_SLOTS_NUM;
-            self.dynamic_strings[slot] = content;
+        let slot = (self.dynamic_strings_recorded % DYN_STRINGS_SLOTS_NUM as u64) as usize;
+        match self.dynamic_strings.get_mut(slot) {
+            Some(entry) => *entry = content,
+            None => self.dynamic_strings.push(content),
         }
+        self.dynamic_strings_recorded += 1;
     }
 
     /// Raw bytes of a string id of either kind: static table entry or
@@ -1211,6 +1217,27 @@ fn nearest_free_mob(mobs: &[ScriptMob], position: Vec3) -> Option<&ScriptMob> {
 mod tests {
     use super::instances::{NpcLiveState, NpcRoutineState};
     use super::*;
+
+    /// The guest ring cursor keeps counting past the 64 ring slots, the mirror
+    /// must wrap the same way instead of writing every later string to slot 0
+    #[test]
+    fn dynamic_string_ring_wraps_like_the_guest_cursor() {
+        let strings = vec!["symbol".to_owned(), "first_literal".to_owned()];
+        let mut table = SymbolTable::new(HashMap::new(), 1, strings);
+        let base = 2;
+
+        for index in 0..(DYN_STRINGS_SLOTS_NUM + 5) {
+            table.record_dynamic_string(index.to_string().into_bytes());
+        }
+
+        // Newest string landed in ring slot `recorded % SLOTS_NUM`
+        let newest = DYN_STRINGS_SLOTS_NUM + 4;
+        let slot = newest % DYN_STRINGS_SLOTS_NUM;
+        assert_eq!(
+            table.string_content((base + slot) as i32),
+            Some(newest.to_string())
+        );
+    }
 
     #[test]
     fn nearest_free_mob_skips_occupied_and_distant_mobs() {
