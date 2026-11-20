@@ -18,15 +18,13 @@
         translation: (0.0, 0.0, 0.0),
         rotation: (-30.0, 0.0, 0.0),
     ),
-    Press(frame: 40, action: Editor(ToggleEditorMode)),
-    Release(frame: 42, action: Editor(ToggleEditorMode)),
+    PressRelease(frame: 40, action: Editor(ToggleEditorMode)),
 
     ZenginSetDebugNpc(name: "hero"),
     TestClearLogBuffer(frame: 150),
 
     // `Interact` uses the lever.
-    Press(frame: 170, action: Gameplay(Interact)),
-    Release(frame: 172, action: Gameplay(Interact)),
+    PressRelease(frame: 170, action: Gameplay(Interact)),
     TestLogExists(frame: 200, regex: "uses mob\\(.*\\) vob\\(TEST_MOB_LEVER\\)"),
     TestLogExists(frame: 205, regex: "animation\\(S_LEVER_S1\\)"),
     // The use ends on its own: pose end -> `T_LEVER_S1_2_STAND` -> released.
@@ -39,8 +37,7 @@
     // There is no `T_LEVER_S0_2_STAND` in the archive, so that release falls
     // back to the standing idle immediately.
     TestClearLogBuffer(frame: 440),
-    Press(frame: 450, action: Gameplay(Interact)),
-    Release(frame: 452, action: Gameplay(Interact)),
+    PressRelease(frame: 450, action: Gameplay(Interact)),
     TestLogExists(frame: 485, regex: "animation\\(S_LEVER_S0\\)"),
     TestLogExists(frame: 500, regex: "-> state\\(0\\)"),
     TestLogExists(frame: 530, regex: "auto-ends mob\\(.*\\) use, pose\\(S_LEVER_S0\\)"),

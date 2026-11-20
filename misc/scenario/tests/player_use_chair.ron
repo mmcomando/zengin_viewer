@@ -21,8 +21,7 @@
         translation: (0.0, 0.0, 0.0),
         rotation: (-30.0, 0.0, 0.0),
     ),
-    Press(frame: 40, action: Editor(ToggleEditorMode)),
-    Release(frame: 42, action: Editor(ToggleEditorMode)),
+    PressRelease(frame: 40, action: Editor(ToggleEditorMode)),
 
     // The chair is in selection range and shows its focus name.
     TestScreenshot(frame: 140, path: "00_chair.png"),
@@ -31,15 +30,13 @@
     TestClearLogBuffer(frame: 150),
 
     // `Interact` snaps the player onto the chair and plays `S_CHAIR_S1`.
-    Press(frame: 170, action: Gameplay(Interact)),
-    Release(frame: 172, action: Gameplay(Interact)),
+    PressRelease(frame: 170, action: Gameplay(Interact)),
     TestLogExists(frame: 200, regex: "uses mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\)"),
     TestLogExists(frame: 205, regex: "-> state\\(1\\)"),
     TestScreenshot(frame: 210, path: "01_used.png"),
 
     // A second `Interact` stands the player up.
-    Press(frame: 240, action: Gameplay(Interact)),
-    Release(frame: 242, action: Gameplay(Interact)),
+    PressRelease(frame: 240, action: Gameplay(Interact)),
     TestLogExists(frame: 270, regex: "Player\\(.*\\) released mob\\(.*\\)"),
     TestScreenshot(frame: 280, path: "02_released.png"),
 

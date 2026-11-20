@@ -1,8 +1,0 @@
-[
-    ZenginFilterSpawnWithPosition(frame: 0, points: [(center: (-309.8,   44.1, -216.0), radius: 20.0)]),
-    ZenginSpawnWorld(world: "NEWWORLD/NEWWORLD"),
-    ZenginSpawnPlayerCharacter(frame: 1, translation: (-97.0, 5.0, -7.0), rotation: (0.0, 0.0, 0.0)),
-    TeleportPlayer(translation: (-309.8,   44.1, -216.0), rotation: (-25.2, -11.9,  -0.0)),
-    SetCameraLocation(translation: (-311,   45.1, -210.0), rotation: (-25.2, -11.9,  -0.0)),
-    ExitGame(frame: 900),
-]

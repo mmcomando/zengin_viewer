@@ -18,8 +18,7 @@
         translation: (0.0, 0.0, 0.0),
         rotation: (-30.0, 0.0, 0.0),
     ),
-    Press(frame: 40, action: Editor(ToggleEditorMode)),
-    Release(frame: 42, action: Editor(ToggleEditorMode)),
+    PressRelease(frame: 40, action: Editor(ToggleEditorMode)),
 
     ZenginSetDebugNpc(name: "hero"),
     TestClearLogBuffer(frame: 150),

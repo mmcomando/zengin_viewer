@@ -8,8 +8,7 @@
     ZenginSpawnPlayerCharacter(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
     ZenginSpawnNpc(name:"vlk_449_lares",translation: (0.0, 0.0, -3.0), rotation: (0.0, 0.0, 0.0)),
     SetCameraLocation(translation: (0.0, 0.0, 0.0), rotation: (-30.0, 0.0, 0.0)),
-    Press(action:Editor(ToggleEditorMode)),
-    Release(action:Editor(ToggleEditorMode)),
+    PressRelease(action:Editor(ToggleEditorMode)),
 
     // Before dialog
     TestScreenshot(frame_dt: 50, path: "00_before_dialog.png"),
