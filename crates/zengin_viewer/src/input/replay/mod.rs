@@ -8,6 +8,7 @@
 
 mod actions;
 mod command;
+mod failures;
 mod log_check;
 mod scenario;
 mod screenshot;
@@ -27,6 +28,7 @@ use crate::input::actions::update_input_mode;
 
 use actions::replay_actions;
 use command::apply_replay_locations;
+use failures::{TestFailures, report_failures_on_exit};
 use scenario::{finish_scenario, load_scenario};
 use state::PendingLocations;
 
@@ -50,6 +52,10 @@ impl Plugin for ActionReplayPlugin {
         // free camera.
         app.add_systems(PreUpdate, apply_replay_locations.after(camera_toggle_input));
         app.add_systems(Update, finish_scenario);
+        // Without `ExitGame` (frame limit) `finish_scenario` never runs its exit
+        // path, so report collected test failures when an exit is requested.
+        app.add_systems(Last, report_failures_on_exit);
         app.init_resource::<PendingLocations>();
+        app.init_resource::<TestFailures>();
     }
 }

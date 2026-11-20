@@ -190,7 +190,7 @@ fn absolute_frame_serializes_without_option_wrapper() {
 #[test]
 fn identical_screenshots_match() {
     let image = test_image([20, 40, 60]);
-    let report = compare_images(&image, &image.clone());
+    let report = compare_images(&image, &image.clone()).expect("same size");
     assert!(report.changed_fraction < f32::EPSILON);
     assert!(report.mean_diff < f32::EPSILON);
 }
@@ -199,7 +199,7 @@ fn identical_screenshots_match() {
 fn large_change_is_detected() {
     let black = test_image([0, 0, 0]);
     let white = test_image([255, 255, 255]);
-    let report = compare_images(&black, &white);
+    let report = compare_images(&black, &white).expect("same size");
     assert!(report.changed_fraction > COMPARE_MAX_CHANGED_FRACTION);
 }
 
@@ -212,8 +212,15 @@ fn small_local_noise_is_accepted() {
             noisy.put_pixel(x, y, Rgb([120, 120, 120]));
         }
     }
-    let report = compare_images(&image, &DynamicImage::ImageRgb8(noisy));
+    let report = compare_images(&image, &DynamicImage::ImageRgb8(noisy)).expect("same size");
     assert!(report.changed_fraction <= COMPARE_MAX_CHANGED_FRACTION);
+}
+
+#[test]
+fn size_mismatch_is_an_error_not_a_panic() {
+    let image = test_image([0, 0, 0]);
+    let other = DynamicImage::ImageRgb8(RgbImage::new(8, 8));
+    assert!(compare_images(&image, &other).is_err());
 }
 
 #[test]

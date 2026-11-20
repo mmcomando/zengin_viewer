@@ -6,6 +6,7 @@ use bevy::render::view::window::screenshot::{Screenshot, ScreenshotCaptured};
 use image::imageops::FilterType;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 
+use super::failures::TestFailures;
 use super::state::ActionReplay;
 
 /// Size the screenshots are downscaled to before comparison. Coarse enough to
@@ -67,66 +68,87 @@ pub(super) fn apply_replay_screenshot(
 
 /// Saves the captured screenshot into the scenario workdir and, in a test
 /// scenario run, compares it with the reference screenshot or, with
-/// `--update-reference`, blesses it.
+/// `--update-reference`, blesses it. Failures are collected instead of
+/// panicking, so the scenario keeps running and its logs are gathered before
+/// the result is reported at exit.
 fn save_scenario_screenshot(
     file_path: PathBuf,
     reference: Option<PathBuf>,
     update_reference: bool,
-) -> impl FnMut(On<ScreenshotCaptured>) {
-    move |captured: On<ScreenshotCaptured>| {
-        let Ok(image) = captured.image.clone().try_into_dynamic() else {
-            panic!(
-                "Failed to convert the screenshot for {} to an image",
-                file_path.display()
-            );
+) -> impl FnMut(On<ScreenshotCaptured>, ResMut<TestFailures>) {
+    move |captured: On<ScreenshotCaptured>, mut failures: ResMut<TestFailures>| {
+        let image = match captured.image.clone().try_into_dynamic() {
+            Ok(image) => image,
+            Err(error) => {
+                failures.push(format!(
+                    "Failed to convert the screenshot for {} to an image: {error:?}",
+                    file_path.display()
+                ));
+                return;
+            }
         };
         if let Err(error) = image.save_with_format(&file_path, ImageFormat::Png) {
-            panic!("Failed to save screenshot {}: {error}", file_path.display());
+            failures.push(format!(
+                "Failed to save screenshot {}: {error}",
+                file_path.display()
+            ));
+            return;
         }
         let Some(reference) = &reference else {
             return;
         };
         if update_reference {
-            bless_reference(&file_path, reference);
+            if let Err(error) = bless_reference(&file_path, reference) {
+                failures.push(error);
+            }
             return;
         }
-        compare_with_reference(&image, &file_path, reference);
+        if let Err(error) = compare_with_reference(&image, &file_path, reference) {
+            failures.push(error);
+        }
     }
 }
 
 /// Copies a produced screenshot over its reference screenshot.
-fn bless_reference(file_path: &Path, reference: &Path) {
+fn bless_reference(file_path: &Path, reference: &Path) -> Result<(), String> {
     if let Some(parent) = reference.parent()
         && let Err(error) = fs::create_dir_all(parent)
     {
-        panic!(
+        return Err(format!(
             "Failed to create reference dir {}: {error}",
             parent.display()
-        );
+        ));
     }
     if let Err(error) = fs::copy(file_path, reference) {
-        panic!(
+        return Err(format!(
             "Failed to copy {} to reference {}: {error}",
             file_path.display(),
             reference.display()
-        );
+        ));
     }
     info!("Updated reference screenshot {}", reference.display());
+    Ok(())
 }
 
-/// Compares a produced screenshot with its reference and panics when they
-/// differ too much. A match only logs the difference so passing runs stay
-/// quiet.
-fn compare_with_reference(actual: &DynamicImage, actual_path: &Path, reference: &Path) {
+/// Compares a produced screenshot with its reference. A match only logs the
+/// difference so passing runs stay quiet; a mismatch is returned as a test
+/// failure.
+fn compare_with_reference(
+    actual: &DynamicImage,
+    actual_path: &Path,
+    reference: &Path,
+) -> Result<(), String> {
     let expected = match image::open(reference) {
         Ok(image) => image,
-        Err(error) => panic!(
-            "Reference screenshot {} is missing or unreadable ({error}). \
-             Run with --update-reference to create it",
-            reference.display()
-        ),
+        Err(error) => {
+            return Err(format!(
+                "Reference screenshot {} is missing or unreadable ({error}). \
+                 Run with --update-reference to create it",
+                reference.display()
+            ));
+        }
     };
-    let report = compare_images(actual, &expected);
+    let report = compare_images(actual, &expected)?;
     if report.changed_fraction <= COMPARE_MAX_CHANGED_FRACTION {
         info!(
             "Screenshot {} matches its reference (changed cells {:.2}%, mean diff {:.2}/255)",
@@ -134,7 +156,7 @@ fn compare_with_reference(actual: &DynamicImage, actual_path: &Path, reference: 
             report.changed_fraction * 100.0,
             report.mean_diff * 255.0
         );
-        return;
+        return Ok(());
     }
     let diff_path = diff_path(actual_path);
     if let Err(error) = report
@@ -146,7 +168,7 @@ fn compare_with_reference(actual: &DynamicImage, actual_path: &Path, reference: 
             diff_path.display()
         );
     }
-    panic!(
+    Err(format!(
         "Screenshot {} differs from the reference {}: changed cells {:.1}% (threshold {:.1}%), \
          mean diff {:.1}/255. See {}",
         actual_path.display(),
@@ -155,7 +177,7 @@ fn compare_with_reference(actual: &DynamicImage, actual_path: &Path, reference: 
         COMPARE_MAX_CHANGED_FRACTION * 100.0,
         report.mean_diff * 255.0,
         diff_path.display()
-    );
+    ))
 }
 
 /// Result of comparing two screenshots on the coarse comparison grid.
@@ -173,15 +195,18 @@ pub(super) struct CompareReport {
 ///
 /// Both images are downscaled to a coarse grid before the difference is
 /// computed, so anti-aliasing and minor GPU noise do not count as a change,
-/// while UI, geometry and lighting changes do. Panics on a size mismatch,
+/// while UI, geometry and lighting changes do. A size mismatch is an error,
 /// which is a large change by itself.
-pub(super) fn compare_images(actual: &DynamicImage, expected: &DynamicImage) -> CompareReport {
+pub(super) fn compare_images(
+    actual: &DynamicImage,
+    expected: &DynamicImage,
+) -> Result<CompareReport, String> {
     if actual.dimensions() != expected.dimensions() {
-        panic!(
+        return Err(format!(
             "Screenshot size {:?} does not match the reference size {:?}",
             actual.dimensions(),
             expected.dimensions()
-        );
+        ));
     }
     let diff_image = difference_image(actual, expected);
     let (width, height) = COMPARE_GRID;
@@ -207,11 +232,11 @@ pub(super) fn compare_images(actual: &DynamicImage, expected: &DynamicImage) -> 
         }
     }
     let cells = width.saturating_mul(height);
-    CompareReport {
+    Ok(CompareReport {
         changed_fraction: changed as f32 / cells as f32,
         mean_diff: diff_sum / cells as f32,
         diff_image,
-    }
+    })
 }
 
 /// Builds a full resolution absolute difference image.

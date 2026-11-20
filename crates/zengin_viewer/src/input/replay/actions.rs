@@ -16,6 +16,7 @@ use crate::input::record::RecordedAction;
 use crate::zengin::{GameNpc, NpcSpawnNameFilter, ScriptResource, SpawnPositionFilter};
 
 use super::command::apply_replay_command;
+use super::failures::TestFailures;
 use super::state::{ActionReplay, PendingLocations};
 
 /// Applies the replayed actions of the current frame.
@@ -39,6 +40,7 @@ pub(super) fn replay_actions(
     mut npc_filter: ResMut<NpcSpawnNameFilter>,
     mut spawn_filter: ResMut<SpawnPositionFilter>,
     log_buffer: Option<Res<LogBuffer>>,
+    mut failures: ResMut<TestFailures>,
 ) {
     let Some(mut replay) = replay else {
         return;
@@ -67,6 +69,7 @@ pub(super) fn replay_actions(
             &mut npc_filter,
             &mut spawn_filter,
             log_buffer.as_deref(),
+            &mut failures,
         ) {
             commands.remove_resource::<ActionReplay>();
             return;

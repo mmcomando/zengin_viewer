@@ -10,6 +10,7 @@ use ron::extensions::Extensions;
 use crate::input::options::Options;
 use crate::input::record::{DEFAULT_FRAME_DT, ReplayCommand};
 
+use super::failures::TestFailures;
 use super::state::ActionReplay;
 
 /// Root directory of the scenario files.
@@ -234,10 +235,14 @@ pub(super) fn schedule_commands(
 
 /// Exits a scenario run after an explicit `ExitGame` once all pending
 /// screenshots were captured and compared, so comparisons are never skipped by
-/// leaving early. The frame limit exits a run without `ExitGame`.
+/// leaving early. Collected test failures are reported here, at the exit of the
+/// test, so the whole scenario and its logs run first. The frame limit exits a
+/// run without `ExitGame`; failures are then reported by
+/// [`report_failures_on_exit`](super::failures::report_failures_on_exit).
 pub(super) fn finish_scenario(
     replay: Option<Res<ActionReplay>>,
     screenshots: Query<(), With<Screenshot>>,
+    failures: Res<TestFailures>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let Some(replay) = replay else {
@@ -249,6 +254,7 @@ pub(super) fn finish_scenario(
     if !screenshots.is_empty() {
         return;
     }
+    failures.panic_if_any();
     if replay.update_reference {
         info!("Scenario finished, test screenshots written to the reference directory");
     } else {

@@ -11,6 +11,7 @@ use crate::zengin::{
     grant_test_items, seed_test_journal,
 };
 
+use super::failures::TestFailures;
 use super::log_check::{check_log_exists, check_log_not_exists};
 use super::screenshot::apply_replay_screenshot;
 use super::state::{ActionReplay, PendingLocations};
@@ -51,6 +52,7 @@ pub(super) fn apply_replay_command(
     npc_filter: &mut NpcSpawnNameFilter,
     spawn_filter: &mut SpawnPositionFilter,
     log_buffer: Option<&LogBuffer>,
+    failures: &mut TestFailures,
 ) -> bool {
     match command {
         ReplayCommand::Press { action, .. } => {
@@ -274,14 +276,14 @@ pub(super) fn apply_replay_command(
                 warn!("TestLogExists replay command ignored: log capture is not enabled");
                 return false;
             };
-            check_log_exists(log_buffer, regex);
+            check_log_exists(log_buffer, regex, failures);
         }
         ReplayCommand::TestLogNotExists { regex, .. } => {
             let Some(log_buffer) = log_buffer else {
                 warn!("TestLogNotExists replay command ignored: log capture is not enabled");
                 return false;
             };
-            check_log_not_exists(log_buffer, regex);
+            check_log_not_exists(log_buffer, regex, failures);
         }
         ReplayCommand::ExitGame { .. } => {
             info!("Replay requested the game exit after the screenshots are captured");
