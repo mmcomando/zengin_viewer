@@ -27,5 +27,11 @@
     Wait(frame_dt: 130),
     TestLogExists(regex: "current=HUMANS-S_BEDHIGH_FRONT_S1"),
     TestScreenshot(path: "01_sleep.png"),
+    PressRelease(action:Gui(Down)),
+    PressRelease(action:Gui(Down)),
+    PressRelease(action:Gui(Down)),
+    Wait(frame_dt: 100),
+    PressRelease(action:Gui(Confirm)),
+    TestScreenshot(path: "02_sleep_night.png"),
     ExitGame,
 ]

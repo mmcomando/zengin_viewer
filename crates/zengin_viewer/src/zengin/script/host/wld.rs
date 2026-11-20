@@ -124,7 +124,10 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
         self.game_day as i32
     }
     fake_impl!(wld_israining() -> i32);
-    fake_impl!(wld_settime(_0, _1));
+    /// Moves the world clock to the next occurrence of `hour:minute`.
+    fn wld_settime(&mut self, hour: i32, minute: i32) {
+        self.messages.game_time.send(SetGameTime { hour, minute });
+    }
     fake_impl!(wld_spawnnpcrange(_0, _1, _2, _3));
     fake_impl!(wld_playeffect(_0, _1, _2, _3, _4, _5, _6));
     fake_impl!(wld_stopeffect(_0));

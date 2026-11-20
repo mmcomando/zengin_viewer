@@ -11,9 +11,9 @@ pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, GotoNpcChange, InventoryGain, ItemChanged,
     ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, PassivePerception,
-    ProcessInfosChange, RoutineExchange, ScreenMessage, ScriptSound, SpawnItem, SpawnNpc,
-    StandUpChange, StartStateChange, SvmLine, TurnToNpcChange, UseItemStateChange, UseMobChange,
-    WaitChange,
+    ProcessInfosChange, RoutineExchange, ScreenMessage, ScriptSound, SetGameTime, SpawnItem,
+    SpawnNpc, StandUpChange, StartStateChange, SvmLine, TurnToNpcChange, UseItemStateChange,
+    UseMobChange, WaitChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -407,6 +407,8 @@ pub struct ScriptMessages {
     pub passive_perception: ExternalMessageSender<PassivePerception>,
     /// Journal changes produced by the script (`Log_*` host functions).
     pub journal_changes: ExternalMessageSender<JournalChange>,
+    /// `Wld_SetTime` requests produced by the script.
+    pub game_time: ExternalMessageSender<SetGameTime>,
 }
 
 impl ScriptMessages {
@@ -436,6 +438,7 @@ impl ScriptMessages {
         self.svm.clear();
         self.passive_perception.clear();
         self.journal_changes.clear();
+        self.game_time.clear();
     }
 }
 

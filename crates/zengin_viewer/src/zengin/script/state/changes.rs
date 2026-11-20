@@ -15,6 +15,15 @@ pub struct RoutineExchange {
     pub routine_name: String,
 }
 
+/// Signal that a script requested `Wld_SetTime`: move the world clock to the
+/// next occurrence of `hour:minute`. Hours past 24 are used by the scripts
+/// (`Wld_SetTime(24,0)` means the next midnight).
+#[derive(Debug, Clone, Copy, Message)]
+pub struct SetGameTime {
+    pub hour: i32,
+    pub minute: i32,
+}
+
 /// Signal that an item's shared data changed.
 #[derive(Debug, Message, Clone, Copy)]
 pub struct ItemChanged {

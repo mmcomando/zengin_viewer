@@ -3,9 +3,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::game_state::AppState;
 use crate::input::Options;
+use crate::zengin::SetGameTime;
 
 /// Advances the running game time every frame.
 pub struct GameTimePlugin;
+
+/// Minutes in a full in-game day.
+const MINUTES_PER_DAY: f32 = 24.0 * 60.0;
 
 impl Plugin for GameTimePlugin {
     fn build(&self, app: &mut App) {
@@ -21,7 +25,12 @@ impl Plugin for GameTimePlugin {
         }
         app.init_resource::<GameTime>();
         app.init_resource::<PlayTime>();
-        app.add_systems(Update, advance_game_time.run_if(in_state(AppState::InGame)));
+        app.add_systems(
+            Update,
+            (apply_set_game_time, advance_game_time)
+                .chain()
+                .run_if(in_state(AppState::InGame)),
+        );
         app.add_systems(Update, advance_play_time.run_if(in_state(AppState::InGame)));
     }
 }
@@ -68,6 +77,30 @@ pub(crate) fn advance_game_time(time: Res<Time>, mut game_time: ResMut<GameTime>
         game_time.day += elapsed_days as u32;
     }
     game_time.total_hours %= 24.0;
+}
+
+/// Applies a script `Wld_SetTime` request (`SetGameTime`).
+fn apply_set_game_time(mut requests: MessageReader<SetGameTime>, mut game_time: ResMut<GameTime>) {
+    for request in requests.read() {
+        let now_minutes = game_time.total_hours * 60.0;
+        let next_minutes = request.hour as f32 * 60.0 + request.minute as f32;
+        let target_minutes = if now_minutes <= next_minutes {
+            next_minutes
+        } else {
+            next_minutes + MINUTES_PER_DAY
+        };
+        let elapsed_days = (target_minutes / MINUTES_PER_DAY).floor();
+        game_time.day += elapsed_days as u32;
+        game_time.total_hours = (target_minutes / 60.0) % 24.0;
+        info!(
+            "Wld_SetTime({:02}:{:02}) -> day {} {:02}:{:02}",
+            request.hour,
+            request.minute,
+            game_time.day,
+            game_time.hour(),
+            game_time.minutes_of_day() % 60
+        );
+    }
 }
 
 /// Real time spent playing the current save. Accumulates only in `InGame` so

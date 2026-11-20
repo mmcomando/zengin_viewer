@@ -103,8 +103,11 @@ impl super::ScriptManager {
         self.pending_changes().chapter_intro.take()
     }
 
-    /// Records the instance id of the player (`PC_Hero`).
+    /// Records the instance id of the player (`PC_Hero`) and binds the `hero`
+    /// global to it, the way the engine does. Scripts read and write the player
+    /// through `hero` (health, mana, guild, level, ...).
     pub fn set_player_instance(&mut self, player: InstanceId) {
+        self.write_well_known("hero", player);
         self.store.data_mut().player_instance = Some(player);
     }
 

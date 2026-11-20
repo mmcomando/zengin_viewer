@@ -91,7 +91,7 @@ impl super::ScriptManager {
     /// Writes a well known instance variable into the host symbol store, the
     /// guest export only updates its cached instance id used by
     /// `SetInstance(self)`.
-    fn write_well_known(&mut self, name: &str, instance_index: InstanceId) {
+    pub(super) fn write_well_known(&mut self, name: &str, instance_index: InstanceId) {
         self.write_well_known_value(name, instance_index.value());
     }
 
