@@ -3,6 +3,9 @@
     ZenginSpawnMob(
         visual: "BEDHIGH_NW_NORMAL_01",
         focus_name: "BED",
+        // The real bed vobs carry `sleepabit`; its `sleepabit_s1` hook opens
+        // the sleep dialog, a synthetic mob without it stays silent.
+        on_state_func: "sleepabit",
         translation: (0.0, 0.0, -2.0),
         rotation: (0.0, 0.0, 0.0),
     ),

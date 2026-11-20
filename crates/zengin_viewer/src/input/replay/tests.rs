@@ -156,6 +156,15 @@ fn spawn_mob_command_parses_and_schedules() {
         ReplayCommand::ZenginSpawnMob { focus_name: Some(name), state_num: Some(2), .. }
             if name == "Chair"
     ));
+
+    let commands = parse(
+        "[ZenginSpawnMob(visual: \"BEDHIGH_NW_NORMAL_01\", on_state_func: \"sleepabit\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",
+    )
+    .unwrap();
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::ZenginSpawnMob { on_state_func: Some(name), .. } if name == "sleepabit"
+    ));
 }
 
 #[test]

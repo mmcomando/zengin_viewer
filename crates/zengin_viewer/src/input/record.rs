@@ -148,13 +148,17 @@ pub(crate) enum ReplayCommand {
     /// `(x = pitch, y = yaw, z = roll)`. The visual is a mesh name like
     /// `CHAIR_NW_NORMAL_01` resolved against the game archives, so no world
     /// load is needed. `focus_name` defaults to the mob scheme, `state_num` to
-    /// one interaction state.
+    /// one interaction state. `on_state_func` is the script hook the mob would
+    /// carry on a real map (`sleepabit` for beds); `<name>_S<state>` runs when
+    /// the player or an npc reaches the state.
     ZenginSpawnMob {
         visual: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         focus_name: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         state_num: Option<i32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        on_state_func: Option<String>,
         translation: Vec3,
         rotation: Vec3,
     },

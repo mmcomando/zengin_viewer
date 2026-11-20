@@ -164,12 +164,14 @@ impl WorldSpawnMessages {
 /// Spawns an interactive mob from a visual mesh name resolved against the game
 /// archives, used by scenario replays to place mobs without a world load.
 /// `focus_name` is the in-game label, `state_num` the number of interaction
-/// states (a chair has one).
+/// states (a chair has one) and `on_state_func` the script hook the vob would
+/// carry on a real map.
 pub(crate) fn request_mob_spawn(
     world: &mut World,
     visual: &str,
     focus_name: Option<&str>,
     state_num: Option<i32>,
+    on_state_func: Option<&str>,
     tr: Transform,
 ) {
     let Some(vfs) = world.get_resource::<ZenginVfs>() else {
@@ -202,6 +204,7 @@ pub(crate) fn request_mob_spawn(
         visual_stem: mob_visual_stem(visual),
         scheme,
         state_num: state_num.unwrap_or(1),
+        on_state_func: on_state_func.unwrap_or_default().to_string(),
         auto_end,
         no_move,
         ..default()

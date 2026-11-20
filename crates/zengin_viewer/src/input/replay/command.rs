@@ -240,6 +240,7 @@ pub(super) fn apply_replay_command(
             visual,
             focus_name,
             state_num,
+            on_state_func,
             translation,
             rotation,
         } => {
@@ -247,6 +248,7 @@ pub(super) fn apply_replay_command(
             let visual = visual.clone();
             let focus_name = focus_name.clone();
             let state_num = *state_num;
+            let on_state_func = on_state_func.clone();
             let transform = Transform {
                 translation: *translation,
                 rotation: rotation_from_degrees(*rotation),
@@ -258,6 +260,7 @@ pub(super) fn apply_replay_command(
                     &visual,
                     focus_name.as_deref(),
                     state_num,
+                    on_state_func.as_deref(),
                     transform,
                 );
             });
