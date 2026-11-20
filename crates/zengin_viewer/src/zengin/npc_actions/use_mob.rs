@@ -4,7 +4,8 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel, PlayerCharacter};
 use crate::graphics::{
-    AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
+    AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
+    animation_name_from_path,
 };
 use crate::zengin::common::{
     MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, face_direction_quat, horizontal_offset,
@@ -68,6 +69,73 @@ impl UseMobAction {
             snap: true,
             switch_state: Some(state),
         }
+    }
+}
+
+/// Pose queued as a follow-up of the entering transition.
+///
+/// The engine enters a mob through `T_<SCHEME>[_<POS>]_S<from>_2_S<to>` and only
+/// then holds the `S_<SCHEME>[_<POS>]_S<n>` pose. Some poses (e.g.
+/// `S_BEDHIGH_FRONT_S1`) do not animate the base bone at all, so playing them
+/// directly leaves the npc standing upright: they inherit the root transform
+/// from the transition.
+#[derive(Component, Debug)]
+pub(crate) struct MobUsePose {
+    /// Entering transition whose end starts the pose.
+    transition: String,
+    /// Pose held once the transition ends.
+    pose: String,
+}
+
+/// Queues the mob pose when the entering transition ends.
+pub(crate) fn advance_mob_use_pose(
+    mut commands: Commands,
+    mut ends: MessageReader<AnimationEnds>,
+    files: Res<AnimationFiles>,
+    mut handles: ResMut<CachedAssetHandles>,
+    asset_server: Res<AssetServer>,
+    mut npcs: Query<(
+        &mut AnimationController,
+        &NpcModel,
+        Option<&NpcOverlay>,
+        &MobUsePose,
+    )>,
+    mut released: RemovedComponents<NpcMobUse>,
+) {
+    // A use that ends before the transition did leaves no pose to hold.
+    for entity in released.read() {
+        commands.entity(entity).try_remove::<MobUsePose>();
+    }
+    for end in ends.read() {
+        let Ok((mut controller, model, overlay, entry)) = npcs.get_mut(end.who) else {
+            continue;
+        };
+        if controller.current() != &end.what_animation {
+            continue;
+        }
+        let Some(path) = Handle::path(&end.what_animation) else {
+            continue;
+        };
+        let Some(ended) = animation_name_from_path(path.path()) else {
+            continue;
+        };
+        if ended != entry.transition {
+            continue;
+        }
+        debug!(
+            "npc({}) mob pose({}) after transition({})",
+            end.who, entry.pose, entry.transition
+        );
+        queue_named_animation(
+            &mut controller,
+            model,
+            overlay,
+            &files,
+            &mut handles,
+            &asset_server,
+            &entry.pose,
+        );
+        commands.entity(end.who).remove::<MobUsePose>();
     }
 }
 
@@ -211,7 +279,7 @@ pub(crate) fn run_use_mob_action(
         transform.rotation = choice.use_rot;
         sequencer.suspend();
         controller.set_root_motion(false);
-        let animation = mob_animation_name(
+        let pose = mob_animation_name(
             model,
             overlay,
             &files,
@@ -219,17 +287,36 @@ pub(crate) fn run_use_mob_action(
             choice.position_tag.as_deref(),
             use_state,
         );
+        // The engine enters the mob through the state transition and holds the
+        // pose afterwards. Poses that do not animate the base bone (beds' FRONT
+        // side, e.g. `S_BEDHIGH_FRONT_S1`) keep the root transform of the
+        // transition, playing them alone leaves the npc standing.
+        let mob_state = mobs.get(choice.mob).map_or(0, |(mob, ..)| mob.state).max(0);
+        let transition = has_animation(model, overlay, &files, &pose)
+            .then(|| {
+                enter_animation_name(
+                    model,
+                    overlay,
+                    &files,
+                    action.scheme.as_str(),
+                    choice.position_tag.as_deref(),
+                    mob_state,
+                    use_state,
+                )
+            })
+            .flatten();
         if is_player {
             info!(
-                "Player({}) uses mob({}) vob({}) scheme({}) state({}) animation({})",
+                "Player({}) uses mob({}) vob({}) scheme({}) state({}) animation({}) transition({transition:?})",
                 npc.instance_id(),
                 choice.mob,
                 choice.vob_name,
                 action.scheme,
                 use_state,
-                animation
+                pose
             );
         }
+        let first = transition.as_deref().unwrap_or(&pose);
         queue_named_animation(
             &mut controller,
             model,
@@ -237,8 +324,13 @@ pub(crate) fn run_use_mob_action(
             &files,
             &mut handles,
             &asset_server,
-            &animation,
+            first,
         );
+        if let Some(transition) = transition {
+            commands
+                .entity(entity)
+                .insert(MobUsePose { transition, pose });
+        }
         commands.entity(choice.mob).insert(MobOccupant(entity));
         // Mob poses store their root translation relative to the mob origin,
         // while the actor entity sits at the `ZS_POS*` stand point. Keep the
@@ -531,6 +623,31 @@ pub(crate) fn mob_animation_name(
     format!("S_{scheme}_S{state}")
 }
 
+/// Entering transition `T_<SCHEME>[_<POS>]_S<from>_2_S<to>`, if the archive has
+/// it, tagged first like [`mob_animation_name`].
+pub(crate) fn enter_animation_name(
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    files: &AnimationFiles,
+    scheme: &str,
+    position_tag: Option<&str>,
+    from_state: i32,
+    to_state: i32,
+) -> Option<String> {
+    if from_state == to_state {
+        return None;
+    }
+    let scheme = scheme.to_uppercase();
+    let tagged = position_tag.map(|tag| format!("T_{scheme}_{tag}_S{from_state}_2_S{to_state}"));
+    if let Some(tagged) = tagged
+        && has_animation(model, overlay, files, &tagged)
+    {
+        return Some(tagged);
+    }
+    let name = format!("T_{scheme}_S{from_state}_2_S{to_state}");
+    has_animation(model, overlay, files, &name).then_some(name)
+}
+
 /// Whether the archive has a player pose for the mob scheme, tagged or not.
 ///
 /// Used by the player interaction to decide between attaching to the mob and
@@ -763,6 +880,47 @@ mod tests {
         assert!(action.state > 0, "state 0 must not mean detach");
         assert_eq!(action.switch_state, Some(0));
         assert!(action.snap);
+    }
+
+    #[test]
+    fn enter_transition_prefers_the_position_tag_and_falls_back() {
+        let model = NpcModel {
+            animation_scheme: Some("HUMANS".to_string()),
+            ..Default::default()
+        };
+
+        let beds = AnimationFiles(HashSet::from([
+            "HUMANS-T_BEDHIGH_FRONT_S0_2_S1.MAN".to_string(),
+            "HUMANS-T_BEDHIGH_S0_2_S1.MAN".to_string(),
+        ]));
+        assert_eq!(
+            enter_animation_name(&model, None, &beds, "BEDHIGH", Some("FRONT"), 0, 1).as_deref(),
+            Some("T_BEDHIGH_FRONT_S0_2_S1")
+        );
+        // The `_BACK` attachment node has no transition, the untagged one is used.
+        assert_eq!(
+            enter_animation_name(&model, None, &beds, "BEDHIGH", Some("BACK"), 0, 1).as_deref(),
+            Some("T_BEDHIGH_S0_2_S1")
+        );
+    }
+
+    #[test]
+    fn enter_transition_requires_a_state_change_and_an_existing_file() {
+        let model = NpcModel {
+            animation_scheme: Some("HUMANS".to_string()),
+            ..Default::default()
+        };
+
+        // A lever has no `T_LEVER_S1_2_S0`, the pose is played directly.
+        let levers = AnimationFiles(HashSet::from(["HUMANS-T_LEVER_S0_2_S1.MAN".to_string()]));
+        assert_eq!(
+            enter_animation_name(&model, None, &levers, "LEVER", None, 1, 0),
+            None
+        );
+        assert_eq!(
+            enter_animation_name(&model, None, &levers, "LEVER", None, 1, 1),
+            None
+        );
     }
 
     #[test]

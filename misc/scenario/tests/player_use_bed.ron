@@ -11,8 +11,18 @@
 
     TestScreenshot(path: "00_stand.png"),
 
+    // `Interact` snaps the player onto the bed and enters it through
+    // `T_BEDHIGH_FRONT_S0_2_S1`.
+    TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 20),
+    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_BEDHIGH\\)"),
+    TestLogExists(regex: "transition\\(Some\\(\"T_BEDHIGH_FRONT_S0_2_S1\"\\)\\)"),
+    // The lie-down transition runs ~2 s; the `S_BEDHIGH_FRONT_S1` sleep pose it
+    // hands over to does not animate the base bone, without the transition the
+    // player would keep standing upright.
+    Wait(frame_dt: 130),
+    TestLogExists(regex: "current=HUMANS-S_BEDHIGH_FRONT_S1"),
     TestScreenshot(path: "01_sleep.png"),
     ExitGame,
 ]

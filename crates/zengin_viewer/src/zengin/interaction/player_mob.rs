@@ -17,7 +17,7 @@ use crate::graphics::{
 };
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::npc_actions::{
-    ExecutingActionMarker, UseMobAction, mob_animation_name, release_mob_use,
+    ExecutingActionMarker, MobUsePose, UseMobAction, mob_animation_name, release_mob_use,
 };
 use crate::zengin::npc_routines::{
     AnimationFiles, NpcOverlay, has_animation, queue_named_animation,
@@ -213,6 +213,9 @@ pub(super) fn stand_up_player_from_mob(
             mob_use.mob,
             release.expected
         );
+        // The stand-up replaces the entering transition, its pose must not
+        // follow afterwards.
+        commands.entity(entity).remove::<MobUsePose>();
         commands.entity(entity).insert(release);
     }
 }

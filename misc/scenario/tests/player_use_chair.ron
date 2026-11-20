@@ -18,17 +18,18 @@
     // The chair is in selection range and shows its focus name.
     TestScreenshot(path: "00_chair.png"),
 
-    // `Interact` snaps the player onto the chair and plays `S_CHAIR_S1`.
+    // `Interact` snaps the player onto the chair: it enters through
+    // `T_CHAIR_S0_2_S1` and then holds the `S_CHAIR_S1` pose.
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
-    Wait(frame_dt: 50),
+    Wait(frame_dt: 100),
     TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\)"),
     TestLogExists(regex: "-> state\\(1\\)"),
     TestScreenshot(path: "01_used.png"),
 
     // A second `Interact` stands the player up.
     PressRelease(action: Gameplay(Interact)),
-    Wait(frame_dt: 30),
+    Wait(frame_dt: 50),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
     TestScreenshot(path: "02_released.png"),
 

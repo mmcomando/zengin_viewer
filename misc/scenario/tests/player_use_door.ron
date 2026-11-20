@@ -18,7 +18,8 @@
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_DOOR\\)"),
-    Wait(frame_dt: 50),
+    // The door enters through `T_DOOR_FRONT_S0_2_S1` and ends on its own.
+    Wait(frame_dt: 120),
     TestLogExists(regex: "animation\\(S_DOOR_FRONT_S1\\)"),
     TestLogExists(regex: "state position=\\(0\\.00, -0\\.09, 0\\.00\\)"),
     TestLogNotExists(regex: "state position=\\(.*, .*, -[1-9]"),
@@ -30,7 +31,7 @@
     // A second `Interact` closes it, again without moving the player.
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
-    Wait(frame_dt: 50),
+    Wait(frame_dt: 120),
     TestLogExists(regex: "animation\\(S_DOOR_FRONT_S0\\)"),
     TestLogNotExists(regex: "state position=\\(.*, .*, -[1-9]"),
     TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_DOOR_FRONT_S0\\)"),
