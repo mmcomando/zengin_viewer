@@ -4,27 +4,21 @@
 // snap to the door's `ZS_POS`), plays the `S_DOOR_FRONT_S1`/`S0` pose, toggles
 // the state, and stands up automatically through `T_DOOR_FRONT_S1_2_STAND`.
 [
-    TestWorld(name: "simple"),
-    Wait(frame_dt: 50),
-    ZenginSpawnPlayerCharacter(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnMob(
         visual: "DOOR_NW_NORMAL_01",
         focus_name: "DOOR",
         translation: (0.0, 0.0, -4.0),
         rotation: (0.0, 180.0, 0.0),
     ),
-    SetCameraLocation(
-        translation: (0.0, 0.0, 0.0),
-        rotation: (-30.0, 0.0, 0.0),
-    ),
-    PressRelease(action: Editor(ToggleEditorMode)),
     ZenginSetDebugNpc(name: "hero"),
+    Wait(frame_dt: 10),
 
     // `Interact` opens the door without moving the player.
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_DOOR\\)"),
-    Wait(frame_dt: 190),
+    Wait(frame_dt: 50),
     TestLogExists(regex: "animation\\(S_DOOR_FRONT_S1\\)"),
     TestLogExists(regex: "state position=\\(0\\.00, -0\\.09, 0\\.00\\)"),
     TestLogNotExists(regex: "state position=\\(.*, .*, -[1-9]"),
@@ -36,7 +30,7 @@
     // A second `Interact` closes it, again without moving the player.
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
-    Wait(frame_dt: 140),
+    Wait(frame_dt: 50),
     TestLogExists(regex: "animation\\(S_DOOR_FRONT_S0\\)"),
     TestLogNotExists(regex: "state position=\\(.*, .*, -[1-9]"),
     TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_DOOR_FRONT_S0\\)"),

@@ -1,10 +1,6 @@
 [
-    TestWorld(name: "simple"),
-    ZenginSpawnPlayerCharacter(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
-    SetCameraLocation(translation: (0.0, 0.0, 0.0), rotation: (-30.0, 0.0, 0.0)),
-    PressRelease(action:Editor(ToggleEditorMode)),
+    IncludeScenario(path: "/common/test_room_player_pov"),
     PressRelease(action:Shared(Journal)),
-    Wait(frame_dt: 50),
     TestScreenshot(path: "journal.png"),
     ExitGame,
 ]

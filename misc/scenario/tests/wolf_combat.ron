@@ -11,12 +11,10 @@
 // `just test-scenario` path) and a plain renderless run (1/60 s/frame, which
 // reaches the same events ~20% later in frame numbers).
 [
-    TestWorld(name: "simple"),
-    ZenginScriptStartup(world: "NEWWORLD/NEWWORLD", clean_world: false),
-    Wait(frame_dt: 50),
-    ZenginSpawnPlayerCharacter(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    IncludeScenario(path: "/common/test_room_free_camera"),
     ZenginSpawnNpc(name: "wolf", translation: (0.0, 0.0, -20.0), rotation: (0.0, 0.0, 0.0)),
     ZenginSetDebugNpc(name: "wolf"),
+    Wait(frame_dt: 10),
     // Side view onto the player/wolf line along the Z axis.
     SetCameraLocation(
         translation: (11.0, 3.5, -15.0),

@@ -1,22 +1,14 @@
 [
-    TestWorld(name: "simple"),
-    ZenginScriptStartup(world: "NEWWORLD/NEWWORLD", clean_world: false),
-    Wait(frame_dt: 50),
-    ZenginSpawnPlayerCharacter(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnMob(
         visual: "BEDHIGH_NW_NORMAL_01",
         focus_name: "BED",
         translation: (0.0, 0.0, -2.0),
         rotation: (0.0, 0.0, 0.0),
     ),
-    SetCameraLocation(
-        translation: (0.0, 0.0, 0.0),
-        rotation: (-30.0, 0.0, 0.0),
-    ),
-    PressRelease(action: Editor(ToggleEditorMode)),
     ZenginSetDebugNpc(name: "hero"),
+    Wait(frame_dt: 10),
 
-    Wait(frame_dt: 50),
     TestScreenshot(path: "00_stand.png"),
 
     PressRelease(action: Gameplay(Interact)),

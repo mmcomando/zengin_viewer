@@ -164,6 +164,82 @@ fn remove_scenario_output(path: &Path) {
     }
 }
 
+/// Reads a scenario file and replaces its `IncludeScenario` commands with the
+/// commands of the included scenarios. Include paths resolve against `root`.
+pub(super) fn load_scenario_commands(
+    root: &Path,
+    path: &Path,
+) -> Result<Vec<ReplayCommand>, String> {
+    let mut stack = vec![path.to_path_buf()];
+    read_and_expand(root, path, &mut stack)
+}
+
+fn read_and_expand(
+    root: &Path,
+    path: &Path,
+    stack: &mut Vec<PathBuf>,
+) -> Result<Vec<ReplayCommand>, String> {
+    let contents = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let commands: Vec<ReplayCommand> = RonOptions::default()
+        .with_default_extension(Extensions::IMPLICIT_SOME)
+        .from_str(&contents)
+        .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
+
+    let mut expanded = Vec::with_capacity(commands.len());
+    for command in commands {
+        let ReplayCommand::IncludeScenario { path: include } = &command else {
+            expanded.push(command);
+            continue;
+        };
+        let include_path = resolve_include_path(root, include)?;
+        if stack.contains(&include_path) {
+            return Err(format!(
+                "{} includes {include:?}, which is already being included",
+                path.display()
+            ));
+        }
+        stack.push(include_path.clone());
+        expanded.extend(
+            read_and_expand(root, &include_path, stack)
+                .map_err(|error| format!("{} includes {include:?}: {error}", path.display()))?,
+        );
+        stack.pop();
+    }
+    Ok(expanded)
+}
+
+/// Resolves an `IncludeScenario` path (`/test_room`) to its file under `root`,
+/// adding the `.ron` extension when missing.
+pub(super) fn resolve_include_path(root: &Path, path: &str) -> Result<PathBuf, String> {
+    let Some(relative) = path.strip_prefix('/') else {
+        return Err(format!(
+            "IncludeScenario path {path:?} must start with `/` and is relative to \
+             {}",
+            root.display()
+        ));
+    };
+    let relative = Path::new(relative);
+    if relative.as_os_str().is_empty() {
+        return Err(format!("IncludeScenario path {path:?} names no scenario"));
+    }
+    if !relative
+        .components()
+        .all(|component| matches!(component, Component::Normal(_)))
+    {
+        return Err(format!(
+            "IncludeScenario path {path:?} must be a plain path under {} \
+             without `.` or `..` components",
+            root.display()
+        ));
+    }
+    let mut file = root.join(relative);
+    if file.extension().is_none_or(|ext| ext != "ron") {
+        file.set_extension("ron");
+    }
+    Ok(file)
+}
+
 /// Resets the scenario workdir and parses the scenario file.
 ///
 /// Panics when the scenario file is missing, unreadable or malformed, since
@@ -183,13 +259,7 @@ fn prepare_replay(layout: &ScenarioLayout, renderless: bool) -> ActionReplay {
 }
 
 fn read_replay(layout: &ScenarioLayout, renderless: bool) -> Result<ActionReplay, String> {
-    let path = &layout.scenario_file;
-    let contents = fs::read_to_string(path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    let commands: Vec<ReplayCommand> = RonOptions::default()
-        .with_default_extension(Extensions::IMPLICIT_SOME)
-        .from_str(&contents)
-        .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
+    let commands = load_scenario_commands(Path::new(SCENARIO_ROOT), &layout.scenario_file)?;
     let commands = schedule_commands(commands);
     Ok(ActionReplay {
         workdir: layout.workdir.clone(),

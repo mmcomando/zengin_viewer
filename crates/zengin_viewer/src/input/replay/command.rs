@@ -176,6 +176,10 @@ pub(super) fn apply_replay_command(
                 "ZenginScriptStartup replay command: no script name for world({world})"
             );
         }
+        // Includes are expanded while loading the scenario, before scheduling.
+        ReplayCommand::IncludeScenario { path } => {
+            warn!("IncludeScenario({path:?}) reached the replay unexpanded");
+        }
         ReplayCommand::TestWorld { name } => {
             info!("Replay requested the test world {name}");
             let name = name.clone();

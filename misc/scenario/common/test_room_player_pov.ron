@@ -1,0 +1,6 @@
+// `test_room_free_camera` toggled to the player point of view: the player ends
+// where the free camera was looking and gameplay input is enabled.
+[
+    IncludeScenario(path: "/common/test_room_free_camera"),
+    PressRelease(action: Editor(ToggleEditorMode)),
+]

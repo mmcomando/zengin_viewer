@@ -1,8 +1,5 @@
 [
-    ZenginSetDebugNpc(name: "hero"),
-    TestWorld(name: "simple"),
-    Wait(frame_dt: 50),
-    ZenginSpawnPlayerCharacter(translation: (-3.0, 0.0, 2.0), rotation: (0.0, 0.0, 0.0)),
+    IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnMob(
         visual: "CHAIR_NW_NORMAL_01",
         focus_name: "CHAIR",
@@ -15,13 +12,15 @@
         translation: (0.0, 0.0, -10.0),
         rotation: (0.0, 0.0, 0.0),
     ),
+
     // Replays start in editor mode (free camera); leaving it enables gameplay
     // input and places the player where the free camera was looking.
     SetCameraLocation(
         translation: (0.0, 0.0, 2.0),
         rotation: (-10.0, 0.0, 0.0),
     ),
-    PressRelease(action: Editor(ToggleEditorMode)),
+    ZenginSetDebugNpc(name: "hero"),
+    Wait(frame_dt: 10),
 
     // Sit on the plain chair.
     TestClearLogBuffer,

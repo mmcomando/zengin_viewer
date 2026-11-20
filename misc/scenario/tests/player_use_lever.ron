@@ -4,40 +4,31 @@
 // pose, toggles the mob state, fires its trigger, and stands up automatically
 // through `T_LEVER_S1_2_STAND` without a second `Interact`.
 [
-    TestWorld(name: "simple"),
-    Wait(frame_dt: 50),
-    ZenginSpawnPlayerCharacter(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnMob(
         visual: "LEVER_1_OC",
         focus_name: "LEVER",
         translation: (0.0, 1.0, -2.0),
         rotation: (0.0, 180.0, 0.0),
     ),
-    SetCameraLocation(
-        translation: (0.0, 0.0, 0.0),
-        rotation: (-30.0, 0.0, 0.0),
-    ),
-    PressRelease(action: Editor(ToggleEditorMode)),
     ZenginSetDebugNpc(name: "hero"),
-
+    Wait(frame_dt: 10),
     // `Interact` uses the lever.
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_LEVER\\)"),
-    // The use ends on its own: pose end -> `T_LEVER_S1_2_STAND` -> released.
-    Wait(frame_dt: 250),
+    // The use ends on its own
+    Wait(frame_dt: 50),
     TestLogExists(regex: "animation\\(S_LEVER_S1\\)"),
     TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_LEVER_S1\\)"),
     TestLogExists(regex: "current=HUMANS-T_LEVER_S1_2_STAND"),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
     Screenshot(path: "01_lever_used.png"),
 
-    // Using the lever again toggles it back to state 0 and plays `S_LEVER_S0`.
-    // There is no `T_LEVER_S0_2_STAND` in the archive, so that release falls
-    // back to the standing idle immediately.
+    // Toggle again
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
-    Wait(frame_dt: 110),
+    Wait(frame_dt: 50),
     TestLogExists(regex: "animation\\(S_LEVER_S0\\)"),
     TestLogExists(regex: "-> state\\(0\\)"),
     TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_LEVER_S0\\)"),
@@ -45,10 +36,8 @@
 
     // Movement works right after the automatic stand-up.
     Axis(action: Gameplay(Move), value: (0.0, 1.0)),
-    Wait(frame_dt: 100),
+    Wait(frame_dt: 50),
     Axis(action: Gameplay(Move), value: (0.0, 0.0)),
-    // Not compared: the synthetic lever mesh has no proper player `ZS_POS`, so
-    // the pose position is test-mesh specific.
     Screenshot(path: "02_moved_away.png"),
 
     ExitGame,

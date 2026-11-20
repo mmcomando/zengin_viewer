@@ -5,26 +5,17 @@
 // attach with the `S_CHAIR_S1` pose, stand-up) can be checked without loading a
 // world.
 [
-    TestWorld(name: "simple"),
-    Wait(frame_dt: 50),
-    ZenginSpawnPlayerCharacter(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnMob(
         visual: "CHAIR_NW_NORMAL_01",
         focus_name: "CHAIR",
         translation: (0.0, 0.0, -2.0),
         rotation: (0.0, 0.0, 0.0),
     ),
-    // Replays start in editor mode (free camera); leaving it enables gameplay
-    // input. The player is then placed back in front of the chair.
-    SetCameraLocation(
-        translation: (0.0, 0.0, 0.0),
-        rotation: (-30.0, 0.0, 0.0),
-    ),
-    PressRelease(action: Editor(ToggleEditorMode)),
     ZenginSetDebugNpc(name: "hero"),
+    Wait(frame_dt: 10),
 
     // The chair is in selection range and shows its focus name.
-    Wait(frame_dt: 50),
     TestScreenshot(path: "00_chair.png"),
 
     // `Interact` snaps the player onto the chair and plays `S_CHAIR_S1`.

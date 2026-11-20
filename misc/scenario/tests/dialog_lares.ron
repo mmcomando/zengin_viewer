@@ -1,14 +1,10 @@
 [
     // Setup
+    IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginFilterSpawnWithPosition(points: [(center: (0,0,0), radius: 10.0)]),
     ZenginFilterNpcWithName(filters: ["lares"]),
     // ZenginSetDebugNpc(name: "lares"),
-    TestWorld(name: "simple"),
-    ZenginScriptStartup(world: "NEWWORLD/NEWWORLD", clean_world: false),
-    ZenginSpawnPlayerCharacter(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
     ZenginSpawnNpc(name:"vlk_449_lares",translation: (0.0, 0.0, -3.0), rotation: (0.0, 0.0, 0.0)),
-    SetCameraLocation(translation: (0.0, 0.0, 0.0), rotation: (-30.0, 0.0, 0.0)),
-    PressRelease(action:Editor(ToggleEditorMode)),
 
     // Before dialog
     Wait(frame_dt: 50),

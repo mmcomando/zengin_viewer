@@ -8,7 +8,9 @@ use crate::input::actions::GameplayAction;
 use crate::input::record::{RecordedAction, ReplayCommand};
 
 use super::log_check::matching_log_line;
-use super::scenario::{ScheduledCommand, schedule_commands};
+use super::scenario::{
+    ScheduledCommand, load_scenario_commands, resolve_include_path, schedule_commands,
+};
 use super::screenshot::{COMPARE_MAX_CHANGED_FRACTION, compare_images, diff_path};
 
 #[test]
@@ -36,7 +38,7 @@ fn bundled_scenarios_parse() {
     collect_scenario_files(&dir, &mut files);
     assert!(!files.is_empty());
     for path in files {
-        parse_scenario_file(&path);
+        parse_scenario_file(&dir, &path);
     }
 }
 
@@ -154,6 +156,24 @@ fn spawn_mob_command_parses_and_schedules() {
         ReplayCommand::ZenginSpawnMob { focus_name: Some(name), state_num: Some(2), .. }
             if name == "Chair"
     ));
+}
+
+#[test]
+fn include_paths_are_relative_to_the_scenario_root() {
+    let root = std::path::Path::new("misc/scenario");
+    assert_eq!(
+        resolve_include_path(root, "/test_room").unwrap(),
+        std::path::PathBuf::from("misc/scenario/test_room.ron")
+    );
+    assert_eq!(
+        resolve_include_path(root, "/tests/dialog_lares.ron").unwrap(),
+        std::path::PathBuf::from("misc/scenario/tests/dialog_lares.ron")
+    );
+    assert!(resolve_include_path(root, "test_room").is_err());
+    assert!(resolve_include_path(root, "misc/scenario/test_room").is_err());
+    assert!(resolve_include_path(root, "/").is_err());
+    assert!(resolve_include_path(root, "/../test_room").is_err());
+    assert!(resolve_include_path(root, "/./test_room").is_err());
 }
 
 #[test]
@@ -294,12 +314,8 @@ fn frames(commands: &[ScheduledCommand]) -> Vec<u64> {
     commands.iter().map(|command| command.frame).collect()
 }
 
-fn parse_scenario_file(path: &std::path::Path) {
-    let contents = std::fs::read_to_string(path).unwrap();
-    let commands: Vec<ReplayCommand> = RonOptions::default()
-        .with_default_extension(Extensions::IMPLICIT_SOME)
-        .from_str(&contents)
-        .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+fn parse_scenario_file(root: &std::path::Path, path: &std::path::Path) {
+    let commands = load_scenario_commands(root, path).unwrap_or_else(|error| panic!("{error}"));
     schedule_commands(commands);
 }
 

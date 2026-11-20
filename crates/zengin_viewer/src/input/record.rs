@@ -161,6 +161,10 @@ pub(crate) enum ReplayCommand {
     /// Spawns the test world `name` defined in code, with its own camera.
     /// Does not load a zengin world archive.
     TestWorld { name: String },
+    /// Includes the commands of another scenario at this point. `path` is
+    /// absolute in the scenario namespace, so `/test_room` names
+    /// `<scenario root>/test_room.ron`; it cannot point outside the root.
+    IncludeScenario { path: String },
     /// Exits the application.
     ExitGame,
     /// Panics when no captured log line matches the regex.
