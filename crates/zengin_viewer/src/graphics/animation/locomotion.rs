@@ -459,10 +459,17 @@ pub(crate) fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimatio
             .lerp(frame_b.rotation.inverse(), mul);
         transform.translation = frame_a.position.lerp(frame_b.position, mul);
 
-        if data.is_base_pos_bone && data.frame_state.root_motion.load(Ordering::Acquire) {
-            // The entity is moved by the root motion instead (update_animations).
-            transform.translation.x = 0.0;
-            transform.translation.z = 0.0;
+        if data.is_base_pos_bone {
+            if data.frame_state.root_motion.load(Ordering::Acquire) {
+                // The entity is moved by the root motion instead (update_animations).
+                transform.translation.x = 0.0;
+                transform.translation.z = 0.0;
+            }
+            transform.translation += *data
+                .frame_state
+                .pose_offset
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
         }
     });
 }

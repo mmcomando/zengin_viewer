@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32};
+use std::sync::{Arc, Mutex};
 
 use bevy::prelude::*;
 
@@ -52,6 +52,10 @@ pub struct FrameState {
     /// keeps the full animated root translation (mob-use poses shift the npc
     /// sideways/forward relative to its entity root).
     pub root_motion: AtomicBool,
+    /// Skeleton-local translation added to the base bone. Mob-use poses store
+    /// their root relative to the mob, while the npc entity stands at the
+    /// attachment point, so this offset re-anchors the pose to the mob.
+    pub pose_offset: Mutex<Vec3>,
 }
 
 /// Playback state of the animation currently played by a skeleton.

@@ -88,6 +88,9 @@ pub struct NpcMobUse {
     pub state: i32,
     /// `FRONT`/`BACK` of the attachment point, if it has one.
     pub position_tag: Option<String>,
+    /// Skeleton-local offset aligning the mob-relative pose animation with the
+    /// entity standing at the `ZS_POS*` attachment point.
+    pub pose_offset: Vec3,
 }
 
 /// Npc entity occupying a mob interaction point.

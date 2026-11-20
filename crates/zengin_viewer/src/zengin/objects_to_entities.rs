@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU32};
 
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
@@ -80,6 +81,7 @@ pub(crate) fn create_skinned_mesh_data(
         mul_1000: AtomicU32::new(0),
         needs_update: AtomicBool::new(true),
         root_motion: AtomicBool::new(false),
+        pose_offset: Mutex::new(Vec3::ZERO),
     });
 
     let add_animation = animation_data.is_good_animations();

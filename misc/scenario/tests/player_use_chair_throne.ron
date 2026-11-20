@@ -1,0 +1,63 @@
+
+[
+    ZenginSetDebugNpc(name: "hero"),
+    TestWorld(name: "simple"),
+    ZenginSpawnPlayerCharacter(frame: 10, translation: (-3.0, 0.0, 2.0), rotation: (0.0, 0.0, 0.0)),
+    ZenginSpawnMob(
+        frame: 20,
+        visual: "CHAIR_NW_NORMAL_01",
+        focus_name: "CHAIR",
+        translation: (0.0, 0.0, 0.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    ZenginSpawnMob(
+        frame: 22,
+        visual: "THRONE_NW_CITY_01",
+        focus_name: "THRONE",
+        translation: (0.0, 0.0, -10.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    // Replays start in editor mode (free camera); leaving it enables gameplay
+    // input and places the player where the free camera was looking.
+    SetCameraLocation(
+        frame: 30,
+        translation: (0.0, 0.0, 2.0),
+        rotation: (-10.0, 0.0, 0.0),
+    ),
+    PressRelease(frame: 40, action: Editor(ToggleEditorMode)),
+
+    // Sit on the plain chair.
+    TestClearLogBuffer(frame: 150),
+    PressRelease(frame: 170, action: Gameplay(Interact)),
+    TestLogExists(frame: 200, regex: "uses mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\)"),
+    SetCameraLocation(
+        frame: 210,
+        translation: (0.0, 0.0, 0.0),
+        rotation: (-5.0, 90.0, 0.0),
+    ),
+    TestScreenshot(frame: 250, path: "00_chair_side.png"),
+
+    PressRelease(frame: 280, action: Gameplay(Interact)),
+    TestLogExists(frame: 310, regex: "Player\\(.*\\) released mob\\(.*\\)"),
+    TeleportPlayer(
+        frame: 330,
+        translation: (3.0, 0.0, -10.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    SetCameraLocation(
+        frame: 331,
+        translation: (3.0, 0.0, -10.0),
+        rotation: (-30.0, 0.0, 0.0),
+    ),
+    TestClearLogBuffer(frame: 350),
+    PressRelease(frame: 380, action: Gameplay(Interact)),
+    TestLogExists(frame: 410, regex: "uses mob\\(.*\\) focus\\(THRONE\\)"),
+    SetCameraLocation(
+        frame: 420,
+        translation: (0.0, 0.0, 0.0),
+        rotation: (-5.0, 90.0, 0.0),
+    ),
+    TestScreenshot(frame: 460, path: "01_throne_side.png"),
+
+    ExitGame(frame: 500),
+]

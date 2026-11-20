@@ -240,11 +240,24 @@ pub(crate) fn run_use_mob_action(
             &animation,
         );
         commands.entity(choice.mob).insert(MobOccupant(entity));
+        // Mob poses store their root translation relative to the mob origin,
+        // while the actor entity sits at the `ZS_POS*` stand point. Keep the
+        // entity there (camera, selection, release) and shift the skeleton by
+        // the mob-relative offset instead.
+        let mob_translation = mobs
+            .get(choice.mob)
+            .map_or(transform.translation, |(_, tr, ..)| tr.translation());
+        let pose_offset = if choice.attached && !choice.no_move {
+            choice.use_rot.inverse() * (mob_translation - transform.translation)
+        } else {
+            Vec3::ZERO
+        };
         commands.entity(entity).insert(NpcMobUse {
             mob: choice.mob,
             scheme: action.scheme.clone(),
             state: use_state,
             position_tag: choice.position_tag.clone(),
+            pose_offset,
         });
         // The mob switches to the state the npc uses it in, which plays
         // its own `<STEM>-S_S<n>` animation.

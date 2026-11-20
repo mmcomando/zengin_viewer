@@ -16,6 +16,7 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::gameplay::character::move_and_slide;
+use crate::zengin::NpcMobUse;
 use components::AnimationTrigger;
 use locomotion::{compute_animations, update_animations};
 
@@ -40,6 +41,17 @@ pub(crate) use hit_reaction::{NpcHitReaction, npc_hit_reaction_end, play_hit_rea
 #[derive(Default)]
 pub struct SkeletalAnimations;
 
+fn update_mob_pose_offset(skeletons: Query<(&AnimationState, Option<&NpcMobUse>)>) {
+    for (state, mob_use) in &skeletons {
+        let offset = mob_use.map_or(Vec3::ZERO, |mob_use| mob_use.pose_offset);
+        *state
+            .frame_state
+            .pose_offset
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = offset;
+    }
+}
+
 impl Plugin for SkeletalAnimations {
     fn build(&self, app: &mut App) {
         app.add_message::<AnimationEnds>();
@@ -51,7 +63,11 @@ impl Plugin for SkeletalAnimations {
         // so move-and-slide starts from the new position and can react to it.
         app.add_systems(
             Update,
-            (update_animations.before(move_and_slide), compute_animations)
+            (
+                update_animations.before(move_and_slide),
+                update_mob_pose_offset,
+                compute_animations,
+            )
                 .chain()
                 .run_if(in_state(AppState::InGame)),
         );

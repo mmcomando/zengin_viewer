@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::Duration;
 
@@ -362,6 +363,7 @@ fn runl_state(movement: Option<Vec<Vec2>>) -> AnimationState {
             mul_1000: AtomicU32::new(0),
             needs_update: AtomicBool::new(true),
             root_motion: AtomicBool::new(false),
+            pose_offset: Mutex::new(Vec3::ZERO),
         }),
         fps: 25.0,
         frames_num: 20,

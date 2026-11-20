@@ -417,6 +417,7 @@ mod tests {
             scheme: StringCanon::new(scheme),
             state,
             position_tag: tag.map(str::to_string),
+            pose_offset: Vec3::ZERO,
         }
     }
 
