@@ -6,46 +6,45 @@
 //   4. the attack action chases the player and swings (`S_FISTATTACK`)
 //
 // The checks use the `DebugNPC` log of the wolf set with `ZenginSetDebugNpc`,
-// which reports every animation switch and action. Frames are chosen with
+// which reports every animation switch and action. The delays are chosen with
 // margin for both canonical test timings: `--fixed-time` (20 ms/frame, the
 // `just test-scenario` path) and a plain renderless run (1/60 s/frame, which
 // reaches the same events ~20% later in frame numbers).
 [
     TestWorld(name: "simple"),
     ZenginScriptStartup(world: "NEWWORLD/NEWWORLD", clean_world: false),
-    ZenginSpawnPlayerCharacter(frame: 10, translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
-    ZenginSpawnNpc(frame: 20, name: "wolf", translation: (0.0, 0.0, -20.0), rotation: (0.0, 0.0, 0.0)),
-    ZenginSetDebugNpc(frame: 30, name: "wolf"),
+    ZenginSpawnPlayerCharacter(frame_dt: 50, translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    ZenginSpawnNpc(name: "wolf", translation: (0.0, 0.0, -20.0), rotation: (0.0, 0.0, 0.0)),
+    ZenginSetDebugNpc(name: "wolf"),
     // Side view onto the player/wolf line along the Z axis.
     SetCameraLocation(
-        frame: 40,
         translation: (11.0, 3.5, -15.0),
         rotation: (-14.0, 90.0, 0.0),
     ),
 
     // 1) Far away the wolf stays passive: no warning pose, no attack request.
-    TestClearLogBuffer(frame: 150),
-    TestScreenshot(frame: 186, path: "00_far.png"),
+    TestClearLogBuffer(frame_dt: 75),
+    TestScreenshot(frame_dt: 36, path: "00_far.png"),
 
     // 2) Step into perception range (8 m, outside the 7 m attack range): the
     // wolf plays the scripted `T_WARN` pose (a looping scripted animation, so
     // no conversation back to the standing idle).
-    TeleportPlayer(frame: 200, translation: (0.0, 0.0, -12.0), rotation: (0.0, 0.0, 0.0)),
-    TestLogExists(frame: 280, regex: "DebugNPC: animation .*current=WOLF-T_WARN next=- root_motion=false"),
-    TestScreenshot(frame: 280, path: "01_warning.png"),
+    TeleportPlayer(frame_dt: 14, translation: (0.0, 0.0, -12.0), rotation: (0.0, 0.0, 0.0)),
+    TestLogExists(frame_dt: 80, regex: "DebugNPC: animation .*current=WOLF-T_WARN next=- root_motion=false"),
+    TestScreenshot(path: "01_warning.png"),
 
     // 3) The threat timer expires and the wolf starts attacking. The attack
     // action runs at the player before swinging.
-    TestScreenshot(frame: 470, path: "02_attack_chase.png"),
-    TestLogExists(frame: 520, regex: "AI_Attack requested by npc\\(12562\\) on target\\(11471\\)"),
-    TestLogExists(frame: 530, regex: "DebugNPC: actions Attack\\(target="),
-    TestLogExists(frame: 540, regex: "DebugNPC: animation .*current=WOLF-S_FISTRUNL next=- root_motion=true"),
+    TestScreenshot(frame_dt: 185, path: "02_attack_chase.png"),
+    TestLogExists(frame_dt: 50, regex: "AI_Attack requested by npc\\(12562\\) on target\\(11471\\)"),
+    TestLogExists(frame_dt: 10, regex: "DebugNPC: actions Attack\\(target="),
+    TestLogExists(frame_dt: 10, regex: "DebugNPC: animation .*current=WOLF-S_FISTRUNL next=- root_motion=true"),
 
     // 4) The first swing plays. This also guards the scripted animation
     // resolution: a valid archive animation must never be reported as missing.
-    TestScreenshot(frame: 565, path: "03_attack_swing.png"),
-    TestLogExists(frame: 590, regex: "DebugNPC: animation .*current=WOLF-S_FISTATTACK next=- root_motion=true"),
-    TestLogNotExists(frame: 590, regex: ".*not in the anim archive"),
+    TestScreenshot(frame_dt: 25, path: "03_attack_swing.png"),
+    TestLogExists(frame_dt: 25, regex: "DebugNPC: animation .*current=WOLF-S_FISTATTACK next=- root_motion=true"),
+    TestLogNotExists(regex: ".*not in the anim archive"),
 
-    ExitGame(frame: 600),
+    ExitGame(frame_dt: 20),
 ]

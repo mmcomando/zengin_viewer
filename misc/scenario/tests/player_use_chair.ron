@@ -6,9 +6,8 @@
 // world.
 [
     TestWorld(name: "simple"),
-    ZenginSpawnPlayerCharacter(frame: 10, translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    ZenginSpawnPlayerCharacter(frame_dt: 50, translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
     ZenginSpawnMob(
-        frame: 20,
         visual: "CHAIR_NW_NORMAL_01",
         focus_name: "CHAIR",
         translation: (0.0, 0.0, -2.0),
@@ -17,33 +16,32 @@
     // Replays start in editor mode (free camera); leaving it enables gameplay
     // input. The player is then placed back in front of the chair.
     SetCameraLocation(
-        frame: 30,
         translation: (0.0, 0.0, 0.0),
         rotation: (-30.0, 0.0, 0.0),
     ),
-    PressRelease(frame: 40, action: Editor(ToggleEditorMode)),
+    PressRelease(action: Editor(ToggleEditorMode)),
+    ZenginSetDebugNpc(name: "hero"),
+    TestClearLogBuffer(frame_dt: 50),
 
     // The chair is in selection range and shows its focus name.
-    TestScreenshot(frame: 140, path: "00_chair.png"),
+    TestScreenshot(path: "00_chair.png"),
 
-    ZenginSetDebugNpc(name: "hero"),
-    TestClearLogBuffer(frame: 150),
 
     // `Interact` snaps the player onto the chair and plays `S_CHAIR_S1`.
-    PressRelease(frame: 170, action: Gameplay(Interact)),
-    TestLogExists(frame: 200, regex: "uses mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\)"),
-    TestLogExists(frame: 205, regex: "-> state\\(1\\)"),
-    TestScreenshot(frame: 210, path: "01_used.png"),
+    PressRelease(action: Gameplay(Interact)),
+    TestLogExists(frame_dt: 50, regex: "uses mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\)"),
+    TestLogExists(regex: "-> state\\(1\\)"),
+    TestScreenshot(path: "01_used.png"),
 
     // A second `Interact` stands the player up.
-    PressRelease(frame: 240, action: Gameplay(Interact)),
-    TestLogExists(frame: 270, regex: "Player\\(.*\\) released mob\\(.*\\)"),
-    TestScreenshot(frame: 280, path: "02_released.png"),
+    PressRelease(action: Gameplay(Interact)),
+    TestLogExists(frame_dt: 30, regex: "Player\\(.*\\) released mob\\(.*\\)"),
+    TestScreenshot(path: "02_released.png"),
 
     // Movement to make sure player detached.
-    Axis(frame: 350, action: Gameplay(Move), value: (0.0, 1.0)),
-    Axis(frame: 490, action: Gameplay(Move), value: (0.0, 0.0)),
-    TestScreenshot(frame: 500, path: "03_moved_away.png"),
+    Axis(frame_dt: 20, action: Gameplay(Move), value: (0.0, 1.0)),
+    Axis(frame_dt: 200, action: Gameplay(Move), value: (0.0, 0.0)),
+    TestScreenshot(path: "03_moved_away.png"),
 
-    ExitGame(frame: 520),
+    ExitGame(frame_dt: 20),
 ]

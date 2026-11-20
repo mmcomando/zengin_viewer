@@ -1,6 +1,6 @@
 [
     // Setup
-    ZenginFilterSpawnWithPosition(frame: 0, points: [(center: (0,0,0), radius: 10.0)]),
+    ZenginFilterSpawnWithPosition(points: [(center: (0,0,0), radius: 10.0)]),
     ZenginFilterNpcWithName(filters: ["lares"]),
     // ZenginSetDebugNpc(name: "lares"),
     TestWorld(name: "simple"),
