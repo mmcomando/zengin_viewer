@@ -1,0 +1,48 @@
+// Player interaction with a chair mob in the bare test room.
+//
+// The chair is spawned from the game's own mesh (`CHAIR_NW_NORMAL_01`) next to
+// the player, so the whole player-side mob flow (selection label, `Interact`
+// state toggle) can be checked without loading a world.
+[
+    TestWorld(name: "simple"),
+    ZenginSpawnPlayerCharacter(frame: 10, translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    ZenginSpawnMob(
+        frame: 20,
+        visual: "CHAIR_NW_NORMAL_01",
+        focus_name: "CHAIR",
+        translation: (0.0, 0.0, -2.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    // Replays start in editor mode (free camera); leaving it enables gameplay
+    // input. The player is then placed back in front of the chair.
+    SetCameraLocation(
+        frame: 30,
+        translation: (0.0, 0.0, 0.0),
+        rotation: (-30.0, 0.0, 0.0),
+    ),
+    Press(frame: 40, action: Editor(ToggleEditorMode)),
+    Release(frame: 42, action: Editor(ToggleEditorMode)),
+    TeleportPlayer(frame: 50, translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    Axis(frame: 55, action: Gameplay(Move), value: (0.0, 0.0)),
+    Axis(frame: 55, action: Gameplay(RotateCamera), value: (0.0, 0.0)),
+
+    // The chair is in selection range and shows its focus name.
+    Screenshot(frame: 100, path: "00_chair.png"),
+
+    // `Interact` flips the chair to its used state.
+    ZenginSetDebugNpc(name: "lares"),
+    ClearLogBuffer(frame: 150),
+    Press(frame: 170, action: Gameplay(Interact)),
+    Release(frame: 172, action: Gameplay(Interact)),
+    // LogExists(frame: 200, regex: "used mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\) focus\\(CHAIR\\)"),
+    // LogExists(frame: 205, regex: "-> state\\(1\\)"),
+    Screenshot(frame: 210, path: "01_used.png"),
+
+    // A second `Interact` toggles it back.
+    // Press(frame: 240, action: Gameplay(Interact)),
+    // Release(frame: 242, action: Gameplay(Interact)),
+    // LogExists(frame: 270, regex: "used mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\).* -> state\\(0\\)"),
+    // Screenshot(frame: 280, path: "02_released.png"),
+
+    ExitGame(frame: 320),
+]

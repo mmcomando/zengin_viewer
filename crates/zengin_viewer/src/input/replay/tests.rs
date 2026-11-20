@@ -153,6 +153,31 @@ fn spawn_npc_command_parses_and_schedules() {
 }
 
 #[test]
+fn spawn_mob_command_parses_and_schedules() {
+    let commands = parse(
+        "[ZenginSpawnMob(visual: \"CHAIR_NW_NORMAL_01\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",
+    )
+    .unwrap();
+    assert_eq!(frames(&commands), [5]);
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::ZenginSpawnMob { visual, state_num: None, focus_name: None, translation, .. }
+            if visual == "CHAIR_NW_NORMAL_01"
+                && *translation == Vec3::new(0.0, 0.0, -2.0)
+    ));
+
+    let commands = parse(
+        "[ZenginSpawnMob(visual: \"chair\", focus_name: \"Chair\", state_num: 2, translation: (1.0, 2.0, 3.0), rotation: (0.0, 90.0, 0.0))]",
+    )
+    .unwrap();
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::ZenginSpawnMob { focus_name: Some(name), state_num: Some(2), .. }
+            if name == "Chair"
+    ));
+}
+
+#[test]
 fn absolute_frame_serializes_without_option_wrapper() {
     let command = ReplayCommand::ExitGame {
         frame: Some(3),

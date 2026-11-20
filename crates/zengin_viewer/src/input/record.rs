@@ -252,6 +252,25 @@ pub(crate) enum ReplayCommand {
         translation: Vec3,
         rotation: Vec3,
     },
+    /// Spawns the interactive mob (oCMobInter) using the visual mesh `visual`
+    /// at `translation` with `rotation` in axis labeled degrees
+    /// `(x = pitch, y = yaw, z = roll)`. The visual is a mesh name like
+    /// `CHAIR_NW_NORMAL_01` resolved against the game archives, so no world
+    /// load is needed. `focus_name` defaults to the mob scheme, `state_num` to
+    /// one interaction state.
+    ZenginSpawnMob {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_dt: Option<u64>,
+        visual: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        focus_name: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        state_num: Option<i32>,
+        translation: Vec3,
+        rotation: Vec3,
+    },
     /// Spawns the test world `name` defined in code, with its own camera.
     /// Does not load a zengin world archive.
     TestWorld {
@@ -354,6 +373,9 @@ impl ReplayCommand {
                 frame, frame_dt, ..
             }
             | Self::ZenginSpawnNpc {
+                frame, frame_dt, ..
+            }
+            | Self::ZenginSpawnMob {
                 frame, frame_dt, ..
             }
             | Self::ZenginGiveTestItems {

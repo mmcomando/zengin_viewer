@@ -10,6 +10,9 @@ use crate::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
 use crate::game_state::AppState;
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gui_debug::{StaticMesh, WorldMesh};
+use crate::zengin::common::{mob_scheme, mob_visual_stem};
+use crate::zengin::loaders::vdf_reader::ZenginVfs;
+use crate::zengin::loaders::vfs::find_mesh_path;
 use crate::zengin::mobs::{MobAnimation, mob_state_animation};
 use crate::zengin::movers::GameMover;
 use crate::zengin::npc_routines::AnimationFiles;
@@ -150,6 +153,47 @@ impl WorldSpawnMessages {
         self.movers.clear();
         self.items.clear();
     }
+}
+
+/// Spawns an interactive mob from a visual mesh name resolved against the game
+/// archives, used by scenario replays to place mobs without a world load.
+/// `focus_name` is the in-game label, `state_num` the number of interaction
+/// states (a chair has one).
+pub(crate) fn request_mob_spawn(
+    world: &mut World,
+    visual: &str,
+    focus_name: Option<&str>,
+    state_num: Option<i32>,
+    tr: Transform,
+) {
+    let Some(vfs) = world.get_resource::<ZenginVfs>() else {
+        warn!("Mob({visual}) spawn requested without the zengin vfs");
+        return;
+    };
+    let archetype = find_mesh_path(&vfs.0.lock().unwrap(), visual);
+    let Some(archetype) = archetype else {
+        warn!("Mob({visual}) spawn requested, no mesh found for the visual");
+        return;
+    };
+    let Some(mobs) = world
+        .get_resource::<WorldSpawnMessages>()
+        .map(|spawns| spawns.mobs.clone())
+    else {
+        warn!("Mob({visual}) spawn requested before the spawn messages are registered");
+        return;
+    };
+    let scheme = mob_scheme(visual);
+    mobs.send(SpawnMob {
+        tr,
+        archetype,
+        collides: true,
+        vob_name: format!("TEST_MOB_{scheme}"),
+        focus_name: focus_name.unwrap_or(&scheme).to_string(),
+        visual_stem: mob_visual_stem(visual),
+        scheme,
+        state_num: state_num.unwrap_or(1),
+        ..default()
+    });
 }
 
 /// Circle in world space (meters) used by [`SpawnPositionFilter`].

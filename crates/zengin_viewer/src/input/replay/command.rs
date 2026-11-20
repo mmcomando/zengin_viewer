@@ -232,6 +232,33 @@ pub(super) fn apply_replay_command(
                 });
             });
         }
+        ReplayCommand::ZenginSpawnMob {
+            visual,
+            focus_name,
+            state_num,
+            translation,
+            rotation,
+            ..
+        } => {
+            info!("Replay spawning mob {visual:?} at {translation:?}");
+            let visual = visual.clone();
+            let focus_name = focus_name.clone();
+            let state_num = *state_num;
+            let transform = Transform {
+                translation: *translation,
+                rotation: rotation_from_degrees(*rotation),
+                scale: Vec3::ONE,
+            };
+            commands.queue(move |world: &mut World| {
+                crate::zengin::request_mob_spawn(
+                    world,
+                    &visual,
+                    focus_name.as_deref(),
+                    state_num,
+                    transform,
+                );
+            });
+        }
         ReplayCommand::ClearLogBuffer { .. } => {
             let Some(log_buffer) = log_buffer else {
                 warn!("ClearLogBuffer replay command ignored: log capture is not enabled");
