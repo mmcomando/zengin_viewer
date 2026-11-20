@@ -190,7 +190,7 @@ fn read_replay(layout: &ScenarioLayout, renderless: bool) -> Result<ActionReplay
         .with_default_extension(Extensions::IMPLICIT_SOME)
         .from_str(&contents)
         .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
-    let commands = schedule_commands(commands)?;
+    let commands = schedule_commands(commands);
     Ok(ActionReplay {
         workdir: layout.workdir.clone(),
         reference_root: layout.reference_root.clone(),
@@ -207,30 +207,23 @@ fn read_replay(layout: &ScenarioLayout, renderless: bool) -> Result<ActionReplay
     })
 }
 
-/// Resolves the absolute frame of every command. A command without `frame`
-/// runs `frame_dt` after the previous command in file order, or
-/// [`DEFAULT_FRAME_DT`] when it has no timing field at all.
-pub(super) fn schedule_commands(
-    commands: Vec<ReplayCommand>,
-) -> Result<Vec<ScheduledCommand>, String> {
+/// Resolves the absolute frame of every command. Every command runs
+/// [`DEFAULT_FRAME_DT`] after the previous one, except `Wait`, which runs
+/// `frame_dt` after it.
+pub(super) fn schedule_commands(commands: Vec<ReplayCommand>) -> Vec<ScheduledCommand> {
     let mut previous_frame: u64 = 0;
     let mut scheduled = Vec::with_capacity(commands.len());
-    for (index, command) in commands.into_iter().enumerate() {
-        let frame = match command.timing() {
-            (Some(frame), None) => frame,
-            (None, Some(delta)) => previous_frame.saturating_add(delta),
-            (None, None) => previous_frame.saturating_add(DEFAULT_FRAME_DT),
-            (Some(_), Some(_)) => {
-                return Err(format!(
-                    "command {index} {command:?} has both frame and frame_dt"
-                ));
-            }
+    for command in commands {
+        let delay = if let ReplayCommand::Wait { frame_dt } = &command {
+            *frame_dt
+        } else {
+            DEFAULT_FRAME_DT
         };
+        let frame = previous_frame.saturating_add(delay);
         previous_frame = frame;
         scheduled.push(ScheduledCommand { frame, command });
     }
-    scheduled.sort_by_key(|scheduled| scheduled.frame);
-    Ok(scheduled)
+    scheduled
 }
 
 /// Exits a scenario run after an explicit `ExitGame` once all pending

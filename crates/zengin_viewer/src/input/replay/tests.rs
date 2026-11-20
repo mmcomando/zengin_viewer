@@ -12,34 +12,21 @@ use super::scenario::{ScheduledCommand, schedule_commands};
 use super::screenshot::{COMPARE_MAX_CHANGED_FRACTION, compare_images, diff_path};
 
 #[test]
-fn frame_dt_is_relative_to_previous_command() {
-    let commands =
-        parse("[ExitGame(frame: 10), ExitGame(frame_dt: 5), ExitGame(frame_dt: 2)]").unwrap();
-    assert_eq!(frames(&commands), [10, 15, 17]);
+fn commands_run_five_frames_apart() {
+    let commands = parse("[ExitGame, ExitGame]").unwrap();
+    assert_eq!(frames(&commands), [5, 10]);
 }
 
 #[test]
-fn commands_are_sorted_by_resolved_frame() {
-    let commands =
-        parse("[ExitGame(frame: 10), ExitGame(frame: 4), ExitGame(frame_dt: 1)]").unwrap();
-    assert_eq!(frames(&commands), [4, 5, 10]);
+fn wait_delays_the_following_commands() {
+    let commands = parse("[ExitGame, Wait(frame_dt: 20), ExitGame]").unwrap();
+    assert_eq!(frames(&commands), [5, 25, 30]);
 }
 
 #[test]
-fn missing_timing_defaults_to_frame_dt_5() {
-    let commands = parse("[ExitGame(frame: 10), ZenginEquipWeapon(item: \"sword\")]").unwrap();
-    assert_eq!(frames(&commands), [10, 15]);
-}
-
-#[test]
-fn command_with_both_frames_is_rejected() {
-    assert!(parse("[ZenginEquipWeapon(frame: 1, frame_dt: 1, item: \"sword\")]").is_err());
-}
-
-#[test]
-fn first_command_frame_dt_is_relative_to_zero() {
-    let commands = parse("[ZenginEquipWeapon(frame_dt: 2, item: \"sword\")]").unwrap();
-    assert_eq!(frames(&commands), [2]);
+fn wait_is_relative_to_the_previous_command() {
+    let commands = parse("[Wait(frame_dt: 7), ExitGame]").unwrap();
+    assert_eq!(frames(&commands), [7, 12]);
 }
 
 #[test]
@@ -69,38 +56,36 @@ fn collect_scenario_files(dir: &std::path::Path, files: &mut Vec<std::path::Path
 #[test]
 fn time_speed_command_parses_and_schedules() {
     let commands =
-        parse("[ZenginSetGameTimeSpeed(frame: 4, speed: 2.5), Screenshot(path: \"shot.png\")]")
-            .unwrap();
-    assert_eq!(frames(&commands), [4, 9]);
+        parse("[ZenginSetGameTimeSpeed(speed: 2.5), Screenshot(path: \"shot.png\")]").unwrap();
+    assert_eq!(frames(&commands), [5, 10]);
     assert!(matches!(
         commands[0].command,
-        ReplayCommand::ZenginSetGameTimeSpeed { speed, .. } if speed == 2.5
+        ReplayCommand::ZenginSetGameTimeSpeed { speed } if speed == 2.5
     ));
 }
 
 #[test]
 fn world_command_parses_and_schedules() {
-    let commands = parse("[TestWorld(frame: 3, name: \"simple\")]").unwrap();
-    assert_eq!(frames(&commands), [3]);
+    let commands = parse("[TestWorld(name: \"simple\")]").unwrap();
+    assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
-        ReplayCommand::TestWorld { name, .. } if name == "simple"
+        ReplayCommand::TestWorld { name } if name == "simple"
     ));
 }
 
 #[test]
 fn script_startup_command_parses_and_schedules() {
-    let commands = parse("[ZenginScriptStartup(frame: 3, world: \"NEWWORLD/NEWWORLD\")]").unwrap();
-    assert_eq!(frames(&commands), [3]);
+    let commands = parse("[ZenginScriptStartup(world: \"NEWWORLD/NEWWORLD\")]").unwrap();
+    assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
-        ReplayCommand::ZenginScriptStartup { world, clean_world: false, .. }
+        ReplayCommand::ZenginScriptStartup { world, clean_world: false }
             if world == "NEWWORLD/NEWWORLD"
     ));
 
     let commands =
-        parse("[ZenginScriptStartup(frame: 3, clean_world: true, world: \"NEWWORLD/NEWWORLD\")]")
-            .unwrap();
+        parse("[ZenginScriptStartup(clean_world: true, world: \"NEWWORLD/NEWWORLD\")]").unwrap();
     assert!(matches!(
         &commands[0].command,
         ReplayCommand::ZenginScriptStartup {
@@ -112,23 +97,22 @@ fn script_startup_command_parses_and_schedules() {
 
 #[test]
 fn debug_npc_command_parses_and_schedules() {
-    let commands = parse("[ZenginSetDebugNpc(frame: 3, name: \"lares\")]").unwrap();
-    assert_eq!(frames(&commands), [3]);
+    let commands = parse("[ZenginSetDebugNpc(name: \"lares\")]").unwrap();
+    assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
-        ReplayCommand::ZenginSetDebugNpc { name, .. } if name == "lares"
+        ReplayCommand::ZenginSetDebugNpc { name } if name == "lares"
     ));
 }
 
 #[test]
 fn press_release_command_parses_and_schedules() {
-    let commands = parse("[PressRelease(frame: 4, action: Gameplay(Jump))]").unwrap();
-    assert_eq!(frames(&commands), [4]);
+    let commands = parse("[PressRelease(action: Gameplay(Jump))]").unwrap();
+    assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         commands[0].command,
         ReplayCommand::PressRelease {
             action: RecordedAction::Gameplay(GameplayAction::Jump),
-            ..
         }
     ));
 }
@@ -173,18 +157,25 @@ fn spawn_mob_command_parses_and_schedules() {
 }
 
 #[test]
-fn absolute_frame_serializes_without_option_wrapper() {
-    let command = ReplayCommand::ExitGame {
-        frame: Some(3),
-        frame_dt: None,
-    };
+fn stale_frame_fields_are_rejected() {
+    assert!(
+        RonOptions::default()
+            .with_default_extension(Extensions::IMPLICIT_SOME)
+            .from_str::<Vec<ReplayCommand>>("[Screenshot(frame: 2, path: \"shot.png\")]")
+            .is_err()
+    );
+}
+
+#[test]
+fn wait_serializes_with_its_delay() {
+    let command = ReplayCommand::Wait { frame_dt: 20 };
+    let mut pretty_config = ron::ser::PrettyConfig::default();
+    pretty_config.depth_limit = 1;
     let text = RonOptions::default()
         .with_default_extension(Extensions::IMPLICIT_SOME)
-        .to_string_pretty(&vec![command], ron::ser::PrettyConfig::default())
+        .to_string_pretty(&vec![command], pretty_config)
         .unwrap();
-    assert!(text.contains("frame: 3"));
-    assert!(!text.contains("Some("));
-    assert!(!text.contains("frame_dt"));
+    assert!(text.contains("Wait(frame_dt: 20)"), "{text}");
 }
 
 #[test]
@@ -235,36 +226,34 @@ fn diff_path_keeps_the_screenshot_directory() {
 fn log_commands_parse_and_schedule() {
     let commands = parse(
         r#"[
-            TestClearLogBuffer(frame: 2),
-            TestLogExists(frame: 4, regex: "WARN.*missing"),
-            TestLogNotExists(frame: 6, regex: "ERROR.*missing"),
+            TestClearLogBuffer,
+            TestLogExists(regex: "WARN.*missing"),
+            TestLogNotExists(regex: "ERROR.*missing"),
         ]"#,
     )
     .unwrap();
-    assert_eq!(frames(&commands), [2, 4, 6]);
+    assert_eq!(frames(&commands), [5, 10, 15]);
     assert!(matches!(
         &commands[1].command,
-        ReplayCommand::TestLogExists { regex, .. } if regex == "WARN.*missing"
+        ReplayCommand::TestLogExists { regex } if regex == "WARN.*missing"
     ));
     assert!(matches!(
         &commands[2].command,
-        ReplayCommand::TestLogNotExists { regex, .. } if regex == "ERROR.*missing"
+        ReplayCommand::TestLogNotExists { regex } if regex == "ERROR.*missing"
     ));
 }
 
 #[test]
 fn test_screenshot_command_parses_and_schedules() {
-    let commands = parse(
-        "[Screenshot(frame: 2, path: \"plain.png\"), TestScreenshot(frame: 4, path: \"tested.png\")]",
-    )
-    .unwrap();
+    let commands =
+        parse("[Screenshot(path: \"plain.png\"), TestScreenshot(path: \"tested.png\")]").unwrap();
     assert!(matches!(
         &commands[0].command,
-        ReplayCommand::Screenshot { path, .. } if path == "plain.png"
+        ReplayCommand::Screenshot { path } if path == "plain.png"
     ));
     assert!(matches!(
         &commands[1].command,
-        ReplayCommand::TestScreenshot { path, .. } if path == "tested.png"
+        ReplayCommand::TestScreenshot { path } if path == "tested.png"
     ));
 }
 
@@ -298,7 +287,7 @@ fn parse(commands: &str) -> Result<Vec<ScheduledCommand>, String> {
         .with_default_extension(Extensions::IMPLICIT_SOME)
         .from_str(commands)
         .expect("test ron should parse");
-    schedule_commands(commands)
+    Ok(schedule_commands(commands))
 }
 
 fn frames(commands: &[ScheduledCommand]) -> Vec<u64> {
@@ -311,7 +300,7 @@ fn parse_scenario_file(path: &std::path::Path) {
         .with_default_extension(Extensions::IMPLICIT_SOME)
         .from_str(&contents)
         .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
-    schedule_commands(commands).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+    schedule_commands(commands);
 }
 
 fn test_image(color: [u8; 3]) -> DynamicImage {

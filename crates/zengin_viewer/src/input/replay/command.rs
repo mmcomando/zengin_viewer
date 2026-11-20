@@ -55,19 +55,21 @@ pub(super) fn apply_replay_command(
     failures: &mut TestFailures,
 ) -> bool {
     match command {
-        ReplayCommand::Press { action, .. } => {
+        // The scheduler already resolved the delay; there is nothing to apply.
+        ReplayCommand::Wait { .. } => {}
+        ReplayCommand::Press { action } => {
             replay.started_buttons.insert(*action);
             replay.held_buttons.insert(*action);
         }
-        ReplayCommand::PressRelease { action, .. } => {
+        ReplayCommand::PressRelease { action } => {
             replay.started_buttons.insert(*action);
             replay.held_buttons.insert(*action);
             replay.released_buttons.insert(*action);
         }
-        ReplayCommand::Release { action, .. } => {
+        ReplayCommand::Release { action } => {
             replay.held_buttons.remove(action);
         }
-        ReplayCommand::Axis { action, value, .. } => {
+        ReplayCommand::Axis { action, value } => {
             if *value == Vec2::ZERO {
                 replay.held_axes.remove(action);
             } else {
@@ -77,42 +79,40 @@ pub(super) fn apply_replay_command(
         ReplayCommand::TeleportPlayer {
             translation,
             rotation,
-            ..
         } => {
             pending.player.push((*translation, *rotation));
         }
         ReplayCommand::SetCameraLocation {
             translation,
             rotation,
-            ..
         } => {
             pending.camera.push((*translation, *rotation));
         }
-        ReplayCommand::ZenginSetGameTimeSpeed { speed, .. } => {
+        ReplayCommand::ZenginSetGameTimeSpeed { speed } => {
             game_time.speed = *speed;
             info!("Replay set the in-game time speed multiplier to {speed}");
         }
-        ReplayCommand::ZenginEquipWeapon { item, .. } => {
+        ReplayCommand::ZenginEquipWeapon { item } => {
             let Some(gothic_script) = gothic_script else {
                 warn!("ZenginEquipWeapon replay command: game script is not loaded");
                 return false;
             };
             equip_player_weapon(gothic_script, player_npc, item);
         }
-        ReplayCommand::ZenginToggleArmor { item, .. } => {
+        ReplayCommand::ZenginToggleArmor { item } => {
             let Some(gothic_script) = gothic_script else {
                 warn!("ZenginToggleArmor replay command: game script is not loaded");
                 return false;
             };
             toggle_player_armor(gothic_script, player_npc, item);
         }
-        ReplayCommand::Screenshot { path, .. } => {
+        ReplayCommand::Screenshot { path } => {
             return apply_replay_screenshot(replay, path, commands, false);
         }
-        ReplayCommand::TestScreenshot { path, .. } => {
+        ReplayCommand::TestScreenshot { path } => {
             return apply_replay_screenshot(replay, path, commands, true);
         }
-        ReplayCommand::ZenginGiveTestItems { .. } => {
+        ReplayCommand::ZenginGiveTestItems => {
             let Some(gothic_script) = gothic_script else {
                 warn!("ZenginGiveTestItems replay command: game script is not loaded");
                 return false;
@@ -133,7 +133,7 @@ pub(super) fn apply_replay_command(
                 player_id
             );
         }
-        ReplayCommand::ZenginGiveTestJournal { .. } => {
+        ReplayCommand::ZenginGiveTestJournal => {
             let Some(gothic_script) = gothic_script else {
                 warn!("ZenginGiveTestJournal replay command: game script is not loaded");
                 return false;
@@ -143,14 +143,13 @@ pub(super) fn apply_replay_command(
             game_log.add(format!("Seeded {count} test journal topic(s)"));
             info!("Replay seeded {count} test journal topic(s)");
         }
-        ReplayCommand::OpenMainMenu { .. } => {
+        ReplayCommand::OpenMainMenu => {
             info!("Replay opened the main menu");
             next_state.set(AppState::MainMenu);
         }
         ReplayCommand::ZenginSpawnPlayerCharacter {
             translation,
             rotation,
-            ..
         } => {
             let transform = Transform::from_translation(*translation)
                 .with_rotation(rotation_from_degrees(*rotation));
@@ -159,16 +158,14 @@ pub(super) fn apply_replay_command(
                 crate::zengin::request_player_spawn(world, transform);
             });
         }
-        ReplayCommand::ZenginSpawnWorld { world, .. } => {
+        ReplayCommand::ZenginSpawnWorld { world } => {
             info!("Replay requested the zengin world spawn of {world}");
             let world_name = world.clone();
             commands.queue(move |world: &mut World| {
                 crate::zengin::request_world_spawn(world, &world_name);
             });
         }
-        ReplayCommand::ZenginScriptStartup {
-            world, clean_world, ..
-        } => {
+        ReplayCommand::ZenginScriptStartup { world, clean_world } => {
             let Some(gothic_script) = gothic_script else {
                 panic!("ZenginScriptStartup replay command: game script is not loaded");
             };
@@ -179,22 +176,22 @@ pub(super) fn apply_replay_command(
                 "ZenginScriptStartup replay command: no script name for world({world})"
             );
         }
-        ReplayCommand::TestWorld { name, .. } => {
+        ReplayCommand::TestWorld { name } => {
             info!("Replay requested the test world {name}");
             let name = name.clone();
             commands.queue(move |world: &mut World| {
                 crate::test_world::request_test_world_spawn(world, &name);
             });
         }
-        ReplayCommand::ZenginFilterNpcWithName { filters, .. } => {
+        ReplayCommand::ZenginFilterNpcWithName { filters } => {
             npc_filter.add(filters);
             info!("Replay npc spawn name filters: {filters:?}");
         }
-        ReplayCommand::ZenginFilterSpawnWithPosition { points, .. } => {
+        ReplayCommand::ZenginFilterSpawnWithPosition { points } => {
             spawn_filter.add(points);
             info!("Replay spawn position filters: {points:?}");
         }
-        ReplayCommand::ZenginSetDebugNpc { name, .. } => {
+        ReplayCommand::ZenginSetDebugNpc { name } => {
             info!("Replay debug npc filter: {name:?}");
             let name = name.clone();
             commands.queue(move |world: &mut World| {
@@ -205,7 +202,6 @@ pub(super) fn apply_replay_command(
             name,
             translation,
             rotation,
-            ..
         } => {
             info!("Replay spawning npc {name:?} at {translation:?}");
             let Some(gothic_script) = gothic_script else {
@@ -242,7 +238,6 @@ pub(super) fn apply_replay_command(
             state_num,
             translation,
             rotation,
-            ..
         } => {
             info!("Replay spawning mob {visual:?} at {translation:?}");
             let visual = visual.clone();
@@ -263,7 +258,7 @@ pub(super) fn apply_replay_command(
                 );
             });
         }
-        ReplayCommand::TestClearLogBuffer { .. } => {
+        ReplayCommand::TestClearLogBuffer => {
             let Some(log_buffer) = log_buffer else {
                 warn!("TestClearLogBuffer replay command ignored: log capture is not enabled");
                 return false;
@@ -271,21 +266,21 @@ pub(super) fn apply_replay_command(
             log_buffer.clear();
             info!("Replay cleared the captured log buffer");
         }
-        ReplayCommand::TestLogExists { regex, .. } => {
+        ReplayCommand::TestLogExists { regex } => {
             let Some(log_buffer) = log_buffer else {
                 warn!("TestLogExists replay command ignored: log capture is not enabled");
                 return false;
             };
             check_log_exists(log_buffer, regex, failures);
         }
-        ReplayCommand::TestLogNotExists { regex, .. } => {
+        ReplayCommand::TestLogNotExists { regex } => {
             let Some(log_buffer) = log_buffer else {
                 warn!("TestLogNotExists replay command ignored: log capture is not enabled");
                 return false;
             };
             check_log_not_exists(log_buffer, regex, failures);
         }
-        ReplayCommand::ExitGame { .. } => {
+        ReplayCommand::ExitGame => {
             info!("Replay requested the game exit after the screenshots are captured");
             replay.exit_requested = true;
         }

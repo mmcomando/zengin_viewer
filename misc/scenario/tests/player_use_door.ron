@@ -5,7 +5,8 @@
 // the state, and stands up automatically through `T_DOOR_FRONT_S1_2_STAND`.
 [
     TestWorld(name: "simple"),
-    ZenginSpawnPlayerCharacter(frame_dt: 50, translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    Wait(frame_dt: 50),
+    ZenginSpawnPlayerCharacter(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
     ZenginSpawnMob(
         visual: "DOOR_NW_NORMAL_01",
         focus_name: "DOOR",
@@ -17,34 +18,36 @@
         rotation: (-30.0, 0.0, 0.0),
     ),
     PressRelease(action: Editor(ToggleEditorMode)),
-
     ZenginSetDebugNpc(name: "hero"),
-    TestClearLogBuffer(frame_dt: 50),
 
     // `Interact` opens the door without moving the player.
+    TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
-    TestLogExists(frame_dt: 30, regex: "uses mob\\(.*\\) vob\\(TEST_MOB_DOOR\\)"),
+    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_DOOR\\)"),
+    Wait(frame_dt: 190),
     TestLogExists(regex: "animation\\(S_DOOR_FRONT_S1\\)"),
-    TestLogExists(frame_dt: 15, regex: "state position=\\(0\\.00, -0\\.09, 0\\.00\\)"),
-    TestLogNotExists(frame_dt: 80, regex: "state position=\\(.*, .*, -[1-9]"),
-    TestLogExists(frame_dt: 20, regex: "auto-ends mob\\(.*\\) use, pose\\(S_DOOR_FRONT_S1\\)"),
-    TestLogExists(frame_dt: 20, regex: "current=HUMANS-T_DOOR_FRONT_S1_2_STAND"),
-    TestLogExists(frame_dt: 20, regex: "Player\\(.*\\) released mob\\(.*\\)"),
+    TestLogExists(regex: "state position=\\(0\\.00, -0\\.09, 0\\.00\\)"),
+    TestLogNotExists(regex: "state position=\\(.*, .*, -[1-9]"),
+    TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_DOOR_FRONT_S1\\)"),
+    TestLogExists(regex: "current=HUMANS-T_DOOR_FRONT_S1_2_STAND"),
+    TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
     Screenshot(path: "01_door_opened.png"),
 
     // A second `Interact` closes it, again without moving the player.
-    TestClearLogBuffer(frame_dt: 10),
-    PressRelease(frame_dt: 10, action: Gameplay(Interact)),
-    TestLogExists(frame_dt: 30, regex: "animation\\(S_DOOR_FRONT_S0\\)"),
-    TestLogExists(frame_dt: 10, regex: "auto-ends mob\\(.*\\) use, pose\\(S_DOOR_FRONT_S0\\)"),
-    TestLogNotExists(frame_dt: 70, regex: "state position=\\(.*, .*, -[1-9]"),
-    TestLogExists(frame_dt: 30, regex: "Player\\(.*\\) released mob\\(.*\\)"),
+    TestClearLogBuffer,
+    PressRelease(action: Gameplay(Interact)),
+    Wait(frame_dt: 140),
+    TestLogExists(regex: "animation\\(S_DOOR_FRONT_S0\\)"),
+    TestLogNotExists(regex: "state position=\\(.*, .*, -[1-9]"),
+    TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_DOOR_FRONT_S0\\)"),
+    TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
     Screenshot(path: "02_door_closed.png"),
 
     // Movement works right after the automatic stand-up.
-    Axis(frame_dt: 20, action: Gameplay(Move), value: (0.0, 1.0)),
-    Axis(frame_dt: 100, action: Gameplay(Move), value: (0.0, 0.0)),
+    Axis(action: Gameplay(Move), value: (0.0, 1.0)),
+    Wait(frame_dt: 100),
+    Axis(action: Gameplay(Move), value: (0.0, 0.0)),
     Screenshot(path: "03_moved_away.png"),
 
-    ExitGame(frame_dt: 20),
+    ExitGame,
 ]

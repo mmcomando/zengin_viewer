@@ -53,155 +53,61 @@ pub(crate) enum RecordedAction {
 /// One recorded replay command. Together these fully describe the triggered
 /// inputs and extra commands of a run so they can be replayed frame by frame.
 ///
-/// A command runs either on an absolute `frame` or a `frame_dt` after the
-/// previous command's frame. Missing both means `frame_dt` of
-/// [`DEFAULT_FRAME_DT`].
+/// Every command runs [`DEFAULT_FRAME_DT`] frames after the previous one;
+/// [`Self::Wait`] instead delays the commands that follow it.
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
 pub(crate) enum ReplayCommand {
+    /// Delays the following commands by `frame_dt` frames without applying
+    /// anything.
+    Wait { frame_dt: u64 },
     /// Button was pressed; replay holds it until a matching `Release`.
-    Press {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        action: RecordedAction,
-    },
+    Press { action: RecordedAction },
     /// Button was released.
-    Release {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        action: RecordedAction,
-    },
+    Release { action: RecordedAction },
     /// Button was pressed and released again before the next frame; it
     /// reports `just_pressed` on this frame without staying held.
-    PressRelease {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        action: RecordedAction,
-    },
+    PressRelease { action: RecordedAction },
     /// Dual axis value changed to `value`.
-    Axis {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        action: RecordedAction,
-        value: Vec2,
-    },
+    Axis { action: RecordedAction, value: Vec2 },
     /// Teleport the player character to `translation` with `rotation` in axis
     /// labeled degrees `(x = pitch, y = yaw, z = roll)`, matching the camera
     /// info overlay.
-    TeleportPlayer {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        translation: Vec3,
-        rotation: Vec3,
-    },
+    TeleportPlayer { translation: Vec3, rotation: Vec3 },
     /// Set the camera location to `translation` with `rotation` in axis labeled
     /// degrees `(x = pitch, y = yaw, z = roll)`, matching the camera info
     /// overlay.
-    SetCameraLocation {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        translation: Vec3,
-        rotation: Vec3,
-    },
+    SetCameraLocation { translation: Vec3, rotation: Vec3 },
     /// Equips the item with the given (case-insensitive) instance symbol name
     /// on the player as a drawn weapon.
-    ZenginEquipWeapon {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        item: String,
-    },
+    ZenginEquipWeapon { item: String },
     /// Sets the in-game time speed multiplier, `0.0` pauses the time. Replays
     /// start with a multiplier of `0.0`.
-    ZenginSetGameTimeSpeed {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        speed: f32,
-    },
+    ZenginSetGameTimeSpeed { speed: f32 },
     /// Toggles the armor item with the given (case-insensitive) instance symbol
     /// name on the player.
-    ZenginToggleArmor {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        item: String,
-    },
+    ZenginToggleArmor { item: String },
     /// Save a screenshot of the primary window to `path`.
-    Screenshot {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        path: String,
-    },
+    Screenshot { path: String },
     /// Save a screenshot of the primary window to `path` and compare it with
     /// the reference screenshot at the same relative path under
     /// `misc/scenario_test_references/<scenario id>/`. With `--update-reference`
     /// the produced screenshot is copied into the reference directory instead.
-    TestScreenshot {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        path: String,
-    },
+    TestScreenshot { path: String },
     /// Grants the hardcoded test items to the player.
-    ZenginGiveTestItems {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-    },
+    ZenginGiveTestItems,
     /// Seeds the hardcoded test journal topics.
-    ZenginGiveTestJournal {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-    },
+    ZenginGiveTestJournal,
     /// Switches to the main menu.
-    OpenMainMenu {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-    },
+    OpenMainMenu,
     /// Spawns the player character at `translation` with `rotation` in axis
     /// labeled degrees `(x = pitch, y = yaw, z = roll)`, matching the camera
     /// info overlay.
-    ZenginSpawnPlayerCharacter {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        translation: Vec3,
-        rotation: Vec3,
-    },
+    ZenginSpawnPlayerCharacter { translation: Vec3, rotation: Vec3 },
     /// Spawns the zengin world `world` (path relative to the worlds directory
     /// without the `.ZEN` extension). Replays load no world unless they
     /// request it with this command.
-    ZenginSpawnWorld {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        world: String,
-    },
+    ZenginSpawnWorld { world: String },
     /// Runs the world script entry points of `world` without loading its
     /// zengin world. Replay runs skip the default world spawn, so a test world
     /// scenario needs this to get the game state a new game sets up (e.g. the
@@ -212,10 +118,6 @@ pub(crate) enum ReplayCommand {
     /// empty world and insert its npcs/items. Only set it when the scenario
     /// loads the matching zengin world too.
     ZenginScriptStartup {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
         world: String,
         #[serde(default)]
         clean_world: bool,
@@ -223,42 +125,20 @@ pub(crate) enum ReplayCommand {
     /// Adds name filters for npc spawning. An npc is spawned when its script
     /// symbol name or display name contains any of `filters`
     /// (case-insensitive). Repeated commands extend the same list.
-    ZenginFilterNpcWithName {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        filters: Vec<String>,
-    },
+    ZenginFilterNpcWithName { filters: Vec<String> },
     /// Restricts spawning to the union of the given circles: an entity is
     /// spawned only when its position is within `radius` world units of a
     /// point. Repeated commands extend the same list. The world mesh,
     /// waypoint navigation nodes and the player are not filtered.
-    ZenginFilterSpawnWithPosition {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        points: Vec<SpawnPoint>,
-    },
+    ZenginFilterSpawnWithPosition { points: Vec<SpawnPoint> },
     /// Selects the npc traced by the debug npc trace, matched as a
     /// case-insensitive substring of its script symbol name. A blank `name`
     /// disables the trace.
-    ZenginSetDebugNpc {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        name: String,
-    },
+    ZenginSetDebugNpc { name: String },
     /// Spawns the npc instance `name` (case-insensitive script symbol name) at
     /// `translation` with `rotation` in axis labeled degrees
     /// `(x = pitch, y = yaw, z = roll)`, matching the camera info overlay.
     ZenginSpawnNpc {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
         name: String,
         translation: Vec3,
         rotation: Vec3,
@@ -270,10 +150,6 @@ pub(crate) enum ReplayCommand {
     /// load is needed. `focus_name` defaults to the mob scheme, `state_num` to
     /// one interaction state.
     ZenginSpawnMob {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
         visual: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         focus_name: Option<String>,
@@ -284,139 +160,50 @@ pub(crate) enum ReplayCommand {
     },
     /// Spawns the test world `name` defined in code, with its own camera.
     /// Does not load a zengin world archive.
-    TestWorld {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        name: String,
-    },
+    TestWorld { name: String },
     /// Exits the application.
-    ExitGame {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-    },
+    ExitGame,
     /// Panics when no captured log line matches the regex.
-    TestLogExists {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        regex: String,
-    },
+    TestLogExists { regex: String },
     /// Panics when a captured log line matches the regex, the negative of
     /// [`Self::TestLogExists`]. Usually paired with [`Self::TestClearLogBuffer`]
     /// so it only checks the events of the observed time window.
-    TestLogNotExists {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-        regex: String,
-    },
+    TestLogNotExists { regex: String },
     /// Clears the captured log lines.
-    TestClearLogBuffer {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        frame_dt: Option<u64>,
-    },
+    TestClearLogBuffer,
 }
 
-/// Default offset used when a command has neither `frame` nor `frame_dt`.
+/// Frames a command runs after the previous one unless it is a
+/// [`ReplayCommand::Wait`].
 pub(crate) const DEFAULT_FRAME_DT: u64 = 5;
 
-impl ReplayCommand {
-    #[allow(
-        clippy::unnecessary_rest_pattern,
-        reason = "a single pattern group keeps the shared timing fields together"
-    )]
-    pub(crate) fn timing(&self) -> (Option<u64>, Option<u64>) {
-        match *self {
-            Self::Press {
-                frame, frame_dt, ..
-            }
-            | Self::Release {
-                frame, frame_dt, ..
-            }
-            | Self::PressRelease {
-                frame, frame_dt, ..
-            }
-            | Self::Axis {
-                frame, frame_dt, ..
-            }
-            | Self::TeleportPlayer {
-                frame, frame_dt, ..
-            }
-            | Self::SetCameraLocation {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginEquipWeapon {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginSetGameTimeSpeed {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginToggleArmor {
-                frame, frame_dt, ..
-            }
-            | Self::Screenshot {
-                frame, frame_dt, ..
-            }
-            | Self::TestScreenshot {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginSpawnPlayerCharacter {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginSpawnWorld {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginScriptStartup {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginFilterNpcWithName {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginFilterSpawnWithPosition {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginSetDebugNpc {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginSpawnNpc {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginSpawnMob {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginGiveTestItems {
-                frame, frame_dt, ..
-            }
-            | Self::ZenginGiveTestJournal {
-                frame, frame_dt, ..
-            }
-            | Self::TestWorld {
-                frame, frame_dt, ..
-            }
-            | Self::OpenMainMenu {
-                frame, frame_dt, ..
-            }
-            | Self::TestLogExists {
-                frame, frame_dt, ..
-            }
-            | Self::TestLogNotExists {
-                frame, frame_dt, ..
-            }
-            | Self::TestClearLogBuffer {
-                frame, frame_dt, ..
-            }
-            | Self::ExitGame {
-                frame, frame_dt, ..
-            } => (frame, frame_dt),
+/// Recorded commands plus the frame the next appended command will run at.
+struct RecordedCommands {
+    commands: Vec<ReplayCommand>,
+    next_frame: u64,
+}
+
+impl Default for RecordedCommands {
+    fn default() -> Self {
+        Self {
+            commands: Vec::new(),
+            next_frame: DEFAULT_FRAME_DT,
         }
+    }
+}
+
+impl RecordedCommands {
+    /// Appends `command` so that it runs on `frame`, inserting a [`ReplayCommand::Wait`]
+    /// when the default gap to the previous command is too short. Commands that
+    /// share a frame are spread `DEFAULT_FRAME_DT` apart instead.
+    fn push(&mut self, frame: u64, command: ReplayCommand) {
+        let target = frame.max(self.next_frame);
+        let wait = target - self.next_frame;
+        if wait > 0 {
+            self.commands.push(ReplayCommand::Wait { frame_dt: wait });
+        }
+        self.commands.push(command);
+        self.next_frame = target + DEFAULT_FRAME_DT;
     }
 }
 
@@ -426,7 +213,7 @@ impl ReplayCommand {
 struct ActionRecording {
     path: PathBuf,
     frame: u64,
-    commands: Vec<ReplayCommand>,
+    commands: RecordedCommands,
     /// Buttons currently recorded as pressed, to detect releases even when
     /// the action gets disabled before it is released.
     held_gameplay: HashSet<GameplayAction>,
@@ -456,11 +243,16 @@ fn open_recording_file(options: Res<Options>, mut commands: Commands) {
         path: path.clone(),
         frame: 0,
         // Recorded scenarios need an explicit world spawn to replay in a world.
-        commands: vec![ReplayCommand::ZenginSpawnWorld {
-            frame: Some(0),
-            frame_dt: None,
-            world: START_WORLD.to_string(),
-        }],
+        commands: {
+            let mut commands = RecordedCommands::default();
+            commands.push(
+                0,
+                ReplayCommand::ZenginSpawnWorld {
+                    world: START_WORLD.to_string(),
+                },
+            );
+            commands
+        },
         held_gameplay: HashSet::new(),
         held_gui: HashSet::new(),
         held_shared: HashSet::new(),
@@ -484,7 +276,7 @@ fn record_triggered_actions(
     recording.frame += 1;
     let frame = recording.frame;
 
-    let before = recording.commands.len();
+    let before = recording.commands.commands.len();
 
     let gameplay = gameplay.map(|state| state.into_inner());
     let gui = gui.map(|state| state.into_inner());
@@ -558,22 +350,24 @@ fn record_triggered_actions(
     // Extra commands of this frame, written from `PreUpdate` systems.
     for switch in camera_switches.read() {
         let (translation, player_rotation, camera_rotation) = switch_sync_transforms(&switch.0);
-        commands.push(ReplayCommand::TeleportPlayer {
-            frame: Some(frame),
-            frame_dt: None,
-            translation,
-            rotation: player_rotation,
-        });
-        commands.push(ReplayCommand::SetCameraLocation {
-            frame: Some(frame),
-            frame_dt: None,
-            translation,
-            rotation: camera_rotation,
-        });
+        commands.push(
+            frame,
+            ReplayCommand::TeleportPlayer {
+                translation,
+                rotation: player_rotation,
+            },
+        );
+        commands.push(
+            frame,
+            ReplayCommand::SetCameraLocation {
+                translation,
+                rotation: camera_rotation,
+            },
+        );
     }
 
     recording.commands = commands;
-    if recording.commands.len() != before {
+    if recording.commands.commands.len() != before {
         save_recording(recording);
     }
 }
@@ -587,7 +381,7 @@ fn record_buttons<A: Actionlike + Copy>(
     state: Option<&ActionState<A>>,
     to_recorded: impl Fn(A) -> RecordedAction,
     frame: u64,
-    commands: &mut Vec<ReplayCommand>,
+    commands: &mut RecordedCommands,
     held: &mut HashSet<A>,
 ) {
     let Some(state) = state else {
@@ -598,31 +392,34 @@ fn record_buttons<A: Actionlike + Copy>(
             continue;
         }
         if state.pressed(&action) {
-            commands.push(ReplayCommand::Press {
-                frame: Some(frame),
-                frame_dt: None,
-                action: to_recorded(action),
-            });
+            commands.push(
+                frame,
+                ReplayCommand::Press {
+                    action: to_recorded(action),
+                },
+            );
             continue;
         }
         // Released again before the next frame, a separate `Release` would
         // cancel the press before the replay ever applies it.
         held.remove(&action);
-        commands.push(ReplayCommand::PressRelease {
-            frame: Some(frame),
-            frame_dt: None,
-            action: to_recorded(action),
-        });
+        commands.push(
+            frame,
+            ReplayCommand::PressRelease {
+                action: to_recorded(action),
+            },
+        );
     }
     held.retain(|action| {
         if state.pressed(action) {
             return true;
         }
-        commands.push(ReplayCommand::Release {
-            frame: Some(frame),
-            frame_dt: None,
-            action: to_recorded(*action),
-        });
+        commands.push(
+            frame,
+            ReplayCommand::Release {
+                action: to_recorded(*action),
+            },
+        );
         false
     });
 }
@@ -636,7 +433,7 @@ fn record_map_axes<A: Actionlike + Copy + strum::IntoEnumIterator>(
     state: Option<&ActionState<A>>,
     to_recorded: impl Fn(A) -> RecordedAction,
     frame: u64,
-    commands: &mut Vec<ReplayCommand>,
+    commands: &mut RecordedCommands,
     last_axis: &mut HashMap<RecordedAction, Vec2>,
 ) {
     let Some(state) = state else {
@@ -661,7 +458,7 @@ fn record_axis(
     action: RecordedAction,
     value: Vec2,
     frame: u64,
-    commands: &mut Vec<ReplayCommand>,
+    commands: &mut RecordedCommands,
     last_axis: &mut HashMap<RecordedAction, Vec2>,
 ) {
     let unchanged = last_axis
@@ -671,12 +468,7 @@ fn record_axis(
         return;
     }
     last_axis.insert(action, value);
-    commands.push(ReplayCommand::Axis {
-        frame: Some(frame),
-        frame_dt: None,
-        action,
-        value,
-    });
+    commands.push(frame, ReplayCommand::Axis { action, value });
 }
 
 /// Player teleport and camera location of a camera switch. The player is
@@ -708,7 +500,7 @@ fn save_recording(recording: &ActionRecording) {
     pretty_config.depth_limit = 1;
     let contents = match RonOptions::default()
         .with_default_extension(Extensions::IMPLICIT_SOME)
-        .to_string_pretty(&recording.commands, pretty_config)
+        .to_string_pretty(&recording.commands.commands, pretty_config)
     {
         Ok(contents) => contents,
         Err(error) => {

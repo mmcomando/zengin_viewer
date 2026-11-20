@@ -6,7 +6,8 @@
 // world.
 [
     TestWorld(name: "simple"),
-    ZenginSpawnPlayerCharacter(frame_dt: 50, translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    Wait(frame_dt: 50),
+    ZenginSpawnPlayerCharacter(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
     ZenginSpawnMob(
         visual: "CHAIR_NW_NORMAL_01",
         focus_name: "CHAIR",
@@ -21,27 +22,30 @@
     ),
     PressRelease(action: Editor(ToggleEditorMode)),
     ZenginSetDebugNpc(name: "hero"),
-    TestClearLogBuffer(frame_dt: 50),
 
     // The chair is in selection range and shows its focus name.
+    Wait(frame_dt: 50),
     TestScreenshot(path: "00_chair.png"),
 
-
     // `Interact` snaps the player onto the chair and plays `S_CHAIR_S1`.
+    TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
-    TestLogExists(frame_dt: 50, regex: "uses mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\)"),
+    Wait(frame_dt: 50),
+    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\)"),
     TestLogExists(regex: "-> state\\(1\\)"),
     TestScreenshot(path: "01_used.png"),
 
     // A second `Interact` stands the player up.
     PressRelease(action: Gameplay(Interact)),
-    TestLogExists(frame_dt: 30, regex: "Player\\(.*\\) released mob\\(.*\\)"),
+    Wait(frame_dt: 30),
+    TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
     TestScreenshot(path: "02_released.png"),
 
     // Movement to make sure player detached.
-    Axis(frame_dt: 20, action: Gameplay(Move), value: (0.0, 1.0)),
-    Axis(frame_dt: 200, action: Gameplay(Move), value: (0.0, 0.0)),
+    Axis(action: Gameplay(Move), value: (0.0, 1.0)),
+    Wait(frame_dt: 200),
+    Axis(action: Gameplay(Move), value: (0.0, 0.0)),
     TestScreenshot(path: "03_moved_away.png"),
 
-    ExitGame(frame_dt: 20),
+    ExitGame,
 ]

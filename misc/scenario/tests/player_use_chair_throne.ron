@@ -1,8 +1,8 @@
-
 [
     ZenginSetDebugNpc(name: "hero"),
     TestWorld(name: "simple"),
-    ZenginSpawnPlayerCharacter(frame_dt: 50, translation: (-3.0, 0.0, 2.0), rotation: (0.0, 0.0, 0.0)),
+    Wait(frame_dt: 50),
+    ZenginSpawnPlayerCharacter(translation: (-3.0, 0.0, 2.0), rotation: (0.0, 0.0, 0.0)),
     ZenginSpawnMob(
         visual: "CHAIR_NW_NORMAL_01",
         focus_name: "CHAIR",
@@ -24,17 +24,19 @@
     PressRelease(action: Editor(ToggleEditorMode)),
 
     // Sit on the plain chair.
-    TestClearLogBuffer(frame_dt: 50),
+    TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\)"),
     SetCameraLocation(
         translation: (0.0, 0.0, 0.0),
         rotation: (-5.0, 90.0, 0.0),
     ),
+    Wait(frame_dt: 50),
     TestScreenshot(path: "00_chair_side.png"),
 
     PressRelease(action: Gameplay(Interact)),
-    TestLogExists(frame_dt: 50, regex: "Player\\(.*\\) released mob\\(.*\\)"),
+    Wait(frame_dt: 50),
+    TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
     TeleportPlayer(
         translation: (3.0, 0.0, -10.0),
         rotation: (0.0, 0.0, 0.0),
@@ -43,14 +45,15 @@
         translation: (3.0, 0.0, -10.0),
         rotation: (-30.0, 0.0, 0.0),
     ),
-    TestClearLogBuffer(frame_dt: 50),
+    TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
-    TestLogExists(frame_dt: 50, regex: "uses mob\\(.*\\) focus\\(THRONE\\)"),
+    Wait(frame_dt: 50),
+    TestLogExists(regex: "uses mob\\(.*\\) focus\\(THRONE\\)"),
     SetCameraLocation(
         translation: (0.0, 0.0, 0.0),
         rotation: (-5.0, 90.0, 0.0),
     ),
     TestScreenshot(path: "01_throne_side.png"),
 
-    ExitGame(frame_dt: 20),
+    ExitGame,
 ]

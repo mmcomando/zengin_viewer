@@ -11,7 +11,8 @@
     PressRelease(action:Editor(ToggleEditorMode)),
 
     // Before dialog
-    TestScreenshot(frame_dt: 50, path: "00_before_dialog.png"),
+    Wait(frame_dt: 50),
+    TestScreenshot(path: "00_before_dialog.png"),
 
     // Start dialog
     PressRelease(action:Gameplay(Interact)),
@@ -49,5 +50,5 @@
     PressRelease(action:Shared(SkipDialog)),
     TestScreenshot(path: "04_teach.png"),
 
-    ExitGame(),
+    ExitGame,
 ]

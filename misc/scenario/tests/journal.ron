@@ -4,6 +4,7 @@
     SetCameraLocation(translation: (0.0, 0.0, 0.0), rotation: (-30.0, 0.0, 0.0)),
     PressRelease(action:Editor(ToggleEditorMode)),
     PressRelease(action:Shared(Journal)),
-    TestScreenshot(frame_dt: 50, path: "journal.png"),
-    ExitGame(),
+    Wait(frame_dt: 50),
+    TestScreenshot(path: "journal.png"),
+    ExitGame,
 ]

@@ -4,9 +4,10 @@
     SetCameraLocation(translation: (0.0, 0.0, 0.0), rotation: (-30.0, 0.0, 0.0)),
     PressRelease(action:Editor(ToggleEditorMode)),
     PressRelease(action:Shared(Stats)),
-    TestScreenshot(frame_dt: 50, path: "stats.png"),
+    Wait(frame_dt: 50),
+    TestScreenshot(path: "stats.png"),
     TestLogExists(regex: "Spawned test world\\(simple\\)"),
-    TestClearLogBuffer(),
+    TestClearLogBuffer,
     ZenginSetDebugNpc(name: "lares"),
-    ExitGame(),
+    ExitGame,
 ]
