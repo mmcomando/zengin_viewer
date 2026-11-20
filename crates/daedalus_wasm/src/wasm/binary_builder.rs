@@ -39,6 +39,19 @@ struct StringReturnWrapper {
 /// compile time special handling, `None` when the script does not declare them.
 pub(crate) struct WellKnownSymbols {
     pub(crate) self_id: Option<u32>,
+    /// Engine context instance variables (`self`, `other`, `victim`, `item`,
+    /// `hero`). The engine binds their instance at runtime, so the conversion
+    /// must read the symbol's reference slot instead of using the symbol index.
+    pub(crate) context_ids: [Option<u32>; 5],
+}
+
+impl WellKnownSymbols {
+    pub(crate) fn is_context_reference(self, symbol: u32) -> bool {
+        self.context_ids
+            .iter()
+            .flatten()
+            .any(|&context| context == symbol)
+    }
 }
 
 #[derive(Debug)]
@@ -164,6 +177,8 @@ impl BinaryBuilder {
         self.symbols = symbols.to_vec();
         self.well_known = WellKnownSymbols {
             self_id: find_symbol(symbols, "self"),
+            context_ids: ["self", "other", "victim", "item", "hero"]
+                .map(|name| find_symbol(symbols, name)),
         };
 
         // Buildin functions are defined in the base module (base_module.wat),

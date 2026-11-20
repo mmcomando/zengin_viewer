@@ -326,7 +326,14 @@ impl<'a> ConversionState<'a> {
                 // itself, for instance variables (`self`, `other`, `var C_Npc`
                 // locals) their value holds the reference to the instance.
                 let info = self.module_builder.symbol_to_info.get(&index).unwrap();
-                if info.func_info.is_some() {
+                if self.module_builder.well_known.is_context_reference(index) {
+                    // Context variables (`other`, `victim`, `item`, `hero`, ...) are
+                    // declared like instances but the engine binds their object at
+                    // runtime. Their value slot holds the reference.
+                    func.instruction(&Instruction::I32Const(index.cast_signed()));
+                    func.instruction(&Instruction::I32Const(0));
+                    func.instruction(&Instruction::Call(SYMBOL_IMPORT_GET_SYMBOL));
+                } else if info.func_info.is_some() {
                     func.instruction(&Instruction::I32Const(index.cast_signed()));
                 } else if self.module_builder.well_known.self_id == Some(index) {
                     // `self` is read-only, the cached instance id is always in
@@ -506,8 +513,14 @@ impl<'a> ConversionState<'a> {
             .unwrap();
 
         // If we push symbol which is an instance don't load value but just store symbol index
-        // Assume that if we are doing push to symbol which has code in it, it is a instance
-        let is_instance = info.func_info.is_some();
+        // Assume that if we are doing push to symbol which has code in it, it is a instance.
+        // Context variables (`other`, `victim`, `item`, `hero`) are the exception:
+        // the engine binds them at runtime, so their reference slot holds the id.
+        let is_instance = info.func_info.is_some()
+            && !self
+                .module_builder
+                .well_known
+                .is_context_reference(symbol_index);
         if is_instance {
             assert!(
                 element_index == 0,
