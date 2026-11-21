@@ -33,6 +33,7 @@ impl Plugin for CharacterControllerPlugin {
         app.add_systems(
             Update,
             (
+                update_npc_physics_active,
                 update_grounded,
                 apply_gravity,
                 movement.run_if(use_character_camera),
@@ -56,6 +57,35 @@ impl Plugin for CharacterControllerPlugin {
 #[require(RigidBody::Kinematic, CustomPositionIntegration)]
 pub struct CharacterController;
 
+/// A kinematic npc body swept by [`move_and_slide`]. Unlike
+/// [`CharacterController`] it is moved by the animation root motion instead of
+/// input; gravity, ground detection and damping are shared with the player
+/// systems.
+///
+/// The collider must be on the same entity, like [`CharacterController`].
+#[derive(Component)]
+#[require(RigidBody::Kinematic, CustomPositionIntegration)]
+pub(crate) struct NpcPhysicsMarker;
+
+/// Present while an npc body is close enough to the camera to be simulated.
+/// Far npcs keep their body components but are skipped by the sweep and gravity
+/// systems, so the per-frame cost stays bounded.
+#[derive(Component)]
+pub(crate) struct NpcPhysicsActiveMarker;
+
+/// Camera distance at which npc physics starts being simulated.
+const NPC_PHYSICS_ACTIVE_DISTANCE: f32 = 40.0;
+const NPC_PHYSICS_ACTIVE_DISTANCE_SQUARED: f32 =
+    NPC_PHYSICS_ACTIVE_DISTANCE * NPC_PHYSICS_ACTIVE_DISTANCE;
+/// Larger release distance, so npcs at the edge do not toggle every frame.
+const NPC_PHYSICS_RELEASE_DISTANCE: f32 = 45.0;
+const NPC_PHYSICS_RELEASE_DISTANCE_SQUARED: f32 =
+    NPC_PHYSICS_RELEASE_DISTANCE * NPC_PHYSICS_RELEASE_DISTANCE;
+
+/// An npc body with a velocity magnitude (in m/s, squared) below this is
+/// considered idle and skips the sweep.
+const NPC_IDLE_VELOCITY_SQUARED: f32 = 0.01;
+
 /// Collision layer bit for colliders that exist only to be found by explicit
 /// spatial queries (like npc selection), they must never block or carry the
 /// character controller: [`move_and_slide`] and [`update_grounded`] mask this
@@ -66,6 +96,17 @@ pub const QUERY_ONLY_LAYER: u32 = 1 << 3;
 /// Distance from the player entity origin (model root/feet) up to the capsule
 /// collider center.
 pub const PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER: f32 = 1.0;
+
+/// Radius of the npc physics capsule.
+pub(crate) const NPC_PHYSICS_RADIUS: f32 = 0.3;
+
+/// Cylinder length of the npc physics capsule, the caps add twice the radius,
+/// so the total height is 1.8 m like a human npc.
+pub(crate) const NPC_PHYSICS_LENGTH: f32 = 1.2;
+
+/// Vertical offset of the npc physics capsule center above the npc model root.
+/// The npc entity origin sits below the model root, see `NpcBodyRootOffset`.
+pub(crate) const NPC_PHYSICS_CENTER_ABOVE_ROOT: f32 = 0.9;
 
 /// Component for configuring movement settings for a character controller.
 #[derive(Component)]
@@ -145,10 +186,47 @@ pub struct CharacterCollision {
     pub character_velocity: Vec3,
 }
 
+/// Updates the [`NpcPhysicsActiveMarker`] of the npc bodies near the camera.
+fn update_npc_physics_active(
+    mut commands: Commands,
+    cameras: Query<&GlobalTransform, With<Camera3d>>,
+    npcs: Query<(Entity, &GlobalTransform, Has<NpcPhysicsActiveMarker>), With<NpcPhysicsMarker>>,
+) {
+    let Some(camera) = cameras.iter().next() else {
+        return;
+    };
+    let camera_position = camera.translation();
+    for (entity, transform, active) in &npcs {
+        let limit = if active {
+            NPC_PHYSICS_RELEASE_DISTANCE_SQUARED
+        } else {
+            NPC_PHYSICS_ACTIVE_DISTANCE_SQUARED
+        };
+        let in_range = camera_position.distance_squared(transform.translation()) <= limit;
+        match (in_range, active) {
+            (true, false) => {
+                commands.entity(entity).insert(NpcPhysicsActiveMarker);
+            }
+            (false, true) => {
+                commands
+                    .entity(entity)
+                    // A body that leaves the range must not resume with stale motion.
+                    .insert(LinearVelocity::default())
+                    .remove::<NpcPhysicsActiveMarker>();
+            }
+            _ => {}
+        }
+    }
+}
+
 /// Updates the [`Grounded`] status for character controllers.
+#[allow(clippy::type_complexity)]
 fn update_grounded(
     mut commands: Commands,
-    mut query: Query<(Entity, &GroundDetection, &GlobalTransform), Without<NpcMobUse>>,
+    mut query: Query<
+        (Entity, &GroundDetection, &GlobalTransform),
+        (Without<NpcMobUse>, Without<NpcPhysicsMarker>),
+    >,
     spatial_query: SpatialQuery,
 ) {
     for (entity, ground_detection, global_transform) in &mut query {
@@ -195,6 +273,7 @@ pub(crate) const ACCELERATION_MULTIPLIER: f32 = 5.0;
 pub(crate) struct AcceleratingRootMotion;
 
 /// Responds to the movement [`GameplayAction`]s and moves character controllers accordingly.
+#[allow(clippy::type_complexity)]
 fn movement(
     time: Res<Time>,
     mut commands: Commands,
@@ -206,7 +285,7 @@ fn movement(
             &mut LinearVelocity,
             Has<Grounded>,
         ),
-        Without<NpcMobUse>,
+        (With<CharacterController>, Without<NpcMobUse>),
     >,
 ) {
     let delta_secs = time.delta_secs();
@@ -253,9 +332,16 @@ fn movement(
 }
 
 /// Applies gravity to character controllers.
+#[allow(clippy::type_complexity)]
 fn apply_gravity(
     time: Res<Time>,
-    mut controllers: Query<(&CharacterMovementSettings, &mut LinearVelocity), Without<NpcMobUse>>,
+    mut controllers: Query<
+        (&CharacterMovementSettings, &mut LinearVelocity),
+        (
+            Or<(With<CharacterController>, With<NpcPhysicsActiveMarker>)>,
+            Without<NpcMobUse>,
+        ),
+    >,
 ) {
     let delta_secs = time.delta_secs();
 
@@ -282,8 +368,12 @@ fn apply_gravity(
 }
 
 /// Slows down movement in the XZ plane.
+#[allow(clippy::type_complexity)]
 fn apply_movement_damping(
-    mut query: Query<(&CharacterMovementSettings, &mut LinearVelocity), Without<NpcMobUse>>,
+    mut query: Query<
+        (&CharacterMovementSettings, &mut LinearVelocity),
+        (With<CharacterController>, Without<NpcMobUse>),
+    >,
     time: Res<Time>,
 ) {
     let delta_secs = time.delta_secs();
@@ -311,15 +401,32 @@ pub fn move_and_slide(
             &mut Transform,
             &mut LinearVelocity,
             &Collider,
+            Has<CharacterController>,
         ),
-        (With<CharacterController>, Without<NpcMobUse>),
+        (
+            Or<(With<CharacterController>, With<NpcPhysicsActiveMarker>)>,
+            Without<NpcMobUse>,
+        ),
     >,
     move_and_slide: MoveAndSlide,
     time: Res<Time>,
 ) {
-    for (entity, ground_detection, mut collisions, mut transform, mut lin_vel, collider) in
-        &mut query
+    for (
+        entity,
+        ground_detection,
+        mut collisions,
+        mut transform,
+        mut lin_vel,
+        collider,
+        is_controller,
+    ) in &mut query
     {
+        let is_npc = !is_controller;
+        // A body with a negligible velocity in x and y does not need a sweep.
+        if is_npc && lin_vel.x * lin_vel.x + lin_vel.z * lin_vel.z < NPC_IDLE_VELOCITY_SQUARED {
+            continue;
+        }
+
         let mut hit_ground_or_ceiling = false;
 
         if let Some(collisions) = &mut collisions {

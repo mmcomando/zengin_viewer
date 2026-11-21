@@ -1,9 +1,17 @@
+use std::f32::consts::PI;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU32};
 
+use avian3d::prelude::{Collider, CollisionLayers, LinearVelocity};
+use bevy::ecs::query::Has;
+
+use crate::gameplay::character::{
+    CharacterMovementSettings, GroundDetection, NPC_PHYSICS_CENTER_ABOVE_ROOT, NPC_PHYSICS_LENGTH,
+    NPC_PHYSICS_RADIUS, NpcPhysicsMarker,
+};
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
-use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
+use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel, PlayerCharacter};
 use crate::graphics::{
     AnimatedJoint, AnimationController, AnimationData, AnimationState, AutoAnimSequencer,
     BoneAnimationData, FrameState, NpcAnimations,
@@ -14,7 +22,7 @@ use crate::zengin::common::get_animation_path;
 use crate::zengin::interaction::selection::spawn_npc_selection_collider;
 use crate::zengin::npc_routines::NpcWeaponSlots;
 use crate::zengin::resources::{
-    CachedAssetHandles, ZenGinModelComponent, despawn_visual_when_far_resource,
+    CachedAssetHandles, NPC_BODY, ZenGinModelComponent, despawn_visual_when_far_resource,
 };
 use crate::zengin::visual::model::ZenGinModel;
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
@@ -200,12 +208,17 @@ fn spawn_npcs(
     mut commands: Commands,
     mut handles_map: ResMut<CachedAssetHandles>,
     mut query: Query<
-        (Entity, &NpcModel, &AnimationController),
+        (
+            Entity,
+            &NpcModel,
+            &AnimationController,
+            Has<PlayerCharacter>,
+        ),
         (With<DistanceNear>, Without<ObjectEntitiesSpawned>),
     >,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
-    for (entity_id, npc_model, controller) in &mut query {
+    for (entity_id, npc_model, controller, is_player) in &mut query {
         let body_handle = handles_map.get_model_handle(
             &asset_server,
             &npc_model.body_model,
@@ -283,9 +296,47 @@ fn spawn_npcs(
         // controller: the skeleton is built from the controller animation, so
         // playback resumes where it stopped instead of resetting to the spawn
         // animation.
+        let model_root_offset = model_data.root_translation.y;
         commands
             .entity(entity_id)
-            .insert(NpcBodyRootOffset(model_data.root_translation.y));
+            .insert(NpcBodyRootOffset(model_root_offset));
+        // The player is swept by its own character controller; npcs get a
+        // kinematic body that `move_and_slide` sweeps from the root motion.
+        if !is_player {
+            // Npc feet sit at the entity origin, so the capsule bottom is at
+            // the origin too. Do not offset by the model root here.
+            let collider_center = Vec3::Y * NPC_PHYSICS_CENTER_ABOVE_ROOT;
+            commands.entity(entity_id).insert((
+                NpcPhysicsMarker,
+                Collider::compound(vec![(
+                    collider_center,
+                    Quat::IDENTITY,
+                    Collider::capsule(NPC_PHYSICS_RADIUS, NPC_PHYSICS_LENGTH),
+                )]),
+                // Gravity falls the body onto the terrain; the ground cast uses
+                // a slightly smaller capsule like the player's.
+                CharacterMovementSettings {
+                    damping: 0.0,
+                    acceleration: 0.0,
+                    jump_impulse: 0.0,
+                    ..default()
+                },
+                GroundDetection {
+                    cast_shape: Some(Collider::compound(vec![(
+                        collider_center,
+                        Quat::IDENTITY,
+                        Collider::capsule(NPC_PHYSICS_RADIUS - 0.01, 0.8),
+                    )])),
+                    max_angle: PI / 3.0,
+                    max_distance: 0.2,
+                },
+                // The body is only ever used through `move_and_slide`'s spatial
+                // queries, which read the membership bits. Colliding with nothing
+                // keeps Avian from generating contact pairs for every npc.
+                CollisionLayers::from_bits(NPC_BODY, 0),
+                LinearVelocity::default(),
+            ));
+        }
         let head_node_index = model_data
             .node_names
             .iter()

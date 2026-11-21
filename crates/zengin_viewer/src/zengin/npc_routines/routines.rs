@@ -6,6 +6,7 @@ use std::sync::PoisonError;
 
 use bevy::prelude::*;
 
+use crate::gameplay::character::NpcPhysicsMarker;
 use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{
@@ -793,10 +794,15 @@ pub(crate) fn move_along_path(
         &mut AutoAnimSequencer,
         &mut AnimationController,
         Option<&NpcWalkMode>,
+        Option<&NpcPhysicsMarker>,
     )>,
 ) {
-    for (entity, mut transform, mut path, mut sequencer, mut controller, walk_mode) in &mut npcs {
-        let Some(direction) = direction_to_next_node(&mut transform, &mut path, &graph) else {
+    for (entity, mut transform, mut path, mut sequencer, mut controller, walk_mode, physics) in
+        &mut npcs
+    {
+        let Some(direction) =
+            direction_to_next_node(&mut transform, &mut path, &graph, physics.is_none())
+        else {
             // The path is done, restore the standing idle
             commands.entity(entity).remove::<NpcPath>();
             controller.set_root_motion(false);
@@ -814,33 +820,42 @@ pub(crate) fn move_along_path(
 }
 
 /// Removes already reached nodes from the front of the path and returns the
-/// direction to the next one, `None` once the path is complete. The npc height
-/// is taken from the current path node, root motion only moves it horizontally.
+/// direction to the next one, `None` once the path is complete. Without a
+/// physics body the npc height is taken from the current path node, root motion
+/// only moves it horizontally. A physics npc follows the terrain instead, so its
+/// height is left to gravity and ground detection.
 fn direction_to_next_node(
     transform: &mut Transform,
     path: &mut NpcPath,
     graph: &WaypointGraph,
+    snap_height: bool,
 ) -> Option<Vec3> {
     while let Some(node) = path.nodes.first().copied() {
         let target = graph.nodes[node].position + Vec3::Y * NPC_BODY_Y_OFFSET;
-        transform.translation.y = target.y;
+        if snap_height {
+            transform.translation.y = target.y;
+        }
         let to_target = target - transform.translation;
-        let distance = to_target.length();
+        let horizontal = Vec3::new(to_target.x, 0.0, to_target.z);
+        let distance = horizontal.length();
         if distance <= PATH_NODE_REACHED_DISTANCE {
             path.nodes.remove(0);
             continue;
         }
-        return Some(to_target / distance);
+        return Some(horizontal / distance);
     }
     let target = path.target?;
-    transform.translation.y = target.y;
+    if snap_height {
+        transform.translation.y = target.y;
+    }
     let to_target = target - transform.translation;
-    let distance = to_target.length();
+    let horizontal = Vec3::new(to_target.x, 0.0, to_target.z);
+    let distance = horizontal.length();
     if distance <= PATH_NODE_REACHED_DISTANCE {
         path.target = None;
         return None;
     }
-    Some(to_target / distance)
+    Some(horizontal / distance)
 }
 
 /// Queues an animation resolved through the npc scheme and its overlay.

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
+use avian3d::prelude::LinearVelocity;
 use bevy::{
     camera::primitives::{Aabb, Frustum, Sphere},
     prelude::*,
@@ -9,7 +10,9 @@ use bevy::{
 use super::animation_triggers::{
     AnimationTriggers, animation_name_from_path, crossed_sounds, crossed_triggers,
 };
-use crate::gameplay::character::{ACCELERATION_MULTIPLIER, AcceleratingRootMotion};
+use crate::gameplay::character::{
+    ACCELERATION_MULTIPLIER, AcceleratingRootMotion, NpcPhysicsActiveMarker,
+};
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
 
@@ -153,6 +156,7 @@ pub(crate) fn update_animations(
         With<DistanceNear>,
     >,
     accelerating: Query<(), With<AcceleratingRootMotion>>,
+    mut velocities: Query<&mut LinearVelocity, With<NpcPhysicsActiveMarker>>,
     mut transforms: Query<&mut Transform>,
     mut joints: Query<&mut BoneAnimationData>,
     camera: Option<Single<(&Frustum, &GlobalTransform), With<Camera3d>>>,
@@ -161,6 +165,7 @@ pub(crate) fn update_animations(
     let mut switches: Vec<(Entity, Arc<AnimationData>)> = Vec::new();
 
     for (entity, global_transform, aabb, player, sequencer, mut data, controller) in &mut query {
+        let mut velocity = velocities.get_mut(entity).ok();
         // Without a main camera (e.g. in tests) fall back to always updating.
         let needs_update = match (&camera, aabb) {
             (Some(camera), aabb) => {
@@ -195,6 +200,13 @@ pub(crate) fn update_animations(
             .store(needs_update, Ordering::Release);
 
         if !data.frame_state.needs_update.load(Ordering::Acquire) {
+            // A physics npc that stops being animated must not keep the velocity
+            // of its last animated step, otherwise it would slide until the
+            // animation resumes.
+            if let Some(velocity) = velocity.as_deref_mut() {
+                velocity.x = 0.0;
+                velocity.z = 0.0;
+            }
             continue;
         }
         let root_motion = controller
@@ -204,6 +216,10 @@ pub(crate) fn update_animations(
             .root_motion
             .store(root_motion, Ordering::Release);
         let Some(update) = advance_animation(&data, delta) else {
+            if let Some(velocity) = velocity.as_deref_mut() {
+                velocity.x = 0.0;
+                velocity.z = 0.0;
+            }
             continue;
         };
 
@@ -230,7 +246,9 @@ pub(crate) fn update_animations(
             &controller,
             &update,
             &accelerating,
+            velocity.as_deref_mut(),
             &mut transforms,
+            delta,
         );
 
         // The end window drives the animation switch scheduling of the
@@ -316,27 +334,51 @@ pub(crate) fn update_animations(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_root_motion(
     entity: Entity,
     global_transform: &GlobalTransform,
     controller: &AnimationController,
     update: &FrameUpdate,
     accelerating: &Query<(), With<AcceleratingRootMotion>>,
+    velocity: Option<&mut LinearVelocity>,
     transforms: &mut Query<&mut Transform>,
+    delta_secs: f32,
 ) {
-    if !controller.root_motion() || update.delta_movement == Vec2::ZERO {
-        return;
-    }
     let speed = if accelerating.contains(entity) {
         ACCELERATION_MULTIPLIER
     } else {
         1.0
     };
+    let delta = if controller.root_motion() {
+        global_transform.rotation()
+            * Vec3::new(update.delta_movement.x, 0.0, update.delta_movement.y)
+            * speed
+    } else {
+        Vec3::ZERO
+    };
+
+    // Physics npcs are moved by `move_and_slide`, which integrates the velocity,
+    // so the root motion becomes a velocity instead of a direct transform
+    // change. Writing it every frame also stops a body whose animation paused.
+    if let Some(velocity) = velocity {
+        if delta_secs <= 0.0 {
+            velocity.x = 0.0;
+            velocity.z = 0.0;
+            return;
+        }
+        velocity.x = delta.x / delta_secs;
+        velocity.z = delta.z / delta_secs;
+        return;
+    }
+
+    if delta == Vec3::ZERO {
+        return;
+    }
     let Ok(mut transform) = transforms.get_mut(entity) else {
         return;
     };
-    let delta = update.delta_movement;
-    transform.translation += global_transform.rotation() * Vec3::new(delta.x, 0.0, delta.y) * speed;
+    transform.translation += delta;
 }
 
 /// Animation trigger events are emitted for entities driven by the sequencer,

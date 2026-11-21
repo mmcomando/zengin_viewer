@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::Duration;
 
+use avian3d::prelude::LinearVelocity;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
@@ -13,6 +14,7 @@ use super::components::{AnimationEnds, AnimationState, AnimationTrigger, FrameSt
 use super::controller::AnimationController;
 use super::data::{AnimationData, AnimationSample};
 use super::locomotion::{ATOMIC_SCALE, TIME_SCALE, advance_animation, update_animations};
+use crate::gameplay::character::{NpcPhysicsActiveMarker, NpcPhysicsMarker};
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
 
@@ -96,6 +98,51 @@ fn lateral_root_movement_moves_entity_sideways() {
     let translation = world.get::<Transform>(model).unwrap().translation;
     assert!(translation.x > 0.0, "translation {translation:?}");
     assert!(translation.z.abs() < 1e-6, "translation {translation:?}");
+}
+
+#[test]
+fn root_motion_becomes_velocity_for_physics_npcs() {
+    let mut world = World::new();
+    let mut assets = Assets::<AnimationData>::default();
+    let handle = assets.add(test_animation());
+    world.insert_resource(assets);
+    let mut time = Time::<()>::default();
+    time.advance_by(Duration::from_secs_f32(1.0 / 60.0));
+    world.insert_resource(time);
+    world.init_resource::<Messages<AnimationEnds>>();
+    world.init_resource::<Messages<AnimationTrigger>>();
+    world.init_resource::<Messages<super::components::AnimationSound>>();
+    world.init_resource::<AnimationTriggers>();
+
+    let lateral: Vec<Vec2> = runl_movement()
+        .iter()
+        .map(|movement| Vec2::new(movement.y, 0.0))
+        .collect();
+    let mut controller = AnimationController::new(handle);
+    controller.set_root_motion(true);
+    let model = world
+        .spawn((
+            DistanceNear::default(),
+            runl_state(Some(lateral)),
+            controller,
+            Transform::default(),
+            GlobalTransform::default(),
+            NpcPhysicsMarker,
+            NpcPhysicsActiveMarker,
+            LinearVelocity::default(),
+        ))
+        .id();
+
+    world.run_system_once(update_animations).unwrap();
+
+    let velocity = world.get::<LinearVelocity>(model).unwrap();
+    assert!(velocity.x > 0.0, "velocity {velocity:?}");
+    assert!(velocity.z.abs() < 1e-6, "velocity {velocity:?}");
+    // A physics npc is moved by `move_and_slide`, not by the animation update.
+    assert_eq!(
+        world.get::<Transform>(model).unwrap().translation,
+        Vec3::ZERO
+    );
 }
 
 #[test]
