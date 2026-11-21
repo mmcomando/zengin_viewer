@@ -17,6 +17,7 @@ use crate::input::Options;
 use crate::save::PendingLoad;
 use crate::save::format::SaveGame;
 use crate::world_entity::WorldEntityMarker;
+use crate::zengin::change_level::ChangeLevelTriggers;
 use crate::zengin::common::get_full_texture_path;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::interaction::selection::Selection;
@@ -114,6 +115,8 @@ pub struct SpawnWorld {
     pub clean_spawn: bool,
     /// Player position to reuse instead of the default start location.
     pub player_transform: Option<Transform>,
+    /// Vob name in `world_name` the player is placed at (level change).
+    pub start_vob: Option<String>,
     /// Saved world state to restore. `None` for a normal spawn or a debug
     /// restart.
     pub restore: Option<Box<SaveGame>>,
@@ -237,6 +240,7 @@ fn clean_spawn_request(world_name: &str) -> SpawnWorld {
         world_name: world_name.to_string(),
         clean_spawn: true,
         player_transform: None,
+        start_vob: None,
         restore: None,
     }
 }
@@ -295,6 +299,37 @@ pub(crate) fn begin_world_load(
     player_transform: Option<Transform>,
     restore: Option<Box<SaveGame>>,
 ) {
+    begin_world_load_with(world, world_name, player_transform, None, restore, true);
+}
+
+/// Loads another world without resetting the script globals, used by
+/// `oCTriggerChangeLevel`. The player is placed at `start_vob` in the new world.
+pub(crate) fn begin_level_change(world: &mut World, world_name: &str, start_vob: &str) {
+    info!(
+        world = %world_name,
+        start_vob,
+        "Loading world after a level change"
+    );
+    begin_world_load_with(
+        world,
+        world_name,
+        None,
+        Some(start_vob.to_string()),
+        None,
+        false,
+    );
+}
+
+/// `reset_script` distinguishes a fresh world (new game, debug restart) from a
+/// level change, which keeps the script globals and the player instance.
+fn begin_world_load_with(
+    world: &mut World,
+    world_name: &str,
+    player_transform: Option<Transform>,
+    start_vob: Option<String>,
+    restore: Option<Box<SaveGame>>,
+    reset_script: bool,
+) {
     if *world.resource::<State<AppState>>().get() != AppState::LoadScreen {
         world
             .resource_mut::<NextState<AppState>>()
@@ -317,7 +352,7 @@ pub(crate) fn begin_world_load(
         *world.resource_mut::<PlayTime>() = PlayTime {
             seconds: save.metadata.play_time_seconds,
         };
-    } else {
+    } else if reset_script {
         *world.resource_mut::<GameTime>() = GameTime::default();
         *world.resource_mut::<PlayTime>() = PlayTime::default();
     }
@@ -331,16 +366,22 @@ pub(crate) fn begin_world_load(
     }
 
     if restore.is_none() {
-        let scripts = world.resource::<ScriptResource>().clone();
-        let (npc_handles, item_handles) = {
-            let mut script = scripts.lock();
-            script.restart_world_state();
-            (script.npc_handles(), script.item_handles())
-        };
-        let mut index = world.resource_mut::<InstanceIndex>();
-        index.clear();
-        index.replace_npc_handles(npc_handles);
-        index.replace_item_handles(item_handles);
+        if reset_script {
+            let scripts = world.resource::<ScriptResource>().clone();
+            let (npc_handles, item_handles) = {
+                let mut script = scripts.lock();
+                script.restart_world_state();
+                (script.npc_handles(), script.item_handles())
+            };
+            let mut index = world.resource_mut::<InstanceIndex>();
+            index.clear();
+            index.replace_npc_handles(npc_handles);
+            index.replace_item_handles(item_handles);
+        } else {
+            // Script globals and the player instance survive a level change;
+            // the handles of the new world are re-registered as it spawns.
+            world.resource_mut::<InstanceIndex>().clear();
+        }
     } else {
         world.resource_mut::<InstanceIndex>().clear();
     }
@@ -354,6 +395,7 @@ pub(crate) fn begin_world_load(
             world_name: world_name.to_string(),
             clean_spawn,
             player_transform,
+            start_vob,
             restore,
         });
 }
@@ -415,6 +457,7 @@ fn spawn_world(
         world_name,
         clean_spawn,
         player_transform,
+        start_vob,
         restore,
     } in std::mem::take(&mut pending_spawns.0)
     {
@@ -422,6 +465,7 @@ fn spawn_world(
             &world_name,
             clean_spawn,
             player_transform,
+            start_vob.as_deref(),
             restore.as_deref(),
             spawn_default_player,
             &mut commands,
@@ -442,6 +486,7 @@ fn spawn_world_data(
     world_name: &str,
     clean_spawn: bool,
     player_transform: Option<Transform>,
+    start_vob: Option<&str>,
     restore: Option<&SaveGame>,
     spawn_default_player: bool,
     commands: &mut Commands,
@@ -477,11 +522,33 @@ fn spawn_world_data(
         .map(|trigger| trigger.target)
         .collect();
     commands.insert_resource(PendingWorldStartTriggers(world_start_triggers));
+    commands.insert_resource(ChangeLevelTriggers(std::mem::take(
+        &mut world_data.change_level_triggers,
+    )));
     // Keep waypoint positions around for runtime npc routine teleporting,
     // spots take precedence over way points (same lookup order as npc placement).
     let mut way_points = world_data.way_points.clone();
     for (name, tr) in &world_data.spots {
         way_points.insert(name.clone(), *tr);
+    }
+    // A level change names the vob the player appears at instead of a full
+    // transform; spots and way points are keyed by their lowercase name.
+    let force_player_spawn = start_vob.is_some();
+    let player_transform = start_vob
+        .and_then(|name| {
+            let tr = way_points.get(&name.to_lowercase()).copied();
+            if tr.is_none() {
+                warn!("Start vob({name}) of world({world_name}) not found");
+            }
+            tr
+        })
+        .or(player_transform);
+    if let (true, Some(tr)) = (force_player_spawn, player_transform) {
+        info!(
+            start_vob = start_vob.unwrap_or_default(),
+            position = ?tr.translation,
+            "Placing the player at the level start vob"
+        );
     }
     // Same table for the script host (`Npc_GetDistToWP`), keys are lowercased
     gothic_script.set_way_points(
@@ -527,7 +594,7 @@ fn spawn_world_data(
     // `ZenginSpawnPlayerCharacter`. A restored or restarted world gets the
     // player it was saved with.
     if (spawn_default_player || restore.is_some() || player_transform.is_some())
-        && !gothic_script.has_player_instance()
+        && (force_player_spawn || !gothic_script.has_player_instance())
     {
         spawn_player(
             commands,

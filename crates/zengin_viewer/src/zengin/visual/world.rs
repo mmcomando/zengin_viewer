@@ -2,6 +2,7 @@
 //! spots and the way net into [`ZenGinWorldData`].
 
 use bevy::prelude::*;
+use bevy::shape::Aabb3d;
 
 use std::collections::HashMap;
 
@@ -120,7 +121,7 @@ fn load_objects(
             });
         }
     } else {
-        handle_other_vob(data, item_ids, obj, spawns);
+        handle_other_vob(vfs, data, item_ids, obj, spawns);
     }
     for child in obj.children() {
         load_objects(vfs, data, item_ids, &child, spawns, restore);
@@ -320,6 +321,42 @@ fn fun_name(item_ids: &HashMap<String, InstanceId>, token: &str) -> Option<(Inst
     Some((instance_id, count))
 }
 
+/// `Newworld\DragonIsland.zen` -> `Newworld/DragonIsland`.
+fn change_level_world_name(level: &str) -> String {
+    let path = level.replace('\\', "/");
+    let path = path.trim().trim_matches('/');
+    match path.rsplit_once('.') {
+        Some((stem, extension)) if extension.eq_ignore_ascii_case("zen") => {
+            stem.trim_end_matches('/').to_string()
+        }
+        _ => path.to_string(),
+    }
+}
+
+fn change_level_trigger(vfs: &Vfs, obj: &VirtualObject, name: &str) -> Option<ChangeLevelTrigger> {
+    let level = change_level_world_name(&obj.change_level_name());
+    if level.is_empty() {
+        warn!("oCTriggerChangeLevel vob({name}) without a level name");
+        return None;
+    }
+    let world_path = format!("/_WORK/DATA/WORLDS/{level}.ZEN");
+    if vfs.resolve_path(&world_path).is_none() {
+        warn!("oCTriggerChangeLevel vob({name}) targets missing world({world_path})");
+        return None;
+    }
+    let bbox = obj.bbox();
+    let corner_a = get_world_pos(bbox.min.to_glam());
+    let corner_b = get_world_pos(bbox.max.to_glam());
+    Some(ChangeLevelTrigger {
+        name: name.to_string(),
+        level,
+        start_vob: obj.change_level_start_vob(),
+        bounds: Aabb3d::from_min_max(corner_a.min(corner_b), corner_a.max(corner_b)),
+        start_enabled: obj.trigger_start_enabled(),
+        respond_to_pc: obj.trigger_respond_to_pc(),
+    })
+}
+
 fn get_obj_tr(obj: &VirtualObject) -> Transform {
     let pos = get_world_pos(obj.position().to_glam());
     let rot = get_world_rot(obj.rotation().to_glam());
@@ -345,6 +382,7 @@ fn music_zone(obj: &VirtualObject) -> Option<MusicZone> {
 }
 
 fn handle_other_vob(
+    vfs: &Vfs,
     data: &mut ZenGinWorldData,
     item_ids: &HashMap<String, InstanceId>,
     obj: &VirtualObject,
@@ -374,7 +412,7 @@ fn handle_other_vob(
             // Light vobs only carry baked lighting, runtime lights are not spawned.
             return;
         }
-        VobType::zCVobSpot => {
+        VobType::zCVobSpot | VobType::zCVobStartpoint => {
             let tr = get_obj_tr(obj);
             data.spots.insert(name.to_lowercase().clone(), tr);
             return;
@@ -433,7 +471,10 @@ fn handle_other_vob(
             warn_unimplemented!("VobType::oCTriggerScript");
         }
         VobType::oCTriggerChangeLevel => {
-            warn_unimplemented!("VobType::oCTriggerChangeLevel");
+            if let Some(trigger) = change_level_trigger(vfs, obj, &name) {
+                data.change_level_triggers.push(trigger);
+            }
+            return;
         }
         VobType::zCMover => {
             warn_unimplemented!("VobType::zCMover");
@@ -488,10 +529,35 @@ fn handle_other_vob(
         | VobType::oCMobWheel
         | VobType::oCMobDoor
         | VobType::oCCSTrigger
-        | VobType::zCVobStartpoint
         | VobType::unknown => {
             panic!();
         }
     }
     // println!("VOB kind({type_:?}), name({name}) not handled");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::change_level_world_name;
+
+    #[test]
+    fn change_level_names_are_normalized_to_world_paths() {
+        assert_eq!(
+            change_level_world_name("ADDON\\ADDONWORLD.ZEN"),
+            "ADDON/ADDONWORLD"
+        );
+        assert_eq!(
+            change_level_world_name("Newworld\\DragonIsland.zen"),
+            "Newworld/DragonIsland"
+        );
+        assert_eq!(
+            change_level_world_name("OLDWORLD/OLDWORLD.ZEN"),
+            "OLDWORLD/OLDWORLD"
+        );
+        assert_eq!(
+            change_level_world_name("  OLDWORLD/OLDWORLD.zen  "),
+            "OLDWORLD/OLDWORLD"
+        );
+        assert_eq!(change_level_world_name(""), "");
+    }
 }

@@ -1,3 +1,4 @@
+mod change_level;
 mod common;
 mod debug_npc;
 pub(crate) mod dialog;
@@ -110,6 +111,7 @@ impl Plugin for ZenginPlugin {
         app.add_plugins(crate::zengin::world_plugin::ZenGinWorldPlugin);
         app.add_plugins(crate::zengin::mobs::MobsPlugin);
         app.add_plugins(crate::zengin::movers::MoversPlugin);
+        app.add_plugins(crate::zengin::change_level::ChangeLevelPlugin);
         app.add_plugins(crate::zengin::npc_routines::NpcRoutinesPlugin);
         app.add_plugins(crate::zengin::npc_perception::NpcPerceptionPlugin);
         app.add_plugins(crate::zengin::interaction::selection::SelectionPlugin);

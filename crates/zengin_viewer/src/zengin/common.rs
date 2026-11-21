@@ -222,6 +222,23 @@ pub fn mob_visual_stem(visual_name: &str) -> String {
     stem.to_uppercase()
 }
 
+/// Half-open point-in-box test. [`Aabb3d`] only has volume-vs-volume
+/// containment, so zone and trigger areas need this helper.
+pub(crate) trait Aabb3dExt {
+    fn contains_point(&self, point: Vec3) -> bool;
+}
+
+impl Aabb3dExt for Aabb3d {
+    fn contains_point(&self, point: Vec3) -> bool {
+        point.x >= self.min.x
+            && point.x < self.max.x
+            && point.y >= self.min.y
+            && point.y < self.max.y
+            && point.z >= self.min.z
+            && point.z < self.max.z
+    }
+}
+
 #[allow(dead_code)] // consumed by the music director step
 #[derive(Debug, Clone)]
 pub struct MusicZone {
@@ -242,16 +259,9 @@ impl MusicZone {
             .map_or(self.name.as_str(), |(_, tag)| tag)
     }
 
-    /// Same half-open point test as the original engine. [`Aabb3d`] only has
-    /// volume-vs-volume containment, so the point check is manual. Degenerate
-    /// boxes never contain a point.
+    /// Same half-open point test as the original engine.
     pub fn contains(&self, position: Vec3) -> bool {
-        position.x >= self.bounds.min.x
-            && position.x < self.bounds.max.x
-            && position.y >= self.bounds.min.y
-            && position.y < self.bounds.max.y
-            && position.z >= self.bounds.min.z
-            && position.z < self.bounds.max.z
+        self.bounds.contains_point(position)
     }
 }
 
@@ -273,6 +283,32 @@ pub struct ZenGinWorldData {
     pub default_music_zone: Option<MusicZone>,
     /// `zCTriggerWorldStart` vobs of the world, fired once it is in game.
     pub world_start_triggers: Vec<WorldStartTrigger>,
+    /// `oCTriggerChangeLevel` areas of the world.
+    pub change_level_triggers: Vec<ChangeLevelTrigger>,
+}
+
+/// Area that loads another world when the player enters it
+/// (`oCTriggerChangeLevel`).
+#[derive(Debug, Clone)]
+pub struct ChangeLevelTrigger {
+    /// Raw vob name, empty for unnamed triggers.
+    pub name: String,
+    /// Target world path without the `.ZEN` extension (`OLDWORLD/OLDWORLD`).
+    pub level: String,
+    /// Vob in the target world the player is placed at.
+    pub start_vob: String,
+    /// Trigger area in Bevy world units.
+    pub bounds: Aabb3d,
+    pub start_enabled: bool,
+    pub respond_to_pc: bool,
+}
+
+impl ChangeLevelTrigger {
+    /// Same half-open point test as the other zones. Degenerate boxes never
+    /// contain a point.
+    pub fn contains(&self, position: Vec3) -> bool {
+        self.start_enabled && self.respond_to_pc && self.bounds.contains_point(position)
+    }
 }
 
 /// Vob notified when the world starts (`zCTriggerWorldStart`).
@@ -315,6 +351,30 @@ mod tests {
             from_vob.dot(from_keyframe).abs() > 0.9995,
             "keyframe rotation must match the vob rest pose: {from_vob:?} vs {from_keyframe:?}"
         );
+    }
+
+    #[test]
+    fn change_level_area_is_half_open_and_respects_flags() {
+        let mut trigger = ChangeLevelTrigger {
+            name: "NW_2_OW".to_string(),
+            level: "OLDWORLD/OLDWORLD".to_string(),
+            start_vob: "START_OW".to_string(),
+            bounds: Aabb3d::from_min_max(Vec3::ZERO, Vec3::ONE),
+            start_enabled: true,
+            respond_to_pc: true,
+        };
+        assert!(trigger.contains(Vec3::new(0.5, 0.5, 0.5)));
+        assert!(
+            !trigger.contains(Vec3::new(1.0, 0.5, 0.5)),
+            "max is exclusive"
+        );
+        assert!(!trigger.contains(Vec3::new(0.5, -0.1, 0.5)));
+
+        trigger.respond_to_pc = false;
+        assert!(!trigger.contains(Vec3::new(0.5, 0.5, 0.5)));
+        trigger.respond_to_pc = true;
+        trigger.start_enabled = false;
+        assert!(!trigger.contains(Vec3::new(0.5, 0.5, 0.5)));
     }
 
     #[test]
