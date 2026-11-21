@@ -174,7 +174,7 @@ pub(crate) fn run_use_mob_action(
     mut desired: MessageWriter<SetDesiredAnimation>,
     mob_registry: Res<MobRegistry>,
     mut mobs: Query<(
-        &mut GameMob,
+        Option<&GameMob>,
         &mut MobPose,
         &MobBase,
         &GlobalTransform,
@@ -457,7 +457,7 @@ struct MobChoice {
 #[allow(clippy::type_complexity)]
 fn select_mob(
     mobs: &mut Query<(
-        &mut GameMob,
+        Option<&GameMob>,
         &mut MobPose,
         &MobBase,
         &GlobalTransform,
@@ -503,7 +503,7 @@ fn select_mob(
             best = Some(MobChoice {
                 mob: mob_entity,
                 vob_name: base.vob_name.clone(),
-                on_state_func: mob.on_state_func.clone(),
+                on_state_func: mob.map(|mob| mob.on_state_func.clone()).unwrap_or_default(),
                 use_pos,
                 use_rot,
                 position_tag,
@@ -522,7 +522,7 @@ fn select_mob(
 #[allow(clippy::type_complexity)]
 fn mob_choice(
     mobs: &mut Query<(
-        &mut GameMob,
+        Option<&GameMob>,
         &mut MobPose,
         &MobBase,
         &GlobalTransform,
@@ -543,7 +543,7 @@ fn mob_choice(
     Some(MobChoice {
         mob: mob_entity,
         vob_name: base.vob_name.clone(),
-        on_state_func: mob.on_state_func.clone(),
+        on_state_func: mob.map(|mob| mob.on_state_func.clone()).unwrap_or_default(),
         use_pos,
         use_rot,
         position_tag,
@@ -720,7 +720,7 @@ mod tests {
         'w,
         's,
         (
-            &'static mut GameMob,
+            Option<&'static GameMob>,
             &'static mut MobPose,
             &'static MobBase,
             &'static GlobalTransform,

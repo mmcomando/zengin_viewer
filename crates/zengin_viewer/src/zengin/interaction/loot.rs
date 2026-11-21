@@ -8,18 +8,21 @@ use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::{GameLog, InventoryUiState, OpenLoot};
 use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::zengin::npc_actions::UseMobAction;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::state::WeaponMode;
-use crate::zengin::{DialogUiState, GameChest, GameNpc, MobBase};
+use crate::zengin::script::string_value::StringCanon;
+use crate::zengin::{DialogUiState, GameChest, GameNpc, MobBase, MobPose};
 
 pub(super) fn open_selected_chest(
+    mut commands: Commands,
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     selection: Res<Selection>,
-    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+    player_npc: Query<(Entity, &GameNpc), With<PlayerCharacter>>,
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     dialog_ui: Res<DialogUiState>,
     inventory_ui: Res<InventoryUiState>,
-    chests: Query<(&GameChest, &MobBase)>,
+    chests: Query<(&GameChest, &MobBase, &MobPose)>,
     mut game_log: ResMut<GameLog>,
     mut requests: MessageWriter<OpenLoot>,
 ) {
@@ -41,10 +44,10 @@ pub(super) fn open_selected_chest(
     let Some(target) = selection.target else {
         return;
     };
-    let Ok((chest, base)) = chests.get(target) else {
+    let Ok((chest, base, pose)) = chests.get(target) else {
         return;
     };
-    let Ok(player_npc) = player_npc.single() else {
+    let Ok((player_entity, player_npc)) = player_npc.single() else {
         return;
     };
 
@@ -54,6 +57,14 @@ pub(super) fn open_selected_chest(
             base.vob_name
         );
         game_log.add("Chest is locked (lock ignored)".to_string());
+    } else if pose.state_num > 0 && !pose.scheme.is_empty() {
+        // Locked chests keep the old instant-open behaviour; unlocked ones play
+        // the shared mob-use sequence while the loot window opens in parallel.
+        commands.entity(player_entity).insert(UseMobAction::player(
+            target,
+            StringCanon::new(&pose.scheme),
+            1,
+        ));
     }
 
     info!(
