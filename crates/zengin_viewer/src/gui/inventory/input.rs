@@ -15,8 +15,8 @@ use super::data::{
     npc_inventory_window, resolve_gold_item,
 };
 use super::state::{
-    InventoryEntry, InventoryMode, InventoryOwner, InventoryUiState, OpenLoot, OpenTrade,
-    PLAYER_WINDOW, TRADER_WINDOW,
+    InventoryEntry, InventoryMode, InventoryOwner, InventoryUiState, LootClosed, OpenLoot,
+    OpenTrade, PLAYER_WINDOW, TRADER_WINDOW,
 };
 use super::style::InventoryStyle;
 
@@ -86,6 +86,7 @@ pub(super) fn open_loot(
     state.active_window = TRADER_WINDOW;
     state.gold_item = None;
     state.open = true;
+    state.loot_chest = Some(request.chest);
     info!(
         "Loot opened for chest({}) vob({}): player {} stack(s), chest {} stack(s)",
         request.chest, base.vob_name, stacks.0, stacks.1
@@ -225,6 +226,20 @@ pub(super) fn handle_inventory_input(
             }
         }
     }
+}
+
+/// Emits the loot-close event when the panels leave the open state.
+pub(super) fn emit_loot_closed(
+    mut state: ResMut<InventoryUiState>,
+    mut closed: MessageWriter<LootClosed>,
+) {
+    if state.open {
+        return;
+    }
+    let Some(chest) = state.loot_chest.take() else {
+        return;
+    };
+    closed.write(LootClosed { chest });
 }
 
 /// Trade panels belong to an open dialog, closing the dialog closes them too.

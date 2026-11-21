@@ -77,6 +77,12 @@ pub(crate) struct OpenLoot {
     pub(crate) chest: Entity,
 }
 
+/// The loot panels closed, the player should leave the chest.
+#[derive(Message)]
+pub(crate) struct LootClosed {
+    pub(crate) chest: Entity,
+}
+
 /// State of the inventory UI: closed by default, items snapshot on open.
 #[derive(Resource, Default)]
 pub(crate) struct InventoryUiState {
@@ -89,6 +95,8 @@ pub(crate) struct InventoryUiState {
     pub(crate) active_window: usize,
     /// Gold item instance used for payments, resolved when a trade opens.
     pub(crate) gold_item: Option<InstanceId>,
+    /// Chest of the loot session, consumed when the panels close.
+    pub(crate) loot_chest: Option<Entity>,
 }
 
 impl InventoryUiState {
@@ -102,6 +110,8 @@ impl InventoryUiState {
         self.windows = Default::default();
         self.active_window = 0;
         self.gold_item = None;
+        // `loot_chest` stays until the close is consumed, so the interaction
+        // side can leave the chest.
     }
 
     pub(crate) fn is_trade(&self) -> bool {

@@ -15,6 +15,7 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, animation_name_from_path,
 };
+use crate::gui::LootClosed;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::npc_actions::{
     ExecutingActionMarker, MobUsePose, UseMobAction, mob_animation_name, release_mob_use,
@@ -124,6 +125,102 @@ fn step_animation_name(mob_use: &NpcMobUse, from: i32, to: i32) -> String {
     }
 }
 
+/// Leaves the chest when the loot panels close: closes the lid immediately,
+/// cancels a not-yet-attached use, or starts the stand-up transition.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub(super) fn close_looted_chest(
+    mut commands: Commands,
+    mut closed: MessageReader<LootClosed>,
+    files: Option<Res<AnimationFiles>>,
+    mut handles: ResMut<CachedAssetHandles>,
+    asset_server: Res<AssetServer>,
+    gothic_script: Res<ScriptResource>,
+    mut mobs: Query<(Option<&GameMob>, &mut MobPose)>,
+    mut players: Query<
+        (
+            Entity,
+            &GameNpc,
+            Option<&NpcMobUse>,
+            Option<&PlayerMobRelease>,
+            Option<&mut AnimationController>,
+            Option<&mut AutoAnimSequencer>,
+            Option<&NpcModel>,
+            Option<&NpcOverlay>,
+            Has<UseMobAction>,
+        ),
+        With<PlayerCharacter>,
+    >,
+) {
+    for request in closed.read() {
+        // The lid closes in parallel with the player stand-up.
+        if let Ok((_, mut pose)) = mobs.get_mut(request.chest) {
+            pose.state = 0;
+        }
+
+        let Ok((entity, npc, mob_use, release, controller, sequencer, model, overlay, pending_use)) =
+            players.single_mut()
+        else {
+            continue;
+        };
+        if release.is_some() {
+            continue;
+        }
+        let Some(mob_use) = mob_use else {
+            // The loot UI can close before the attach commits.
+            if pending_use {
+                commands.entity(entity).remove::<ExecutingActionMarker>();
+            }
+            continue;
+        };
+        if mob_use.mob != request.chest {
+            continue;
+        }
+        let (Some(mut controller), Some(mut sequencer)) = (controller, sequencer) else {
+            continue;
+        };
+        let mut release = PlayerMobRelease {
+            expected: None,
+            state: mob_use.state.max(0),
+            elapsed: 0.0,
+            hold: 0.0,
+        };
+        let finished = match (model, files.as_deref()) {
+            (Some(model), Some(files)) => advance_release(
+                &mut release,
+                mob_use,
+                &mut controller,
+                model,
+                overlay,
+                files,
+                &mut handles,
+                &asset_server,
+            ),
+            _ => true,
+        };
+        if finished {
+            finish_player_mob_release(
+                &mut commands,
+                entity,
+                npc,
+                mob_use,
+                &mut controller,
+                &mut sequencer,
+                &mut mobs,
+                &gothic_script,
+            );
+            continue;
+        }
+        info!(
+            "Player({}) leaves chest({}) transition({:?})",
+            npc.instance_id(),
+            mob_use.mob,
+            release.expected
+        );
+        commands.entity(entity).remove::<MobUsePose>();
+        commands.entity(entity).insert(release);
+    }
+}
+
 /// Starts the player's stand-up when it asks to leave the mob. Movement and
 /// attack input also cancel a use that has not attached yet.
 #[allow(clippy::type_complexity)]
@@ -134,7 +231,7 @@ pub(super) fn stand_up_player_from_mob(
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     pending: Query<Entity, (With<PlayerCharacter>, With<UseMobAction>)>,
-    mut mobs: Query<(&GameMob, &mut MobPose)>,
+    mut mobs: Query<(Option<&GameMob>, &mut MobPose)>,
     gothic_script: Res<ScriptResource>,
     mut players: Query<
         (
@@ -276,7 +373,7 @@ pub(super) fn advance_player_mob_release(
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     gothic_script: Res<ScriptResource>,
-    mut mobs: Query<(&GameMob, &mut MobPose)>,
+    mut mobs: Query<(Option<&GameMob>, &mut MobPose)>,
     mut players: Query<(
         Entity,
         &GameNpc,
@@ -357,19 +454,21 @@ fn finish_player_mob_release(
     mob_use: &NpcMobUse,
     controller: &mut AnimationController,
     sequencer: &mut AutoAnimSequencer,
-    mobs: &mut Query<(&GameMob, &mut MobPose)>,
+    mobs: &mut Query<(Option<&GameMob>, &mut MobPose)>,
     gothic_script: &ScriptResource,
 ) {
     // Switch-like mobs keep the state their use applied; only regular pose mobs
     // return to state 0 and report the release to `onStateFunc`.
-    let auto_end = mobs.get(mob_use.mob).is_ok_and(|(mob, _)| mob.auto_end);
+    let auto_end = mobs
+        .get(mob_use.mob)
+        .is_ok_and(|(mob, _)| mob.is_some_and(|mob| mob.auto_end));
     let on_state_func = if auto_end {
         None
     } else {
         match mobs.get_mut(mob_use.mob) {
             Ok((mob, mut pose)) => {
                 pose.state = 0;
-                Some(mob.on_state_func.clone())
+                mob.map(|mob| mob.on_state_func.clone())
             }
             Err(_) => None,
         }

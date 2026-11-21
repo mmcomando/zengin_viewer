@@ -14,7 +14,7 @@ mod spawn;
 mod state;
 mod style;
 
-pub(crate) use state::{InventoryUiState, OpenLoot, OpenTrade};
+pub(crate) use state::{InventoryUiState, LootClosed, OpenLoot, OpenTrade};
 
 use bevy::prelude::*;
 
@@ -27,6 +27,7 @@ impl Plugin for InventoryUiPlugin {
         app.init_resource::<InventoryUiState>();
         app.add_message::<OpenTrade>();
         app.add_message::<OpenLoot>();
+        app.add_message::<LootClosed>();
         app.add_systems(Startup, spawn::spawn_inventory_ui);
         app.add_systems(
             Update,
@@ -36,6 +37,7 @@ impl Plugin for InventoryUiPlugin {
                 input::toggle_inventory,
                 input::handle_inventory_input,
                 input::close_orphaned_trade,
+                input::emit_loot_closed,
             )
                 .chain()
                 .run_if(in_state(AppState::InGame)),
