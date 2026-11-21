@@ -57,9 +57,8 @@ pub(super) fn open_selected_chest(
             base.vob_name
         );
         game_log.add("Chest is locked (lock ignored)".to_string());
-    } else if pose.state_num > 0 && !pose.scheme.is_empty() {
-        // Locked chests keep the old instant-open behaviour; unlocked ones play
-        // the shared mob-use sequence while the loot window opens in parallel.
+    }
+    if pose.state_num > 0 && !pose.scheme.is_empty() {
         commands.entity(player_entity).insert(UseMobAction::player(
             target,
             StringCanon::new(&pose.scheme),

@@ -164,7 +164,7 @@ pub(crate) enum ReplayCommand {
     },
     /// Spawns an empty `oCMobContainer` using the visual mesh `visual` at
     /// `translation` with `rotation` in axis labeled degrees. Used by the chest
-    /// animation scenario; `locked` keeps the chest closed and non-animated.
+    /// animation scenario.
     ZenginSpawnChest {
         visual: String,
         #[serde(default)]
