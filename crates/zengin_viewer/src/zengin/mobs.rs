@@ -7,7 +7,9 @@ use bevy::camera::primitives::Aabb;
 use bevy::prelude::*;
 
 use crate::gameplay::game_time::GameTime;
-use crate::graphics::{AnimationController, AnimationData};
+use crate::graphics::{
+    AnimationController, AnimationData, AnimationEnds, animation_name_from_path,
+};
 use crate::zengin::GameChest;
 use crate::zengin::GameMob;
 use crate::zengin::GameNpc;
@@ -46,6 +48,7 @@ impl Plugin for MobsPlugin {
                 sync_npc_body_state,
                 apply_mob_routines,
                 apply_mob_animations,
+                advance_mob_state_transition,
                 sync_script_mobs,
                 add_mob_selection_colliders,
             ),
@@ -108,6 +111,14 @@ pub struct MobAnimation {
     pub stem: String,
     /// State the animation handle of the model belongs to.
     pub state: i32,
+}
+
+/// Transition playing before the loop of `to` is queued.
+#[derive(Component, Debug, Clone)]
+struct MobStateTransition {
+    /// Short animation name, e.g. `T_S1_2_S0`.
+    expected: String,
+    to: i32,
 }
 
 /// Registers freshly spawned mobs under their `AI_UseMob` scheme.
@@ -261,12 +272,31 @@ pub(crate) fn mob_state_animation(
     Some(handles.get_animation_handle(asset_server, &get_animation_path(stem, &animation)))
 }
 
-/// Plays the `<STEM>-S_S<n>.MAN` animation of the mob state on the mob itself.
+/// Transition `<STEM>-T_S<from>_2_S<to>.MAN`, if the archive has it.
+fn mob_transition_animation(
+    files: &AnimationFiles,
+    handles: &mut CachedAssetHandles,
+    asset_server: &AssetServer,
+    stem: &str,
+    from: i32,
+    to: i32,
+) -> Option<(String, Handle<AnimationData>)> {
+    let animation = format!("T_S{from}_2_S{to}");
+    if !files.0.contains(&animation_file_name(stem, &animation)) {
+        return None;
+    }
+    let handle = handles.get_animation_handle(asset_server, &get_animation_path(stem, &animation));
+    Some((animation, handle))
+}
+
+/// Plays the state transition then the `<STEM>-S_S<n>.MAN` loop of the mob state.
 fn apply_mob_animations(
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     animation_files: Option<Res<AnimationFiles>>,
     mut handles: ResMut<CachedAssetHandles>,
     mut mobs: Query<(
+        Entity,
         &MobPose,
         &MobBase,
         &mut MobAnimation,
@@ -277,11 +307,40 @@ fn apply_mob_animations(
     let Some(animation_files) = animation_files else {
         return;
     };
-    for (pose, base, mut animation, mut component, controller) in &mut mobs {
+    for (entity, pose, base, mut animation, mut component, controller) in &mut mobs {
         if animation.state == pose.state {
             continue;
         }
+        let from = animation.state;
         let state = pose.state;
+        animation.state = state;
+
+        if controller.is_some()
+            && let Some((transition, handle)) = mob_transition_animation(
+                &animation_files,
+                &mut handles,
+                &asset_server,
+                &animation.stem,
+                from,
+                state,
+            )
+        {
+            component.animation_handle = Some(handle.clone());
+            if let Some(mut controller) = controller {
+                controller.queue_next(handle, true);
+                commands.entity(entity).insert(MobStateTransition {
+                    expected: transition.clone(),
+                    to: state,
+                });
+            }
+            debug!(
+                "mob({}) transition({transition}) stem({})",
+                base.focus_name, animation.stem
+            );
+            continue;
+        }
+
+        commands.entity(entity).remove::<MobStateTransition>();
         let Some(handle) = mob_state_animation(
             &animation_files,
             &mut handles,
@@ -293,10 +352,8 @@ fn apply_mob_animations(
                 "mob({}) has no animation for state({state})",
                 base.focus_name
             );
-            animation.state = state;
             continue;
         };
-        animation.state = state;
         component.animation_handle = Some(handle.clone());
         if let Some(mut controller) = controller {
             controller.queue_next(handle, true);
@@ -305,6 +362,47 @@ fn apply_mob_animations(
             "mob({}) animation state({state}) stem({})",
             base.focus_name, animation.stem
         );
+    }
+}
+
+/// Queues the state loop once the transition of a mob state change ends.
+fn advance_mob_state_transition(
+    mut commands: Commands,
+    mut ends: MessageReader<AnimationEnds>,
+    files: Res<AnimationFiles>,
+    mut handles: ResMut<CachedAssetHandles>,
+    asset_server: Res<AssetServer>,
+    mut mobs: Query<(
+        &MobAnimation,
+        &MobStateTransition,
+        Option<&mut AnimationController>,
+    )>,
+) {
+    for end in ends.read() {
+        let Ok((animation, transition, controller)) = mobs.get_mut(end.who) else {
+            continue;
+        };
+        let Some(path) = Handle::path(&end.what_animation) else {
+            continue;
+        };
+        let Some(ended) = animation_name_from_path(path.path()) else {
+            continue;
+        };
+        if ended != transition.expected {
+            continue;
+        }
+        if let Some(mut controller) = controller
+            && let Some(handle) = mob_state_animation(
+                &files,
+                &mut handles,
+                &asset_server,
+                &animation.stem,
+                transition.to,
+            )
+        {
+            controller.queue_next(handle, true);
+        }
+        commands.entity(end.who).remove::<MobStateTransition>();
     }
 }
 
