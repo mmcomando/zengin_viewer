@@ -273,14 +273,14 @@ pub(super) fn apply_replay_command(
         } => {
             info!("Replay spawning chest {visual:?} at {translation:?}");
             let visual = visual.clone();
-            let locked = *locked;
+            let chest_locked = *locked;
             let transform = Transform {
                 translation: *translation,
                 rotation: rotation_from_degrees(*rotation),
                 scale: Vec3::ONE,
             };
             commands.queue(move |world: &mut World| {
-                crate::zengin::request_chest_spawn(world, &visual, locked, transform);
+                crate::zengin::request_chest_spawn(world, &visual, chest_locked, transform);
             });
         }
         ReplayCommand::TestClearLogBuffer => {

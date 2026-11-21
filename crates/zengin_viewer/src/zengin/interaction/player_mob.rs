@@ -227,6 +227,7 @@ pub(super) fn close_looted_chest(
 
 /// Releases a player left attached to an entity that no longer exists, e.g.
 /// after a world unload.
+#[allow(clippy::type_complexity)]
 pub(super) fn release_stale_player_mob_use(
     mut commands: Commands,
     mut players: Query<

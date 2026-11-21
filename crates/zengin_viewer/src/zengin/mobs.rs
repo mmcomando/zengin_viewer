@@ -290,6 +290,7 @@ fn mob_transition_animation(
 }
 
 /// Plays the state transition then the `<STEM>-S_S<n>.MAN` loop of the mob state.
+#[allow(clippy::type_complexity, clippy::cognitive_complexity)]
 fn apply_mob_animations(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
