@@ -4,7 +4,7 @@ use crate::graphics::{AnimationController, AutoAnimSequencer};
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::use_mob::release_mob_use;
 use crate::zengin::npc_routines::queue_stand_animation;
-use crate::zengin::{GameMob, NpcMobUse};
+use crate::zengin::{MobPose, NpcMobUse};
 
 /// Stops the npc and stands it up idle.
 #[derive(Component)]
@@ -13,7 +13,7 @@ pub(crate) struct StandUpAction;
 
 pub(crate) fn start_stand_up_action(
     mut commands: Commands,
-    mut mobs: Query<&mut GameMob>,
+    mut mobs: Query<&mut MobPose>,
     mut npcs: Query<
         (
             Entity,

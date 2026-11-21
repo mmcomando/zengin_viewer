@@ -12,6 +12,7 @@ use crate::zengin::GameChest;
 use crate::zengin::GameMob;
 use crate::zengin::GameNpc;
 use crate::zengin::MobBase;
+use crate::zengin::MobPose;
 use crate::zengin::common::{animation_file_name, get_animation_path};
 use crate::zengin::interaction::selection::HitColliderOwner;
 use crate::zengin::npc_actions::NpcItemUse;
@@ -112,10 +113,10 @@ pub struct MobAnimation {
 /// Registers freshly spawned mobs under their `AI_UseMob` scheme.
 fn index_added_mobs(
     mut registry: ResMut<MobRegistry>,
-    added: Query<(Entity, &GameMob), Added<GameMob>>,
+    added: Query<(Entity, &MobPose), Added<GameMob>>,
 ) {
-    for (entity, mob) in &added {
-        registry.insert(mob.scheme.clone(), entity);
+    for (entity, pose) in &added {
+        registry.insert(pose.scheme.clone(), entity);
     }
 }
 
@@ -187,7 +188,7 @@ fn sync_npc_body_state(
 fn apply_mob_routines(
     gothic_script: Option<Res<ScriptResource>>,
     game_time: Res<GameTime>,
-    mut mobs: Query<(&mut GameMob, &MobBase)>,
+    mut mobs: Query<(&mut MobPose, &MobBase), With<GameMob>>,
 ) {
     let Some(gothic_script) = gothic_script else {
         return;
@@ -208,20 +209,20 @@ fn apply_mob_routines(
     for (scheme, state) in &mut states {
         *state = routine_state_at(&routines, scheme, minutes).unwrap_or(0);
     }
-    for (mut mob, base) in &mut mobs {
-        let scheme = mob.scheme.to_uppercase();
+    for (mut pose, base) in &mut mobs {
+        let scheme = pose.scheme.to_uppercase();
         // Mobs without a schedule keep the state the interaction gave them.
         let Some(state) = states.get(&scheme) else {
             continue;
         };
-        if mob.state == *state {
+        if pose.state == *state {
             continue;
         }
         debug!(
             "mob({}) scheme({scheme}) routine state {} -> {state}",
-            base.focus_name, mob.state
+            base.focus_name, pose.state
         );
-        mob.state = *state;
+        pose.state = *state;
     }
 }
 
@@ -266,7 +267,7 @@ fn apply_mob_animations(
     animation_files: Option<Res<AnimationFiles>>,
     mut handles: ResMut<CachedAssetHandles>,
     mut mobs: Query<(
-        &GameMob,
+        &MobPose,
         &MobBase,
         &mut MobAnimation,
         &mut ZenGinModelComponent,
@@ -276,11 +277,11 @@ fn apply_mob_animations(
     let Some(animation_files) = animation_files else {
         return;
     };
-    for (mob, base, mut animation, mut component, controller) in &mut mobs {
-        if animation.state == mob.state {
+    for (pose, base, mut animation, mut component, controller) in &mut mobs {
+        if animation.state == pose.state {
             continue;
         }
-        let state = mob.state;
+        let state = pose.state;
         let Some(handle) = mob_state_animation(
             &animation_files,
             &mut handles,
@@ -310,10 +311,10 @@ fn apply_mob_animations(
 /// Publishes the mob table for `Wld_IsMobAvailable`/`Wld_GetMobState`.
 fn sync_script_mobs(
     gothic_script: Option<Res<ScriptResource>>,
-    mobs: Query<(&GameMob, &GlobalTransform, Option<&MobOccupant>)>,
+    mobs: Query<(&MobPose, &GlobalTransform, Option<&MobOccupant>), With<GameMob>>,
     mut initialized: Local<bool>,
     added_occupancy: Query<(), Added<MobOccupant>>,
-    changed_mobs: Query<(), Changed<GameMob>>,
+    changed_mobs: Query<(), Changed<MobPose>>,
     mut removed_occupancy: RemovedComponents<MobOccupant>,
 ) {
     let occupancy_removed = removed_occupancy.read().count() > 0;
@@ -329,13 +330,13 @@ fn sync_script_mobs(
     };
     let snapshot = mobs
         .iter()
-        .map(|(mob, mob_tr, occupant)| {
+        .map(|(pose, mob_tr, occupant)| {
             (
-                mob.scheme.to_lowercase(),
+                pose.scheme.to_lowercase(),
                 ScriptMob {
                     position: mob_tr.translation(),
                     occupied: occupant.is_some(),
-                    state: mob.state,
+                    state: pose.state,
                 },
             )
         })
@@ -373,13 +374,13 @@ fn add_mob_selection_colliders(
     }
 }
 
-/// Fills [`GameMob::positions`] once the mob model asset is loaded.
+/// Fills [`MobPose::positions`] once the vob model asset is loaded.
 fn extract_mob_positions(
-    mut mobs: Query<(&mut GameMob, &MobBase, &ZenGinModelComponent)>,
+    mut mobs: Query<(&mut MobPose, &MobBase, &ZenGinModelComponent)>,
     models: Res<Assets<ZenGinModel>>,
 ) {
-    for (mut mob, base, model_component) in &mut mobs {
-        if mob.positions.is_some() {
+    for (mut pose, base, model_component) in &mut mobs {
+        if pose.positions.is_some() {
             continue;
         }
         let Some(model) = models.get(&model_component.model_handle) else {
@@ -391,7 +392,7 @@ fn extract_mob_positions(
             base.focus_name,
             positions.len()
         );
-        mob.positions = Some(positions);
+        pose.positions = Some(positions);
     }
 }
 
@@ -471,10 +472,12 @@ mod tests {
     fn mob_visual_gets_a_selection_collider() {
         let mut app = App::new();
         app.add_systems(Update, add_mob_selection_colliders);
+        let (mob_component, pose) = test_mob("DOOR", "door_nw_normal_01");
         let mob = app
             .world_mut()
             .spawn((
-                test_mob("DOOR", "door_nw_normal_01"),
+                mob_component,
+                pose,
                 MobBase::default(),
                 Aabb::from_min_max(Vec3::new(-1.0, 0.0, -1.0), Vec3::new(1.0, 2.0, 1.0)),
                 ZenGinModelComponentLoaded::default(),
@@ -495,22 +498,24 @@ mod tests {
         assert_eq!(owner.owner, mob);
     }
 
-    fn test_mob(scheme: &str, stem: &str) -> GameMob {
-        GameMob {
-            scheme: scheme.to_string(),
-            visual_stem: stem.to_string(),
-            state_num: 1,
-            use_with_item: String::new(),
-            on_state_func: String::new(),
-            condition_func: String::new(),
-            rewind: false,
-            trigger_target: String::new(),
-            trigger_fired: false,
-            auto_end: false,
-            no_move: false,
-            positions: None,
-            state: 0,
-        }
+    fn test_mob(scheme: &str, stem: &str) -> (GameMob, MobPose) {
+        (
+            GameMob {
+                use_with_item: String::new(),
+                on_state_func: String::new(),
+                condition_func: String::new(),
+                rewind: false,
+                trigger_target: String::new(),
+                trigger_fired: false,
+                auto_end: false,
+            },
+            MobPose {
+                scheme: scheme.to_string(),
+                visual_stem: stem.to_string(),
+                state_num: 1,
+                ..default()
+            },
+        )
     }
 
     fn routine(hour: i32, minute: i32, state: i32) -> MobRoutineEntry {

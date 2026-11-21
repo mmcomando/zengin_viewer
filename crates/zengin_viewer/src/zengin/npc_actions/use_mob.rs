@@ -18,7 +18,7 @@ use crate::zengin::npc_routines::{
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::{GameMob, GameNpc, MobBase, MobOccupant, MobRegistry, NpcMobUse};
+use crate::zengin::{GameMob, GameNpc, MobBase, MobOccupant, MobPose, MobRegistry, NpcMobUse};
 
 const MOB_USE_DISTANCE: f32 = MAX_AI_USE_DISTANCE;
 
@@ -143,7 +143,7 @@ pub(crate) fn advance_mob_use_pose(
 pub(crate) fn start_use_mob_action(
     mut commands: Commands,
     mut npcs: Query<(Entity, &UseMobAction, Option<&NpcMobUse>), Added<UseMobAction>>,
-    mut mobs: Query<&mut GameMob>,
+    mut mobs: Query<&mut MobPose>,
 ) {
     for (entity, action, npc_mob_use) in &mut npcs {
         if action.state <= 0 {
@@ -175,6 +175,7 @@ pub(crate) fn run_use_mob_action(
     mob_registry: Res<MobRegistry>,
     mut mobs: Query<(
         &mut GameMob,
+        &mut MobPose,
         &MobBase,
         &GlobalTransform,
         Option<&MobOccupant>,
@@ -214,9 +215,9 @@ pub(crate) fn run_use_mob_action(
         };
         if action.state <= 0 {
             if let Some(mob_use) = npc_mob_use
-                && let Ok((mut mob, ..)) = mobs.get_mut(mob_use.mob)
+                && let Ok((_, mut pose, ..)) = mobs.get_mut(mob_use.mob)
             {
-                mob.state = 0;
+                pose.state = 0;
             }
             release_mob_use(
                 &mut commands,
@@ -292,7 +293,10 @@ pub(crate) fn run_use_mob_action(
         // pose afterwards. Poses that do not animate the base bone (beds' FRONT
         // side, e.g. `S_BEDHIGH_FRONT_S1`) keep the root transform of the
         // transition, playing them alone leaves the npc standing.
-        let mob_state = mobs.get(choice.mob).map_or(0, |(mob, ..)| mob.state).max(0);
+        let mob_state = mobs
+            .get(choice.mob)
+            .map_or(0, |(_, pose, ..)| pose.state)
+            .max(0);
         let transition = has_animation(model, overlay, &files, &pose)
             .then(|| {
                 enter_animation_name(
@@ -339,7 +343,7 @@ pub(crate) fn run_use_mob_action(
         // the mob-relative offset instead.
         let mob_translation = mobs
             .get(choice.mob)
-            .map_or(transform.translation, |(_, _, tr, ..)| tr.translation());
+            .map_or(transform.translation, |(_, _, _, tr, ..)| tr.translation());
         let pose_offset = if choice.attached && !choice.no_move {
             choice.use_rot.inverse() * (mob_translation - transform.translation)
         } else {
@@ -354,10 +358,10 @@ pub(crate) fn run_use_mob_action(
         });
         // The mob switches to the state the npc uses it in, which plays
         // its own `<STEM>-S_S<n>` animation.
-        if let Ok((mut mob, ..)) = mobs.get_mut(choice.mob)
-            && mob.state != use_state
+        if let Ok((_, mut pose, ..)) = mobs.get_mut(choice.mob)
+            && pose.state != use_state
         {
-            mob.state = use_state;
+            pose.state = use_state;
         }
         gothic_script.lock().call_mob_state_hook(
             npc.instance_id(),
@@ -411,7 +415,7 @@ fn release_mob_occupancy(
     commands: &mut Commands,
     npc_entity: Entity,
     mob_use: Option<&NpcMobUse>,
-    mobs: &mut Query<&mut GameMob>,
+    mobs: &mut Query<&mut MobPose>,
 ) {
     let Some(mob_use) = mob_use else {
         return;
@@ -419,8 +423,8 @@ fn release_mob_occupancy(
     debug!("npc({npc_entity}) released mob({})", mob_use.mob);
     commands.entity(mob_use.mob).remove::<MobOccupant>();
     commands.entity(npc_entity).remove::<NpcMobUse>();
-    if let Ok(mut mob) = mobs.get_mut(mob_use.mob) {
-        mob.state = 0;
+    if let Ok(mut pose) = mobs.get_mut(mob_use.mob) {
+        pose.state = 0;
     }
 }
 
@@ -454,6 +458,7 @@ struct MobChoice {
 fn select_mob(
     mobs: &mut Query<(
         &mut GameMob,
+        &mut MobPose,
         &MobBase,
         &GlobalTransform,
         Option<&MobOccupant>,
@@ -476,14 +481,14 @@ fn select_mob(
         if claimed.contains(&mob_entity) {
             continue;
         }
-        let Ok((mob, base, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
+        let Ok((mob, pose, base, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
             continue;
         };
         if occupant.is_some() {
             continue;
         }
         let Some((use_pos, use_rot, position_tag, ready, attached)) =
-            mob_use_transform(&mob, mob_tr, npc_pos, model.is_some())
+            mob_use_transform(&pose, mob_tr, npc_pos, model.is_some())
         else {
             continue;
         };
@@ -505,7 +510,7 @@ fn select_mob(
                 distance_squared,
                 ready,
                 attached,
-                no_move: mob.no_move,
+                no_move: pose.no_move,
             });
         }
     }
@@ -518,6 +523,7 @@ fn select_mob(
 fn mob_choice(
     mobs: &mut Query<(
         &mut GameMob,
+        &mut MobPose,
         &MobBase,
         &GlobalTransform,
         Option<&MobOccupant>,
@@ -526,14 +532,14 @@ fn mob_choice(
     mob_entity: Entity,
     npc_pos: Vec3,
 ) -> Option<MobChoice> {
-    let Ok((mob, base, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
+    let Ok((mob, pose, base, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
         return None;
     };
     if occupant.is_some() {
         return None;
     }
     let (use_pos, use_rot, position_tag, ready, attached) =
-        mob_use_transform(&mob, mob_tr, npc_pos, model.is_some())?;
+        mob_use_transform(&pose, mob_tr, npc_pos, model.is_some())?;
     Some(MobChoice {
         mob: mob_entity,
         vob_name: base.vob_name.clone(),
@@ -544,7 +550,7 @@ fn mob_choice(
         distance_squared: use_pos.distance_squared(npc_pos),
         ready,
         attached,
-        no_move: mob.no_move,
+        no_move: pose.no_move,
     })
 }
 
@@ -555,12 +561,12 @@ fn mob_choice(
 /// marks the model root, so the actor has to subtract its body-root offset.
 /// The vob-transform fallback sits on the ground and needs no offset.
 fn mob_use_transform(
-    mob: &GameMob,
+    pose: &MobPose,
     mob_tr: &GlobalTransform,
     npc_pos: Vec3,
     has_model: bool,
 ) -> Option<(Vec3, Quat, Option<String>, bool, bool)> {
-    let Some(positions) = mob.positions.as_ref() else {
+    let Some(positions) = pose.positions.as_ref() else {
         // A model without extracted nodes is still loading; the npc waits at
         // the vob transform and attaches once the asset is scanned.
         return Some((
@@ -715,6 +721,7 @@ mod tests {
         's,
         (
             &'static mut GameMob,
+            &'static mut MobPose,
             &'static MobBase,
             &'static GlobalTransform,
             Option<&'static MobOccupant>,
@@ -730,6 +737,7 @@ mod tests {
 
         let mut mob = app.world_mut().spawn((
             game_mob("BSANVIL", use_with_item),
+            game_pose("BSANVIL"),
             MobBase::default(),
             Transform::IDENTITY,
             GlobalTransform::IDENTITY,
@@ -745,11 +753,8 @@ mod tests {
         (app, mob)
     }
 
-    fn game_mob(scheme: &str, use_with_item: &str) -> GameMob {
+    fn game_mob(_scheme: &str, use_with_item: &str) -> GameMob {
         GameMob {
-            scheme: scheme.to_string(),
-            visual_stem: scheme.to_uppercase(),
-            state_num: 1,
             use_with_item: use_with_item.to_string(),
             on_state_func: String::new(),
             condition_func: String::new(),
@@ -757,9 +762,15 @@ mod tests {
             trigger_target: String::new(),
             trigger_fired: false,
             auto_end: false,
-            no_move: false,
-            positions: None,
-            state: 0,
+        }
+    }
+
+    fn game_pose(scheme: &str) -> MobPose {
+        MobPose {
+            scheme: scheme.to_string(),
+            visual_stem: scheme.to_uppercase(),
+            state_num: 1,
+            ..default()
         }
     }
 
@@ -791,6 +802,7 @@ mod tests {
             .world_mut()
             .spawn((
                 game_mob("BSANVIL", ""),
+                game_pose("BSANVIL"),
                 MobBase::default(),
                 Transform::IDENTITY,
                 GlobalTransform::IDENTITY,
@@ -800,6 +812,7 @@ mod tests {
             .world_mut()
             .spawn((
                 game_mob("BSANVIL", ""),
+                game_pose("BSANVIL"),
                 MobBase::default(),
                 Transform::from_xyz(5.0, 0.0, 0.0),
                 GlobalTransform::from_xyz(5.0, 0.0, 0.0),
@@ -829,6 +842,7 @@ mod tests {
             .world_mut()
             .spawn((
                 game_mob("BSANVIL", ""),
+                game_pose("BSANVIL"),
                 MobBase::default(),
                 Transform::IDENTITY,
                 GlobalTransform::IDENTITY,

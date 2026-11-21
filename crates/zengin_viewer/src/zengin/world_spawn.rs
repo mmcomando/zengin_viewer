@@ -22,7 +22,7 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::SpawnItem;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::visual::model::ZenGinModel;
-use crate::zengin::{GameChest, GameMob, MobBase};
+use crate::zengin::{GameChest, GameMob, MobBase, MobPose};
 
 pub struct WorldSpawnPlugin;
 
@@ -77,6 +77,12 @@ pub(crate) struct SpawnMob {
     /// Mesh asset path, empty when the vob has no visual.
     pub(crate) archetype: String,
     pub(crate) collides: bool,
+    /// `AI_UseMob` / player animation scheme derived from the visual stem.
+    pub(crate) scheme: String,
+    /// Visual file stem, the `<STEM>` of the vob's own animation set.
+    pub(crate) visual_stem: String,
+    /// Number of interaction states (`stateNum`).
+    pub(crate) state_num: i32,
     pub(crate) kind: MobSpawnKind,
 }
 
@@ -93,12 +99,6 @@ pub(crate) enum MobSpawnKind {
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default, Clone)]
 pub(crate) struct InteractiveSpawn {
-    /// `AI_UseMob` scheme derived from the visual stem.
-    pub(crate) scheme: String,
-    /// Visual file stem, the `<STEM>` of the mob's own animation set.
-    pub(crate) visual_stem: String,
-    /// Number of interaction states (`stateNum`).
-    pub(crate) state_num: i32,
     /// Script item instance required to use the mob, empty when none.
     pub(crate) use_with_item: String,
     /// Script function called when the mob changes state, empty when none.
@@ -202,10 +202,10 @@ pub(crate) fn request_mob_spawn(
         tr,
         archetype,
         collides: true,
+        scheme: scheme.clone(),
+        visual_stem: mob_visual_stem(visual),
+        state_num: state_num.unwrap_or(1),
         kind: MobSpawnKind::Interactive(InteractiveSpawn {
-            visual_stem: mob_visual_stem(visual),
-            scheme,
-            state_num: state_num.unwrap_or(1),
             on_state_func: on_state_func.unwrap_or_default().to_string(),
             auto_end,
             no_move,
@@ -289,9 +289,9 @@ fn spawn_static_models(
     }
 }
 
-/// Turns every queued mob vob into an entity: interactive mobs get `GameMob`
-/// and its state animation, containers get `GameChest` with the loot. Both share
-/// `MobBase` and a selection collider added once the model is loaded.
+/// Turns every queued mob vob into an entity: interactive mobs get `GameMob`,
+/// containers get `GameChest` with the loot. Both share `MobBase`, `MobPose` and
+/// a selection collider added once the model is loaded.
 fn spawn_mobs(
     mut spawns: MessageReader<SpawnMob>,
     mut commands: Commands,
@@ -310,32 +310,44 @@ fn spawn_mobs(
             tr,
             archetype,
             collides,
+            scheme,
+            visual_stem,
+            state_num,
             kind,
         } = mob;
+        let no_move = match &kind {
+            MobSpawnKind::Interactive(interactive) => interactive.no_move,
+            MobSpawnKind::Container(_) => false,
+        };
         let model_handle = (!archetype.is_empty())
             .then(|| handles_map.get_model_handle(&asset_server, &archetype, None));
-        let mut entity =
-            commands.spawn((ClassifyDistance::default(), base, Visibility::default(), tr));
-        let mut mob_animation = None;
+        let mut entity = commands.spawn((
+            ClassifyDistance::default(),
+            base,
+            MobPose {
+                scheme,
+                visual_stem: visual_stem.clone(),
+                state_num,
+                positions: None,
+                no_move,
+                state: 0,
+            },
+            Visibility::default(),
+            tr,
+        ));
         match kind {
             MobSpawnKind::Interactive(interactive) => {
                 let InteractiveSpawn {
-                    scheme,
-                    visual_stem,
-                    state_num,
                     use_with_item,
                     on_state_func,
                     condition_func,
                     rewind,
                     trigger_target,
                     auto_end,
-                    no_move,
+                    ..
                 } = interactive;
                 entity.insert((
                     GameMob {
-                        scheme,
-                        visual_stem: visual_stem.clone(),
-                        state_num,
                         use_with_item,
                         on_state_func,
                         condition_func,
@@ -343,24 +355,11 @@ fn spawn_mobs(
                         trigger_target,
                         trigger_fired: false,
                         auto_end,
-                        no_move,
-                        positions: None,
-                        state: 0,
                     },
                     // Placeholder until the model bounds add the real collider.
                     Collider::sphere(0.5),
                     CollisionLayers::from_bits(SELECTABLE, 0),
                 ));
-                if model_handle.is_some() {
-                    let animation_handle = mob_state_animation(
-                        &animation_files,
-                        &mut handles_map,
-                        &asset_server,
-                        &visual_stem,
-                        0,
-                    );
-                    mob_animation = Some((animation_handle, visual_stem));
-                }
             }
             MobSpawnKind::Container(container) => {
                 entity.insert(GameChest {
@@ -370,18 +369,23 @@ fn spawn_mobs(
             }
         }
         if let Some(model_handle) = model_handle {
-            let animation_handle = mob_animation
-                .as_ref()
-                .and_then(|(handle, _)| handle.clone());
+            let animation_handle = mob_state_animation(
+                &animation_files,
+                &mut handles_map,
+                &asset_server,
+                &visual_stem,
+                0,
+            );
             entity.insert(ZenGinModelComponent {
                 model_handle,
                 convex_colider: collides,
                 animation_handle,
                 ..default()
             });
-            if let Some((_, stem)) = mob_animation {
-                entity.insert(MobAnimation { stem, state: 0 });
-            }
+            entity.insert(MobAnimation {
+                stem: visual_stem,
+                state: 0,
+            });
         }
     }
 }

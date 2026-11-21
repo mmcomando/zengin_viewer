@@ -24,7 +24,7 @@ use crate::zengin::npc_routines::{
 };
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::{GameMob, GameNpc, NpcMobUse};
+use crate::zengin::{GameMob, GameNpc, MobPose, NpcMobUse};
 
 /// Player is playing the stand-up transition; the mob use is released when it
 /// ends.
@@ -134,7 +134,7 @@ pub(super) fn stand_up_player_from_mob(
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     pending: Query<Entity, (With<PlayerCharacter>, With<UseMobAction>)>,
-    mut mobs: Query<&mut GameMob>,
+    mut mobs: Query<(&GameMob, &mut MobPose)>,
     gothic_script: Res<ScriptResource>,
     mut players: Query<
         (
@@ -276,7 +276,7 @@ pub(super) fn advance_player_mob_release(
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     gothic_script: Res<ScriptResource>,
-    mut mobs: Query<&mut GameMob>,
+    mut mobs: Query<(&GameMob, &mut MobPose)>,
     mut players: Query<(
         Entity,
         &GameNpc,
@@ -357,18 +357,18 @@ fn finish_player_mob_release(
     mob_use: &NpcMobUse,
     controller: &mut AnimationController,
     sequencer: &mut AutoAnimSequencer,
-    mobs: &mut Query<&mut GameMob>,
+    mobs: &mut Query<(&GameMob, &mut MobPose)>,
     gothic_script: &ScriptResource,
 ) {
     // Switch-like mobs keep the state their use applied; only regular pose mobs
     // return to state 0 and report the release to `onStateFunc`.
-    let auto_end = mobs.get(mob_use.mob).is_ok_and(|mob| mob.auto_end);
+    let auto_end = mobs.get(mob_use.mob).is_ok_and(|(mob, _)| mob.auto_end);
     let on_state_func = if auto_end {
         None
     } else {
         match mobs.get_mut(mob_use.mob) {
-            Ok(mut mob) => {
-                mob.state = 0;
+            Ok((mob, mut pose)) => {
+                pose.state = 0;
                 Some(mob.on_state_func.clone())
             }
             Err(_) => None,

@@ -180,18 +180,30 @@ pub struct MobBase {
     pub focus_name: String,
 }
 
+/// Pose and state data shared by interactive mobs and chests.
+#[derive(Debug, Component, Default)]
+pub struct MobPose {
+    /// `AI_UseMob` / player animation scheme derived from the visual stem.
+    pub scheme: String,
+    /// Visual file stem, the `<STEM>` of the vob's own animation set.
+    pub visual_stem: String,
+    /// Number of interaction states.
+    pub state_num: i32,
+    /// `ZS_POS*` attachment nodes, `None` until the model asset is scanned.
+    pub positions: Option<Vec<MobPosition>>,
+    /// Door: use from where the player stands instead of snapping to the
+    /// attachment point.
+    pub no_move: bool,
+    /// Current interaction state.
+    pub state: i32,
+}
+
 /// Interactive mob vob (`oCMobInter` and its subtypes).
 #[allow(dead_code)] // metadata is consumed by the mob use action
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Component)]
 #[require(WorldEntityMarker)]
 pub struct GameMob {
-    /// `AI_UseMob` scheme derived from the visual stem.
-    pub scheme: String,
-    /// Visual file stem, the `<STEM>` of the mob's own animation set.
-    pub visual_stem: String,
-    /// Number of interaction states.
-    pub state_num: i32,
     pub use_with_item: String,
     pub on_state_func: String,
     pub condition_func: String,
@@ -204,13 +216,6 @@ pub struct GameMob {
     /// Switch-like vob (lever, button, wheel, door): using it toggles the state
     /// and the player stands up automatically after the use animation.
     pub auto_end: bool,
-    /// Door: use from where the player stands instead of snapping to the
-    /// attachment point.
-    pub no_move: bool,
-    /// `ZS_POS*` attachment nodes, `None` until the model asset is scanned.
-    pub positions: Option<Vec<MobPosition>>,
-    /// State applied by `Wld_SetMobRoutine` over the day.
-    pub state: i32,
 }
 
 /// Chest vob (`oCMobContainer`) with its remaining loot.

@@ -199,10 +199,10 @@ fn handle_mob(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, spawns: &WorldSp
         tr: get_obj_tr(obj),
         archetype,
         collides: obj.cd_dynamic(),
+        scheme: scheme.clone(),
+        visual_stem: mob_visual_stem(&visual.name()),
+        state_num: obj.interactive_state(),
         kind: MobSpawnKind::Interactive(InteractiveSpawn {
-            visual_stem: mob_visual_stem(&visual.name()),
-            scheme,
-            state_num: obj.interactive_state(),
             use_with_item: obj.interactive_use_with_item(),
             on_state_func: obj.interactive_on_state_change_function(),
             condition_func: obj.interactive_condition_function(),
@@ -248,8 +248,10 @@ fn handle_container(
     spawns: &WorldSpawnMessages,
     restore: Option<&SaveGame>,
 ) {
+    let visual = obj.visual();
+    let visual_name = visual.name();
     let archetype = has_visual
-        .then(|| visual_asset_path(vfs, &obj.visual()))
+        .then(|| visual_asset_path(vfs, &visual))
         .flatten()
         .unwrap();
     let vob_id = obj.id();
@@ -268,6 +270,9 @@ fn handle_container(
         tr: get_obj_tr(obj),
         archetype,
         collides: obj.cd_dynamic(),
+        scheme: mob_scheme(&visual_name),
+        visual_stem: mob_visual_stem(&visual_name),
+        state_num: obj.interactive_state(),
         kind: MobSpawnKind::Container(ContainerSpawn {
             items,
             locked: obj.container_locked(),

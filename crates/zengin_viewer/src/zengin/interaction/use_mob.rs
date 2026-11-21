@@ -21,7 +21,7 @@ use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{DialogUiState, GameMob, GameNpc, MobBase, NpcMobUse, VobTrigger};
+use crate::zengin::{DialogUiState, GameMob, GameNpc, MobBase, MobPose, NpcMobUse, VobTrigger};
 
 /// Runs the mob's script-side use conditions and logs the reason when the
 /// player is not allowed to interact.
@@ -84,7 +84,7 @@ pub(super) fn use_selected_mob(
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     dialog_ui: Res<DialogUiState>,
     inventory_ui: Res<InventoryUiState>,
-    mut mobs: Query<(&mut GameMob, &MobBase)>,
+    mut mobs: Query<(&mut GameMob, &mut MobPose, &MobBase)>,
     animation_files: Option<Res<AnimationFiles>>,
     gothic_script: Res<ScriptResource>,
     mut vob_trigger: MessageWriter<VobTrigger>,
@@ -116,10 +116,10 @@ pub(super) fn use_selected_mob(
     if player_mob_use.is_some() {
         return;
     }
-    let Ok((mut mob, base)) = mobs.get_mut(target) else {
+    let Ok((mut mob, mut pose, base)) = mobs.get_mut(target) else {
         return;
     };
-    if mob.state_num <= 0 {
+    if pose.state_num <= 0 {
         warn!(
             "Mob({target}) vob({}) has no interaction states",
             base.vob_name
@@ -139,13 +139,13 @@ pub(super) fn use_selected_mob(
     // toggle their state and end automatically, like the engine's
     // `canQuitAtState`.
     let pose_state = if mob.auto_end {
-        i32::from(mob.state <= 0)
+        i32::from(pose.state <= 0)
     } else {
         1
     };
     let has_pose = match (player_model, animation_files.as_deref()) {
         (Some(model), Some(files)) => {
-            mob_scheme_has_player_pose(model, player_overlay, files, &mob.scheme, pose_state)
+            mob_scheme_has_player_pose(model, player_overlay, files, &pose.scheme, pose_state)
         }
         _ => false,
     };
@@ -154,13 +154,13 @@ pub(super) fn use_selected_mob(
             "Player({player}) uses vob_id({}), mob({target}) vob({}) visual_stem({}) focus({}) condition_func({}) on_state_func({}) -> state({pose_state})",
             base.vob_id,
             base.vob_name,
-            mob.visual_stem,
+            pose.visual_stem,
             base.focus_name,
             mob.condition_func,
             mob.on_state_func
         );
         fire_trigger(&mut mob, &mut vob_trigger);
-        let scheme = StringCanon::new(&mob.scheme);
+        let scheme = StringCanon::new(&pose.scheme);
         let action = if mob.auto_end {
             UseMobAction::player_switch(target, scheme, pose_state)
         } else {
@@ -170,8 +170,8 @@ pub(super) fn use_selected_mob(
         return;
     }
 
-    let state = i32::from(mob.state <= 0);
-    mob.state = state;
+    let state = i32::from(pose.state <= 0);
+    pose.state = state;
     info!(
         "Player({player}) used mob({target}) vob({}) focus({}) condition_func({}) on_state_func({}) -> state({state})",
         base.vob_name, base.focus_name, mob.condition_func, mob.on_state_func,
