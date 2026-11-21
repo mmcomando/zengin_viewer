@@ -271,6 +271,17 @@ pub struct ZenGinWorldData {
     pub waypoint_graph: WaypointGraph,
     pub music_zones: Vec<MusicZone>,
     pub default_music_zone: Option<MusicZone>,
+    /// `zCTriggerWorldStart` vobs of the world, fired once it is in game.
+    pub world_start_triggers: Vec<WorldStartTrigger>,
+}
+
+/// Vob notified when the world starts (`zCTriggerWorldStart`).
+#[derive(Debug, Clone)]
+pub struct WorldStartTrigger {
+    /// Name of the vob the trigger event is addressed to.
+    pub target: String,
+    /// `fireOnlyFirstTime`: ignored when a saved world is restored.
+    pub fire_only_first_time: bool,
 }
 
 #[cfg(test)]
@@ -282,6 +293,28 @@ mod tests {
             name: name.to_string(),
             bounds: Aabb3d::from_min_max(min, max),
         }
+    }
+
+    #[test]
+    fn mover_keyframe_rotation_matches_the_vob_rest_pose() {
+        use crate::zengin::loaders::ZenginQuatToGlam;
+
+        // NW_MISC_WINDMILL_ROTOR_01: the vob rotation and keyframe 0 describe
+        // the same orientation. The keyframe quaternion is transposed relative
+        // to the vob matrix, hence the conjugation.
+        let vob = Mat3::from_cols(
+            Vec3::new(0.017, -0.105, 0.994),
+            Vec3::new(0.002, 0.995, 0.105),
+            Vec3::new(-1.000, 0.000, 0.017),
+        );
+        let keyframe = zen_kit_rs::misc::Quat::from_xyzw(-0.037, 0.700, 0.037, 0.712);
+
+        let from_vob = get_world_rot(vob);
+        let from_keyframe = get_world_quat(keyframe.to_glam().conjugate());
+        assert!(
+            from_vob.dot(from_keyframe).abs() > 0.9995,
+            "keyframe rotation must match the vob rest pose: {from_vob:?} vs {from_keyframe:?}"
+        );
     }
 
     #[test]

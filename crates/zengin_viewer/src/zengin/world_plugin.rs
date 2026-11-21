@@ -23,6 +23,7 @@ use crate::zengin::interaction::selection::Selection;
 use crate::zengin::loaders::vfs::{
     item_model_path, mesh_body_path, mesh_model_path, normalize_mesh_name, resolve_stand_animation,
 };
+use crate::zengin::movers::PendingWorldStartTriggers;
 use crate::zengin::npc_routines::WayPoints;
 use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::resources::{
@@ -466,6 +467,16 @@ fn spawn_world_data(
         let vfs = vfs.0.lock().unwrap();
         load_zengin_world_data(&vfs, &world_path, loaded_state, spawns, restore)
     };
+    // `zCTriggerWorldStart` events are fired once the world is in game, after
+    // the movers they address exist. A restored world only fires the triggers
+    // that are not limited to the first start.
+    let world_start_triggers = world_data
+        .world_start_triggers
+        .drain(..)
+        .filter(|trigger| clean_spawn || !trigger.fire_only_first_time)
+        .map(|trigger| trigger.target)
+        .collect();
+    commands.insert_resource(PendingWorldStartTriggers(world_start_triggers));
     // Keep waypoint positions around for runtime npc routine teleporting,
     // spots take precedence over way points (same lookup order as npc placement).
     let mut way_points = world_data.way_points.clone();

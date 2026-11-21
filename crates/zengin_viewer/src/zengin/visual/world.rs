@@ -225,7 +225,11 @@ fn handle_mover(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, spawns: &World
         .into_iter()
         .map(|keyframe| {
             Transform::from_translation(get_world_pos(keyframe.position.to_glam()))
-                .with_rotation(get_world_quat(keyframe.rotation.to_glam()))
+                // Keyframe quaternions are stored transposed relative to the
+                // vob rotation matrix, so frame 0 would otherwise not match the
+                // vob's rest pose and the mover would rotate around a wrong
+                // axis.
+                .with_rotation(get_world_quat(keyframe.rotation.to_glam().conjugate()))
         })
         .collect();
     spawns.movers.send(SpawnMover {
@@ -237,6 +241,7 @@ fn handle_mover(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, spawns: &World
         // Archive speed is in zengin units per millisecond.
         speed: obj.mover_speed() * 1000.0 / ZENGIN_UNITS_PER_WORLD_UNIT,
         start_enabled: obj.trigger_start_enabled(),
+        behavior: obj.mover_behavior(),
     });
 }
 
@@ -391,7 +396,16 @@ fn handle_other_vob(
             warn_unimplemented!("VobType::zCCodeMaster");
         }
         VobType::zCTriggerWorldStart => {
-            warn_unimplemented!("VobType::zCTriggerWorldStart");
+            let target = obj.world_start_target();
+            if target.is_empty() {
+                warn!("zCTriggerWorldStart vob({}) without a target", obj.name());
+                return;
+            }
+            data.world_start_triggers.push(WorldStartTrigger {
+                target,
+                fire_only_first_time: obj.world_start_fire_once(),
+            });
+            return;
         }
         VobType::zCCSCamera => {
             warn_unimplemented!("VobType::zCCSCamera");

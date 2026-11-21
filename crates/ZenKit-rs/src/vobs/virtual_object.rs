@@ -147,7 +147,7 @@ impl VirtualObject<'_> {
         unsafe { ZkInteractiveObject_getRewind(self.ptr.as_ptr().cast()).to_bool() }
     }
 
-    /// Script name of the vob notified when an `oCMobInter` is used.
+    /// Movement behaviour of a `zCMover`.
     pub fn mover_behavior(&self) -> MoverBehavior {
         unsafe { ZkMover_getBehavior(self.ptr.as_ptr().cast()) }
     }
@@ -178,9 +178,96 @@ impl VirtualObject<'_> {
         unsafe { ZkMover_getIsLocked(self.ptr.as_ptr().cast()).to_bool() }
     }
 
+    /// Whether a `zCMover` orients itself along its movement direction.
+    pub fn mover_auto_rotate(&self) -> bool {
+        unsafe { ZkMover_getAutoRotate(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
     /// Whether the mover starts enabled (`zCTrigger.flags.startEnabled`).
     pub fn trigger_start_enabled(&self) -> bool {
         unsafe { ZkTrigger_getStartEnabled(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
+    /// Name of the vob a trigger notifies when it fires.
+    pub fn trigger_target(&self) -> String {
+        unsafe { ZkTrigger_getTarget(self.ptr.as_ptr().cast()).to_string() }
+    }
+
+    /// Whether the trigger also emits an untrigger event.
+    pub fn trigger_send_untrigger(&self) -> bool {
+        unsafe { ZkTrigger_getSendUntrigger(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
+    /// Whether the trigger reacts to events sent to it by name.
+    pub fn trigger_react_to_on_trigger(&self) -> bool {
+        unsafe { ZkTrigger_getReactToOnTrigger(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
+    /// Whether the trigger reacts to an npc/player entering its area.
+    pub fn trigger_react_to_on_touch(&self) -> bool {
+        unsafe { ZkTrigger_getReactToOnTouch(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
+    /// Whether the trigger reacts to a projectile entering its area.
+    pub fn trigger_respond_to_object(&self) -> bool {
+        unsafe { ZkTrigger_getRespondToObject(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
+    /// Whether the trigger reacts to the player inside its area.
+    pub fn trigger_respond_to_pc(&self) -> bool {
+        unsafe { ZkTrigger_getRespondToPC(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
+    /// Whether the trigger reacts to an npc inside its area.
+    pub fn trigger_respond_to_npc(&self) -> bool {
+        unsafe { ZkTrigger_getRespondToNPC(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
+    /// How many times the trigger can fire, `-1` for unlimited.
+    pub fn trigger_max_activation_count(&self) -> i32 {
+        unsafe { ZkTrigger_getMaxActivationCount(self.ptr.as_ptr().cast()) }
+    }
+
+    /// Name of a single emitter vob the trigger additionally matches.
+    pub fn trigger_vob_target(&self) -> String {
+        unsafe { ZkTrigger_getVobTarget(self.ptr.as_ptr().cast()).to_string() }
+    }
+
+    /// Name of the vob a `zCTriggerWorldStart` notifies on world start.
+    pub fn world_start_target(&self) -> String {
+        unsafe { ZkTriggerWorldStart_getTarget(self.ptr.as_ptr().cast()).to_string() }
+    }
+
+    /// Whether a `zCTriggerWorldStart` fires only the first time the world loads.
+    pub fn world_start_fire_once(&self) -> bool {
+        unsafe { ZkTriggerWorldStart_getFireOnce(self.ptr.as_ptr().cast()).to_bool() }
+    }
+
+    /// World path a `oCTriggerChangeLevel` switches to.
+    pub fn change_level_name(&self) -> String {
+        unsafe { ZkTriggerChangeLevel_getLevelName(self.ptr.as_ptr().cast()).to_string() }
+    }
+
+    /// Vob name the player is placed at after a level change.
+    pub fn change_level_start_vob(&self) -> String {
+        unsafe { ZkTriggerChangeLevel_getStartVob(self.ptr.as_ptr().cast()).to_string() }
+    }
+
+    /// Targets of a `zCTriggerList`: vob name and delay in seconds.
+    pub fn trigger_list_targets(&self) -> Vec<(String, f32)> {
+        unsafe {
+            let ptr = self.ptr.as_ptr().cast();
+            let count = ZkTriggerList_getTargetCount(ptr);
+            (0..count)
+                .map(|i| {
+                    let target = ZkTriggerList_getTarget(ptr, i);
+                    (
+                        ZkTriggerListTarget_getName(target).to_string(),
+                        ZkTriggerListTarget_getDelaySeconds(target),
+                    )
+                })
+                .collect()
+        }
     }
 
     pub fn visual(&self) -> Visual<'_> {

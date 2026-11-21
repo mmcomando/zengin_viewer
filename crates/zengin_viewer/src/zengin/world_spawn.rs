@@ -23,6 +23,7 @@ use crate::zengin::script::state::SpawnItem;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::{GameChest, GameMob, MobBase, MobPose};
+use zen_kit_rs::misc::MoverBehavior;
 
 pub struct WorldSpawnPlugin;
 
@@ -123,7 +124,7 @@ pub(crate) struct ContainerSpawn {
 }
 
 /// Moving trigger vob (`zCMover`).
-#[derive(Debug, Default, Clone, Message)]
+#[derive(Debug, Clone, Message)]
 pub(crate) struct SpawnMover {
     pub(crate) tr: Transform,
     /// Mesh asset path, empty when the vob has no visual.
@@ -136,6 +137,8 @@ pub(crate) struct SpawnMover {
     /// Movement speed in meters per second.
     pub(crate) speed: f32,
     pub(crate) start_enabled: bool,
+    /// `zCMover.moverBehavior`, decides the reaction to a trigger.
+    pub(crate) behavior: MoverBehavior,
 }
 
 /// Queue handles the world load uses to spawn its entities.
@@ -496,6 +499,7 @@ fn spawn_movers(
                 spawn.tr,
                 spawn.speed,
                 spawn.start_enabled,
+                spawn.behavior,
             ),
         ));
         if let Some(model_handle) = model_handle {
