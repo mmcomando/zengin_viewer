@@ -189,6 +189,7 @@ fn handle_mob(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, spawns: &WorldSp
     let no_move =
         matches!(obj.get_type(), VobType::oCMobDoor) || scheme.eq_ignore_ascii_case("DOOR");
     spawns.mobs.send(SpawnMob {
+        vob_id: obj.id(),
         tr: get_obj_tr(obj),
         archetype,
         collides: obj.cd_dynamic(),

@@ -151,8 +151,13 @@ pub(super) fn use_selected_mob(
     };
     if has_pose {
         info!(
-            "Player({player}) uses mob({target}) vob({}) focus({}) condition_func({}) on_state_func({}) -> state({pose_state})",
-            mob.vob_name, mob.focus_name, mob.condition_func, mob.on_state_func,
+            "Player({player}) uses vob_id({}), mob({target}) vob({}) visual_stem({}) focus({}) condition_func({}) on_state_func({}) -> state({pose_state})",
+            mob.vob_id,
+            mob.vob_name,
+            mob.visual_stem,
+            mob.focus_name,
+            mob.condition_func,
+            mob.on_state_func
         );
         fire_trigger(&mut mob, &mut vob_trigger);
         let scheme = StringCanon::new(&mob.scheme);

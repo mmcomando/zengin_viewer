@@ -92,6 +92,8 @@ pub(crate) struct SpawnChest {
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default, Clone, Message)]
 pub(crate) struct SpawnMob {
+    /// Index of the vob in the ZEN archive, stable across loads.
+    pub(crate) vob_id: u32,
     pub(crate) tr: Transform,
     /// Mesh asset path, empty when the vob has no visual.
     pub(crate) archetype: String,
@@ -372,6 +374,7 @@ fn spawn_mobs(
         let mut entity = commands.spawn((
             ClassifyDistance::default(),
             GameMob {
+                vob_id: mob.vob_id,
                 vob_name: mob.vob_name,
                 focus_name: mob.focus_name,
                 scheme: mob.scheme,

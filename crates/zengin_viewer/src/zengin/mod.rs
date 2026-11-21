@@ -174,20 +174,22 @@ impl GameItem {
 #[derive(Debug, Component)]
 #[require(WorldEntityMarker)]
 pub struct GameMob {
+    /// Index of the vob in the ZEN archive.
+    pub vob_id: u32,
     pub vob_name: String,
-    /// In-game focus name (`oCMOB.name`).
+    /// In-game focus name.
     pub focus_name: String,
     /// `AI_UseMob` scheme derived from the visual stem.
     pub scheme: String,
     /// Visual file stem, the `<STEM>` of the mob's own animation set.
     pub visual_stem: String,
-    /// Number of interaction states (`stateNum`).
+    /// Number of interaction states.
     pub state_num: i32,
     pub use_with_item: String,
     pub on_state_func: String,
     pub condition_func: String,
     pub rewind: bool,
-    /// Script name of the vob notified (`triggerTarget`) when the mob is used.
+    /// Script name of the vob notified when the mob is used.
     pub trigger_target: String,
     /// Whether `trigger_target` was already notified. A mob with `rewind ==
     /// false` notifies it only once.
@@ -208,11 +210,10 @@ pub struct GameMob {
 #[derive(Debug, Component)]
 #[require(WorldEntityMarker)]
 pub struct GameChest {
-    /// Index of the vob in the ZEN archive, stable across loads; used to match
-    /// saved loot to the same chest.
+    /// Index of the vob in the ZEN archive.
     pub vob_id: u32,
     /// Plain vob name from the ZEN, the key `Mob_HasItems` looks the container
-    /// up by. Empty for roughly half of the G2 chests.
+    /// up by.
     pub vob_name: String,
     pub name: String,
     /// Vob `locked` flag, reported when the chest is opened.
