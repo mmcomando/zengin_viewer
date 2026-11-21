@@ -42,6 +42,7 @@ impl Plugin for PlayerInteractionPlugin {
                     .before(player_mob::advance_player_mob_release),
                 player_mob::stand_up_player_from_mob,
                 player_mob::close_looted_chest.before(player_mob::advance_player_mob_release),
+                player_mob::release_stale_player_mob_use,
                 player_mob::advance_player_mob_release,
                 player_mob::sync_player_mob_physics
                     .before(crate::gameplay::character::move_and_slide),

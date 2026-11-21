@@ -15,13 +15,13 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, animation_name_from_path,
 };
-use crate::gui::LootClosed;
+use crate::gui::{InventoryUiState, LootClosed};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::npc_actions::{
     ExecutingActionMarker, MobUsePose, UseMobAction, mob_animation_name, release_mob_use,
 };
 use crate::zengin::npc_routines::{
-    AnimationFiles, NpcOverlay, has_animation, queue_named_animation,
+    AnimationFiles, NpcOverlay, has_animation, queue_named_animation, queue_stand_animation,
 };
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
@@ -152,6 +152,10 @@ pub(super) fn close_looted_chest(
     >,
 ) {
     for request in closed.read() {
+        // The chest may be gone when the world was unloaded mid-loot.
+        if mobs.get(request.chest).is_err() {
+            continue;
+        }
         // The lid closes in parallel with the player stand-up.
         if let Ok((_, mut pose)) = mobs.get_mut(request.chest) {
             pose.state = 0;
@@ -221,6 +225,41 @@ pub(super) fn close_looted_chest(
     }
 }
 
+/// Releases a player left attached to an entity that no longer exists, e.g.
+/// after a world unload.
+pub(super) fn release_stale_player_mob_use(
+    mut commands: Commands,
+    mut players: Query<
+        (
+            Entity,
+            &NpcMobUse,
+            Option<&mut AnimationController>,
+            Option<&mut AutoAnimSequencer>,
+        ),
+        With<PlayerCharacter>,
+    >,
+    mobs: Query<(), With<MobPose>>,
+) {
+    for (entity, mob_use, controller, sequencer) in &mut players {
+        if mobs.get(mob_use.mob).is_ok() {
+            continue;
+        }
+        warn!("Player mob use target({}) is gone, releasing", mob_use.mob);
+        commands.entity(entity).remove::<(
+            NpcMobUse,
+            PlayerMobRelease,
+            MobUsePose,
+            ExecutingActionMarker,
+        )>();
+        if let Some(mut controller) = controller {
+            controller.set_root_motion(true);
+        }
+        if let Some(mut sequencer) = sequencer {
+            queue_stand_animation(&mut sequencer);
+        }
+    }
+}
+
 /// Starts the player's stand-up when it asks to leave the mob. Movement and
 /// attack input also cancel a use that has not attached yet.
 #[allow(clippy::type_complexity)]
@@ -230,6 +269,7 @@ pub(super) fn stand_up_player_from_mob(
     files: Option<Res<AnimationFiles>>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
+    inventory_ui: Res<InventoryUiState>,
     pending: Query<Entity, (With<PlayerCharacter>, With<UseMobAction>)>,
     mut mobs: Query<(Option<&GameMob>, &mut MobPose)>,
     gothic_script: Res<ScriptResource>,
@@ -247,6 +287,11 @@ pub(super) fn stand_up_player_from_mob(
         With<PlayerCharacter>,
     >,
 ) {
+    // The loot UI owns the input while it is open; its close path releases the
+    // chest instead.
+    if inventory_ui.is_open() {
+        return;
+    }
     let moving = action_state
         .axis_pair(&GameplayAction::Move)
         .length_squared()
