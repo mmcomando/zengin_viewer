@@ -23,6 +23,9 @@ use super::data::AnimationData;
 pub(crate) const ATOMIC_SCALE: f32 = 1000.0;
 /// Animation time is stored scaled to integers so it can be shared without locks.
 pub(crate) const TIME_SCALE: f32 = 1_000_000.0;
+/// Skeletons outside the camera frustum animate only while closer than this
+/// to the main camera, so nearby characters behind the camera stay in motion.
+const ANIMATION_UPDATE_DISTANCE_SQUARED: f32 = 20.0 * 20.0;
 
 /// Result of advancing one animation by one time step.
 pub(crate) struct FrameUpdate {
@@ -152,24 +155,36 @@ pub(crate) fn update_animations(
     accelerating: Query<(), With<AcceleratingRootMotion>>,
     mut transforms: Query<&mut Transform>,
     mut joints: Query<&mut BoneAnimationData>,
-    frustum: Option<Single<&Frustum, With<Camera3d>>>,
+    camera: Option<Single<(&Frustum, &GlobalTransform), With<Camera3d>>>,
 ) {
     let delta = time.delta_secs();
     let mut switches: Vec<(Entity, Arc<AnimationData>)> = Vec::new();
 
     for (entity, global_transform, aabb, player, sequencer, mut data, controller) in &mut query {
         // Without a main camera (e.g. in tests) fall back to always updating.
-        let needs_update = match (&frustum, aabb) {
-            (Some(frustum), Some(aabb)) => {
-                frustum.intersects_obb(aabb, &global_transform.affine(), true, true)
+        let needs_update = match (&camera, aabb) {
+            (Some(camera), aabb) => {
+                let within_near = camera
+                    .1
+                    .translation()
+                    .distance_squared(global_transform.translation())
+                    < ANIMATION_UPDATE_DISTANCE_SQUARED;
+                let in_frustum = match aabb {
+                    Some(aabb) => {
+                        camera
+                            .0
+                            .intersects_obb(aabb, &global_transform.affine(), true, true)
+                    }
+                    None => camera.0.intersects_sphere(
+                        &Sphere {
+                            center: global_transform.translation().into(),
+                            radius: 1.0,
+                        },
+                        true,
+                    ),
+                };
+                within_near || in_frustum
             }
-            (Some(frustum), None) => frustum.intersects_sphere(
-                &Sphere {
-                    center: global_transform.translation().into(),
-                    radius: 1.0,
-                },
-                true,
-            ),
             (None, _) => true,
         };
         // TODO better way to know which entities are visible and which not
