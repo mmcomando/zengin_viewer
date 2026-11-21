@@ -1,6 +1,6 @@
 //! Spawn messages for the entities produced by the world Zen load: the world
-//! mesh, static vob models, chests and interactive mobs. The loader queues them
-//! and the systems here turn them into ECS entities.
+//! mesh, static vob models, mob vobs (interactive and containers) and movers.
+//! The loader queues them and the systems here turn them into ECS entities.
 
 use avian3d::prelude::{Collider, CollisionLayers};
 use bevy::prelude::*;
@@ -22,7 +22,7 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::SpawnItem;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::visual::model::ZenGinModel;
-use crate::zengin::{GameChest, GameMob};
+use crate::zengin::{GameChest, GameMob, MobBase};
 
 pub struct WorldSpawnPlugin;
 
@@ -31,7 +31,6 @@ impl Plugin for WorldSpawnPlugin {
         let messages = WorldSpawnMessages {
             world_mesh: app.add_external_message::<SpawnWorldMesh>(),
             static_models: app.add_external_message::<SpawnStaticModel>(),
-            chests: app.add_external_message::<SpawnChest>(),
             mobs: app.add_external_message::<SpawnMob>(),
             movers: app.add_external_message::<SpawnMover>(),
             items: app.add_external_message::<SpawnItem>(),
@@ -43,9 +42,8 @@ impl Plugin for WorldSpawnPlugin {
             (
                 spawn_world_mesh,
                 spawn_static_models,
-                spawn_chests,
-                sync_script_containers,
                 spawn_mobs,
+                sync_script_containers,
                 spawn_movers,
             )
                 .chain()
@@ -70,38 +68,31 @@ pub(crate) struct SpawnStaticModel {
     pub(crate) collides: bool,
 }
 
-/// Interactive chest vob with its remaining loot.
-#[derive(Debug, Default, Clone, Message)]
-pub(crate) struct SpawnChest {
-    /// Index of the vob in the ZEN archive, stable across loads.
-    pub(crate) vob_id: u32,
+/// Mob vob placed at its world transform, interactive or a container.
+#[derive(Debug, Clone, Message)]
+pub(crate) struct SpawnMob {
+    /// Fields shared by every `oCMob` vob.
+    pub(crate) base: MobBase,
     pub(crate) tr: Transform,
     /// Mesh asset path, empty when the vob has no visual.
     pub(crate) archetype: String,
     pub(crate) collides: bool,
-    /// Half-size of the selection collider, converted to world units.
-    pub(crate) collider_half_extents: Vec3,
-    /// Plain vob name, the container key used by `Mob_HasItems`.
-    pub(crate) vob_name: String,
-    pub(crate) name: String,
-    pub(crate) items: Vec<(InstanceId, i32)>,
-    pub(crate) locked: bool,
+    pub(crate) kind: MobSpawnKind,
 }
 
-/// Interactive mob vob (`oCMobInter` and its subtypes).
+/// Kind-specific data of a spawned mob vob.
+#[derive(Debug, Clone)]
+pub(crate) enum MobSpawnKind {
+    /// `oCMobInter` family, driven by `AI_UseMob`.
+    Interactive(InteractiveSpawn),
+    /// `oCMobContainer` with its remaining loot.
+    Container(ContainerSpawn),
+}
+
+/// Interaction data of an `oCMobInter` vob.
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Default, Clone, Message)]
-pub(crate) struct SpawnMob {
-    /// Index of the vob in the ZEN archive, stable across loads.
-    pub(crate) vob_id: u32,
-    pub(crate) tr: Transform,
-    /// Mesh asset path, empty when the vob has no visual.
-    pub(crate) archetype: String,
-    pub(crate) collides: bool,
-    /// Vob name, used by scripts and trigger targets.
-    pub(crate) vob_name: String,
-    /// In-game focus name (`oCMOB.name`), shown when the player looks at it.
-    pub(crate) focus_name: String,
+#[derive(Debug, Default, Clone)]
+pub(crate) struct InteractiveSpawn {
     /// `AI_UseMob` scheme derived from the visual stem.
     pub(crate) scheme: String,
     /// Visual file stem, the `<STEM>` of the mob's own animation set.
@@ -122,6 +113,13 @@ pub(crate) struct SpawnMob {
     /// Door: the player uses it from where they stand instead of snapping to
     /// the attachment point.
     pub(crate) no_move: bool,
+}
+
+/// Loot and lock data of an `oCMobContainer` vob.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct ContainerSpawn {
+    pub(crate) items: Vec<(InstanceId, i32)>,
+    pub(crate) locked: bool,
 }
 
 /// Moving trigger vob (`zCMover`).
@@ -145,7 +143,6 @@ pub(crate) struct SpawnMover {
 pub(crate) struct WorldSpawnMessages {
     pub(crate) world_mesh: ExternalMessageSender<SpawnWorldMesh>,
     pub(crate) static_models: ExternalMessageSender<SpawnStaticModel>,
-    pub(crate) chests: ExternalMessageSender<SpawnChest>,
     pub(crate) mobs: ExternalMessageSender<SpawnMob>,
     pub(crate) movers: ExternalMessageSender<SpawnMover>,
     pub(crate) items: ExternalMessageSender<SpawnItem>,
@@ -156,7 +153,6 @@ impl WorldSpawnMessages {
     pub(crate) fn clear(&self) {
         self.world_mesh.clear();
         self.static_models.clear();
-        self.chests.clear();
         self.mobs.clear();
         self.movers.clear();
         self.items.clear();
@@ -198,18 +194,23 @@ pub(crate) fn request_mob_spawn(
     let auto_end = is_switch_mob_scheme(&scheme);
     let no_move = scheme.eq_ignore_ascii_case("DOOR");
     mobs.send(SpawnMob {
+        base: MobBase {
+            vob_name: format!("TEST_MOB_{scheme}"),
+            focus_name: focus_name.unwrap_or(&scheme).to_string(),
+            ..default()
+        },
         tr,
         archetype,
         collides: true,
-        vob_name: format!("TEST_MOB_{scheme}"),
-        focus_name: focus_name.unwrap_or(&scheme).to_string(),
-        visual_stem: mob_visual_stem(visual),
-        scheme,
-        state_num: state_num.unwrap_or(1),
-        on_state_func: on_state_func.unwrap_or_default().to_string(),
-        auto_end,
-        no_move,
-        ..default()
+        kind: MobSpawnKind::Interactive(InteractiveSpawn {
+            visual_stem: mob_visual_stem(visual),
+            scheme,
+            state_num: state_num.unwrap_or(1),
+            on_state_func: on_state_func.unwrap_or_default().to_string(),
+            auto_end,
+            no_move,
+            ..default()
+        }),
     });
 }
 
@@ -288,41 +289,100 @@ fn spawn_static_models(
     }
 }
 
-fn spawn_chests(
-    mut spawns: MessageReader<SpawnChest>,
+/// Turns every queued mob vob into an entity: interactive mobs get `GameMob`
+/// and its state animation, containers get `GameChest` with the loot. Both share
+/// `MobBase` and a selection collider added once the model is loaded.
+fn spawn_mobs(
+    mut spawns: MessageReader<SpawnMob>,
     mut commands: Commands,
     mut handles_map: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
+    animation_files: Res<AnimationFiles>,
     position_filter: Res<SpawnPositionFilter>,
 ) {
-    for spawn in spawns.read() {
-        if !position_filter.allows(spawn.tr.translation) {
+    let mobs: Vec<SpawnMob> = spawns.read().cloned().collect();
+    for mob in mobs {
+        if !position_filter.allows(mob.tr.translation) {
             continue;
         }
-        let model_handle = handles_map.get_model_handle(&asset_server, &spawn.archetype, None);
-        commands.spawn((
-            ClassifyDistance::default(),
-            GameChest {
-                vob_id: spawn.vob_id,
-                vob_name: spawn.vob_name.clone(),
-                name: spawn.name.clone(),
-                locked: spawn.locked,
-                items: spawn.items.clone(),
-            },
-            Collider::cuboid(
-                spawn.collider_half_extents.x * 2.0,
-                spawn.collider_half_extents.y * 2.0,
-                spawn.collider_half_extents.z * 2.0,
-            ),
-            CollisionLayers::from_bits(SELECTABLE, 0),
-            Visibility::default(),
-            spawn.tr,
-            ZenGinModelComponent {
+        let SpawnMob {
+            base,
+            tr,
+            archetype,
+            collides,
+            kind,
+        } = mob;
+        let model_handle = (!archetype.is_empty())
+            .then(|| handles_map.get_model_handle(&asset_server, &archetype, None));
+        let mut entity =
+            commands.spawn((ClassifyDistance::default(), base, Visibility::default(), tr));
+        let mut mob_animation = None;
+        match kind {
+            MobSpawnKind::Interactive(interactive) => {
+                let InteractiveSpawn {
+                    scheme,
+                    visual_stem,
+                    state_num,
+                    use_with_item,
+                    on_state_func,
+                    condition_func,
+                    rewind,
+                    trigger_target,
+                    auto_end,
+                    no_move,
+                } = interactive;
+                entity.insert((
+                    GameMob {
+                        scheme,
+                        visual_stem: visual_stem.clone(),
+                        state_num,
+                        use_with_item,
+                        on_state_func,
+                        condition_func,
+                        rewind,
+                        trigger_target,
+                        trigger_fired: false,
+                        auto_end,
+                        no_move,
+                        positions: None,
+                        state: 0,
+                    },
+                    // Placeholder until the model bounds add the real collider.
+                    Collider::sphere(0.5),
+                    CollisionLayers::from_bits(SELECTABLE, 0),
+                ));
+                if model_handle.is_some() {
+                    let animation_handle = mob_state_animation(
+                        &animation_files,
+                        &mut handles_map,
+                        &asset_server,
+                        &visual_stem,
+                        0,
+                    );
+                    mob_animation = Some((animation_handle, visual_stem));
+                }
+            }
+            MobSpawnKind::Container(container) => {
+                entity.insert(GameChest {
+                    locked: container.locked,
+                    items: container.items,
+                });
+            }
+        }
+        if let Some(model_handle) = model_handle {
+            let animation_handle = mob_animation
+                .as_ref()
+                .and_then(|(handle, _)| handle.clone());
+            entity.insert(ZenGinModelComponent {
                 model_handle,
-                convex_colider: spawn.collides,
+                convex_colider: collides,
+                animation_handle,
                 ..default()
-            },
-        ));
+            });
+            if let Some((_, stem)) = mob_animation {
+                entity.insert(MobAnimation { stem, state: 0 });
+            }
+        }
     }
 }
 
@@ -330,7 +390,7 @@ fn spawn_chests(
 /// skipped, they have no key the scripts could use.
 fn sync_script_containers(
     gothic_script: Option<Res<ScriptResource>>,
-    chests: Query<&GameChest>,
+    chests: Query<(&GameChest, &MobBase)>,
     added: Query<(), Added<GameChest>>,
     changed: Query<(), Changed<GameChest>>,
     mut removed: RemovedComponents<GameChest>,
@@ -346,78 +406,11 @@ fn sync_script_containers(
     };
     let containers = chests
         .iter()
-        .filter(|chest| !chest.vob_name.is_empty())
-        .map(|chest| (chest.vob_name.to_lowercase(), chest.items.clone()))
+        .filter(|(_, base)| !base.vob_name.is_empty())
+        .map(|(chest, base)| (base.vob_name.to_lowercase(), chest.items.clone()))
         .collect();
     gothic_script.lock().set_containers(containers);
     *initialized = true;
-}
-
-fn spawn_mobs(
-    mut spawns: MessageReader<SpawnMob>,
-    mut commands: Commands,
-    mut handles_map: ResMut<CachedAssetHandles>,
-    asset_server: Res<AssetServer>,
-    animation_files: Res<AnimationFiles>,
-    position_filter: Res<SpawnPositionFilter>,
-) {
-    let mobs: Vec<SpawnMob> = spawns.read().cloned().collect();
-    if mobs.is_empty() {
-        return;
-    }
-    for mob in mobs {
-        if !position_filter.allows(mob.tr.translation) {
-            continue;
-        }
-        let model_handle = (!mob.archetype.is_empty())
-            .then(|| handles_map.get_model_handle(&asset_server, &mob.archetype, None));
-        let mut entity = commands.spawn((
-            ClassifyDistance::default(),
-            GameMob {
-                vob_id: mob.vob_id,
-                vob_name: mob.vob_name,
-                focus_name: mob.focus_name,
-                scheme: mob.scheme,
-                visual_stem: mob.visual_stem.clone(),
-                state_num: mob.state_num,
-                use_with_item: mob.use_with_item,
-                on_state_func: mob.on_state_func,
-                condition_func: mob.condition_func,
-                rewind: mob.rewind,
-                trigger_target: mob.trigger_target,
-                trigger_fired: false,
-                auto_end: mob.auto_end,
-                no_move: mob.no_move,
-                positions: None,
-                state: 0,
-            },
-            Visibility::default(),
-            Collider::sphere(0.5),
-            CollisionLayers::from_bits(SELECTABLE, 0),
-            mob.tr,
-        ));
-        if let Some(model_handle) = model_handle {
-            let animation_handle = mob_state_animation(
-                &animation_files,
-                &mut handles_map,
-                &asset_server,
-                &mob.visual_stem,
-                0,
-            );
-            entity.insert((
-                ZenGinModelComponent {
-                    model_handle,
-                    convex_colider: mob.collides,
-                    animation_handle,
-                    ..default()
-                },
-                MobAnimation {
-                    stem: mob.visual_stem.clone(),
-                    state: 0,
-                },
-            ));
-        }
-    }
 }
 
 fn spawn_movers(

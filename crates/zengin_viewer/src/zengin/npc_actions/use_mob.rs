@@ -18,7 +18,7 @@ use crate::zengin::npc_routines::{
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::{GameMob, GameNpc, MobOccupant, MobRegistry, NpcMobUse};
+use crate::zengin::{GameMob, GameNpc, MobBase, MobOccupant, MobRegistry, NpcMobUse};
 
 const MOB_USE_DISTANCE: f32 = MAX_AI_USE_DISTANCE;
 
@@ -175,6 +175,7 @@ pub(crate) fn run_use_mob_action(
     mob_registry: Res<MobRegistry>,
     mut mobs: Query<(
         &mut GameMob,
+        &MobBase,
         &GlobalTransform,
         Option<&MobOccupant>,
         Option<&ZenGinModelComponent>,
@@ -338,7 +339,7 @@ pub(crate) fn run_use_mob_action(
         // the mob-relative offset instead.
         let mob_translation = mobs
             .get(choice.mob)
-            .map_or(transform.translation, |(_, tr, ..)| tr.translation());
+            .map_or(transform.translation, |(_, _, tr, ..)| tr.translation());
         let pose_offset = if choice.attached && !choice.no_move {
             choice.use_rot.inverse() * (mob_translation - transform.translation)
         } else {
@@ -449,9 +450,11 @@ struct MobChoice {
 /// Mob requirements (`useWithItem`, `conditionFunc`) are not checked here: the
 /// engine only enforces them for the player, npcs use a mob by scheme and a
 /// free attachment point alone.
+#[allow(clippy::type_complexity)]
 fn select_mob(
     mobs: &mut Query<(
         &mut GameMob,
+        &MobBase,
         &GlobalTransform,
         Option<&MobOccupant>,
         Option<&ZenGinModelComponent>,
@@ -473,7 +476,7 @@ fn select_mob(
         if claimed.contains(&mob_entity) {
             continue;
         }
-        let Ok((mob, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
+        let Ok((mob, base, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
             continue;
         };
         if occupant.is_some() {
@@ -494,7 +497,7 @@ fn select_mob(
         {
             best = Some(MobChoice {
                 mob: mob_entity,
-                vob_name: mob.vob_name.clone(),
+                vob_name: base.vob_name.clone(),
                 on_state_func: mob.on_state_func.clone(),
                 use_pos,
                 use_rot,
@@ -511,9 +514,11 @@ fn select_mob(
 
 /// Choice for one specific mob, used by player requests. A mob that is gone or
 /// occupied yields `None`.
+#[allow(clippy::type_complexity)]
 fn mob_choice(
     mobs: &mut Query<(
         &mut GameMob,
+        &MobBase,
         &GlobalTransform,
         Option<&MobOccupant>,
         Option<&ZenGinModelComponent>,
@@ -521,7 +526,7 @@ fn mob_choice(
     mob_entity: Entity,
     npc_pos: Vec3,
 ) -> Option<MobChoice> {
-    let Ok((mob, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
+    let Ok((mob, base, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
         return None;
     };
     if occupant.is_some() {
@@ -531,7 +536,7 @@ fn mob_choice(
         mob_use_transform(&mob, mob_tr, npc_pos, model.is_some())?;
     Some(MobChoice {
         mob: mob_entity,
-        vob_name: mob.vob_name.clone(),
+        vob_name: base.vob_name.clone(),
         on_state_func: mob.on_state_func.clone(),
         use_pos,
         use_rot,
@@ -710,6 +715,7 @@ mod tests {
         's,
         (
             &'static mut GameMob,
+            &'static MobBase,
             &'static GlobalTransform,
             Option<&'static MobOccupant>,
             Option<&'static ZenGinModelComponent>,
@@ -724,6 +730,7 @@ mod tests {
 
         let mut mob = app.world_mut().spawn((
             game_mob("BSANVIL", use_with_item),
+            MobBase::default(),
             Transform::IDENTITY,
             GlobalTransform::IDENTITY,
         ));
@@ -740,8 +747,6 @@ mod tests {
 
     fn game_mob(scheme: &str, use_with_item: &str) -> GameMob {
         GameMob {
-            vob_name: String::new(),
-            focus_name: String::new(),
             scheme: scheme.to_string(),
             visual_stem: scheme.to_uppercase(),
             state_num: 1,
@@ -786,6 +791,7 @@ mod tests {
             .world_mut()
             .spawn((
                 game_mob("BSANVIL", ""),
+                MobBase::default(),
                 Transform::IDENTITY,
                 GlobalTransform::IDENTITY,
             ))
@@ -794,6 +800,7 @@ mod tests {
             .world_mut()
             .spawn((
                 game_mob("BSANVIL", ""),
+                MobBase::default(),
                 Transform::from_xyz(5.0, 0.0, 0.0),
                 GlobalTransform::from_xyz(5.0, 0.0, 0.0),
             ))
@@ -822,6 +829,7 @@ mod tests {
             .world_mut()
             .spawn((
                 game_mob("BSANVIL", ""),
+                MobBase::default(),
                 Transform::IDENTITY,
                 GlobalTransform::IDENTITY,
                 MobOccupant(Entity::PLACEHOLDER),

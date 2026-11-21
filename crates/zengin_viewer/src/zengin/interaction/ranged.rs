@@ -5,7 +5,7 @@
 use bevy::prelude::*;
 
 use super::combat::NpcHitQueryData;
-use super::selection::{NpcHitCollider, Selection};
+use super::selection::{HitColliderOwner, Selection};
 use super::{DamageTargetData, NpcDied, deal_damage};
 use crate::gui::GameLog;
 use crate::world_entity::WorldEntityMarker;
@@ -223,7 +223,7 @@ fn spawn_arrow(
 fn arrow_hits(
     mut contacts: MessageReader<CollisionStart>,
     arrows: Query<(&Arrow, &GlobalTransform)>,
-    hit_colliders: Query<&NpcHitCollider>,
+    hit_colliders: Query<&HitColliderOwner>,
     mut npcs: Query<NpcHitQueryData>,
     gothic_script: Res<ScriptResource>,
     files: Res<AnimationFiles>,

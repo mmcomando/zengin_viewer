@@ -169,16 +169,23 @@ impl GameItem {
     }
 }
 
+/// Fields shared by every `oCMob` vob, whether interactive or a container.
+#[derive(Debug, Component, Default, Clone)]
+pub struct MobBase {
+    /// Index of the vob in the ZEN archive, stable across loads.
+    pub vob_id: u32,
+    /// Plain vob name from the ZEN, used by scripts and trigger targets.
+    pub vob_name: String,
+    /// In-game focus name (`oCMOB.name`), a script string variable name.
+    pub focus_name: String,
+}
+
 /// Interactive mob vob (`oCMobInter` and its subtypes).
 #[allow(dead_code)] // metadata is consumed by the mob use action
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Component)]
 #[require(WorldEntityMarker)]
 pub struct GameMob {
-    /// Index of the vob in the ZEN archive.
-    pub vob_id: u32,
-    pub vob_name: String,
-    /// In-game focus name.
-    pub focus_name: String,
     /// `AI_UseMob` scheme derived from the visual stem.
     pub scheme: String,
     /// Visual file stem, the `<STEM>` of the mob's own animation set.
@@ -206,16 +213,10 @@ pub struct GameMob {
     pub state: i32,
 }
 
-/// Interactive chest vob with its remaining loot.
+/// Chest vob (`oCMobContainer`) with its remaining loot.
 #[derive(Debug, Component)]
 #[require(WorldEntityMarker)]
 pub struct GameChest {
-    /// Index of the vob in the ZEN archive.
-    pub vob_id: u32,
-    /// Plain vob name from the ZEN, the key `Mob_HasItems` looks the container
-    /// up by.
-    pub vob_name: String,
-    pub name: String,
     /// Vob `locked` flag, reported when the chest is opened.
     pub locked: bool,
     /// Remaining contents as `(item, count)` pairs.

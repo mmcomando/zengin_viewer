@@ -21,7 +21,7 @@ use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{DialogUiState, GameMob, GameNpc, NpcMobUse, VobTrigger};
+use crate::zengin::{DialogUiState, GameMob, GameNpc, MobBase, NpcMobUse, VobTrigger};
 
 /// Runs the mob's script-side use conditions and logs the reason when the
 /// player is not allowed to interact.
@@ -84,7 +84,7 @@ pub(super) fn use_selected_mob(
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     dialog_ui: Res<DialogUiState>,
     inventory_ui: Res<InventoryUiState>,
-    mut mobs: Query<&mut GameMob>,
+    mut mobs: Query<(&mut GameMob, &MobBase)>,
     animation_files: Option<Res<AnimationFiles>>,
     gothic_script: Res<ScriptResource>,
     mut vob_trigger: MessageWriter<VobTrigger>,
@@ -116,13 +116,13 @@ pub(super) fn use_selected_mob(
     if player_mob_use.is_some() {
         return;
     }
-    let Ok(mut mob) = mobs.get_mut(target) else {
+    let Ok((mut mob, base)) = mobs.get_mut(target) else {
         return;
     };
     if mob.state_num <= 0 {
         warn!(
             "Mob({target}) vob({}) has no interaction states",
-            mob.vob_name
+            base.vob_name
         );
         return;
     }
@@ -152,10 +152,10 @@ pub(super) fn use_selected_mob(
     if has_pose {
         info!(
             "Player({player}) uses vob_id({}), mob({target}) vob({}) visual_stem({}) focus({}) condition_func({}) on_state_func({}) -> state({pose_state})",
-            mob.vob_id,
-            mob.vob_name,
+            base.vob_id,
+            base.vob_name,
             mob.visual_stem,
-            mob.focus_name,
+            base.focus_name,
             mob.condition_func,
             mob.on_state_func
         );
@@ -174,7 +174,7 @@ pub(super) fn use_selected_mob(
     mob.state = state;
     info!(
         "Player({player}) used mob({target}) vob({}) focus({}) condition_func({}) on_state_func({}) -> state({state})",
-        mob.vob_name, mob.focus_name, mob.condition_func, mob.on_state_func,
+        base.vob_name, base.focus_name, mob.condition_func, mob.on_state_func,
     );
     fire_trigger(&mut mob, &mut vob_trigger);
     gothic_script

@@ -8,7 +8,7 @@ use crate::gui::JournalUiState;
 use crate::gui::StatsUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::DialogUiState;
-use crate::zengin::{GameChest, GameNpc, InstanceId, ScriptResource, WeaponKind};
+use crate::zengin::{GameChest, GameNpc, InstanceId, MobBase, ScriptResource, WeaponKind};
 
 use super::data::{
     chest_add_item, chest_inventory_window, chest_remove_item, clamp_selection,
@@ -60,16 +60,17 @@ pub(super) fn open_loot(
     mut requests: MessageReader<OpenLoot>,
     mut state: ResMut<InventoryUiState>,
     gothic_script: Res<ScriptResource>,
-    chests: Query<&GameChest>,
+    chests: Query<(&GameChest, &MobBase)>,
 ) {
     let Some(request) = requests.read().last() else {
         return;
     };
-    let Ok(chest) = chests.get(request.chest) else {
+    let Ok((chest, base)) = chests.get(request.chest) else {
         warn!("Loot request for missing chest entity({})", request.chest);
         return;
     };
     let mut script = gothic_script.lock();
+    let title = script.mob_focus_name(&base.focus_name);
     let player = npc_inventory_window(
         &mut script,
         request.player,
@@ -77,12 +78,7 @@ pub(super) fn open_loot(
         false,
         true,
     );
-    let chest_window = chest_inventory_window(
-        &mut script,
-        request.chest,
-        "Chest".to_string(),
-        &chest.items,
-    );
+    let chest_window = chest_inventory_window(&mut script, request.chest, title, &chest.items);
     let stacks = (player.items.len(), chest_window.items.len());
     state.windows[PLAYER_WINDOW] = Some(player);
     state.windows[TRADER_WINDOW] = Some(chest_window);
@@ -92,7 +88,7 @@ pub(super) fn open_loot(
     state.open = true;
     info!(
         "Loot opened for chest({}) vob({}): player {} stack(s), chest {} stack(s)",
-        request.chest, chest.name, stacks.0, stacks.1
+        request.chest, base.vob_name, stacks.0, stacks.1
     );
 }
 

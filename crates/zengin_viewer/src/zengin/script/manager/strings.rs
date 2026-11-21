@@ -82,6 +82,14 @@ impl super::ScriptManager {
         self.string_by_id(Some(value))
     }
 
+    /// Localized in-game name of an `oCMOB` focus string, falling back to the raw
+    /// symbol name when the script has no such string variable.
+    pub(crate) fn mob_focus_name(&mut self, raw: &str) -> String {
+        self.string_variable(&raw.to_lowercase())
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| raw.to_string())
+    }
+
     pub fn get_symbol_id(&mut self, symbol_name: &str) -> SymbolId {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         let symbol_id = guest

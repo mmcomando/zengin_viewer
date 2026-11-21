@@ -8,9 +8,12 @@ use bevy::prelude::*;
 
 use crate::gameplay::game_time::GameTime;
 use crate::graphics::{AnimationController, AnimationData};
+use crate::zengin::GameChest;
 use crate::zengin::GameMob;
 use crate::zengin::GameNpc;
+use crate::zengin::MobBase;
 use crate::zengin::common::{animation_file_name, get_animation_path};
+use crate::zengin::interaction::selection::HitColliderOwner;
 use crate::zengin::npc_actions::NpcItemUse;
 use crate::zengin::npc_routines::AnimationFiles;
 use crate::zengin::resources::CachedAssetHandles;
@@ -184,7 +187,7 @@ fn sync_npc_body_state(
 fn apply_mob_routines(
     gothic_script: Option<Res<ScriptResource>>,
     game_time: Res<GameTime>,
-    mut mobs: Query<&mut GameMob>,
+    mut mobs: Query<(&mut GameMob, &MobBase)>,
 ) {
     let Some(gothic_script) = gothic_script else {
         return;
@@ -205,7 +208,7 @@ fn apply_mob_routines(
     for (scheme, state) in &mut states {
         *state = routine_state_at(&routines, scheme, minutes).unwrap_or(0);
     }
-    for mut mob in &mut mobs {
+    for (mut mob, base) in &mut mobs {
         let scheme = mob.scheme.to_uppercase();
         // Mobs without a schedule keep the state the interaction gave them.
         let Some(state) = states.get(&scheme) else {
@@ -216,7 +219,7 @@ fn apply_mob_routines(
         }
         debug!(
             "mob({}) scheme({scheme}) routine state {} -> {state}",
-            mob.focus_name, mob.state
+            base.focus_name, mob.state
         );
         mob.state = *state;
     }
@@ -264,6 +267,7 @@ fn apply_mob_animations(
     mut handles: ResMut<CachedAssetHandles>,
     mut mobs: Query<(
         &GameMob,
+        &MobBase,
         &mut MobAnimation,
         &mut ZenGinModelComponent,
         Option<&mut AnimationController>,
@@ -272,7 +276,7 @@ fn apply_mob_animations(
     let Some(animation_files) = animation_files else {
         return;
     };
-    for (mob, mut animation, mut component, controller) in &mut mobs {
+    for (mob, base, mut animation, mut component, controller) in &mut mobs {
         if animation.state == mob.state {
             continue;
         }
@@ -286,7 +290,7 @@ fn apply_mob_animations(
         ) else {
             debug!(
                 "mob({}) has no animation for state({state})",
-                mob.focus_name
+                base.focus_name
             );
             animation.state = state;
             continue;
@@ -298,7 +302,7 @@ fn apply_mob_animations(
         }
         debug!(
             "mob({}) animation state({state}) stem({})",
-            mob.focus_name, animation.stem
+            base.focus_name, animation.stem
         );
     }
 }
@@ -343,9 +347,16 @@ fn sync_script_mobs(
 /// Gives a freshly built mob visual a selection collider sized to its model
 /// bounds. The collider is a child so it follows the vob transform and is
 /// respawned with the visual.
+#[allow(clippy::type_complexity)]
 fn add_mob_selection_colliders(
     mut commands: Commands,
-    mobs: Query<MobVisualQuery, (With<GameMob>, Added<ZenGinModelComponentLoaded>)>,
+    mobs: Query<
+        MobVisualQuery,
+        (
+            Or<(With<GameMob>, With<GameChest>)>,
+            Added<ZenGinModelComponentLoaded>,
+        ),
+    >,
 ) {
     for (entity, aabb) in &mobs {
         let half = (aabb.max() - aabb.min()) * 0.5;
@@ -356,6 +367,7 @@ fn add_mob_selection_colliders(
                 half.z.max(MIN_MOB_COLLIDER_HALF_EXTENT),
             ),
             CollisionLayers::from_bits(SELECTABLE, 0),
+            HitColliderOwner { owner: entity },
             Transform::from_translation(Vec3::from(aabb.center)),
         ));
     }
@@ -363,10 +375,10 @@ fn add_mob_selection_colliders(
 
 /// Fills [`GameMob::positions`] once the mob model asset is loaded.
 fn extract_mob_positions(
-    mut mobs: Query<(&mut GameMob, &ZenGinModelComponent)>,
+    mut mobs: Query<(&mut GameMob, &MobBase, &ZenGinModelComponent)>,
     models: Res<Assets<ZenGinModel>>,
 ) {
-    for (mut mob, model_component) in &mut mobs {
+    for (mut mob, base, model_component) in &mut mobs {
         if mob.positions.is_some() {
             continue;
         }
@@ -376,7 +388,7 @@ fn extract_mob_positions(
         let positions = mob_positions(model);
         debug!(
             "mob({}) extracted {} attachment point(s)",
-            mob.focus_name,
+            base.focus_name,
             positions.len()
         );
         mob.positions = Some(positions);
@@ -463,6 +475,7 @@ mod tests {
             .world_mut()
             .spawn((
                 test_mob("DOOR", "door_nw_normal_01"),
+                MobBase::default(),
                 Aabb::from_min_max(Vec3::new(-1.0, 0.0, -1.0), Vec3::new(1.0, 2.0, 1.0)),
                 ZenGinModelComponentLoaded::default(),
             ))
@@ -472,13 +485,18 @@ mod tests {
 
         let children = app.world().get::<Children>(mob).expect("collider child");
         assert_eq!(children.len(), 1);
-        assert!(app.world().get::<Collider>(children[0]).is_some());
+        let collider = children[0];
+        assert!(app.world().get::<Collider>(collider).is_some());
+        // Selection resolves a collider hit back to the entity it belongs to.
+        let owner = app
+            .world()
+            .get::<HitColliderOwner>(collider)
+            .expect("collider owner");
+        assert_eq!(owner.owner, mob);
     }
 
     fn test_mob(scheme: &str, stem: &str) -> GameMob {
         GameMob {
-            vob_name: String::new(),
-            focus_name: String::new(),
             scheme: scheme.to_string(),
             visual_stem: stem.to_string(),
             state_num: 1,

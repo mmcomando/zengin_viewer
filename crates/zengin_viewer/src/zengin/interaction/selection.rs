@@ -11,7 +11,7 @@ use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::resources::{ARROW, NPC_BODY, SELECTABLE};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
-use crate::zengin::{GameChest, GameItem, GameMob, GameNpc};
+use crate::zengin::{GameChest, GameItem, GameMob, GameNpc, MobBase};
 
 /// Distance (meters) within which a world object can be selected.
 const SELECTION_RANGE: f32 = 5.0;
@@ -90,12 +90,11 @@ struct SelectionLabel;
 #[derive(Component, Default)]
 struct SelectionLabelText(String);
 
-/// Marker of the npc hit collider child entity, pointing at the npc entity it
-/// belongs to. The collider is a child because it is offset upwards from the
-/// npc origin (which sits at the feet) while the npc entity transform itself
-/// drives the visuals.
+/// Marker of a selection collider child entity, pointing at the world entity it
+/// belongs to. Colliders are children so they follow the vob transform and are
+/// respawned with the visual; selection resolves them back to the owner.
 #[derive(Component)]
-pub struct NpcHitCollider {
+pub struct HitColliderOwner {
     pub owner: Entity,
 }
 
@@ -107,7 +106,7 @@ fn npc_selection_collider() -> Collider {
 }
 
 /// Spawns the npc selection collider as a child of the npc entity, offset
-/// upwards from the npc origin which sits at the feet, see [`NpcHitCollider`].
+/// upwards from the npc origin which sits at the feet, see [`HitColliderOwner`].
 /// Called when the npc visual spawns, covering both the first spawn and the
 /// respawn after the visual was despawned far away (the collider is a child,
 /// so it despawns together with the visual).
@@ -115,7 +114,7 @@ pub fn spawn_npc_selection_collider(commands: &mut Commands, npc: Entity) {
     commands.entity(npc).with_child((
         npc_selection_collider(),
         CollisionLayers::from_bits(SELECTABLE | NPC_BODY, ARROW),
-        NpcHitCollider { owner: npc },
+        HitColliderOwner { owner: npc },
         Transform::from_xyz(0.0, NPC_COLLIDER_OFFSET, 0.0),
     ));
 }
@@ -167,6 +166,14 @@ fn keep_nearest(best: &mut Option<(Entity, f32)>, entity: Entity, distance: f32)
     }
 }
 
+/// Localized label of a mob vob, empty when the entity has no `MobBase`.
+fn focus_name(gothic_script: &ScriptResource, base: Option<&MobBase>) -> String {
+    let Some(base) = base else {
+        return String::new();
+    };
+    gothic_script.lock().mob_focus_name(&base.focus_name)
+}
+
 /// Selects the in-range npc/item best matching the aim direction (camera
 /// forward) weighted over distance — direction matters more than raw distance. With a weapon drawn only npcs are selectable; a drawn ranged weapon
 /// extends the range to [`RANGED_SELECTION_RANGE`]. Candidate entities are
@@ -185,13 +192,14 @@ fn update_selection(
     // the player model facing (which lags behind camera turns).
     camera: Query<&GlobalTransform, With<Camera3d>>,
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
-    hit_colliders: Query<&NpcHitCollider>,
+    hit_colliders: Query<&HitColliderOwner>,
     candidates: Query<(
         Entity,
         Option<&GameNpc>,
         Option<&GameItem>,
         Option<&GameChest>,
         Option<&GameMob>,
+        Option<&MobBase>,
         Has<PlayerCharacter>,
         &GlobalTransform,
     )>,
@@ -231,7 +239,7 @@ fn update_selection(
         if entity == player_entity {
             continue;
         }
-        let Ok((_, npc, item, chest, mob, is_player, tr)) = candidates.get(entity) else {
+        let Ok((_, npc, item, chest, mob, _base, is_player, tr)) = candidates.get(entity) else {
             continue;
         };
 
@@ -268,7 +276,7 @@ fn update_selection(
         return;
     }
 
-    let Ok((_, npc, item, chest, mob, _, _)) = candidates.get(entity) else {
+    let Ok((_, npc, item, chest, mob, base, _, _)) = candidates.get(entity) else {
         return;
     };
     if let Some(item) = item {
@@ -281,14 +289,10 @@ fn update_selection(
             .unwrap_or_else(|| raw.to_string());
     } else if chest.is_some() {
         selection.kind = Some(SelectionKind::Chest);
-        selection.name = "Chest".to_string();
-    } else if let Some(mob) = mob {
+        selection.name = focus_name(&gothic_script, base);
+    } else if mob.is_some() {
         selection.kind = Some(SelectionKind::Mob);
-        selection.name = gothic_script
-            .lock()
-            .string_variable(&mob.focus_name.to_lowercase())
-            .filter(|name| !name.is_empty())
-            .unwrap_or_else(|| mob.focus_name.clone());
+        selection.name = focus_name(&gothic_script, base);
     } else if let Some(npc) = npc {
         selection.kind = Some(SelectionKind::Npc);
         selection.name = gothic_script

@@ -15,6 +15,7 @@ use crate::{
     save::format::SaveGame,
     warn_unimplemented,
     zengin::{
+        MobBase,
         common::*,
         loaders::{ZenginMat3ToGlam, ZenginQuatToGlam, ZenginVec3ToGlam, vfs::find_mesh_path},
         script::state::SpawnItem,
@@ -22,7 +23,8 @@ use crate::{
         visual::mesh::meshes_from_zengin_mesh,
         waypoint_graph::load_way_net_points,
         world_spawn::{
-            SpawnChest, SpawnMob, SpawnMover, SpawnStaticModel, SpawnWorldMesh, WorldSpawnMessages,
+            ContainerSpawn, InteractiveSpawn, MobSpawnKind, SpawnMob, SpawnMover, SpawnStaticModel,
+            SpawnWorldMesh, WorldSpawnMessages,
         },
     },
 };
@@ -189,22 +191,26 @@ fn handle_mob(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, spawns: &WorldSp
     let no_move =
         matches!(obj.get_type(), VobType::oCMobDoor) || scheme.eq_ignore_ascii_case("DOOR");
     spawns.mobs.send(SpawnMob {
-        vob_id: obj.id(),
+        base: MobBase {
+            vob_id: obj.id(),
+            vob_name: obj.name(),
+            focus_name: obj.movable_name(),
+        },
         tr: get_obj_tr(obj),
         archetype,
         collides: obj.cd_dynamic(),
-        vob_name: obj.name(),
-        focus_name: obj.movable_name(),
-        visual_stem: mob_visual_stem(&visual.name()),
-        scheme,
-        state_num: obj.interactive_state(),
-        use_with_item: obj.interactive_use_with_item(),
-        on_state_func: obj.interactive_on_state_change_function(),
-        condition_func: obj.interactive_condition_function(),
-        rewind: obj.interactive_rewind(),
-        trigger_target: obj.interactive_target(),
-        auto_end,
-        no_move,
+        kind: MobSpawnKind::Interactive(InteractiveSpawn {
+            visual_stem: mob_visual_stem(&visual.name()),
+            scheme,
+            state_num: obj.interactive_state(),
+            use_with_item: obj.interactive_use_with_item(),
+            on_state_func: obj.interactive_on_state_change_function(),
+            condition_func: obj.interactive_condition_function(),
+            rewind: obj.interactive_rewind(),
+            trigger_target: obj.interactive_target(),
+            auto_end,
+            no_move,
+        }),
     });
 }
 
@@ -253,16 +259,19 @@ fn handle_container(
             || container_items(&obj.container_contents(), item_ids),
             |saved| saved.items.clone(),
         );
-    spawns.chests.send(SpawnChest {
-        vob_id,
+    spawns.mobs.send(SpawnMob {
+        base: MobBase {
+            vob_id,
+            vob_name: obj.name(),
+            focus_name: obj.movable_name(),
+        },
         tr: get_obj_tr(obj),
         archetype,
         collides: obj.cd_dynamic(),
-        collider_half_extents: vob_collider_half_extents(obj),
-        vob_name: obj.name(),
-        name: obj.movable_name(),
-        items,
-        locked: obj.container_locked(),
+        kind: MobSpawnKind::Container(ContainerSpawn {
+            items,
+            locked: obj.container_locked(),
+        }),
     });
 }
 
@@ -299,17 +308,6 @@ fn fun_name(item_ids: &HashMap<String, InstanceId>, token: &str) -> Option<(Inst
         return None;
     };
     Some((instance_id, count))
-}
-
-fn vob_collider_half_extents(obj: &VirtualObject) -> Vec3 {
-    let bbox = obj.bbox();
-    let size = (bbox.max.to_glam() - bbox.min.to_glam()) / ZENGIN_UNITS_PER_WORLD_UNIT;
-    let half = size * 0.5;
-    if half.is_finite() {
-        half.max(Vec3::splat(0.2)).min(Vec3::splat(2.0))
-    } else {
-        Vec3::splat(0.5)
-    }
 }
 
 fn get_obj_tr(obj: &VirtualObject) -> Transform {

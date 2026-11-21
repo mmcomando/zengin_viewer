@@ -10,7 +10,7 @@ use crate::gui::{GameLog, InventoryUiState, OpenLoot};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::state::WeaponMode;
-use crate::zengin::{DialogUiState, GameChest, GameNpc};
+use crate::zengin::{DialogUiState, GameChest, GameNpc, MobBase};
 
 pub(super) fn open_selected_chest(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
@@ -19,7 +19,7 @@ pub(super) fn open_selected_chest(
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     dialog_ui: Res<DialogUiState>,
     inventory_ui: Res<InventoryUiState>,
-    chests: Query<&GameChest>,
+    chests: Query<(&GameChest, &MobBase)>,
     mut game_log: ResMut<GameLog>,
     mut requests: MessageWriter<OpenLoot>,
 ) {
@@ -41,7 +41,7 @@ pub(super) fn open_selected_chest(
     let Some(target) = selection.target else {
         return;
     };
-    let Ok(chest) = chests.get(target) else {
+    let Ok((chest, base)) = chests.get(target) else {
         return;
     };
     let Ok(player_npc) = player_npc.single() else {
@@ -51,7 +51,7 @@ pub(super) fn open_selected_chest(
     if chest.locked {
         warn!(
             "Chest({target}) vob({}) is locked, lock ignored",
-            chest.name
+            base.vob_name
         );
         game_log.add("Chest is locked (lock ignored)".to_string());
     }
@@ -59,7 +59,7 @@ pub(super) fn open_selected_chest(
     info!(
         "Player({}) opened chest({target}) vob({})",
         player_npc.instance_id(),
-        chest.name
+        base.vob_name
     );
     requests.write(OpenLoot {
         player: player_npc.instance_id(),

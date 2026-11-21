@@ -21,7 +21,7 @@ use crate::save::format::{
 };
 use crate::save::{current_script_fingerprint, new_save_dir, newest_save, read_save, write_save};
 use crate::zengin::{
-    CurrentWorld, GameChest, GameItem, GameNpc, LoadingWorld, NpcOverlay, ScriptResource,
+    CurrentWorld, GameChest, GameItem, GameNpc, LoadingWorld, MobBase, NpcOverlay, ScriptResource,
     begin_world_load, request_initial_world,
 };
 
@@ -106,7 +106,7 @@ fn quick_save(
     player: Query<&Transform, With<PlayerCharacter>>,
     npcs: Query<(&GameNpc, &Transform, Option<&NpcOverlay>), Without<PlayerCharacter>>,
     items: Query<(&GameItem, &Transform)>,
-    chests: Query<&GameChest>,
+    chests: Query<(&GameChest, &MobBase)>,
 ) {
     if requests.read().count() == 0 {
         return;
@@ -159,8 +159,8 @@ fn quick_save(
         .collect();
     let chests: Vec<SavedChest> = chests
         .iter()
-        .map(|chest| SavedChest {
-            vob_id: chest.vob_id,
+        .map(|(chest, base)| SavedChest {
+            vob_id: base.vob_id,
             items: chest.items.clone(),
         })
         .collect();
