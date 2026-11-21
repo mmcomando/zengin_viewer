@@ -1,5 +1,9 @@
 mod egui;
+mod entity_details;
+mod entity_list;
 mod gizmos;
+mod info_tab;
+mod state;
 mod statistics;
 mod toggle_visibility;
 

@@ -383,6 +383,10 @@ fn drop_drawn_weapon(
         warn!("No item handle for dropped weapon item({})", item.value());
         return;
     };
+    let name = script
+        .symbol_table()
+        .symbol_name(item.value())
+        .unwrap_or_else(|| item.to_string());
     drop(script);
     instance_index.insert_item_handle(handle.clone());
     let Some(path) = item_model_path(gothic_scripts, vfs, item) else {
@@ -391,6 +395,7 @@ fn drop_drawn_weapon(
     };
     let model_handle = handles.get_model_handle(asset_server, &path, None);
     commands.spawn((
+        Name::new(name),
         ClassifyDistance::default(),
         ZenGinModelComponent {
             model_handle,

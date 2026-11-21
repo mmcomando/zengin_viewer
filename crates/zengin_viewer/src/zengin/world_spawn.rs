@@ -290,6 +290,7 @@ fn spawn_world_mesh(
     for spawn in spawns.read() {
         let model = std::mem::take(&mut spawn.model);
         commands.spawn((
+            Name::new("WorldMesh"),
             Visibility::default(),
             ClassifyDistance::default(),
             ZenGinModelComponent {
@@ -315,7 +316,13 @@ fn spawn_static_models(
             continue;
         }
         let model_handle = handles_map.get_model_handle(&asset_server, &spawn.archetype, None);
+        let name = std::path::Path::new(&spawn.archetype)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or("StaticMesh")
+            .to_string();
         commands.spawn((
+            Name::new(name),
             ClassifyDistance::default(),
             ZenGinModelComponent {
                 model_handle,
@@ -361,7 +368,13 @@ fn spawn_mobs(
         };
         let model_handle = (!archetype.is_empty())
             .then(|| handles_map.get_model_handle(&asset_server, &archetype, None));
+        let name = if base.vob_name.is_empty() {
+            base.focus_name.clone()
+        } else {
+            base.vob_name.clone()
+        };
         let mut entity = commands.spawn((
+            Name::new(name),
             ClassifyDistance::default(),
             base,
             MobPose {
@@ -471,6 +484,7 @@ fn spawn_movers(
         let model_handle = (!spawn.archetype.is_empty())
             .then(|| handles_map.get_model_handle(&asset_server, &spawn.archetype, None));
         let mut entity = commands.spawn((
+            Name::new(spawn.name.clone()),
             ClassifyDistance::default(),
             StaticMesh::default(),
             Visibility::default(),

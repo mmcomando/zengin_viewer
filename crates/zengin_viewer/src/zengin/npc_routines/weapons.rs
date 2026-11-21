@@ -18,7 +18,7 @@ use crate::zengin::{GameMob, NpcMobUse};
 
 /// Weapon mode of the npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI),
 /// maintained by the script bridge.
-#[derive(Component)]
+#[derive(Debug, Clone, Copy, Reflect, Component)]
 pub struct NpcWeaponMode(pub WeaponMode);
 
 /// Switches the idle animation of an npc when its weapon mode changes (drawn

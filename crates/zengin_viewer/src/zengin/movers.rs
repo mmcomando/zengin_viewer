@@ -21,7 +21,7 @@ pub struct VobTrigger {
 }
 
 /// `zCMover` moving between its keyframes.
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Reflect)]
 pub struct GameMover {
     pub name: String,
     /// Entity transform the mover was spawned at (the ZEN vob pose).

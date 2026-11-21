@@ -1,4 +1,5 @@
 use bevy::ecs::component::Component;
+use bevy::prelude::Reflect;
 
 use crate::world_entity::WorldEntityMarker;
 
@@ -11,7 +12,7 @@ use crate::world_entity::WorldEntityMarker;
 pub struct PlayerCharacter;
 
 /// Visual model data of an npc
-#[derive(Debug, Default, Component)]
+#[derive(Debug, Default, Component, Reflect)]
 pub struct NpcModel {
     /// Bone hierarchy path
     pub hierarchy: Option<String>,
@@ -39,5 +40,5 @@ pub struct NpcModel {
 /// Vertical offset from an npc entity root to its model root, in world units.
 /// Interactive mob attachment points are expressed at the model root, while
 /// the npc entity is placed at the model root minus this offset.
-#[derive(Debug, Default, Component, Clone, Copy)]
+#[derive(Debug, Default, Component, Clone, Copy, Reflect)]
 pub struct NpcBodyRootOffset(pub f32);

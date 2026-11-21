@@ -1,77 +1,225 @@
 use bevy::prelude::*;
-use bevy_egui::{
-    EguiContexts, EguiPlugin, EguiPrimaryContextPass,
-    egui::{self, Ui},
-};
+use bevy_egui::{EguiContexts, EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass, egui};
+use bevy_inspector_egui::DefaultInspectorConfigPlugin;
 
-use crate::game_state::AppState;
-use crate::gameplay::camera::{TELEPORT_LOCATIONS, TeleportToLocation};
-use crate::gameplay::game_time::GameTime;
-use crate::graphics::RenderOptions;
-use crate::gui_debug::gizmos::GizmosOptions;
-use crate::gui_debug::{
-    RefreshStatistics,
-    statistics::Statistics,
-    toggle_visibility::{OptionsChanged, ShowOptions},
+use crate::gameplay::camera::{CameraResource, EditorMode};
+use crate::gui_debug::entity_details::{DetailsAction, entity_details_ui};
+use crate::gui_debug::entity_list::{entity_list_ui, rebuild_rows};
+use crate::gui_debug::info_tab::{InfoParams, info_tab_ui};
+use crate::gui_debug::state::{
+    DebugTab, DebugUiState, EntityQueryData, EntityQueryFilter, EntityRow, details_data,
 };
-use crate::save::{QuickLoad, QuickSave};
-use crate::zengin::{NpcAutoTalkOptions, RestartWorld, StatisticsZengin};
+use crate::zengin::{ScriptResource, Selection};
 
 pub struct GameDebugUI;
 impl Plugin for GameDebugUI {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin::default());
-        app.add_systems(EguiPrimaryContextPass, ui_info_system);
+        app.add_plugins(DefaultInspectorConfigPlugin);
+        app.init_resource::<DebugUiState>();
+        app.world_mut()
+            .resource_mut::<EguiGlobalSettings>()
+            .enable_absorb_bevy_input_system = true;
+        app.add_systems(EguiPrimaryContextPass, debug_ui_system);
     }
 }
 
-fn add_checkbox(ui: &mut Ui, label: &str, value: &mut bool, changed: &mut bool) {
-    let mut value_tmp = *value;
-    ui.label(label);
-    ui.add(egui::Checkbox::new(&mut value_tmp, ""));
-    ui.end_row();
-    *changed |= *value != value_tmp;
-    *value = value_tmp;
+struct DebugTabViewer<'a, 'w> {
+    info: &'a mut InfoParams<'w>,
+    rows: &'a [EntityRow],
+    filter: &'a mut String,
+    selected: &'a mut Option<Entity>,
+    rows_dirty: &'a mut bool,
+    right_open: &'a mut bool,
+    game_selected: Option<Entity>,
+    game_selected_name: &'a str,
 }
 
-fn add_visible_elements(ui: &mut Ui, label: &str, value_all: i64, value_visible: i64) {
-    let mut value_visible_mut = value_visible;
-    let mut value_all_mut = value_all;
-    ui.label(label);
-    ui.add_enabled(false, egui::DragValue::new(&mut value_visible_mut));
-    ui.add_enabled(false, egui::DragValue::new(&mut value_all_mut));
-    ui.end_row();
-}
+impl egui_dock::TabViewer for DebugTabViewer<'_, '_> {
+    type Tab = DebugTab;
 
-fn hour_of(total_hours: f32) -> u32 {
-    (total_hours.floor() as u32) % 24
-}
-
-fn minute_of(total_hours: f32) -> u32 {
-    (total_hours.fract() * 60.0).floor() as u32
-}
-
-/// Formats hours in `[0, 24)` as a `HH:MM` clock string.
-fn clock_string(total_hours: f32) -> String {
-    format!("{:02}:{:02}", hour_of(total_hours), minute_of(total_hours))
-}
-
-/// Parses `HH:MM` (a missing part defaults to `0`) into hours in `[0, 24)`.
-fn parse_clock_string(text: &str) -> Option<f32> {
-    let (hour, minute) = match text.trim().split_once(':') {
-        Some((hour, minute)) => (hour, minute),
-        None => (text.trim(), "0"),
-    };
-    let hour: f32 = hour.trim().parse().ok()?;
-    let minute: f32 = minute.trim().parse().ok()?;
-    if !(0.0..=23.0).contains(&hour) || !(0.0..=59.0).contains(&minute) {
-        return None;
+    fn id(&mut self, tab: &mut Self::Tab) -> egui::Id {
+        egui::Id::new(*tab)
     }
-    Some(hour + minute / 60.0)
+
+    fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
+        tab.title().into()
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
+        match tab {
+            DebugTab::Info => info_tab_ui(ui, self.info),
+            DebugTab::Entities => {
+                entity_list_ui(
+                    ui,
+                    self.rows,
+                    self.filter,
+                    self.selected,
+                    self.rows_dirty,
+                    self.right_open,
+                    self.game_selected,
+                    self.game_selected_name,
+                );
+            }
+        }
+    }
+
+    fn is_closeable(&self, _tab: &Self::Tab) -> bool {
+        false
+    }
+
+    fn allowed_in_windows(&self, _tab: &mut Self::Tab) -> bool {
+        false
+    }
+
+    fn scroll_bars(&self, _tab: &Self::Tab) -> [bool; 2] {
+        [false, false]
+    }
 }
 
-/// Shows text in the top right corner with camera position and rotation.
-fn camera_info_overlay(context: &egui::Context, camera: &GlobalTransform) {
+#[allow(clippy::too_many_arguments)]
+fn debug_ui_system(
+    mut contexts: EguiContexts,
+    mut state: ResMut<DebugUiState>,
+    mut info: InfoParams,
+    mut editor_mode: ResMut<EditorMode>,
+    mut camera: ResMut<CameraResource>,
+    scripts: Option<Res<ScriptResource>>,
+    selection: Res<Selection>,
+    type_registry: Res<AppTypeRegistry>,
+    entities: Query<EntityQueryData, EntityQueryFilter>,
+    camera_query: Query<&GlobalTransform, With<Camera3d>>,
+    time: Res<Time>,
+) -> Result {
+    let refresh_due = state.refresh_timer.tick(time.delta()).just_finished();
+    if state.left_open && (state.rows_dirty || refresh_due) {
+        rebuild_rows(&entities, &mut state.rows);
+        state.rows_dirty = false;
+    }
+
+    let ctx = contexts.ctx_mut()?;
+    let mut root = egui::Ui::new(
+        ctx.clone(),
+        "debug_root".into(),
+        egui::UiBuilder::new()
+            .layer_id(egui::LayerId::background())
+            .max_rect(ctx.viewport_rect()),
+    );
+
+    let DebugUiState {
+        left_open,
+        dock,
+        selected,
+        right_open,
+        filter,
+        rows,
+        rows_dirty,
+        ..
+    } = &mut *state;
+
+    let mut open_requested = false;
+    if *left_open {
+        let mut close_requested = false;
+        egui::Panel::left("debug_left_panel")
+            .resizable(true)
+            .default_size(360.0)
+            .show(&mut root, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.button("Collapse").clicked() {
+                        close_requested = true;
+                    }
+                    ui.heading("Debug");
+                });
+                ui.separator();
+                let mut viewer = DebugTabViewer {
+                    info: &mut info,
+                    rows: rows.as_slice(),
+                    filter,
+                    selected,
+                    rows_dirty,
+                    right_open,
+                    game_selected: selection.target,
+                    game_selected_name: &selection.name,
+                };
+                egui_dock::DockArea::new(dock)
+                    .style(egui_dock::Style::from_egui(ui.style().as_ref()))
+                    .show_close_buttons(false)
+                    .show_leaf_close_all_buttons(false)
+                    .show_leaf_collapse_buttons(false)
+                    .tab_context_menus(false)
+                    .draggable_tabs(false)
+                    .show_add_buttons(false)
+                    .show_inside(ui, &mut viewer);
+            });
+        if close_requested {
+            *left_open = false;
+        }
+    } else {
+        egui::Area::new(egui::Id::new("debug_toggle"))
+            .anchor(egui::Align2::LEFT_TOP, [8.0, 8.0])
+            .show(ctx, |ui| {
+                if ui.button("Debug").clicked() {
+                    open_requested = true;
+                }
+            });
+    }
+
+    if open_requested {
+        *left_open = true;
+        *rows_dirty = true;
+        if !editor_mode.is_enabled() {
+            *editor_mode = EditorMode::Enabled;
+        }
+        camera.set_free_camera();
+    }
+
+    let mut details_action = None;
+    if let Some(entity) = *selected {
+        egui::Panel::right("debug_details_panel")
+            .resizable(true)
+            .default_size(420.0)
+            .show_collapsible(&mut root, right_open, |ui| {
+                if let Ok(item) = entities.get(entity) {
+                    let details = details_data(item);
+                    details_action =
+                        entity_details_ui(ui, &details, &type_registry.read(), scripts.as_deref());
+                } else {
+                    ui.heading("Entity gone");
+                    ui.label(format!("Entity {entity} no longer exists."));
+                    ui.horizontal(|ui| {
+                        if ui.button("Collapse").clicked() {
+                            details_action = Some(DetailsAction::Collapse);
+                        }
+                        if ui.button("Close").clicked() {
+                            details_action = Some(DetailsAction::Close);
+                        }
+                    });
+                }
+            });
+    }
+    match details_action {
+        Some(DetailsAction::Close) => *selected = None,
+        Some(DetailsAction::Collapse) => *right_open = false,
+        None => {}
+    }
+    if selected.is_some() && !*right_open {
+        egui::Area::new(egui::Id::new("debug_details_toggle"))
+            .anchor(egui::Align2::RIGHT_CENTER, [-8.0, 0.0])
+            .show(ctx, |ui| {
+                if ui.button("Details").clicked() {
+                    *right_open = true;
+                }
+            });
+    }
+
+    if let Ok(camera) = camera_query.single() {
+        camera_info_overlay(ctx, camera, selected.is_some() && *right_open);
+    }
+    Ok(())
+}
+
+/// Shows text with camera position and rotation.
+fn camera_info_overlay(context: &egui::Context, camera: &GlobalTransform, right_panel_open: bool) {
     let position = camera.translation();
     let (yaw, pitch, roll) = camera.rotation().to_euler(EulerRot::YXZ);
     let degrees = |rad: f32| rad.to_degrees();
@@ -86,257 +234,15 @@ fn camera_info_overlay(context: &egui::Context, camera: &GlobalTransform) {
         degrees(yaw),
         degrees(roll)
     );
+    let anchor = if right_panel_open {
+        egui::Align2::CENTER_BOTTOM
+    } else {
+        egui::Align2::RIGHT_TOP
+    };
     egui::Area::new(egui::Id::new("camera_info"))
-        .anchor(egui::Align2::RIGHT_TOP, [-8.0, 8.0])
+        .anchor(anchor, [-8.0, 8.0])
         .show(context, |ui| {
             let text = egui::RichText::new(text).monospace();
             ui.add(egui::Label::new(text).wrap_mode(egui::TextWrapMode::Extend));
         });
-}
-
-#[allow(clippy::too_many_arguments)]
-fn ui_info_system(
-    mut statistics_changed: MessageWriter<OptionsChanged>,
-    mut refresh_statistics: MessageWriter<RefreshStatistics>,
-    mut contexts: EguiContexts,
-    mut toggle_info: ResMut<ShowOptions>,
-    statistics: Res<Statistics>,
-    statistics_zengin: Res<StatisticsZengin>,
-    mut game_time: ResMut<GameTime>,
-    mut render_options: ResMut<RenderOptions>,
-    mut gizmos_options: ResMut<GizmosOptions>,
-    mut auto_talk_options: ResMut<NpcAutoTalkOptions>,
-    mut restart_world: MessageWriter<RestartWorld>,
-    mut quick_save: MessageWriter<QuickSave>,
-    mut quick_load: MessageWriter<QuickLoad>,
-    mut teleports: MessageWriter<TeleportToLocation>,
-    mut next_app_state: ResMut<NextState<AppState>>,
-    camera_query: Query<&GlobalTransform, With<Camera3d>>,
-) -> Result {
-    let ctx = contexts.ctx_mut()?;
-    if let Ok(camera) = camera_query.single() {
-        camera_info_overlay(ctx, camera);
-    }
-
-    egui::Window::new("Info")
-        .default_open(false)
-        .show(contexts.ctx_mut()?, |ui| {
-            let mut options_changed = info_section(
-                ui,
-                &mut game_time,
-                &mut auto_talk_options,
-                &mut render_options,
-            );
-            statistics_section(ui, &statistics, &statistics_zengin, &mut refresh_statistics);
-            options_changed |= visibility_section(ui, &mut toggle_info);
-            gizmos_section(ui, &mut gizmos_options);
-            teleport_section(ui, &mut teleports);
-            world_section(
-                ui,
-                &mut restart_world,
-                &mut quick_save,
-                &mut quick_load,
-                &mut next_app_state,
-            );
-
-            if options_changed {
-                statistics_changed.write(OptionsChanged);
-            }
-        });
-    Ok(())
-}
-
-/// Info grid with game time and render options.
-///
-/// Returns `true` when a render option that controls visibility changed.
-fn info_section(
-    ui: &mut Ui,
-    game_time: &mut GameTime,
-    auto_talk_options: &mut NpcAutoTalkOptions,
-    render_options: &mut RenderOptions,
-) -> bool {
-    let mut changed = false;
-    egui::Grid::new("Grid Info").num_columns(2).show(ui, |ui| {
-        ui.label("Game Time");
-        ui.add(
-            egui::Slider::new(&mut game_time.total_hours, 0.0..=24.0)
-                .custom_formatter(|hours, _| clock_string(hours as f32))
-                .custom_parser(|text| parse_clock_string(text).map(f64::from)),
-        );
-        ui.end_row();
-
-        ui.label("Time Speed");
-        ui.add(egui::Slider::new(&mut game_time.speed, 0.0..=10.0).suffix("x"));
-        ui.end_row();
-
-        add_checkbox(
-            ui,
-            "Npc Auto Talk",
-            &mut auto_talk_options.enabled,
-            &mut false,
-        );
-
-        // Render options apply immediately, no message needed.
-        add_checkbox(
-            ui,
-            "Sun Shadow Maps",
-            &mut render_options.sun_shadow_maps,
-            &mut changed,
-        );
-    });
-    changed
-}
-
-/// Counters of loaded vs visible meshes, with a manual refresh button.
-fn statistics_section(
-    ui: &mut Ui,
-    statistics: &Statistics,
-    statistics_zengin: &StatisticsZengin,
-    refresh_statistics: &mut MessageWriter<RefreshStatistics>,
-) {
-    egui::CollapsingHeader::new("Statistics")
-        .default_open(true)
-        .show(ui, |ui| {
-            egui::Grid::new("Grid Statistics")
-                .num_columns(2)
-                .show(ui, |ui| {
-                    add_visible_elements(
-                        ui,
-                        "Zengin Models",
-                        statistics_zengin.zengin_models,
-                        statistics_zengin.zengin_models_visible,
-                    );
-                    add_visible_elements(
-                        ui,
-                        "Bevy Meshes",
-                        statistics.meshes,
-                        statistics.meshes_visible,
-                    );
-                    add_visible_elements(
-                        ui,
-                        "NPCs",
-                        statistics_zengin.npcs,
-                        statistics_zengin.npcs_visible,
-                    );
-
-                    ui.label("Refresh");
-                    if ui.button("Refresh").clicked() {
-                        refresh_statistics.write(RefreshStatistics);
-                    }
-                    ui.end_row();
-                });
-        });
-}
-
-/// Visibility toggles for world entities, collapsed by default.
-///
-/// Returns `true` when any toggle changed.
-fn visibility_section(ui: &mut Ui, options: &mut ShowOptions) -> bool {
-    let mut changed = false;
-    egui::CollapsingHeader::new("Visibility")
-        .default_open(false)
-        .show(ui, |ui| {
-            egui::Grid::new("Grid Visibility")
-                .num_columns(2)
-                .show(ui, |ui| {
-                    add_checkbox(ui, "World Mesh", &mut options.show_world_mesh, &mut changed);
-                    add_checkbox(
-                        ui,
-                        "Static Meshes",
-                        &mut options.show_static_meshes,
-                        &mut changed,
-                    );
-                    add_checkbox(ui, "NPCs", &mut options.show_npcs, &mut changed);
-                    add_checkbox(ui, "Chests", &mut options.show_chests, &mut changed);
-                    add_checkbox(ui, "Mobs", &mut options.show_mobs, &mut changed);
-                    add_checkbox(ui, "Items", &mut options.show_items, &mut changed);
-                });
-        });
-    changed
-}
-
-/// Gizmo toggles, collapsed by default.
-fn gizmos_section(ui: &mut Ui, options: &mut GizmosOptions) {
-    let mut changed = false;
-    egui::CollapsingHeader::new("Gizmos")
-        .default_open(false)
-        .show(ui, |ui| {
-            egui::Grid::new("Grid Gizmos")
-                .num_columns(2)
-                .show(ui, |ui| {
-                    add_checkbox(
-                        ui,
-                        "Convex Colliders",
-                        &mut options.convex_colliders,
-                        &mut changed,
-                    );
-                    add_checkbox(
-                        ui,
-                        "Cuboid Colliders",
-                        &mut options.cuboid_colliders,
-                        &mut changed,
-                    );
-                    add_checkbox(
-                        ui,
-                        "Sphere Colliders",
-                        &mut options.sphere_colliders,
-                        &mut changed,
-                    );
-                    add_checkbox(
-                        ui,
-                        "Trimesh Colliders",
-                        &mut options.trimesh_colliders,
-                        &mut changed,
-                    );
-                    add_checkbox(
-                        ui,
-                        "Characters Colliders",
-                        &mut options.characters_colliders,
-                        &mut changed,
-                    );
-                    add_checkbox(ui, "Bones", &mut options.bones, &mut changed);
-                    add_checkbox(ui, "Waypoints", &mut options.way_points, &mut changed);
-                });
-        });
-}
-
-fn teleport_section(ui: &mut Ui, teleports: &mut MessageWriter<TeleportToLocation>) {
-    egui::CollapsingHeader::new("Teleport")
-        .default_open(true)
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                for (index, location) in TELEPORT_LOCATIONS.iter().enumerate() {
-                    if ui.button(location.name).clicked() {
-                        teleports.write(TeleportToLocation(index));
-                    }
-                }
-            });
-        });
-}
-
-fn world_section(
-    ui: &mut Ui,
-    restart_world: &mut MessageWriter<RestartWorld>,
-    quick_save: &mut MessageWriter<QuickSave>,
-    quick_load: &mut MessageWriter<QuickLoad>,
-    next_app_state: &mut NextState<AppState>,
-) {
-    egui::CollapsingHeader::new("World").show(ui, |ui| {
-        ui.horizontal(|ui| {
-            if ui.button("Restart World").clicked() {
-                restart_world.write(RestartWorld);
-            }
-            if ui.button("Main Menu").clicked() {
-                next_app_state.set(AppState::MainMenu);
-            }
-        });
-        ui.horizontal(|ui| {
-            if ui.button("Quick Save").clicked() {
-                quick_save.write(QuickSave);
-            }
-            if ui.button("Quick Load").clicked() {
-                quick_load.write(QuickLoad);
-            }
-        });
-    });
 }

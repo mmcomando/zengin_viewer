@@ -185,7 +185,7 @@ pub fn print_nodes(node: &VfsNode, level: u8) {
 
 /// Attachment point of an interactive mob (`ZS_POS*` node of its mesh).
 #[allow(dead_code)] // consumed by the mob use action
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Reflect)]
 pub struct MobPosition {
     /// Node name, e.g. `ZS_POS0_FRONT`.
     pub name: String,

@@ -603,6 +603,7 @@ pub(crate) fn spawn_player(
 
     let capsule_center = Vec3::Y * PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER;
     commands.spawn((
+        Name::new("PC_HERO"),
         Visibility::default(),
         CharacterController,
         CharacterMovementSettings::default(),
@@ -811,7 +812,13 @@ fn spawn_npc_entities(
             .as_deref()
             .and_then(|scheme| resolve_stand_animation(&vfs, scheme));
 
+        let npc_name = if script.symbol_name.is_empty() {
+            spawn.instance_id.to_string()
+        } else {
+            script.symbol_name.clone()
+        };
         let mut entity = commands.spawn((
+            Name::new(npc_name),
             Visibility::default(),
             GameNpc::new(script.handle.clone()),
             NpcActionQueue::default(),
@@ -849,7 +856,16 @@ fn spawn_item_entities(
     position_filter: Res<SpawnPositionFilter>,
 ) {
     for spawn in spawns.read() {
-        let Some(handle) = gothic_scripts.lock().item_handle(spawn.instance_id) else {
+        let Some((handle, name)) = ({
+            let mut script = gothic_scripts.lock();
+            script.item_handle(spawn.instance_id).map(|handle| {
+                let name = script
+                    .symbol_table()
+                    .symbol_name(spawn.instance_id.value())
+                    .unwrap_or_else(|| spawn.instance_id.to_string());
+                (handle, name)
+            })
+        }) else {
             warn!(
                 "No item handle for item({}) spawn",
                 spawn.instance_id.value()
@@ -904,6 +920,7 @@ fn spawn_item_entities(
         let model_handle = handles_map.get_model_handle(&asset_server, &model, None);
 
         commands.spawn((
+            Name::new(name),
             ClassifyDistance::default(),
             ZenGinModelComponent {
                 model_handle,

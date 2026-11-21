@@ -44,6 +44,8 @@ byteorder = "1.5"
 strum = { version = "0.28", features = ["derive"] }
 rand_mt = "6.1.0"
 regex = "1.13"
+bevy-inspector-egui = "0.38.0"
+egui_dock = "0.21.0"
 
 [features]
 # Writes a `trace-<timestamp>.json` (chrome://tracing / Perfetto format) of the

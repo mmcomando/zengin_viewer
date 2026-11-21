@@ -59,10 +59,11 @@ pub(crate) use crate::zengin::loaders::vdf_reader::{
 };
 pub(crate) use crate::zengin::loaders::vfs::{resolve_sound_asset, resolve_texture_asset};
 pub(crate) use crate::zengin::mobs::{MobOccupant, MobRegistry, NpcMobUse};
-pub(crate) use crate::zengin::movers::VobTrigger;
+pub(crate) use crate::zengin::movers::{GameMover, VobTrigger};
 pub(crate) use crate::zengin::npc_actions::NpcActionQueue;
 pub(crate) use crate::zengin::npc_data::NpcHandle;
 pub(crate) use crate::zengin::npc_perception::NpcAutoTalkOptions;
+pub(crate) use crate::zengin::npc_routines::NpcEquippedWeapon;
 pub(crate) use crate::zengin::npc_routines::NpcHealth;
 pub(crate) use crate::zengin::npc_routines::NpcWeaponMode;
 pub(crate) use crate::zengin::resources::CachedAssetHandles;
@@ -172,7 +173,7 @@ impl GameItem {
 }
 
 /// Fields shared by every `oCMob` vob, whether interactive or a container.
-#[derive(Debug, Component, Default, Clone)]
+#[derive(Debug, Component, Default, Clone, Reflect)]
 pub struct MobBase {
     /// Index of the vob in the ZEN archive, stable across loads.
     pub vob_id: u32,
@@ -183,7 +184,7 @@ pub struct MobBase {
 }
 
 /// Pose and state data shared by interactive mobs and chests.
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Component, Default, Reflect)]
 pub struct MobPose {
     /// `AI_UseMob` / player animation scheme derived from the visual stem.
     pub scheme: String,
@@ -203,7 +204,7 @@ pub struct MobPose {
 /// Interactive mob vob (`oCMobInter` and its subtypes).
 #[allow(dead_code)] // metadata is consumed by the mob use action
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Reflect)]
 #[require(WorldEntityMarker)]
 pub struct GameMob {
     pub use_with_item: String,
