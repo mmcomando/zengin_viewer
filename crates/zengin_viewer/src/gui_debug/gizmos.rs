@@ -56,7 +56,20 @@ pub struct GizmosOptions {
     pub way_points: bool,
 }
 
-fn draw_convex_hull_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &GlobalTransform)>) {
+/// Maximum distance in meters from the camera at which gizmos are drawn. It
+/// keeps the large world datasets from flooding the overlay.
+const GIZMO_MAX_DISTANCE: f32 = 30.0;
+
+fn within_gizmo_distance(camera_position: Vec3, point: Vec3) -> bool {
+    camera_position.distance_squared(point) <= GIZMO_MAX_DISTANCE * GIZMO_MAX_DISTANCE
+}
+
+fn draw_convex_hull_gizmos(
+    mut gizmos: Gizmos,
+    colliders: Query<(&Collider, &GlobalTransform)>,
+    camera: Single<&GlobalTransform, With<Camera3d>>,
+) {
+    let camera_position = camera.translation();
     for (collider, transform) in &colliders {
         let TypedShape::ConvexPolyhedron(hull) = collider.shape().as_typed_shape() else {
             continue;
@@ -71,19 +84,30 @@ fn draw_convex_hull_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &Glo
                 continue;
             }
             for i in 0..count {
-                let aa = points[vertices_adj_to_face[first + i] as usize];
-                let bb = points[vertices_adj_to_face[first + (i + 1) % count] as usize];
-                gizmos.line(isometry * aa, isometry * bb, tailwind::GREEN_400);
+                let aa = isometry * points[vertices_adj_to_face[first + i] as usize];
+                let bb = isometry * points[vertices_adj_to_face[first + (i + 1) % count] as usize];
+                if !within_gizmo_distance(camera_position, (aa + bb) / 2.0) {
+                    continue;
+                }
+                gizmos.line(aa, bb, tailwind::GREEN_400);
             }
         }
     }
 }
 
-fn draw_cuboid_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &GlobalTransform)>) {
+fn draw_cuboid_gizmos(
+    mut gizmos: Gizmos,
+    colliders: Query<(&Collider, &GlobalTransform)>,
+    camera: Single<&GlobalTransform, With<Camera3d>>,
+) {
+    let camera_position = camera.translation();
     for (collider, transform) in &colliders {
         let TypedShape::Cuboid(cuboid) = collider.shape().as_typed_shape() else {
             continue;
         };
+        if !within_gizmo_distance(camera_position, transform.translation()) {
+            continue;
+        }
         let isometry = Isometry3d::new(transform.translation(), transform.rotation());
         let half = cuboid.half_extents;
         gizmos.primitive_3d(
@@ -94,40 +118,65 @@ fn draw_cuboid_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &GlobalTr
     }
 }
 
-fn draw_sphere_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &GlobalTransform)>) {
+fn draw_sphere_gizmos(
+    mut gizmos: Gizmos,
+    colliders: Query<(&Collider, &GlobalTransform)>,
+    camera: Single<&GlobalTransform, With<Camera3d>>,
+) {
+    let camera_position = camera.translation();
     for (collider, transform) in &colliders {
         let TypedShape::Ball(ball) = collider.shape().as_typed_shape() else {
             continue;
         };
+        if !within_gizmo_distance(camera_position, transform.translation()) {
+            continue;
+        }
         gizmos.sphere(transform.translation(), ball.radius, tailwind::AMBER_400);
     }
 }
 
-fn draw_trimesh_gizmos(mut gizmos: Gizmos, colliders: Query<(&Collider, &GlobalTransform)>) {
+fn draw_trimesh_gizmos(
+    mut gizmos: Gizmos,
+    colliders: Query<(&Collider, &GlobalTransform)>,
+    camera: Single<&GlobalTransform, With<Camera3d>>,
+) {
+    let camera_position = camera.translation();
     for (collider, transform) in &colliders {
         let TypedShape::TriMesh(trimesh) = collider.shape().as_typed_shape() else {
             continue;
         };
         let isometry = Isometry3d::new(transform.translation(), transform.rotation());
         for triangle in trimesh.triangles() {
-            let vertices = [triangle.a, triangle.b, triangle.c];
+            let vertices = [
+                isometry * triangle.a,
+                isometry * triangle.b,
+                isometry * triangle.c,
+            ];
+            let center = (vertices[0] + vertices[1] + vertices[2]) / 3.0;
+            if !within_gizmo_distance(camera_position, center) {
+                continue;
+            }
             for i in 0..3 {
-                gizmos.line(
-                    isometry * vertices[i],
-                    isometry * vertices[(i + 1) % 3],
-                    tailwind::CYAN_400,
-                );
+                gizmos.line(vertices[i], vertices[(i + 1) % 3], tailwind::CYAN_400);
             }
         }
     }
 }
 
 /// Draws a wireframe around characters collider
-fn draw_characters_colliders(mut gizmos: Gizmos, entities: Query<(&Collider, &GlobalTransform)>) {
+fn draw_characters_colliders(
+    mut gizmos: Gizmos,
+    entities: Query<(&Collider, &GlobalTransform)>,
+    camera: Single<&GlobalTransform, With<Camera3d>>,
+) {
+    let camera_position = camera.translation();
     for (collider, transform) in &entities {
         let Some(capsule) = collider.shape().as_capsule() else {
             continue;
         };
+        if !within_gizmo_distance(camera_position, transform.translation()) {
+            continue;
+        }
         let isometry = Isometry3d::new(transform.translation(), transform.rotation());
         gizmos.primitive_3d(
             &Capsule3d::new(capsule.radius, capsule.half_height()),
@@ -139,37 +188,53 @@ fn draw_characters_colliders(mut gizmos: Gizmos, entities: Query<(&Collider, &Gl
 
 fn draw_bones(
     mut gizmos: Gizmos,
-
     bones: Query<(Entity, &GlobalTransform, Option<&ChildOf>), With<AnimatedJoint>>,
     transforms: Query<&GlobalTransform>,
+    camera: Single<&GlobalTransform, With<Camera3d>>,
 ) {
+    let camera_position = camera.translation();
     for (_bone_entity, bone_transform, parent) in bones.iter() {
-        if let Some(parent) = parent
-            && let Ok(parent_transform) = transforms.get(parent.0)
-        {
-            // Draw a line from parent bone to current bone
-            gizmos.line(
-                parent_transform.translation(),
-                bone_transform.translation(),
-                Color::srgb(0.0, 1.0, 0.0), // Green bones
-            );
-
-            // Optional: Draw the bone itself (a small sphere)
-            // gizmos.sphere(
-            //     bone_transform.translation(),
-            //     // Quat::IDENTITY,
-            //     0.02,
-            //     Color::srgb(1.0, 0.0, 0.0), // Red joints
-            // );
+        let Some(parent) = parent else {
+            continue;
+        };
+        let Ok(parent_transform) = transforms.get(parent.0) else {
+            continue;
+        };
+        let parent_position = parent_transform.translation();
+        let bone_position = bone_transform.translation();
+        if !within_gizmo_distance(camera_position, (parent_position + bone_position) / 2.0) {
+            continue;
         }
+        // Draw a line from parent bone to current bone
+        gizmos.line(
+            parent_position,
+            bone_position,
+            Color::srgb(0.0, 1.0, 0.0), // Green bones
+        );
+
+        // Optional: Draw the bone itself (a small sphere)
+        // gizmos.sphere(
+        //     bone_transform.translation(),
+        //     // Quat::IDENTITY,
+        //     0.02,
+        //     Color::srgb(1.0, 0.0, 0.0), // Red joints
+        // );
     }
 }
 
-fn draw_waypoints(mut gizmos: Gizmos, graph: Option<Res<WaypointGraph>>) {
+fn draw_waypoints(
+    mut gizmos: Gizmos,
+    graph: Option<Res<WaypointGraph>>,
+    camera: Single<&GlobalTransform, With<Camera3d>>,
+) {
     let Some(graph) = graph else {
         return;
     };
+    let camera_position = camera.translation();
     for node in &graph.nodes {
+        if !within_gizmo_distance(camera_position, node.position) {
+            continue;
+        }
         let color = if node.free {
             Color::srgb(1.0, 0.6, 0.0)
         } else {
@@ -184,11 +249,12 @@ fn draw_waypoints(mut gizmos: Gizmos, graph: Option<Res<WaypointGraph>>) {
             if neighbor <= index {
                 continue;
             }
-            gizmos.line(
-                graph.nodes[index].position,
-                graph.nodes[neighbor].position,
-                edge_color,
-            );
+            let start = graph.nodes[index].position;
+            let end = graph.nodes[neighbor].position;
+            if !within_gizmo_distance(camera_position, (start + end) / 2.0) {
+                continue;
+            }
+            gizmos.line(start, end, edge_color);
         }
     }
 }
