@@ -143,5 +143,6 @@ pub fn meshes_from_zengin_mesh(mesh: &zen_kit_rs::mesh::Mesh) -> ZenGinModel {
         parents: vec![],
         animation_bone_index: vec![],
         root_translation: Vec3::ZERO,
+        has_skinned_meshes: false,
     }
 }

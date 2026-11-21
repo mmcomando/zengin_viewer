@@ -86,6 +86,7 @@ pub fn meshes_from_zengin_model_mesh(
     if is_skinned {
         assert!(weights_hierarchy_model.is_some());
     }
+    model.has_skinned_meshes = is_skinned;
 
     model
 }

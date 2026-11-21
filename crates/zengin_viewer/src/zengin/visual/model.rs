@@ -43,4 +43,9 @@ pub struct ZenGinModel {
     /// root translation; attachment points are expressed in the space this
     /// offset belongs to.
     pub root_translation: Vec3,
+    /// At least one sub mesh is skinned to the node hierarchy. Skinned models
+    /// render in raw hierarchy space, so their attachment points have to be
+    /// taken without `root_translation`; static meshes already live in model
+    /// space and keep it.
+    pub has_skinned_meshes: bool,
 }

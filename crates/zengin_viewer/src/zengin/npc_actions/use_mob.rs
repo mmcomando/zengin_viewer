@@ -337,15 +337,22 @@ pub(crate) fn run_use_mob_action(
                 .insert(MobUsePose { transition, pose });
         }
         commands.entity(choice.mob).insert(MobOccupant(entity));
-        // Mob poses store their root translation relative to the mob origin,
-        // while the actor entity sits at the `ZS_POS*` stand point. Keep the
-        // entity there (camera, selection, release) and shift the skeleton by
-        // the mob-relative offset instead.
-        let mob_translation = mobs
-            .get(choice.mob)
-            .map_or(transform.translation, |(_, _, _, tr, ..)| tr.translation());
+        // Mob poses store their root translation relative to the unshifted mob
+        // origin, while a skinned mob's visible mesh is drawn `rendered_origin`
+        // away from the vob origin (the joint chain drops the hierarchy root
+        // translation). Keep the actor entity at the `ZS_POS*` stand point
+        // (camera, selection, release) and shift the skeleton so the pose lands
+        // on the rendered mob instead.
+        let rendered_origin = mobs.get(choice.mob).map_or(Vec3::ZERO, |mob| {
+            let (_, pose, _, tr, ..) = mob;
+            tr.rotation() * (pose.rendered_origin * tr.scale())
+        });
+        let mob_translation = mobs.get(choice.mob).map_or(transform.translation, |mob| {
+            let (_, _, _, tr, ..) = mob;
+            tr.translation()
+        });
         let pose_offset = if choice.attached && !choice.no_move {
-            choice.use_rot.inverse() * (mob_translation - transform.translation)
+            choice.use_rot.inverse() * (mob_translation - rendered_origin - transform.translation)
         } else {
             Vec3::ZERO
         };

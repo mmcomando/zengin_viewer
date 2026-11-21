@@ -486,6 +486,11 @@ fn extract_mob_positions(
             continue;
         };
         let positions = mob_positions(model);
+        pose.rendered_origin = if model.has_skinned_meshes {
+            model.root_translation
+        } else {
+            Vec3::ZERO
+        };
         debug!(
             "mob({}) extracted {} attachment point(s)",
             base.focus_name,
@@ -501,7 +506,9 @@ fn extract_mob_positions(
 /// the raw node transforms while the bind poses carry the hierarchy root
 /// translation, so the two cancel out. Attachment points therefore have to be
 /// taken without `root_translation` too, otherwise they are shifted relative
-/// to the visible mesh by that offset.
+/// to the visible mesh by that offset. Static meshes render their vertices in
+/// model space and keep the root offset, so their attachment points keep it as
+/// well.
 fn mob_positions(model: &ZenGinModel) -> Vec<crate::zengin::MobPosition> {
     model
         .node_names
@@ -510,7 +517,9 @@ fn mob_positions(model: &ZenGinModel) -> Vec<crate::zengin::MobPosition> {
         .filter(|(name, _)| name.starts_with("ZS_POS"))
         .map(|(name, transform)| {
             let mut transform = *transform;
-            transform.translation -= model.root_translation;
+            if model.has_skinned_meshes {
+                transform.translation -= model.root_translation;
+            }
             crate::zengin::MobPosition {
                 name: name.clone(),
                 transform,
@@ -546,6 +555,7 @@ mod tests {
             node_names: vec!["BIP01".to_string(), "ZS_POS0".to_string()],
             final_tr: vec![Transform::IDENTITY, Transform::from_xyz(0.0, 0.977, 0.824)],
             root_translation: root,
+            has_skinned_meshes: true,
             ..Default::default()
         };
 
@@ -555,6 +565,25 @@ mod tests {
         assert_eq!(
             positions[0].transform.translation,
             Vec3::new(0.0, 0.977, 0.074)
+        );
+    }
+
+    #[test]
+    fn static_mob_positions_keep_the_hierarchy_root_translation() {
+        let root = Vec3::new(0.0, 1.336, 0.55);
+        let model = ZenGinModel {
+            node_names: vec!["ZM_BOOK1".to_string(), "ZS_POS0".to_string()],
+            final_tr: vec![Transform::IDENTITY, Transform::from_xyz(0.0, 0.971, -0.021)],
+            root_translation: root,
+            ..Default::default()
+        };
+
+        let positions = mob_positions(&model);
+
+        assert_eq!(positions.len(), 1);
+        assert_eq!(
+            positions[0].transform.translation,
+            Vec3::new(0.0, 0.971, -0.021)
         );
     }
 

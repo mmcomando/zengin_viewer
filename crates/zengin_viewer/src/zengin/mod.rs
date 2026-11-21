@@ -194,6 +194,12 @@ pub struct MobPose {
     pub state_num: i32,
     /// `ZS_POS*` attachment nodes, `None` until the model asset is scanned.
     pub positions: Option<Vec<MobPosition>>,
+    /// Model-space offset the rendered mesh is shifted by, in world units.
+    /// Skinned mobs lose the hierarchy root translation in the joint chain, so
+    /// their visible origin sits this far from the vob origin. Pose animation
+    /// roots are authored in the unshifted model space and have to be anchored
+    /// to the rendered origin instead.
+    pub rendered_origin: Vec3,
     /// Door: use from where the player stands instead of snapping to the
     /// attachment point.
     pub no_move: bool,

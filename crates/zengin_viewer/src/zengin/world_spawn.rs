@@ -382,6 +382,7 @@ fn spawn_mobs(
                 visual_stem: visual_stem.clone(),
                 state_num,
                 positions: None,
+                rendered_origin: Vec3::ZERO,
                 no_move,
                 state: 0,
             },

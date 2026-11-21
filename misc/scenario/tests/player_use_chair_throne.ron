@@ -47,7 +47,7 @@
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 100),
-    TestLogExists(regex: "uses mob\\(.*\\) focus\\(THRONE\\)"),
+    TestLogExists(regex: "visual_stem\\(.*\\) focus\\(THRONE\\)"),
     SetCameraLocation(
         translation: (0.0, 0.0, 0.0),
         rotation: (-5.0, 90.0, 0.0),

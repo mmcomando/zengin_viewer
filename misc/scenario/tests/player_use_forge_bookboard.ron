@@ -1,0 +1,61 @@
+// Player interaction with a forge and a book board in the bare test room.
+//
+[
+    IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginSpawnMob(
+        visual: "BSFIRE_OC",
+        focus_name: "MOBNAME_FORGE",
+        translation: (0.0, 0.0, -2.0),
+        rotation: (0.0, 180.0, 0.0),
+    ),
+    ZenginSpawnMob(
+        visual: "BOOK_NW_CITY_CUPBOARD_01",
+        focus_name: "MOBNAME_BOOKBOARD",
+
+        translation: (0.0, 1.336, -12.0),
+        rotation: (0.0, 180.0, 0.0),
+    ),
+
+    // Replays start in editor mode (free camera); leaving it enables gameplay
+    // input and places the player where the free camera was looking.
+    SetCameraLocation(
+        translation: (0.0, 0.0, 2.0),
+        rotation: (-10.0, 0.0, 0.0),
+    ),
+    ZenginSetDebugNpc(name: "hero"),
+    Wait(frame_dt: 10),
+
+    // Use the forge: the player enters the `S_BSFIRE_S1` pose and the mob plays
+    // its own `BSFIRE_OC-S_S1` animation.
+    TestClearLogBuffer,
+    PressRelease(action: Gameplay(Interact)),
+    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_BSFIRE\\)"),
+    TestLogExists(regex: "focus\\(MOBNAME_FORGE\\)"),
+    Wait(frame_dt: 100),
+    TestScreenshot(path: "00_forge_used.png"),
+
+    PressRelease(action: Gameplay(Interact)),
+    // The `BSFIRE` stand-up goes through `T_BSFIRE_S1_2_S0` and
+    // `T_BSFIRE_S0_2_STAND`, so allow it to finish before moving again.
+    Wait(frame_dt: 150),
+    TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
+
+    // Use the book board.
+    TeleportPlayer(
+        translation: (3.0, 0.0, -12.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    SetCameraLocation(
+        translation: (3.0, 0.0, -12.0),
+        rotation: (-30.0, 0.0, 0.0),
+    ),
+    Wait(frame_dt: 20),
+    TestClearLogBuffer,
+    PressRelease(action: Gameplay(Interact)),
+    Wait(frame_dt: 100),
+    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_BOOK\\)"),
+    TestLogExists(regex: "focus\\(MOBNAME_BOOKBOARD\\)"),
+    TestScreenshot(path: "01_bookboard_used.png"),
+
+    ExitGame,
+]
