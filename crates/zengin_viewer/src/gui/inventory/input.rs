@@ -569,3 +569,51 @@ fn equip_selected_item(
         })
         .unwrap_or_default()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn loot_close_is_emitted_once() {
+        let mut app = App::new();
+        app.add_message::<LootClosed>();
+        app.init_resource::<InventoryUiState>();
+        app.add_systems(Update, emit_loot_closed);
+
+        let chest = Entity::PLACEHOLDER;
+        {
+            let mut state = app.world_mut().resource_mut::<InventoryUiState>();
+            state.open = true;
+            state.loot_chest = Some(chest);
+        }
+        app.update();
+        assert_eq!(
+            app.world().resource::<Messages<LootClosed>>().len(),
+            0,
+            "no close while the panels stay open"
+        );
+
+        app.world_mut().resource_mut::<InventoryUiState>().open = false;
+        app.update();
+        assert_eq!(
+            app.world().resource::<Messages<LootClosed>>().len(),
+            1,
+            "closing the loot panels emits one event"
+        );
+        assert!(
+            app.world()
+                .resource::<InventoryUiState>()
+                .loot_chest
+                .is_none()
+        );
+
+        app.update();
+        app.update();
+        assert_eq!(
+            app.world().resource::<Messages<LootClosed>>().len(),
+            0,
+            "the event is not repeated"
+        );
+    }
+}

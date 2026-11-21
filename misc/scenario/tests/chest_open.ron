@@ -1,0 +1,39 @@
+// Chest use: open animation, loot window, close animation, player release.
+//
+// The chest is spawned from the game's own mesh next to the player so the
+// player attach + chest lid animation can be checked without loading a world.
+[
+    IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginSpawnChest(
+        visual: "CHESTBIG_NW_NORMAL_OPEN",
+        translation: (0.0, 0.0, -2.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    Wait(frame_dt: 20),
+
+    // The chest is in selection range and shows its focus name.
+    TestScreenshot(path: "00_chest.png"),
+
+    // `Interact` snaps the player to `ZS_POS0`, starts the chest-use pose and
+    // opens the loot window in parallel.
+    TestClearLogBuffer,
+    PressRelease(action: Gameplay(Interact)),
+    Wait(frame_dt: 100),
+    TestLogExists(regex: "opened chest"),
+    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_CHEST_CHESTBIG\\).*state\\(1\\)"),
+    TestScreenshot(path: "01_open.png"),
+
+    // Closing the loot window releases the player and closes the lid.
+    PressRelease(action: Gui(CancelAction)),
+    Wait(frame_dt: 100),
+    TestLogExists(regex: "leaves chest|released mob"),
+    TestScreenshot(path: "02_closed.png"),
+
+    // Movement confirms the player is free again.
+    Axis(action: Gameplay(Move), value: (0.0, 1.0)),
+    Wait(frame_dt: 100),
+    Axis(action: Gameplay(Move), value: (0.0, 0.0)),
+    TestScreenshot(path: "03_moved_away.png"),
+
+    ExitGame,
+]

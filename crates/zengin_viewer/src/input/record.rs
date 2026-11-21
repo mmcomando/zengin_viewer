@@ -162,6 +162,16 @@ pub(crate) enum ReplayCommand {
         translation: Vec3,
         rotation: Vec3,
     },
+    /// Spawns an empty `oCMobContainer` using the visual mesh `visual` at
+    /// `translation` with `rotation` in axis labeled degrees. Used by the chest
+    /// animation scenario; `locked` keeps the chest closed and non-animated.
+    ZenginSpawnChest {
+        visual: String,
+        #[serde(default)]
+        locked: bool,
+        translation: Vec3,
+        rotation: Vec3,
+    },
     /// Spawns the test world `name` defined in code, with its own camera.
     /// Does not load a zengin world archive.
     TestWorld { name: String },

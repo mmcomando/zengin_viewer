@@ -608,4 +608,29 @@ mod tests {
         assert_eq!(release_animation_name(&mob, 1), "T_BEDHIGH_BACK_S1_2_STAND");
         assert_eq!(step_animation_name(&mob, 1, 0), "T_BEDHIGH_BACK_S1_2_S0");
     }
+
+    #[test]
+    fn chest_release_steps_down_to_s0_without_a_stand_transition() {
+        // Chests ship `T_CHESTBIG_S1_2_S0` but no `S1_2_STAND`.
+        let mob = mob_use("CHESTBIG", None, 1);
+        let has = |name: &str| name == "T_CHESTBIG_S1_2_S0";
+
+        let (animation, state) = next_release_step(&mob, 1, has).unwrap();
+        assert_eq!((animation.as_str(), state), ("T_CHESTBIG_S1_2_S0", 0));
+        assert!(next_release_step(&mob, 0, has).is_none());
+    }
+
+    #[test]
+    fn stale_player_mob_use_is_released() {
+        let mut app = App::new();
+        app.add_systems(Update, release_stale_player_mob_use);
+        let player = app
+            .world_mut()
+            .spawn((PlayerCharacter, mob_use("CHESTBIG", None, 1)))
+            .id();
+
+        app.update();
+
+        assert!(app.world().get::<NpcMobUse>(player).is_none());
+    }
 }

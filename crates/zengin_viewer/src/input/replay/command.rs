@@ -265,6 +265,24 @@ pub(super) fn apply_replay_command(
                 );
             });
         }
+        ReplayCommand::ZenginSpawnChest {
+            visual,
+            locked,
+            translation,
+            rotation,
+        } => {
+            info!("Replay spawning chest {visual:?} at {translation:?}");
+            let visual = visual.clone();
+            let locked = *locked;
+            let transform = Transform {
+                translation: *translation,
+                rotation: rotation_from_degrees(*rotation),
+                scale: Vec3::ONE,
+            };
+            commands.queue(move |world: &mut World| {
+                crate::zengin::request_chest_spawn(world, &visual, locked, transform);
+            });
+        }
         ReplayCommand::TestClearLogBuffer => {
             let Some(log_buffer) = log_buffer else {
                 warn!("TestClearLogBuffer replay command ignored: log capture is not enabled");

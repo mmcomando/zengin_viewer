@@ -168,6 +168,30 @@ fn spawn_mob_command_parses_and_schedules() {
 }
 
 #[test]
+fn spawn_chest_command_parses_and_schedules() {
+    let commands = parse(
+        "[ZenginSpawnChest(visual: \"CHESTBIG_NW_NORMAL_OPEN\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",
+    )
+    .unwrap();
+    assert_eq!(frames(&commands), [5]);
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::ZenginSpawnChest { visual, locked: false, translation, .. }
+            if visual == "CHESTBIG_NW_NORMAL_OPEN"
+                && *translation == Vec3::new(0.0, 0.0, -2.0)
+    ));
+
+    let commands = parse(
+        "[ZenginSpawnChest(visual: \"CHESTSMALL_NW_POOR_LOCKED\", locked: true, translation: (1.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0))]",
+    )
+    .unwrap();
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::ZenginSpawnChest { locked: true, .. }
+    ));
+}
+
+#[test]
 fn include_paths_are_relative_to_the_scenario_root() {
     let root = std::path::Path::new("misc/scenario");
     assert_eq!(

@@ -214,6 +214,46 @@ pub(crate) fn request_mob_spawn(
     });
 }
 
+/// Spawns an empty container vob from a visual mesh name resolved against the
+/// game archives, used by scenario replays to place chests without a world
+/// load.
+pub(crate) fn request_chest_spawn(world: &mut World, visual: &str, locked: bool, tr: Transform) {
+    let Some(vfs) = world.get_resource::<ZenginVfs>() else {
+        warn!("Chest({visual}) spawn requested without the zengin vfs");
+        return;
+    };
+    let archetype = find_mesh_path(&vfs.0.lock().unwrap(), visual);
+    let Some(archetype) = archetype else {
+        warn!("Chest({visual}) spawn requested, no mesh found for the visual");
+        return;
+    };
+    let Some(mobs) = world
+        .get_resource::<WorldSpawnMessages>()
+        .map(|spawns| spawns.mobs.clone())
+    else {
+        warn!("Chest({visual}) spawn requested before the spawn messages are registered");
+        return;
+    };
+    let scheme = mob_scheme(visual);
+    mobs.send(SpawnMob {
+        base: MobBase {
+            vob_name: format!("TEST_CHEST_{scheme}"),
+            focus_name: "MOBNAME_CHEST".to_string(),
+            ..default()
+        },
+        tr,
+        archetype,
+        collides: true,
+        scheme,
+        visual_stem: mob_visual_stem(visual),
+        state_num: 1,
+        kind: MobSpawnKind::Container(ContainerSpawn {
+            items: Vec::new(),
+            locked,
+        }),
+    });
+}
+
 /// Circle in world space (meters) used by [`SpawnPositionFilter`].
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub(crate) struct SpawnPoint {
