@@ -28,6 +28,11 @@ struct ScreenMessageMarker {
 /// center the text on that axis, non-negative ones offset it by per cent of
 /// the screen size (the engine computes `y` against the text height too, the
 /// difference is negligible for the few per cent offsets scripts use).
+///
+/// The offset goes through `UiTransform`, whose percentages resolve against
+/// the node's own axes. Percentage `padding` cannot be used here: its vertical
+/// components resolve against the container width, tying the vertical offset
+/// to the window width.
 fn handle_screen_messages(mut commands: Commands, mut messages: MessageReader<ScreenMessage>) {
     for message in messages.read() {
         let seconds = message.time_sec.max(0) as f32 + EXTRA_DISPLAY_SECONDS;
@@ -41,6 +46,7 @@ fn handle_screen_messages(mut commands: Commands, mut messages: MessageReader<Sc
         } else {
             AlignItems::FlexStart
         };
+        let offset = Val2::percent(message.x.max(0) as f32, message.y.max(0) as f32);
         commands
             .spawn((
                 ScreenMessageMarker { time_left: seconds },
@@ -50,13 +56,9 @@ fn handle_screen_messages(mut commands: Commands, mut messages: MessageReader<Sc
                     height: Val::Percent(100.0),
                     justify_content: horizontal,
                     align_items: vertical,
-                    padding: UiRect {
-                        left: Val::Percent(message.x.max(0) as f32),
-                        top: Val::Percent(message.y.max(0) as f32),
-                        ..default()
-                    },
                     ..default()
                 },
+                UiTransform::from_translation(offset),
             ))
             .with_child((
                 Text::new(message.text.clone()),
