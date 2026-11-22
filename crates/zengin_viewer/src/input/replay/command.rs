@@ -7,8 +7,8 @@ use crate::gui::GameLog;
 use crate::input::log_capture::LogBuffer;
 use crate::input::record::ReplayCommand;
 use crate::zengin::{
-    DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptResource, SpawnNpc, SpawnPositionFilter,
-    grant_test_items, seed_test_journal,
+    DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SpawnNpc,
+    SpawnPositionFilter, StringCanon, UseMobChange, grant_test_items, seed_test_journal,
 };
 
 use super::failures::TestFailures;
@@ -233,6 +233,34 @@ pub(super) fn apply_replay_command(
                     transform: Some(transform),
                     exact_transform: true,
                     overlay: None,
+                });
+            });
+        }
+        ReplayCommand::ZenginNpcUseMob {
+            name,
+            scheme,
+            state,
+        } => {
+            info!("Replay npc {name:?} uses mob scheme {scheme:?} state {state}");
+            let Some(gothic_script) = gothic_script else {
+                warn!("ZenginNpcUseMob replay command: game script is not loaded");
+                return false;
+            };
+            let Some(instance_id) = gothic_script.lock().symbol_instance(name) else {
+                warn!("ZenginNpcUseMob replay command: no npc instance named {name:?}");
+                return false;
+            };
+            let scheme = scheme.clone();
+            let state = *state;
+            commands.queue(move |world: &mut World| {
+                let Some(messages) = world.get_resource::<ScriptMessages>() else {
+                    warn!("ZenginNpcUseMob replay command: script messages are not registered");
+                    return;
+                };
+                messages.use_mob.send(UseMobChange {
+                    instance_id,
+                    mob_name: StringCanon::new(&scheme),
+                    state,
                 });
             });
         }

@@ -1,0 +1,80 @@
+// Npcs using interactive mobs in the bare test room.
+//
+// Harad uses an anvil and Thorben uses a sawmill, placed apart like the mobs in
+// `player_use_chair_throne`. The replay command skips their daily routines and
+// sends the same `AI_UseMob` request the scripts would, so only the npc mob-use
+// action (walk, attach, pose/animation, body state) is exercised.
+[
+    IncludeScenario(path: "/common/test_room_free_camera"),
+    ZenginSpawnMob(
+        visual: "BSANVIL_OC",
+        focus_name: "MOBNAME_ANVIL",
+        translation: (0.0, 0.0, 0.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    ZenginSpawnNpc(
+        name: "vlk_412_harad",
+        translation: (0.0, 0.0, 1.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    ZenginSpawnMob(
+        visual: "BAUMSAEGE_1",
+        focus_name: "MOBNAME_SAW",
+        translation: (0.0, 0.0, -10.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    ZenginSpawnNpc(
+        name: "vlk_462_thorben",
+        translation: (0.0, 0.0, -9.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    ZenginSpawnMob(
+        visual: "CHAIR_NW_NORMAL_01",
+        focus_name: "CHAIR",
+        translation: (0.0, 0.0, -20.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    ZenginSpawnNpc(
+        name: "vlk_449_lares",
+        translation: (0.0, 0.0, -19.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+
+    // The player spawned by the common base would stand inside the anvil, move
+    // it out of the way and frame both mobs from the south.
+    TeleportPlayer(
+        translation: (0.0, 0.0, 6.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+
+    // Both npcs walk from their spawn points to the nearest free mob of their
+    // scheme and attach to it.
+    TestClearLogBuffer,
+    ZenginNpcUseMob(name: "vlk_412_harad", scheme: "BSANVIL", state: 1),
+    ZenginNpcUseMob(name: "vlk_462_thorben", scheme: "BAUMSAEGE", state: 1),
+    ZenginNpcUseMob(name: "vlk_449_lares", scheme: "CHAIR", state: 1),
+
+    SetCameraLocation(
+        translation: (8, 6, 0),
+        rotation: (-30.0, 90.0, 0.0),
+    ),
+    Wait(frame_dt: 50),
+    TestLogExists(regex: "npc\\(.*\\) uses mob\\(.*\\) vob\\(TEST_MOB_BAUMSAEGE\\)"),
+    TestScreenshot(path: "00_harad_anvil.png"),
+
+    SetCameraLocation(
+        translation: (8, 6, -10),
+        rotation: (-30.0, 90.0, 0.0),
+    ),
+    Wait(frame_dt: 50),
+    TestLogExists(regex: "npc\\(.*\\) uses mob\\(.*\\) vob\\(TEST_MOB_BSANVIL\\)"),
+    TestScreenshot(path: "01_thorben_saw.png"),
+    SetCameraLocation(
+        translation: (8, 6, -20),
+        rotation: (-30.0, 90.0, 0.0),
+    ),
+    TestScreenshot(path: "02_lares_chair.png"),
+    TestLogExists(regex: "npc\\(.*\\) uses mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\)"),
+
+    ExitGame,
+]

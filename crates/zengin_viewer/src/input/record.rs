@@ -143,6 +143,14 @@ pub(crate) enum ReplayCommand {
         translation: Vec3,
         rotation: Vec3,
     },
+    /// Makes the npc instance `name` (case-insensitive script symbol name) use
+    /// the nearest free mob of the `AI_UseMob` scheme `scheme`, bypassing the
+    /// daily routine. `state <= 0` releases the current mob instead.
+    ZenginNpcUseMob {
+        name: String,
+        scheme: String,
+        state: i32,
+    },
     /// Spawns the interactive mob (oCMobInter) using the visual mesh `visual`
     /// at `translation` with `rotation` in axis labeled degrees
     /// `(x = pitch, y = yaw, z = roll)`. The visual is a mesh name like

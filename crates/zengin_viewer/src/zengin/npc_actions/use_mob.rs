@@ -17,6 +17,7 @@ use crate::zengin::npc_routines::{
 };
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::state::{BS_LIE, BS_SIT};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{GameMob, GameNpc, MobBase, MobOccupant, MobPose, MobRegistry, NpcMobUse};
 
@@ -310,17 +311,16 @@ pub(crate) fn run_use_mob_action(
                 )
             })
             .flatten();
-        if is_player {
-            info!(
-                "Player({}) uses mob({}) vob({}) scheme({}) state({}) animation({}) transition({transition:?})",
-                npc.instance_id(),
-                choice.mob,
-                choice.vob_name,
-                action.scheme,
-                use_state,
-                pose
-            );
-        }
+        let actor = if is_player { "Player" } else { "npc" };
+        info!(
+            "{actor}({}) uses mob({}) vob({}) scheme({}) state({}) animation({}) transition({transition:?})",
+            npc.instance_id(),
+            choice.mob,
+            choice.vob_name,
+            action.scheme,
+            use_state,
+            pose
+        );
         let first = transition.as_deref().unwrap_or(&pose);
         queue_named_animation(
             &mut controller,
@@ -337,24 +337,33 @@ pub(crate) fn run_use_mob_action(
                 .insert(MobUsePose { transition, pose });
         }
         commands.entity(choice.mob).insert(MobOccupant(entity));
-        // Mob poses store their root translation relative to the unshifted mob
-        // origin, while a skinned mob's visible mesh is drawn `rendered_origin`
-        // away from the vob origin (the joint chain drops the hierarchy root
-        // translation). Keep the actor entity at the `ZS_POS*` stand point
-        // (camera, selection, release) and shift the skeleton so the pose lands
-        // on the rendered mob instead.
-        let rendered_origin = mobs.get(choice.mob).map_or(Vec3::ZERO, |mob| {
-            let (_, pose, _, tr, ..) = mob;
-            tr.rotation() * (pose.rendered_origin * tr.scale())
-        });
-        let mob_translation = mobs.get(choice.mob).map_or(transform.translation, |mob| {
-            let (_, _, _, tr, ..) = mob;
-            tr.translation()
-        });
-        let pose_offset = if choice.attached && !choice.no_move {
-            choice.use_rot.inverse() * (mob_translation - rendered_origin - transform.translation)
+        // Seated/lying poses are authored relative to the seat at the mob
+        // origin, so they keep the pose root and the mob-origin anchor. Standing
+        // work poses (anvil, sawmill, forge) stay on the `ZS_POS*` stand point
+        // and cancel their (potentially large) authored horizontal root.
+        let seated = {
+            let mut script = gothic_script.lock();
+            let body_state = script.scheme_body_state(action.scheme.as_str());
+            body_state == BS_SIT || body_state == BS_LIE
+        };
+        let (pose_offset, cancel_root_translation) = if seated {
+            let rendered_origin = mobs.get(choice.mob).map_or(Vec3::ZERO, |mob| {
+                let (_, pose, _, tr, ..) = mob;
+                tr.rotation() * (pose.rendered_origin * tr.scale())
+            });
+            let mob_translation = mobs.get(choice.mob).map_or(transform.translation, |mob| {
+                let (_, _, _, tr, ..) = mob;
+                tr.translation()
+            });
+            let offset = if choice.attached && !choice.no_move {
+                choice.use_rot.inverse()
+                    * (mob_translation - rendered_origin - transform.translation)
+            } else {
+                Vec3::ZERO
+            };
+            (offset, false)
         } else {
-            Vec3::ZERO
+            (Vec3::ZERO, true)
         };
         commands.entity(entity).insert(NpcMobUse {
             mob: choice.mob,
@@ -362,6 +371,7 @@ pub(crate) fn run_use_mob_action(
             state: use_state,
             position_tag: choice.position_tag.clone(),
             pose_offset,
+            cancel_root_translation,
         });
         // The mob switches to the state the npc uses it in, which plays
         // its own `<STEM>-S_S<n>` animation.

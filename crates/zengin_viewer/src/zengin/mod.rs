@@ -85,7 +85,10 @@ pub(crate) use crate::zengin::script::state::SpawnNpc;
 pub(crate) use crate::zengin::script::state::SvmLine;
 pub(crate) use crate::zengin::script::state::WeaponKind;
 pub(crate) use crate::zengin::script::state::WeaponMode;
-pub(crate) use crate::zengin::script::state::{ItemRuntime, MobRoutineEntry, NpcRuntime};
+pub(crate) use crate::zengin::script::state::{
+    ItemRuntime, MobRoutineEntry, NpcRuntime, ScriptMessages, UseMobChange,
+};
+pub(crate) use crate::zengin::script::string_value::StringCanon;
 pub(crate) use crate::zengin::script::symbol_id::InstanceId;
 pub(crate) use crate::zengin::script::{
     MENU_FLAG_ALIGN_CENTER, MENU_FLAG_DONT_SCALE_DIM, MENU_FLAG_SHOW_INFO, MENU_ITEM_FLAG_DISABLED,

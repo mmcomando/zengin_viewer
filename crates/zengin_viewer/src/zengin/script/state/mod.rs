@@ -4,8 +4,8 @@ mod instances;
 mod weapons;
 
 pub(crate) use body_state::{
-    BS_ITEMINTERACT, BS_STAND, MobSchemeLists, body_state_for_scheme, current_body_state,
-    has_body_flag,
+    BS_ITEMINTERACT, BS_LIE, BS_SIT, BS_STAND, MobSchemeLists, body_state_for_scheme,
+    current_body_state, has_body_flag,
 };
 pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,

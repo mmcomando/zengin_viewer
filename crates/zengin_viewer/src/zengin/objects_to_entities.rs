@@ -89,6 +89,7 @@ pub(crate) fn create_skinned_mesh_data(
         mul_1000: AtomicU32::new(0),
         needs_update: AtomicBool::new(true),
         root_motion: AtomicBool::new(false),
+        cancel_root_translation: AtomicBool::new(false),
         pose_offset: Mutex::new(Vec3::ZERO),
     });
 

@@ -517,8 +517,14 @@ pub(crate) fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimatio
         transform.translation = frame_a.position.lerp(frame_b.position, mul);
 
         if data.is_base_pos_bone {
-            if data.frame_state.root_motion.load(Ordering::Acquire) {
-                // The entity is moved by the root motion instead (update_animations).
+            let cancel_root = data
+                .frame_state
+                .cancel_root_translation
+                .load(Ordering::Acquire);
+            if data.frame_state.root_motion.load(Ordering::Acquire) || cancel_root {
+                // Root-motion animations move the entity with the delta; npc mob
+                // poses must stay on their `ZS_POS*` stand point instead of
+                // following the pose's horizontal root.
                 transform.translation.x = 0.0;
                 transform.translation.z = 0.0;
             }

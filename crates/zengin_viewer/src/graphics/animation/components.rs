@@ -52,6 +52,11 @@ pub struct FrameState {
     /// keeps the full animated root translation (mob-use poses shift the npc
     /// sideways/forward relative to its entity root).
     pub root_motion: AtomicBool,
+    /// Cancels the base bone's animated horizontal translation. Set for
+    /// standing work poses (anvil, sawmill, forge): their entity stands on the
+    /// mob's `ZS_POS*` point and the pose root must not move the body away
+    /// from it. Seated/lying poses keep the root and anchor at the mob origin.
+    pub cancel_root_translation: AtomicBool,
     /// Skeleton-local translation added to the base bone. Mob-use poses store
     /// their root relative to the mob, while the npc entity stands at the
     /// attachment point, so this offset re-anchors the pose to the mob.

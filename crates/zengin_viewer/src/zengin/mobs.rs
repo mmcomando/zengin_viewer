@@ -98,6 +98,11 @@ pub struct NpcMobUse {
     /// Skeleton-local offset aligning the mob-relative pose animation with the
     /// entity standing at the `ZS_POS*` attachment point.
     pub pose_offset: Vec3,
+    /// Whether the skeleton must cancel the pose animation's horizontal root
+    /// translation. Set for standing work poses, which keep the actor on its
+    /// `ZS_POS*` stand point; `false` for seated/lying poses, which keep the
+    /// pose root and anchor the body at the mob origin.
+    pub cancel_root_translation: bool,
 }
 
 /// Npc entity occupying a mob interaction point.

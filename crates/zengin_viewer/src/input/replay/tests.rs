@@ -134,6 +134,18 @@ fn spawn_npc_command_parses_and_schedules() {
 }
 
 #[test]
+fn npc_use_mob_command_parses_and_schedules() {
+    let commands =
+        parse("[ZenginNpcUseMob(name: \"vlk_412_harad\", scheme: \"BSANVIL\", state: 1)]").unwrap();
+    assert_eq!(frames(&commands), [5]);
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::ZenginNpcUseMob { name, scheme, state }
+            if name == "vlk_412_harad" && scheme == "BSANVIL" && *state == 1
+    ));
+}
+
+#[test]
 fn spawn_mob_command_parses_and_schedules() {
     let commands = parse(
         "[ZenginSpawnMob(visual: \"CHAIR_NW_NORMAL_01\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",

@@ -28,8 +28,8 @@ impl Default for MobSchemeLists {
 /// `BS_STAND`: interruptable with free hands, the state of an idle npc.
 pub(crate) const BS_STAND: i32 = BS_FLAG_INTERRUPTABLE | BS_FLAG_FREEHANDS;
 const BS_DEAD: i32 = 23;
-const BS_SIT: i32 = 0b1011 | BS_FLAG_FREEHANDS;
-const BS_LIE: i32 = 12;
+pub(crate) const BS_SIT: i32 = 0b1011 | BS_FLAG_FREEHANDS;
+pub(crate) const BS_LIE: i32 = 12;
 const BS_CLIMB: i32 = 0b1001 | BS_FLAG_INTERRUPTABLE;
 const BS_MOBINTERACT: i32 = 15;
 /// `BS_ITEMINTERACT`: the npc is using an item with `AI_UseItemToState`.

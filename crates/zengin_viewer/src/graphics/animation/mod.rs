@@ -44,6 +44,11 @@ pub struct SkeletalAnimations;
 fn update_mob_pose_offset(skeletons: Query<(&AnimationState, Option<&NpcMobUse>)>) {
     for (state, mob_use) in &skeletons {
         let offset = mob_use.map_or(Vec3::ZERO, |mob_use| mob_use.pose_offset);
+        let cancel_root = mob_use.is_some_and(|mob_use| mob_use.cancel_root_translation);
+        state
+            .frame_state
+            .cancel_root_translation
+            .store(cancel_root, std::sync::atomic::Ordering::Release);
         *state
             .frame_state
             .pose_offset
