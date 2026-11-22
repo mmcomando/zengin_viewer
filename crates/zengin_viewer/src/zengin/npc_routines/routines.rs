@@ -318,6 +318,7 @@ pub(crate) fn update_routine_executors(
             };
             let functions = script.resolve_routine_functions(start);
             script.set_state_other(None);
+            script.set_npc_waypoint(instance, entry.way_point_id);
             script.call_routine_start(instance, functions);
             commands.entity(entity).insert(RoutineExecutor {
                 functions,
@@ -356,6 +357,7 @@ pub(crate) fn update_routine_executors(
         let functions = script.resolve_routine_functions(start);
         executor.other = None;
         script.set_state_other(executor.other);
+        script.set_npc_waypoint(instance, entry.way_point_id);
         script.call_routine_start(instance, functions);
         executor.functions = functions;
         executor.source = RoutineSource::Routine;

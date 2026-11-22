@@ -47,6 +47,26 @@ impl super::ScriptManager {
         }
     }
 
+    /// Writes `C_Npc.wp` from a raw script string id.
+    pub fn set_npc_waypoint(&mut self, npc: InstanceId, waypoint_id: i32) {
+        let Some(waypoint) = self.store.data().symbol_table.string(waypoint_id) else {
+            return;
+        };
+        let is_empty = self
+            .store
+            .data()
+            .symbol_table
+            .string_content(waypoint_id)
+            .is_none_or(|content| content.is_empty());
+        if is_empty {
+            return;
+        }
+        self.store
+            .data_mut()
+            .typed
+            .set_npc_waypoint(npc.value() as u32, Some(waypoint));
+    }
+
     pub fn set_instance(&mut self, instance_index: InstanceId) {
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest

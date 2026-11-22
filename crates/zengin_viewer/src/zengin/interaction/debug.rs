@@ -192,14 +192,14 @@ pub(super) fn debug_equipment_on_start(
         };
         script.equip_item(player_id, weapon);
     }
-    if let Some(armor) = armor {
-        info!(
-            "Player({}) equipped debug armor({})",
-            player_id.value(),
-            armor.value()
-        );
-        script.equip_item(player_id, armor);
-    }
+    // if let Some(armor) = armor {
+    //     info!(
+    //         "Player({}) equipped debug armor({})",
+    //         player_id.value(),
+    //         armor.value()
+    //     );
+    //     script.equip_item(player_id, armor);
+    // }
     drop(script);
     game_log.add(format!("Debug equipment:\n{}", lines.join("\n")));
     info!("Granted debug equipment to player({})", player_id);

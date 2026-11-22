@@ -18,6 +18,9 @@ pub struct RoutineEntry {
     pub stop_m: u32,
     /// Canonical (lowercased) waypoint name the entry points at
     pub way_point: StringCanon,
+    /// Raw script string id of `way_point`, written to `C_Npc.wp` when the
+    /// routine state starts (`0` when unset).
+    pub way_point_id: i32,
     /// Symbol of the routine state function (`ZS_*`), `None` when the state
     /// has no function.
     pub state_fn: Option<FunctionId>,

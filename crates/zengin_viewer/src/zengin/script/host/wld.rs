@@ -13,6 +13,10 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
         // Every call is a separate script object, only the first one keeps the
         // symbol id.
         let object = self.allocate_npc_object(source);
+        // The engine constructor seeds `C_Npc.wp` with the spawn waypoint; the
+        // routine state start updates it to the active routine waypoint later.
+        self.typed
+            .set_npc_waypoint(object.value() as u32, Some(waypoint_string_id));
         // println!(
         //     "NEW wld_insertnpc npc_index({npc_index}), waypoint_string_id({waypoint_string_id})"
         // );

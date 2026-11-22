@@ -20,6 +20,7 @@ impl mmcomando::zengine_scripts::ta_scripts::Host for ImportCallState {
         let Some(way_point) = self.symbol_table.string(way_point) else {
             return;
         };
+        let way_point_id = way_point.value();
         let Some(way_point) = self.get_canon_string(way_point) else {
             return;
         };
@@ -30,6 +31,7 @@ impl mmcomando::zengine_scripts::ta_scripts::Host for ImportCallState {
             stop_h: stop_h.max(0) as u32,
             stop_m: stop_m.max(0) as u32,
             way_point,
+            way_point_id,
             // Id 0 means the state has no function
             state_fn: self.symbol_table.function(func_index),
         };

@@ -5,6 +5,7 @@ use std::sync::{Arc, PoisonError, RwLock};
 
 use super::access::ScriptVmAccess;
 use super::generic::GenericVariable;
+use super::ids::StringId;
 use super::info::Info;
 use super::item::Item;
 use super::menu::Menu;
@@ -1118,6 +1119,21 @@ impl TypedRegistry {
             TypedInstance::Npc(handle) => Some(read_lock(handle).clone()),
             _ => None,
         }
+    }
+
+    /// Sets `C_Npc.wp`, the waypoint the npc is currently assigned to. The
+    /// engine writes it when a routine or AI state starts and scripts read it
+    /// back through `self.wp` (for example `C_RefuseTalk`). `false` when the
+    /// instance is not an npc.
+    pub fn set_npc_waypoint(&mut self, instance: u32, waypoint: Option<StringId>) -> bool {
+        let Some(storage) = self.instance_mut(instance) else {
+            return false;
+        };
+        let TypedInstance::Npc(handle) = storage else {
+            return false;
+        };
+        write_lock(handle).waypoint = waypoint;
+        true
     }
 
     /// Snapshot of an item instance.

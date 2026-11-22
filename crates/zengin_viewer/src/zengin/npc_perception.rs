@@ -22,7 +22,7 @@ pub(crate) struct NpcPerceptionPlugin;
 
 impl Plugin for NpcPerceptionPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<NpcAutoTalkOptions>();
+        app.insert_resource(NpcAutoTalkOptions { enabled: true });
         app.add_periodic_updates::<NpcPerceptionKind>();
         app.add_systems(
             Update,
@@ -107,7 +107,7 @@ fn run_npc_perceptions(
     dialog_ui: Res<DialogUiState>,
     inventory_ui: Res<InventoryUiState>,
     journal_ui: Res<JournalUiState>,
-    npcs: Query<&GameNpc, (With<AnimationController>, Without<ChildOf>)>,
+    npcs: Query<(&GameNpc, &Name), (With<AnimationController>, Without<ChildOf>)>,
 ) {
     if updates.is_empty() {
         return;
@@ -120,7 +120,7 @@ fn run_npc_perceptions(
     let mut script = gothic_script.lock();
     for update in updates.read() {
         let start = Instant::now();
-        let Ok(npc) = npcs.get(update.entity) else {
+        let Ok((npc, name)) = npcs.get(update.entity) else {
             continue;
         };
         let instance = npc.instance_id();

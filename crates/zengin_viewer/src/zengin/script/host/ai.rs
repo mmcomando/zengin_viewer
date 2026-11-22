@@ -87,7 +87,7 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     }
     fake_impl!(ai_setnpcstostate(_0, _1, _2));
     /// Starts an AI state through the routine executor (`AI_StartState`).
-    fn ai_startstate(&mut self, npc: i32, state: i32, _finalize: i32, _waypoint: i32) {
+    fn ai_startstate(&mut self, npc: i32, state: i32, _finalize: i32, waypoint: i32) {
         let Some(npc) = self.symbol_table.instance(npc) else {
             warn!("AI_StartState with invalid npc instance({npc})");
             return;
@@ -100,6 +100,15 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             return;
         };
         let state_name = self.symbol_table.symbol_name(state).unwrap_or_default();
+        let waypoint = self.symbol_table.string(waypoint).filter(|_| {
+            self.symbol_table
+                .string_content(waypoint)
+                .is_some_and(|wp| !wp.is_empty())
+        });
+        if let Some(waypoint) = waypoint {
+            self.typed
+                .set_npc_waypoint(npc.value() as u32, Some(waypoint));
+        }
         // The state's partner is the script `other` (the engine's state
         // functions read it), the target is only a fallback.
         let other = self.other_instance().or_else(|| {
