@@ -24,8 +24,8 @@ impl Plugin for GameDebugUI {
     }
 }
 
-struct DebugTabViewer<'a, 'w> {
-    info: &'a mut InfoParams<'w>,
+struct DebugTabViewer<'a, 'w, 's> {
+    info: &'a mut InfoParams<'w, 's>,
     rows: &'a [EntityRow],
     filter: &'a mut String,
     selected: &'a mut Option<Entity>,
@@ -35,7 +35,7 @@ struct DebugTabViewer<'a, 'w> {
     game_selected_name: &'a str,
 }
 
-impl egui_dock::TabViewer for DebugTabViewer<'_, '_> {
+impl egui_dock::TabViewer for DebugTabViewer<'_, '_, '_> {
     type Tab = DebugTab;
 
     fn id(&mut self, tab: &mut Self::Tab) -> egui::Id {

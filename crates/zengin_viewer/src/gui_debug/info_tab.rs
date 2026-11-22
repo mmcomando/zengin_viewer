@@ -1,4 +1,4 @@
-use bevy::ecs::system::SystemParam;
+use bevy::ecs::system::{Local, SystemParam};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Ui};
 
@@ -13,11 +13,11 @@ use crate::gui_debug::{
     toggle_visibility::{OptionsChanged, ShowOptions},
 };
 use crate::save::{QuickLoad, QuickSave};
-use crate::zengin::{NpcAutoTalkOptions, RestartWorld, StatisticsZengin};
+use crate::zengin::{DebugNpc, NpcAutoTalkOptions, RestartWorld, StatisticsZengin};
 
 /// Resources and message writers used by the generic options tab.
 #[derive(SystemParam)]
-pub(crate) struct InfoParams<'w> {
+pub(crate) struct InfoParams<'w, 's> {
     game_time: ResMut<'w, GameTime>,
     auto_talk_options: ResMut<'w, NpcAutoTalkOptions>,
     render_options: ResMut<'w, RenderOptions>,
@@ -32,6 +32,8 @@ pub(crate) struct InfoParams<'w> {
     quick_load: MessageWriter<'w, QuickLoad>,
     teleports: MessageWriter<'w, TeleportToLocation>,
     next_app_state: ResMut<'w, NextState<AppState>>,
+    debug_npc: ResMut<'w, DebugNpc>,
+    debug_npc_text: Local<'s, String>,
 }
 
 pub(crate) fn info_tab_ui(ui: &mut Ui, info: &mut InfoParams) {
@@ -52,6 +54,7 @@ pub(crate) fn info_tab_ui(ui: &mut Ui, info: &mut InfoParams) {
             );
             options_changed |= visibility_section(ui, &mut info.show_options);
             gizmos_section(ui, &mut info.gizmos_options);
+            debug_npc_section(ui, &mut info.debug_npc, &mut info.debug_npc_text);
             teleport_section(ui, &mut info.teleports);
             world_section(
                 ui,
@@ -263,6 +266,29 @@ fn gizmos_section(ui: &mut Ui, options: &mut GizmosOptions) {
                     add_checkbox(ui, "Bones", &mut options.bones, &mut changed);
                     add_checkbox(ui, "Waypoints", &mut options.way_points, &mut changed);
                 });
+        });
+}
+
+fn debug_npc_section(ui: &mut Ui, debug_npc: &mut DebugNpc, text: &mut String) {
+    egui::CollapsingHeader::new("Debug NPC Trace")
+        .default_open(false)
+        .show(ui, |ui| {
+            // Pick up filters set elsewhere, e.g. replay commands.
+            let current = debug_npc.text();
+            if text.trim().to_lowercase() != current {
+                *text = current.to_owned();
+            }
+            ui.horizontal(|ui| {
+                let response =
+                    ui.add(egui::TextEdit::singleline(text).hint_text("npc symbol substring"));
+                if response.changed() {
+                    debug_npc.set(text);
+                }
+                if ui.button("Clear").clicked() {
+                    text.clear();
+                    debug_npc.set(text);
+                }
+            });
         });
 }
 

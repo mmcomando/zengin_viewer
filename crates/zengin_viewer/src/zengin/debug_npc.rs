@@ -46,6 +46,11 @@ impl DebugNpc {
         self.0 = (!name.is_empty()).then_some(name);
     }
 
+    /// Current filter as entered, blank when the trace is disabled.
+    pub(crate) fn text(&self) -> &str {
+        self.0.as_deref().unwrap_or_default()
+    }
+
     fn filter(&self) -> Option<&str> {
         self.0.as_deref()
     }
