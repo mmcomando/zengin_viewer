@@ -29,6 +29,7 @@ use super::data::AnimationData;
 use super::send_desired::send_desired_animations;
 
 use crate::game_state::AppState;
+use crate::input::world_input_enabled;
 
 pub struct AutoAnimSequencerPlugin;
 
@@ -56,7 +57,7 @@ impl Plugin for AutoAnimSequencerPlugin {
             Update,
             (
                 enable_player_root_motion,
-                send_desired_animations,
+                send_desired_animations.run_if(world_input_enabled),
                 apply_desired_animations,
                 apply_forced_change,
                 advance_on_animation_ends,
@@ -123,6 +124,9 @@ pub enum DesiredAnimation {
     MeleeAttack(MeleeAttackKind),
     /// Turn in place towards the camera direction.
     Turn(TurnDirection),
+    /// Death: the final lying pose, reached through the scheme's death
+    /// transition when one exists.
+    Dead,
     /// Sideways run loop that keeps the facing.
     StrafeLeft,
     /// Sideways run loop that keeps the facing.
@@ -189,6 +193,7 @@ impl DesiredAnimation {
             DesiredAnimation::Fire => &["T_BOWRELOAD"],
             DesiredAnimation::MeleeAttack(kind) => kind.candidates(),
             DesiredAnimation::Turn(direction) => direction.candidates(),
+            DesiredAnimation::Dead => &["S_DEAD", "S_DEADB"],
             DesiredAnimation::StrafeLeft => strafe_candidates("L", weapon_mode),
             DesiredAnimation::StrafeRight => strafe_candidates("R", weapon_mode),
         }
@@ -566,6 +571,7 @@ fn model_turn_speed(seq: &AutoAnimSequencer, weapon_mode: Option<&NpcWeaponMode>
             | DesiredAnimation::Walk
             | DesiredAnimation::Sneak
             | DesiredAnimation::Fire
+            | DesiredAnimation::Dead
             | DesiredAnimation::MeleeAttack(_)
             | DesiredAnimation::StrafeLeft
             | DesiredAnimation::StrafeRight,

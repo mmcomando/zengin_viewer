@@ -17,7 +17,9 @@ pub(crate) use combat::{MeleeHit, NpcDied};
 pub(crate) use debug::{grant_test_items, seed_test_journal};
 
 use crate::game_state::AppState;
+use crate::input::world_input_enabled;
 use crate::zengin::script::TransferItems;
+use crate::zengin::script::bridge::ScriptChangesApplied;
 
 pub struct PlayerInteractionPlugin;
 
@@ -30,27 +32,38 @@ impl Plugin for PlayerInteractionPlugin {
         app.add_systems(
             Update,
             (
-                combat::melee_swing_hit,
                 combat::npc_melee_swing_hit,
                 crate::graphics::npc_hit_reaction_end,
                 combat::handle_npc_death,
                 actions::handle_transfer_items,
-                actions::pickup_selected_item,
-                loot::open_selected_chest,
                 player_mob::start_auto_end_release
                     .before(player_mob::stand_up_player_from_mob)
                     .before(player_mob::advance_player_mob_release),
-                player_mob::stand_up_player_from_mob,
                 player_mob::close_looted_chest.before(player_mob::advance_player_mob_release),
                 player_mob::release_stale_player_mob_use,
                 player_mob::advance_player_mob_release,
                 player_mob::sync_player_mob_physics
                     .before(crate::gameplay::character::move_and_slide),
-                use_mob::use_selected_mob,
-                actions::toggle_player_weapons,
                 debug::debug_equipment_on_start,
             )
                 .run_if(in_state(AppState::InGame)),
+        );
+        // Player-driven interactions read gameplay input, so they stay inert
+        // while a view owns the input. Ordering them after script changes makes
+        // the gate see a dialog opened earlier in the same frame.
+        app.add_systems(
+            Update,
+            (
+                combat::melee_swing_hit,
+                actions::pickup_selected_item,
+                loot::open_selected_chest,
+                use_mob::use_selected_mob,
+                actions::toggle_player_weapons,
+                player_mob::stand_up_player_from_mob.before(player_mob::advance_player_mob_release),
+            )
+                .run_if(in_state(AppState::InGame))
+                .run_if(world_input_enabled)
+                .after(ScriptChangesApplied),
         );
     }
 }

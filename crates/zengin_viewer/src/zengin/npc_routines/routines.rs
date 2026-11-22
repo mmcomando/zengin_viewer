@@ -26,7 +26,7 @@ use crate::zengin::script::state::{
 };
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph};
-use crate::zengin::{DialogUiState, InstanceId};
+use crate::zengin::{DialogUiState, InstanceId, NpcCorpseMarker};
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.
@@ -294,6 +294,7 @@ pub(crate) fn update_routine_executors(
         (
             Or<(Changed<RoutineEntry>, Added<AnimationController>)>,
             With<AnimationController>,
+            Without<NpcCorpseMarker>,
             // Routine npcs are world root entities, this also excludes the player visual
             // entity which is a child of the player controller and also carries `GameNpc`.
             Without<ChildOf>,
@@ -303,6 +304,9 @@ pub(crate) fn update_routine_executors(
     let mut script = gothic_script.lock();
     for (entity, npc, entry, executor) in &mut npcs {
         let instance = npc.instance_id();
+        if script.npc_state(instance).is_some_and(|npc| npc.live.dead) {
+            continue;
+        }
         // A talking npc resumes its schedule when the dialog closes.
         if dialog_ui.talking_npc() == Some(instance) {
             continue;
@@ -369,7 +373,10 @@ pub(crate) fn apply_start_state_changes(
     gothic_script: Res<ScriptResource>,
     mut changes: MessageReader<StartStateChange>,
     index: Res<InstanceIndex>,
-    mut npcs: Query<(Entity, Option<&mut RoutineExecutor>), With<AnimationController>>,
+    mut npcs: Query<
+        (Entity, Option<&mut RoutineExecutor>),
+        (With<AnimationController>, Without<NpcCorpseMarker>),
+    >,
 ) {
     if changes.is_empty() {
         return;
@@ -440,6 +447,7 @@ pub(crate) fn start_npc_start_ai_states(
         (
             Added<AnimationController>,
             Without<RoutineEntry>,
+            Without<NpcCorpseMarker>,
             Without<ChildOf>,
         ),
     >,
@@ -565,7 +573,7 @@ pub(crate) fn run_routine_loops(
             Option<&NpcActionQueue>,
             Has<ExecutingActionMarker>,
         ),
-        With<AnimationController>,
+        (With<AnimationController>, Without<NpcCorpseMarker>),
     >,
 ) {
     if npcs.is_empty() {
@@ -577,6 +585,12 @@ pub(crate) fn run_routine_loops(
     let talking_npc = dialog_ui.talking_npc();
     let mut script = gothic_script.lock();
     for (entity, npc, mut executor, entry, queue, executing) in &mut npcs {
+        if script
+            .npc_state(npc.instance_id())
+            .is_some_and(|state| state.live.dead)
+        {
+            continue;
+        }
         // Routine entries stop at their stop time even when no next entry is
         // active yet; the end hook releases a used mob or path.
         if executor.source == RoutineSource::Routine
@@ -659,9 +673,16 @@ pub(crate) fn restore_routine_stand(
     mut removed: RemovedComponents<RoutineExecutor>,
     mut changed: Query<
         (Entity, &mut AutoAnimSequencer),
-        (Changed<RoutineExecutor>, With<RoutineExecutor>),
+        (
+            Changed<RoutineExecutor>,
+            With<RoutineExecutor>,
+            Without<NpcCorpseMarker>,
+        ),
     >,
-    mut removed_npcs: Query<&mut AutoAnimSequencer, Without<RoutineExecutor>>,
+    mut removed_npcs: Query<
+        &mut AutoAnimSequencer,
+        (Without<RoutineExecutor>, Without<NpcCorpseMarker>),
+    >,
 ) {
     for (entity, mut sequencer) in &mut changed {
         // A new routine state drops the previous item pose (`Npc::clearState`
@@ -787,15 +808,18 @@ pub(crate) fn move_along_path(
     graph: Res<WaypointGraph>,
     mut commands: Commands,
     mut desired: MessageWriter<SetDesiredAnimation>,
-    mut npcs: Query<(
-        Entity,
-        &mut Transform,
-        &mut NpcPath,
-        &mut AutoAnimSequencer,
-        &mut AnimationController,
-        Option<&NpcWalkMode>,
-        Option<&NpcPhysicsMarker>,
-    )>,
+    mut npcs: Query<
+        (
+            Entity,
+            &mut Transform,
+            &mut NpcPath,
+            &mut AutoAnimSequencer,
+            &mut AnimationController,
+            Option<&NpcWalkMode>,
+            Option<&NpcPhysicsMarker>,
+        ),
+        Without<NpcCorpseMarker>,
+    >,
 ) {
     for (entity, mut transform, mut path, mut sequencer, mut controller, walk_mode, physics) in
         &mut npcs

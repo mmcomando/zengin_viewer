@@ -1,0 +1,20 @@
+// Npc death runs the script ZS_DEAD state with the killer bound as `other`,
+// then keeps the npc as a corpse playing its death animation.
+[
+    IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginFilterSpawnWithPosition(points: [(center: (0,0,0), radius: 10.0)]),
+    ZenginFilterNpcWithName(filters: ["wolf"]),
+    ZenginSpawnNpc(name: "wolf", translation: (0.0, 0.0, -3.0), rotation: (0.0, 0.0, 0.0)),
+    ZenginSetDebugNpc(name: "wolf"),
+    ZenginEquipWeapon(item: "itmw_1h_mil_sword"),
+    Wait(frame_dt: 50),
+    TestClearLogBuffer,
+    Press(action: Gameplay(DealDamage)),
+    Wait(frame_dt: 600),
+    Release(action: Gameplay(DealDamage)),
+    TestLogExists(regex: "ran the ZS_DEAD state for killer"),
+    TestLogExists(regex: "died, moved its inventory to player"),
+    TestLogExists(regex: "DebugNPC: animation .*current=WOLF-(T_DEAD|S_DEAD)"),
+    TestScreenshot(path: "00_dead.png"),
+    ExitGame,
+]

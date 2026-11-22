@@ -9,7 +9,7 @@ use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character_camera::{
     camera_movement_system, camera_toggle_input, use_character_camera,
 };
-use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::input::{GameplayAction, GameplayInputMarker, world_input_enabled};
 use crate::zengin::{NPC_BODY, NpcMobUse};
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
@@ -36,7 +36,9 @@ impl Plugin for CharacterControllerPlugin {
                 update_npc_physics_active,
                 update_grounded,
                 apply_gravity,
-                movement.run_if(use_character_camera),
+                movement
+                    .run_if(use_character_camera)
+                    .run_if(world_input_enabled),
                 apply_movement_damping,
                 move_and_slide,
                 apply_forces_to_dynamic_bodies,

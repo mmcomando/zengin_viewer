@@ -12,13 +12,17 @@ use crate::gui::GameLog;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::loaders::vdf_reader::ZenginVfs;
 use crate::zengin::loaders::vfs::item_model_path;
-use crate::zengin::npc_routines::{AnimationFiles, NpcEquippedWeapon, NpcOverlay, NpcWeaponMode};
+use crate::zengin::npc_actions::{ExecutingActionMarker, NpcActionQueue};
+use crate::zengin::npc_routines::NpcPath;
+use crate::zengin::npc_routines::{
+    AnimationFiles, NpcEquippedWeapon, NpcLookAt, NpcOverlay, NpcWeaponMode,
+};
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{AttackChange, StartStateChange, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{GameItem, GameNpc};
+use crate::zengin::{GameItem, GameNpc, NpcCorpseMarker};
 
 /// Query data of the npc state needed to apply hits and deaths.
 /// Shared with the ranged hit system in [`super::ranged`].
@@ -38,6 +42,8 @@ pub(super) type NpcHitQueryData = (
 pub struct NpcDied {
     pub entity: Entity,
     pub instance_id: InstanceId,
+    /// Instance that dealt the killing hit.
+    pub killer: InstanceId,
     /// Position where the dropped weapon is placed.
     pub position: Vec3,
 }
@@ -264,6 +270,9 @@ pub(crate) fn deal_damage(
     let target_id = target_data.npc.instance_id();
     let (hitpoints, shooter_is_player) = {
         let mut script = gothic_script.lock();
+        if !target_data.is_player && script.npc_state(target_id).is_some_and(|npc| npc.live.dead) {
+            return;
+        }
         let shooter_is_player = script.player_instance() == Some(shooter_id);
         let Some(hitpoints) = script.change_hitpoints(target_id, -damage) else {
             warn!(
@@ -338,6 +347,7 @@ pub(crate) fn deal_damage(
         npc_died.write(NpcDied {
             entity: target,
             instance_id: target_id,
+            killer: shooter_id,
             position: target_data.global_tr.translation(),
         });
     }
@@ -421,30 +431,43 @@ pub(super) fn handle_npc_death(
     asset_server: Res<AssetServer>,
     mut instance_index: ResMut<InstanceIndex>,
     mut commands: Commands,
-    npcs: Query<
+    mut npcs: Query<
         (
             Option<&GameNpc>,
             Option<&NpcEquippedWeapon>,
             Option<&NpcWeaponMode>,
+            Option<&mut NpcActionQueue>,
         ),
         Without<PlayerCharacter>,
     >,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
     for death in deaths.read() {
-        let Ok((npc, equipped, weapon_mode)) = npcs.get(death.entity) else {
+        let Ok((npc, equipped, weapon_mode, queue)) = npcs.get_mut(death.entity) else {
             continue;
         };
         let npc_id = npc.map_or(death.instance_id, |npc| npc.instance_id());
-        // Script liveness checks (`Npc_IsDead`, `c_npcisdown`) read these.
+        // Several hits can land on the same frame; only the first death
+        // handling may run the state and move the inventory.
+        if gothic_scripts
+            .lock()
+            .npc_state(npc_id)
+            .is_some_and(|state| state.live.dead)
+        {
+            continue;
+        }
+        // Run the script death state while the npc still has a position, then
+        // clear it: script liveness checks read both flags.
         {
             let mut script = gothic_scripts.lock();
+            script.call_death_state(npc_id, death.killer);
             let mut state = script.npc_state_mut(npc_id);
-            state.live.dead = true;
             state.live.position = None;
-            // The executor goes away with the despawned entity, drop the
-            // script-side active state with it.
-            state.routine.previous_state = state.routine.current_state.take();
+            // The corpse keeps its armor visual, but no weapon stays in its
+            // hand: the drawn one was dropped and the rest moved to the player.
+            state.equipment.melee = None;
+            state.equipment.ranged = None;
+            state.equipment.weapon_mode = None;
         }
         let position = death.position;
         // Only the drawn weapon drops on the ground; sheathed weapons stay
@@ -484,7 +507,23 @@ pub(super) fn handle_npc_death(
         }
 
         info!("Npc({npc_id}) died, moved its inventory to player({player_id})");
-        commands.entity(death.entity).despawn();
+        // The corpse stays in the world and keeps a death animation, but its
+        // AI must not resume. `ExecutingActionMarker` removal also drops the
+        // action components through the observer.
+        if let Some(mut queue) = queue {
+            queue.clear();
+        }
+        commands
+            .entity(death.entity)
+            .insert(NpcCorpseMarker)
+            .remove::<(
+                NpcPath,
+                ExecutingActionMarker,
+                NpcHitReaction,
+                NpcEquippedWeapon,
+                NpcWeaponMode,
+                NpcLookAt,
+            )>();
         if selection.target == Some(death.entity) {
             selection.target = None;
             selection.kind = None;

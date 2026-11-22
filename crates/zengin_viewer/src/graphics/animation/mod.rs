@@ -4,6 +4,7 @@ mod animation_triggers;
 mod auto_anim_sequencer;
 mod components;
 mod controller;
+mod corpse;
 mod data;
 mod hit_reaction;
 mod locomotion;
@@ -34,6 +35,7 @@ pub(crate) use components::{
     NpcAnimations,
 };
 pub(crate) use controller::AnimationController;
+pub(crate) use corpse::apply_corpse_animation;
 pub(crate) use data::{AnimationData, AnimationSample};
 pub(crate) use hit_reaction::{NpcHitReaction, npc_hit_reaction_end, play_hit_reaction};
 
@@ -77,5 +79,13 @@ impl Plugin for SkeletalAnimations {
                 .run_if(in_state(AppState::InGame)),
         );
         app.add_systems(Update, play_animation_sounds.after(update_animations));
+        // Runs after the sequencer systems so the corpse death animation is
+        // queued last and is not replaced by a stale desired animation.
+        app.add_systems(
+            Update,
+            apply_corpse_animation
+                .after(AutoAnimSequencerSet)
+                .run_if(in_state(AppState::InGame)),
+        );
     }
 }

@@ -12,7 +12,6 @@ use leafwing_input_manager::prelude::ActionState;
 
 use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
-use crate::gui::InventoryUiState;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::npc_actions::{UseMobAction, mob_scheme_has_player_pose};
 use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay, NpcWeaponMode};
@@ -21,7 +20,7 @@ use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{DialogUiState, GameMob, GameNpc, MobBase, MobPose, NpcMobUse, VobTrigger};
+use crate::zengin::{GameMob, GameNpc, MobBase, MobPose, NpcMobUse, VobTrigger};
 
 /// Runs the mob's script-side use conditions and logs the reason when the
 /// player is not allowed to interact.
@@ -82,17 +81,12 @@ pub(super) fn use_selected_mob(
         With<PlayerCharacter>,
     >,
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
-    dialog_ui: Res<DialogUiState>,
-    inventory_ui: Res<InventoryUiState>,
     mut mobs: Query<(&mut GameMob, &mut MobPose, &MobBase)>,
     animation_files: Option<Res<AnimationFiles>>,
     gothic_script: Res<ScriptResource>,
     mut vob_trigger: MessageWriter<VobTrigger>,
 ) {
     if !action_state.just_pressed(&GameplayAction::Interact) {
-        return;
-    }
-    if dialog_ui.is_open() || inventory_ui.is_open() {
         return;
     }
     let weapon_mode = player_weapon

@@ -6,13 +6,13 @@ use leafwing_input_manager::prelude::ActionState;
 
 use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::PlayerCharacter;
-use crate::gui::{GameLog, InventoryUiState, OpenLoot};
+use crate::gui::{GameLog, OpenLoot};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::npc_actions::UseMobAction;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::{DialogUiState, GameChest, GameNpc, MobBase, MobPose};
+use crate::zengin::{GameChest, GameNpc, MobBase, MobPose};
 
 pub(super) fn open_selected_chest(
     mut commands: Commands,
@@ -20,16 +20,11 @@ pub(super) fn open_selected_chest(
     selection: Res<Selection>,
     player_npc: Query<(Entity, &GameNpc), With<PlayerCharacter>>,
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
-    dialog_ui: Res<DialogUiState>,
-    inventory_ui: Res<InventoryUiState>,
     chests: Query<(&GameChest, &MobBase, &MobPose)>,
     mut game_log: ResMut<GameLog>,
     mut requests: MessageWriter<OpenLoot>,
 ) {
     if !action_state.just_pressed(&GameplayAction::Interact) {
-        return;
-    }
-    if dialog_ui.is_open() || inventory_ui.is_open() {
         return;
     }
     let weapon_mode = player_weapon

@@ -11,7 +11,7 @@ use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::resources::{ARROW, NPC_BODY, SELECTABLE};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
-use crate::zengin::{GameChest, GameItem, GameMob, GameNpc, MobBase};
+use crate::zengin::{GameChest, GameItem, GameMob, GameNpc, MobBase, NpcCorpseMarker};
 
 /// Distance (meters) within which a world object can be selected.
 const SELECTION_RANGE: f32 = 5.0;
@@ -193,16 +193,19 @@ fn update_selection(
     camera: Query<&GlobalTransform, With<Camera3d>>,
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     hit_colliders: Query<&HitColliderOwner>,
-    candidates: Query<(
-        Entity,
-        Option<&GameNpc>,
-        Option<&GameItem>,
-        Option<&GameChest>,
-        Option<&GameMob>,
-        Option<&MobBase>,
-        Has<PlayerCharacter>,
-        &GlobalTransform,
-    )>,
+    candidates: Query<
+        (
+            Entity,
+            Option<&GameNpc>,
+            Option<&GameItem>,
+            Option<&GameChest>,
+            Option<&GameMob>,
+            Option<&MobBase>,
+            Has<PlayerCharacter>,
+            &GlobalTransform,
+        ),
+        Without<NpcCorpseMarker>,
+    >,
 ) {
     let Ok((player_entity, player_tr)) = player.single() else {
         return;

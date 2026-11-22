@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::graphics::AnimationController;
+use crate::zengin::NpcCorpseMarker;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::queue::{NpcActionQueue, QueuedAction};
 
@@ -12,7 +13,11 @@ pub(crate) fn flush_npc_action_queue(
     mut commands: Commands,
     mut npcs: Query<
         (Entity, &mut NpcActionQueue),
-        (With<AnimationController>, Without<ExecutingActionMarker>),
+        (
+            With<AnimationController>,
+            Without<ExecutingActionMarker>,
+            Without<NpcCorpseMarker>,
+        ),
     >,
 ) {
     for (entity, mut queue) in &mut npcs {

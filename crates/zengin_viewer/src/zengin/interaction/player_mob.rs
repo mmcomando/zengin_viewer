@@ -15,7 +15,7 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, animation_name_from_path,
 };
-use crate::gui::{InventoryUiState, LootClosed};
+use crate::gui::LootClosed;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::npc_actions::{
     ExecutingActionMarker, MobUsePose, UseMobAction, mob_animation_name, release_mob_use,
@@ -270,7 +270,6 @@ pub(super) fn stand_up_player_from_mob(
     files: Option<Res<AnimationFiles>>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
-    inventory_ui: Res<InventoryUiState>,
     pending: Query<Entity, (With<PlayerCharacter>, With<UseMobAction>)>,
     mut mobs: Query<(Option<&GameMob>, &mut MobPose)>,
     gothic_script: Res<ScriptResource>,
@@ -288,11 +287,6 @@ pub(super) fn stand_up_player_from_mob(
         With<PlayerCharacter>,
     >,
 ) {
-    // The loot UI owns the input while it is open; its close path releases the
-    // chest instead.
-    if inventory_ui.is_open() {
-        return;
-    }
     let moving = action_state
         .axis_pair(&GameplayAction::Move)
         .length_squared()

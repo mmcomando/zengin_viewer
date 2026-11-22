@@ -16,6 +16,7 @@ pub(crate) use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
 mod item_data;
 mod item_visual;
 mod npc_actions;
+mod npc_corpse;
 mod npc_data;
 mod npc_perception;
 mod npc_routines;
@@ -62,6 +63,7 @@ pub(crate) use crate::zengin::loaders::vfs::{resolve_sound_asset, resolve_textur
 pub(crate) use crate::zengin::mobs::{MobOccupant, MobRegistry, NpcMobUse};
 pub(crate) use crate::zengin::movers::{GameMover, VobTrigger};
 pub(crate) use crate::zengin::npc_actions::NpcActionQueue;
+pub(crate) use crate::zengin::npc_corpse::NpcCorpseMarker;
 pub(crate) use crate::zengin::npc_data::NpcHandle;
 pub(crate) use crate::zengin::npc_perception::NpcAutoTalkOptions;
 pub(crate) use crate::zengin::npc_routines::NpcEquippedWeapon;
