@@ -2,6 +2,11 @@ use super::*;
 
 impl mmcomando::zengine_scripts::hlp_scripts::Host for ImportCallState {
     /// Returns whether the two string symbols hold equal text.
+    ///
+    /// The comparison is case insensitive: the viewer keeps canonical
+    /// lowercase waypoint keys while script literals keep their original case,
+    /// so `Hlp_StrCmp(Npc_GetNearestWP(self), self.wp)` would otherwise never
+    /// match (the retail `Gothic::hlp_strcmp` is an exact comparison).
     fn hlp_strcmp(&mut self, aa: i32, bb: i32) -> i32 {
         let Some(aa) = self.symbol_table.string(aa) else {
             return 0;
@@ -15,7 +20,7 @@ impl mmcomando::zengine_scripts::hlp_scripts::Host for ImportCallState {
             // Both empty compares equal, like the previous `Option<String>`
             // equality did
             (None, None) => 1,
-            (Some(aa), Some(bb)) => i32::from(aa.string() == bb.string()),
+            (Some(aa), Some(bb)) => i32::from(aa.string().eq_ignore_ascii_case(bb.string())),
             _ => 0,
         }
     }
