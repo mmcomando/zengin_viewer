@@ -20,6 +20,7 @@ use super::world::{
     equip_player_weapon, rotation_from_degrees, set_camera_location, teleport_player,
     toggle_player_armor,
 };
+use crate::perf_debug;
 
 /// Applies buffered replay location commands after the camera toggle, so a
 /// camera switch sync point overrides the toggle's placement at the drifted
@@ -29,6 +30,7 @@ pub(super) fn apply_replay_locations(
     mut player: Query<&mut Transform, (With<PlayerCharacter>, Without<Camera3d>)>,
     mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerCharacter>)>,
 ) {
+    let _perf = perf_debug!();
     for (translation, rotation) in pending.player.drain(..) {
         teleport_player(&mut player, translation, rotation);
     }

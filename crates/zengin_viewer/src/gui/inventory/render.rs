@@ -9,6 +9,7 @@ use super::spawn::{
 };
 use super::state::{InventoryEntry, InventoryUiState};
 use super::style::InventoryStyle;
+use crate::perf_debug;
 
 #[allow(clippy::type_complexity, clippy::cognitive_complexity)]
 pub(super) fn sync_inventory_ui(
@@ -64,6 +65,7 @@ pub(super) fn sync_inventory_ui(
         ),
     >,
 ) {
+    let _perf = perf_debug!();
     for (_, mut visibility) in containers.iter_mut() {
         set_visibility(&mut visibility, state.open);
     }

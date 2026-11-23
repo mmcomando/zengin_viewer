@@ -19,6 +19,7 @@ use crate::zengin::script::symbol_id::InstanceId;
 use avian3d::prelude::*;
 
 use crate::game_state::AppState;
+use crate::perf_debug;
 
 pub struct RangedCombatPlugin;
 
@@ -82,6 +83,7 @@ fn spawn_arrows(
     named_models: Res<NamedModels>,
     time: Res<Time>,
 ) {
+    let _perf = perf_debug!();
     for shot in shots.read() {
         let Ok(shooter_tr) = transforms.get(shot.shooter) else {
             warn!(
@@ -233,6 +235,7 @@ fn arrow_hits(
     mut npc_died: MessageWriter<NpcDied>,
     mut commands: Commands,
 ) {
+    let _perf = perf_debug!();
     for contact in contacts.read() {
         let (arrow_entity, hit_entity) = if arrows.contains(contact.collider1) {
             (contact.collider1, contact.collider2)
@@ -286,6 +289,7 @@ fn arrow_hits(
 
 /// Despawns arrows that hit nothing after [`ARROW_LIFETIME`] seconds.
 fn arrow_cleanup(time: Res<Time>, arrows: Query<(Entity, &Arrow)>, mut commands: Commands) {
+    let _perf = perf_debug!();
     let now = time.elapsed_secs();
     for (entity, arrow) in &arrows {
         if now - arrow.spawned_at > ARROW_LIFETIME {

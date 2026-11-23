@@ -9,6 +9,7 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::AnimationController;
 use crate::graphics::{NpcHitReaction, play_hit_reaction};
 use crate::gui::GameLog;
+use crate::perf_debug;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::loaders::vdf_reader::ZenginVfs;
 use crate::zengin::loaders::vfs::item_model_path;
@@ -83,6 +84,7 @@ pub(super) fn melee_swing_hit(
     mut game_log: ResMut<GameLog>,
     mut npc_died: MessageWriter<NpcDied>,
 ) {
+    let _perf = perf_debug!();
     let weapon_mode = player_weapon
         .single()
         .map_or(WeaponMode::Fists, |mode| mode.0);
@@ -164,6 +166,7 @@ pub(super) fn npc_melee_swing_hit(
     mut game_log: ResMut<GameLog>,
     mut npc_died: MessageWriter<NpcDied>,
 ) {
+    let _perf = perf_debug!();
     for hit in hits.read() {
         let Ok((npc, npc_tr)) = shooters.get(hit.shooter) else {
             // Player swings are handled by `melee_swing_hit`.
@@ -423,6 +426,7 @@ pub(super) fn handle_npc_death(
     >,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
+    let _perf = perf_debug!();
     for death in deaths.read() {
         let Ok((npc, equipped, weapon_mode, queue)) = npcs.get_mut(death.entity) else {
             continue;

@@ -6,6 +6,7 @@ use bevy::asset::LoadState;
 use bevy::prelude::*;
 
 use crate::game_state::{AppState, LoadingScreenReady};
+use crate::perf_debug;
 use crate::ui_kit::{set_visibility, spawn_gui_root};
 use crate::zengin::{LoadingWorld, ZenginVfs, get_full_texture_path, get_zengin_asset_bytes};
 
@@ -91,6 +92,7 @@ fn open_loading_screen(
     mut banners: Query<&mut ImageNode, With<LoadingBannerMarker>>,
     mut fills: Query<&mut Node, With<LoadingBarFillMarker>>,
 ) {
+    let _perf = perf_debug!();
     progress.0 = 0.0;
     gate.assets_shown = false;
     gate.waited = 0.0;
@@ -119,6 +121,7 @@ fn advance_loading_screen_gate(
     frames: Query<&ImageNode, With<LoadingBarFrameMarker>>,
     fills: Query<&ImageNode, With<LoadingBarFillMarker>>,
 ) {
+    let _perf = perf_debug!();
     if ready.0 {
         return;
     }
@@ -155,6 +158,7 @@ fn advance_loading_progress(
     mut progress: ResMut<LoadingProgress>,
     mut fills: Query<&mut Node, With<LoadingBarFillMarker>>,
 ) {
+    let _perf = perf_debug!();
     progress.0 = (progress.0 + time.delta_secs() * PROGRESS_RATE).min(PROGRESS_LIMIT);
     let width = Val::Percent(FILL_MAX_WIDTH * progress.0);
     for mut fill in &mut fills {
@@ -168,6 +172,7 @@ fn close_loading_screen(
     mut roots: Query<&mut Visibility, With<LoadingScreenRootMarker>>,
     mut ready: ResMut<LoadingScreenReady>,
 ) {
+    let _perf = perf_debug!();
     ready.0 = true;
     for mut visibility in &mut roots {
         set_visibility(&mut visibility, false);

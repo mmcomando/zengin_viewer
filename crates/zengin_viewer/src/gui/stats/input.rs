@@ -9,6 +9,7 @@ use crate::zengin::{DialogUiState, GameNpc, ScriptResource};
 
 use super::data::StatsSnapshot;
 use super::state::StatsUiState;
+use crate::perf_debug;
 
 /// The dialog, inventory and journal take precedence over the stats screen.
 pub(super) fn toggle_stats(
@@ -20,6 +21,7 @@ pub(super) fn toggle_stats(
     gothic_script: Res<ScriptResource>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
+    let _perf = perf_debug!();
     if !action_state.just_pressed(&SharedAction::Stats) {
         return;
     }
@@ -48,6 +50,7 @@ pub(super) fn close_stats_on_cancel(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     mut state: ResMut<StatsUiState>,
 ) {
+    let _perf = perf_debug!();
     if state.is_open() && action_state.just_pressed(&GuiAction::CancelAction) {
         state.close();
     }

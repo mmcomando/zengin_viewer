@@ -54,8 +54,14 @@ trace-chrome:
 
 # Profile a headless run to target/flamegraph.svg (skips 4s startup; needs perf+cargo-flamegraph).
 flamegraph frames="4000":
-    perf record -F 299 --call-graph fp -D 4000 -o target/perf.data -- cargo run -- --renderless --scenario walk_through_city --frames {{frames}}
+    perf record -F 299 --call-graph fp -D 4000 -o target/perf.data -- cargo run -- --fixed-time --scenario walk_through_city --frames {{frames}}
     flamegraph --perfdata target/perf.data -o target/flamegraph.svg
+
+# Run with per-frame `debug_perf` logging, then print the heaviest systems.
+perf-debug scenario="walk_through_city" frames="800":
+    mkdir -p misc/workdir_tmp
+    cargo run --release --features debug_perf -- --renderless --fixed-time --no-debug-gui --scenario {{scenario}} --frames {{frames}} > misc/workdir_tmp/perf_debug.log 2>&1
+    python3 misc/scripts/analyze_perf_debug.py misc/workdir_tmp/perf_debug.log --init-frames 200
 
 export-symbol-names:
     cargo test -p ZenGinViewer -- --ignored --nocapture debug_zengin_scripts > misc/script_game_symbols.log

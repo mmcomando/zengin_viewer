@@ -17,6 +17,7 @@ use super::spawn::{
 };
 use super::state::{JournalCategory, JournalFocus, JournalUiState};
 use super::style::JournalStyle;
+use crate::perf_debug;
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(super) fn sync_journal_ui(
@@ -42,6 +43,7 @@ pub(super) fn sync_journal_ui(
         >,
     >,
 ) {
+    let _perf = perf_debug!();
     let (root_entity, mut root_visibility) = root.into_inner();
     let open = state.open;
     set_visibility(&mut root_visibility, open);

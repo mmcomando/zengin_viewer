@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::perf_debug;
 use crate::{
     world_entity::WorldEntityMarker,
     zengin::{GameChest, GameItem, GameMob, GameNpc},
@@ -18,6 +19,7 @@ impl Plugin for ToggleVisibility {
 }
 
 fn insert_resources(mut commands: Commands) {
+    let _perf = perf_debug!();
     commands.insert_resource(ShowOptions::default());
 }
 
@@ -72,6 +74,7 @@ fn on_show_options_changed(
     options: ResMut<ShowOptions>,
     mut query: Query<VisibilityQueryData<'_>>,
 ) {
+    let _perf = perf_debug!();
     if messages.is_empty() {
         return;
     }

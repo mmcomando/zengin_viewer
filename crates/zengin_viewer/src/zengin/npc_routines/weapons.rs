@@ -5,6 +5,7 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{AnimationController, AnimationTriggers};
+use crate::perf_debug;
 use crate::zengin::ZenginVfs;
 use crate::zengin::common::{choose_animation_scheme, get_animation_path};
 use crate::zengin::loaders::vfs::item_model_path;
@@ -43,6 +44,7 @@ pub(crate) fn apply_weapon_mode(
         ),
     >,
 ) {
+    let _perf = perf_debug!();
     for (model, overlay, weapon_mode, mut controller) in &mut npcs {
         let Some(scheme) = model.animation_scheme.as_deref() else {
             continue;
@@ -179,6 +181,7 @@ pub(crate) fn update_npc_attachments(
     mut removed_mode: RemovedComponents<NpcWeaponMode>,
     mut npcs: Query<NpcAttachmentQueryData>,
 ) {
+    let _perf = perf_debug!();
     let removed = removed_equipped.read().chain(removed_mode.read());
     for entity in candidates.iter().chain(removed) {
         let Ok((slots, equipped, mode, attachments)) = npcs.get_mut(entity) else {
@@ -300,6 +303,7 @@ pub(crate) fn update_npc_mob_use_items(
         Option<&mut NpcMobUseItems>,
     )>,
 ) {
+    let _perf = perf_debug!();
     let removed = removed.read();
     for entity in candidates.iter().chain(removed) {
         let Ok((slots, mob_use, tracked)) = npcs.get_mut(entity) else {

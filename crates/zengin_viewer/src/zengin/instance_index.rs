@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
+use crate::perf_debug;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc, ItemHandle, NpcHandle};
 
@@ -161,6 +162,7 @@ fn track_npcs(
     npcs: Query<(Entity, &GameNpc), Changed<GameNpc>>,
     mut removed: RemovedComponents<GameNpc>,
 ) {
+    let _perf = perf_debug!();
     for (entity, npc) in &npcs {
         // Drop any previous mapping first, the instance id may have changed
         index.npcs.remove(entity);
@@ -178,6 +180,7 @@ fn track_items(
     items: Query<(Entity, &GameItem), Changed<GameItem>>,
     mut removed: RemovedComponents<GameItem>,
 ) {
+    let _perf = perf_debug!();
     for (entity, item) in &items {
         // Drop any previous mapping first, the instance id may have changed
         index.items.remove(entity);

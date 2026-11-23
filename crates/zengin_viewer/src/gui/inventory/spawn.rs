@@ -5,6 +5,7 @@ use crate::zengin::get_full_texture_path;
 
 use super::state::{PLAYER_WINDOW, TRADER_WINDOW};
 use super::style::InventoryStyle;
+use crate::perf_debug;
 
 #[derive(Component)]
 pub(super) enum InventoryContainer {
@@ -58,6 +59,7 @@ pub(super) struct InventoryTextures {
 }
 
 pub(super) fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let _perf = perf_debug!();
     let textures = InventoryTextures {
         slot: asset_server.load(get_full_texture_path("INV_SLOT")),
         focus: asset_server.load(get_full_texture_path("INV_SLOT_FOCUS")),

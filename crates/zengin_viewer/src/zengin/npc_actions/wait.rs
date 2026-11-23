@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::perf_debug;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 
 /// Idles the npc for a fixed time (`AI_WaitMS`), blocking later queued actions.
@@ -15,6 +16,7 @@ pub(crate) fn run_wait_action(
     mut commands: Commands,
     mut npcs: Query<(Entity, &mut WaitAction)>,
 ) {
+    let _perf = perf_debug!();
     let delta = time.delta_secs();
     for (entity, mut action) in &mut npcs {
         action.remaining -= delta;

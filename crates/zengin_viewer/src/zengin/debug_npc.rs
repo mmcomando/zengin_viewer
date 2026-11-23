@@ -5,6 +5,7 @@ use bevy::asset::AssetPath;
 use bevy::prelude::*;
 
 use crate::graphics::AnimationController;
+use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::npc_actions::{
     AttackAction, GoToNpcAction, GoToWaypointAction, NpcActionQueue, StandUpAction,
@@ -85,6 +86,7 @@ fn mark_debug_npc(
     npcs: Query<(Entity, &GameNpc, Has<DebugNpcTrace>)>,
     spawned: Query<Entity, Added<GameNpc>>,
 ) {
+    let _perf = perf_debug!();
     let Some(filter) = debug_npc.filter() else {
         return;
     };
@@ -127,6 +129,7 @@ fn mark_debug_npc(
 }
 
 fn log_animation_changes(mut npcs: Query<(Entity, &AnimationController, &mut DebugNpcTrace)>) {
+    let _perf = perf_debug!();
     for (entity, controller, mut trace) in &mut npcs {
         let current = animation_label(controller.current().path());
         let next = controller
@@ -155,6 +158,7 @@ fn log_action_changes(
         Option<&NpcActionQueue>,
     )>,
 ) {
+    let _perf = perf_debug!();
     for (mut trace, attack, go_to, go_to_npc, use_mob, use_item, stand_up, queue) in &mut npcs {
         let mut actions: Vec<String> = Vec::new();
         if let Some(action) = attack {
@@ -213,6 +217,7 @@ fn log_periodic_state(
         Option<&NpcWeaponMode>,
     )>,
 ) {
+    let _perf = perf_debug!();
     let Some(scripts) = scripts else {
         return;
     };

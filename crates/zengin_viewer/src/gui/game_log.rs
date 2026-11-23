@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 
 use crate::gui::{JournalUiState, StatsUiState};
+use crate::perf_debug;
 use crate::ui_kit::set_visibility;
 
 pub struct GameLogPlugin;
@@ -63,6 +64,7 @@ pub struct GameLogEntry {
 }
 
 fn handle_game_log_messages(mut messages: MessageReader<GameLogEntry>, mut log: ResMut<GameLog>) {
+    let _perf = perf_debug!();
     for message in messages.read() {
         log.add(message.text.as_str());
     }
@@ -73,6 +75,7 @@ fn handle_game_log_messages(mut messages: MessageReader<GameLogEntry>, mut log: 
 struct GameLogTextMarker;
 
 fn spawn_game_log(mut commands: Commands) {
+    let _perf = perf_debug!();
     commands.spawn((
         GameLogTextMarker,
         Node {
@@ -101,6 +104,7 @@ fn update_game_log(
     mut log: ResMut<GameLog>,
     mut text: Query<&mut Text, With<GameLogTextMarker>>,
 ) {
+    let _perf = perf_debug!();
     let delta = time.delta_secs();
     for entry in &mut log.entries {
         entry.time_left -= delta;
@@ -128,6 +132,7 @@ fn update_game_log_visibility(
     stats: Res<StatsUiState>,
     mut texts: Query<&mut Visibility, With<GameLogTextMarker>>,
 ) {
+    let _perf = perf_debug!();
     let visible = !journal.is_open() && !stats.is_open();
     for mut visibility in &mut texts {
         set_visibility(&mut visibility, visible);

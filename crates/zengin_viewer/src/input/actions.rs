@@ -10,6 +10,7 @@ use crate::gui::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiSt
 use crate::input::horizontal_axis::HorizontalAxis;
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
+use crate::perf_debug;
 use crate::zengin::{DialogRequest, DialogUiState};
 
 /// Adds [`leafwing_input_manager`] with one input map per action group and
@@ -229,6 +230,7 @@ fn handle_back(
     mut exit: MessageWriter<AppExit>,
     mut commands: Commands,
 ) {
+    let _perf = perf_debug!();
     if *state.get() == AppState::MainMenu {
         return;
     }
@@ -306,6 +308,7 @@ fn skip_dialog_line(
 }
 
 fn spawn_input_maps(mut commands: Commands) {
+    let _perf = perf_debug!();
     let gameplay_map = load_input_profile::<GameplayAction>("input_bindings_gameplay.ron")
         .unwrap_or_else(|error| {
             warn!("Falling back to default gameplay input map: {error}");
@@ -344,6 +347,7 @@ pub(crate) fn update_input_mode(
     mut shared: Single<&mut ActionState<SharedAction>, With<SharedInputMarker>>,
     mut editor: Single<&mut ActionState<EditorAction>, With<EditorInputMarker>>,
 ) {
+    let _perf = perf_debug!();
     match *input_mode {
         InputMode::Gameplay => {
             gui.disable_all_actions();

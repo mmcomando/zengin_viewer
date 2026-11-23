@@ -1,3 +1,4 @@
+use crate::perf_debug;
 /// Based on example <https://bevy.org/examples/3d-rendering/skybox>
 use bevy::camera_controller::free_camera::FreeCamera;
 use bevy::core_pipeline::Skybox;
@@ -25,6 +26,7 @@ struct Cubemap {
 }
 // Step 1 Insert Resource and load a skybox texture
 fn spawn_skybox(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let _perf = perf_debug!();
     let skybox_handle = asset_server.load("cubemap.png");
 
     commands.insert_resource(Cubemap {
@@ -38,6 +40,7 @@ fn update_skybox_texture(
     mut images: ResMut<Assets<Image>>,
     mut cubemap: ResMut<Cubemap>,
 ) {
+    let _perf = perf_debug!();
     if cubemap.is_loaded {
         return;
     }
@@ -67,6 +70,7 @@ fn add_skybox_to_camera(
     cubemap: Res<Cubemap>,
     query: Query<Entity, (With<FreeCamera>, Without<Skybox>)>,
 ) {
+    let _perf = perf_debug!();
     for entity_id in query.iter() {
         commands.entity(entity_id).insert(Skybox {
             // image: skybox_handle.clone(),

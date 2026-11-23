@@ -9,6 +9,7 @@ use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::OpenTrade;
 use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::instance_index::InstanceIndex;
@@ -37,6 +38,7 @@ pub(super) fn show_closest_npc_dialog(
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
 ) {
+    let _perf = perf_debug!();
     if !dialog_ui.is_open() && camera_info.current() == CurrentCamera::Dialog {
         camera_info.set_third_person_camera();
         return;
@@ -94,6 +96,7 @@ pub(super) fn show_requested_npc_dialog(
     gothic_script: Res<ScriptResource>,
     mut requests: MessageWriter<DialogRequest>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         if dialog_ui.is_open() {
             continue;
@@ -130,6 +133,7 @@ pub(super) fn handle_dialog_outputs(
     speech_sounds: Res<SpeechSounds>,
     gothic_script: Res<ScriptResource>,
 ) {
+    let _perf = perf_debug!();
     // Messages are always read, stale outputs produced outside an executed
     // option are dropped instead of leaking into the next capture
     let new_lines: Vec<DialogLine> = lines.read().cloned().collect();
@@ -220,6 +224,7 @@ pub(super) fn handle_dialog_requests(
     mut npcs: Query<(&mut Transform, &GlobalTransform), Without<PlayerCharacter>>,
     mut player: Query<(Entity, &mut Transform, &GlobalTransform), With<PlayerCharacter>>,
 ) {
+    let _perf = perf_debug!();
     for request in requests.read() {
         match request {
             DialogRequest::Talk {

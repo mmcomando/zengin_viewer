@@ -5,6 +5,7 @@ use bevy::prelude::*;
 
 use crate::audio::SoundDefinitions;
 use crate::gameplay::objects::PlayerCharacter;
+use crate::perf_debug;
 use crate::zengin::InstanceId;
 use crate::zengin::ScriptSound;
 use crate::zengin::SpeechSounds;
@@ -97,6 +98,7 @@ pub(crate) fn handle_play_sound_messages(
     asset_server: Res<AssetServer>,
     mut commands: Commands,
 ) {
+    let _perf = perf_debug!();
     for message in messages.read() {
         let audio_handle = asset_server.load(&message.asset_path);
         match message.position {
@@ -121,6 +123,7 @@ pub(crate) fn handle_svm_lines(
     mut sound_manager: ResMut<SoundManager>,
     mut commands: Commands,
 ) {
+    let _perf = perf_debug!();
     let listener = players
         .iter()
         .next()
@@ -208,6 +211,7 @@ pub(crate) fn handle_script_sounds(
     asset_server: Res<AssetServer>,
     mut commands: Commands,
 ) {
+    let _perf = perf_debug!();
     for sound in sounds.read() {
         let Some(file) = definitions.file(&sound.name) else {
             warn!("Missing sound definition({})", sound.name);

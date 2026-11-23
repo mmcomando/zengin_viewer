@@ -7,6 +7,7 @@ use crate::gui::GameLog;
 use crate::gui::JournalUiState;
 use crate::gui::StatsUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
+use crate::perf_debug;
 use crate::zengin::DialogUiState;
 use crate::zengin::{GameChest, GameNpc, InstanceId, MobBase, ScriptResource, WeaponKind};
 
@@ -25,6 +26,7 @@ pub(super) fn open_trade(
     mut state: ResMut<InventoryUiState>,
     gothic_script: Res<ScriptResource>,
 ) {
+    let _perf = perf_debug!();
     let Some(request) = requests.read().last() else {
         return;
     };
@@ -62,6 +64,7 @@ pub(super) fn open_loot(
     gothic_script: Res<ScriptResource>,
     chests: Query<(&GameChest, &MobBase)>,
 ) {
+    let _perf = perf_debug!();
     let Some(request) = requests.read().last() else {
         return;
     };
@@ -104,6 +107,7 @@ pub(super) fn toggle_inventory(
     gothic_script: Res<ScriptResource>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
+    let _perf = perf_debug!();
     if !action_state.just_pressed(&SharedAction::Inventory) {
         return;
     }
@@ -149,6 +153,7 @@ pub(super) fn handle_inventory_input(
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
     mut chests: Query<&mut GameChest>,
 ) {
+    let _perf = perf_debug!();
     if !state.open {
         return;
     }
@@ -233,6 +238,7 @@ pub(super) fn emit_loot_closed(
     mut state: ResMut<InventoryUiState>,
     mut closed: MessageWriter<LootClosed>,
 ) {
+    let _perf = perf_debug!();
     if state.open {
         return;
     }
@@ -247,6 +253,7 @@ pub(super) fn close_orphaned_trade(
     dialog_ui: Res<DialogUiState>,
     mut state: ResMut<InventoryUiState>,
 ) {
+    let _perf = perf_debug!();
     if state.is_trade() && !dialog_ui.is_open() {
         state.close();
     }

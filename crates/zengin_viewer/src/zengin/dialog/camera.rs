@@ -4,6 +4,7 @@
 
 use super::state::DialogUiState;
 use crate::gameplay::camera::{CameraResource, DialogShotPose};
+use crate::perf_debug;
 use crate::zengin::STATIC_OBJECT;
 use avian3d::prelude::{SpatialQuery, SpatialQueryFilter};
 use bevy::prelude::*;
@@ -84,6 +85,7 @@ pub(super) fn aim_dialog_camera(
     transforms: Query<&GlobalTransform>,
     spatial_query: SpatialQuery,
 ) {
+    let _perf = perf_debug!();
     if !dialog_ui.is_open() {
         shots.was_open = false;
         return;

@@ -15,6 +15,7 @@ use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLogEntry;
 use crate::input::{Options, SharedAction, SharedInputMarker};
+use crate::perf_debug;
 use crate::save::format::{
     SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedChest, SavedItemEntity,
     SavedNpcEntity,
@@ -84,6 +85,7 @@ fn handle_quick_save_load_input(
     mut quick_save: MessageWriter<QuickSave>,
     mut quick_load: MessageWriter<QuickLoad>,
 ) {
+    let _perf = perf_debug!();
     if action_state.just_pressed(&SharedAction::QuickSave) {
         quick_save.write(QuickSave);
     }
@@ -108,6 +110,7 @@ fn quick_save(
     items: Query<(&GameItem, &Transform)>,
     chests: Query<(&GameChest, &MobBase)>,
 ) {
+    let _perf = perf_debug!();
     if requests.read().count() == 0 {
         return;
     }
@@ -215,6 +218,7 @@ fn quick_save(
 /// writes it into the save directory.
 fn save_screenshot(path: PathBuf) -> impl FnMut(On<ScreenshotCaptured>) {
     move |captured: On<ScreenshotCaptured>| {
+        let _perf = crate::perf_debug::PerfDebug::new("save::systems::save_screenshot");
         let result = captured
             .image
             .clone()
@@ -246,6 +250,7 @@ fn directory_size(path: &Path) -> u64 {
 }
 
 fn quick_load(world: &mut World) {
+    let _perf = perf_debug!();
     let script_fingerprint = world
         .resource::<ScriptResource>()
         .lock()
@@ -278,6 +283,7 @@ fn handle_load_save_request(
     mut loading_world: ResMut<LoadingWorld>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
+    let _perf = perf_debug!();
     for request in requests.read() {
         let prepared = current_script_fingerprint().and_then(|fingerprint| {
             let save = read_save(&request.path)?;
@@ -297,6 +303,7 @@ fn handle_load_save_request(
 }
 
 fn apply_pending_load(world: &mut World) {
+    let _perf = perf_debug!();
     let Some(save) = world.resource_mut::<PendingLoad>().0.take() else {
         return;
     };

@@ -7,6 +7,7 @@ use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
     animation_name_from_path,
 };
+use crate::perf_debug;
 use crate::zengin::common::{
     MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, face_direction_quat, horizontal_offset,
 };
@@ -104,6 +105,7 @@ pub(crate) fn advance_mob_use_pose(
     )>,
     mut released: RemovedComponents<NpcMobUse>,
 ) {
+    let _perf = perf_debug!();
     // A use that ends before the transition did leaves no pose to hold.
     for entity in released.read() {
         commands.entity(entity).try_remove::<MobUsePose>();
@@ -150,6 +152,7 @@ pub(crate) fn release_mob_use_actions(
     index: Res<InstanceIndex>,
     mut npcs: Query<(&NpcMobUse, &mut AutoAnimSequencer, &mut AnimationController)>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         if change.state > 0 {
             continue;
@@ -178,6 +181,7 @@ pub(crate) fn start_use_mob_action(
     mut npcs: Query<(Entity, &UseMobAction, Option<&NpcMobUse>), Added<UseMobAction>>,
     mut mobs: Query<&mut MobPose>,
 ) {
+    let _perf = perf_debug!();
     for (entity, action, npc_mob_use) in &mut npcs {
         if action.state <= 0 {
             release_mob_occupancy(&mut commands, entity, npc_mob_use, &mut mobs);
@@ -232,6 +236,7 @@ pub(crate) fn run_use_mob_action(
         Has<PlayerCharacter>,
     )>,
 ) {
+    let _perf = perf_debug!();
     let mut claimed_mobs = HashSet::new();
     for (
         entity,
@@ -434,6 +439,7 @@ pub(crate) fn end_use_mob_action(
         &mut AnimationController,
     )>,
 ) {
+    let _perf = perf_debug!();
     for entity in removed.read() {
         let Ok((npc_mob_use, mut sequencer, mut controller)) = npcs.get_mut(entity) else {
             continue;

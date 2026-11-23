@@ -6,6 +6,7 @@ use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
+use crate::perf_debug;
 use crate::zengin::ZenginVfs;
 use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
@@ -69,6 +70,7 @@ pub(crate) fn sync_npc_armor_visual(
     bodies: Query<(), With<NpcBodyMarker>>,
     armors: Query<&ArmorVisual>,
 ) {
+    let _perf = perf_debug!();
     let new_body_parents = new_bodies.iter().map(ChildOf::parent);
     for entity in changed.iter().chain(new_body_parents) {
         let Ok(armor) = npcs.get(entity) else {
@@ -89,6 +91,7 @@ pub(crate) fn materialize_armor_visuals(
     children: Query<&Children>,
     bodies: Query<&ZenGinModelComponent, With<NpcBodyMarker>>,
 ) {
+    let _perf = perf_debug!();
     for (entity, armor) in &armors {
         let Ok(npc_model) = npcs.get(armor.wearer) else {
             continue;

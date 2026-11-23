@@ -13,6 +13,7 @@ use crate::external_messages::pump_external_messages;
 use crate::game_state::AppState;
 use crate::gameplay::camera::EditorMode;
 use crate::input::InputMode;
+use crate::perf_debug;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::DialogLine;
@@ -82,6 +83,7 @@ impl Plugin for GameDialogPlugin {
 
 /// Exposes the dialog session to the script (`InfoManager_HasFinished`).
 fn sync_script_dialog_state(dialog_ui: Res<DialogUiState>, gothic_script: Res<ScriptResource>) {
+    let _perf = perf_debug!();
     gothic_script.lock().set_dialog_active(dialog_ui.is_open());
 }
 
@@ -98,6 +100,7 @@ pub(crate) fn sync_input_mode(
     stats_ui: Res<crate::gui::StatsUiState>,
     mut input_mode: ResMut<InputMode>,
 ) {
+    let _perf = perf_debug!();
     let mode = if *state.get() == AppState::InGame && editor_mode.is_enabled() {
         InputMode::Editor
     } else if *state.get() == AppState::MainMenu

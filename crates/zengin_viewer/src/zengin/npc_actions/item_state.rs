@@ -13,6 +13,7 @@ use crate::gameplay::objects::NpcModel;
 use crate::graphics::{
     AnimationController, AnimationEnds, AnimationGraph, AutoAnimSequencer, animation_name_from_path,
 };
+use crate::perf_debug;
 use crate::zengin::common::choose_animation_scheme;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{
@@ -74,6 +75,7 @@ pub(crate) fn run_use_item_state_action(
         Option<&NpcMobUse>,
     )>,
 ) {
+    let _perf = perf_debug!();
     for (
         entity,
         npc,
@@ -406,6 +408,7 @@ pub(crate) fn advance_item_use_animations(
         &mut NpcItemUse,
     )>,
 ) {
+    let _perf = perf_debug!();
     for end in ends.read() {
         let Ok((mut controller, model, overlay, mut sequencer, mut item_use)) =
             npcs.get_mut(end.who)
@@ -524,6 +527,7 @@ pub(crate) fn sync_npc_item_body_state(
     mut removed: RemovedComponents<NpcItemUse>,
     npcs: Query<(&GameNpc, Option<&NpcMobUse>)>,
 ) {
+    let _perf = perf_debug!();
     let Some(gothic_script) = gothic_script else {
         return;
     };

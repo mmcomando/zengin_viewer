@@ -6,6 +6,7 @@ use std::f32::consts::PI;
 
 use super::RenderOptions;
 use crate::gameplay::game_time::GameTime;
+use crate::perf_debug;
 
 /// Spawns the sun/moon light and adjusts day/night lighting from the game time.
 pub struct LightingPlugin;
@@ -48,6 +49,7 @@ const DAY_AMBIENT_BRIGHTNESS: f32 = 200.0;
 // - Less demanding shadows, bevy offers some other types of shadows?
 
 fn spawn_lights(mut commands: Commands, render_options: Res<RenderOptions>) {
+    let _perf = perf_debug!();
     // TODO add sliders in egui to change/debug those
     let cascade_shadow_config = CascadeShadowConfigBuilder {
         // first_cascade_far_bound: 50.0, // default: 10.0
@@ -97,6 +99,7 @@ pub(super) fn update_day_night_lighting(
     mut ambient_light: ResMut<GlobalAmbientLight>,
     mut skyboxes: Query<&mut Skybox>,
 ) {
+    let _perf = perf_debug!();
     let sun_angle = sun_elevation_angle(game_time.total_hours);
     let elevation = sun_angle.sin();
     let day_factor = day_light_factor(elevation);

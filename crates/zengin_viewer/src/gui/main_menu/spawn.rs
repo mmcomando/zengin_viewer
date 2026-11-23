@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::ui_kit::spawn_gui_root;
 
 use super::style::MainMenuStyle;
+use crate::perf_debug;
 
 #[derive(Component)]
 pub(super) struct MainMenuRootMarker;
@@ -11,6 +12,7 @@ pub(super) struct MainMenuRootMarker;
 pub(super) struct MainMenuContentMarker;
 
 pub(super) fn spawn_main_menu(mut commands: Commands) {
+    let _perf = perf_debug!();
     let root = spawn_gui_root(&mut commands, MainMenuRootMarker);
     commands.entity(root).insert((
         GlobalZIndex(100),

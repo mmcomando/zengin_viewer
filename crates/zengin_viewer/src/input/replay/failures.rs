@@ -1,5 +1,6 @@
 //! Collected failures of the `Test*` scenario commands.
 
+use crate::perf_debug;
 use bevy::prelude::*;
 
 /// Failures of the `Test*` scenario commands. They are collected instead of
@@ -36,6 +37,7 @@ impl TestFailures {
 /// Reports collected failures when the app exits without an explicit
 /// `ExitGame`, for example when the scenario frame limit is reached.
 pub(super) fn report_failures_on_exit(failures: Res<TestFailures>, exits: MessageReader<AppExit>) {
+    let _perf = perf_debug!();
     if failures.is_empty() || exits.is_empty() {
         return;
     }

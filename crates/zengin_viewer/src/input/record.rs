@@ -20,6 +20,7 @@ use crate::input::actions::{
     GuiInputMarker, SharedAction, SharedInputMarker,
 };
 use crate::input::options::Options;
+use crate::perf_debug;
 use crate::zengin::{START_WORLD, SpawnPoint};
 
 /// Third person camera switch, carrying the free camera transform the player
@@ -270,6 +271,7 @@ struct ActionRecording {
 
 /// Removes any previous recording file.
 fn open_recording_file(options: Res<Options>, mut commands: Commands) {
+    let _perf = perf_debug!();
     let Some(path) = options.save_actions() else {
         return;
     };
@@ -314,6 +316,7 @@ fn record_triggered_actions(
     editor: Option<Single<&ActionState<EditorAction>, With<EditorInputMarker>>>,
     mut camera_switches: MessageReader<CameraSwitchedToThirdPerson>,
 ) {
+    let _perf = perf_debug!();
     let Some(recording) = recording.as_deref_mut() else {
         return;
     };

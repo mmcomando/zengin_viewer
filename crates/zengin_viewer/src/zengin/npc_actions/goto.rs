@@ -2,6 +2,7 @@ use avian3d::prelude::SpatialQuery;
 use bevy::prelude::*;
 
 use crate::graphics::{AnimationController, AutoAnimSequencer};
+use crate::perf_debug;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{NPC_BODY_Y_OFFSET, NpcPath, WayPoints, queue_stand_animation};
 use crate::zengin::script::string_value::StringCanon;
@@ -27,7 +28,9 @@ pub(crate) fn start_goto_action(
     waypoint_nodes: Query<&WaypointNodeIndex>,
     mut npcs: Query<(Entity, &GoToWaypointAction, &mut Transform), Added<GoToWaypointAction>>,
 ) {
+    let perf = perf_debug!();
     for (entity, action, mut transform) in &mut npcs {
+        perf.increment_tag("actions", 1);
         // A canceled goto may still carry the previous path.
         commands.entity(entity).remove::<NpcPath>();
         start_goto(
@@ -53,7 +56,9 @@ pub(crate) fn run_goto_action(
         Option<&NpcPath>,
     )>,
 ) {
+    let perf = perf_debug!();
     for (entity, action, mut transform, path) in &mut npcs {
+        perf.increment_tag("actions", 1);
         if path.is_some() {
             continue;
         }
@@ -76,7 +81,9 @@ pub(crate) fn end_goto_action(
         &mut AnimationController,
     )>,
 ) {
+    let perf = perf_debug!();
     for entity in removed.read() {
+        perf.increment_tag("actions", 1);
         let Ok((path, mut sequencer, mut controller)) = npcs.get_mut(entity) else {
             continue;
         };

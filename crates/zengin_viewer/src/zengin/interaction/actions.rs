@@ -9,6 +9,7 @@ use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::{GameLog, GameLogEntry};
 use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::perf_debug;
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
@@ -25,6 +26,7 @@ pub(super) fn toggle_player_weapons(
     gothic_script: Res<ScriptResource>,
     mut game_log: ResMut<GameLog>,
 ) {
+    let _perf = perf_debug!();
     let Ok(player_npc) = player_npc.single() else {
         return;
     };
@@ -151,6 +153,7 @@ pub(super) fn handle_transfer_items(
     mut game_log: MessageWriter<GameLogEntry>,
     gothic_script: Res<ScriptResource>,
 ) {
+    let _perf = perf_debug!();
     for request in requests.read() {
         let mut script = gothic_script.lock();
         let moved = script.transfer_inventory(request.instance_from_id, request.instance_to_id);
@@ -183,6 +186,7 @@ pub(super) fn pickup_selected_item(
     items: Query<&GameItem>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
+    let _perf = perf_debug!();
     if !action_state.just_pressed(&GameplayAction::Interact) {
         return;
     }

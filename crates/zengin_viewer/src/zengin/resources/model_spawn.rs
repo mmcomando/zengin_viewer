@@ -12,6 +12,7 @@ use crate::gameplay::character::QUERY_ONLY_LAYER;
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::graphics::{AnimationController, AnimationData};
 use crate::gui_debug::WorldMesh;
+use crate::perf_debug;
 use crate::zengin::objects_to_entities::create_skinned_mesh_data;
 use crate::zengin::resources::handles::CachedAssetHandles;
 use crate::zengin::visual::model::ZenGinModel;
@@ -76,6 +77,7 @@ pub(crate) fn convert_zengin_model_to_entities(
         ),
     >,
 ) {
+    let _perf = perf_debug!();
     for (entity_id, model_component) in query.iter() {
         let handle = &model_component.model_handle;
         let Some(model) = models.get(handle) else {
@@ -211,6 +213,7 @@ pub(crate) fn add_classify_distance(
     mut commands: Commands,
     query: Query<Entity, Added<ZenGinModelComponent>>,
 ) {
+    let _perf = perf_debug!();
     for entity_id in query {
         commands
             .entity(entity_id)
@@ -222,6 +225,7 @@ pub fn despawn_visual_when_far_resource(
     mut commands: Commands,
     q_parent: Query<Entity, (With<DistanceFar>, With<ZenGinModelComponentLoaded>)>,
 ) {
+    let _perf = perf_debug!();
     for entity_id in q_parent.iter() {
         let mut main_entity = commands.entity(entity_id);
         main_entity.remove::<ZenGinModelComponentLoaded>();

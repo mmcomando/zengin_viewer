@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use super::components::AnimationSound;
 use crate::audio::{PlaySound, SoundDefinitions};
 use crate::gameplay::objects::PlayerCharacter;
+use crate::perf_debug;
 
 /// New sounds spawned in a single frame, keeps dense scenes from stacking
 /// voices.
@@ -20,6 +21,7 @@ pub(crate) fn play_animation_sounds(
     definitions: Option<Res<SoundDefinitions>>,
     mut play_sound: MessageWriter<PlaySound>,
 ) {
+    let _perf = perf_debug!();
     let (Some(player), Some(definitions)) = (player, definitions) else {
         return;
     };

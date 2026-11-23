@@ -11,6 +11,7 @@ use bevy::prelude::*;
 use crate::game_state::AppState;
 use crate::graphics::AnimationController;
 use crate::gui::{InventoryUiState, JournalUiState};
+use crate::perf_debug;
 use crate::updater::{Periodic, PeriodicAppExt, PeriodicKind, PeriodicUpdate};
 use crate::zengin::GameNpc;
 use crate::zengin::dialog::DialogUiState;
@@ -60,6 +61,7 @@ fn seed_npc_perception_tasks(
     mut commands: Commands,
     npcs: Query<Entity, (Added<AnimationController>, With<GameNpc>, Without<ChildOf>)>,
 ) {
+    let _perf = perf_debug!();
     for entity in &npcs {
         commands
             .entity(entity)
@@ -77,6 +79,7 @@ fn dispatch_passive_perceptions(
     gothic_script: Res<ScriptResource>,
     npcs: Query<&GameNpc, (With<AnimationController>, Without<ChildOf>)>,
 ) {
+    let _perf = perf_debug!();
     if changes.is_empty() {
         return;
     }
@@ -109,6 +112,7 @@ fn run_npc_perceptions(
     journal_ui: Res<JournalUiState>,
     npcs: Query<&GameNpc, (With<AnimationController>, Without<ChildOf>)>,
 ) {
+    let _perf = perf_debug!();
     if updates.is_empty() {
         return;
     }

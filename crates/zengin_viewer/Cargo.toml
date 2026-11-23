@@ -48,6 +48,9 @@ bevy-inspector-egui = "0.38.0"
 egui_dock = "0.21.0"
 
 [features]
+# Logs per-function timing and counters for movement systems through
+# `perf_debug!`. No-op when disabled.
+debug_perf = []
 # Writes a `trace-<timestamp>.json` (chrome://tracing / Perfetto format) of the
 # schedule and system spans, for CPU profiling. Beware: it is very large.
 trace_chrome = ["bevy/trace_chrome"]

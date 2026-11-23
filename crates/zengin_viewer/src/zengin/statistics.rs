@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::gui_debug::RefreshStatistics;
+use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::resources::ZenGinModelComponent;
 
@@ -30,6 +31,7 @@ fn zengin_model_added(
     mut statistics: ResMut<StatisticsZengin>,
     query: Query<&Visibility, With<ZenGinModelComponent>>,
 ) {
+    let _perf = perf_debug!();
     statistics.zengin_models = 0;
     statistics.zengin_models_visible = 0;
     for visibility in &query {
@@ -39,6 +41,7 @@ fn zengin_model_added(
 }
 
 fn npc_added(mut statistics: ResMut<StatisticsZengin>, query: Query<&Visibility, With<GameNpc>>) {
+    let _perf = perf_debug!();
     statistics.npcs = 0;
     statistics.npcs_visible = 0;
     for visibility in &query {

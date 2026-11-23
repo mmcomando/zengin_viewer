@@ -13,6 +13,7 @@ use leafwing_input_manager::prelude::ActionState;
 use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::perf_debug;
 use crate::zengin::npc_actions::{UseMobAction, mob_scheme_has_player_pose};
 use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay, NpcWeaponMode};
 use crate::zengin::script::component::ScriptResource;
@@ -86,6 +87,7 @@ pub(super) fn use_selected_mob(
     gothic_script: Res<ScriptResource>,
     mut vob_trigger: MessageWriter<VobTrigger>,
 ) {
+    let _perf = perf_debug!();
     if !action_state.just_pressed(&GameplayAction::Interact) {
         return;
     }

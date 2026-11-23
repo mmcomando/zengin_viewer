@@ -7,6 +7,7 @@ use bevy_rich_text3d::{Text3d, Text3dPlugin, Text3dStyling, TextAnchor, TextAtla
 
 use crate::game_state::AppState;
 use crate::gameplay::objects::PlayerCharacter;
+use crate::perf_debug;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::resources::{ARROW, NPC_BODY, SELECTABLE};
 use crate::zengin::script::component::ScriptResource;
@@ -124,6 +125,7 @@ pub fn spawn_npc_selection_collider(commands: &mut Commands, npc: Entity) {
 /// visual despawn and never need respawning. Npc colliders are spawned with
 /// the visual in [`spawn_npc_selection_collider`] instead.
 fn on_selectable_added(trigger: On<Add<GameItem>>, mut commands: Commands) {
+    let _perf = perf_debug!();
     commands.entity(trigger.entity).insert((
         Collider::cuboid(0.5, 0.5, 0.5),
         CollisionLayers::from_bits(SELECTABLE, 0),
@@ -134,6 +136,7 @@ fn on_selectable_added(trigger: On<Add<GameItem>>, mut commands: Commands) {
 /// frame. The text material uses the font atlas texture and no lighting so the
 /// label reads the same everywhere.
 fn spawn_selection_label(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
+    let _perf = perf_debug!();
     let material = materials.add(StandardMaterial {
         base_color_texture: Some(TextAtlas::DEFAULT_IMAGE.clone()),
         alpha_mode: AlphaMode::Mask(0.5),
@@ -207,6 +210,7 @@ fn update_selection(
         Without<NpcCorpseMarker>,
     >,
 ) {
+    let _perf = perf_debug!();
     let Ok((player_entity, player_tr)) = player.single() else {
         return;
     };
@@ -326,6 +330,7 @@ fn update_selection_label(
         With<SelectionLabel>,
     >,
 ) {
+    let _perf = perf_debug!();
     let Ok((mut text3d, mut label_text, mut transform, mut visibility)) = label.single_mut() else {
         return;
     };

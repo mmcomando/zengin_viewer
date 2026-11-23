@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use zen_kit_rs::music_definitions::{MusicDefinitions as ZkMusicDefinitions, MusicTheme};
 
+use crate::perf_debug;
 use crate::zengin::{ZenginVfs, gothic2_dir};
 
 /// Music theme instance name to its segment and playback settings.
@@ -19,6 +20,7 @@ impl MusicDefinitions {
 }
 
 pub(crate) fn load_music_definitions(mut commands: Commands, vfs: Res<ZenginVfs>) {
+    let _perf = perf_debug!();
     let loose_path = format!("{}/_work/Data/Scripts/_compiled/MUSIC.DAT", gothic2_dir());
     let loaded = ZkMusicDefinitions::load_path(&loose_path).or_else(|| {
         let vfs = vfs.0.lock().unwrap();

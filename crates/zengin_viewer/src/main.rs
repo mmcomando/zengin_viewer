@@ -108,6 +108,7 @@ mod graphics;
 mod gui;
 mod gui_debug;
 mod input;
+mod perf_debug;
 mod save;
 mod test_world;
 mod ui_kit;
@@ -178,6 +179,10 @@ fn main() {
 
     // Plugins from crates
     app.add_plugins(PhysicsPlugins::default());
+
+    // Logs a per-frame marker so `debug_perf` output can be grouped by frame.
+    #[cfg(feature = "debug_perf")]
+    app.add_plugins(crate::perf_debug::PerfDebugPlugin);
 
     // This app custom plugins
     app.add_plugins(GameStatePlugin)

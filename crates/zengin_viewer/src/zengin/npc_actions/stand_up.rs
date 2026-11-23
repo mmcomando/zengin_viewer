@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::graphics::{AnimationController, AutoAnimSequencer};
+use crate::perf_debug;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::use_mob::release_mob_use;
 use crate::zengin::npc_routines::queue_stand_animation;
@@ -24,6 +25,7 @@ pub(crate) fn start_stand_up_action(
         Added<StandUpAction>,
     >,
 ) {
+    let _perf = perf_debug!();
     for (entity, npc_mob_use, mut sequencer, mut controller) in &mut npcs {
         if let Some(mob_use) = npc_mob_use
             && let Ok(mut mob) = mobs.get_mut(mob_use.mob)

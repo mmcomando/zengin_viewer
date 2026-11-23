@@ -8,6 +8,7 @@ use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::{GameLog, OpenLoot};
 use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::perf_debug;
 use crate::zengin::npc_actions::UseMobAction;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::state::WeaponMode;
@@ -24,6 +25,7 @@ pub(super) fn open_selected_chest(
     mut game_log: ResMut<GameLog>,
     mut requests: MessageWriter<OpenLoot>,
 ) {
+    let _perf = perf_debug!();
     if !action_state.just_pressed(&GameplayAction::Interact) {
         return;
     }

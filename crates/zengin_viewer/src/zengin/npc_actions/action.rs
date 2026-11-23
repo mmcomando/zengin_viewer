@@ -1,6 +1,7 @@
 use bevy::ecs::world::EntityWorldMut;
 use bevy::prelude::*;
 
+use crate::perf_debug;
 use crate::zengin::npc_actions::attack::AttackAction;
 use crate::zengin::npc_actions::goto::GoToWaypointAction;
 use crate::zengin::npc_actions::goto_npc::GoToNpcAction;
@@ -27,6 +28,7 @@ pub(crate) fn drop_item_pose_for_action(
         ),
     >,
 ) {
+    let _perf = perf_debug!();
     for entity in &npcs {
         debug!("entity({entity}) action replaces the item pose");
         commands.entity(entity).remove::<NpcItemUse>();
@@ -38,6 +40,7 @@ pub(crate) fn remove_actions_on_marker_removed(
     removed: On<Remove<ExecutingActionMarker>>,
     mut commands: Commands,
 ) {
+    let _perf = perf_debug!();
     commands
         .entity(removed.entity)
         .queue_silenced(|mut entity: EntityWorldMut| {
@@ -62,6 +65,7 @@ pub(crate) fn warn_direct_action_removal<A: Component>(
     mut markers_removed: RemovedComponents<ExecutingActionMarker>,
     markers: Query<(), With<ExecutingActionMarker>>,
 ) {
+    let _perf = perf_debug!();
     let cancelled: Vec<Entity> = markers_removed.read().collect();
     for entity in removed.read() {
         if cancelled.contains(&entity) {

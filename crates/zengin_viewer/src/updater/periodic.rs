@@ -9,6 +9,7 @@ use crate::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
 
 use super::executor::{CallbackControl, CallbackHandle};
 use super::plugin::AmortizedExecutorResource;
+use crate::perf_debug;
 
 /// Marker type selecting one independent stream of periodic updates.
 ///
@@ -77,6 +78,7 @@ fn register_periodic<T: PeriodicKind>(
     sender: Res<PeriodicSender<T>>,
     mut handles: ResMut<PeriodicHandles<T>>,
 ) {
+    let _perf = perf_debug!();
     for (entity, periodic) in &added {
         if handles.0.contains_key(&entity) {
             continue;
@@ -98,6 +100,7 @@ fn remove_periodic<T: PeriodicKind>(
     mut executor: ResMut<AmortizedExecutorResource>,
     mut handles: ResMut<PeriodicHandles<T>>,
 ) {
+    let _perf = perf_debug!();
     for entity in removed.read() {
         if let Some(handle) = handles.0.remove(&entity) {
             executor.remove(handle);

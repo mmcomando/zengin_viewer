@@ -12,6 +12,7 @@ use crate::input::record::{DEFAULT_FRAME_DT, ReplayCommand};
 
 use super::failures::TestFailures;
 use super::state::ActionReplay;
+use crate::perf_debug;
 
 /// Root directory of the scenario files.
 const SCENARIO_ROOT: &str = "misc/scenario";
@@ -108,6 +109,7 @@ fn scenario_layout(options: &Options) -> Option<ScenarioLayout> {
 ///
 /// Outputs of the scenario (screenshots) resolve against the scenario workdir.
 pub(super) fn load_scenario(options: Res<Options>, mut commands: Commands) {
+    let _perf = perf_debug!();
     let Some(layout) = scenario_layout(&options) else {
         return;
     };
@@ -308,6 +310,7 @@ pub(super) fn finish_scenario(
     failures: Res<TestFailures>,
     mut exit: MessageWriter<AppExit>,
 ) {
+    let _perf = perf_debug!();
     let Some(replay) = replay else {
         return;
     };

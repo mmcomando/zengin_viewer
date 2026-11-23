@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::perf_debug;
 use bevy::prelude::*;
 use clap::Parser;
 
@@ -130,6 +131,7 @@ pub const FIXED_FRAME_DELTA: std::time::Duration = std::time::Duration::from_mil
 struct FrameLimit(u64);
 
 fn frame_limit(mut frames: Option<ResMut<FrameLimit>>, mut exit: MessageWriter<AppExit>) {
+    let _perf = perf_debug!();
     let Some(frames) = frames.as_deref_mut() else {
         return;
     };

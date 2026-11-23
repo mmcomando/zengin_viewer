@@ -7,6 +7,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::audio::PlaySound;
+use crate::perf_debug;
 use crate::ui_kit::{UiText, set_visibility, spawn_gui_root};
 use crate::zengin::{
     ChapterIntro, ScriptChangesApplied, ZenginVfs, resolve_sound_asset, resolve_texture_asset,
@@ -76,6 +77,7 @@ fn is_chapter_open(state: Res<ChapterScreenState>) -> bool {
 struct ChapterRootMarker;
 
 fn spawn_chapter_root(mut commands: Commands) {
+    let _perf = perf_debug!();
     let root = spawn_gui_root(&mut commands, ChapterRootMarker);
     commands.entity(root).insert((
         GlobalZIndex(CHAPTER_Z_INDEX),
@@ -101,6 +103,7 @@ fn show_chapter_screen(
     mut state: ResMut<ChapterScreenState>,
     root: Single<(Entity, &mut Visibility), With<ChapterRootMarker>>,
 ) {
+    let _perf = perf_debug!();
     // Only the newest request of the frame matters, a later `IntroduceChapter`
     // replaces an earlier one.
     let Some(intro) = intros.read().last() else {
@@ -219,6 +222,7 @@ fn tick_chapter_screen(
     mut state: ResMut<ChapterScreenState>,
     mut root: Single<&mut Visibility, With<ChapterRootMarker>>,
 ) {
+    let _perf = perf_debug!();
     let Some(left) = state.time_left_secs else {
         return;
     };
@@ -239,6 +243,7 @@ fn sync_time_pause(
     mut was_open: Local<bool>,
     mut time: ResMut<Time<Virtual>>,
 ) {
+    let _perf = perf_debug!();
     if state.open == *was_open {
         return;
     }
@@ -255,5 +260,6 @@ fn sync_chapter_visibility(
     state: Res<ChapterScreenState>,
     mut root: Single<&mut Visibility, With<ChapterRootMarker>>,
 ) {
+    let _perf = perf_debug!();
     set_visibility(&mut root, state.open);
 }

@@ -16,6 +16,7 @@ use crate::graphics::AutoAnimSequencerSet;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::{ZenginVfs, loaders::vfs::animation_file_names};
 
+use crate::perf_debug;
 use crate::zengin::npc_actions::WaitAction;
 use crate::zengin::npc_actions::{
     AttackAction, GoToNpcAction, GoToWaypointAction, StandUpAction, UseItemStateAction,
@@ -207,5 +208,6 @@ impl Plugin for NpcRoutinesPlugin {
 /// loaded world, so scenarios that spawn npcs without one still resolve their
 /// scripted animations.
 fn load_animation_files(vfs: Res<ZenginVfs>, mut files: ResMut<AnimationFiles>) {
+    let _perf = perf_debug!();
     files.0 = animation_file_names(&vfs);
 }

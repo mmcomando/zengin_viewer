@@ -8,6 +8,7 @@ use crate::gameplay::camera::{CameraResource, CurrentCamera, EditorMode};
 use crate::gameplay::character::PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::input::{CameraSwitchedToThirdPerson, EditorAction, EditorInputMarker};
+use crate::perf_debug;
 use crate::zengin::STATIC_OBJECT;
 
 pub(crate) fn use_character_camera(info: Res<CameraResource>) -> bool {
@@ -24,6 +25,7 @@ pub(crate) fn camera_toggle_input(
     mut player: Query<&mut Transform, (With<PlayerCharacter>, Without<Camera3d>)>,
     mut switches: MessageWriter<CameraSwitchedToThirdPerson>,
 ) {
+    let _perf = perf_debug!();
     if !action_state.just_pressed(&EditorAction::ToggleEditorMode) {
         return;
     }
@@ -74,6 +76,7 @@ pub fn camera_movement_system(
     mut camera_transform: Single<&mut Transform, (With<Camera3d>, Without<PlayerCharacter>)>,
     spatial_query: SpatialQuery,
 ) {
+    let _perf = perf_debug!();
     let (player_transform, player_entity) = *player_query;
 
     let offset_direction = camera_transform.rotation * Vec3::Z;

@@ -1,4 +1,5 @@
 use crate::game_state::AppState;
+use crate::perf_debug;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::state::ScriptMessages;
 use crate::zengin::script::string_value::StringCanon;
@@ -40,6 +41,7 @@ pub struct GameScriptLoaded;
 /// Loads the game script and dialog texts when entering `LoadScreen`. This keeps
 /// the main menu from paying for GOTHIC.DAT conversion or instance setup.
 fn initialize_game_script(world: &mut World) {
+    let _perf = perf_debug!();
     if world.get_resource::<ScriptResource>().is_some() {
         info!("Game script already loaded, resuming without reload");
         return;
@@ -71,6 +73,7 @@ fn update_script_npc_state(
         Or<(Changed<GlobalTransform>, Changed<GameNpc>)>,
     >,
 ) {
+    let _perf = perf_debug!();
     for (npc, transform) in &changed_npcs {
         set_npc_script_position(npc.handle(), Some(transform.translation()));
     }

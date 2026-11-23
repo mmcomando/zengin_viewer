@@ -1,3 +1,4 @@
+use crate::perf_debug;
 use bevy::prelude::*;
 
 /// Requests a recount of the debug statistics. The scans are expensive, so
@@ -21,6 +22,7 @@ pub struct Statistics {
 }
 
 fn mesh_added(mut statistics: ResMut<Statistics>, query: Query<&Visibility, With<Mesh3d>>) {
+    let _perf = perf_debug!();
     statistics.meshes = 0;
     statistics.meshes_visible = 0;
     for visibility in &query {

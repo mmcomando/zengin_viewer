@@ -8,6 +8,7 @@ use super::data::StatsMenuData;
 use super::spawn::{StatsContentMarker, StatsRootMarker};
 use super::state::StatsUiState;
 use super::style::StatsStyle;
+use crate::perf_debug;
 
 pub(super) fn sync_stats_ui(
     mut commands: Commands,
@@ -18,6 +19,7 @@ pub(super) fn sync_stats_ui(
     mut root: Single<&mut Visibility, With<StatsRootMarker>>,
     content: Single<Entity, With<StatsContentMarker>>,
 ) {
+    let _perf = perf_debug!();
     let open = state.is_open();
     set_visibility(&mut root, open);
     if !open {

@@ -9,6 +9,7 @@ use crate::external_messages::ExternalMessageAppExt;
 use crate::game_state::AppState;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::gui::GameLogEntry;
+use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{
@@ -113,6 +114,7 @@ fn sync_script_clock(
     game_time: Res<GameTime>,
     gothic_script: Res<ScriptResource>,
 ) {
+    let _perf = perf_debug!();
     let mut script = gothic_script.lock();
     script.set_game_day(game_time.day.saturating_sub(1));
     script.set_game_minutes_of_day(game_time.minutes_of_day());
@@ -129,6 +131,7 @@ fn apply_script_requests(
     mut dialog_close: MessageWriter<DialogClose>,
     gothic_script: Res<ScriptResource>,
 ) {
+    let _perf = perf_debug!();
     let mut script = gothic_script.lock();
     if script.take_close_dialog() {
         dialog_close.write(DialogClose);
@@ -140,6 +143,7 @@ fn apply_script_requests(
 
 /// Drains npc data edits recorded by the script and forwards them as messages.
 fn send_npc_changes(mut changed: MessageWriter<NpcChanged>, gothic_script: Res<ScriptResource>) {
+    let _perf = perf_debug!();
     let changed_ids = gothic_script.lock().drain_npc_changes();
     if changed_ids.is_empty() {
         return;
@@ -156,6 +160,7 @@ fn expand_npc_changes(
     mut entities_changed: MessageWriter<NpcEntitiesChanged>,
     index: Res<InstanceIndex>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let Some(handle) = index.npc_handle(change.instance_id) else {
             continue;
@@ -173,6 +178,7 @@ fn expand_npc_changes(
 
 /// Drains item data edits recorded by the script and forwards them as messages.
 fn send_item_changes(mut changed: MessageWriter<ItemChanged>, gothic_script: Res<ScriptResource>) {
+    let _perf = perf_debug!();
     let mut script = gothic_script.lock();
     let changed_ids = script.drain_item_changes();
     if changed_ids.is_empty() {
@@ -192,6 +198,7 @@ fn expand_item_changes(
     mut entities_changed: MessageWriter<ItemEntitiesChanged>,
     index: Res<InstanceIndex>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let Some(handle) = index.item_handle(change.instance_id) else {
             continue;
@@ -212,6 +219,7 @@ fn forward_chapter_intro(
     mut chapter_intro: MessageWriter<ChapterIntro>,
     gothic_script: Res<ScriptResource>,
 ) {
+    let _perf = perf_debug!();
     let mut script = gothic_script.lock();
     if let Some(intro) = script.drain_chapter_intro() {
         chapter_intro.write(intro);
@@ -225,6 +233,7 @@ fn log_inventory_gains(
     mut game_log: MessageWriter<GameLogEntry>,
     gothic_script: Res<ScriptResource>,
 ) {
+    let _perf = perf_debug!();
     if gains.is_empty() {
         return;
     }
@@ -249,6 +258,7 @@ fn log_journal_changes(
     mut changes: MessageReader<JournalChange>,
     mut game_log: MessageWriter<GameLogEntry>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let action = match &change.action {
             JournalAction::Created { section } => format!(
@@ -284,6 +294,7 @@ fn sync_npc_routine_entry(
     game_time: Res<GameTime>,
     npcs: Query<&RoutineEntry>,
 ) {
+    let _perf = perf_debug!();
     let minutes = game_time.minutes_of_day();
     for change in changes.read() {
         let active = change
@@ -330,6 +341,7 @@ fn sync_npc_look_at(
     index: Res<InstanceIndex>,
     npcs: Query<&NpcLookAt>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let target = change
             .handle
@@ -367,6 +379,7 @@ fn sync_npc_weapon_mode(
     mut changes: MessageReader<NpcEntitiesChanged>,
     npcs: Query<&NpcWeaponMode>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let mode = change
             .handle
@@ -390,6 +403,7 @@ fn sync_npc_walk_mode(
     mut changes: MessageReader<NpcEntitiesChanged>,
     npcs: Query<&NpcWalkMode>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let mode = change
             .handle
@@ -426,6 +440,7 @@ fn sync_npc_equipped_weapon(
     mut changes: MessageReader<NpcEntitiesChanged>,
     npcs: Query<&NpcEquippedWeapon>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let equipped = {
             let runtime = change
@@ -459,6 +474,7 @@ fn sync_npc_armor(
     mut changes: MessageReader<NpcEntitiesChanged>,
     npcs: Query<&NpcArmorItem>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let armor = change
             .handle
@@ -499,6 +515,7 @@ fn sync_npc_health(
     mut changes: MessageReader<NpcEntitiesChanged>,
     npcs: Query<&NpcHealth>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let (hitpoints, hitpoints_max) = {
             let typed = change
@@ -532,6 +549,7 @@ fn apply_overlay_changes(
     index: Res<InstanceIndex>,
     gothic_script: Res<ScriptResource>,
 ) {
+    let _perf = perf_debug!();
     if changes.is_empty() {
         return;
     }
@@ -561,6 +579,7 @@ fn seed_npc_components_on_add(
     index: Res<InstanceIndex>,
     game_time: Res<GameTime>,
 ) {
+    let _perf = perf_debug!();
     if added_npcs.is_empty() {
         return;
     }

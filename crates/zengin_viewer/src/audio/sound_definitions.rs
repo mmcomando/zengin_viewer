@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use zen_kit_rs::sound_definitions::SoundDefinitions as ZkSoundDefinitions;
 
+use crate::perf_debug;
 use crate::zengin::{ZenginVfs, gothic2_dir};
 
 /// Sound definition name (e.g. `WAR_AMBIENT`) to wav file name.
@@ -20,6 +21,7 @@ impl SoundDefinitions {
 }
 
 pub(crate) fn load_sound_definitions(mut commands: Commands, vfs: Res<ZenginVfs>) {
+    let _perf = perf_debug!();
     let loose_path = format!("{}/_work/Data/Scripts/_compiled/SFX.DAT", gothic2_dir());
     let loaded = ZkSoundDefinitions::load_path(&loose_path).or_else(|| {
         let vfs = vfs.0.lock().unwrap();

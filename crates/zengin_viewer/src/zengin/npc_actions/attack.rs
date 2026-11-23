@@ -14,6 +14,7 @@ use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind,
     SetDesiredAnimation, is_melee_attack_animation,
 };
+use crate::perf_debug;
 use crate::zengin::common::horizontal_offset;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{NpcHealth, queue_root_motion_animation, queue_stand_animation};
@@ -68,6 +69,7 @@ pub(crate) fn start_attack_action(
         Added<AttackAction>,
     >,
 ) {
+    let _perf = perf_debug!();
     for (entity, npc, mut action, transform, mut controller) in &mut npcs {
         if !target_is_valid(npc.instance_id(), action.target, transform, &targets) {
             commands.entity(entity).remove::<ExecutingActionMarker>();
@@ -102,6 +104,7 @@ pub(crate) fn run_attack_action(
         &mut AnimationController,
     )>,
 ) {
+    let _perf = perf_debug!();
     for (entity, npc, action, transform, mut controller) in &mut npcs {
         if !target_is_valid(npc.instance_id(), action.target, transform, &targets) {
             commands.entity(entity).remove::<ExecutingActionMarker>();
@@ -141,6 +144,7 @@ pub(crate) fn end_attack_action(
     mut removed: RemovedComponents<AttackAction>,
     mut npcs: Query<(&mut AutoAnimSequencer, &mut AnimationController)>,
 ) {
+    let _perf = perf_debug!();
     for entity in removed.read() {
         let Ok((mut sequencer, mut controller)) = npcs.get_mut(entity) else {
             continue;
@@ -162,6 +166,7 @@ pub(crate) fn advance_npc_attack_swings(
         &mut AutoAnimSequencer,
     )>,
 ) {
+    let _perf = perf_debug!();
     for end in ends.read() {
         if !is_melee_attack_animation(&end.what_animation) {
             continue;

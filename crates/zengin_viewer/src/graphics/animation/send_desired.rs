@@ -16,6 +16,7 @@ use super::auto_anim_sequencer::{
     is_melee_attack_animation,
 };
 use super::controller::AnimationController;
+use crate::perf_debug;
 
 /// Writes the desired animation of the player every frame from the move
 /// input, resolved camera relative (forward input moves away from the camera;
@@ -42,6 +43,7 @@ pub(super) fn send_desired_animations(
     transforms: Query<&GlobalTransform>,
     mut writer: MessageWriter<SetDesiredAnimation>,
 ) {
+    let _perf = perf_debug!();
     let Ok((entity, weapon_mode, player_tr, controller, mob_use)) = players.single() else {
         return;
     };

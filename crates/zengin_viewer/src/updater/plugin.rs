@@ -4,6 +4,7 @@ use crate::game_state::AppState;
 use crate::input::Options;
 
 use super::executor::AmortizedExecutor;
+use crate::perf_debug;
 
 /// Registers [`AmortizedExecutor`] and advances it every frame.
 pub(crate) struct AmortizedExecutorPlugin;
@@ -26,6 +27,7 @@ impl Plugin for AmortizedExecutorPlugin {
 pub(crate) struct AmortizedExecutorResource(pub(crate) AmortizedExecutor);
 
 fn run_executor(time: Res<Time>, mut executor: ResMut<AmortizedExecutorResource>) {
+    let _perf = perf_debug!();
     let delta_us = time.delta().as_micros() as u64;
     executor.execute(delta_us);
 }

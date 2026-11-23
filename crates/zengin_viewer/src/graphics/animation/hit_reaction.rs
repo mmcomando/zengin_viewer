@@ -10,6 +10,7 @@ use crate::zengin::{
 };
 
 use super::{AnimationController, AnimationData, AnimationEnds};
+use crate::perf_debug;
 
 /// Npc currently playing the `T_GOTHIT` hit reaction; carries the animation
 /// handle to resume when the reaction one-shot ends.
@@ -67,6 +68,7 @@ pub(crate) fn npc_hit_reaction_end(
     mut commands: Commands,
     mut npcs: Query<(Entity, &NpcHitReaction, &mut AnimationController)>,
 ) {
+    let _perf = perf_debug!();
     for end in ends.read() {
         let Ok((entity, reaction, mut controller)) = npcs.get_mut(end.who) else {
             continue;

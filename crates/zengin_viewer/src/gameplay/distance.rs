@@ -1,3 +1,4 @@
+use crate::perf_debug;
 use bevy::{
     camera::primitives::Aabb,
     ecs::{lifecycle::HookContext, world::DeferredWorld},
@@ -65,6 +66,7 @@ fn on_classify_added(mut world: DeferredWorld, context: HookContext) {
 }
 
 fn get_camera_pos(mut state: ResMut<MainCameraPos>, query: Query<&Transform, With<Camera3d>>) {
+    let _perf = perf_debug!();
     let mut transforms = query.iter();
     if let Some(tr) = transforms.next() {
         state.tr = *tr;
@@ -86,6 +88,7 @@ fn update_distance_state_far(
     state: Res<MainCameraPos>,
     query: Query<(Entity, &GlobalTransform, Option<&Aabb>), With<DistanceFar>>,
 ) {
+    let _perf = perf_debug!();
     for (entity_id, tr, aabb) in query {
         let obj_size = aabb.map_or(1.0, |el| el.max().length());
 
@@ -102,6 +105,7 @@ fn update_distance_state_near(
     state: Res<MainCameraPos>,
     query: Query<(Entity, &GlobalTransform, Option<&Aabb>), With<DistanceNear>>,
 ) {
+    let _perf = perf_debug!();
     for (entity_id, tr, aabb) in query {
         let obj_size = aabb.map_or(1.0, |el| el.max().length());
         if !obj_is_visible(&state.tr, tr, obj_size * FAR_OVERSHOOT) {

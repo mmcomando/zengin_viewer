@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::perf_debug;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::attack::AttackAction;
@@ -81,6 +82,7 @@ pub(crate) fn enqueue_goto_actions(
     executing: Query<&GoToWaypointAction>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
+    let _perf = perf_debug!();
     if changes.is_empty() {
         return;
     }
@@ -138,6 +140,7 @@ pub(crate) fn enqueue_goto_fp_actions(
     executing: Query<&GoToWaypointAction>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let entities = index.npcs(change.instance_id);
         if entities.is_empty() {
@@ -177,6 +180,7 @@ pub(crate) fn enqueue_goto_npc_actions(
     transforms: Query<&Transform>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         enqueue_goto_npc_change(change, &index, &executing, &transforms, &mut action_queues);
     }
@@ -263,6 +267,7 @@ pub(crate) fn enqueue_wait_actions(
     index: Res<InstanceIndex>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let entities = index.npcs(change.instance_id);
         if entities.is_empty() {
@@ -293,6 +298,7 @@ pub(crate) fn enqueue_stand_up_actions(
     index: Res<InstanceIndex>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let entities = index.npcs(change.instance_id);
         if entities.is_empty() {
@@ -326,6 +332,7 @@ pub(crate) fn enqueue_align_actions(
     executing: Query<&GoToWaypointAction>,
     mut npcs: Query<(&NpcRoutineState, &mut NpcActionQueue)>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         for &entity in index.npcs(change.instance_id) {
             let Ok((routine, mut queue)) = npcs.get_mut(entity) else {
@@ -360,6 +367,7 @@ pub(crate) fn clear_npc_actions(
         Option<&GoToWaypointAction>,
     )>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let entities = index.npcs(change.instance_id);
         if entities.is_empty() {
@@ -410,6 +418,7 @@ pub(crate) fn enqueue_use_mob_actions(
     mut executing: Query<&mut UseMobAction>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let entities = index.npcs(change.instance_id);
         if entities.is_empty() {
@@ -449,6 +458,7 @@ pub(crate) fn enqueue_use_item_state_actions(
     executing: Query<&UseItemStateAction>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let entities = index.npcs(change.instance_id);
         if entities.is_empty() {
@@ -491,6 +501,7 @@ pub(crate) fn enqueue_attack_actions(
     transforms: Query<&Transform>,
     mut action_queues: Query<&mut NpcActionQueue>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         if change.instance_id == change.target {
             warn!(

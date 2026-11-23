@@ -13,6 +13,7 @@
 
 use std::path::Path;
 
+use crate::perf_debug;
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
@@ -293,6 +294,7 @@ fn enable_player_root_motion(
         (Added<AnimationController>, With<PlayerCharacter>),
     >,
 ) {
+    let _perf = perf_debug!();
     for mut controller in &mut players {
         controller.set_root_motion(true);
     }
@@ -306,6 +308,7 @@ fn apply_desired_animations(
     mut desired: MessageReader<SetDesiredAnimation>,
     mut sequencers: Query<(&mut AutoAnimSequencer, &AnimationController)>,
 ) {
+    let _perf = perf_debug!();
     for message in desired.read() {
         let Ok((mut seq, controller)) = sequencers.get_mut(message.who) else {
             warn!(
@@ -348,6 +351,7 @@ fn apply_forced_change(
         Changed<AutoAnimSequencer>,
     >,
 ) {
+    let _perf = perf_debug!();
     let Some(graph) = graph else {
         return;
     };
@@ -400,6 +404,7 @@ fn advance_on_animation_ends(
         Option<&NpcWeaponMode>,
     )>,
 ) {
+    let _perf = perf_debug!();
     let Some(graph) = graph else {
         // Every decision needs the graph; without it the sequencer is inert.
         return;
@@ -515,6 +520,7 @@ fn emit_melee_hits_on_optimal_frame(
     mut hits: MessageWriter<MeleeHit>,
     sequencers: Query<&AnimationController, With<AutoAnimSequencer>>,
 ) {
+    let _perf = perf_debug!();
     for trigger in triggers.read() {
         if !trigger.trigger_name.starts_with(OPTIMAL_FRAME_TRIGGER) {
             continue;
@@ -542,8 +548,10 @@ fn update_model_facing(
         Option<&mut LinearVelocity>,
     )>,
 ) {
+    let perf = perf_debug!();
     let delta = time.delta_secs();
     for (seq, mut tr, weapon_mode, velocity) in &mut sequencers {
+        perf.increment_tag("sequencers", 1);
         if let Some(direction) = seq.direction {
             let target = face_direction_quat(direction);
             let speed = model_turn_speed(seq, weapon_mode);
@@ -585,6 +593,7 @@ fn preload_graph_animations(
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
 ) {
+    let _perf = perf_debug!();
     for name in graph.animation_names() {
         let Some((scheme, animation)) = name.split_once('-') else {
             warn!("Animation graph node({name}) without a scheme prefix, it is not preloaded",);

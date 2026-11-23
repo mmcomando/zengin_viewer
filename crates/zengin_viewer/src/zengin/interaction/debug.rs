@@ -6,6 +6,7 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
+use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalSection, JournalStatus};
@@ -79,6 +80,7 @@ const TEST_JOURNAL: &[(&str, JournalSection, JournalStatus, &[&str])] = &[
 /// Seeds [`TEST_JOURNAL`] into the script journal at startup so the journal UI
 /// has content to show without progressing through the story.
 pub(crate) fn seed_test_journal_on_start(gothic_script: Res<ScriptResource>) {
+    let _perf = perf_debug!();
     let mut script = gothic_script.lock();
     let count = seed_test_journal(&mut script);
     info!("Seeded {count} test journal topic(s) at startup");
@@ -157,6 +159,7 @@ pub(super) fn debug_equipment_on_start(
     player_npc: Query<&GameNpc, (With<PlayerCharacter>, Added<GameNpc>)>,
     mut game_log: ResMut<GameLog>,
 ) {
+    let _perf = perf_debug!();
     let Ok(player_npc) = player_npc.single() else {
         return;
     };

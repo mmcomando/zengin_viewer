@@ -10,6 +10,7 @@ use crate::gameplay::game_time::GameTime;
 use crate::graphics::{
     AnimationController, AnimationData, AnimationEnds, animation_name_from_path,
 };
+use crate::perf_debug;
 use crate::zengin::GameChest;
 use crate::zengin::GameMob;
 use crate::zengin::GameNpc;
@@ -131,6 +132,7 @@ fn index_added_mobs(
     mut registry: ResMut<MobRegistry>,
     added: Query<(Entity, &MobPose), Added<GameMob>>,
 ) {
+    let _perf = perf_debug!();
     for (entity, pose) in &added {
         registry.insert(pose.scheme.clone(), entity);
     }
@@ -141,6 +143,7 @@ fn unindex_removed_mobs(
     mut registry: ResMut<MobRegistry>,
     mut removed: RemovedComponents<GameMob>,
 ) {
+    let _perf = perf_debug!();
     for entity in removed.read() {
         registry.remove_entity(entity);
     }
@@ -152,6 +155,7 @@ fn release_despawned_mob_uses(
     mut removed: RemovedComponents<NpcMobUse>,
     mobs: Query<(Entity, &MobOccupant)>,
 ) {
+    let _perf = perf_debug!();
     for npc in removed.read() {
         for (mob, occupant) in &mobs {
             if occupant.0 == npc {
@@ -168,6 +172,7 @@ fn sync_npc_body_state(
     mut removed: RemovedComponents<NpcMobUse>,
     npcs: Query<(&GameNpc, Option<&NpcMobUse>, Option<&NpcItemUse>)>,
 ) {
+    let _perf = perf_debug!();
     let Some(gothic_script) = gothic_script else {
         return;
     };
@@ -206,6 +211,7 @@ fn apply_mob_routines(
     game_time: Res<GameTime>,
     mut mobs: Query<(&mut MobPose, &MobBase), With<GameMob>>,
 ) {
+    let _perf = perf_debug!();
     let Some(gothic_script) = gothic_script else {
         return;
     };
@@ -310,6 +316,7 @@ fn apply_mob_animations(
         Option<&mut AnimationController>,
     )>,
 ) {
+    let _perf = perf_debug!();
     let Some(animation_files) = animation_files else {
         return;
     };
@@ -384,6 +391,7 @@ fn advance_mob_state_transition(
         Option<&mut AnimationController>,
     )>,
 ) {
+    let _perf = perf_debug!();
     for end in ends.read() {
         let Ok((animation, transition, controller)) = mobs.get_mut(end.who) else {
             continue;
@@ -421,6 +429,7 @@ fn sync_script_mobs(
     changed_mobs: Query<(), Changed<MobPose>>,
     mut removed_occupancy: RemovedComponents<MobOccupant>,
 ) {
+    let _perf = perf_debug!();
     let occupancy_removed = removed_occupancy.read().count() > 0;
     let dirty = !*initialized
         || occupancy_removed
@@ -463,6 +472,7 @@ fn add_mob_selection_colliders(
         ),
     >,
 ) {
+    let _perf = perf_debug!();
     for (entity, aabb) in &mobs {
         let half = (aabb.max() - aabb.min()) * 0.5;
         commands.entity(entity).with_child((
@@ -483,6 +493,7 @@ fn extract_mob_positions(
     mut mobs: Query<(&mut MobPose, &MobBase, &ZenGinModelComponent)>,
     models: Res<Assets<ZenGinModel>>,
 ) {
+    let _perf = perf_debug!();
     for (mut pose, base, model_component) in &mut mobs {
         if pose.positions.is_some() {
             continue;

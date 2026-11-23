@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::game_state::AppState;
 use crate::input::Options;
+use crate::perf_debug;
 use crate::zengin::SetGameTime;
 
 /// Advances the running game time every frame.
@@ -71,6 +72,7 @@ impl GameTime {
 }
 
 pub(crate) fn advance_game_time(time: Res<Time>, mut game_time: ResMut<GameTime>) {
+    let _perf = perf_debug!();
     game_time.total_hours += time.delta_secs() * HOURS_PER_SECOND * game_time.speed;
     let elapsed_days = (game_time.total_hours / 24.0).floor();
     if elapsed_days >= 1.0 {
@@ -81,6 +83,7 @@ pub(crate) fn advance_game_time(time: Res<Time>, mut game_time: ResMut<GameTime>
 
 /// Applies a script `Wld_SetTime` request (`SetGameTime`).
 fn apply_set_game_time(mut requests: MessageReader<SetGameTime>, mut game_time: ResMut<GameTime>) {
+    let _perf = perf_debug!();
     for request in requests.read() {
         let now_minutes = game_time.total_hours * 60.0;
         let next_minutes = request.hour as f32 * 60.0 + request.minute as f32;
@@ -118,5 +121,6 @@ impl PlayTime {
 }
 
 pub(crate) fn advance_play_time(time: Res<Time>, mut play_time: ResMut<PlayTime>) {
+    let _perf = perf_debug!();
     play_time.seconds += time.delta_secs_f64();
 }

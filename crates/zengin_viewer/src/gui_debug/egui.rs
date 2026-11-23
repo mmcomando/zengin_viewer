@@ -9,6 +9,7 @@ use crate::gui_debug::info_tab::{InfoParams, info_tab_ui};
 use crate::gui_debug::state::{
     DebugTab, DebugUiState, EntityQueryData, EntityQueryFilter, EntityRow, details_data,
 };
+use crate::perf_debug;
 use crate::zengin::{ScriptResource, Selection};
 
 pub struct GameDebugUI;
@@ -91,6 +92,7 @@ fn debug_ui_system(
     camera_query: Query<&GlobalTransform, With<Camera3d>>,
     time: Res<Time>,
 ) -> Result {
+    let _perf = perf_debug!();
     let refresh_due = state.refresh_timer.tick(time.delta()).just_finished();
     if state.left_open && (state.rows_dirty || refresh_due) {
         rebuild_rows(&entities, &mut state.rows);

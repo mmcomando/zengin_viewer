@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::ui_kit::spawn_gui_root;
 
 use super::state::JournalCategory;
+use crate::perf_debug;
 
 #[derive(Component)]
 pub(super) struct JournalRootMarker;
@@ -33,6 +34,7 @@ pub(super) enum JournalTextMarker {
 }
 
 pub(super) fn spawn_journal_root(mut commands: Commands) {
+    let _perf = perf_debug!();
     let root = spawn_gui_root(&mut commands, JournalRootMarker);
     commands.entity(root).insert(GlobalZIndex(10));
 }

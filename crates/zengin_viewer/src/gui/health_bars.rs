@@ -4,6 +4,7 @@
 use bevy::prelude::*;
 
 use crate::gameplay::objects::PlayerCharacter;
+use crate::perf_debug;
 use crate::zengin::{NpcHealth, Selection, SelectionKind};
 
 pub struct HealthBarsPlugin;
@@ -52,6 +53,7 @@ type ContainerFilter = (
 );
 
 fn spawn_health_bars(mut commands: Commands) {
+    let _perf = perf_debug!();
     // Player bar, bottom left corner; the game log sits above it
     commands
         .spawn((
@@ -154,6 +156,7 @@ fn update_player_bar(
     text: Single<&mut Text, (With<HealthBarText>, With<PlayerHealthBar>)>,
     player: Single<&NpcHealth, With<PlayerCharacter>>,
 ) {
+    let _perf = perf_debug!();
     let health = player.into_inner();
     let mut container = container.into_inner();
     // The player bar is visible once the health is seeded
@@ -171,6 +174,7 @@ fn update_target_bar(
     selection: Res<Selection>,
     npcs: Query<&NpcHealth>,
 ) {
+    let _perf = perf_debug!();
     let mut container = container.into_inner();
     let health = (selection.kind == Some(SelectionKind::Npc))
         .then_some(selection.target)

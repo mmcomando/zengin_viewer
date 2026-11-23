@@ -10,6 +10,7 @@ use crate::gameplay::character_camera::{
     camera_movement_system, camera_toggle_input, use_character_camera,
 };
 use crate::input::{GameplayAction, GameplayInputMarker, world_input_enabled};
+use crate::perf_debug;
 use crate::zengin::{NPC_BODY, NpcMobUse};
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
@@ -194,10 +195,12 @@ fn update_npc_physics_active(
     cameras: Query<&GlobalTransform, With<Camera3d>>,
     npcs: Query<(Entity, &GlobalTransform, Has<NpcPhysicsActiveMarker>), With<NpcPhysicsMarker>>,
 ) {
+    let perf = perf_debug!();
     let Some(camera) = cameras.iter().next() else {
         return;
     };
     let camera_position = camera.translation();
+    perf.record_count("npcs", npcs.iter().len());
     for (entity, transform, active) in &npcs {
         let limit = if active {
             NPC_PHYSICS_RELEASE_DISTANCE_SQUARED
@@ -207,9 +210,11 @@ fn update_npc_physics_active(
         let in_range = camera_position.distance_squared(transform.translation()) <= limit;
         match (in_range, active) {
             (true, false) => {
+                perf.increment_tag("activated", 1);
                 commands.entity(entity).insert(NpcPhysicsActiveMarker);
             }
             (false, true) => {
+                perf.increment_tag("released", 1);
                 commands
                     .entity(entity)
                     // A body that leaves the range must not resume with stale motion.
@@ -236,7 +241,9 @@ fn update_grounded(
     >,
     spatial_query: SpatialQuery,
 ) {
+    let perf = perf_debug!();
     for (entity, ground_detection, global_transform) in &mut query {
+        perf.increment_tag("checked", 1);
         let Some(collider) = &ground_detection.cast_shape else {
             continue;
         };
@@ -263,6 +270,7 @@ fn update_grounded(
 
         // Update grounded state
         if is_grounded {
+            perf.increment_tag("grounded", 1);
             commands.entity(entity).insert(Grounded);
         } else {
             commands.entity(entity).remove::<Grounded>();
@@ -295,6 +303,7 @@ fn movement(
         (With<CharacterController>, Without<NpcMobUse>),
     >,
 ) {
+    let perf = perf_debug!();
     let delta_secs = time.delta_secs();
 
     // Keyboard D-pads and the gamepad stick are summed, so clamp to unit length.
@@ -306,6 +315,7 @@ fn movement(
     let accelerating = action_state.pressed(&GameplayAction::Accelerate);
 
     for (entity, movement, mut linear_velocity, is_grounded) in &mut controllers {
+        perf.increment_tag("controllers", 1);
         // Accelerate scales the animation's root motion delta movement (read
         // by the animation system via [`AcceleratingRootMotion`]).
         if accelerating {
@@ -355,12 +365,15 @@ fn apply_gravity(
         ),
     >,
 ) {
+    let perf = perf_debug!();
     let delta_secs = time.delta_secs();
 
     for (movement, mut linear_velocity, is_controller, grounded) in &mut controllers {
+        perf.increment_tag("bodies", 1);
         // An npc resting on the ground must not accumulate downward velocity,
         // otherwise it would need a sweep every frame just to cancel it.
         if !is_controller && grounded {
+            perf.increment_tag("grounded_skip", 1);
             continue;
         }
         let gravity_direction = movement.gravity.normalize_or_zero();
@@ -393,9 +406,11 @@ fn apply_movement_damping(
     >,
     time: Res<Time>,
 ) {
+    let perf = perf_debug!();
     let delta_secs = time.delta_secs();
 
     for (movement, mut linear_velocity) in &mut query {
+        perf.increment_tag("controllers", 1);
         // Approximate exponential decay. We could use `LinearDamping` for this,
         // but we don't want to dampen movement along the Y axis.
         linear_velocity.x *= 1.0 / (1.0 + delta_secs * movement.damping);
@@ -428,6 +443,7 @@ pub fn move_and_slide(
     move_and_slide: MoveAndSlide,
     time: Res<Time>,
 ) {
+    let perf = perf_debug!();
     for (
         entity,
         ground_detection,
@@ -438,13 +454,16 @@ pub fn move_and_slide(
         is_controller,
     ) in &mut query
     {
+        perf.increment_tag("bodies", 1);
         let is_npc = !is_controller;
         // A body with a negligible velocity does not need a sweep. The vertical
         // component matters too: an idle npc dropped in the air has no horizontal
         // velocity but still has to fall.
         if is_npc && lin_vel.0.length_squared() < NPC_IDLE_VELOCITY_SQUARED {
+            perf.increment_tag("idle_skip", 1);
             continue;
         }
+        perf.increment_tag("swept", 1);
 
         let mut hit_ground_or_ceiling = false;
 
@@ -603,7 +622,9 @@ fn apply_forces_to_dynamic_bodies(
     colliders: Query<&ColliderOf>,
     mut rigid_bodies: Query<(&RigidBody, Forces)>,
 ) {
+    let perf = perf_debug!();
     for (mass, collisions) in &characters {
+        perf.increment_tag("characters", 1);
         let mass = mass.value();
         for collision in &collisions.0 {
             let Ok(collider_of) = colliders.get(collision.collider) else {
@@ -615,6 +636,7 @@ fn apply_forces_to_dynamic_bodies(
             if !rigid_body.is_dynamic() {
                 continue;
             }
+            perf.increment_tag("impulses", 1);
 
             let touch_dir = -collision.normal;
             let relative_velocity = collision.character_velocity - forces.linear_velocity();

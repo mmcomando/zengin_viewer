@@ -1,5 +1,6 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
+use crate::perf_debug;
 
 /// Top-level application state. The game world exists in [`AppState::InGame`]
 /// and is being built in [`AppState::LoadScreen`].
@@ -62,17 +63,21 @@ impl Plugin for GameStatePlugin {
 }
 
 fn pause_physics(mut time: ResMut<Time<Physics>>) {
+    let _perf = perf_debug!();
     time.pause();
 }
 
 fn resume_physics(mut time: ResMut<Time<Physics>>) {
+    let _perf = perf_debug!();
     time.unpause();
 }
 
 fn mark_world_loaded(mut loaded: ResMut<WorldLoaded>) {
+    let _perf = perf_debug!();
     loaded.0 = true;
 }
 
 fn mark_world_unloaded(mut loaded: ResMut<WorldLoaded>) {
+    let _perf = perf_debug!();
     loaded.0 = false;
 }

@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
 };
+use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::common::horizontal_offset;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
@@ -26,7 +27,9 @@ pub(crate) fn start_goto_npc_action(
     targets: Query<&GlobalTransform>,
     mut npcs: Query<(Entity, &GoToNpcAction, &mut AnimationController), Added<GoToNpcAction>>,
 ) {
+    let perf = perf_debug!();
     for (entity, action, mut controller) in &mut npcs {
+        perf.increment_tag("actions", 1);
         if targets.get(action.target).is_err() {
             warn!(
                 "npc entity({entity}) goto npc target({}) is gone, dropping action",
@@ -53,7 +56,9 @@ pub(crate) fn run_goto_npc_action(
         Option<&NpcWalkMode>,
     )>,
 ) {
+    let perf = perf_debug!();
     for (entity, npc, action, transform, mut controller, walk_mode) in &mut npcs {
+        perf.increment_tag("actions", 1);
         let Ok(target_tr) = targets.get(action.target) else {
             warn!(
                 "npc({}) goto npc target({}) is gone, dropping action",
@@ -89,7 +94,9 @@ pub(crate) fn end_goto_npc_action(
     mut removed: RemovedComponents<GoToNpcAction>,
     mut npcs: Query<(&mut AutoAnimSequencer, &mut AnimationController)>,
 ) {
+    let perf = perf_debug!();
     for entity in removed.read() {
+        perf.increment_tag("actions", 1);
         let Ok((mut sequencer, mut controller)) = npcs.get_mut(entity) else {
             continue;
         };

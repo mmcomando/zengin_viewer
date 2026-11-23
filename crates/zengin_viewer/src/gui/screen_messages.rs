@@ -3,6 +3,7 @@
 
 use bevy::prelude::*;
 
+use crate::perf_debug;
 use crate::zengin::ScreenMessage;
 
 pub struct ScreenMessagesPlugin;
@@ -34,6 +35,7 @@ struct ScreenMessageMarker {
 /// components resolve against the container width, tying the vertical offset
 /// to the window width.
 fn handle_screen_messages(mut commands: Commands, mut messages: MessageReader<ScreenMessage>) {
+    let _perf = perf_debug!();
     for message in messages.read() {
         let seconds = message.time_sec.max(0) as f32 + EXTRA_DISPLAY_SECONDS;
         let horizontal = if message.x < 0 {
@@ -80,6 +82,7 @@ fn expire_screen_messages(
     mut commands: Commands,
     mut messages: Query<(Entity, &mut ScreenMessageMarker)>,
 ) {
+    let _perf = perf_debug!();
     for (entity, mut message) in &mut messages {
         message.time_left -= time.delta_secs();
         if message.time_left <= 0.0 {

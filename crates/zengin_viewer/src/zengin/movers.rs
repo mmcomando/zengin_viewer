@@ -7,6 +7,7 @@ use bevy::prelude::*;
 use zen_kit_rs::misc::MoverBehavior;
 
 use crate::game_state::AppState;
+use crate::perf_debug;
 
 pub struct MoversPlugin;
 
@@ -161,6 +162,7 @@ impl GameMover {
 }
 
 fn apply_vob_triggers(mut triggers: MessageReader<VobTrigger>, mut movers: Query<&mut GameMover>) {
+    let _perf = perf_debug!();
     let targets: Vec<String> = triggers.read().map(|event| event.target.clone()).collect();
     if targets.is_empty() {
         return;
@@ -182,6 +184,7 @@ fn fire_world_start_triggers(
     mut pending: ResMut<PendingWorldStartTriggers>,
     mut triggers: MessageWriter<VobTrigger>,
 ) {
+    let _perf = perf_debug!();
     for target in pending.0.drain(..) {
         info!(target = %target, "world start trigger");
         triggers.write(VobTrigger { target });
@@ -189,6 +192,7 @@ fn fire_world_start_triggers(
 }
 
 fn advance_movers(time: Res<Time>, mut movers: Query<(&mut GameMover, &mut Transform)>) {
+    let _perf = perf_debug!();
     for (mut mover, mut transform) in &mut movers {
         if mover.current == mover.target {
             continue;

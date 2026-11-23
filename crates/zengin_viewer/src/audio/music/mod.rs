@@ -15,6 +15,7 @@ use crate::audio::music::engine::MusicEngine;
 use crate::audio::music::source::MusicSource;
 use crate::audio::music_definitions::MusicDefinitions;
 use crate::game_state::AppState;
+use crate::perf_debug;
 
 /// Latest music request from a menu or gameplay system. It is applied in
 /// `Update`, after the startup systems had a chance to create the engine and
@@ -52,6 +53,7 @@ impl Plugin for MusicPlaybackPlugin {
 }
 
 fn spawn_music_player(mut commands: Commands, mut sources: ResMut<Assets<MusicSource>>) {
+    let _perf = perf_debug!();
     let engine = MusicEngine::new();
     let source = sources.add(MusicSource::new(engine.shared()));
     // The decoder is an infinite source; `ONCE` just keeps the same sink alive.
@@ -64,6 +66,7 @@ fn apply_pending_music(
     engine: Option<Res<MusicEngine>>,
     definitions: Option<Res<MusicDefinitions>>,
 ) {
+    let _perf = perf_debug!();
     let (Some(engine), Some(definitions)) = (engine, definitions) else {
         return;
     };
@@ -77,9 +80,11 @@ fn apply_pending_music(
 }
 
 fn request_loading_theme(mut pending: ResMut<PendingMusic>) {
+    let _perf = perf_debug!();
     pending.play("SYS_Loading");
 }
 
 fn request_stop(mut pending: ResMut<PendingMusic>) {
+    let _perf = perf_debug!();
     pending.stop();
 }

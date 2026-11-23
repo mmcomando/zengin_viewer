@@ -17,6 +17,7 @@ use crate::graphics::{
 };
 use crate::gui::LootClosed;
 use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::perf_debug;
 use crate::zengin::npc_actions::{
     ExecutingActionMarker, MobUsePose, UseMobAction, mob_animation_name, release_mob_use,
 };
@@ -151,6 +152,7 @@ pub(super) fn close_looted_chest(
         With<PlayerCharacter>,
     >,
 ) {
+    let _perf = perf_debug!();
     for request in closed.read() {
         // The chest may be gone when the world was unloaded mid-loot.
         if mobs.get(request.chest).is_err() {
@@ -241,6 +243,7 @@ pub(super) fn release_stale_player_mob_use(
     >,
     mobs: Query<(), With<MobPose>>,
 ) {
+    let _perf = perf_debug!();
     for (entity, mob_use, controller, sequencer) in &mut players {
         if mobs.get(mob_use.mob).is_ok() {
             continue;
@@ -287,6 +290,7 @@ pub(super) fn stand_up_player_from_mob(
         With<PlayerCharacter>,
     >,
 ) {
+    let _perf = perf_debug!();
     let moving = action_state
         .axis_pair(&GameplayAction::Move)
         .length_squared()
@@ -373,6 +377,7 @@ pub(super) fn start_auto_end_release(
         ),
     >,
 ) {
+    let _perf = perf_debug!();
     for (entity, npc, mob_use, model, overlay) in &players {
         let Ok(mob) = mobs.get(mob_use.mob) else {
             continue;
@@ -425,6 +430,7 @@ pub(super) fn advance_player_mob_release(
         &mut AutoAnimSequencer,
     )>,
 ) {
+    let _perf = perf_debug!();
     let mut ended: Vec<(Entity, String)> = Vec::new();
     for end in ends.read() {
         let Some(path) = Handle::path(&end.what_animation) else {
@@ -537,6 +543,7 @@ pub(super) fn sync_player_mob_physics(
     mut removed: RemovedComponents<NpcMobUse>,
     mut velocities: Query<&mut LinearVelocity, With<PlayerCharacter>>,
 ) {
+    let _perf = perf_debug!();
     for entity in &added {
         commands.entity(entity).try_insert(ColliderDisabled);
         if let Ok(mut velocity) = velocities.get_mut(entity) {

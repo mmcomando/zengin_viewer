@@ -14,6 +14,7 @@ use bevy::prelude::*;
 use zen_kit_rs::model_scripts::ModelScript;
 use zen_kit_rs::stream::Read;
 
+use crate::perf_debug;
 use crate::zengin::{ZenginVfs, get_zengin_asset_bytes, to_world_units};
 
 pub struct AnimationTriggersPlugin;
@@ -140,6 +141,7 @@ pub fn crossed_sounds(
 /// triggers are registered.
 #[allow(clippy::cognitive_complexity)]
 fn load_human_animation_data(mut commands: Commands, vfs: Res<ZenginVfs>) {
+    let _perf = perf_debug!();
     let (triggers, source) = load_triggers_or_fallback(&vfs);
 
     let animations = triggers.animations.len();

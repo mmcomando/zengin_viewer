@@ -9,6 +9,7 @@ use bevy::{
 use crate::game_state::AppState;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::perf_debug;
 use crate::xr::is_xr_enabled;
 use crate::zengin::face_direction_quat;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
@@ -181,6 +182,7 @@ pub const TELEPORT_LOCATIONS: &[TeleportLocation] = &[
 pub struct TeleportToLocation(pub usize);
 
 fn spawn_camera(mut commands: Commands) {
+    let _perf = perf_debug!();
     commands.spawn((
         Smaa::default(),
         Msaa::Off,
@@ -223,6 +225,7 @@ fn apply_teleport_requests(
     mut player: Query<&mut Transform, (With<PlayerCharacter>, Without<Camera3d>)>,
     mut camera: Query<&mut Transform, (With<Camera3d>, Without<PlayerCharacter>)>,
 ) {
+    let _perf = perf_debug!();
     for teleport in teleports.read() {
         let Some(location) = TELEPORT_LOCATIONS.get(teleport.0) else {
             warn!(
@@ -259,6 +262,7 @@ fn use_third_person_camera(info: Res<CameraResource>) -> bool {
 
 /// Keeps [`CameraResource`] consistent with [`EditorMode`].
 fn apply_editor_mode(editor_mode: Res<EditorMode>, mut camera: ResMut<CameraResource>) {
+    let _perf = perf_debug!();
     match *editor_mode {
         EditorMode::Enabled => {
             if camera.current() != CurrentCamera::Free {
@@ -277,6 +281,7 @@ fn sync_free_camera_enabled(
     info: Res<CameraResource>,
     mut query: Query<&mut FreeCameraState, With<Camera3d>>,
 ) {
+    let _perf = perf_debug!();
     let Ok(mut state) = query.single_mut() else {
         return;
     };
@@ -289,6 +294,7 @@ fn sync_third_person_cursor(
     info: Res<CameraResource>,
     mut windows: Query<(&mut Window, &mut CursorOptions), With<PrimaryWindow>>,
 ) {
+    let _perf = perf_debug!();
     let Ok((_, mut cursor)) = windows.single_mut() else {
         return;
     };
@@ -314,6 +320,7 @@ fn rotate_third_person_camera(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
 ) -> Result<(), BevyError> {
+    let _perf = perf_debug!();
     let direction = action_state.axis_pair(&GameplayAction::RotateCamera);
     if direction.length_squared() < 0.01 {
         return Ok(());
@@ -330,6 +337,7 @@ fn rotate_third_person_camera_mouse(
     mouse_motion: Res<AccumulatedMouseMotion>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
 ) -> Result<(), BevyError> {
+    let _perf = perf_debug!();
     if mouse_motion.delta == Vec2::ZERO {
         return Ok(());
     }
@@ -359,6 +367,7 @@ pub(super) fn update_dialog_camera(
     info: Res<CameraResource>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
 ) {
+    let _perf = perf_debug!();
     let Some(pose) = info.dialog_pose else {
         return;
     };

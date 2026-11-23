@@ -18,6 +18,7 @@ use super::state::{
     load_selectable_slots, load_slot_index, selectable_slots,
 };
 use super::style::MainMenuStyle;
+use crate::perf_debug;
 
 #[derive(Component)]
 pub(super) struct MainMenuInfoTextMarker;
@@ -68,6 +69,7 @@ pub(super) fn sync_main_menu(
         (With<MainMenuInfoTextMarker>, Without<MainMenuRootMarker>),
     >,
 ) {
+    let _perf = perf_debug!();
     set_visibility(&mut root, state.open);
     if !state.open {
         return;

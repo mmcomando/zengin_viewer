@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::graphics::AnimationController;
+use crate::perf_debug;
 use crate::zengin::NpcCorpseMarker;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::queue::{NpcActionQueue, QueuedAction};
@@ -20,6 +21,7 @@ pub(crate) fn flush_npc_action_queue(
         ),
     >,
 ) {
+    let _perf = perf_debug!();
     for (entity, mut queue) in &mut npcs {
         let Some(action) = queue.pop_front() else {
             continue;

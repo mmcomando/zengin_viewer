@@ -14,6 +14,7 @@ use super::state::{
     LoadMenuData, MainMenuData, MainMenuScreen, MainMenuState, is_load_back, load_selectable_slots,
     load_slot_index, selectable_slots,
 };
+use crate::perf_debug;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn handle_main_menu_input(
@@ -30,6 +31,7 @@ pub(super) fn handle_main_menu_input(
     mut load_request: MessageWriter<LoadSaveRequest>,
     mut exit: MessageWriter<AppExit>,
 ) {
+    let _perf = perf_debug!();
     if !state.open {
         return;
     }

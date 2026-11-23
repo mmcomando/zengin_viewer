@@ -1,6 +1,7 @@
 use super::state::{DialogLineView, DialogOptionView, DialogUiState};
 use bevy::prelude::*;
 
+use crate::perf_debug;
 use crate::ui_kit::{
     UiText, follow_selected_row, set_display, set_font_size, set_text, set_text_color,
     set_visibility, spawn_gui_root,
@@ -64,6 +65,7 @@ pub(super) type LineTextFilter = (
 /// Applies globally because every `TextFont { ..default() }` resolves to the default font asset id.
 pub(super) fn override_default_font(mut fonts: ResMut<Assets<Font>>) {
     const FONT_DATA: &[u8] = include_bytes!("../../../assets/fonts/FiraSans-Regular.ttf");
+    let _perf = perf_debug!();
     fonts
         .insert(
             bevy::asset::AssetId::default(),
@@ -74,6 +76,7 @@ pub(super) fn override_default_font(mut fonts: ResMut<Assets<Font>>) {
 
 /// Option rows are spawned lazily on demand and never removed, unused ones get `Display::None`.
 pub(super) fn spawn_dialog_ui(mut commands: Commands) {
+    let _perf = perf_debug!();
     let root = spawn_gui_root(&mut commands, DialogContainer::Root);
     spawn_options_panel(&mut commands, root);
     spawn_lines_panel(&mut commands, root);
@@ -197,6 +200,7 @@ pub(super) fn sync_dialog_ui(
     mut npc_name_text: Query<&mut Text, NpcNameTextFilter>,
     mut line_text: Query<&mut Text, LineTextFilter>,
 ) {
+    let _perf = perf_debug!();
     let trade_open = inventory_ui.is_trade();
     if !dialog_ui.is_open() {
         sync_container_visibility(&mut containers, &dialog_ui, trade_open);

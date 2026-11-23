@@ -18,6 +18,7 @@ use crate::zengin::{GameNpc, NpcSpawnNameFilter, ScriptResource, SpawnPositionFi
 use super::command::apply_replay_command;
 use super::failures::TestFailures;
 use super::state::{ActionReplay, PendingLocations};
+use crate::perf_debug;
 
 /// Applies the replayed actions of the current frame.
 ///
@@ -42,6 +43,7 @@ pub(super) fn replay_actions(
     log_buffer: Option<Res<LogBuffer>>,
     mut failures: ResMut<TestFailures>,
 ) {
+    let _perf = perf_debug!();
     let Some(mut replay) = replay else {
         return;
     };

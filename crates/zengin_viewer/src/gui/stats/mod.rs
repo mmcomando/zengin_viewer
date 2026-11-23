@@ -14,6 +14,7 @@ use bevy::prelude::*;
 use crate::game_state::AppState;
 use crate::zengin::ensure_menu_script;
 
+use crate::perf_debug;
 use data::StatsMenuData;
 
 pub(crate) struct StatsUiPlugin;
@@ -40,6 +41,7 @@ impl Plugin for StatsUiPlugin {
 /// Projects `menu_status` once when entering the game. The menu script may
 /// already be loaded by the main menu, otherwise this creates it.
 fn load_stats_menu_data(world: &mut World) {
+    let _perf = perf_debug!();
     let Some(script) = ensure_menu_script(world) else {
         error!("Status menu unavailable: MENU.DAT could not be loaded");
         world.insert_resource(StatsMenuData(None));

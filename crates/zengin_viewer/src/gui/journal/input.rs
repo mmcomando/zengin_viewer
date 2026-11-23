@@ -9,6 +9,7 @@ use crate::zengin::{DialogUiState, ScriptResource};
 
 use super::data::JournalMenuData;
 use super::state::{JournalFocus, JournalUiState};
+use crate::perf_debug;
 
 /// The dialog UI and the inventory take precedence over the journal.
 pub(super) fn toggle_journal(
@@ -20,6 +21,7 @@ pub(super) fn toggle_journal(
     gothic_script: Res<ScriptResource>,
     menu_data: Res<JournalMenuData>,
 ) {
+    let _perf = perf_debug!();
     if !action_state.just_pressed(&SharedAction::Journal) {
         return;
     }
@@ -45,6 +47,7 @@ pub(super) fn handle_journal_input(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     mut state: ResMut<JournalUiState>,
 ) {
+    let _perf = perf_debug!();
     if !state.open {
         return;
     }

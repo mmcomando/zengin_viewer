@@ -15,6 +15,7 @@ use crate::gameplay::character::{
 };
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
+use crate::perf_debug;
 
 use super::auto_anim_sequencer::AutoAnimSequencer;
 use super::components::{
@@ -161,10 +162,12 @@ pub(crate) fn update_animations(
     mut joints: Query<&mut BoneAnimationData>,
     camera: Option<Single<(&Frustum, &GlobalTransform), With<Camera3d>>>,
 ) {
+    let perf = perf_debug!();
     let delta = time.delta_secs();
     let mut switches: Vec<(Entity, Arc<AnimationData>)> = Vec::new();
 
     for (entity, global_transform, aabb, player, sequencer, mut data, controller) in &mut query {
+        perf.increment_tag("skeletons", 1);
         let mut velocity = velocities.get_mut(entity).ok();
         // Without a main camera (e.g. in tests) fall back to always updating.
         let needs_update = match (&camera, aabb) {
@@ -200,6 +203,7 @@ pub(crate) fn update_animations(
             .store(needs_update, Ordering::Release);
 
         if !data.frame_state.needs_update.load(Ordering::Acquire) {
+            perf.increment_tag("skipped", 1);
             // A physics npc that stops being animated must not keep the velocity
             // of its last animated step, otherwise it would slide until the
             // animation resumes.
@@ -212,6 +216,9 @@ pub(crate) fn update_animations(
         let root_motion = controller
             .as_ref()
             .is_some_and(|controller| controller.root_motion());
+        if root_motion {
+            perf.increment_tag("root_motion", 1);
+        }
         data.frame_state
             .root_motion
             .store(root_motion, Ordering::Release);
@@ -307,6 +314,7 @@ pub(crate) fn update_animations(
             && let Some(next) = controller.take_next()
             && let Some(next_data) = animations.get(&next)
         {
+            perf.increment_tag("switches", 1);
             let next_data = Arc::new(next_data.clone());
             switch_animation(
                 entity,
@@ -488,6 +496,7 @@ fn switch_animation(
 #[allow(clippy::cast_precision_loss)]
 #[allow(clippy::type_complexity)]
 pub(crate) fn compute_animations(mut query: Query<(&mut Transform, &BoneAnimationData)>) {
+    let _perf = perf_debug!();
     // Bones of far objects are despawned together with the model root, so this
     // only ever sees joints of nearby skeletons. It is the per-bone inner loop
     // of skeletal animation, hence parallelized.

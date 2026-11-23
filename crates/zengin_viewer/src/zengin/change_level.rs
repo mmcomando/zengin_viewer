@@ -5,6 +5,7 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::gameplay::objects::PlayerCharacter;
+use crate::perf_debug;
 use crate::zengin::common::ChangeLevelTrigger;
 use crate::zengin::world_plugin::begin_level_change;
 
@@ -38,6 +39,7 @@ fn detect_change_level(
     mut triggers: ResMut<ChangeLevelTriggers>,
     mut pending: ResMut<PendingChangeLevel>,
 ) {
+    let _perf = perf_debug!();
     if pending.0.is_some() {
         return;
     }
@@ -62,6 +64,7 @@ fn detect_change_level(
 }
 
 fn process_change_level(world: &mut World) {
+    let _perf = perf_debug!();
     let Some((level, start_vob)) = world.resource_mut::<PendingChangeLevel>().0.take() else {
         return;
     };

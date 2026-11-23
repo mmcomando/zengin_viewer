@@ -10,6 +10,7 @@ use crate::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
 use crate::game_state::AppState;
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gui_debug::{StaticMesh, WorldMesh};
+use crate::perf_debug;
 use crate::zengin::common::{is_switch_mob_scheme, mob_scheme, mob_visual_stem};
 use crate::zengin::loaders::vdf_reader::ZenginVfs;
 use crate::zengin::loaders::vfs::find_mesh_path;
@@ -290,6 +291,7 @@ fn spawn_world_mesh(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
+    let _perf = perf_debug!();
     for spawn in spawns.read() {
         let model = std::mem::take(&mut spawn.model);
         commands.spawn((
@@ -314,6 +316,7 @@ fn spawn_static_models(
     asset_server: Res<AssetServer>,
     position_filter: Res<SpawnPositionFilter>,
 ) {
+    let _perf = perf_debug!();
     for spawn in spawns.read() {
         if !position_filter.allows(spawn.tr.translation) {
             continue;
@@ -350,6 +353,7 @@ fn spawn_mobs(
     animation_files: Res<AnimationFiles>,
     position_filter: Res<SpawnPositionFilter>,
 ) {
+    let _perf = perf_debug!();
     let mobs: Vec<SpawnMob> = spawns.read().cloned().collect();
     for mob in mobs {
         if !position_filter.allows(mob.tr.translation) {
@@ -457,6 +461,7 @@ fn sync_script_containers(
     mut removed: RemovedComponents<GameChest>,
     mut initialized: Local<bool>,
 ) {
+    let _perf = perf_debug!();
     let dirty =
         !*initialized || !added.is_empty() || !changed.is_empty() || removed.read().count() > 0;
     if !dirty {
@@ -481,6 +486,7 @@ fn spawn_movers(
     asset_server: Res<AssetServer>,
     position_filter: Res<SpawnPositionFilter>,
 ) {
+    let _perf = perf_debug!();
     for spawn in spawns.read() {
         if !position_filter.allows(spawn.tr.translation) {
             continue;

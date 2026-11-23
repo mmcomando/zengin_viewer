@@ -16,6 +16,7 @@ use crate::graphics::{
     AnimatedJoint, AnimationController, AnimationData, AnimationState, AutoAnimSequencer,
     BoneAnimationData, FrameState, NpcAnimations,
 };
+use crate::perf_debug;
 use crate::warn_once;
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_animation_path;
@@ -170,6 +171,7 @@ fn add_npc_animation_components(
         ),
     >,
 ) {
+    let _perf = perf_debug!();
     for (entity, npc, model, animations) in &npcs {
         let animation = initial_animation_path(npc, model, animations);
         let handle = handles.get_animation_handle(&asset_server, &animation);
@@ -219,6 +221,7 @@ fn spawn_npcs(
     >,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
+    let _perf = perf_debug!();
     for (entity_id, npc_model, controller, is_player) in &mut query {
         let body_handle = handles_map.get_model_handle(
             &asset_server,
@@ -385,6 +388,7 @@ fn spawn_npcs(
 }
 
 fn add_classify_distance(mut commands: Commands, query: Query<Entity, Added<GameNpc>>) {
+    let _perf = perf_debug!();
     for entity_id in query {
         commands
             .entity(entity_id)
@@ -425,6 +429,7 @@ fn despawn_visual_when_far(
     mut commands: Commands,
     q_parent: Query<Entity, (With<DistanceFar>, With<ObjectEntitiesSpawned>)>,
 ) {
+    let _perf = perf_debug!();
     for entity_id in q_parent.iter() {
         let mut main_entity = commands.entity(entity_id);
         main_entity.remove::<ObjectEntitiesSpawned>();

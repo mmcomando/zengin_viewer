@@ -14,6 +14,7 @@ use crate::graphics::NpcAnimations;
 use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
 use crate::gui_debug::WorldMesh;
 use crate::input::Options;
+use crate::perf_debug;
 use crate::save::PendingLoad;
 use crate::save::format::SaveGame;
 use crate::world_entity::WorldEntityMarker;
@@ -195,6 +196,7 @@ pub(crate) fn request_initial_world(
     mut loading_world: ResMut<LoadingWorld>,
     options: Res<Options>,
 ) {
+    let _perf = perf_debug!();
     if options.scenario_enabled() {
         info!("Skipping the default world spawn, the scenario run requests it explicitly");
         return;
@@ -246,6 +248,7 @@ fn clean_spawn_request(world_name: &str) -> SpawnWorld {
 }
 
 fn restart_world(world: &mut World) {
+    let _perf = perf_debug!();
     let world_name = world.resource::<CurrentWorld>().0.clone();
     if world_name.is_empty() {
         warn!("World restart requested before a world was spawned");
@@ -260,6 +263,7 @@ fn restart_world(world: &mut World) {
 }
 
 fn new_game(world: &mut World) {
+    let _perf = perf_debug!();
     begin_world_load(world, START_WORLD, None, None);
 }
 
@@ -270,6 +274,7 @@ fn spawn_requested_player(
     mut instance_index: ResMut<InstanceIndex>,
     players: Query<(), With<PlayerCharacter>>,
 ) {
+    let _perf = perf_debug!();
     if pending.0.is_empty() {
         return;
     }
@@ -405,6 +410,7 @@ fn begin_world_load_with(
 const LOAD_TIMEOUT: f32 = 100.0;
 
 fn reset_load_screen_elapsed(mut elapsed: ResMut<LoadScreenElapsed>) {
+    let _perf = perf_debug!();
     elapsed.0 = 0.0;
 }
 
@@ -418,6 +424,7 @@ fn finish_world_load(
     colliders: Query<(), With<Collider>>,
     mut load_state: ResMut<NextState<AppState>>,
 ) {
+    let _perf = perf_debug!();
     elapsed.0 += time.delta_secs();
     let has_collider = world_mesh
         .iter()
@@ -447,6 +454,7 @@ fn spawn_world(
     mut spawn_npc: MessageWriter<SpawnNpc>,
     options: Res<Options>,
 ) {
+    let _perf = perf_debug!();
     if pending_spawns.0.is_empty() {
         return;
     }
@@ -803,6 +811,7 @@ fn spawn_npc_entities(
     npc_filter: Res<NpcSpawnNameFilter>,
     position_filter: Res<SpawnPositionFilter>,
 ) {
+    let _perf = perf_debug!();
     for spawn in spawns.read() {
         let Some(script) = npc_spawn_script_data(&gothic_scripts, spawn, game_time.hour() * 60)
         else {
@@ -937,6 +946,7 @@ fn spawn_item_entities(
     mut instance_index: ResMut<InstanceIndex>,
     position_filter: Res<SpawnPositionFilter>,
 ) {
+    let _perf = perf_debug!();
     for spawn in spawns.read() {
         let Some((handle, name)) = ({
             let mut script = gothic_scripts.lock();

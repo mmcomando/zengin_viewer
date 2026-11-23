@@ -12,6 +12,7 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
 };
+use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::common::{
     animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
@@ -110,6 +111,7 @@ pub(crate) fn update_npc_routine_entries(
     game_time: Res<GameTime>,
     mut npcs: Query<(&GameNpc, &mut RoutineEntry), Without<ChildOf>>,
 ) {
+    let _perf = perf_debug!();
     let minutes = game_time.minutes_of_day();
     if check_state.last_checked_minute == Some(minutes) {
         return;
@@ -153,6 +155,7 @@ pub(crate) fn update_npc_routines(
     >,
     mut removed: RemovedComponents<RoutineEntry>,
 ) {
+    let _perf = perf_debug!();
     let talking_npc = dialog_ui.talking_npc();
     for entity in removed.read() {
         // Despawned entities are fine here (e.g. a killed npc), `try_remove`
@@ -240,6 +243,7 @@ pub(crate) fn pause_talking_npc_routine(
     mut queues: Query<&mut NpcActionQueue>,
     mut entries: Query<&mut RoutineEntry>,
 ) {
+    let _perf = perf_debug!();
     let talking = dialog_ui.talking_npc();
     if *last_talking == talking {
         return;
@@ -273,6 +277,7 @@ pub(crate) fn end_removed_routine_entries(
     mut removed: RemovedComponents<RoutineEntry>,
     npcs: Query<(Entity, &GameNpc, &RoutineExecutor), Without<RoutineEntry>>,
 ) {
+    let _perf = perf_debug!();
     let mut script = gothic_script.lock();
     for entity in removed.read() {
         // Despawned entities are fine here, the executor goes away with them.
@@ -314,6 +319,7 @@ pub(crate) fn update_routine_executors(
         ),
     >,
 ) {
+    let _perf = perf_debug!();
     let mut script = gothic_script.lock();
     for (entity, npc, entry, executor) in &mut npcs {
         let instance = npc.instance_id();
@@ -400,6 +406,7 @@ pub(crate) fn apply_start_state_changes(
         (With<AnimationController>, Without<NpcCorpseMarker>),
     >,
 ) {
+    let _perf = perf_debug!();
     if changes.is_empty() {
         return;
     }
@@ -474,6 +481,7 @@ pub(crate) fn start_npc_start_ai_states(
         ),
     >,
 ) {
+    let _perf = perf_debug!();
     if npcs.is_empty() {
         return;
     }
@@ -533,6 +541,7 @@ pub(crate) fn sync_script_freepoints(
     spots: Res<Spots>,
     mut initialized: Local<bool>,
 ) {
+    let _perf = perf_debug!();
     if *initialized && !spots.is_changed() {
         return;
     }
@@ -562,6 +571,7 @@ pub(crate) fn release_npc_freepoints(
     mut removed: RemovedComponents<RoutineExecutor>,
     npcs: Query<&GameNpc>,
 ) {
+    let _perf = perf_debug!();
     let mut removed_entities: Vec<Entity> = removed.read().collect();
     if changed.is_empty() && removed_entities.is_empty() {
         return;
@@ -599,6 +609,7 @@ pub(crate) fn run_routine_loops(
         (With<AnimationController>, Without<NpcCorpseMarker>),
     >,
 ) {
+    let _perf = perf_debug!();
     if npcs.is_empty() {
         return;
     }
@@ -707,6 +718,7 @@ pub(crate) fn restore_routine_stand(
         (Without<RoutineExecutor>, Without<NpcCorpseMarker>),
     >,
 ) {
+    let _perf = perf_debug!();
     for (entity, mut sequencer) in &mut changed {
         // A new routine state drops the previous item pose (`Npc::clearState`
         // does `putState(0,0)`), the standing idle follows below.
@@ -743,6 +755,7 @@ pub(crate) fn apply_look_at(
     >,
     transforms: Query<&GlobalTransform>,
 ) {
+    let _perf = perf_debug!();
     for (entity, look_at, npc_tr, mut tr) in &mut npcs {
         let Ok(target_tr) = transforms.get(look_at.0) else {
             // Target entity was destroyed, stop looking at it
@@ -764,6 +777,7 @@ pub(crate) fn apply_turn_to_npc(
     mut npcs: Query<(&GlobalTransform, &mut Transform)>,
     targets: Query<&GlobalTransform>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let Some(target_entity) = index.npcs(change.target).first().copied() else {
             warn!(
@@ -844,12 +858,15 @@ pub(crate) fn move_along_path(
         Without<NpcCorpseMarker>,
     >,
 ) {
+    let perf = perf_debug!();
     for (entity, mut transform, mut path, mut sequencer, mut controller, walk_mode, physics) in
         &mut npcs
     {
+        perf.increment_tag("npcs", 1);
         let Some(direction) =
             direction_to_next_node(&mut transform, &mut path, &graph, physics.is_none())
         else {
+            perf.increment_tag("finished", 1);
             // The path is done, restore the standing idle
             commands.entity(entity).remove::<NpcPath>();
             controller.set_root_motion(false);

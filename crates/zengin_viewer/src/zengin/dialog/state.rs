@@ -1,6 +1,7 @@
 use crate::audio::{PlaySound, SoundManager};
 use crate::gui::OpenTrade;
 use crate::input::{GuiAction, GuiInputMarker};
+use crate::perf_debug;
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId, StringId};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
@@ -499,6 +500,7 @@ pub(super) fn handle_dialog_input(
     inventory_ui: Res<crate::gui::InventoryUiState>,
     mut commands: Commands,
 ) {
+    let _perf = perf_debug!();
     if !dialog_ui.is_open() || inventory_ui.is_open() {
         return;
     }
@@ -545,6 +547,7 @@ pub(super) fn advance_dialog_playback(
     mut requests: MessageWriter<DialogRequest>,
     mut trade_requests: MessageWriter<OpenTrade>,
 ) {
+    let _perf = perf_debug!();
     if !dialog_ui.is_open() {
         return;
     }

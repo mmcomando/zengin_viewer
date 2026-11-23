@@ -12,6 +12,7 @@ mod style;
 
 pub(crate) use state::MainMenuState;
 
+use crate::perf_debug;
 use state::{LoadMenuData, MainMenuData, initial_selection};
 
 /// Main menu driven by the `menu_main` instance of MENU.DAT.
@@ -42,6 +43,7 @@ impl Plugin for MainMenuPlugin {
 /// shown, the loader is exclusive so the resources are visible to the next
 /// system in the same `OnEnter`.
 fn load_menu_data(world: &mut World) {
+    let _perf = perf_debug!();
     let Some(script) = MenuScriptResource::new() else {
         error!("Main menu data unavailable: MENU.DAT could not be loaded");
         world.insert_resource(MainMenuData(None));
@@ -67,6 +69,7 @@ fn open_main_menu(
     current_world: Res<CurrentWorld>,
     mut pending_music: ResMut<PendingMusic>,
 ) {
+    let _perf = perf_debug!();
     let in_game = !current_world.0.is_empty();
     let menu = data.as_ref().and_then(|data| data.0.as_ref());
     let selected = menu
@@ -80,6 +83,7 @@ fn open_main_menu(
 }
 
 fn close_main_menu(mut state: ResMut<MainMenuState>, mut pending_music: ResMut<PendingMusic>) {
+    let _perf = perf_debug!();
     state.close();
     pending_music.stop();
     info!("Main menu closed");

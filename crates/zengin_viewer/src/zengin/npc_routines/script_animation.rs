@@ -12,6 +12,7 @@ use crate::zengin::script::state::AnimationChange;
 use crate::zengin::script::string_value::StringCanon;
 
 use super::routines::{STANDING_ANIMATION, has_animation};
+use crate::perf_debug;
 
 /// Applies the `AI_PlayAni(BS)` requests drained by the script bridge. Requests
 /// are applied in order, so a later one overrides an earlier one.
@@ -28,6 +29,7 @@ pub(crate) fn apply_scripted_animations(
         &mut AutoAnimSequencer,
     )>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         for &entity in index.npcs(change.instance_id) {
             let Ok((model, overlay, mut controller, mut sequencer)) = npcs.get_mut(entity) else {

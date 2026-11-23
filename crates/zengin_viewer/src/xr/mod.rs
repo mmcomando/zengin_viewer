@@ -18,6 +18,7 @@ use leafwing_input_manager::prelude::ActionState;
 use std::sync::OnceLock;
 
 use crate::input::{EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker};
+use crate::perf_debug;
 
 /// Experiment with VR
 /// Worked with Pico 4 and `SteamVR` on Linux but very laggy (in the past I know it worked better)
@@ -99,6 +100,7 @@ fn move_camera(
     mut root: Single<&mut Transform, With<XrTrackingRoot>>,
     views: Res<OxrViews>,
 ) {
+    let _perf = perf_debug!();
     // Keyboard D-pads and the gamepad stick are summed, so clamp to unit length.
     let direction = action_state
         .axis_pair(&GameplayAction::Move)
@@ -127,6 +129,7 @@ fn teleport(
     action_state: Single<&ActionState<EditorAction>, With<EditorInputMarker>>,
     mut event_writer: MessageWriter<SnapToPosition>,
 ) {
+    let _perf = perf_debug!();
     if action_state.just_pressed(&EditorAction::TeleportOrigin) {
         event_writer.write(SnapToPosition(Vec3::new(0.0, 0.0, 0.0)));
     }

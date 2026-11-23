@@ -3,6 +3,7 @@ use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
 use crate::graphics::AnimatedJoint;
+use crate::perf_debug;
 use crate::zengin::WaypointGraph;
 
 pub struct GizmosPlugin;
@@ -69,6 +70,7 @@ fn draw_convex_hull_gizmos(
     colliders: Query<(&Collider, &GlobalTransform)>,
     camera: Single<&GlobalTransform, With<Camera3d>>,
 ) {
+    let _perf = perf_debug!();
     let camera_position = camera.translation();
     for (collider, transform) in &colliders {
         let TypedShape::ConvexPolyhedron(hull) = collider.shape().as_typed_shape() else {
@@ -100,6 +102,7 @@ fn draw_cuboid_gizmos(
     colliders: Query<(&Collider, &GlobalTransform)>,
     camera: Single<&GlobalTransform, With<Camera3d>>,
 ) {
+    let _perf = perf_debug!();
     let camera_position = camera.translation();
     for (collider, transform) in &colliders {
         let TypedShape::Cuboid(cuboid) = collider.shape().as_typed_shape() else {
@@ -123,6 +126,7 @@ fn draw_sphere_gizmos(
     colliders: Query<(&Collider, &GlobalTransform)>,
     camera: Single<&GlobalTransform, With<Camera3d>>,
 ) {
+    let _perf = perf_debug!();
     let camera_position = camera.translation();
     for (collider, transform) in &colliders {
         let TypedShape::Ball(ball) = collider.shape().as_typed_shape() else {
@@ -140,6 +144,7 @@ fn draw_trimesh_gizmos(
     colliders: Query<(&Collider, &GlobalTransform)>,
     camera: Single<&GlobalTransform, With<Camera3d>>,
 ) {
+    let _perf = perf_debug!();
     let camera_position = camera.translation();
     for (collider, transform) in &colliders {
         let TypedShape::TriMesh(trimesh) = collider.shape().as_typed_shape() else {
@@ -169,6 +174,7 @@ fn draw_characters_colliders(
     entities: Query<(&Collider, &GlobalTransform)>,
     camera: Single<&GlobalTransform, With<Camera3d>>,
 ) {
+    let _perf = perf_debug!();
     let camera_position = camera.translation();
     for (collider, transform) in &entities {
         let Some(capsule) = collider.shape().as_capsule() else {
@@ -192,6 +198,7 @@ fn draw_bones(
     transforms: Query<&GlobalTransform>,
     camera: Single<&GlobalTransform, With<Camera3d>>,
 ) {
+    let _perf = perf_debug!();
     let camera_position = camera.translation();
     for (_bone_entity, bone_transform, parent) in bones.iter() {
         let Some(parent) = parent else {
@@ -227,6 +234,7 @@ fn draw_waypoints(
     graph: Option<Res<WaypointGraph>>,
     camera: Single<&GlobalTransform, With<Camera3d>>,
 ) {
+    let _perf = perf_debug!();
     let Some(graph) = graph else {
         return;
     };

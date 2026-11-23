@@ -3,6 +3,7 @@
 
 use bevy::prelude::*;
 
+use crate::perf_debug;
 use crate::zengin::ZenginVfs;
 use crate::zengin::loaders::vfs::mesh_model_path;
 use crate::zengin::resources::{
@@ -60,6 +61,7 @@ fn seed_item_data_on_add(
     mut commands: Commands,
     items: Query<(Entity, &GameItem), Added<GameItem>>,
 ) {
+    let _perf = perf_debug!();
     for (entity, item) in &items {
         commands
             .entity(entity)
@@ -73,6 +75,7 @@ fn sync_item_data(
     mut changes: MessageReader<ItemEntitiesChanged>,
     items: Query<&ItemData>,
 ) {
+    let _perf = perf_debug!();
     for change in changes.read() {
         let data = ItemData::from_handle(&change.handle);
         for &entity in &change.entities {
@@ -92,6 +95,7 @@ fn apply_item_visual(
     asset_server: Res<AssetServer>,
     mut items: Query<(Entity, &ItemData, &mut ZenGinModelComponent), Changed<ItemData>>,
 ) {
+    let _perf = perf_debug!();
     for (entity, data, mut model) in &mut items {
         let Some(path) = mesh_model_path(&vfs, data.chosen_visual()) else {
             warn!(
