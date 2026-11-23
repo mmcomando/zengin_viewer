@@ -10,6 +10,7 @@ use crate::graphics::{
 use crate::zengin::common::{
     MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, face_direction_quat, horizontal_offset,
 };
+use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{
     AnimationFiles, NPC_BODY_Y_OFFSET, NpcOverlay, has_animation, queue_named_animation,
@@ -17,7 +18,7 @@ use crate::zengin::npc_routines::{
 };
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{BS_LIE, BS_SIT};
+use crate::zengin::script::state::{BS_LIE, BS_SIT, UseMobChange};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{GameMob, GameNpc, MobBase, MobOccupant, MobPose, MobRegistry, NpcMobUse};
 
@@ -141,6 +142,33 @@ pub(crate) fn advance_mob_use_pose(
 }
 
 /// Releases the current mob use when it is superseded or canceled.
+/// Applies `AI_UseMob` stop requests (`state <= 0`) immediately, so a state end
+/// releases the mob before the next routine action starts.
+pub(crate) fn release_mob_use_actions(
+    mut commands: Commands,
+    mut changes: MessageReader<UseMobChange>,
+    index: Res<InstanceIndex>,
+    mut npcs: Query<(&NpcMobUse, &mut AutoAnimSequencer, &mut AnimationController)>,
+) {
+    for change in changes.read() {
+        if change.state > 0 {
+            continue;
+        }
+        for &entity in index.npcs(change.instance_id) {
+            let Ok((mob_use, mut sequencer, mut controller)) = npcs.get_mut(entity) else {
+                continue;
+            };
+            release_mob_use(
+                &mut commands,
+                entity,
+                Some(mob_use),
+                &mut controller,
+                &mut sequencer,
+            );
+        }
+    }
+}
+
 pub(crate) fn start_use_mob_action(
     mut commands: Commands,
     mut npcs: Query<(Entity, &UseMobAction, Option<&NpcMobUse>), Added<UseMobAction>>,

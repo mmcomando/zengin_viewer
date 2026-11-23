@@ -401,6 +401,9 @@ pub(crate) fn enqueue_use_mob_actions(
             continue;
         }
         for &entity in entities {
+            if change.state <= 0 {
+                continue;
+            }
             let Ok(mut queue) = action_queues.get_mut(entity) else {
                 continue;
             };

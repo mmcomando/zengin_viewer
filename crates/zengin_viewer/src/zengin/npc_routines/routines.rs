@@ -301,7 +301,7 @@ pub(crate) fn update_routine_executors(
         (
             Entity,
             &GameNpc,
-            &RoutineEntry,
+            Ref<RoutineEntry>,
             Option<&mut RoutineExecutor>,
         ),
         (
@@ -347,13 +347,20 @@ pub(crate) fn update_routine_executors(
         };
 
         if executor.source == RoutineSource::AiState {
-            // AI states outlive routine entries. A visual respawn does not
-            // re-run the start hook, force one loop so scripts that request
-            // their pose from the loop can restore it.
-            executor.bypass_change_detection().next_loop_in = 0.0;
-            continue;
-        }
-        if Some(executor.functions.start) == desired && executor.way_point == entry.way_point {
+            if !entry.is_changed() {
+                // A visual respawn does not re-run the start hook, force one loop
+                // so scripts that request their pose from the loop can restore it.
+                executor.bypass_change_detection().next_loop_in = 0.0;
+                continue;
+            }
+            // The routine window moved on under the AI state; end it and resume
+            // the entry, matching the engine's routine end time.
+            debug!(
+                "npc({}) ending ai state on routine entry change",
+                instance.value()
+            );
+        } else if Some(executor.functions.start) == desired && executor.way_point == entry.way_point
+        {
             executor.bypass_change_detection().next_loop_in = 0.0;
             continue;
         }
@@ -381,7 +388,7 @@ pub(crate) fn update_routine_executors(
 }
 
 /// Applies `AI_StartState` requests. The requested state replaces the running
-/// executor and outlives routine entry changes until it ends.
+/// executor until it ends or the routine entry changes.
 #[allow(clippy::type_complexity)]
 pub(crate) fn apply_start_state_changes(
     mut commands: Commands,
