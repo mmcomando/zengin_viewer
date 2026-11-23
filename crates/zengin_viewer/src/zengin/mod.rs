@@ -70,6 +70,7 @@ pub(crate) use crate::zengin::npc_perception::NpcAutoTalkOptions;
 pub(crate) use crate::zengin::npc_routines::NpcEquippedWeapon;
 pub(crate) use crate::zengin::npc_routines::NpcHealth;
 pub(crate) use crate::zengin::npc_routines::NpcWeaponMode;
+pub(crate) use crate::zengin::npc_routines::RoutineExecutor;
 pub(crate) use crate::zengin::resources::CachedAssetHandles;
 pub(crate) use crate::zengin::resources::NPC_BODY;
 pub(crate) use crate::zengin::resources::{

@@ -84,6 +84,19 @@ pub(crate) struct RoutineExecutor {
     next_loop_in: f32,
 }
 
+impl RoutineExecutor {
+    /// Resolved start/loop/end hooks of the running state.
+    pub(crate) fn functions(&self) -> RoutineFunctions {
+        self.functions
+    }
+
+    /// Whether the state was pushed by `AI_StartState` instead of the daily
+    /// schedule.
+    pub(crate) fn is_ai_state(&self) -> bool {
+        self.source == RoutineSource::AiState
+    }
+}
+
 #[derive(Resource, Default)]
 pub(crate) struct NpcRoutineCheckState {
     last_checked_minute: Option<u32>,

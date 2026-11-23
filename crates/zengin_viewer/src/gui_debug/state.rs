@@ -5,7 +5,7 @@ use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel, PlayerCharacter};
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::{
     GameChest, GameItem, GameMob, GameMover, GameNpc, MobBase, MobPose, NpcEquippedWeapon,
-    NpcHealth, NpcWeaponMode,
+    NpcHealth, NpcWeaponMode, RoutineExecutor,
 };
 
 /// Persistent state of the docked debug GUI.
@@ -120,6 +120,7 @@ pub(crate) type EntityQueryItem<'a> = (
         Option<&'a NpcHealth>,
         Option<&'a NpcWeaponMode>,
         Option<&'a NpcEquippedWeapon>,
+        Option<&'a RoutineExecutor>,
     ),
     (
         Option<&'a GameItem>,
@@ -161,6 +162,7 @@ pub(crate) struct DetailsData<'a> {
     pub(crate) npc_health: Option<&'a NpcHealth>,
     pub(crate) npc_weapon_mode: Option<&'a NpcWeaponMode>,
     pub(crate) npc_equipped_weapon: Option<&'a NpcEquippedWeapon>,
+    pub(crate) npc_routine_executor: Option<&'a RoutineExecutor>,
     pub(crate) item: Option<&'a GameItem>,
     pub(crate) chest: Option<&'a GameChest>,
     pub(crate) mob: Option<&'a GameMob>,
@@ -204,7 +206,15 @@ pub(crate) fn details_data(item: EntityQueryItem<'_>) -> DetailsData<'_> {
         entity,
         name,
         (transform, global_transform, visibility, inherited_visibility, view_visibility),
-        (npc, npc_model, npc_body_root_offset, npc_health, npc_weapon_mode, npc_equipped_weapon),
+        (
+            npc,
+            npc_model,
+            npc_body_root_offset,
+            npc_health,
+            npc_weapon_mode,
+            npc_equipped_weapon,
+            npc_routine_executor,
+        ),
         (item, chest, mob, mover, mob_base, mob_pose),
         is_player,
     ) = item;
@@ -222,6 +232,7 @@ pub(crate) fn details_data(item: EntityQueryItem<'_>) -> DetailsData<'_> {
         npc_health,
         npc_weapon_mode,
         npc_equipped_weapon,
+        npc_routine_executor,
         item,
         chest,
         mob,

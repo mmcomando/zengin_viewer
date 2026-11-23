@@ -40,7 +40,9 @@ struct NpcRuntimeView {
     dead: bool,
     walk_mode: i32,
     position: Option<Vec3>,
-    routine_entries: usize,
+    routine_function: Option<String>,
+    routine_function_source: Option<String>,
+    routine_entries: Vec<String>,
     current_state: Option<String>,
     previous_state: Option<String>,
     target: Option<String>,
@@ -274,13 +276,39 @@ fn npc_details(
                 .and_then(|script| script.symbol_table().symbol_name(id))
                 .unwrap_or_else(|| id.to_string())
         };
+        let executor = details.npc_routine_executor;
+        let routine_function = executor.map(|executor| resolve(executor.functions().start.value()));
+        let routine_function_source = executor.map(|executor| {
+            if executor.is_ai_state() {
+                "ai state".to_owned()
+            } else {
+                "routine".to_owned()
+            }
+        });
+        let routine_entries = runtime
+            .routine
+            .entries
+            .iter()
+            .map(|entry| {
+                let state = entry
+                    .state_fn
+                    .map(|id| resolve(id.value()))
+                    .unwrap_or_else(|| "-".to_owned());
+                format!(
+                    "{:02}:{:02}-{:02}:{:02} {state} @ {}",
+                    entry.start_h, entry.start_m, entry.stop_h, entry.stop_m, entry.way_point
+                )
+            })
+            .collect();
         (
             NpcRuntimeView {
                 state_time: runtime.routine.state_time,
                 dead: runtime.live.dead,
                 walk_mode: runtime.live.walk_mode,
                 position: runtime.live.position,
-                routine_entries: runtime.routine.entries.len(),
+                routine_function,
+                routine_function_source,
+                routine_entries,
                 current_state: runtime.routine.current_state.map(|id| resolve(id.value())),
                 previous_state: runtime.routine.previous_state.map(|id| resolve(id.value())),
                 target: runtime.live.target.map(|id| resolve(id.value())),
