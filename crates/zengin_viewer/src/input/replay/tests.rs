@@ -67,6 +67,19 @@ fn time_speed_command_parses_and_schedules() {
 }
 
 #[test]
+fn game_time_command_parses_and_schedules() {
+    let commands = parse("[ZenginSetGameTime(hour: 0, minute: 30)]").unwrap();
+    assert_eq!(frames(&commands), [5]);
+    assert!(matches!(
+        commands[0].command,
+        ReplayCommand::ZenginSetGameTime {
+            hour: 0,
+            minute: 30
+        }
+    ));
+}
+
+#[test]
 fn world_command_parses_and_schedules() {
     let commands = parse("[TestWorld(name: \"simple\")]").unwrap();
     assert_eq!(frames(&commands), [5]);

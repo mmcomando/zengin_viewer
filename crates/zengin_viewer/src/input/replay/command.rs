@@ -7,7 +7,7 @@ use crate::gui::GameLog;
 use crate::input::log_capture::LogBuffer;
 use crate::input::record::ReplayCommand;
 use crate::zengin::{
-    DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SpawnNpc,
+    DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SetGameTime, SpawnNpc,
     SpawnPositionFilter, StringCanon, UseMobChange, add_waypoint, enqueue_npc_goto,
     grant_test_items, seed_test_journal,
 };
@@ -92,6 +92,19 @@ pub(super) fn apply_replay_command(
         ReplayCommand::ZenginSetGameTimeSpeed { speed } => {
             game_time.speed = *speed;
             info!("Replay set the in-game time speed multiplier to {speed}");
+        }
+        ReplayCommand::ZenginSetGameTime { hour, minute } => {
+            let (hour, minute) = (*hour, *minute);
+            commands.queue(move |world: &mut World| {
+                let Some(mut times) = world.get_resource_mut::<Messages<SetGameTime>>() else {
+                    warn!(
+                        "ZenginSetGameTime replay command: game time messages are not registered"
+                    );
+                    return;
+                };
+                times.write(SetGameTime { hour, minute });
+            });
+            info!("Replay set the in-game time to {hour:02}:{minute:02}");
         }
         ReplayCommand::ZenginEquipWeapon { item } => {
             let Some(gothic_script) = gothic_script else {

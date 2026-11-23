@@ -84,6 +84,9 @@ pub(crate) enum ReplayCommand {
     /// Sets the in-game time speed multiplier, `0.0` pauses the time. Replays
     /// start with a multiplier of `0.0`.
     ZenginSetGameTimeSpeed { speed: f32 },
+    /// Moves the in-game clock to the next occurrence of `hour:minute`, matching
+    /// `Wld_SetTime`.
+    ZenginSetGameTime { hour: i32, minute: i32 },
     /// Toggles the armor item with the given (case-insensitive) instance symbol
     /// name on the player.
     ZenginToggleArmor { item: String },
