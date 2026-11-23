@@ -1,37 +1,43 @@
 [
+    // Setup
     IncludeScenario(path: "/common/test_room_free_camera"),
     ZenginSpawnNpc(name: "wolf", translation: (0.0, 0.0, -20.0), rotation: (0.0, 0.0, 0.0)),
     ZenginSetDebugNpc(name: "wolf"),
     Wait(frame_dt: 10),
-    // Side view onto the player/wolf line along the Z axis.
     SetCameraLocation(
         translation: (11.0, 3.5, -15.0),
         rotation: (-14.0, 90.0, 0.0),
     ),
 
-    // Far away the wolf stays passive: no warning pose, no attack request.
+    // Act
     TestClearLogBuffer,
     Wait(frame_dt: 100),
+
+    // Assert
     TestScreenshot(path: "00_far.png"),
 
-    // Step into perception range (8 m, outside the 7 m attack range).
+    // Act
     TeleportPlayer(translation: (0.0, 0.0, -12.0), rotation: (0.0, 0.0, 0.0)),
     Wait(frame_dt: 70),
+
+    // Assert
     TestLogExists(regex: "DebugNPC: animation .*current=WOLF-T_WARN next=- root_motion=false"),
     TestScreenshot(path: "01_warning.png"),
 
-    // The threat timer expires and the wolf starts attacking. The attack
-    // action runs at the player before swinging.
+    // Act
     Wait(frame_dt: 190),
+
+    // Assert
     TestScreenshot(path: "02_attack_chase.png"),
     Wait(frame_dt: 50),
     TestLogExists(regex: "AI_Attack requested by npc\\(12562\\) on target\\(11471\\)"),
     TestLogExists(regex: "DebugNPC: actions Attack\\(target="),
     TestLogExists(regex: "DebugNPC: animation .*current=WOLF-S_FISTRUNL next=- root_motion=true"),
 
-    // The first swing plays. This also guards the scripted animation
-    // resolution: a valid archive animation must never be reported as missing.
+    // Act
     Wait(frame_dt: 25),
+
+    // Assert
     TestScreenshot(path: "03_attack_swing.png"),
     Wait(frame_dt: 20),
     TestLogExists(regex: "DebugNPC: animation .*current=WOLF-S_FISTATTACK next=- root_motion=true"),

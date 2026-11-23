@@ -342,7 +342,7 @@ fn open_dialog(
         dialog_ui.close();
         return false;
     };
-    bevy::log::debug!(
+    info!(
         "Dialog open npc({}) player({}) roots({})",
         npc_talk_to.value(),
         npc_from.value(),

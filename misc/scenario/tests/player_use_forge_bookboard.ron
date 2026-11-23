@@ -1,4 +1,5 @@
 [
+    // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnMob(
         visual: "BSFIRE_OC",
@@ -9,11 +10,9 @@
     ZenginSpawnMob(
         visual: "BOOK_NW_CITY_CUPBOARD_01",
         focus_name: "MOBNAME_BOOKBOARD",
-
         translation: (0.0, 1.336, -12.0),
         rotation: (0.0, 180.0, 0.0),
     ),
-
     SetCameraLocation(
         translation: (0.0, 0.0, 2.0),
         rotation: (-10.0, 0.0, 0.0),
@@ -21,19 +20,22 @@
     ZenginSetDebugNpc(name: "hero"),
     Wait(frame_dt: 10),
 
-    // Interact with forge.
+    // Act
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
+    Wait(frame_dt: 100),
+
+    // Assert
     TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_BSFIRE\\)"),
     TestLogExists(regex: "focus\\(MOBNAME_FORGE\\)"),
-    Wait(frame_dt: 100),
     TestScreenshot(path: "00_forge_used.png"),
 
+    // Release
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 150),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
 
-    // Use the book board.
+    // Repeat
     TeleportPlayer(
         translation: (3.0, 0.0, -12.0),
         rotation: (0.0, 0.0, 0.0),
@@ -46,6 +48,8 @@
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 100),
+
+    // Assert
     TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_BOOK\\)"),
     TestLogExists(regex: "focus\\(MOBNAME_BOOKBOARD\\)"),
     TestScreenshot(path: "01_bookboard_used.png"),

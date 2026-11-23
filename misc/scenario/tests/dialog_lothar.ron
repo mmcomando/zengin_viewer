@@ -1,13 +1,19 @@
 [
-    ZenginFilterSpawnWithPosition(points: [(center: (-80, 5,-56), radius: 10.0)]),
+    // Setup
+    ZenginFilterSpawnWithPosition(points: [(center: (-80, 5, -56), radius: 10.0)]),
     ZenginFilterNpcWithName(filters: ["lothar"]),
     ZenginSetDebugNpc(name: "lothar"),
     IncludeScenario(path: "/common/new_world"),
-    ZenginSpawnPlayerCharacter(translation: (-80, 5,-56), rotation: (0.0, 0.0, 0.0)),
-    SetCameraLocation(translation: (-80, 5,-56), rotation: (-30.0, -160, 0.0)),
 
+    // Act
+    ZenginSpawnPlayerCharacter(translation: (-80, 5, -56), rotation: (0.0, 0.0, 0.0)),
+    SetCameraLocation(translation: (-80, 5, -56), rotation: (-30.0, -160, 0.0)),
     PressRelease(action: Editor(ToggleEditorMode)),
     Wait(frame_dt: 200),
+
+    // Assert
+    TestLogExists(regex: "Dialog open npc\\(.*\\) player\\(.*\\) roots\\([1-9][0-9]*\\)"),
     TestScreenshot(path: "00_auto_dialog.png"),
+
     ExitGame,
 ]

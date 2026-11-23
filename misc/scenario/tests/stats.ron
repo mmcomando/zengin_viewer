@@ -1,9 +1,13 @@
 [
+    // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
-    PressRelease(action:Shared(Stats)),
-    TestScreenshot(path: "stats.png"),
     TestLogExists(regex: "Spawned test world\\(simple\\)"),
-    TestClearLogBuffer,
-    ZenginSetDebugNpc(name: "lares"),
+
+    // Act
+    PressRelease(action: Shared(Stats)),
+
+    // Assert
+    TestScreenshot(path: "stats.png"),
+
     ExitGame,
 ]

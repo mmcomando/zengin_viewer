@@ -1,33 +1,40 @@
 [
+    // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnMob(
         visual: "BEDHIGH_NW_NORMAL_01",
         focus_name: "BED",
-        // The real bed vobs carry sleepabit; its sleepabit_s1 hook opens
-        // the sleep dialog, a synthetic mob without it stays silent.
+        // Beds need the sleepabit hook to open the sleep dialog.
         on_state_func: "sleepabit",
         translation: (0.0, 0.0, -2.0),
         rotation: (0.0, 0.0, 0.0),
     ),
     ZenginSetDebugNpc(name: "hero"),
     Wait(frame_dt: 10),
-
     TestScreenshot(path: "00_stand.png"),
 
-    // Interact snaps the player onto the bed.
+    // Act
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 20),
+
+    // Assert
     TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_BEDHIGH\\)"),
     TestLogExists(regex: "transition\\(Some\\(\"T_BEDHIGH_FRONT_S0_2_S1\"\\)\\)"),
     Wait(frame_dt: 130),
     TestLogExists(regex: "current=HUMANS-S_BEDHIGH_FRONT_S1"),
     TestScreenshot(path: "01_sleep.png"),
-    PressRelease(action:Gui(Down)),
-    PressRelease(action:Gui(Down)),
-    PressRelease(action:Gui(Down)),
+
+    // Act
+    PressRelease(action: Gui(Down)),
+    PressRelease(action: Gui(Down)),
+    PressRelease(action: Gui(Down)),
     Wait(frame_dt: 100),
-    PressRelease(action:Gui(Confirm)),
+    PressRelease(action: Gui(Confirm)),
+    Wait(frame_dt: 100),
+
+    // Assert
     TestScreenshot(path: "02_sleep_night.png"),
+
     ExitGame,
 ]

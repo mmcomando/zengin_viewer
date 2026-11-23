@@ -1,4 +1,5 @@
 [
+    // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnChest(
         visual: "CHESTBIG_NW_NORMAL_OPEN",
@@ -6,29 +7,32 @@
         rotation: (0.0, 0.0, 0.0),
     ),
     Wait(frame_dt: 20),
-
-    // The chest is in selection range and shows its focus name.
     TestScreenshot(path: "00_chest.png"),
 
-    // Interact snaps the player to ZS_POS0, starts the chest-use pose and
-    // opens the loot window in parallel.
+    // Act
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 100),
+
+    // Assert
     TestLogExists(regex: "opened chest"),
     TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_CHEST_CHESTBIG\\).*state\\(1\\)"),
     TestScreenshot(path: "01_open.png"),
 
-    // Closing the loot window releases the player and closes the lid.
+    // Act
     PressRelease(action: Gui(CancelAction)),
     Wait(frame_dt: 100),
+
+    // Assert
     TestLogExists(regex: "leaves chest|released mob"),
     TestScreenshot(path: "02_closed.png"),
 
-    // Movement confirms the player is free again.
+    // Act
     Axis(action: Gameplay(Move), value: (0.0, 1.0)),
     Wait(frame_dt: 100),
     Axis(action: Gameplay(Move), value: (0.0, 0.0)),
+
+    // Assert
     TestScreenshot(path: "03_moved_away.png"),
 
     ExitGame,

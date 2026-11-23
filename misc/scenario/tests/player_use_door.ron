@@ -1,4 +1,5 @@
 [
+    // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnMob(
         visual: "DOOR_NW_NORMAL_01",
@@ -8,36 +9,40 @@
     ),
     ZenginSetDebugNpc(name: "hero"),
     Wait(frame_dt: 10),
+    TestScreenshot(path: "00_initial.png"),
 
-    // Interact opens the door without moving the player.
+    // Act
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
-    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_DOOR\\)"),
-    // The door animation ends on its own.
     Wait(frame_dt: 120),
+
+    // Assert
+    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_DOOR\\)"),
     TestLogExists(regex: "animation\\(S_DOOR_FRONT_S1\\)"),
     TestLogExists(regex: "state position=\\(0\\.00, -0\\.09, 0\\.00\\)"),
     TestLogNotExists(regex: "state position=\\(.*, .*, -[1-9]"),
     TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_DOOR_FRONT_S1\\)"),
     TestLogExists(regex: "current=HUMANS-T_DOOR_FRONT_S1_2_STAND"),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
-    Screenshot(path: "01_door_opened.png"),
+    TestScreenshot(path: "01_door_opened.png"),
 
-    // A second Interact closes it, again without moving the player.
+    // Repeat
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 120),
+
+    // Assert
     TestLogExists(regex: "animation\\(S_DOOR_FRONT_S0\\)"),
     TestLogNotExists(regex: "state position=\\(.*, .*, -[1-9]"),
     TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_DOOR_FRONT_S0\\)"),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
-    Screenshot(path: "02_door_closed.png"),
+    TestScreenshot(path: "02_door_closed.png"),
 
-    // Movement works right after the automatic stand-up.
+    // Release
     Axis(action: Gameplay(Move), value: (0.0, 1.0)),
     Wait(frame_dt: 100),
     Axis(action: Gameplay(Move), value: (0.0, 0.0)),
-    Screenshot(path: "03_moved_away.png"),
+    TestScreenshot(path: "03_moved_away.png"),
 
     ExitGame,
 ]

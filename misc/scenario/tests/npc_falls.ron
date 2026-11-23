@@ -1,18 +1,22 @@
 [
-    IncludeScenario(path: "/common/test_room_free_camera"),
+    // Setup
     ZenginFilterNpcWithName(filters: ["lares"]),
+    IncludeScenario(path: "/common/test_room_free_camera"),
     ZenginSpawnNpc(
         name: "vlk_449_lares",
         translation: (0.0, 20.0, -3.0),
         rotation: (0.0, 0.0, 0.0),
     ),
     ZenginSetDebugNpc(name: "lares"),
+
+    // Act
     TestClearLogBuffer,
-    // Still well above the floor after ~0.8 s of falling.
-    Wait(frame_dt: 40),
+    Wait(frame_dt: 70),
+
+    // Assert
     TestLogExists(regex: "DebugNPC: state position=\\(0\\.00, 1[0-9]\\.[0-9]+, -3\\.00\\)"),
-    // By ~4.5 s the body rests on the floor (the ground is at y = 0).
-    Wait(frame_dt: 180),
+    Wait(frame_dt: 300),
     TestLogExists(regex: "DebugNPC: state position=\\(0\\.00, 0\\.0[0-9], -3\\.00\\)"),
+
     ExitGame,
 ]

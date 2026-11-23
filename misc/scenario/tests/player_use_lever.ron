@@ -1,4 +1,5 @@
 [
+    // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnMob(
         visual: "LEVER_1_OC",
@@ -8,31 +9,37 @@
     ),
     ZenginSetDebugNpc(name: "hero"),
     Wait(frame_dt: 10),
-    // Interact with lever.
+    TestScreenshot(path: "00_initial.png"),
+
+    // Act
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
-    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_LEVER\\)"),
     Wait(frame_dt: 120),
+
+    // Assert
+    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_LEVER\\)"),
     TestLogExists(regex: "animation\\(S_LEVER_S1\\)"),
     TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_LEVER_S1\\)"),
     TestLogExists(regex: "current=HUMANS-T_LEVER_S1_2_STAND"),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
-    Screenshot(path: "01_lever_used.png"),
+    TestScreenshot(path: "01_lever_used.png"),
 
-    // Toggle again
+    // Repeat
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 120),
+
+    // Assert
     TestLogExists(regex: "animation\\(S_LEVER_S0\\)"),
     TestLogExists(regex: "-> state\\(0\\)"),
     TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_LEVER_S0\\)"),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
 
-    // Movement works right after the automatic stand-up.
+    // Release
     Axis(action: Gameplay(Move), value: (0.0, 1.0)),
     Wait(frame_dt: 50),
     Axis(action: Gameplay(Move), value: (0.0, 0.0)),
-    Screenshot(path: "02_moved_away.png"),
+    TestScreenshot(path: "02_moved_away.png"),
 
     ExitGame,
 ]

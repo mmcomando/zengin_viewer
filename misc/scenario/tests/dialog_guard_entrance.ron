@@ -1,13 +1,19 @@
 [
+    // Setup
     ZenginFilterSpawnWithPosition(points: [(center: (-78.4, 3.9, -70.2), radius: 10.0)]),
     ZenginFilterNpcWithName(filters: ["mil_310_stadtwache"]),
     ZenginSetDebugNpc(name: "mil_310_stadtwache"),
     IncludeScenario(path: "/common/new_world"),
+
+    // Act
     ZenginSpawnPlayerCharacter(translation: (-78.4, 3.9, -70.2), rotation: (0.0, 0.0, 0.0)),
     SetCameraLocation(translation: (-78.4, 3.9, -70.2), rotation: (-30.0, -160, 0.0)),
-
     PressRelease(action: Editor(ToggleEditorMode)),
     Wait(frame_dt: 200),
+
+    // Assert
+    TestLogExists(regex: "Dialog open npc\\(.*\\) player\\(.*\\) roots\\([1-9][0-9]*\\)"),
     TestScreenshot(path: "00_auto_dialog.png"),
+
     ExitGame,
 ]
