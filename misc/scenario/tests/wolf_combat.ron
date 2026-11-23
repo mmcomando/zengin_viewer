@@ -1,15 +1,3 @@
-// Wolf combat flow: a hand spawned wolf in the bare test room.
-//
-//   1. far away (outside the 15 m perception range) the wolf stays passive
-//   2. stepping to 8 m makes it warn (`T_WARN`, `zs_mm_threatenenemy`)
-//   3. the 4 s threat timeout starts the attack (`zs_mm_attack`, `AI_Attack`)
-//   4. the attack action chases the player and swings (`S_FISTATTACK`)
-//
-// The checks use the `DebugNPC` log of the wolf set with `ZenginSetDebugNpc`,
-// which reports every animation switch and action. The delays are chosen with
-// margin for both canonical test timings: `--fixed-time` (20 ms/frame, the
-// `just test-scenario` path) and a plain renderless run (1/60 s/frame, which
-// reaches the same events ~20% later in frame numbers).
 [
     IncludeScenario(path: "/common/test_room_free_camera"),
     ZenginSpawnNpc(name: "wolf", translation: (0.0, 0.0, -20.0), rotation: (0.0, 0.0, 0.0)),
@@ -21,20 +9,18 @@
         rotation: (-14.0, 90.0, 0.0),
     ),
 
-    // 1) Far away the wolf stays passive: no warning pose, no attack request.
+    // Far away the wolf stays passive: no warning pose, no attack request.
     TestClearLogBuffer,
     Wait(frame_dt: 100),
     TestScreenshot(path: "00_far.png"),
 
-    // 2) Step into perception range (8 m, outside the 7 m attack range): the
-    // wolf plays the scripted `T_WARN` pose (a looping scripted animation, so
-    // no conversation back to the standing idle).
+    // Step into perception range (8 m, outside the 7 m attack range).
     TeleportPlayer(translation: (0.0, 0.0, -12.0), rotation: (0.0, 0.0, 0.0)),
     Wait(frame_dt: 70),
     TestLogExists(regex: "DebugNPC: animation .*current=WOLF-T_WARN next=- root_motion=false"),
     TestScreenshot(path: "01_warning.png"),
 
-    // 3) The threat timer expires and the wolf starts attacking. The attack
+    // The threat timer expires and the wolf starts attacking. The attack
     // action runs at the player before swinging.
     Wait(frame_dt: 190),
     TestScreenshot(path: "02_attack_chase.png"),
@@ -43,7 +29,7 @@
     TestLogExists(regex: "DebugNPC: actions Attack\\(target="),
     TestLogExists(regex: "DebugNPC: animation .*current=WOLF-S_FISTRUNL next=- root_motion=true"),
 
-    // 4) The first swing plays. This also guards the scripted animation
+    // The first swing plays. This also guards the scripted animation
     // resolution: a valid archive animation must never be reported as missing.
     Wait(frame_dt: 25),
     TestScreenshot(path: "03_attack_swing.png"),

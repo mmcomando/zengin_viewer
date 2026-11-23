@@ -1,6 +1,3 @@
-// Bare `simple` test room in the free editor camera: game scripts initialized,
-// the player at the origin and the camera looking at it from behind. Scenarios
-// that need gameplay input include `test_room_player_pov` instead.
 [
     TestWorld(name: "simple"),
     ZenginScriptStartup(world: "NEWWORLD/NEWWORLD", clean_world: false),

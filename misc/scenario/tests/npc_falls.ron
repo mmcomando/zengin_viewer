@@ -1,9 +1,3 @@
-// An idle npc spawned in the air must fall onto the test room floor.
-//
-// The physics body is attached when the npc visual loads, so the fall starts a
-// few frames after the spawn. `ZenginSetDebugNpc` traces the npc position twice
-// a second, so the airborne position and the landed position can both be
-// asserted. Run it renderless: it uses log checks only.
 [
     IncludeScenario(path: "/common/test_room_free_camera"),
     ZenginFilterNpcWithName(filters: ["lares"]),

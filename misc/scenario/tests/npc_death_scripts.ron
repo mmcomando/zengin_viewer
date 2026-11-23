@@ -1,5 +1,3 @@
-// Npc death runs the script ZS_DEAD state with the killer bound as `other`,
-// then keeps the npc as a corpse playing its death animation.
 [
     IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginFilterSpawnWithPosition(points: [(center: (0,0,0), radius: 10.0)]),

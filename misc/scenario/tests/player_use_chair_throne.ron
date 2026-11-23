@@ -13,8 +13,6 @@
         rotation: (0.0, 0.0, 0.0),
     ),
 
-    // Replays start in editor mode (free camera); leaving it enables gameplay
-    // input and places the player where the free camera was looking.
     SetCameraLocation(
         translation: (0.0, 0.0, 2.0),
         rotation: (-10.0, 0.0, 0.0),
@@ -33,6 +31,7 @@
     Wait(frame_dt: 100),
     TestScreenshot(path: "00_chair_side.png"),
 
+    // Sit on throne.
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 50),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),

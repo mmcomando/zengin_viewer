@@ -1,7 +1,3 @@
-// Chest use: open animation, loot window, close animation, player release.
-//
-// The chest is spawned from the game's own mesh next to the player so the
-// player attach + chest lid animation can be checked without loading a world.
 [
     IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnChest(
@@ -14,7 +10,7 @@
     // The chest is in selection range and shows its focus name.
     TestScreenshot(path: "00_chest.png"),
 
-    // `Interact` snaps the player to `ZS_POS0`, starts the chest-use pose and
+    // Interact snaps the player to ZS_POS0, starts the chest-use pose and
     // opens the loot window in parallel.
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),

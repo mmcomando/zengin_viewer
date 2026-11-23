@@ -1,4 +1,3 @@
-
 [
     ZenginSpawnWorld(world: "NEWWORLD/NEWWORLD"),
     Wait(frame_dt: 150),

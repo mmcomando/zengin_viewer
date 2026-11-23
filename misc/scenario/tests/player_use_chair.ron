@@ -1,9 +1,3 @@
-// Player interaction with a chair mob in the bare test room.
-//
-// The chair is spawned from the game's own mesh (`CHAIR_NW_NORMAL_01`) next to
-// the player, so the whole player-side mob flow (selection label, `Interact`
-// attach with the `S_CHAIR_S1` pose, stand-up) can be checked without loading a
-// world.
 [
     IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnMob(
@@ -18,8 +12,7 @@
     // The chair is in selection range and shows its focus name.
     TestScreenshot(path: "00_chair.png"),
 
-    // `Interact` snaps the player onto the chair: it enters through
-    // `T_CHAIR_S0_2_S1` and then holds the `S_CHAIR_S1` pose.
+    // Interact
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 100),
@@ -27,7 +20,7 @@
     TestLogExists(regex: "-> state\\(1\\)"),
     TestScreenshot(path: "01_used.png"),
 
-    // A second `Interact` stands the player up.
+    // A second Interact stands the player up.
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 50),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),

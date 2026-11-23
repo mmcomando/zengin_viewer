@@ -1,9 +1,3 @@
-// Npcs using interactive mobs in the bare test room.
-//
-// Harad uses an anvil and Thorben uses a sawmill, placed apart like the mobs in
-// `player_use_chair_throne`. The replay command skips their daily routines and
-// sends the same `AI_UseMob` request the scripts would, so only the npc mob-use
-// action (walk, attach, pose/animation, body state) is exercised.
 [
     IncludeScenario(path: "/common/test_room_free_camera"),
     ZenginSpawnMob(
