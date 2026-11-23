@@ -10,6 +10,7 @@ use zen_kit_rs::waynet::WayNet;
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::common::{get_world_dir_quat, get_world_pos};
 use crate::zengin::loaders::ZenginVec3ToGlam;
+use crate::zengin::npc_routines::WayPoints;
 use crate::zengin::resources::WAYPOINT;
 
 /// Waypoint navigation graph built from the world way net (points + edges).
@@ -134,6 +135,67 @@ pub(crate) fn spawn_waypoint_entities(commands: &mut Commands, graph: &WaypointG
             WorldEntityMarker,
         ));
     }
+}
+
+/// Adds a named waypoint node at runtime, for scenarios whose test world has no
+/// way net. `connect_to` links the node to an existing waypoint by name so path
+/// finding can reach it; an isolated node can only be walked to from itself.
+/// Returns `None` when the name is already in use.
+pub(crate) fn add_waypoint(
+    world: &mut World,
+    name: &str,
+    position: Vec3,
+    connect_to: Option<&str>,
+) -> Option<usize> {
+    let name = name.to_lowercase();
+    if world.get_resource::<WaypointGraph>().is_none() {
+        world.init_resource::<WaypointGraph>();
+    }
+    let index = {
+        let mut graph = world.resource_mut::<WaypointGraph>();
+        if graph.name_to_index.contains_key(&name) {
+            warn!("add waypoint: {name:?} already exists");
+            return None;
+        }
+        let index = graph.nodes.len();
+        graph.nodes.push(WaypointNode {
+            position,
+            free: false,
+        });
+        graph.adjacency.push(Vec::new());
+        graph.name_to_index.insert(name.clone(), index);
+        if let Some(connect_to) = connect_to {
+            match graph.node_by_name(connect_to) {
+                Some(other) => {
+                    let length =
+                        (graph.nodes[index].position - graph.nodes[other].position).length();
+                    graph.adjacency[index].push((other, length));
+                    graph.adjacency[other].push((index, length));
+                }
+                None => warn!("add waypoint: connect target {connect_to:?} not found"),
+            }
+        }
+        index
+    };
+
+    if world.get_resource::<WayPoints>().is_none() {
+        world.init_resource::<WayPoints>();
+    }
+    let transform = Transform::from_translation(position);
+    world
+        .resource_mut::<WayPoints>()
+        .points
+        .insert(name.clone(), transform);
+    world.spawn((
+        Transform::from_translation(position),
+        Collider::sphere(WAYPOINT_SPHERE_RADIUS),
+        CollisionLayers::from_bits(WAYPOINT, 0),
+        WaypointNodeIndex(index),
+        WorldEntityMarker,
+    ));
+
+    info!("Added waypoint {name:?} at {position:?} as node({index})");
+    Some(index)
 }
 
 /// Spot - named location

@@ -1,0 +1,43 @@
+[
+    // Setup
+    IncludeScenario(path: "/common/test_room_free_camera"),
+    SetCameraLocation(
+        translation: (24, 2, 0),
+        rotation: (-5, 90, 0),
+    ),
+    ZenginAddWaypoint(name: "test_wp_start", translation: (0.0, 0.0, -10.0)),
+    ZenginAddWaypoint(
+        name: "test_wp_end",
+        translation: (0.0, 0.0, 10.0),
+        connect_to: Some("test_wp_start"),
+    ),
+    TeleportPlayer(translation: (80.0, 0.0, 80.0), rotation: (0.0, 0.0, 0.0)),
+    ZenginSpawnNpc(
+        name: "vlk_449_lares",
+        translation: (0.0, 0.0, -10.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    ZenginSpawnNpc(
+        name: "wolf",
+        translation: (0.0, 0.0, 0.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    ZenginSetDebugNpc(name: "lares"),
+    Wait(frame_dt: 60),
+
+    // Act
+    TestClearLogBuffer,
+    ZenginNpcGotoWaypoint(name: "vlk_449_lares", waypoint: "test_wp_end"),
+    Wait(frame_dt: 60),
+
+    // Assert
+    TestLogExists(regex: "DebugNPC: actions GoTo\\(test_wp_end\\)"),
+
+    // Act
+    Wait(frame_dt: 320),
+
+    // Assert
+    TestLogExists(regex: "AI_Attack requested by npc\\(\\d+\\) on target\\(\\d+\\)"),
+
+    ExitGame,
+]

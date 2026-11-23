@@ -143,6 +143,21 @@ pub(crate) enum ReplayCommand {
         translation: Vec3,
         rotation: Vec3,
     },
+    /// Adds a waypoint node `name` at `translation` to the navigation graph, so
+    /// scenarios without a world way net (test worlds) can walk npcs. When
+    /// `connect_to` names an existing waypoint, the two nodes are joined by an
+    /// edge; isolated nodes cannot be reached by path finding.
+    ZenginAddWaypoint {
+        name: String,
+        translation: Vec3,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connect_to: Option<String>,
+    },
+    /// Makes the npc instance `name` (case-insensitive script symbol name) walk
+    /// to the waypoint `waypoint` (case-insensitive) by queueing a `GoToWaypoint`
+    /// action, bypassing the daily routine. The waypoint must exist in the way
+    /// net or have been added with [`Self::ZenginAddWaypoint`].
+    ZenginNpcGotoWaypoint { name: String, waypoint: String },
     /// Makes the npc instance `name` (case-insensitive script symbol name) use
     /// the nearest free mob of the `AI_UseMob` scheme `scheme`, bypassing the
     /// daily routine. `state <= 0` releases the current mob instead.

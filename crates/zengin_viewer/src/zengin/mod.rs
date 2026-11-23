@@ -63,6 +63,7 @@ pub(crate) use crate::zengin::loaders::vfs::{resolve_sound_asset, resolve_textur
 pub(crate) use crate::zengin::mobs::{MobOccupant, MobRegistry, NpcMobUse};
 pub(crate) use crate::zengin::movers::{GameMover, VobTrigger};
 pub(crate) use crate::zengin::npc_actions::NpcActionQueue;
+pub(crate) use crate::zengin::npc_actions::enqueue_npc_goto;
 pub(crate) use crate::zengin::npc_corpse::NpcCorpseMarker;
 pub(crate) use crate::zengin::npc_data::NpcHandle;
 pub(crate) use crate::zengin::npc_perception::NpcAutoTalkOptions;
@@ -100,6 +101,7 @@ pub(crate) use crate::zengin::script::{
 };
 pub(crate) use crate::zengin::statistics::StatisticsZengin;
 pub(crate) use crate::zengin::waypoint_graph::WaypointGraph;
+pub(crate) use crate::zengin::waypoint_graph::add_waypoint;
 pub(crate) use crate::zengin::world_plugin::{
     CurrentWorld, LoadingWorld, NewGame, NpcSpawnNameFilter, RestartWorld, START_WORLD,
     begin_world_load, request_initial_world, request_player_spawn, request_world_spawn,

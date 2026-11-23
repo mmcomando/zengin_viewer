@@ -15,7 +15,7 @@ use crate::zengin::script::state::{
     StandUpChange, UseItemStateChange, UseMobChange, WaitChange,
 };
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::script::symbol_id::StringId;
+use crate::zengin::script::symbol_id::{InstanceId, StringId};
 
 /// Queues a goto and cancels a goto that is already executing.
 fn queue_goto(
@@ -32,6 +32,39 @@ fn queue_goto(
         commands.entity(entity).remove::<ExecutingActionMarker>();
     }
     true
+}
+
+/// Queues a goto for every entity of `instance_id`, used by the replay command
+/// that names a waypoint directly (there is no script string id to resolve).
+/// Cancels a goto that is already executing, like [`enqueue_goto_actions`].
+pub(crate) fn enqueue_npc_goto(world: &mut World, instance_id: InstanceId, waypoint: StringCanon) {
+    let Some(index) = world.get_resource::<InstanceIndex>() else {
+        warn!("npc goto: instance index is not registered");
+        return;
+    };
+    let entities = index.npcs(instance_id).to_vec();
+    if entities.is_empty() {
+        warn!("npc goto: npc({instance_id}) has no entities");
+        return;
+    }
+
+    let mut queued = false;
+    for entity in entities {
+        let executing = world.get::<GoToWaypointAction>(entity).is_some();
+        let Some(mut queue) = world.get_mut::<NpcActionQueue>(entity) else {
+            continue;
+        };
+        queued |= queue.push_goto(waypoint.clone());
+        drop(queue);
+        if executing {
+            world.entity_mut(entity).remove::<ExecutingActionMarker>();
+        }
+    }
+    if !queued {
+        warn!(
+            "npc goto({waypoint}) was not queued, npc({instance_id}) has no action queue or it is full"
+        );
+    }
 }
 
 /// Turns `AI_GoToWP` requests into queued actions. The waypoint name is resolved

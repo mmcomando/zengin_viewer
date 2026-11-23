@@ -8,7 +8,8 @@ use crate::input::log_capture::LogBuffer;
 use crate::input::record::ReplayCommand;
 use crate::zengin::{
     DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SpawnNpc,
-    SpawnPositionFilter, StringCanon, UseMobChange, grant_test_items, seed_test_journal,
+    SpawnPositionFilter, StringCanon, UseMobChange, add_waypoint, enqueue_npc_goto,
+    grant_test_items, seed_test_journal,
 };
 
 use super::failures::TestFailures;
@@ -234,6 +235,34 @@ pub(super) fn apply_replay_command(
                     exact_transform: true,
                     overlay: None,
                 });
+            });
+        }
+        ReplayCommand::ZenginNpcGotoWaypoint { name, waypoint } => {
+            info!("Replay npc {name:?} goes to waypoint {waypoint:?}");
+            let Some(gothic_script) = gothic_script else {
+                warn!("ZenginNpcGotoWaypoint replay command: game script is not loaded");
+                return false;
+            };
+            let Some(instance_id) = gothic_script.lock().symbol_instance(name) else {
+                warn!("ZenginNpcGotoWaypoint replay command: no npc instance named {name:?}");
+                return false;
+            };
+            let waypoint = StringCanon::new(waypoint);
+            commands.queue(move |world: &mut World| {
+                enqueue_npc_goto(world, instance_id, waypoint);
+            });
+        }
+        ReplayCommand::ZenginAddWaypoint {
+            name,
+            translation,
+            connect_to,
+        } => {
+            info!("Replay adding waypoint {name:?} at {translation:?} connected to {connect_to:?}");
+            let name = name.clone();
+            let connect_to = connect_to.clone();
+            let translation = *translation;
+            commands.queue(move |world: &mut World| {
+                add_waypoint(world, &name, translation, connect_to.as_deref());
             });
         }
         ReplayCommand::ZenginNpcUseMob {

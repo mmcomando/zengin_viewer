@@ -134,6 +134,39 @@ fn spawn_npc_command_parses_and_schedules() {
 }
 
 #[test]
+fn add_waypoint_command_parses_and_schedules() {
+    let commands =
+        parse("[ZenginAddWaypoint(name: \"wp_start\", translation: (0.0, 0.0, -20.0))]").unwrap();
+    assert_eq!(frames(&commands), [5]);
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::ZenginAddWaypoint { name, translation, connect_to: None }
+            if name == "wp_start" && *translation == Vec3::new(0.0, 0.0, -20.0)
+    ));
+
+    let commands = parse(
+        "[ZenginAddWaypoint(name: \"wp_end\", translation: (0.0, 0.0, 20.0), connect_to: Some(\"wp_start\"))]",
+    )
+    .unwrap();
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::ZenginAddWaypoint { connect_to: Some(target), .. } if target == "wp_start"
+    ));
+}
+
+#[test]
+fn npc_goto_waypoint_command_parses_and_schedules() {
+    let commands =
+        parse("[ZenginNpcGotoWaypoint(name: \"vlk_449_lares\", waypoint: \"wp_end\")]").unwrap();
+    assert_eq!(frames(&commands), [5]);
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::ZenginNpcGotoWaypoint { name, waypoint }
+            if name == "vlk_449_lares" && waypoint == "wp_end"
+    ));
+}
+
+#[test]
 fn npc_use_mob_command_parses_and_schedules() {
     let commands =
         parse("[ZenginNpcUseMob(name: \"vlk_412_harad\", scheme: \"BSANVIL\", state: 1)]").unwrap();

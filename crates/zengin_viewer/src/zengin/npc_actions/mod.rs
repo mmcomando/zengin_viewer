@@ -23,7 +23,7 @@ pub(crate) use attack::{
 };
 pub(crate) use enqueue::{
     clear_npc_actions, enqueue_align_actions, enqueue_attack_actions, enqueue_goto_actions,
-    enqueue_goto_fp_actions, enqueue_goto_npc_actions, enqueue_stand_up_actions,
+    enqueue_goto_fp_actions, enqueue_goto_npc_actions, enqueue_npc_goto, enqueue_stand_up_actions,
     enqueue_use_item_state_actions, enqueue_use_mob_actions, enqueue_wait_actions,
 };
 pub(crate) use flush::flush_npc_action_queue;
