@@ -12,8 +12,9 @@ use super::super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 use super::{ItemDisplayData, attribute_display_name};
 
 impl super::ScriptManager {
-    /// Clears the npc's routine entries and runs the `Rtn_{name}_{npcId}`
-    /// function, which re-fills them via `TA_Min` (`Npc_ExchangeRoutine`).
+    /// Clears the npc's routine entries, points `C_Npc.daily_routine` at the
+    /// `Rtn_{name}_{npcId}` function and runs it, which re-fills the entries via
+    /// `TA_Min` (`Npc_ExchangeRoutine`).
     /// The suffix is the `C_Npc.id` member, not the instance symbol id, and
     /// script symbol names are stored lowercased.
     pub fn exchange_routine(&mut self, npc: InstanceId, routine_name: &str) {
@@ -39,7 +40,15 @@ impl super::ScriptManager {
             );
             return;
         };
-        self.npc_state_mut(npc).routine.entries.clear();
+        {
+            // The exchanged function becomes the npc's daily routine, so a save
+            // that persists the instance record keeps it across a load.
+            self.store
+                .data_mut()
+                .typed
+                .set_npc_daily_routine(npc.value() as u32, Some(FunctionId::from_symbol(symbol)));
+            self.npc_state_mut(npc).routine.entries.clear();
+        }
         self.set_self(npc);
         self.set_state_other(None);
         if let Err(error) = self.try_call_function(function) {

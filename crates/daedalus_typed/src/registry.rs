@@ -5,7 +5,7 @@ use std::sync::{Arc, PoisonError, RwLock};
 
 use super::access::ScriptVmAccess;
 use super::generic::GenericVariable;
-use super::ids::StringId;
+use super::ids::{FunctionId, StringId};
 use super::info::Info;
 use super::item::Item;
 use super::menu::Menu;
@@ -1136,6 +1136,19 @@ impl TypedRegistry {
         true
     }
 
+    /// Sets `C_Npc.daily_routine`, the routine function `Npc_ExchangeRoutine`
+    /// replaces. `false` when the instance is not an npc.
+    pub fn set_npc_daily_routine(&mut self, instance: u32, routine: Option<FunctionId>) -> bool {
+        let Some(storage) = self.instance_mut(instance) else {
+            return false;
+        };
+        let TypedInstance::Npc(handle) = storage else {
+            return false;
+        };
+        write_lock(handle).daily_routine = routine;
+        true
+    }
+
     /// Snapshot of an item instance.
     #[must_use]
     pub fn item(&self, instance: u32) -> Option<Item> {
@@ -1518,6 +1531,20 @@ mod tests {
 
         registry.write_member(instance, attribute, 0, 50);
         assert_eq!(registry.npc(instance).expect("npc").hitpoints, 50);
+    }
+
+    #[test]
+    fn set_npc_daily_routine_replaces_the_routine_function() {
+        let (mut registry, instance) = npc_registry();
+        assert_eq!(registry.npc(instance).expect("npc").daily_routine, None);
+
+        let routine = crate::ids::FunctionId::new(1234).expect("function id");
+        assert!(registry.set_npc_daily_routine(instance, Some(routine)));
+        assert_eq!(
+            registry.npc(instance).expect("npc").daily_routine,
+            Some(routine)
+        );
+        assert_eq!(registry.read_instance_word(instance, 608), 1234);
     }
 
     #[test]
