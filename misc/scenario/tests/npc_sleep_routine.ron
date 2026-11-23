@@ -1,0 +1,43 @@
+[
+    // Setup
+    IncludeScenario(path: "/common/test_room_free_camera"),
+    SetCameraLocation(
+        translation: (25, 6, -0),
+        rotation: (-10.0, 90.0, 0.0),
+    ),
+    ZenginAddWaypoint(name: "nw_bigfarm_house_11", translation: (0.0, 0.0, -10.0)),
+    ZenginAddWaypoint(
+        name: "nw_bigfarm_stable_sleep_01",
+        translation: (0.0, 0.0, 8.5),
+        connect_to: Some("nw_bigfarm_house_11"),
+    ),
+    ZenginSpawnMob(
+        visual: "BEDHIGH_NW_NORMAL_01",
+        focus_name: "BED",
+        on_state_func: "sleepabit",
+        translation: (0.0, 0.0, 10.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    ZenginSetGameTime(hour: 0, minute: 0),
+    ZenginSpawnNpc(
+        name: "bau_901_bauer",
+        translation: (0.0, 0.0, 7.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    ZenginSetDebugNpc(name: "bauer"),
+    Wait(frame_dt: 500),
+
+    // Assert
+    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_BEDHIGH\\).*scheme\\(bedhigh\\).*state\\(1\\)"),
+
+    // Act
+    TestClearLogBuffer,
+    ZenginSetGameTime(hour: 12, minute: 0),
+    Wait(frame_dt: 500),
+
+    // Assert
+    TestLogExists(regex: "npc\\(\\d+\\) released mob\\([^)]+\\).*stop request"),
+    TestLogExists(regex: "DebugNPC: actions GoTo\\(nw_bigfarm_house_11\\)"),
+
+    // ExitGame,
+]

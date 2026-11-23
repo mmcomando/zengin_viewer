@@ -158,6 +158,10 @@ pub(crate) fn release_mob_use_actions(
             let Ok((mob_use, mut sequencer, mut controller)) = npcs.get_mut(entity) else {
                 continue;
             };
+            info!(
+                "npc({}) released mob({}) on stop request",
+                change.instance_id, mob_use.mob
+            );
             release_mob_use(
                 &mut commands,
                 entity,

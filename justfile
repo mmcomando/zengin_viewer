@@ -45,6 +45,7 @@ all-test-scenarios:
     just test-scenario tests/npc_death_scripts
     just test-scenario tests/npc_falls
     just test-scenario tests/npc_attacked_during_goto
+    just test-scenario tests/npc_sleep_routine
 
 # Headless CPU profile: writes a ~1GB chrome trace, then prints heaviest spans.
 trace-chrome:
