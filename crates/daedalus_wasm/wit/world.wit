@@ -18,6 +18,7 @@ interface ai-scripts {
     ai-dropmob: func(npc: s32);
     ai-equiparmor: func(npc: s32, item: s32);
     ai-equipbestarmor: func(npc: s32);
+    /// Picks the best melee weapon from the npc inventory and equips it.
     ai-equipbestmeleeweapon: func(npc: s32) -> s32;
     ai-equipbestrangedweapon: func(npc: s32) -> s32;
     ai-finishingmove: func(npc: s32, target: s32);
@@ -31,7 +32,11 @@ interface ai-scripts {
     ai-lookat: func(npc: s32, waypoint: s32);
     ai-lookatnpc: func(npc: s32, target: s32);
     ai-output: func(npc-a: s32, npc-b: s32, line-id: s32);
+    /// As `ai-outputsvm`, but the speaker's further overlay lines are dropped
+    /// while this one plays.
     ai-outputsvm-overlay: func(npc: s32, target: s32, svm-name: s32);
+    /// `svm-name` is a `$KEY` text id resolved through the speaking npc's
+    /// `C_SVM` instance for its voice; plays `SPEECH/<NAME>.WAV` positionally.
     ai-outputsvm: func(npc: s32, target: s32, svm-name: s32);
     ai-playani: func(npc-index: s32, ani-id: s32);
     ai-playanibs: func(npc-index: s32, ani-id: s32, body-state: s32);
@@ -47,9 +52,12 @@ interface ai-scripts {
     ai-readyspell: func(npc: s32, spell: s32, mana: s32);
     ai-removeweapon: func(npc: s32);
     ai-setnpcstostate: func(npc: s32, state: s32, radius: s32);
+    /// `walk-mode` bit 0x80 is ignored; values 0 run, 1 walk, 2 sneak.
     ai-setwalkmode: func(npc: s32, walk-mode: s32);
     ai-shootat: func(npc: s32, target: s32);
+    /// Spatial variant of `ai-snd-play`.
     ai-snd-play3d: func(npc: s32, sound: s32, v-2: s32);
+    /// `sound` is a sound-name string resolved through `Sfx.dat`.
     ai-snd-play: func(npc: s32, sound: s32);
     ai-standup: func(npc: s32);
     ai-standupquick: func(npc: s32);
@@ -69,10 +77,14 @@ interface ai-scripts {
     ai-unequipweapons: func(npc: s32);
     ai-unreadyspell: func(npc: s32);
     ai-useitem: func(npc: s32, item: s32);
+    /// Plays the item's `scemename` state animation; a negative `state`
+    /// releases it. Requires the item in the npc inventory and a standing npc.
     ai-useitemtostate: func(npc: s32, item: s32, state: s32);
     ai-usemob: func(npc-index: s32, mob-name-id: s32, state: s32) -> s32;
+    /// `seconds` is a float bit pattern.
     ai-wait: func(npc: s32, seconds: s32);
     ai-waitforquestion: func(npc: s32, question: s32);
+    /// Delay in milliseconds.
     ai-waitms: func(npc: s32, milliseconds: s32);
     ai-waittillend: func(npc: s32, other: s32);
     ai-whirlaround: func(npc: s32, other: s32);
@@ -168,6 +180,7 @@ interface npc-scripts {
     npc-canseesource: func(npc: s32) -> s32;
     npc-changeattribute: func(npc: s32, atr: s32, value: s32);
     npc-checkavailablemission: func(npc: s32, mission-state: s32, important: s32) -> s32;
+    /// Answers from the cached info set.
     npc-checkinfo: func(npc: s32, important: s32) -> s32;
     npc-checkoffermission: func(npc: s32, mission: s32) -> s32;
     npc-checkrunningmission: func(npc: s32, mission: s32) -> s32;
@@ -185,6 +198,7 @@ interface npc-scripts {
     npc-getcomrades: func(npc: s32) -> s32;
     npc-getdetectedmob: func(npc: s32) -> s32;
     npc-getdisttoitem: func(npc: s32, item: s32) -> s32;
+    /// Distance in engine units; `i32::MAX` when either npc has no position.
     npc-getdisttonpc: func(npc-a: s32, npc-b: s32) -> s32;
     npc-getdisttoplayer: func(npc: s32) -> s32;
     npc-getdisttowp: func(npc: s32, wp-name: s32) -> s32;
@@ -193,12 +207,14 @@ interface npc-scripts {
     npc-getequippedrangedweapon: func(npc: s32) -> s32;
     npc-getguildattitude: func(npc: s32, other: s32) -> s32;
     npc-getheighttoitem: func(npc: s32, item: s32) -> s32;
+    /// Vertical distance in engine units; `i32::MAX` when either npc has no position.
     npc-getheighttonpc: func(npc-a: s32, npc-b: s32) -> s32;
     npc-getinvitem: func(npc: s32, item: s32) -> s32;
     npc-getinvitembyslot: func(npc: s32, category: s32, slot: s32) -> s32;
     npc-getlasthitspellcat: func(npc: s32) -> s32;
     npc-getlasthitspellid: func(npc: s32) -> s32;
     npc-getlookattarget: func(npc: s32) -> s32;
+    /// Lowercased nearest waypoint name, empty when none; a dynamic string.
     npc-getnearestwp: func(npc: s32) -> list<u8>;
     npc-getnewsoffender: func(npc: s32, news: s32) -> s32;
     npc-getnewsvictim: func(npc: s32, news: s32) -> s32;
@@ -209,6 +225,7 @@ interface npc-scripts {
     npc-getportalguild: func(npc: s32) -> s32;
     npc-getportalowner: func(npc: s32) -> s32;
     npc-getreadiedweapon: func(npc: s32) -> s32;
+    /// Accumulated routine state time, in seconds.
     npc-getstatetime: func(npc: s32) -> s32;
     npc-gettalentskill: func(npc: s32, talent: s32) -> s32;
     npc-gettalentvalue: func(npc: s32, talent: s32) -> s32;
@@ -244,6 +261,7 @@ interface npc-scripts {
     npc-isnear: func(npc: s32, other: s32) -> s32;
     npc-isnewsgossip: func(npc: s32, news: s32) -> s32;
     npc-isnexttargetavailable: func(npc: s32) -> s32;
+    /// True when the npc's current freepoint name contains `fp`.
     npc-isonfp: func(npc: s32, fp: s32) -> s32;
     npc-isplayer: func(npc: s32) -> s32;
     npc-isplayerinmyroom: func(npc: s32) -> s32;
@@ -257,19 +275,24 @@ interface npc-scripts {
     npc-ownedbyguild: func(npc: s32, guild: s32) -> s32;
     npc-ownedbynpc: func(npc: s32, other: s32) -> s32;
     npc-percdisable: func(npc: s32, perception: s32);
+    /// No-op: perceptions come from the periodic scan.
     npc-perceiveall: func(npc: s32);
+    /// Registers the callback `function` for `perception`.
     npc-percenable: func(npc: s32, perception: s32, function: s32);
     npc-playani: func(npc: s32, anim: s32);
     npc-refusetalk: func(npc: s32) -> s32;
     npc-removeinvitem: func(npc: s32, item: s32) -> s32;
     npc-removeinvitems: func(npc: s32, item: s32, amount: s32) -> s32;
+    /// Broadcasts a passive perception to all nearby animated npcs.
     npc-sendpassiveperc: func(npc: s32, perception: s32, victim: s32, other: s32);
     npc-sendsingleperc: func(npc: s32, target: s32, perception: s32);
     npc-setactivespellinfo: func(npc: s32, spell: s32) -> s32;
     npc-setattitude: func(npc: s32, attitude: s32);
     npc-setknowsplayer: func(npc: s32, player: s32);
+    /// Perception period in seconds.
     npc-setperctime: func(npc: s32, time: s32);
     npc-setrefusetalk: func(npc: s32, seconds: s32);
+    /// Resets the accumulated routine state time; `seconds` is used as the new value.
     npc-setstatetime: func(npc: s32, seconds: s32);
     npc-settalentskill: func(npc: s32, talent: s32, level: s32);
     npc-settalentvalue: func(npc: s32, talent: s32, level: s32);
@@ -288,7 +311,9 @@ interface snd-scripts {
     snd-getdisttosource: func(source: s32) -> s32;
     snd-issourceitem: func(source: s32) -> s32;
     snd-issourcenpc: func(source: s32) -> s32;
+    /// Spatial variant; plays at the npc's position.
     snd-play3d: func(npc: s32, sound: s32);
+    /// `sound` is a sound-name string resolved through `Sfx.dat`.
     snd-play: func(sound: s32);
 }
 
@@ -296,6 +321,8 @@ interface ta-scripts {
     ta-beginoverlay: func(npc: s32);
     ta-cs: func(npc: s32, cutscene: s32, role: s32);
     ta-endoverlay: func(npc: s32);
+    /// Registers a state function for a minute-of-day window: start inclusive,
+    /// stop exclusive; may wrap over midnight.
     ta-min: func(npc-index: s32, start-h: s32, start-m: s32, stop-h: s32, stop-m: s32, func-index: s32, way-point: s32);
     ta-removeoverlay: func(npc: s32);
     ta: func(npc: s32, start-hour: s32, stop-hour: s32, state: s32, waypoint: s32);
@@ -313,7 +340,9 @@ interface wld-scripts {
     wld-getday: func() -> s32;
     wld-getformerplayerportalguild: func() -> s32;
     wld-getformerplayerportalowner: func() -> s32;
+    /// Guild matrix lookup, `ATT_HOSTILE` when the pair was never set.
     wld-getguildattitude: func(guild-a: s32, guild-b: s32) -> s32;
+    /// State of the nearest free mob with this scheme, `-1` when there is none.
     wld-getmobstate: func(npc: s32, mob-name: s32) -> s32;
     wld-getplayerportalguild: func() -> s32;
     wld-getplayerportalowner: func() -> s32;
@@ -321,10 +350,14 @@ interface wld-scripts {
     wld-insertnpc: func(npc-index: s32, waypoint-string-id: s32);
     wld-insertnpcandrespawn: func(instance: s32, spawn-point: s32, spawn-delay: s32);
     wld-insertobject: func(instance: s32, spawn-point: s32);
+    /// A free freepoint with this name exists near the npc.
     wld-isfpavailable: func(npc: s32, waypoint: s32) -> s32;
+    /// A free interactive mob with this scheme is available to the npc.
     wld-ismobavailable: func(npc: s32, mob-name: s32) -> s32;
+    /// Like `wld-isfpavailable`, ignoring the npc's current freepoint.
     wld-isnextfpavailable: func(npc: s32, waypoint: s32) -> s32;
     wld-israining: func() -> s32;
+    /// In-game minute window; ranges may wrap over midnight.
     wld-istime: func(hour-start: s32, minute-start: s32, hour-end: s32, minute-end: s32) -> s32;
     wld-playeffect: func(effect: s32, source: s32, target: s32, level: s32, damage: s32, damage-type: s32, projectile: s32);
     wld-removeitem: func(item: s32) -> s32;
@@ -332,6 +365,7 @@ interface wld-scripts {
     wld-sendtrigger: func(trigger: s32);
     wld-senduntrigger: func(trigger: s32);
     wld-setguildattitude: func(guild-a: s32, attitude: s32, guild-b: s32);
+    /// Assigns a state to mobs of this scheme at a time of day.
     wld-setmobroutine: func(hour: s32, minute: s32, mob-name: s32, state: s32);
     wld-setobjectroutine: func(hour: s32, minute: s32, object-name: s32, state: s32);
     wld-settime: func(hour: s32, minute: s32);
@@ -340,6 +374,7 @@ interface wld-scripts {
 }
 
 interface misc-scripts {
+    /// Concatenates two string contents.
     concatstrings: func(aa: s32, bb: s32) -> list<u8>;
     createinvitem: func(npc: s32, item: s32);
     createinvitems: func(npc: s32, item: s32, count: s32);
@@ -347,10 +382,13 @@ interface misc-scripts {
     exitgame: func();
     exitsession: func();
     floattoint: func(var: s32) -> s32;
+    /// Formatted like printf `%f`; the result is a dynamic string (see `concatstrings`).
     floattostring: func(var: s32) -> list<u8>;
     infomanager-hasfinished: func() -> s32;
     introducechapter: func(title: s32, subtitle: s32, texture: s32, sound: s32, wait-time: s32);
+    /// Reinterprets the integer as f32 bits.
     inttofloat: func(var: s32) -> s32;
+    /// Integer formatting; the result is a dynamic string (see `concatstrings`).
     inttostring: func(var: s32) -> list<u8>;
     perc-setrange: func(perception: s32, range: s32);
     playvideo: func(filename: s32) -> s32;

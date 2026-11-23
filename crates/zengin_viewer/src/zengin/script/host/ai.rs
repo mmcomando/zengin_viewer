@@ -427,6 +427,7 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     fake_impl!(ai_asktext(_0, _1, _2, _3, _4));
     fake_impl!(ai_waitforquestion(_0, _1));
     /// Plays a sound at the npc's world position.
+    ///  Only the base definition plays: `C_SFX` volume/loop and `<name>_A1..` variants are ignored.
     fn ai_snd_play(&mut self, npc: i32, sound: i32) {
         self.push_sound_at_npc(npc, sound);
     }
