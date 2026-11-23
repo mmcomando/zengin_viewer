@@ -197,7 +197,11 @@ pub(crate) fn start_use_mob_action(
     }
 }
 
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+#[allow(
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::cognitive_complexity
+)]
 pub(crate) fn run_use_mob_action(
     mut commands: Commands,
     gothic_script: Res<ScriptResource>,
@@ -552,7 +556,7 @@ fn select_mob(
             best = Some(MobChoice {
                 mob: mob_entity,
                 vob_name: base.vob_name.clone(),
-                on_state_func: mob.map(|mob| mob.on_state_func.clone()).unwrap_or_default(),
+                on_state_func: mob.map_or_default(|mob| mob.on_state_func.clone()),
                 use_pos,
                 use_rot,
                 position_tag,
@@ -592,7 +596,7 @@ fn mob_choice(
     Some(MobChoice {
         mob: mob_entity,
         vob_name: base.vob_name.clone(),
-        on_state_func: mob.map(|mob| mob.on_state_func.clone()).unwrap_or_default(),
+        on_state_func: mob.map_or_default(|mob| mob.on_state_func.clone()),
         use_pos,
         use_rot,
         position_tag,

@@ -141,7 +141,6 @@ impl NpcEquipmentState {
     /// equipped, otherwise the melee weapon, otherwise fists.
     pub fn last_used_weapon(&self) -> WeaponMode {
         match self.last_weapon {
-            Some(WeaponMode::Melee) if self.melee.is_some() => WeaponMode::Melee,
             Some(WeaponMode::Ranged) if self.ranged.is_some() => WeaponMode::Ranged,
             _ if self.melee.is_some() => WeaponMode::Melee,
             _ => WeaponMode::Fists,

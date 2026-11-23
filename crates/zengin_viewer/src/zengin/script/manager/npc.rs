@@ -17,6 +17,7 @@ impl super::ScriptManager {
     /// `TA_Min` (`Npc_ExchangeRoutine`).
     /// The suffix is the `C_Npc.id` member, not the instance symbol id, and
     /// script symbol names are stored lowercased.
+    #[allow(clippy::cognitive_complexity)]
     pub fn exchange_routine(&mut self, npc: InstanceId, routine_name: &str) {
         let Some(npc_id) = self.npc_data(npc.value() as u32).map(|npc| npc.id) else {
             warn!(
@@ -596,7 +597,7 @@ impl super::ScriptManager {
             else {
                 println!(
                     "Not found body model string for npc({index}), body_model({})",
-                    body_model_id.map(StringId::value).unwrap_or_default()
+                    body_model_id.map_or_default(StringId::value)
                 );
                 continue;
             };

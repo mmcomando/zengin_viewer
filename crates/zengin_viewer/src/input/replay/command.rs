@@ -273,9 +273,9 @@ pub(super) fn apply_replay_command(
             info!("Replay adding waypoint {name:?} at {translation:?} connected to {connect_to:?}");
             let name = name.clone();
             let connect_to = connect_to.clone();
-            let translation = *translation;
+            let translation_value = *translation;
             commands.queue(move |world: &mut World| {
-                add_waypoint(world, &name, translation, connect_to.as_deref());
+                add_waypoint(world, &name, translation_value, connect_to.as_deref());
             });
         }
         ReplayCommand::ZenginNpcUseMob {
@@ -293,7 +293,7 @@ pub(super) fn apply_replay_command(
                 return false;
             };
             let scheme = scheme.clone();
-            let state = *state;
+            let state_value = *state;
             commands.queue(move |world: &mut World| {
                 let Some(messages) = world.get_resource::<ScriptMessages>() else {
                     warn!("ZenginNpcUseMob replay command: script messages are not registered");
@@ -302,7 +302,7 @@ pub(super) fn apply_replay_command(
                 messages.use_mob.send(UseMobChange {
                     instance_id,
                     mob_name: StringCanon::new(&scheme),
-                    state,
+                    state: state_value,
                 });
             });
         }
@@ -317,7 +317,7 @@ pub(super) fn apply_replay_command(
             info!("Replay spawning mob {visual:?} at {translation:?}");
             let visual = visual.clone();
             let focus_name = focus_name.clone();
-            let state_num = *state_num;
+            let state_num_value = *state_num;
             let on_state_func = on_state_func.clone();
             let transform = Transform {
                 translation: *translation,
@@ -329,7 +329,7 @@ pub(super) fn apply_replay_command(
                     world,
                     &visual,
                     focus_name.as_deref(),
-                    state_num,
+                    state_num_value,
                     on_state_func.as_deref(),
                     transform,
                 );

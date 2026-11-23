@@ -49,6 +49,7 @@ impl Plugin for FrameLimitPlugin {
 
 /// Command line options of the application.
 #[derive(Parser, Resource, Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Options {
     /// Run without rendering, only application logic and logs.
     #[arg(long)]

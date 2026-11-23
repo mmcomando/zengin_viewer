@@ -1,3 +1,5 @@
+#![allow(clippy::multiple_inherent_impl)]
+
 mod body_state;
 mod changes;
 mod instances;
@@ -518,6 +520,7 @@ impl ImportCallState {
     /// Nearest live npc other than `npc` within `radius` (world units) matching
     /// the filters, `None` when the filters match nothing. A `None` filter
     /// matches every value; ties are resolved by the lower instance id.
+    #[allow(clippy::float_cmp)]
     pub fn nearest_npc(
         &self,
         npc: InstanceId,
@@ -835,10 +838,7 @@ impl ImportCallState {
             return source;
         };
         self.next_copy_instance_id = Some(copy.value() + 1);
-        let runtime = self
-            .npc_state(source)
-            .map(|npc| npc.clone())
-            .unwrap_or_default();
+        let runtime = self.npc_state(source).map_or_default(|npc| npc.clone());
         if !self
             .typed
             .copy_instance(source.value() as u32, copy.value() as u32)
@@ -1514,8 +1514,10 @@ mod tests {
         registry.finish();
         registry.write_values(symbol, &[0, 3, 2, 3]);
 
-        let mut state = ImportCallState::default();
-        state.typed = registry;
+        let mut state = ImportCallState {
+            typed: registry,
+            ..Default::default()
+        };
         state.exchange_guild_attitudes(symbol);
 
         assert_eq!(state.guild_attitudes.get(&(0, 1)), Some(&3));

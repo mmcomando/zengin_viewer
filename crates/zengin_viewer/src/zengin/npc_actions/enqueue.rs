@@ -51,11 +51,13 @@ pub(crate) fn enqueue_npc_goto(world: &mut World, instance_id: InstanceId, waypo
     let mut queued = false;
     for entity in entities {
         let executing = world.get::<GoToWaypointAction>(entity).is_some();
-        let Some(mut queue) = world.get_mut::<NpcActionQueue>(entity) else {
-            continue;
+        let pushed = {
+            let Some(mut queue) = world.get_mut::<NpcActionQueue>(entity) else {
+                continue;
+            };
+            queue.push_goto(waypoint.clone())
         };
-        queued |= queue.push_goto(waypoint.clone());
-        drop(queue);
+        queued |= pushed;
         if executing {
             world.entity_mut(entity).remove::<ExecutingActionMarker>();
         }
@@ -374,25 +376,30 @@ pub(crate) fn clear_npc_actions(
             queue.clear();
             // The marker observer removes the action components.
             if executing {
-                commands.entity(entity).remove::<ExecutingActionMarker>();
-                if let Some(goto) = goto {
-                    info!(
-                        "Npc_ClearAIQueue npc({}) canceled the executing goto({}) entity({entity})",
-                        change.instance_id,
-                        goto.waypoint.as_str()
-                    );
-                } else {
-                    info!(
-                        "Npc_ClearAIQueue npc({}) canceled the executing action entity({entity})",
-                        change.instance_id
-                    );
-                }
+                cancel_executing_action(&mut commands, entity, change.instance_id, goto);
             }
             debug!(
                 "Npc_ClearAIQueue npc({}) cleared actions entity({entity})",
                 change.instance_id
             );
         }
+    }
+}
+
+fn cancel_executing_action(
+    commands: &mut Commands,
+    entity: Entity,
+    instance_id: InstanceId,
+    goto: Option<&GoToWaypointAction>,
+) {
+    commands.entity(entity).remove::<ExecutingActionMarker>();
+    if let Some(goto) = goto {
+        info!(
+            "Npc_ClearAIQueue npc({instance_id}) canceled the executing goto({}) entity({entity})",
+            goto.waypoint.as_str()
+        );
+    } else {
+        info!("Npc_ClearAIQueue npc({instance_id}) canceled the executing action entity({entity})");
     }
 }
 

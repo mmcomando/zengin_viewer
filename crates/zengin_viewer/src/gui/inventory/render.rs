@@ -149,8 +149,7 @@ pub(super) fn sync_inventory_ui(
     let (labels, values) = state.windows[state.active_window]
         .as_ref()
         .and_then(|window| window.items.get(window.selected))
-        .map(|entry| item_info_text(entry, state.is_trade()))
-        .unwrap_or_default();
+        .map_or_default(|entry| item_info_text(entry, state.is_trade()));
     for (mut text, is_values) in info_text.iter_mut() {
         let info = if is_values { &values } else { &labels };
         set_text(&mut text, info);

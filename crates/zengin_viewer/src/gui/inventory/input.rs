@@ -345,8 +345,7 @@ fn trade_confirm(
         .map_or(0, |window| window.selected);
     let trader_title = state.windows[TRADER_WINDOW]
         .as_ref()
-        .map(|window| window.title.clone())
-        .unwrap_or_default();
+        .map_or_default(|window| window.title.clone());
     state.windows[PLAYER_WINDOW] = Some(npc_inventory_window(
         &mut script,
         player,
@@ -451,8 +450,7 @@ fn loot_confirm(
         .map_or(0, |window| window.selected);
     let chest_title = state.windows[TRADER_WINDOW]
         .as_ref()
-        .map(|window| window.title.clone())
-        .unwrap_or_default();
+        .map_or_default(|window| window.title.clone());
     state.windows[PLAYER_WINDOW] = Some(npc_inventory_window(
         &mut script,
         player,
@@ -489,14 +487,13 @@ fn equip_selected_item(
     let mut script = gothic_script.lock();
     let (equipped_melee, equipped_ranged, equipped_armor) = script
         .npc_state(player_id)
-        .map(|npc| {
+        .map_or_default(|npc| {
             (
                 npc.equipment.melee,
                 npc.equipment.ranged,
                 npc.equipment.armor,
             )
-        })
-        .unwrap_or_default();
+        });
 
     let symbol = script
         .get_name_by_id(entry.instance_id.value())
@@ -522,14 +519,13 @@ fn equip_selected_item(
         }
         return script
             .npc_state(player_id)
-            .map(|npc| {
+            .map_or_default(|npc| {
                 (
                     npc.equipment.melee,
                     npc.equipment.ranged,
                     npc.equipment.armor,
                 )
-            })
-            .unwrap_or_default();
+            });
     }
     let Some(kind) = WeaponKind::from_symbol_name(&symbol) else {
         game_log.add(format!("{} is not a weapon or armor", entry.name));
@@ -560,14 +556,13 @@ fn equip_selected_item(
 
     script
         .npc_state(player_id)
-        .map(|npc| {
+        .map_or_default(|npc| {
             (
                 npc.equipment.melee,
                 npc.equipment.ranged,
                 npc.equipment.armor,
             )
         })
-        .unwrap_or_default()
 }
 
 #[cfg(test)]

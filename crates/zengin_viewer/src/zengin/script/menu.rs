@@ -73,7 +73,7 @@ impl MenuItemDefinition {
     }
 
     pub fn title(&self) -> &str {
-        self.text.first().map(String::as_str).unwrap_or_default()
+        self.text.first().map_or_default(String::as_str)
     }
 
     /// Wrapped text of the original menu scripts (`text[0]` and continuation

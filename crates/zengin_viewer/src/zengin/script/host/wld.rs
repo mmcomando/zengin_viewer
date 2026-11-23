@@ -1,3 +1,5 @@
+#![allow(clippy::multiple_inherent_impl)]
+
 use super::*;
 use crate::zengin::common::to_world_units;
 

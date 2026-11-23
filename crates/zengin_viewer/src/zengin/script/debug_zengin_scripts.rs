@@ -102,15 +102,14 @@ fn debug_exchange_routine() {
     let entries = executor
         .npc_instances()
         .get(&npc)
-        .map(|instance| {
+        .map_or_default(|instance| {
             instance
                 .read()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .routine
                 .entries
                 .len()
-        })
-        .unwrap_or_default();
+        });
     println!("routine entries after exchange: {entries}");
     assert_ne!(entries, 0, "rtn_start_100 did not register routine entries");
 }

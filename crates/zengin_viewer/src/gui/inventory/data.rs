@@ -52,14 +52,13 @@ pub(super) fn npc_inventory_window(
     let gold_count = gold_sum(&items);
     let (equipped_melee, equipped_ranged, equipped_armor) = script
         .npc_state(npc)
-        .map(|npc| {
+        .map_or_default(|npc| {
             (
                 npc.equipment.melee,
                 npc.equipment.ranged,
                 npc.equipment.armor,
             )
-        })
-        .unwrap_or_default();
+        });
     if hide_gold {
         items.retain(|entry| !entry.is_gold);
     }
@@ -143,13 +142,11 @@ fn sort_inventory_items(items: &mut [InventoryEntry]) {
             .then_with(|| {
                 bb.stats
                     .as_ref()
-                    .map(|st| st.damage_total)
-                    .unwrap_or_default()
+                    .map_or_default(|st| st.damage_total)
                     .cmp(
                         &aa.stats
                             .as_ref()
-                            .map(|st| st.damage_total)
-                            .unwrap_or_default(),
+                            .map_or_default(|st| st.damage_total),
                     )
             })
             .then_with(|| aa.instance_id.cmp(&bb.instance_id))

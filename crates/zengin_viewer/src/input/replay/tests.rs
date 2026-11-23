@@ -15,19 +15,19 @@ use super::screenshot::{COMPARE_MAX_CHANGED_FRACTION, compare_images, diff_path}
 
 #[test]
 fn commands_run_five_frames_apart() {
-    let commands = parse("[ExitGame, ExitGame]").unwrap();
+    let commands = parse("[ExitGame, ExitGame]");
     assert_eq!(frames(&commands), [5, 10]);
 }
 
 #[test]
 fn wait_delays_the_following_commands() {
-    let commands = parse("[ExitGame, Wait(frame_dt: 20), ExitGame]").unwrap();
+    let commands = parse("[ExitGame, Wait(frame_dt: 20), ExitGame]");
     assert_eq!(frames(&commands), [5, 25, 30]);
 }
 
 #[test]
 fn wait_is_relative_to_the_previous_command() {
-    let commands = parse("[Wait(frame_dt: 7), ExitGame]").unwrap();
+    let commands = parse("[Wait(frame_dt: 7), ExitGame]");
     assert_eq!(frames(&commands), [7, 12]);
 }
 
@@ -57,18 +57,17 @@ fn collect_scenario_files(dir: &std::path::Path, files: &mut Vec<std::path::Path
 
 #[test]
 fn time_speed_command_parses_and_schedules() {
-    let commands =
-        parse("[ZenginSetGameTimeSpeed(speed: 2.5), Screenshot(path: \"shot.png\")]").unwrap();
+    let commands = parse("[ZenginSetGameTimeSpeed(speed: 2.5), Screenshot(path: \"shot.png\")]");
     assert_eq!(frames(&commands), [5, 10]);
     assert!(matches!(
         commands[0].command,
-        ReplayCommand::ZenginSetGameTimeSpeed { speed } if speed == 2.5
+        ReplayCommand::ZenginSetGameTimeSpeed { speed } if (speed - 2.5).abs() < f32::EPSILON
     ));
 }
 
 #[test]
 fn game_time_command_parses_and_schedules() {
-    let commands = parse("[ZenginSetGameTime(hour: 0, minute: 30)]").unwrap();
+    let commands = parse("[ZenginSetGameTime(hour: 0, minute: 30)]");
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         commands[0].command,
@@ -81,7 +80,7 @@ fn game_time_command_parses_and_schedules() {
 
 #[test]
 fn world_command_parses_and_schedules() {
-    let commands = parse("[TestWorld(name: \"simple\")]").unwrap();
+    let commands = parse("[TestWorld(name: \"simple\")]");
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
@@ -91,7 +90,7 @@ fn world_command_parses_and_schedules() {
 
 #[test]
 fn script_startup_command_parses_and_schedules() {
-    let commands = parse("[ZenginScriptStartup(world: \"NEWWORLD/NEWWORLD\")]").unwrap();
+    let commands = parse("[ZenginScriptStartup(world: \"NEWWORLD/NEWWORLD\")]");
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
@@ -99,8 +98,7 @@ fn script_startup_command_parses_and_schedules() {
             if world == "NEWWORLD/NEWWORLD"
     ));
 
-    let commands =
-        parse("[ZenginScriptStartup(clean_world: true, world: \"NEWWORLD/NEWWORLD\")]").unwrap();
+    let commands = parse("[ZenginScriptStartup(clean_world: true, world: \"NEWWORLD/NEWWORLD\")]");
     assert!(matches!(
         &commands[0].command,
         ReplayCommand::ZenginScriptStartup {
@@ -112,7 +110,7 @@ fn script_startup_command_parses_and_schedules() {
 
 #[test]
 fn debug_npc_command_parses_and_schedules() {
-    let commands = parse("[ZenginSetDebugNpc(name: \"lares\")]").unwrap();
+    let commands = parse("[ZenginSetDebugNpc(name: \"lares\")]");
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
@@ -122,7 +120,7 @@ fn debug_npc_command_parses_and_schedules() {
 
 #[test]
 fn press_release_command_parses_and_schedules() {
-    let commands = parse("[PressRelease(action: Gameplay(Jump))]").unwrap();
+    let commands = parse("[PressRelease(action: Gameplay(Jump))]");
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         commands[0].command,
@@ -136,8 +134,7 @@ fn press_release_command_parses_and_schedules() {
 fn spawn_npc_command_parses_and_schedules() {
     let commands = parse(
         "[ZenginSpawnNpc(name: \"lares\", translation: (1.0, 2.0, 3.0), rotation: (0.0, 90.0, 0.0))]",
-    )
-    .unwrap();
+    );
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
@@ -148,8 +145,7 @@ fn spawn_npc_command_parses_and_schedules() {
 
 #[test]
 fn add_waypoint_command_parses_and_schedules() {
-    let commands =
-        parse("[ZenginAddWaypoint(name: \"wp_start\", translation: (0.0, 0.0, -20.0))]").unwrap();
+    let commands = parse("[ZenginAddWaypoint(name: \"wp_start\", translation: (0.0, 0.0, -20.0))]");
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
@@ -159,8 +155,7 @@ fn add_waypoint_command_parses_and_schedules() {
 
     let commands = parse(
         "[ZenginAddWaypoint(name: \"wp_end\", translation: (0.0, 0.0, 20.0), connect_to: Some(\"wp_start\"))]",
-    )
-    .unwrap();
+    );
     assert!(matches!(
         &commands[0].command,
         ReplayCommand::ZenginAddWaypoint { connect_to: Some(target), .. } if target == "wp_start"
@@ -169,8 +164,7 @@ fn add_waypoint_command_parses_and_schedules() {
 
 #[test]
 fn npc_goto_waypoint_command_parses_and_schedules() {
-    let commands =
-        parse("[ZenginNpcGotoWaypoint(name: \"vlk_449_lares\", waypoint: \"wp_end\")]").unwrap();
+    let commands = parse("[ZenginNpcGotoWaypoint(name: \"vlk_449_lares\", waypoint: \"wp_end\")]");
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
@@ -182,7 +176,7 @@ fn npc_goto_waypoint_command_parses_and_schedules() {
 #[test]
 fn npc_use_mob_command_parses_and_schedules() {
     let commands =
-        parse("[ZenginNpcUseMob(name: \"vlk_412_harad\", scheme: \"BSANVIL\", state: 1)]").unwrap();
+        parse("[ZenginNpcUseMob(name: \"vlk_412_harad\", scheme: \"BSANVIL\", state: 1)]");
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
@@ -195,8 +189,7 @@ fn npc_use_mob_command_parses_and_schedules() {
 fn spawn_mob_command_parses_and_schedules() {
     let commands = parse(
         "[ZenginSpawnMob(visual: \"CHAIR_NW_NORMAL_01\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",
-    )
-    .unwrap();
+    );
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
@@ -207,8 +200,7 @@ fn spawn_mob_command_parses_and_schedules() {
 
     let commands = parse(
         "[ZenginSpawnMob(visual: \"chair\", focus_name: \"Chair\", state_num: 2, translation: (1.0, 2.0, 3.0), rotation: (0.0, 90.0, 0.0))]",
-    )
-    .unwrap();
+    );
     assert!(matches!(
         &commands[0].command,
         ReplayCommand::ZenginSpawnMob { focus_name: Some(name), state_num: Some(2), .. }
@@ -217,8 +209,7 @@ fn spawn_mob_command_parses_and_schedules() {
 
     let commands = parse(
         "[ZenginSpawnMob(visual: \"BEDHIGH_NW_NORMAL_01\", on_state_func: \"sleepabit\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",
-    )
-    .unwrap();
+    );
     assert!(matches!(
         &commands[0].command,
         ReplayCommand::ZenginSpawnMob { on_state_func: Some(name), .. } if name == "sleepabit"
@@ -229,8 +220,7 @@ fn spawn_mob_command_parses_and_schedules() {
 fn spawn_chest_command_parses_and_schedules() {
     let commands = parse(
         "[ZenginSpawnChest(visual: \"CHESTBIG_NW_NORMAL_OPEN\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",
-    )
-    .unwrap();
+    );
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
@@ -241,8 +231,7 @@ fn spawn_chest_command_parses_and_schedules() {
 
     let commands = parse(
         "[ZenginSpawnChest(visual: \"CHESTSMALL_NW_POOR_LOCKED\", locked: true, translation: (1.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0))]",
-    )
-    .unwrap();
+    );
     assert!(matches!(
         &commands[0].command,
         ReplayCommand::ZenginSpawnChest { locked: true, .. }
@@ -260,21 +249,19 @@ fn include_paths_are_relative_to_the_scenario_root() {
         resolve_include_path(root, "/tests/dialog_lares.ron").unwrap(),
         std::path::PathBuf::from("misc/scenario/tests/dialog_lares.ron")
     );
-    assert!(resolve_include_path(root, "test_room").is_err());
-    assert!(resolve_include_path(root, "misc/scenario/test_room").is_err());
-    assert!(resolve_include_path(root, "/").is_err());
-    assert!(resolve_include_path(root, "/../test_room").is_err());
-    assert!(resolve_include_path(root, "/./test_room").is_err());
+    resolve_include_path(root, "test_room").unwrap_err();
+    resolve_include_path(root, "misc/scenario/test_room").unwrap_err();
+    resolve_include_path(root, "/").unwrap_err();
+    resolve_include_path(root, "/../test_room").unwrap_err();
+    resolve_include_path(root, "/./test_room").unwrap_err();
 }
 
 #[test]
 fn stale_frame_fields_are_rejected() {
-    assert!(
-        RonOptions::default()
-            .with_default_extension(Extensions::IMPLICIT_SOME)
-            .from_str::<Vec<ReplayCommand>>("[Screenshot(frame: 2, path: \"shot.png\")]")
-            .is_err()
-    );
+    RonOptions::default()
+        .with_default_extension(Extensions::IMPLICIT_SOME)
+        .from_str::<Vec<ReplayCommand>>("[Screenshot(frame: 2, path: \"shot.png\")]")
+        .unwrap_err();
 }
 
 #[test]
@@ -341,8 +328,7 @@ fn log_commands_parse_and_schedule() {
             TestLogExists(regex: "WARN.*missing"),
             TestLogNotExists(regex: "ERROR.*missing"),
         ]"#,
-    )
-    .unwrap();
+    );
     assert_eq!(frames(&commands), [5, 10, 15]);
     assert!(matches!(
         &commands[1].command,
@@ -355,9 +341,8 @@ fn log_commands_parse_and_schedule() {
 }
 
 #[test]
-fn test_screenshot_command_parses_and_schedules() {
-    let commands =
-        parse("[Screenshot(path: \"plain.png\"), TestScreenshot(path: \"tested.png\")]").unwrap();
+fn screenshot_command_parses_and_schedules() {
+    let commands = parse("[Screenshot(path: \"plain.png\"), TestScreenshot(path: \"tested.png\")]");
     assert!(matches!(
         &commands[0].command,
         ReplayCommand::Screenshot { path } if path == "plain.png"
@@ -393,12 +378,12 @@ fn log_checks_ignore_replay_infrastructure_lines() {
     assert!(matching_log_line(&lines[..1], &regex).is_none());
 }
 
-fn parse(commands: &str) -> Result<Vec<ScheduledCommand>, String> {
+fn parse(commands: &str) -> Vec<ScheduledCommand> {
     let commands: Vec<ReplayCommand> = RonOptions::default()
         .with_default_extension(Extensions::IMPLICIT_SOME)
         .from_str(commands)
         .expect("test ron should parse");
-    Ok(schedule_commands(commands))
+    schedule_commands(commands)
 }
 
 fn frames(commands: &[ScheduledCommand]) -> Vec<u64> {

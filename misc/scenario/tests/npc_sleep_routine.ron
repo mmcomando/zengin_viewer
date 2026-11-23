@@ -39,5 +39,5 @@
     TestLogExists(regex: "npc\\(\\d+\\) released mob\\([^)]+\\).*stop request"),
     TestLogExists(regex: "DebugNPC: actions GoTo\\(nw_bigfarm_house_11\\)"),
 
-    // ExitGame,
+    ExitGame,
 ]

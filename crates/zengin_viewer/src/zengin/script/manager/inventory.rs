@@ -148,7 +148,6 @@ impl super::ScriptManager {
     /// npc has no inventory.
     pub fn inventory(&self, npc: InstanceId) -> Vec<(InstanceId, i32)> {
         self.npc_state(npc)
-            .map(|npc| npc.inventory.items())
-            .unwrap_or_default()
+            .map_or_default(|npc| npc.inventory.items())
     }
 }

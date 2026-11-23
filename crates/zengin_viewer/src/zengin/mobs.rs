@@ -521,13 +521,13 @@ fn mob_positions(model: &ZenGinModel) -> Vec<crate::zengin::MobPosition> {
         .zip(&model.final_tr)
         .filter(|(name, _)| name.starts_with("ZS_POS"))
         .map(|(name, transform)| {
-            let mut transform = *transform;
+            let mut mob_transform = *transform;
             if model.has_skinned_meshes {
-                transform.translation -= model.root_translation;
+                mob_transform.translation -= model.root_translation;
             }
             crate::zengin::MobPosition {
                 name: name.clone(),
-                transform,
+                transform: mob_transform,
             }
         })
         .collect()

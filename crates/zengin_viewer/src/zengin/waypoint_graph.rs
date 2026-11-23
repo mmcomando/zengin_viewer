@@ -141,6 +141,7 @@ pub(crate) fn spawn_waypoint_entities(commands: &mut Commands, graph: &WaypointG
 /// way net. `connect_to` links the node to an existing waypoint by name so path
 /// finding can reach it; an isolated node can only be walked to from itself.
 /// Returns `None` when the name is already in use.
+#[allow(clippy::cognitive_complexity)]
 pub(crate) fn add_waypoint(
     world: &mut World,
     name: &str,
@@ -165,14 +166,12 @@ pub(crate) fn add_waypoint(
         graph.adjacency.push(Vec::new());
         graph.name_to_index.insert(name.clone(), index);
         if let Some(connect_to) = connect_to {
-            match graph.node_by_name(connect_to) {
-                Some(other) => {
-                    let length =
-                        (graph.nodes[index].position - graph.nodes[other].position).length();
-                    graph.adjacency[index].push((other, length));
-                    graph.adjacency[other].push((index, length));
-                }
-                None => warn!("add waypoint: connect target {connect_to:?} not found"),
+            if let Some(other) = graph.node_by_name(connect_to) {
+                let length = (graph.nodes[index].position - graph.nodes[other].position).length();
+                graph.adjacency[index].push((other, length));
+                graph.adjacency[other].push((index, length));
+            } else {
+                warn!("add waypoint: connect target {connect_to:?} not found");
             }
         }
         index

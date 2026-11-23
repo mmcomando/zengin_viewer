@@ -140,8 +140,7 @@ impl super::ScriptManager {
             let description = dialog_info
                 .description
                 .and_then(|id| self.get_show_string(id))
-                .map(ShowString::into_string)
-                .unwrap_or_default();
+                .map_or_default(ShowString::into_string);
 
             let Some(npc_id) = dialog_info.npc else {
                 continue;

@@ -150,8 +150,7 @@ pub(super) fn sync_main_menu(
     let info = state
         .selected_item(definition)
         .and_then(|item| item.text.get(1))
-        .map(String::as_str)
-        .unwrap_or_default();
+        .map_or_default(String::as_str);
     if let Some((mut text, mut visibility)) = info_texts.iter_mut().next() {
         set_text(&mut text, info);
         let desired = if info.is_empty() {

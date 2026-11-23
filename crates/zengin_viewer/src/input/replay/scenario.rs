@@ -55,8 +55,7 @@ impl ScenarioLayout {
         }
         let id = scenario_file
             .strip_prefix(SCENARIO_ROOT)
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|_| id.clone())
+            .map_or_else(|_| id.clone(), Path::to_path_buf)
             .with_extension("");
         Self {
             workdir: Path::new(SCENARIO_OUTPUT_ROOT).join(&id),
@@ -79,9 +78,10 @@ fn normalize_scenario_id(id: &Path) -> PathBuf {
     for component in id.components() {
         match component {
             Component::Normal(_) | Component::CurDir => {}
-            _ => panic!(
-                "--scenario {id:?} must be a relative path under {SCENARIO_ROOT} \
-                 without `..` components"
+            Component::Prefix(_) | Component::RootDir | Component::ParentDir => panic!(
+                "--scenario {} must be a relative path under {SCENARIO_ROOT} \
+                 without `..` components",
+                id.display()
             ),
         }
     }

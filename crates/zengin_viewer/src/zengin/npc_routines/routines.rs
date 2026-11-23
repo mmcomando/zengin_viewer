@@ -580,6 +580,7 @@ pub(crate) fn release_npc_freepoints(
 
 /// Calls the loop hook of every running routine state once per interval and
 /// ends the state when the loop returns `LOOP_END`.
+#[allow(clippy::type_complexity)]
 pub(crate) fn run_routine_loops(
     time: Res<Time>,
     game_time: Res<GameTime>,

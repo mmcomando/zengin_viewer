@@ -276,7 +276,8 @@ fn debug_npc_section(ui: &mut Ui, debug_npc: &mut DebugNpc, text: &mut String) {
             // Pick up filters set elsewhere, e.g. replay commands.
             let current = debug_npc.text();
             if text.trim().to_lowercase() != current {
-                *text = current.to_owned();
+                text.clear();
+                text.push_str(current);
             }
             ui.horizontal(|ui| {
                 let response =

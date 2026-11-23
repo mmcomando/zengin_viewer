@@ -291,9 +291,7 @@ fn npc_details(
             .iter()
             .map(|entry| {
                 let state = entry
-                    .state_fn
-                    .map(|id| resolve(id.value()))
-                    .unwrap_or_else(|| "-".to_owned());
+                    .state_fn.map_or_else(|| "-".to_owned(), |id| resolve(id.value()));
                 format!(
                     "{:02}:{:02}-{:02}:{:02} {state} @ {}",
                     entry.start_h, entry.start_m, entry.stop_h, entry.stop_m, entry.way_point

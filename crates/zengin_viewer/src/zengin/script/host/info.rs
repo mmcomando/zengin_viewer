@@ -13,8 +13,7 @@ impl mmcomando::zengine_scripts::info_scripts::Host for ImportCallState {
         };
         let description = self
             .get_show_string(description_text_id)
-            .map(crate::zengin::script::string_value::ShowString::into_string)
-            .unwrap_or_default();
+            .map_or_default(crate::zengin::script::string_value::ShowString::into_string);
 
         self.loaded_state
             .dialog_choices

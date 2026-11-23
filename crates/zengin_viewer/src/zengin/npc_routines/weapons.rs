@@ -308,8 +308,7 @@ pub(crate) fn update_npc_mob_use_items(
         let requests = match mob_use {
             Some(mob_use) => mobs
                 .get(mob_use.mob)
-                .map(|mob| mob_use_held_items(&triggers, mob, mob_use))
-                .unwrap_or_default(),
+                .map_or_default(|mob| mob_use_held_items(&triggers, mob, mob_use)),
             None => Vec::new(),
         };
         sync_mob_use_items(

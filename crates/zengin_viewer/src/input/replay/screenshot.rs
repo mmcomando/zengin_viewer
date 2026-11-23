@@ -22,9 +22,10 @@ const COMPARE_CELL_THRESHOLD: f32 = 16.0 / 255.0;
 pub(super) const COMPARE_MAX_CHANGED_FRACTION: f32 = 0.02;
 
 /// Schedules a screenshot save into the scenario workdir. A `test` screenshot
-/// additionally compares with (or blesses) the matching reference screenshot.
+/// additionaly compares with (or blesses) the matching reference screenshot.
 /// Returns `true` when the screenshot path is invalid and the replay must be
 /// disabled.
+#[allow(clippy::cognitive_complexity)]
 pub(super) fn apply_replay_screenshot(
     replay: &ActionReplay,
     path: &String,

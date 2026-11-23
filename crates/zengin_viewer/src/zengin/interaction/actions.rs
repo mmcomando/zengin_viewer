@@ -46,6 +46,7 @@ pub(super) fn toggle_player_weapons(
 
 /// Draws the last used weapon when it is sheathed, sheathes it when it is
 /// already drawn. Falls back to the melee weapon or fists.
+#[allow(clippy::cognitive_complexity)]
 fn toggle_last_weapon(gothic_script: &ScriptResource, player_id: InstanceId) {
     let mut script = gothic_script.lock();
     let Some(target) = script
