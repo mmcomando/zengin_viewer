@@ -5,7 +5,9 @@ use bevy::log::warn;
 
 use super::ScriptManager;
 use crate::zengin::common::to_world_units;
-use crate::zengin::script::state::{NpcCheckInfo, PERC_ASSESSENEMY, PERC_ASSESSPLAYER};
+use crate::zengin::script::state::{
+    NpcCheckInfo, PERC_ASSESSDAMAGE, PERC_ASSESSENEMY, PERC_ASSESSPLAYER,
+};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 
 /// Scan cadence before a state calls `Npc_SetPercTime`, matching the engine
@@ -47,6 +49,31 @@ impl ScriptManager {
         if auto_talk {
             self.run_player_perception(npc);
         }
+    }
+
+    /// Dispatches `PERC_ASSESSDAMAGE` to the npc that took damage. This is an
+    /// event-driven perception with no range check.
+    pub fn run_damage_perception(&mut self, victim: InstanceId, attacker: InstanceId) {
+        if Some(victim) == self.store.data().player_instance {
+            return;
+        }
+        if self
+            .store
+            .data()
+            .npc_state(victim)
+            .is_none_or(|npc| npc.live.dead)
+        {
+            return;
+        }
+        let Some(callback) = self.perception_callback(victim, PERC_ASSESSDAMAGE) else {
+            return;
+        };
+        bevy::log::debug!(
+            "damage perception npc({}) attacker({})",
+            victim.value(),
+            attacker.value(),
+        );
+        self.call_perception(victim, attacker, None, callback);
     }
 
     /// Dispatches a passive perception broadcast by `source`

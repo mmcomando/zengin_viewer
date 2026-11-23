@@ -20,7 +20,7 @@ use crate::zengin::npc_routines::{
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{AttackChange, StartStateChange, WeaponMode};
+use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc, NpcCorpseMarker};
 
@@ -290,27 +290,8 @@ pub(crate) fn deal_damage(
         } else {
             hitpoints
         };
-        if shooter_is_player && !target_data.is_player && hitpoints > 0 {
-            // Being attacked makes the npc retaliate against the player.
-            script.npc_state_mut(target_id).live.target = Some(shooter_id);
-            script.messages().attack.send(AttackChange {
-                instance_id: target_id,
-                target: shooter_id,
-            });
-            let zs_attack = script.try_get_symbol_id("zs_attack");
-            let zs_attack =
-                zs_attack.and_then(|symbol| script.symbol_table().function(symbol.value()));
-            if let Some(state) = zs_attack
-                && script
-                    .npc_state(target_id)
-                    .is_none_or(|npc| npc.routine.current_state != Some(state))
-            {
-                script.messages().start_state.send(StartStateChange {
-                    instance_id: target_id,
-                    state,
-                    other: Some(shooter_id),
-                });
-            }
+        if !target_data.is_player && hitpoints > 0 {
+            script.run_damage_perception(target_id, shooter_id);
         }
         (hitpoints, shooter_is_player)
     };

@@ -46,6 +46,10 @@ pub const PERC_ASSESSPLAYER: i32 = 1;
 /// `PERC_ASSESSENEMY` script constant, the perception that starts a fight.
 pub const PERC_ASSESSENEMY: i32 = 2;
 
+/// `PERC_ASSESSDAMAGE` script constant, the perception delivered to the victim
+/// of a damage event.
+pub const PERC_ASSESSDAMAGE: i32 = 8;
+
 /// A mob state assignment scheduled by `Wld_SetMobRoutine`: the mob with
 /// `mob_name` should be switched to `state` when the game time reaches
 /// `hour`:`minute`.
