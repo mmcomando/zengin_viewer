@@ -214,20 +214,25 @@ fn update_npc_physics_active(
                     .entity(entity)
                     // A body that leaves the range must not resume with stale motion.
                     .insert(LinearVelocity::default())
-                    .remove::<NpcPhysicsActiveMarker>();
+                    .remove::<NpcPhysicsActiveMarker>()
+                    .remove::<Grounded>();
             }
             _ => {}
         }
     }
 }
 
-/// Updates the [`Grounded`] status for character controllers.
+/// Updates the [`Grounded`] status for character controllers and camera-near
+/// npc bodies.
 #[allow(clippy::type_complexity)]
 fn update_grounded(
     mut commands: Commands,
     mut query: Query<
         (Entity, &GroundDetection, &GlobalTransform),
-        (Without<NpcMobUse>, Without<NpcPhysicsMarker>),
+        (
+            Without<NpcMobUse>,
+            Or<(Without<NpcPhysicsMarker>, With<NpcPhysicsActiveMarker>)>,
+        ),
     >,
     spatial_query: SpatialQuery,
 ) {
@@ -338,7 +343,12 @@ fn movement(
 fn apply_gravity(
     time: Res<Time>,
     mut controllers: Query<
-        (&CharacterMovementSettings, &mut LinearVelocity),
+        (
+            &CharacterMovementSettings,
+            &mut LinearVelocity,
+            Has<CharacterController>,
+            Has<Grounded>,
+        ),
         (
             Or<(With<CharacterController>, With<NpcPhysicsActiveMarker>)>,
             Without<NpcMobUse>,
@@ -347,7 +357,12 @@ fn apply_gravity(
 ) {
     let delta_secs = time.delta_secs();
 
-    for (movement, mut linear_velocity) in &mut controllers {
+    for (movement, mut linear_velocity, is_controller, grounded) in &mut controllers {
+        // An npc resting on the ground must not accumulate downward velocity,
+        // otherwise it would need a sweep every frame just to cancel it.
+        if !is_controller && grounded {
+            continue;
+        }
         let gravity_direction = movement.gravity.normalize_or_zero();
 
         let velocity_along_gravity = linear_velocity.dot(gravity_direction);
@@ -424,8 +439,10 @@ pub fn move_and_slide(
     ) in &mut query
     {
         let is_npc = !is_controller;
-        // A body with a negligible velocity in x and y does not need a sweep.
-        if is_npc && lin_vel.x * lin_vel.x + lin_vel.z * lin_vel.z < NPC_IDLE_VELOCITY_SQUARED {
+        // A body with a negligible velocity does not need a sweep. The vertical
+        // component matters too: an idle npc dropped in the air has no horizontal
+        // velocity but still has to fall.
+        if is_npc && lin_vel.0.length_squared() < NPC_IDLE_VELOCITY_SQUARED {
             continue;
         }
 
