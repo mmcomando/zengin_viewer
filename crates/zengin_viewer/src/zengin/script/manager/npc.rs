@@ -158,6 +158,22 @@ impl super::ScriptManager {
         }
     }
 
+    /// Runs the npc's `daily_routine` when its `TA_Min` entries are still empty.
+    /// Npcs inserted at world load already have them.
+    pub fn ensure_npc_routine(&mut self, instance_index: InstanceId) {
+        let has_entries = self
+            .store
+            .data()
+            .npc_state(instance_index)
+            .is_some_and(|state| !state.routine.entries.is_empty());
+        if has_entries {
+            return;
+        }
+        self.set_self(instance_index);
+        self.set_instance(instance_index);
+        self.call_npc_routine(instance_index);
+    }
+
     /// Display name of an npc from its `C_NPC` `name` member, `None` when the
     /// instance has no data or the name string is unset.
     pub fn npc_display_name(&mut self, npc: InstanceId) -> Option<String> {

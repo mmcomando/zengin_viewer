@@ -34,7 +34,7 @@ use crate::zengin::resources::{
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::{GameScriptLoaded, ScriptResource};
 use crate::zengin::script::manager::ScriptManager;
-use crate::zengin::script::state::{LoadedState, SpawnItem, SpawnNpc};
+use crate::zengin::script::state::{LoadedState, RoutineEntry, SpawnItem, SpawnNpc};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
@@ -741,9 +741,9 @@ struct NpcSpawnScript {
     hierarchy: Option<String>,
     model_scale: Option<Vec3>,
     model_fatness: Option<f32>,
-    /// Waypoint of the routine entry active at spawn time, takes precedence
-    /// over the spawn location.
-    routine_way_point: Option<StringCanon>,
+    /// Active routine entry at spawn time; its waypoint takes precedence over
+    /// the spawn location.
+    routine_entry: Option<RoutineEntry>,
     location_name: Option<StringCanon>,
 }
 
@@ -764,14 +764,13 @@ fn npc_spawn_script_data(
         .location_name
         .and_then(|id| script.get_canon_string(id));
     let handle = script.npc_handle(spawn.instance_id)?;
+    script.ensure_npc_routine(spawn.instance_id);
     let state = script.get_loaded_state();
     let instance = state.npc_instances.get(&spawn.instance_id)?;
     let instance = instance
         .read()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let routine_way_point = instance
-        .get_routine_entry(minutes_of_day)
-        .map(|entry| entry.way_point.clone());
+    let routine_entry = instance.get_routine_entry(minutes_of_day).cloned();
     Some(NpcSpawnScript {
         symbol_name,
         display_name,
@@ -783,7 +782,7 @@ fn npc_spawn_script_data(
         hierarchy: instance.visual.hierarchy.clone(),
         model_scale: instance.visual.model_scale,
         model_fatness: instance.visual.model_fatness,
-        routine_way_point,
+        routine_entry,
         location_name,
     })
 }
@@ -825,7 +824,9 @@ fn spawn_npc_entities(
             // Routine waypoint takes precedence over the spawn location,
             // spots take precedence over way points
             let name = script
-                .routine_way_point
+                .routine_entry
+                .as_ref()
+                .map(|entry| entry.way_point.clone())
                 .or(script.location_name)
                 .unwrap_or_default();
             let tr = way_points
@@ -913,6 +914,9 @@ fn spawn_npc_entities(
             NpcAnimations::default(),
             transform,
         ));
+        if let Some(entry) = script.routine_entry {
+            entity.insert(entry);
+        }
         if let Some(overlay) = &spawn.overlay {
             entity.insert(NpcOverlay(Some(overlay.clone())));
         }
