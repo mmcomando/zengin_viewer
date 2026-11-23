@@ -346,11 +346,13 @@ pub(crate) fn enqueue_align_actions(
     }
 }
 
-/// Applies `Npc_ClearAIQueue` requests, dropping all queued actions.
+/// Applies `Npc_ClearAIQueue` requests. The engine clears the queue and the
+/// action the npc is currently running, which also stops a walk.
 pub(crate) fn clear_npc_actions(
+    mut commands: Commands,
     mut changes: MessageReader<ClearAiQueueChange>,
     index: Res<InstanceIndex>,
-    mut action_queues: Query<&mut NpcActionQueue>,
+    mut action_queues: Query<(&mut NpcActionQueue, Has<ExecutingActionMarker>)>,
 ) {
     for change in changes.read() {
         let entities = index.npcs(change.instance_id);
@@ -362,10 +364,18 @@ pub(crate) fn clear_npc_actions(
             continue;
         }
         for &entity in entities {
-            let Ok(mut queue) = action_queues.get_mut(entity) else {
+            let Ok((mut queue, executing)) = action_queues.get_mut(entity) else {
                 continue;
             };
             queue.clear();
+            // The marker observer removes the action components.
+            if executing {
+                commands.entity(entity).remove::<ExecutingActionMarker>();
+                debug!(
+                    "Npc_ClearAIQueue npc({}) canceled the executing action entity({entity})",
+                    change.instance_id
+                );
+            }
             debug!(
                 "Npc_ClearAIQueue npc({}) cleared actions entity({entity})",
                 change.instance_id
