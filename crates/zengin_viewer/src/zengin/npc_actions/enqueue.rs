@@ -352,7 +352,11 @@ pub(crate) fn clear_npc_actions(
     mut commands: Commands,
     mut changes: MessageReader<ClearAiQueueChange>,
     index: Res<InstanceIndex>,
-    mut action_queues: Query<(&mut NpcActionQueue, Has<ExecutingActionMarker>)>,
+    mut action_queues: Query<(
+        &mut NpcActionQueue,
+        Has<ExecutingActionMarker>,
+        Option<&GoToWaypointAction>,
+    )>,
 ) {
     for change in changes.read() {
         let entities = index.npcs(change.instance_id);
@@ -364,17 +368,25 @@ pub(crate) fn clear_npc_actions(
             continue;
         }
         for &entity in entities {
-            let Ok((mut queue, executing)) = action_queues.get_mut(entity) else {
+            let Ok((mut queue, executing, goto)) = action_queues.get_mut(entity) else {
                 continue;
             };
             queue.clear();
             // The marker observer removes the action components.
             if executing {
                 commands.entity(entity).remove::<ExecutingActionMarker>();
-                debug!(
-                    "Npc_ClearAIQueue npc({}) canceled the executing action entity({entity})",
-                    change.instance_id
-                );
+                if let Some(goto) = goto {
+                    info!(
+                        "Npc_ClearAIQueue npc({}) canceled the executing goto({}) entity({entity})",
+                        change.instance_id,
+                        goto.waypoint.as_str()
+                    );
+                } else {
+                    info!(
+                        "Npc_ClearAIQueue npc({}) canceled the executing action entity({entity})",
+                        change.instance_id
+                    );
+                }
             }
             debug!(
                 "Npc_ClearAIQueue npc({}) cleared actions entity({entity})",
