@@ -6,6 +6,7 @@ use avian3d::prelude::{Collider, CollisionLayers};
 use bevy::camera::primitives::Aabb;
 use bevy::prelude::*;
 
+use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::game_time::GameTime;
 use crate::graphics::{
     AnimationController, AnimationData, AnimationEnds, animation_name_from_path,
@@ -172,22 +173,26 @@ fn sync_npc_body_state(
     mut removed: RemovedComponents<NpcMobUse>,
     npcs: Query<(&GameNpc, Option<&NpcMobUse>, Option<&NpcItemUse>)>,
 ) {
-    let _perf = perf_debug!();
+    let perf = perf_debug!();
     let Some(gothic_script) = gothic_script else {
         return;
     };
     let mut script = gothic_script.lock();
     for entity in removed.read() {
+        perf.increment_tag("removed", 1);
         // Despawned npcs keep no script state, and a switched mob still has its
         // component here and is handled below.
         let Ok((npc, current, item_use)) = npcs.get(entity) else {
+            perf.increment_tag("removed_missing", 1);
             continue;
         };
         if current.is_some() {
+            perf.increment_tag("removed_switched", 1);
             continue;
         }
         // An item pose keeps its body state; only a plain npc returns to stand.
         if item_use.is_some() {
+            perf.increment_tag("removed_item_use", 1);
             script.set_npc_body_state(npc.instance_id(), Some(BS_ITEMINTERACT));
             continue;
         }
@@ -195,6 +200,7 @@ fn sync_npc_body_state(
         script.set_npc_body_state(npc.instance_id(), None);
     }
     for (npc, mob_use) in &added {
+        perf.increment_tag("added", 1);
         let body_state = script.scheme_body_state(mob_use.scheme.as_str());
         debug!(
             "npc({}) body state({body_state}) for mob({})",
@@ -205,16 +211,26 @@ fn sync_npc_body_state(
     }
 }
 
-/// Applies the `Wld_SetMobRoutine` states of the current time to the mobs.
+/// Applies the `Wld_SetMobRoutine` states of the current time to the nearby mobs.
+#[allow(clippy::type_complexity)]
 fn apply_mob_routines(
     gothic_script: Option<Res<ScriptResource>>,
     game_time: Res<GameTime>,
-    mut mobs: Query<(&mut MobPose, &MobBase), With<GameMob>>,
+    mut mobs: Query<(&mut MobPose, &MobBase), (With<GameMob>, With<DistanceNear>)>,
+    newly_near: Query<(), (With<GameMob>, Added<DistanceNear>)>,
+    mut last_minutes: Local<Option<u32>>,
 ) {
-    let _perf = perf_debug!();
+    let perf = perf_debug!();
     let Some(gothic_script) = gothic_script else {
         return;
     };
+    let minutes = game_time.minutes_of_day();
+    // The schedule only changes per in-game minute. Mobs that just came near
+    // still need the current state applied even when the minute is unchanged.
+    if *last_minutes == Some(minutes) && newly_near.is_empty() {
+        return;
+    }
+    *last_minutes = Some(minutes);
     let routines = {
         let script = gothic_script.lock();
         let routines = &script.get_loaded_state().mob_routines;
@@ -223,26 +239,37 @@ fn apply_mob_routines(
         }
         routines.clone()
     };
-    let minutes = game_time.minutes_of_day();
-    let mut states: HashMap<String, i32> = HashMap::new();
+    perf.increment_tag("routines", routines.len() as u64);
+    let mut states: Vec<(String, i32)> = Vec::new();
     for routine in &routines {
-        states.entry(routine.mob_name.to_uppercase()).or_insert(0);
+        if states
+            .iter()
+            .any(|(scheme, _)| scheme.eq_ignore_ascii_case(&routine.mob_name))
+        {
+            continue;
+        }
+        states.push((routine.mob_name.clone(), 0));
     }
     for (scheme, state) in &mut states {
         *state = routine_state_at(&routines, scheme, minutes).unwrap_or(0);
     }
+    perf.increment_tag("states", states.len() as u64);
     for (mut pose, base) in &mut mobs {
-        let scheme = pose.scheme.to_uppercase();
+        perf.increment_tag("mobs", 1);
         // Mobs without a schedule keep the state the interaction gave them.
-        let Some(state) = states.get(&scheme) else {
+        let Some((_, state)) = states
+            .iter()
+            .find(|(scheme, _)| scheme.eq_ignore_ascii_case(&pose.scheme))
+        else {
             continue;
         };
         if pose.state == *state {
             continue;
         }
+        perf.increment_tag("changed", 1);
         debug!(
-            "mob({}) scheme({scheme}) routine state {} -> {state}",
-            base.focus_name, pose.state
+            "mob({}) scheme({}) routine state {} -> {state}",
+            base.focus_name, pose.scheme, pose.state
         );
         pose.state = *state;
     }

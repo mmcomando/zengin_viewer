@@ -401,19 +401,25 @@ fn drop_drawn_weapon(
     ));
 }
 
-/// Handles npc death: the inventory moves to the player, the drawn weapon
-/// drops on the ground (removed from the inventory first so it is not
-/// duplicated) and the npc entity is despawned.
+/// A death that already ran the script death state and cleared the corpse's
+/// equipment. The remaining jobs consume it in later systems.
+#[derive(Message)]
+pub(super) struct NpcDeathResolved {
+    pub npc_id: InstanceId,
+    pub player_id: InstanceId,
+    pub position: Vec3,
+    pub dropped_weapon: Option<InstanceId>,
+}
+
+/// Handles npc death: runs the script death state, clears the corpse's
+/// equipment and marks the entity as a corpse. Moving the inventory and dropping
+/// the drawn weapon are separate jobs fed by [`NpcDeathResolved`].
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(super) fn handle_npc_death(
     mut deaths: MessageReader<NpcDied>,
+    mut resolved: MessageWriter<NpcDeathResolved>,
     mut selection: ResMut<Selection>,
-    mut transfer_items: MessageWriter<TransferItems>,
     gothic_scripts: Res<ScriptResource>,
-    vfs: Res<ZenginVfs>,
-    mut handles: ResMut<CachedAssetHandles>,
-    asset_server: Res<AssetServer>,
-    mut instance_index: ResMut<InstanceIndex>,
     mut commands: Commands,
     mut npcs: Query<
         (
@@ -426,9 +432,11 @@ pub(super) fn handle_npc_death(
     >,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
-    let _perf = perf_debug!();
+    let perf = perf_debug!();
     for death in deaths.read() {
+        perf.increment_tag("deaths", 1);
         let Ok((npc, equipped, weapon_mode, queue)) = npcs.get_mut(death.entity) else {
+            perf.increment_tag("missing_entity", 1);
             continue;
         };
         let npc_id = npc.map_or(death.instance_id, |npc| npc.instance_id());
@@ -439,6 +447,7 @@ pub(super) fn handle_npc_death(
             .npc_state(npc_id)
             .is_some_and(|state| state.live.dead)
         {
+            perf.increment_tag("already_dead", 1);
             continue;
         }
         // Run the script death state while the npc still has a position, then
@@ -464,34 +473,18 @@ pub(super) fn handle_npc_death(
         };
 
         let Ok(player_npc) = player_npc.single() else {
+            perf.increment_tag("no_player", 1);
             return;
         };
         let player_id = player_npc.instance_id();
-
-        // Move the inventory to the player, it is logged by `handle_transfer_items`.
-        transfer_items.write(TransferItems {
-            instance_from_id: npc_id,
-            instance_to_id: player_id,
+        perf.increment_tag("handled", 1);
+        resolved.write(NpcDeathResolved {
+            npc_id,
+            player_id,
+            position,
+            dropped_weapon: dropped,
         });
 
-        // Drop the drawn weapon on the ground as a pickable item. Remove it
-        // from the npc inventory first when present, otherwise the transfer
-        // below would duplicate it.
-        if let Some(item) = dropped {
-            drop_drawn_weapon(
-                &gothic_scripts,
-                &vfs,
-                &mut handles,
-                &asset_server,
-                &mut commands,
-                &mut instance_index,
-                npc_id,
-                item,
-                position,
-            );
-        }
-
-        info!("Npc({npc_id}) died, moved its inventory to player({player_id})");
         // The corpse stays in the world and keeps a death animation, but its
         // AI must not resume. `ExecutingActionMarker` removal also drops the
         // action components through the observer.
@@ -514,5 +507,53 @@ pub(super) fn handle_npc_death(
             selection.kind = None;
             selection.name.clear();
         }
+    }
+}
+
+/// Moves a dead npc's inventory to the player.
+pub(super) fn transfer_npc_death_inventory(
+    mut resolved: MessageReader<NpcDeathResolved>,
+    mut transfer_items: MessageWriter<TransferItems>,
+) {
+    let _perf = perf_debug!();
+    for death in resolved.read() {
+        transfer_items.write(TransferItems {
+            instance_from_id: death.npc_id,
+            instance_to_id: death.player_id,
+        });
+        info!(
+            "Npc({}) died, moved its inventory to player({})",
+            death.npc_id, death.player_id
+        );
+    }
+}
+
+/// Drops the drawn weapon of a dead npc on the ground.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn drop_npc_death_weapon(
+    gothic_scripts: Res<ScriptResource>,
+    vfs: Res<ZenginVfs>,
+    mut handles: ResMut<CachedAssetHandles>,
+    asset_server: Res<AssetServer>,
+    mut instance_index: ResMut<InstanceIndex>,
+    mut commands: Commands,
+    mut resolved: MessageReader<NpcDeathResolved>,
+) {
+    let _perf = perf_debug!();
+    for death in resolved.read() {
+        let Some(item) = death.dropped_weapon else {
+            continue;
+        };
+        drop_drawn_weapon(
+            &gothic_scripts,
+            &vfs,
+            &mut handles,
+            &asset_server,
+            &mut commands,
+            &mut instance_index,
+            death.npc_id,
+            item,
+            death.position,
+        );
     }
 }

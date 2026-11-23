@@ -6,6 +6,10 @@ functions with the highest average time per frame and the highest single-frame
 time. Recorded named counters (`name(value)` fields) are printed below each
 function.
 
+The runtime section also compares the two subsequent frames with the largest
+increase in total measured system time and lists the functions with the largest
+time delta and their counters in those frames.
+
 Usage:
     python3 analyze_perf_debug.py <log> [--init-frames N]
                                   [--top-avg N] [--top-max N]
@@ -58,6 +62,11 @@ class Phase:
     name: str
     frames: set[int]
     functions: dict[str, Stats]
+    # Measured microseconds per function and frame, used by the frame-to-frame
+    # comparison. A function that runs several times in one frame is summed.
+    frame_times: dict[int, dict[str, int]] = field(default_factory=dict)
+    # Recorded counters per function and frame, summed over the same frame.
+    frame_tags: dict[int, dict[str, dict[str, int]]] = field(default_factory=dict)
 
     def avg_us(self, name: str) -> float:
         if not self.frames:
@@ -88,7 +97,13 @@ def parse_log(path: str, init_frames: int) -> tuple[Phase, Phase]:
                 continue
             name, time_us = func_match.group(1), int(func_match.group(2))
             tags = [(tag, int(value)) for tag, value in TAG_RE.findall(func_match.group(3))]
-            phase_for(current_frame).functions[name].add(time_us, tags)
+            phase = phase_for(current_frame)
+            phase.functions[name].add(time_us, tags)
+            per_frame = phase.frame_times.setdefault(current_frame, {})
+            per_frame[name] = per_frame.get(name, 0) + time_us
+            per_tags = phase.frame_tags.setdefault(current_frame, {}).setdefault(name, {})
+            for tag, value in tags:
+                per_tags[tag] = per_tags.get(tag, 0) + value
 
     return init, runtime
 
@@ -146,6 +161,56 @@ def print_phase(phase: Phase, top_avg: int, top_max: int) -> None:
             print(f" counters: {tags}")
 
 
+def frame_total(phase: Phase, frame: int) -> int:
+    return sum(phase.frame_times.get(frame, {}).values())
+
+
+def print_frame_change(phase: Phase, top: int = 10) -> None:
+    """Print the measured-time delta of the two subsequent frames that increase most."""
+    print()
+    print("=== Runtime: biggest measured-time increase between subsequent frames ===")
+    pairs = [frame for frame in phase.frame_times if frame + 1 in phase.frame_times]
+    if not pairs:
+        print("no adjacent frames with data")
+        return
+
+    first = max(
+        pairs,
+        key=lambda frame: frame_total(phase, frame + 1) - frame_total(phase, frame),
+    )
+    second = first + 1
+    before = phase.frame_times[first]
+    after = phase.frame_times[second]
+    delta_total = frame_total(phase, second) - frame_total(phase, first)
+    print(
+        f"frames {first} -> {second}: measured total {frame_total(phase, first)} -> "
+        f"{frame_total(phase, second)} us (delta {delta_total:+d} us)"
+    )
+
+    deltas = {
+        name: after.get(name, 0) - before.get(name, 0)
+        for name in before.keys() | after.keys()
+    }
+    top_deltas = sorted(deltas.items(), key=lambda item: item[1], reverse=True)[:top]
+    print()
+    print(f"Top {top} functions by time delta:")
+    print(f"{'delta_us':>10} {f'frame_{first}':>12} {f'frame_{second}':>12}  function")
+    before_tags = phase.frame_tags.get(first, {})
+    after_tags = phase.frame_tags.get(second, {})
+    for name, delta in top_deltas:
+        before_func = before_tags.get(name, {})
+        after_func = after_tags.get(name, {})
+        counters = [
+            f"{tag}({before_func.get(tag, 0)}/{after_func.get(tag, 0)})"
+            for tag in sorted(before_func.keys() | after_func.keys())
+        ]
+        print(f"{delta:+10d} {before.get(name, 0):12d} {after.get(name, 0):12d}  {name}",
+            end="" if counters else "\n")
+
+        if counters:
+            print(f" counters: {', '.join(counters)}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("log", help="path to the PerfDebug log")
@@ -162,6 +227,7 @@ def main() -> None:
     init, runtime = parse_log(args.log, args.init_frames)
     print_phase(init, args.top_avg, args.top_max)
     print_phase(runtime, args.top_avg, args.top_max)
+    print_frame_change(runtime)
 
 
 if __name__ == "__main__":

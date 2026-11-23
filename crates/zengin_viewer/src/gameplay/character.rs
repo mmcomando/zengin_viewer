@@ -1,4 +1,5 @@
 use std::f32::consts::PI;
+use std::time::Instant;
 
 use avian3d::{math::*, prelude::*};
 use bevy::{ecs::query::Has, prelude::*};
@@ -89,6 +90,18 @@ const NPC_PHYSICS_RELEASE_DISTANCE_SQUARED: f32 =
 /// considered idle and skips the sweep.
 const NPC_IDLE_VELOCITY_SQUARED: f32 = 0.01;
 
+/// Ground steeper than this counts as angled, and the body is swept every frame
+/// so it slides along the slope instead of floating or sinking.
+const FLAT_GROUND_MAX_ANGLE: f32 = 10.0 * PI / 180.0;
+
+/// Extra distance checked ahead along the frame's movement before a sweep is
+/// skipped, so an obstacle slightly further than this frame's travel still gets
+/// a real sweep.
+const FAST_PATH_CLEARANCE_MARGIN: f32 = 0.05;
+
+/// How often a body gets an authoritative full sweep regardless of its state.
+const GROUND_PROBE_PERIOD_SECS: f32 = 2.0;
+
 /// Collision layer bit for colliders that exist only to be found by explicit
 /// spatial queries (like npc selection), they must never block or carry the
 /// character controller: [`move_and_slide`] and [`update_grounded`] mask this
@@ -149,8 +162,6 @@ pub struct GroundDetection {
     pub max_angle: f32,
     /// The maximum distance for ground detection.
     pub max_distance: f32,
-    /// The shape cast collider used for ground detection.
-    pub cast_shape: Option<Collider>,
 }
 
 impl Default for GroundDetection {
@@ -158,7 +169,6 @@ impl Default for GroundDetection {
         Self {
             max_angle: PI / 6.0,
             max_distance: 0.2,
-            cast_shape: None,
         }
     }
 }
@@ -170,6 +180,37 @@ impl Default for GroundDetection {
 #[derive(Component)]
 #[component(storage = "SparseSet")]
 pub struct Grounded;
+
+/// Gap between the physical collider bottom and the ground surface, in meters.
+///
+/// Written by [`update_grounded`] and used by the sweep-free fast path in
+/// [`move_and_slide`] to follow the terrain height.
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+pub(crate) struct GroundContact {
+    distance: f32,
+}
+
+/// The ground below the body is steeper than [`FLAT_GROUND_MAX_ANGLE`], so the
+/// body needs a full sweep every frame to slide along the slope.
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+pub(crate) struct AngledGround;
+
+/// Counts up to [`GROUND_PROBE_PERIOD_SECS`] so the body gets an authoritative
+/// full sweep even when it keeps using the sweep-free fast path.
+#[derive(Component, Default)]
+#[component(storage = "SparseSet")]
+pub(crate) struct GroundProbeTimer {
+    elapsed_secs: f32,
+}
+
+/// The body translation at the end of the previous frame, used to include
+/// direct transform movement (animation root motion) in the fast-path clearance
+/// check.
+#[derive(Component, Default)]
+#[component(storage = "SparseSet")]
+pub(crate) struct PreviousTranslation(Vec3);
 
 /// A component containing information about the current collisions for a character controller.
 ///
@@ -220,7 +261,10 @@ fn update_npc_physics_active(
                     // A body that leaves the range must not resume with stale motion.
                     .insert(LinearVelocity::default())
                     .remove::<NpcPhysicsActiveMarker>()
-                    .remove::<Grounded>();
+                    .remove::<Grounded>()
+                    .remove::<AngledGround>()
+                    .remove::<GroundContact>()
+                    .remove::<GroundProbeTimer>();
             }
             _ => {}
         }
@@ -228,12 +272,20 @@ fn update_npc_physics_active(
 }
 
 /// Updates the [`Grounded`] status for character controllers and camera-near
-/// npc bodies.
+/// npc bodies, and classifies the ground for the sweep-free fast path.
 #[allow(clippy::type_complexity)]
 fn update_grounded(
     mut commands: Commands,
     mut query: Query<
-        (Entity, &GroundDetection, &GlobalTransform),
+        (
+            Entity,
+            &GroundDetection,
+            &GlobalTransform,
+            Has<Grounded>,
+            Has<AngledGround>,
+            Option<&mut GroundContact>,
+            Option<&Collider>,
+        ),
         (
             Without<NpcMobUse>,
             Or<(Without<NpcPhysicsMarker>, With<NpcPhysicsActiveMarker>)>,
@@ -242,38 +294,71 @@ fn update_grounded(
     spatial_query: SpatialQuery,
 ) {
     let perf = perf_debug!();
-    for (entity, ground_detection, global_transform) in &mut query {
+    for (entity, ground_detection, global_transform, grounded, angled, contact, body_collider) in
+        &mut query
+    {
         perf.increment_tag("checked", 1);
-        let Some(collider) = &ground_detection.cast_shape else {
-            continue;
-        };
 
         let translation = global_transform.translation();
         let rotation = global_transform.rotation();
 
-        // Cast the shape downward to check for ground
-        let hit = spatial_query.cast_shape(
-            collider,
-            translation,
-            rotation,
+        // A single downward ray from the physical capsule bottom is enough to
+        // tell whether the body rests on flat ground. The periodic full sweep
+        // catches ledges and edges the center ray misses.
+        let body_bottom = body_collider.map_or(translation.y, |body_collider| {
+            body_collider.aabb(translation, rotation, 0.0).min.y
+        });
+        let ray_origin = translation + *global_transform.up() * (body_bottom - translation.y);
+        let hit = spatial_query.cast_ray(
+            ray_origin,
             global_transform.down(),
-            &ShapeCastConfig::from_max_distance(ground_detection.max_distance),
+            ground_detection.max_distance,
+            true,
             &SpatialQueryFilter::from_excluded_entities([entity])
                 .with_mask(!(QUERY_ONLY_LAYER | NPC_BODY)),
         );
 
         // The character is grounded if we hit a surface that isn't too steep
-        let is_grounded = hit.is_some_and(|hit| {
-            let up = global_transform.up();
-            (rotation * hit.normal1).angle_between(*up) <= ground_detection.max_angle
-        });
+        let up = global_transform.up();
+        let Some(hit) =
+            hit.filter(|hit| hit.normal.angle_between(*up) <= ground_detection.max_angle)
+        else {
+            if grounded {
+                commands.entity(entity).remove::<Grounded>();
+            }
+            if angled {
+                commands.entity(entity).remove::<AngledGround>();
+            }
+            if contact.is_some() {
+                commands.entity(entity).remove::<GroundContact>();
+            }
+            continue;
+        };
 
-        // Update grounded state
-        if is_grounded {
-            perf.increment_tag("grounded", 1);
+        perf.increment_tag("grounded", 1);
+        if !grounded {
             commands.entity(entity).insert(Grounded);
-        } else {
-            commands.entity(entity).remove::<Grounded>();
+        }
+
+        // A steep slope has to be swept every frame, otherwise the flat fast
+        // path would walk into the hill instead of sliding along it.
+        let is_angled = hit.normal.angle_between(*up) > FLAT_GROUND_MAX_ANGLE;
+        if is_angled {
+            perf.increment_tag("angled", 1);
+            if !angled {
+                commands.entity(entity).insert(AngledGround);
+            }
+        } else if angled {
+            commands.entity(entity).remove::<AngledGround>();
+        }
+
+        match contact {
+            Some(mut contact) => contact.distance = hit.distance,
+            None => {
+                commands.entity(entity).insert(GroundContact {
+                    distance: hit.distance,
+                });
+            }
         }
     }
 }
@@ -419,12 +504,18 @@ fn apply_movement_damping(
 }
 
 /// Performs move-and-slide for character controllers, moving them according to their velocity
-/// and sliding along any contact surfaces. Also updates the [`Grounded`] state.
+/// and sliding along any contact surfaces.
+///
+/// Bodies resting on flat ground skip the sweep as long as a single clearance
+/// cast along their horizontal movement stays clear, and follow the ground
+/// height from [`GroundContact`]. Every [`GROUND_PROBE_PERIOD_SECS`] the probe
+/// forces one full sweep so the body cannot drift out of sync.
 ///
 /// For simplicity, we assume that the character is not a child entity,
 /// and its collider is on the same entity as the `CharacterController`.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn move_and_slide(
+    mut commands: Commands,
     mut query: Query<
         (
             Entity,
@@ -434,6 +525,11 @@ pub fn move_and_slide(
             &mut LinearVelocity,
             &Collider,
             Has<CharacterController>,
+            Has<Grounded>,
+            Has<AngledGround>,
+            Option<&mut GroundProbeTimer>,
+            Option<&mut PreviousTranslation>,
+            Option<&GroundContact>,
         ),
         (
             Or<(With<CharacterController>, With<NpcPhysicsActiveMarker>)>,
@@ -444,6 +540,8 @@ pub fn move_and_slide(
     time: Res<Time>,
 ) {
     let perf = perf_debug!();
+    let move_and_slide_config = MoveAndSlideConfig::default();
+    let mut probe_effort_us: u64 = 0;
     for (
         entity,
         ground_detection,
@@ -452,6 +550,11 @@ pub fn move_and_slide(
         mut lin_vel,
         collider,
         is_controller,
+        grounded,
+        angled,
+        mut probe_timer,
+        mut previous_translation,
+        ground_contact,
     ) in &mut query
     {
         perf.increment_tag("bodies", 1);
@@ -463,9 +566,30 @@ pub fn move_and_slide(
             perf.increment_tag("idle_skip", 1);
             continue;
         }
-        perf.increment_tag("swept", 1);
 
-        let mut hit_ground_or_ceiling = false;
+        // A body without a timer or recorded position has never been swept, so
+        // it gets a full sweep first.
+        let mut force_sweep = probe_timer.is_none() || previous_translation.is_none();
+        match &mut probe_timer {
+            Some(timer) => {
+                timer.elapsed_secs += time.delta_secs();
+                if timer.elapsed_secs >= GROUND_PROBE_PERIOD_SECS {
+                    timer.elapsed_secs = 0.0;
+                    force_sweep = true;
+                }
+            }
+            None => {
+                commands.entity(entity).insert(GroundProbeTimer::default());
+            }
+        }
+        if previous_translation.is_none() {
+            commands
+                .entity(entity)
+                .insert(PreviousTranslation(transform.translation));
+        }
+        if force_sweep {
+            perf.increment_tag("probe", 1);
+        }
 
         if let Some(collisions) = &mut collisions {
             // Clear previous collisions
@@ -473,6 +597,58 @@ pub fn move_and_slide(
         }
 
         let up = *transform.up();
+
+        // Sweep-free fast path: the body is on flat ground and nothing blocks
+        // the horizontal movement. Moving upward (a jump) always needs the full
+        // sweep so the jump is not cancelled here.
+        if !force_sweep
+            && grounded
+            && !angled
+            && let Some(ground_contact) = ground_contact
+            && lin_vel.dot(up) <= 0.0
+        {
+            // Animation root motion moves the player transform directly, so the
+            // movement since the last frame is part of the path to check.
+            let origin = previous_translation
+                .as_ref()
+                .map_or(transform.translation, |previous| previous.0);
+            let moved = transform.translation - origin;
+            let actual_horizontal = moved - up * moved.dot(up);
+            let horizontal = lin_vel.0 - up * lin_vel.dot(up);
+            let travel = actual_horizontal + horizontal * time.delta_secs();
+            if horizontal_path_is_clear(
+                &move_and_slide.spatial_query,
+                collider,
+                &transform,
+                origin,
+                travel,
+                entity,
+            ) {
+                perf.increment_tag("fast_path", 1);
+                transform.translation += horizontal * time.delta_secs();
+                follow_ground_height(
+                    &mut transform,
+                    ground_contact,
+                    move_and_slide.length_unit.0 * move_and_slide_config.skin_width,
+                );
+                // Cancel the gravity accumulated while standing on the ground;
+                // the full sweep is what normally does this.
+                let vertical = lin_vel.dot(up);
+                if vertical < 0.0 {
+                    lin_vel.0 -= up * vertical;
+                }
+                if let Some(previous) = previous_translation.as_mut() {
+                    previous.0 = transform.translation;
+                }
+                continue;
+            }
+            perf.increment_tag("clearance_blocked", 1);
+        }
+
+        let sweep_start = Instant::now();
+        perf.increment_tag("swept", 1);
+
+        let mut hit_ground_or_ceiling = false;
 
         // Perform move-and-slide
         let MoveAndSlideOutput {
@@ -484,7 +660,7 @@ pub fn move_and_slide(
             transform.rotation,
             lin_vel.0,
             time.delta(),
-            &MoveAndSlideConfig::default(),
+            &move_and_slide_config,
             // Selection and npc hit colliders are not physical surfaces, the
             // player would collide with its own hit volume and the invisible
             // capsules of nearby npcs.
@@ -577,6 +753,17 @@ pub fn move_and_slide(
             let new_velocity_along_up = projected_velocity.dot(up);
             lin_vel.0 += (new_velocity_along_up - velocity_along_up) * up;
         }
+
+        if force_sweep {
+            probe_effort_us += sweep_start.elapsed().as_micros() as u64;
+        }
+        if let Some(previous) = previous_translation.as_mut() {
+            previous.0 = transform.translation;
+        }
+    }
+
+    if probe_effort_us > 0 {
+        perf.record_count("probe_us", probe_effort_us as usize);
     }
 }
 
@@ -614,6 +801,42 @@ fn split_into_components(vv: Vec3, up: Vec3) -> [Vec3; 2] {
     let vertical_component = up * vv.dot(up);
     let horizontal_component = vv - vertical_component;
     [horizontal_component, vertical_component]
+}
+
+/// Checks whether the body can take `travel` from `origin` without hitting
+/// anything. Selection and npc hit colliders are masked out like in the full
+/// sweep, and a small margin catches obstacles just ahead.
+#[allow(clippy::too_many_arguments)]
+fn horizontal_path_is_clear(
+    spatial_query: &SpatialQuery,
+    collider: &Collider,
+    transform: &Transform,
+    origin: Vec3,
+    travel: Vec3,
+    entity: Entity,
+) -> bool {
+    let Ok(direction) = Dir3::new(travel.normalize_or_zero()) else {
+        // Standing still, nothing to walk into.
+        return true;
+    };
+    let distance = travel.length() + FAST_PATH_CLEARANCE_MARGIN;
+    spatial_query
+        .cast_shape(
+            collider,
+            origin,
+            transform.rotation,
+            direction,
+            &ShapeCastConfig::from_max_distance(distance),
+            &SpatialQueryFilter::from_excluded_entities([entity])
+                .with_mask(!(QUERY_ONLY_LAYER | NPC_BODY)),
+        )
+        .is_none()
+}
+
+/// Keeps the physical collider at the sweep's skin gap above the ground so the
+/// body follows the terrain between real sweeps.
+fn follow_ground_height(transform: &mut Transform, contact: &GroundContact, skin: f32) {
+    transform.translation.y += skin - contact.distance;
 }
 
 /// Applies forces to dynamic rigid bodies hit by character controllers based on their collisions.

@@ -7,6 +7,7 @@ use std::sync::PoisonError;
 use bevy::prelude::*;
 
 use crate::gameplay::character::NpcPhysicsMarker;
+use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{
@@ -606,10 +607,14 @@ pub(crate) fn run_routine_loops(
             Option<&NpcActionQueue>,
             Has<ExecutingActionMarker>,
         ),
-        (With<AnimationController>, Without<NpcCorpseMarker>),
+        (
+            With<AnimationController>,
+            With<DistanceNear>,
+            Without<NpcCorpseMarker>,
+        ),
     >,
 ) {
-    let _perf = perf_debug!();
+    let perf = perf_debug!();
     if npcs.is_empty() {
         return;
     }
@@ -619,10 +624,12 @@ pub(crate) fn run_routine_loops(
     let talking_npc = dialog_ui.talking_npc();
     let mut script = gothic_script.lock();
     for (entity, npc, mut executor, entry, queue, executing) in &mut npcs {
+        perf.increment_tag("npcs", 1);
         if script
             .npc_state(npc.instance_id())
             .is_some_and(|state| state.live.dead)
         {
+            perf.increment_tag("dead_skip", 1);
             continue;
         }
         // Routine entries stop at their stop time even when no next entry is
@@ -631,6 +638,7 @@ pub(crate) fn run_routine_loops(
             && let Some(entry) = entry
             && !entry.is_active_at(minutes)
         {
+            perf.increment_tag("stopped", 1);
             debug!(
                 "npc({}) routine entry stopped at minute {minutes}",
                 npc.instance_id()
@@ -648,6 +656,7 @@ pub(crate) fn run_routine_loops(
             executor.next_loop_in -= delta;
         }
         if executor.next_loop_in > 0.0 {
+            perf.increment_tag("waiting", 1);
             continue;
         }
         // An executing action or a pending one pauses every loop, routine or
@@ -655,15 +664,18 @@ pub(crate) fn run_routine_loops(
         // tick. Talking pauses only daily routine loops.
         let busy = queue.is_some_and(|queue| !queue.is_empty()) || executing;
         if busy {
+            perf.increment_tag("busy_skip", 1);
             continue;
         }
         if executor.source == RoutineSource::Routine && talking_npc == Some(npc.instance_id()) {
+            perf.increment_tag("talking_skip", 1);
             continue;
         }
         executor.bypass_change_detection().next_loop_in = ROUTINE_LOOP_INTERVAL_SECS;
 
         let instance = npc.instance_id();
         let state_time = executor.state_time as i32;
+        perf.increment_tag("loops", 1);
         script.set_routine_state_time(instance, state_time);
         script.set_state_other(executor.other);
         let ended = script.call_routine_loop(instance, executor.functions);
@@ -674,6 +686,7 @@ pub(crate) fn run_routine_loops(
             executor.bypass_change_detection().state_time = actual as f32;
         }
         if ended {
+            perf.increment_tag("ended", 1);
             script.set_state_other(executor.other);
             script.call_routine_end(instance, executor.functions);
             if executor.source == RoutineSource::AiState
@@ -681,6 +694,7 @@ pub(crate) fn run_routine_loops(
                 && entry.is_active_at(minutes)
                 && let Some(start) = entry.state_fn
             {
+                perf.increment_tag("restarted", 1);
                 // The AI state returned control, resume the scheduled routine.
                 let functions = script.resolve_routine_functions(start);
                 executor.other = None;

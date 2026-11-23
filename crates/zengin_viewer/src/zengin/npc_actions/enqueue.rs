@@ -357,6 +357,7 @@ pub(crate) fn enqueue_align_actions(
 
 /// Applies `Npc_ClearAIQueue` requests. The engine clears the queue and the
 /// action the npc is currently running, which also stops a walk.
+#[allow(clippy::type_complexity)]
 pub(crate) fn clear_npc_actions(
     mut commands: Commands,
     mut changes: MessageReader<ClearAiQueueChange>,
@@ -365,6 +366,7 @@ pub(crate) fn clear_npc_actions(
         &mut NpcActionQueue,
         Has<ExecutingActionMarker>,
         Option<&GoToWaypointAction>,
+        Option<&Name>,
     )>,
 ) {
     let _perf = perf_debug!();
@@ -378,13 +380,13 @@ pub(crate) fn clear_npc_actions(
             continue;
         }
         for &entity in entities {
-            let Ok((mut queue, executing, goto)) = action_queues.get_mut(entity) else {
+            let Ok((mut queue, executing, goto, name)) = action_queues.get_mut(entity) else {
                 continue;
             };
             queue.clear();
             // The marker observer removes the action components.
             if executing {
-                cancel_executing_action(&mut commands, entity, change.instance_id, goto);
+                cancel_executing_action(&mut commands, entity, change.instance_id, goto, name);
             }
             debug!(
                 "Npc_ClearAIQueue npc({}) cleared actions entity({entity})",
@@ -399,15 +401,19 @@ fn cancel_executing_action(
     entity: Entity,
     instance_id: InstanceId,
     goto: Option<&GoToWaypointAction>,
+    name: Option<&Name>,
 ) {
     commands.entity(entity).remove::<ExecutingActionMarker>();
+    let name = name.map_or("<unnamed>", Name::as_str);
     if let Some(goto) = goto {
         info!(
-            "Npc_ClearAIQueue npc({instance_id}) canceled the executing goto({}) entity({entity})",
+            "Npc_ClearAIQueue npc({instance_id}) canceled the executing goto({}) entity({entity}) name({name})",
             goto.waypoint.as_str()
         );
     } else {
-        info!("Npc_ClearAIQueue npc({instance_id}) canceled the executing action entity({entity})");
+        info!(
+            "Npc_ClearAIQueue npc({instance_id}) canceled the executing action entity({entity}) name({name})"
+        );
     }
 }
 

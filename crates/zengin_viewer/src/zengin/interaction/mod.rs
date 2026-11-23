@@ -28,13 +28,15 @@ impl Plugin for PlayerInteractionPlugin {
         app.add_message::<TransferItems>();
         app.add_message::<NpcDied>();
         app.add_message::<MeleeHit>();
+        app.add_message::<combat::NpcDeathResolved>();
         app.add_systems(OnEnter(AppState::InGame), debug::seed_test_journal_on_start);
         app.add_systems(
             Update,
             (
                 combat::npc_melee_swing_hit,
                 crate::graphics::npc_hit_reaction_end,
-                combat::handle_npc_death,
+                combat::transfer_npc_death_inventory,
+                combat::drop_npc_death_weapon,
                 actions::handle_transfer_items,
                 player_mob::start_auto_end_release
                     .before(player_mob::stand_up_player_from_mob)
@@ -47,6 +49,13 @@ impl Plugin for PlayerInteractionPlugin {
                 debug::debug_equipment_on_start,
             )
                 .run_if(in_state(AppState::InGame)),
+        );
+        // Death handling takes the game script lock several times. Run it in
+        // `PostUpdate`, which cannot overlap `Update`, so it does not contend
+        // with the world-wide mob systems that also lock the script every frame.
+        app.add_systems(
+            PostUpdate,
+            combat::handle_npc_death.run_if(in_state(AppState::InGame)),
         );
         // Player-driven interactions read gameplay input, so they stay inert
         // while a view owns the input. Ordering them after script changes makes

@@ -326,11 +326,6 @@ fn spawn_npcs(
                     ..default()
                 },
                 GroundDetection {
-                    cast_shape: Some(Collider::compound(vec![(
-                        collider_center,
-                        Quat::IDENTITY,
-                        Collider::capsule(NPC_PHYSICS_RADIUS - 0.01, 0.8),
-                    )])),
                     max_angle: PI / 3.0,
                     max_distance: 0.2,
                 },

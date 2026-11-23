@@ -695,12 +695,6 @@ pub(crate) fn spawn_player(
         CharacterMovementSettings::default(),
         CharacterCollisions::default(),
         GroundDetection {
-            // Use a slightly smaller capsule for shape casts used for ground detection
-            cast_shape: Some(Collider::compound(vec![(
-                capsule_center,
-                Quat::IDENTITY,
-                Collider::capsule(0.3 - 0.01, 0.8),
-            )])),
             max_angle: PI / 3.0,
             max_distance: 0.2,
         },

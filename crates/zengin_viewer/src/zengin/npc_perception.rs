@@ -112,7 +112,7 @@ fn run_npc_perceptions(
     journal_ui: Res<JournalUiState>,
     npcs: Query<&GameNpc, (With<AnimationController>, Without<ChildOf>)>,
 ) {
-    let _perf = perf_debug!();
+    let perf = perf_debug!();
     if updates.is_empty() {
         return;
     }
@@ -121,10 +121,14 @@ fn run_npc_perceptions(
         && !dialog_ui.is_open()
         && !inventory_ui.is_open()
         && !journal_ui.is_open();
+    perf.increment_tag("auto_talk", u64::from(auto_talk));
     let mut script = gothic_script.lock();
+    let mut effort_us: u64 = 0;
     for update in updates.read() {
+        perf.increment_tag("updates", 1);
         let start = Instant::now();
         let Ok(npc) = npcs.get(update.entity) else {
+            perf.increment_tag("missing_npc", 1);
             continue;
         };
         let instance = npc.instance_id();
@@ -133,9 +137,13 @@ fn run_npc_perceptions(
         update.control.set_period(Duration::from_secs_f32(
             interval.max(MIN_PERCEPTION_INTERVAL_SECS),
         ));
+        perf.increment_tag("scans", 1);
         script.run_perception(instance, auto_talk);
-        update
-            .control
-            .update_effort(start.elapsed().as_micros() as u64);
+        let elapsed_us = start.elapsed().as_micros() as u64;
+        effort_us += elapsed_us;
+        update.control.update_effort(elapsed_us);
+    }
+    if effort_us > 0 {
+        perf.record_count("effort_us", effort_us as usize);
     }
 }
