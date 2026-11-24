@@ -13,11 +13,11 @@ use crate::zengin::{GameChest, GameNpc, InstanceId, MobBase, ScriptResource, Wea
 
 use super::data::{
     chest_add_item, chest_inventory_window, chest_remove_item, clamp_selection,
-    npc_inventory_window, resolve_gold_item,
+    corpse_inventory_window, npc_inventory_window, resolve_gold_item,
 };
 use super::state::{
-    InventoryEntry, InventoryMode, InventoryOwner, InventoryUiState, LootClosed, OpenLoot,
-    OpenTrade, PLAYER_WINDOW, TRADER_WINDOW,
+    InventoryEntry, InventoryMode, InventoryOwner, InventoryUiState, InventoryWindowState,
+    LootClosed, LootSource, OpenLoot, OpenTrade, PLAYER_WINDOW, TRADER_WINDOW,
 };
 use super::style::InventoryStyle;
 
@@ -63,17 +63,13 @@ pub(super) fn open_loot(
     mut state: ResMut<InventoryUiState>,
     gothic_script: Res<ScriptResource>,
     chests: Query<(&GameChest, &MobBase)>,
+    npcs: Query<&GameNpc>,
 ) {
     let _perf = perf_debug!();
     let Some(request) = requests.read().last() else {
         return;
     };
-    let Ok((chest, base)) = chests.get(request.chest) else {
-        warn!("Loot request for missing chest entity({})", request.chest);
-        return;
-    };
     let mut script = gothic_script.lock();
-    let title = script.mob_focus_name(&base.focus_name);
     let player = npc_inventory_window(
         &mut script,
         request.player,
@@ -81,19 +77,46 @@ pub(super) fn open_loot(
         false,
         true,
     );
-    let chest_window = chest_inventory_window(&mut script, request.chest, title, &chest.items);
-    let stacks = (player.items.len(), chest_window.items.len());
+    let player_stacks = player.items.len();
+    let left = match request.source {
+        LootSource::Chest(chest_entity) => {
+            let Ok((chest, base)) = chests.get(chest_entity) else {
+                warn!("Loot request for missing chest entity({chest_entity})");
+                return;
+            };
+            let title = script.mob_focus_name(&base.focus_name);
+            let window = chest_inventory_window(&mut script, title, &chest.items);
+            info!(
+                "Loot opened for chest({chest_entity}) vob({}): player {player_stacks} stack(s), chest {} stack(s)",
+                base.vob_name,
+                window.items.len()
+            );
+            window
+        }
+        LootSource::Corpse(corpse_entity) => {
+            let Ok(npc) = npcs.get(corpse_entity) else {
+                warn!("Loot request for missing corpse entity({corpse_entity})");
+                return;
+            };
+            let npc_id = npc.instance_id();
+            let title = script
+                .npc_display_name(npc_id)
+                .unwrap_or_else(|| script.call_get_name(npc_id.symbol()));
+            let window = corpse_inventory_window(&mut script, npc_id, title);
+            info!(
+                "Loot opened for corpse({corpse_entity}) npc({npc_id}): player {player_stacks} stack(s), corpse {} stack(s)",
+                window.items.len()
+            );
+            window
+        }
+    };
     state.windows[PLAYER_WINDOW] = Some(player);
-    state.windows[TRADER_WINDOW] = Some(chest_window);
+    state.windows[TRADER_WINDOW] = Some(left);
     state.mode = InventoryMode::Loot;
     state.active_window = TRADER_WINDOW;
     state.gold_item = None;
     state.open = true;
-    state.loot_chest = Some(request.chest);
-    info!(
-        "Loot opened for chest({}) vob({}): player {} stack(s), chest {} stack(s)",
-        request.chest, base.vob_name, stacks.0, stacks.1
-    );
+    state.loot_source = Some(request.source);
 }
 
 /// The dialog UI takes precedence: no inventory while a dialog or the journal
@@ -242,10 +265,10 @@ pub(super) fn emit_loot_closed(
     if state.open {
         return;
     }
-    let Some(chest) = state.loot_chest.take() else {
+    let Some(source) = state.loot_source.take() else {
         return;
     };
-    closed.write(LootClosed { chest });
+    closed.write(LootClosed { source });
 }
 
 /// Trade panels belong to an open dialog, closing the dialog closes them too.
@@ -287,13 +310,13 @@ fn trade_confirm(
             .as_ref()
             .and_then(|window| match window.owner {
                 InventoryOwner::Npc(npc) => Some(npc),
-                InventoryOwner::Chest(_) => None,
+                InventoryOwner::Chest => None,
             }),
         state.windows[TRADER_WINDOW]
             .as_ref()
             .and_then(|window| match window.owner {
                 InventoryOwner::Npc(npc) => Some(npc),
-                InventoryOwner::Chest(_) => None,
+                InventoryOwner::Chest => None,
             }),
     ) else {
         return;
@@ -371,12 +394,34 @@ fn trade_confirm(
     clamp_selection(&mut state.windows[TRADER_WINDOW], trader_selected);
 }
 
-/// Moves one item between the chest window and the player window for free, then
-/// re-snapshots both windows so counts stay current.
-#[allow(clippy::cognitive_complexity)]
+/// Applies the focused window's loot action, then re-snapshots both windows so
+/// counts stay current.
 fn loot_confirm(
     state: &mut InventoryUiState,
     active: usize,
+    game_log: &mut GameLog,
+    gothic_script: &ScriptResource,
+    chests: &mut Query<&mut GameChest>,
+) {
+    let Some(source) = state.loot_source else {
+        return;
+    };
+    match source {
+        LootSource::Chest(chest) => {
+            chest_loot_confirm(state, active, chest, game_log, gothic_script, chests);
+        }
+        LootSource::Corpse(corpse) => {
+            corpse_loot_confirm(state, active, corpse, game_log, gothic_script);
+        }
+    }
+}
+
+/// Moves one item between the chest window and the player window for free.
+#[allow(clippy::cognitive_complexity)]
+fn chest_loot_confirm(
+    state: &mut InventoryUiState,
+    active: usize,
+    chest_entity: Entity,
     game_log: &mut GameLog,
     gothic_script: &ScriptResource,
     chests: &mut Query<&mut GameChest>,
@@ -390,23 +435,7 @@ fn loot_confirm(
     let item = entry.instance_id;
     let item_name = entry.name.clone();
 
-    let Some(player) =
-        state.windows[PLAYER_WINDOW]
-            .as_ref()
-            .and_then(|window| match window.owner {
-                InventoryOwner::Npc(npc) => Some(npc),
-                InventoryOwner::Chest(_) => None,
-            })
-    else {
-        return;
-    };
-    let Some(chest_entity) = state.windows[TRADER_WINDOW]
-        .as_ref()
-        .and_then(|window| match window.owner {
-            InventoryOwner::Chest(chest) => Some(chest),
-            InventoryOwner::Npc(_) => None,
-        })
-    else {
+    let Some(player) = window_npc(state.windows[PLAYER_WINDOW].as_ref()) else {
         return;
     };
     let Ok(mut chest) = chests.get_mut(chest_entity) else {
@@ -467,12 +496,83 @@ fn loot_confirm(
     ));
     state.windows[TRADER_WINDOW] = Some(chest_inventory_window(
         &mut script,
-        chest_entity,
         chest_title,
         &chest.items,
     ));
     clamp_selection(&mut state.windows[PLAYER_WINDOW], player_selected);
     clamp_selection(&mut state.windows[TRADER_WINDOW], chest_selected);
+}
+
+/// Takes one item from the corpse; storing back into a corpse is not offered.
+fn corpse_loot_confirm(
+    state: &mut InventoryUiState,
+    active: usize,
+    corpse_entity: Entity,
+    game_log: &mut GameLog,
+    gothic_script: &ScriptResource,
+) {
+    if active != TRADER_WINDOW {
+        return;
+    }
+    let Some(window) = state.windows[TRADER_WINDOW].as_ref() else {
+        return;
+    };
+    let Some(entry) = window.items.get(window.selected) else {
+        return;
+    };
+    let item = entry.instance_id;
+    let item_name = entry.name.clone();
+
+    let Some(corpse) = window_npc(state.windows[TRADER_WINDOW].as_ref()) else {
+        return;
+    };
+    let Some(player) = window_npc(state.windows[PLAYER_WINDOW].as_ref()) else {
+        return;
+    };
+
+    let mut script = gothic_script.lock();
+    if script.remove_inventory(corpse, item, 1) == 0 {
+        warn!(
+            "Loot item({}) is no longer available on corpse({corpse_entity})",
+            item.value()
+        );
+        return;
+    }
+    script.add_inventory(player, item, 1);
+    game_log.add(format!("Took {item_name}"));
+    info!(
+        "Player({}) took item({}) from corpse({corpse_entity}) npc({})",
+        player.value(),
+        item.value(),
+        corpse.value()
+    );
+
+    let player_selected = state.windows[PLAYER_WINDOW]
+        .as_ref()
+        .map_or(0, |window| window.selected);
+    let corpse_selected = state.windows[TRADER_WINDOW]
+        .as_ref()
+        .map_or(0, |window| window.selected);
+    let corpse_title = state.windows[TRADER_WINDOW]
+        .as_ref()
+        .map_or_default(|window| window.title.clone());
+    state.windows[PLAYER_WINDOW] = Some(npc_inventory_window(
+        &mut script,
+        player,
+        "Inventory".to_string(),
+        false,
+        true,
+    ));
+    state.windows[TRADER_WINDOW] = Some(corpse_inventory_window(&mut script, corpse, corpse_title));
+    clamp_selection(&mut state.windows[PLAYER_WINDOW], player_selected);
+    clamp_selection(&mut state.windows[TRADER_WINDOW], corpse_selected);
+}
+
+fn window_npc(window: Option<&InventoryWindowState>) -> Option<InstanceId> {
+    match window?.owner {
+        InventoryOwner::Npc(npc) => Some(npc),
+        InventoryOwner::Chest => None,
+    }
 }
 
 /// Equips the selected item as the player's weapon of its kind on confirm, a
@@ -587,7 +687,7 @@ mod tests {
         {
             let mut state = app.world_mut().resource_mut::<InventoryUiState>();
             state.open = true;
-            state.loot_chest = Some(chest);
+            state.loot_source = Some(LootSource::Chest(chest));
         }
         app.update();
         assert_eq!(
@@ -606,7 +706,7 @@ mod tests {
         assert!(
             app.world()
                 .resource::<InventoryUiState>()
-                .loot_chest
+                .loot_source
                 .is_none()
         );
 

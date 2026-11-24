@@ -51,7 +51,7 @@ pub(crate) struct InventoryWindowState {
 #[derive(Clone, Copy)]
 pub(crate) enum InventoryOwner {
     Npc(InstanceId),
-    Chest(Entity),
+    Chest,
 }
 
 /// Which panels the inventory UI currently shows and what confirm does.
@@ -70,17 +70,24 @@ pub(crate) struct OpenTrade {
     pub(crate) trader: InstanceId,
 }
 
-/// Request to open the loot panels for the player and a chest entity.
+/// Where the left loot panel takes items from.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LootSource {
+    Chest(Entity),
+    Corpse(Entity),
+}
+
+/// Request to open the loot panels for the player and a chest or corpse.
 #[derive(Message)]
 pub(crate) struct OpenLoot {
     pub(crate) player: InstanceId,
-    pub(crate) chest: Entity,
+    pub(crate) source: LootSource,
 }
 
 /// The loot panels closed, the player should leave the chest.
 #[derive(Message)]
 pub(crate) struct LootClosed {
-    pub(crate) chest: Entity,
+    pub(crate) source: LootSource,
 }
 
 /// State of the inventory UI: closed by default, items snapshot on open.
@@ -95,8 +102,8 @@ pub(crate) struct InventoryUiState {
     pub(crate) active_window: usize,
     /// Gold item instance used for payments, resolved when a trade opens.
     pub(crate) gold_item: Option<InstanceId>,
-    /// Chest of the loot session, consumed when the panels close.
-    pub(crate) loot_chest: Option<Entity>,
+    /// Chest or corpse of the loot session, consumed when the panels close.
+    pub(crate) loot_source: Option<LootSource>,
 }
 
 impl InventoryUiState {
@@ -110,7 +117,7 @@ impl InventoryUiState {
         self.windows = Default::default();
         self.active_window = 0;
         self.gold_item = None;
-        // `loot_chest` stays until the close is consumed, so the interaction
+        // `loot_source` stays until the close is consumed, so the interaction
         // side can leave the chest.
     }
 

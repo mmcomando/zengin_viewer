@@ -14,7 +14,7 @@ mod spawn;
 mod state;
 mod style;
 
-pub(crate) use state::{InventoryUiState, LootClosed, OpenLoot, OpenTrade};
+pub(crate) use state::{InventoryUiState, LootClosed, LootSource, OpenLoot, OpenTrade};
 
 use bevy::prelude::*;
 

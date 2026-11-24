@@ -82,7 +82,26 @@ pub(super) fn npc_inventory_window(
 
 pub(super) fn chest_inventory_window(
     script: &mut ScriptManager,
-    chest: Entity,
+    title: String,
+    items: &[(InstanceId, i32)],
+) -> InventoryWindowState {
+    loot_inventory_window(script, InventoryOwner::Chest, title, items)
+}
+
+/// Corpse contents have no equipped marker: a dead npc's equipment references
+/// no longer mean it wears or wields them.
+pub(super) fn corpse_inventory_window(
+    script: &mut ScriptManager,
+    npc: InstanceId,
+    title: String,
+) -> InventoryWindowState {
+    let items = script.inventory(npc);
+    loot_inventory_window(script, InventoryOwner::Npc(npc), title, &items)
+}
+
+fn loot_inventory_window(
+    script: &mut ScriptManager,
+    owner: InventoryOwner,
     title: String,
     items: &[(InstanceId, i32)],
 ) -> InventoryWindowState {
@@ -91,15 +110,7 @@ pub(super) fn chest_inventory_window(
         .map(|(instance_id, count)| inventory_entry(script, *instance_id, *count))
         .collect();
     let gold_count = gold_sum(&items);
-    build_window(
-        InventoryOwner::Chest(chest),
-        title,
-        items,
-        None,
-        None,
-        None,
-        gold_count,
-    )
+    build_window(owner, title, items, None, None, None, gold_count)
 }
 
 fn gold_sum(items: &[InventoryEntry]) -> i32 {

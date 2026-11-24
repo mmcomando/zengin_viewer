@@ -15,7 +15,7 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, animation_name_from_path,
 };
-use crate::gui::LootClosed;
+use crate::gui::{LootClosed, LootSource};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::perf_debug;
 use crate::zengin::npc_actions::{
@@ -154,12 +154,16 @@ pub(super) fn close_looted_chest(
 ) {
     let _perf = perf_debug!();
     for request in closed.read() {
+        // Only chests have a lid to close and a player pose to release.
+        let LootSource::Chest(chest) = request.source else {
+            continue;
+        };
         // The chest may be gone when the world was unloaded mid-loot.
-        if mobs.get(request.chest).is_err() {
+        if mobs.get(chest).is_err() {
             continue;
         }
         // The lid closes in parallel with the player stand-up.
-        if let Ok((_, mut pose)) = mobs.get_mut(request.chest) {
+        if let Ok((_, mut pose)) = mobs.get_mut(chest) {
             pose.state = 0;
         }
 
@@ -178,7 +182,7 @@ pub(super) fn close_looted_chest(
             }
             continue;
         };
-        if mob_use.mob != request.chest {
+        if mob_use.mob != chest {
             continue;
         }
         let (Some(mut controller), Some(mut sequencer)) = (controller, sequencer) else {

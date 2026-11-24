@@ -6,7 +6,7 @@ use leafwing_input_manager::prelude::ActionState;
 
 use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::PlayerCharacter;
-use crate::gui::{GameLog, OpenLoot};
+use crate::gui::{GameLog, LootSource, OpenLoot};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::perf_debug;
 use crate::zengin::npc_actions::UseMobAction;
@@ -70,6 +70,6 @@ pub(super) fn open_selected_chest(
     );
     requests.write(OpenLoot {
         player: player_npc.instance_id(),
-        chest: target,
+        source: LootSource::Chest(target),
     });
 }

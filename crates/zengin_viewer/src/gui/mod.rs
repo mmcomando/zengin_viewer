@@ -15,7 +15,7 @@ pub(crate) use crate::gui::chapter_screen::{
 pub(crate) use crate::gui::game_log::{GameLog, GameLogEntry, GameLogPlugin};
 pub(crate) use crate::gui::health_bars::HealthBarsPlugin;
 pub(crate) use crate::gui::inventory::{
-    InventoryUiPlugin, InventoryUiState, LootClosed, OpenLoot, OpenTrade,
+    InventoryUiPlugin, InventoryUiState, LootClosed, LootSource, OpenLoot, OpenTrade,
 };
 pub(crate) use crate::gui::journal::{JournalUiPlugin, JournalUiState};
 pub(crate) use crate::gui::loading_screen::LoadingScreenPlugin;
