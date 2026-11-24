@@ -7,7 +7,8 @@ mod replay;
 
 pub(crate) use crate::input::actions::{
     ActionsPlugin, EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker, GuiAction,
-    GuiInputMarker, InputMode, SharedAction, SharedInputMarker, world_input_enabled,
+    GuiInputMarker, InputMode, SharedAction, SharedInputMarker, WorldInputViews,
+    world_input_enabled,
 };
 pub(crate) use crate::input::log_capture::scenario_log_plugin;
 pub(crate) use crate::input::options::{Options, OptionsPlugin, add_renderless_default_plugins};

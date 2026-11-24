@@ -30,7 +30,6 @@ use super::data::AnimationData;
 use super::send_desired::send_desired_animations;
 
 use crate::game_state::AppState;
-use crate::input::world_input_enabled;
 
 pub struct AutoAnimSequencerPlugin;
 
@@ -58,7 +57,7 @@ impl Plugin for AutoAnimSequencerPlugin {
             Update,
             (
                 enable_player_root_motion,
-                send_desired_animations.run_if(world_input_enabled),
+                send_desired_animations,
                 apply_desired_animations,
                 apply_forced_change,
                 advance_on_animation_ends,

@@ -1,3 +1,4 @@
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::*;
@@ -370,22 +371,32 @@ pub(crate) fn update_input_mode(
     }
 }
 
-/// Whether player-driven world systems may read gameplay input. False while a
-/// dialog, inventory, journal, stats menu or chapter screen owns the input.
-/// Unlike [`InputMode`], which changes on the next frame, this reads the view
-/// state directly so a view opened in the same frame blocks immediately.
-pub(crate) fn world_input_enabled(
-    dialog: Res<DialogUiState>,
-    chapter_screen: Res<ChapterScreenState>,
-    inventory: Res<InventoryUiState>,
-    journal: Res<JournalUiState>,
-    stats: Res<StatsUiState>,
-) -> bool {
-    !dialog.is_open()
-        && !chapter_screen.is_open()
-        && !inventory.is_open()
-        && !journal.is_open()
-        && !stats.is_open()
+/// The views that own the input while open. Read directly rather than through
+/// [`InputMode`], which changes on the next frame, so a view opened in the same
+/// frame blocks immediately.
+#[derive(SystemParam)]
+pub(crate) struct WorldInputViews<'w> {
+    dialog: Res<'w, DialogUiState>,
+    chapter_screen: Res<'w, ChapterScreenState>,
+    inventory: Res<'w, InventoryUiState>,
+    journal: Res<'w, JournalUiState>,
+    stats: Res<'w, StatsUiState>,
+}
+
+impl WorldInputViews<'_> {
+    /// Whether player-driven world systems may read gameplay input. False while
+    /// a dialog, inventory, journal, stats menu or chapter screen is open.
+    pub(crate) fn enabled(&self) -> bool {
+        !self.dialog.is_open()
+            && !self.chapter_screen.is_open()
+            && !self.inventory.is_open()
+            && !self.journal.is_open()
+            && !self.stats.is_open()
+    }
+}
+
+pub(crate) fn world_input_enabled(views: WorldInputViews) -> bool {
+    views.enabled()
 }
 
 /// Disables the editor actions except the mode toggle, which must stay

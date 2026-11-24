@@ -8,7 +8,7 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::objects::PlayerCharacter;
-use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::input::{GameplayAction, GameplayInputMarker, WorldInputViews};
 use crate::zengin::{NpcMobUse, NpcWeaponMode, Selection, WeaponMode};
 
 use super::auto_anim_sequencer::{
@@ -24,9 +24,10 @@ use crate::perf_debug;
 /// while the model keeps facing the camera direction. Firing (ranged weapon
 /// drawn and attack pressed) wins over movement; the model aims at the target.
 /// A directional attack press wins over both for one swing.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(super) fn send_desired_animations(
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
+    views: WorldInputViews,
     players: Query<
         (
             Entity,
@@ -50,6 +51,14 @@ pub(super) fn send_desired_animations(
     // The mob pose is queued directly by the shared npc `UseMobAction`; the
     // player's input driven animation must not override it.
     if mob_use.is_some() {
+        return;
+    }
+
+    // A view owns the input: stand still immediately. Leaving the last
+    // locomotion loop running would keep its root motion driving the player,
+    // walking them away while the dialog (or another screen) is open.
+    if !views.enabled() {
+        set_forced_stand_animation(entity, &mut writer);
         return;
     }
 
@@ -186,6 +195,17 @@ fn set_stand_animation(entity: Entity, writer: &mut MessageWriter<SetDesiredAnim
         animation: DesiredAnimation::Stand,
         direction: None,
         force_change: false,
+    });
+}
+
+/// Writes the stand animation and cuts the current one immediately, so a
+/// looping locomotion animation stops moving the player on the same frame.
+fn set_forced_stand_animation(entity: Entity, writer: &mut MessageWriter<SetDesiredAnimation>) {
+    writer.write(SetDesiredAnimation {
+        who: entity,
+        animation: DesiredAnimation::Stand,
+        direction: None,
+        force_change: true,
     });
 }
 
