@@ -62,6 +62,7 @@ impl Plugin for PlayerInteractionPlugin {
                 combat::melee_swing_hit,
                 actions::pickup_selected_item,
                 loot::open_selected_chest,
+                loot::open_selected_corpse,
                 use_mob::use_selected_mob,
                 actions::toggle_player_weapons,
                 player_mob::stand_up_player_from_mob.before(player_mob::advance_player_mob_release),

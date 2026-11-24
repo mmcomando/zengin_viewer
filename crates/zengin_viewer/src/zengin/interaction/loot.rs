@@ -1,4 +1,5 @@
-//! Opening chests: the selected chest requests the loot UI on `Interact`.
+//! Opening chests and corpses: the selected loot source requests the loot UI on
+//! `Interact`.
 
 use bevy::log::{info, warn};
 use bevy::prelude::*;
@@ -13,7 +14,7 @@ use crate::zengin::npc_actions::UseMobAction;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::{GameChest, GameNpc, MobBase, MobPose};
+use crate::zengin::{GameChest, GameNpc, MobBase, MobPose, NpcCorpseMarker};
 
 pub(super) fn open_selected_chest(
     mut commands: Commands,
@@ -71,5 +72,49 @@ pub(super) fn open_selected_chest(
     requests.write(OpenLoot {
         player: player_npc.instance_id(),
         source: LootSource::Chest(target),
+    });
+}
+
+/// A corpse has no pose to attach to, so the loot window opens without an npc
+/// use action.
+pub(super) fn open_selected_corpse(
+    action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
+    selection: Res<Selection>,
+    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
+    player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
+    corpses: Query<&GameNpc, With<NpcCorpseMarker>>,
+    mut requests: MessageWriter<OpenLoot>,
+) {
+    let _perf = perf_debug!();
+    if !action_state.just_pressed(&GameplayAction::Interact) {
+        return;
+    }
+    let weapon_mode = player_weapon
+        .single()
+        .map_or(WeaponMode::Fists, |mode| mode.0);
+    if weapon_mode != WeaponMode::Fists {
+        return;
+    }
+    if selection.kind != Some(SelectionKind::Corpse) {
+        return;
+    }
+    let Some(target) = selection.target else {
+        return;
+    };
+    let Ok(corpse) = corpses.get(target) else {
+        return;
+    };
+    let Ok(player_npc) = player_npc.single() else {
+        return;
+    };
+
+    info!(
+        "Player({}) opened corpse({target}) npc({})",
+        player_npc.instance_id(),
+        corpse.instance_id()
+    );
+    requests.write(OpenLoot {
+        player: player_npc.instance_id(),
+        source: LootSource::Corpse(target),
     });
 }
