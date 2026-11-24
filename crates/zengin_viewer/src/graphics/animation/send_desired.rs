@@ -83,11 +83,7 @@ pub(super) fn send_desired_animations(
 
     let attacking = match mode {
         WeaponMode::Ranged => action_state.pressed(&GameplayAction::Interact),
-        WeaponMode::Melee => {
-            action_state.pressed(&GameplayAction::Interact)
-                || action_state.pressed(&GameplayAction::DealDamage)
-        }
-        WeaponMode::Fists => false,
+        WeaponMode::Melee | WeaponMode::Fists => false,
     };
 
     let direction = action_state

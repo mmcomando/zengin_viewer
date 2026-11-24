@@ -32,6 +32,21 @@ impl Plugin for AnimationTriggersPlugin {
 /// `.MDS` scripts are stored with the `.MSB` extension.
 const HUMANS_MODEL_SCRIPT: &str = "_WORK/DATA/ANIMS/_COMPILED/HUMANS.MSB";
 
+/// Scheme of [`HUMANS_MODEL_SCRIPT`], used for the bare name fallback.
+const HUMANS_SCHEME: &str = "HUMANS";
+
+/// Weapon talent overlays carrying their own attack combo timings.
+const SKILL_MODEL_SCRIPTS: &[(&str, &str)] = &[
+    (
+        "HUMANS_1HST1",
+        "_WORK/DATA/ANIMS/_COMPILED/HUMANS_1HST1.MSB",
+    ),
+    (
+        "HUMANS_1HST2",
+        "_WORK/DATA/ANIMS/_COMPILED/HUMANS_1HST2.MSB",
+    ),
+];
+
 /// One animation event: `name` fires when the animation reaches `frame`.
 #[derive(Debug, Clone)]
 pub struct AnimationTriggerDef {
@@ -39,26 +54,64 @@ pub struct AnimationTriggerDef {
     pub name: String,
 }
 
+/// Combo timing of one attack animation: the end frame of every hit segment and
+/// the frame ranges in which a press chains to the next segment.
+#[derive(Debug, Clone, Default)]
+pub struct AttackTimeline {
+    pub hit_end: Vec<u32>,
+    pub windows: Vec<(u32, u32)>,
+}
+
+impl AttackTimeline {
+    /// Frame range in which a press chains the segment `combo_len`.
+    pub fn window(&self, combo_len: usize) -> Option<(u32, u32)> {
+        self.windows.get(combo_len).copied()
+    }
+
+    /// Whether `combo_len` has a following segment to chain into.
+    pub fn can_chain(&self, combo_len: usize) -> bool {
+        combo_len + 1 < self.hit_end.len()
+    }
+}
+
 /// Animation triggers and sound effects by animation name (uppercased, e.g.
-/// `S_BOWSHOOT`).
+/// `S_BOWSHOOT`). Scheme specific entries take precedence over the `HUMANS`
+/// fallback, the weapon overlays redefine the same animation names.
 #[derive(Resource, Default)]
 pub struct AnimationTriggers {
     animations: HashMap<String, Vec<AnimationTriggerDef>>,
+    scheme_animations: HashMap<String, HashMap<String, Vec<AnimationTriggerDef>>>,
     sounds: HashMap<String, Vec<AnimationSoundDef>>,
+    scheme_sounds: HashMap<String, HashMap<String, Vec<AnimationSoundDef>>>,
     items: HashMap<String, Vec<AnimationItemEventDef>>,
+    timelines: HashMap<String, HashMap<String, AttackTimeline>>,
 }
 
 impl AnimationTriggers {
-    pub fn triggers(&self, animation: &str) -> &[AnimationTriggerDef] {
-        self.animations
-            .get(&animation.to_uppercase())
+    /// Trigger names are the uppercase archive names (`HUMANS_1HST1-S_1HATTACK`
+    /// splits into `HUMANS_1HST1` and `S_1HATTACK`).
+    pub fn triggers(&self, scheme: &str, animation: &str) -> &[AnimationTriggerDef] {
+        self.scheme_animations
+            .get(scheme)
+            .and_then(|animations| animations.get(animation))
+            .or_else(|| self.animations.get(animation))
             .map_or(&[], |triggers| triggers)
     }
 
-    pub fn sounds(&self, animation: &str) -> &[AnimationSoundDef] {
-        self.sounds
-            .get(&animation.to_uppercase())
+    pub fn sounds(&self, scheme: &str, animation: &str) -> &[AnimationSoundDef] {
+        self.scheme_sounds
+            .get(scheme)
+            .and_then(|animations| animations.get(animation))
+            .or_else(|| self.sounds.get(animation))
             .map_or(&[], |sounds| sounds)
+    }
+
+    /// Combo timing of an attack animation, with the `HUMANS` fallback.
+    pub fn timeline(&self, scheme: &str, animation: &str) -> Option<&AttackTimeline> {
+        self.timelines
+            .get(scheme)
+            .and_then(|animations| animations.get(animation))
+            .or_else(|| self.timelines.get(HUMANS_SCHEME)?.get(animation))
     }
 
     /// Item slot events (`ITEM_CREATE`, `ITEM_INSERT`, ...) of an animation.
@@ -66,6 +119,33 @@ impl AnimationTriggers {
         self.items
             .get(&animation.to_uppercase())
             .map_or(&[], |events| events)
+    }
+
+    fn merge_scheme(&mut self, scheme: &str, data: SchemeTriggers) {
+        let scheme_animations = self
+            .scheme_animations
+            .entry(scheme.to_string())
+            .or_default();
+        for (animation, triggers) in data.animations {
+            if scheme == HUMANS_SCHEME {
+                self.animations.insert(animation.clone(), triggers.clone());
+            }
+            scheme_animations.insert(animation, triggers);
+        }
+        let scheme_sounds = self.scheme_sounds.entry(scheme.to_string()).or_default();
+        for (animation, sounds) in data.sounds {
+            if scheme == HUMANS_SCHEME {
+                self.sounds.insert(animation.clone(), sounds.clone());
+            }
+            scheme_sounds.insert(animation, sounds);
+        }
+        if scheme == HUMANS_SCHEME {
+            self.items = data.items;
+        }
+        let scheme_timelines = self.timelines.entry(scheme.to_string()).or_default();
+        for (animation, timeline) in data.timelines {
+            scheme_timelines.insert(animation, timeline);
+        }
     }
 }
 
@@ -93,9 +173,15 @@ pub struct AnimationSoundDef {
 /// Schemes use underscores only, so the first `-` separates the scheme from
 /// the animation name.
 pub fn animation_name_from_path(path: &Path) -> Option<&str> {
+    animation_ident_from_path(path).map(|(_scheme, animation)| animation)
+}
+
+/// Scheme and animation name from a zengin asset path:
+/// `HUMANS_1HST1-S_1HATTACK.MAN` -> `("HUMANS_1HST1", "S_1HATTACK")`.
+pub fn animation_ident_from_path(path: &Path) -> Option<(&str, &str)> {
     let file = path.file_name()?.to_str()?;
     let stem = file.strip_suffix(".MAN")?;
-    stem.split_once('-').map(|(_scheme, name)| name)
+    stem.split_once('-')
 }
 
 /// Triggers whose frame the animation crossed between `old_progress` and
@@ -144,23 +230,37 @@ fn load_human_animation_data(mut commands: Commands, vfs: Res<ZenginVfs>) {
     let _perf = perf_debug!();
     let (triggers, source) = load_triggers_or_fallback(&vfs);
 
-    let animations = triggers.animations.len();
-    let trigger_count: usize = triggers.animations.values().map(Vec::len).sum();
-    let sound_count: usize = triggers.sounds.values().map(Vec::len).sum();
+    let animations: usize = triggers.scheme_animations.values().map(HashMap::len).sum();
+    let trigger_count: usize = triggers
+        .scheme_animations
+        .values()
+        .flat_map(|animations| animations.values())
+        .map(Vec::len)
+        .sum();
+    let sound_count: usize = triggers
+        .scheme_sounds
+        .values()
+        .flat_map(|animations| animations.values())
+        .map(Vec::len)
+        .sum();
     info!(
         "Loaded animation triggers({animations}, {trigger_count}) and sounds({sound_count}) from {source}"
     );
-    for (animation, animation_triggers) in &triggers.animations {
-        if animation_triggers.is_empty() {
-            continue;
+    for (scheme, animations) in &triggers.scheme_animations {
+        for (animation, animation_triggers) in animations {
+            if animation_triggers.is_empty() {
+                continue;
+            }
+            debug!("Triggers({scheme}-{animation}): {animation_triggers:?}");
         }
-        debug!("Triggers({animation}): {animation_triggers:?}");
     }
-    for (animation, animation_sounds) in &triggers.sounds {
-        if animation_sounds.is_empty() {
-            continue;
+    for (scheme, sounds) in &triggers.scheme_sounds {
+        for (animation, animation_sounds) in sounds {
+            if animation_sounds.is_empty() {
+                continue;
+            }
+            debug!("Sounds({scheme}-{animation}): {animation_sounds:?}");
         }
-        debug!("Sounds({animation}): {animation_sounds:?}");
     }
 
     commands.insert_resource(triggers);
@@ -169,37 +269,55 @@ fn load_human_animation_data(mut commands: Commands, vfs: Res<ZenginVfs>) {
 /// Loads the model script triggers, falling back to an empty set when the
 /// script is missing or unparsable.
 fn load_triggers_or_fallback(vfs: &ZenginVfs) -> (AnimationTriggers, &'static str) {
-    let bytes = {
-        let vfs = vfs.0.lock().unwrap();
-        get_zengin_asset_bytes(&vfs, HUMANS_MODEL_SCRIPT)
-    };
-    let Some(bytes) = bytes else {
-        warn!(
-            "Model script({HUMANS_MODEL_SCRIPT}) not found in the anims archive, animation triggers are not loaded"
-        );
-        return (AnimationTriggers::default(), "script missing");
-    };
-    match load_script_triggers(&bytes) {
-        Some(triggers) => (triggers, "HUMANS.MDS"),
-        None => (AnimationTriggers::default(), "script parse failed"),
+    let mut triggers = AnimationTriggers::default();
+    let mut loaded = false;
+    let vfs = vfs.0.lock().unwrap();
+    for (scheme, path) in std::iter::once((HUMANS_SCHEME, HUMANS_MODEL_SCRIPT))
+        .chain(SKILL_MODEL_SCRIPTS.iter().copied())
+    {
+        let Some(bytes) = get_zengin_asset_bytes(&vfs, path) else {
+            warn!(
+                "Model script({path}) not found in the anims archive, its triggers are not loaded"
+            );
+            continue;
+        };
+        let Some(scheme_triggers) = load_script_triggers(&bytes) else {
+            warn!("Model script({path}) failed to parse, its triggers are not loaded");
+            continue;
+        };
+        triggers.merge_scheme(scheme, scheme_triggers);
+        loaded = true;
     }
+    if !loaded {
+        return (AnimationTriggers::default(), "script missing");
+    }
+    (triggers, "model scripts")
 }
 
-/// Parses the compiled model script into per-animation triggers and sound
-/// effects. Event tags combine the event type and item (e.g.
+/// Per-animation data of one compiled model script.
+#[derive(Default)]
+struct SchemeTriggers {
+    animations: HashMap<String, Vec<AnimationTriggerDef>>,
+    sounds: HashMap<String, Vec<AnimationSoundDef>>,
+    items: HashMap<String, Vec<AnimationItemEventDef>>,
+    timelines: HashMap<String, AttackTimeline>,
+}
+
+/// Parses the compiled model script into per-animation triggers, sound effects
+/// and attack combo timings. Event tags combine the event type and item (e.g.
 /// `ITEM_INSERT_ITRW_ARROW`), sound effects use the sound definition name.
 /// Frame lists expand to one trigger per frame.
-fn load_script_triggers(bytes: &[u8]) -> Option<AnimationTriggers> {
+fn load_script_triggers(bytes: &[u8]) -> Option<SchemeTriggers> {
     let read = Read::from_slice(bytes)?;
     let script = ModelScript::load(&read)?;
-    let mut animations = HashMap::new();
-    let mut sounds = HashMap::new();
-    let mut items = HashMap::new();
+    let mut data = SchemeTriggers::default();
 
     for animation in script.animations() {
         let mut triggers = Vec::new();
         let mut animation_sounds = Vec::new();
         let mut animation_items = Vec::new();
+        let mut hit_end = Vec::new();
+        let mut window_frames = Vec::new();
         // Model script sound frames are absolute animation frames, while the
         // playback progress runs from 0 within the played animation.
         let first_frame = animation.first_frame();
@@ -235,10 +353,16 @@ fn load_script_triggers(bytes: &[u8]) -> Option<AnimationTriggers> {
                     slot,
                 });
             }
-            let name = format!("{kind}_{}", tag.item());
             // Tags with a frame list carry frames relative to the animation
             // start; the single frame form uses absolute model script frames.
             let frames = tag.frames();
+            let positive_frames = || frames.iter().copied().filter(|frame| *frame >= 0);
+            if kind == "HIT_END" {
+                hit_end.extend(positive_frames().map(|frame| frame as u32));
+            } else if kind == "COMBO_WINDOW" {
+                window_frames.extend(positive_frames().map(|frame| frame as u32));
+            }
+            let name = format!("{kind}_{}", tag.item());
             if frames.is_empty() {
                 triggers.push(AnimationTriggerDef {
                     frame: (tag.frame() - first_frame).max(0) as u32,
@@ -246,13 +370,11 @@ fn load_script_triggers(bytes: &[u8]) -> Option<AnimationTriggers> {
                 });
                 continue;
             }
-            for frame in frames {
-                if frame >= 0 {
-                    triggers.push(AnimationTriggerDef {
-                        frame: frame as u32,
-                        name: name.clone(),
-                    });
-                }
+            for frame in positive_frames() {
+                triggers.push(AnimationTriggerDef {
+                    frame: frame as u32,
+                    name: name.clone(),
+                });
             }
         }
 
@@ -260,14 +382,78 @@ fn load_script_triggers(bytes: &[u8]) -> Option<AnimationTriggers> {
         animation_sounds.sort_by_key(|sound| sound.frame);
         animation_items.sort_by_key(|event| event.frame);
         let name = animation.name().to_uppercase();
-        animations.insert(name.clone(), triggers);
-        sounds.insert(name.clone(), animation_sounds);
-        items.insert(name, animation_items);
+        if !hit_end.is_empty() {
+            data.timelines.insert(
+                name.clone(),
+                AttackTimeline {
+                    hit_end,
+                    windows: window_frames
+                        .as_chunks::<2>()
+                        .0
+                        .iter()
+                        .map(|pair| (pair[0], pair[1]))
+                        .collect(),
+                },
+            );
+        }
+        data.animations.insert(name.clone(), triggers);
+        data.sounds.insert(name.clone(), animation_sounds);
+        data.items.insert(name, animation_items);
     }
 
-    Some(AnimationTriggers {
-        animations,
-        sounds,
-        items,
-    })
+    Some(data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn timeline(hit_end: &[u32], windows: &[(u32, u32)]) -> AttackTimeline {
+        AttackTimeline {
+            hit_end: hit_end.to_vec(),
+            windows: windows.to_vec(),
+        }
+    }
+
+    #[test]
+    fn untrained_combo_has_two_segments_and_one_window() {
+        let timeline = timeline(&[21, 39], &[(12, 26)]);
+
+        assert!(timeline.can_chain(0));
+        assert!(!timeline.can_chain(1));
+        assert_eq!(timeline.window(0), Some((12, 26)));
+        assert_eq!(timeline.window(1), None);
+    }
+
+    #[test]
+    fn skill_overlay_combos_have_four_segments() {
+        let timeline = timeline(&[33, 68, 103, 119], &[(12, 36), (47, 71), (82, 106)]);
+
+        assert!(timeline.can_chain(0));
+        assert!(timeline.can_chain(1));
+        assert!(timeline.can_chain(2));
+        assert!(!timeline.can_chain(3));
+    }
+
+    #[test]
+    fn extra_window_after_the_last_segment_is_ignored() {
+        let timeline = timeline(
+            &[28, 60, 92, 113],
+            &[(10, 33), (42, 65), (78, 97), (110, 113)],
+        );
+
+        assert!(!timeline.can_chain(3));
+        assert_eq!(timeline.window(3), Some((110, 113)));
+    }
+
+    #[test]
+    fn animation_ident_splits_scheme_from_animation() {
+        let path = Path::new("HUMANS_1HST1-S_1HATTACK.MAN");
+
+        assert_eq!(
+            animation_ident_from_path(path),
+            Some(("HUMANS_1HST1", "S_1HATTACK"))
+        );
+        assert_eq!(animation_name_from_path(path), Some("S_1HATTACK"));
+    }
 }

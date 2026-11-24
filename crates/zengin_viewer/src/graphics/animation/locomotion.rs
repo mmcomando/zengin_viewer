@@ -8,7 +8,7 @@ use bevy::{
 };
 
 use super::animation_triggers::{
-    AnimationTriggers, animation_name_from_path, crossed_sounds, crossed_triggers,
+    AnimationTriggers, animation_ident_from_path, crossed_sounds, crossed_triggers,
 };
 use crate::gameplay::character::{
     ACCELERATION_MULTIPLIER, AcceleratingRootMotion, NpcPhysicsActiveMarker,
@@ -405,11 +405,11 @@ fn write_sequencer_triggers(
     let Some(path) = controller.current().path() else {
         return;
     };
-    let Some(animation) = animation_name_from_path(path.path()) else {
+    let Some((scheme, animation)) = animation_ident_from_path(path.path()) else {
         return;
     };
     for trigger in crossed_triggers(
-        triggers.triggers(animation),
+        triggers.triggers(scheme, animation),
         update.old_progress,
         update.new_progress,
         update.finished,
@@ -436,11 +436,11 @@ fn write_animation_sounds(
     let Some(path) = controller.current().path() else {
         return;
     };
-    let Some(animation) = animation_name_from_path(path.path()) else {
+    let Some((scheme, animation)) = animation_ident_from_path(path.path()) else {
         return;
     };
     for sound in crossed_sounds(
-        triggers.sounds(animation),
+        triggers.sounds(scheme, animation),
         update.old_progress,
         update.new_progress,
         update.finished,

@@ -92,6 +92,8 @@ pub(crate) enum ReplayCommand {
     /// Equips the item with the given (case-insensitive) instance symbol name
     /// on the player as a drawn weapon.
     ZenginEquipWeapon { item: String },
+    /// Sets the player's 1H weapon talent skill (`1` trained, `2` master).
+    ZenginSetPlayerOneHandSkill { skill: i32 },
     /// Sets the in-game time speed multiplier, `0.0` pauses the time. Replays
     /// start with a multiplier of `0.0`.
     ZenginSetGameTimeSpeed { speed: f32 },

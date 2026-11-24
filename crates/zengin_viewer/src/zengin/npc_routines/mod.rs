@@ -47,7 +47,7 @@ use weapons::{
 pub(crate) use armor::{NpcArmorItem, NpcBodyMarker};
 pub(crate) use health::NpcHealth;
 pub(crate) use overlay::overlay_scheme;
-pub(crate) use overlay::{AnimationFiles, NpcOverlay};
+pub(crate) use overlay::{AnimationFiles, NpcOverlay, NpcTalentOverlay, talent_overlay_for};
 pub(crate) use routines::{
     NPC_BODY_Y_OFFSET, NpcLookAt, NpcPath, NpcRoutineState, NpcWalkMode, RoutineExecutor,
     WayPoints, has_animation, queue_named_animation, queue_root_motion_animation,

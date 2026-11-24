@@ -8,7 +8,7 @@ use crate::input::log_capture::LogBuffer;
 use crate::input::record::ReplayCommand;
 use crate::zengin::{
     DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SetGameTime, SpawnNpc,
-    SpawnPositionFilter, StringCanon, UseMobChange, add_waypoint, enqueue_npc_goto,
+    SpawnPositionFilter, StringCanon, TALENT_1H, UseMobChange, add_waypoint, enqueue_npc_goto,
     grant_test_items, seed_test_journal,
 };
 
@@ -115,6 +115,23 @@ pub(super) fn apply_replay_command(
                 return false;
             };
             equip_player_weapon(gothic_script, player_npc, item);
+        }
+        ReplayCommand::ZenginSetPlayerOneHandSkill { skill } => {
+            let Some(gothic_script) = gothic_script else {
+                warn!("ZenginSetPlayerOneHandSkill replay command: game script is not loaded");
+                return false;
+            };
+            let Ok(player_npc) = player_npc.single() else {
+                warn!("ZenginSetPlayerOneHandSkill replay command: player npc is not spawned");
+                return false;
+            };
+            let player_id = player_npc.instance_id();
+            gothic_script
+                .lock()
+                .npc_state_mut(player_id)
+                .talents
+                .set_skill(TALENT_1H, *skill);
+            info!("Replay set the player 1H talent skill to {skill}");
         }
         ReplayCommand::ZenginToggleArmor { item } => {
             let Some(gothic_script) = gothic_script else {

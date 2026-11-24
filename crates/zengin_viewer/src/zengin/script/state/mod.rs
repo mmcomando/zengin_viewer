@@ -18,7 +18,8 @@ pub(crate) use changes::{
     UseMobChange, WaitChange,
 };
 pub(crate) use instances::{
-    DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry, RoutineFunctions,
+    DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry,
+    RoutineFunctions, TALENT_1H,
 };
 pub(crate) use weapons::{ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponKind, WeaponMode};
 

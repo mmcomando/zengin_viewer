@@ -20,13 +20,14 @@ use bevy::prelude::*;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{AnimationGraph, AnimationIndex, animation_name_from_path};
 use crate::zengin::{
-    ArrowShot, CachedAssetHandles, MeleeHit, NpcWeaponMode, WeaponMode, face_direction_quat,
-    get_animation_path,
+    ArrowShot, CachedAssetHandles, MeleeHit, NpcTalentOverlay, NpcWeaponMode, WeaponMode,
+    face_direction_quat, get_animation_path,
 };
 
 use super::components::{AnimationEnds, AnimationTrigger};
 use super::controller::AnimationController;
 use super::data::AnimationData;
+use super::player_melee_combo::player_melee_combo;
 use super::send_desired::send_desired_animations;
 
 use crate::game_state::AppState;
@@ -61,6 +62,7 @@ impl Plugin for AutoAnimSequencerPlugin {
                 apply_desired_animations,
                 apply_forced_change,
                 advance_on_animation_ends,
+                player_melee_combo,
                 update_model_facing,
             )
                 .chain()
@@ -119,8 +121,8 @@ pub enum DesiredAnimation {
     Sneak,
     /// Bow fire: the reload loop, an arrow shot on every wrap.
     Fire,
-    /// Melee attack: the swing, a hit on every loop (wrap). Held while
-    /// attacking; the loop makes the swing repeat for the next hit.
+    /// Melee attack: the scheme swing or combo animation; hits land on its
+    /// optimal frames.
     MeleeAttack(MeleeAttackKind),
     /// Turn in place towards the camera direction.
     Turn(TurnDirection),
@@ -156,6 +158,8 @@ impl TurnDirection {
 pub enum MeleeAttackKind {
     /// The weapon's default swing; for 1H weapons it is the right swing.
     Default,
+    /// Skill dependent 1H combo animation, one hit per combo segment.
+    Combo,
     /// Left swing.
     Left,
     /// Right swing, the same animation as [`Self::Default`] for 1H weapons.
@@ -166,7 +170,13 @@ pub enum MeleeAttackKind {
 
 impl MeleeAttackKind {
     /// Every attack kind, used to recognize attack animations.
-    const ALL: [Self; 4] = [Self::Default, Self::Left, Self::Right, Self::Fist];
+    const ALL: [Self; 5] = [
+        Self::Default,
+        Self::Combo,
+        Self::Left,
+        Self::Right,
+        Self::Fist,
+    ];
 
     /// Scheme relative animation names this kind may resolve to, best match
     /// first; a scheme gets its first existing name. 1H schemes only have
@@ -174,6 +184,7 @@ impl MeleeAttackKind {
     fn candidates(self) -> &'static [&'static str] {
         match self {
             Self::Default | Self::Right => &["T_1HATTACKR", "S_FISTATTACK", "T_FISTATTACK"],
+            Self::Combo => &["S_1HATTACK", "T_1HATTACKR", "S_FISTATTACK", "T_FISTATTACK"],
             Self::Left => &["T_1HATTACKL", "S_FISTATTACK", "T_FISTATTACK"],
             Self::Fist => &["S_FISTATTACK", "T_FISTATTACK"],
         }
@@ -336,6 +347,7 @@ fn apply_desired_animations(
 /// Reacts to [`AutoAnimSequencer`] changes: a forced desired animation cuts
 /// to it immediately, interrupting the currently played animation. The
 /// non-forced path waits for [`advance_on_animation_ends`].
+#[allow(clippy::type_complexity)]
 fn apply_forced_change(
     graph: Option<Res<AnimationGraph>>,
     asset_server: Res<AssetServer>,
@@ -346,6 +358,7 @@ fn apply_forced_change(
             &mut AnimationController,
             &NpcModel,
             Option<&NpcWeaponMode>,
+            Option<&NpcTalentOverlay>,
         ),
         Changed<AutoAnimSequencer>,
     >,
@@ -355,7 +368,7 @@ fn apply_forced_change(
         return;
     };
     let graph = graph.into_inner();
-    for (seq, mut controller, model, weapon_mode) in &mut sequencers {
+    for (seq, mut controller, model, weapon_mode, talent_overlay) in &mut sequencers {
         let Some(desired) = seq.desired else {
             continue;
         };
@@ -367,7 +380,8 @@ fn apply_forced_change(
             continue;
         }
         let scheme = animation_scheme(model);
-        let Some(desired) = resolve_animation(graph, scheme, desired, weapon_mode) else {
+        let Some(desired) = resolve_animation(graph, scheme, talent_overlay, desired, weapon_mode)
+        else {
             warn_once!(
                 "Scheme({scheme}) has no animation for desired({:?}), it is not queued",
                 seq.desired
@@ -389,6 +403,7 @@ fn apply_forced_change(
 
 /// Advances the sequencer on [`AnimationEnds`]: walks the graph towards the
 /// desired animation and emits the loop wrap side effects (arrow shot).
+#[allow(clippy::type_complexity)]
 fn advance_on_animation_ends(
     graph: Option<Res<AnimationGraph>>,
     asset_server: Res<AssetServer>,
@@ -401,6 +416,7 @@ fn advance_on_animation_ends(
         &mut AnimationController,
         &NpcModel,
         Option<&NpcWeaponMode>,
+        Option<&NpcTalentOverlay>,
     )>,
 ) {
     let _perf = perf_debug!();
@@ -410,7 +426,8 @@ fn advance_on_animation_ends(
     };
     let graph = graph.into_inner();
     for end in ends.read() {
-        let Ok((entity, seq, mut controller, model, weapon_mode)) = sequencers.get_mut(end.who)
+        let Ok((entity, seq, mut controller, model, weapon_mode, talent_overlay)) =
+            sequencers.get_mut(end.who)
         else {
             // Most skeletons have no sequencer; their ends are not ours.
             continue;
@@ -430,6 +447,7 @@ fn advance_on_animation_ends(
             &mut controller,
             animation_scheme(model),
             weapon_mode,
+            talent_overlay,
             &mut arrows,
             &mut handles,
             &asset_server,
@@ -446,6 +464,7 @@ fn advance_sequencer_on_end(
     controller: &mut AnimationController,
     scheme: &str,
     weapon_mode: Option<&NpcWeaponMode>,
+    talent_overlay: Option<&NpcTalentOverlay>,
     arrows: &mut MessageWriter<ArrowShot>,
     handles: &mut CachedAssetHandles,
     asset_server: &AssetServer,
@@ -455,7 +474,9 @@ fn advance_sequencer_on_end(
         // or mob pose), leave it alone.
         return;
     };
-    let Some(desired_index) = resolve_animation(graph, scheme, desired, weapon_mode) else {
+    let Some(desired_index) =
+        resolve_animation(graph, scheme, talent_overlay, desired, weapon_mode)
+    else {
         warn!(
             "AutoAnimSequencer({entity}) scheme({scheme}) has no animation for desired({desired:?})"
         );
@@ -619,18 +640,56 @@ fn animation_scheme(model: &NpcModel) -> &str {
 }
 
 /// Graph node of the desired animation in the scheme, the first existing
-/// candidate wins. `None` when the scheme has none of them.
+/// candidate wins. `None` when the scheme has none of them. The chosen talent
+/// overlay is tried first for the melee combo animation.
 fn resolve_animation(
     graph: &AnimationGraph,
     scheme: &str,
+    talent_overlay: Option<&NpcTalentOverlay>,
     desired: DesiredAnimation,
     weapon_mode: Option<&NpcWeaponMode>,
 ) -> Option<AnimationIndex> {
     let weapon_mode = weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0);
+    let overlay = if let DesiredAnimation::MeleeAttack(MeleeAttackKind::Combo) = desired {
+        talent_overlay.and_then(|overlay| overlay.0.as_deref())
+    } else {
+        None
+    };
     desired
         .candidates(weapon_mode)
         .iter()
-        .find_map(|animation| graph.animation_index(&format!("{scheme}-{animation}")))
+        .find_map(|animation| {
+            overlay
+                .and_then(|overlay| graph.animation_index(&format!("{overlay}-{animation}")))
+                .or_else(|| graph.animation_index(&format!("{scheme}-{animation}")))
+        })
+}
+
+/// Resolves and queues a desired animation immediately, cutting the current
+/// one. Returns `false` when the scheme and overlay have no matching animation.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn queue_desired_now(
+    graph: &AnimationGraph,
+    handles: &mut CachedAssetHandles,
+    asset_server: &AssetServer,
+    controller: &mut AnimationController,
+    model: &NpcModel,
+    weapon_mode: Option<&NpcWeaponMode>,
+    talent_overlay: Option<&NpcTalentOverlay>,
+    desired: DesiredAnimation,
+) -> bool {
+    let scheme = animation_scheme(model);
+    let Some(index) = resolve_animation(graph, scheme, talent_overlay, desired, weapon_mode) else {
+        return false;
+    };
+    queue_animation(
+        controller,
+        handles,
+        asset_server,
+        graph.animation_name(index),
+        true,
+    );
+    true
 }
 
 /// Animation name part of a handle (`zengin://.../WOLF-S_FISTATTACK.MAN` ->

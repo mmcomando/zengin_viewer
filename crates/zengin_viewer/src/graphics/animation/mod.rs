@@ -8,6 +8,7 @@ mod corpse;
 mod data;
 mod hit_reaction;
 mod locomotion;
+mod player_melee_combo;
 mod send_desired;
 
 #[cfg(test)]
@@ -38,6 +39,7 @@ pub(crate) use controller::AnimationController;
 pub(crate) use corpse::apply_corpse_animation;
 pub(crate) use data::{AnimationData, AnimationSample};
 pub(crate) use hit_reaction::{NpcHitReaction, npc_hit_reaction_end, play_hit_reaction};
+pub(crate) use player_melee_combo::PlayerMeleeCombo;
 
 /// Root plugin of the animation module.
 #[derive(Default)]

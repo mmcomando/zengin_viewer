@@ -29,6 +29,8 @@
     TestScreenshot(path: "02_sheathed.png"),
 
     // Act
+    TeleportPlayer(translation: (0.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0)),
+    Wait(frame_dt: 50),
     TestClearLogBuffer,
     PressRelease(action: Gameplay(Interact)),
     Wait(frame_dt: 100),

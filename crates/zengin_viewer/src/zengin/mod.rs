@@ -12,7 +12,9 @@ pub(crate) use crate::zengin::common::choose_animation_scheme;
 pub(crate) use crate::zengin::debug_npc::DebugNpc;
 pub(crate) use crate::zengin::interaction::{grant_test_items, seed_test_journal};
 pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
-pub(crate) use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay};
+pub(crate) use crate::zengin::npc_routines::{
+    AnimationFiles, NpcOverlay, NpcTalentOverlay, talent_overlay_for,
+};
 mod item_data;
 mod item_visual;
 mod npc_actions;
@@ -87,6 +89,7 @@ pub(crate) use crate::zengin::script::state::ScriptSound;
 pub(crate) use crate::zengin::script::state::SetGameTime;
 pub(crate) use crate::zengin::script::state::SpawnNpc;
 pub(crate) use crate::zengin::script::state::SvmLine;
+pub(crate) use crate::zengin::script::state::TALENT_1H;
 pub(crate) use crate::zengin::script::state::WeaponKind;
 pub(crate) use crate::zengin::script::state::WeaponMode;
 pub(crate) use crate::zengin::script::state::{

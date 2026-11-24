@@ -10,7 +10,7 @@ use crate::gameplay::character::{
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
-use crate::graphics::NpcAnimations;
+use crate::graphics::{NpcAnimations, PlayerMeleeCombo};
 use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
 use crate::gui_debug::WorldMesh;
 use crate::input::Options;
@@ -42,6 +42,7 @@ use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entitie
 use crate::zengin::world_spawn::{SpawnPositionFilter, WorldSpawnMessages, WorldSpawnPlugin};
 use crate::zengin::{
     DialogUiState, GameItem, GameNpc, MusicZones, NpcActionQueue, NpcHandle, NpcOverlay, ZenginVfs,
+    talent_overlay_for,
 };
 use avian3d::prelude::*;
 use bevy::prelude::*;
@@ -686,6 +687,7 @@ pub(crate) fn spawn_player(
         return;
     };
     instance_index.insert_npc_handle(handle.clone());
+    let talent_overlay = talent_overlay_for(&handle);
 
     let capsule_center = Vec3::Y * PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER;
     commands.spawn((
@@ -707,6 +709,8 @@ pub(crate) fn spawn_player(
         player_transform.unwrap_or(Transform::from_xyz(-97.0, 5.0, -7.0)),
         PlayerCharacter,
         GameNpc::new(handle),
+        PlayerMeleeCombo::default(),
+        talent_overlay,
         NpcModel {
             hierarchy: Some("zengin://_WORK/DATA/ANIMS/_COMPILED/HUMANS.MDH".to_string()),
             body_model: "zengin://_WORK/DATA/ANIMS/_COMPILED/HUM_BODY_NAKED0.MDM".to_string(),

@@ -9,7 +9,7 @@ pub(crate) use crate::graphics::animation::{
     AnimatedJoint, AnimationController, AnimationData, AnimationEnds, AnimationGraph,
     AnimationIndex, AnimationSample, AnimationState, AnimationTriggers, AnimationTriggersPlugin,
     AutoAnimSequencer, AutoAnimSequencerSet, BoneAnimationData, DesiredAnimation, FrameState,
-    MeleeAttackKind, NpcAnimations, SetDesiredAnimation, SkeletalAnimations,
+    MeleeAttackKind, NpcAnimations, PlayerMeleeCombo, SetDesiredAnimation, SkeletalAnimations,
     animation_name_from_path, is_melee_attack_animation,
 };
 pub(crate) use crate::graphics::lighting::LightingPlugin;

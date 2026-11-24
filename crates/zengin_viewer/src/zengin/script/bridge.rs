@@ -8,13 +8,14 @@ use bevy::prelude::*;
 use crate::external_messages::{ExternalMessageAppExt, pump_external_messages};
 use crate::game_state::AppState;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
+use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLogEntry;
 use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{
-    NpcArmorItem, NpcEquippedWeapon, NpcHealth, NpcLookAt, NpcOverlay, NpcWalkMode, NpcWeaponMode,
-    overlay_scheme,
+    NpcArmorItem, NpcEquippedWeapon, NpcHealth, NpcLookAt, NpcOverlay, NpcTalentOverlay,
+    NpcWalkMode, NpcWeaponMode, overlay_scheme, talent_overlay_for,
 };
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSection, JournalStatus};
@@ -106,6 +107,7 @@ impl Plugin for ScriptBridgePlugin {
                 sync_npc_equipped_weapon,
                 sync_npc_armor,
                 sync_npc_health,
+                sync_npc_talent_overlay,
                 apply_overlay_changes,
                 seed_npc_components_on_add,
             )
@@ -526,6 +528,36 @@ fn set_equipped_weapon(
         }
         None => {
             commands.entity(entity).try_remove::<NpcEquippedWeapon>();
+        }
+    }
+}
+
+/// Refreshes the weapon skill overlay of the player's entities. Npc combat
+/// keeps its FAI driven swing variety, so only the player mirrors the talent.
+fn sync_npc_talent_overlay(
+    mut commands: Commands,
+    mut changes: MessageReader<NpcEntitiesChanged>,
+    players: Query<&NpcTalentOverlay, With<PlayerCharacter>>,
+) {
+    let _perf = perf_debug!();
+    for change in changes.read() {
+        let mut player_entities = change
+            .entities
+            .iter()
+            .copied()
+            .filter(|entity| players.contains(*entity));
+        let Some(first) = player_entities.next() else {
+            continue;
+        };
+        let overlay = talent_overlay_for(&change.handle);
+        for entity in std::iter::once(first).chain(player_entities) {
+            let Ok(current) = players.get(entity) else {
+                continue;
+            };
+            if *current == overlay {
+                continue;
+            }
+            commands.entity(entity).try_insert(overlay.clone());
         }
     }
 }
