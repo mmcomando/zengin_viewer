@@ -39,6 +39,21 @@ impl RoutineEntry {
             minutes >= start && minutes < stop
         }
     }
+
+    /// Minutes from `minutes_of_day` to the end of the entry's window, `0` when
+    /// the entry is not active.
+    pub fn minutes_until_stop(&self, minutes_of_day: u32) -> u32 {
+        if !self.is_active_at(minutes_of_day) {
+            return 0;
+        }
+        let minutes = minutes_of_day % (24 * 60);
+        let stop = self.stop_h * 60 + self.stop_m;
+        if stop > minutes {
+            stop - minutes
+        } else {
+            (24 * 60 - minutes) + stop
+        }
+    }
 }
 
 /// Function ids of a `ZS_*` routine state. The state function itself is the
@@ -352,5 +367,23 @@ mod tests {
         assert!(entry.is_active_at(22 * 60));
         assert!(entry.is_active_at(5 * 60 + 59));
         assert!(!entry.is_active_at(6 * 60));
+    }
+
+    #[test]
+    fn minutes_until_stop_counts_across_midnight() {
+        let entry = entry(22, 0, 6, 0);
+
+        assert_eq!(entry.minutes_until_stop(23 * 60), 7 * 60);
+        assert_eq!(entry.minutes_until_stop(5 * 60), 60);
+        assert_eq!(entry.minutes_until_stop(12 * 60), 0);
+    }
+
+    #[test]
+    fn minutes_until_stop_uses_the_plain_window() {
+        let entry = entry(8, 0, 12, 0);
+
+        assert_eq!(entry.minutes_until_stop(8 * 60), 4 * 60);
+        assert_eq!(entry.minutes_until_stop(11 * 60 + 30), 30);
+        assert_eq!(entry.minutes_until_stop(13 * 60), 0);
     }
 }

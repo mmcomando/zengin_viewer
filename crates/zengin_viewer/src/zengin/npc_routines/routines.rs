@@ -86,6 +86,9 @@ pub(crate) struct RoutineExecutor {
     state_time: f32,
     /// Seconds until the next loop hook call.
     next_loop_in: f32,
+    /// Absolute game minute (`GameTime::absolute_minutes`) at which the state
+    /// ends; `None` runs until `LOOP_END`.
+    end_at: Option<u32>,
 }
 
 impl RoutineExecutor {
@@ -122,6 +125,7 @@ pub(crate) fn start_ai_state(
             other,
             state_time: 0.0,
             next_loop_in: 0.0,
+            end_at: None,
         });
     };
     if executor.source == RoutineSource::AiState && executor.functions.start == state {
@@ -139,6 +143,11 @@ pub(crate) fn start_ai_state(
     executor.state_time = 0.0;
     executor.next_loop_in = 0.0;
     None
+}
+
+/// Absolute game minute at which the active window of `entry` ends.
+fn routine_end_at(entry: &RoutineEntry, game_time: &GameTime) -> u32 {
+    game_time.absolute_minutes() + entry.minutes_until_stop(game_time.minutes_of_day())
 }
 
 #[derive(Resource, Default)]
@@ -180,7 +189,8 @@ pub(crate) fn update_npc_routine_entries(
 }
 
 /// Reacts to the [`RoutineEntry`] component of an npc being added or changed.
-/// When the active routine entry changes, a waypoint action is queued.
+/// When the active routine entry changes, a waypoint action is queued unless an
+/// AI state owns the npc or another action is pending.
 #[allow(clippy::type_complexity)]
 pub(crate) fn update_npc_routines(
     mut commands: Commands,
@@ -192,6 +202,7 @@ pub(crate) fn update_npc_routines(
             &RoutineEntry,
             Option<&mut NpcRoutineState>,
             Option<&mut NpcActionQueue>,
+            Option<&RoutineExecutor>,
             Has<ExecutingActionMarker>,
         ),
         (Changed<RoutineEntry>, Without<ChildOf>),
@@ -206,7 +217,7 @@ pub(crate) fn update_npc_routines(
         commands.entity(entity).try_remove::<NpcRoutineState>();
     }
 
-    for (entity, npc, entry, routine_state, mut queue, executing) in &mut npcs {
+    for (entity, npc, entry, routine_state, mut queue, executor, executing) in &mut npcs {
         let Some(mut state) = routine_state else {
             // First assignment: npcs were already placed at the start hour by the
             // world load, only record the current assignment.
@@ -218,7 +229,11 @@ pub(crate) fn update_npc_routines(
         if state.assigned_waypoint == entry.way_point {
             continue;
         }
-        let busy = queue.as_ref().is_some_and(|queue| !queue.is_empty()) || executing;
+        // An AI state keeps the npc until its end time, the routine schedule
+        // resumes from its start hook then.
+        let busy = queue.as_ref().is_some_and(|queue| !queue.is_empty())
+            || executor.is_some_and(|executor| executor.is_ai_state())
+            || executing;
         state.assigned_waypoint = entry.way_point.clone();
         queue_routine_waypoint(
             npc,
@@ -343,6 +358,7 @@ pub(crate) fn end_removed_routine_entries(
 #[allow(clippy::type_complexity)]
 pub(crate) fn update_routine_executors(
     mut commands: Commands,
+    game_time: Res<GameTime>,
     gothic_script: Res<ScriptResource>,
     dialog_ui: Res<DialogUiState>,
     mut npcs: Query<
@@ -391,6 +407,7 @@ pub(crate) fn update_routine_executors(
                 // The engine runs the first loop on the next tick, the loop
                 // system picks it up on the next update.
                 next_loop_in: 0.0,
+                end_at: Some(routine_end_at(&entry, &game_time)),
             });
             continue;
         };
@@ -400,14 +417,10 @@ pub(crate) fn update_routine_executors(
                 // A visual respawn does not re-run the start hook, force one loop
                 // so scripts that request their pose from the loop can restore it.
                 executor.bypass_change_detection().next_loop_in = 0.0;
-                continue;
             }
-            // The routine window moved on under the AI state; end it and resume
-            // the entry, matching the engine's routine end time.
-            debug!(
-                "npc({}) ending ai state on routine entry change",
-                instance.value()
-            );
+            // The AI state keeps the end time it inherited when it started; the
+            // routine schedule waits until it elapses.
+            continue;
         } else if Some(executor.functions.start) == desired && executor.way_point == entry.way_point
         {
             executor.bypass_change_detection().next_loop_in = 0.0;
@@ -433,6 +446,7 @@ pub(crate) fn update_routine_executors(
         executor.way_point = entry.way_point.clone();
         executor.state_time = 0.0;
         executor.next_loop_in = 0.0;
+        executor.end_at = Some(routine_end_at(&entry, &game_time));
     }
 }
 
@@ -504,6 +518,7 @@ pub(crate) fn start_npc_start_ai_states(
             other: None,
             state_time: 0.0,
             next_loop_in: 0.0,
+            end_at: None,
         });
     }
 }
@@ -657,7 +672,10 @@ pub(crate) fn run_routine_loops(
             // The script reset the state time via `NPC_SetStateTime`.
             executor.bypass_change_detection().state_time = actual as f32;
         }
-        if ended {
+        let end_reached = executor
+            .end_at
+            .is_some_and(|end| game_time.absolute_minutes() >= end);
+        if ended || end_reached {
             perf.increment_tag("ended", 1);
             script.set_state_other(executor.other);
             script.call_routine_end(instance, executor.functions);
@@ -677,6 +695,7 @@ pub(crate) fn run_routine_loops(
                 executor.way_point = entry.way_point.clone();
                 executor.state_time = 0.0;
                 executor.next_loop_in = 0.0;
+                executor.end_at = Some(routine_end_at(entry, &game_time));
                 continue;
             }
             commands.entity(entity).remove::<RoutineExecutor>();

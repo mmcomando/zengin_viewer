@@ -73,6 +73,11 @@ impl GameTime {
     pub fn minutes_of_day(&self) -> u32 {
         (self.total_hours * 60.0) as u32 % (24 * 60)
     }
+
+    /// In-game minutes since day 1, 00:00, monotonic across day changes.
+    pub fn absolute_minutes(&self) -> u32 {
+        self.day.saturating_sub(1) * (24 * 60) + self.minutes_of_day()
+    }
 }
 
 pub(crate) fn advance_game_time(time: Res<Time>, mut game_time: ResMut<GameTime>) {
