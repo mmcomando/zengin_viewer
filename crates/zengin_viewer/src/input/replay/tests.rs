@@ -253,6 +253,15 @@ fn spawn_chest_command_parses_and_schedules() {
         &commands[0].command,
         ReplayCommand::ZenginSpawnChest { locked: true, .. }
     ));
+
+    let commands = parse(
+        "[ZenginSpawnChest(visual: \"CHESTSMALL_NW_POOR_LOCKED\", locked: true, key: \"ITKE_KEY_01\", pick_string: \"LR\", translation: (1.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0))]",
+    );
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::ZenginSpawnChest { key: Some(key), pick_string: Some(pick), .. }
+            if key == "ITKE_KEY_01" && pick == "LR"
+    ));
 }
 
 #[test]

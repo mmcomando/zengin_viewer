@@ -1,0 +1,23 @@
+[
+    // Setup
+    IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginSpawnChest(
+        visual: "CHESTBIG_NW_NORMAL_LOCKED",
+        locked: true,
+        key: "ITKE_XARDAS",
+        translation: (0.0, 0.0, -2.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    Wait(frame_dt: 20),
+
+    // Act
+    TestClearLogBuffer,
+    PressRelease(action: Gameplay(Interact)),
+    Wait(frame_dt: 100),
+
+    // Assert
+    TestLogExists(regex: "cannot open locked chest"),
+    TestLogNotExists(regex: "opened chest"),
+
+    ExitGame,
+]

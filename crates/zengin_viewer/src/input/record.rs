@@ -200,12 +200,17 @@ pub(crate) enum ReplayCommand {
         rotation: Vec3,
     },
     /// Spawns an empty `oCMobContainer` using the visual mesh `visual` at
-    /// `translation` with `rotation` in axis labeled degrees. Used by the chest
-    /// animation scenario.
+    /// `translation` with `rotation` in axis labeled degrees. `key` and
+    /// `pick_string` set the lock requirements. Used by the chest animation
+    /// scenario.
     ZenginSpawnChest {
         visual: String,
         #[serde(default)]
         locked: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        key: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pick_string: Option<String>,
         translation: Vec3,
         rotation: Vec3,
     },

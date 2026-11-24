@@ -32,6 +32,7 @@ const TEST_ITEMS: &[(&str, i32)] = &[
     ("ITRI_STR_01", 1),
     ("ITAM_HP_01", 1),
     ("ITKE_LOCKPICK", 10),
+    ("ITKE_KEY_01", 1),
 ];
 
 /// Hardcoded journal topics seeded by [`seed_test_journal`], with the sections,

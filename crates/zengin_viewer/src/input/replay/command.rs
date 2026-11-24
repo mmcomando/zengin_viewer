@@ -358,19 +358,30 @@ pub(super) fn apply_replay_command(
         ReplayCommand::ZenginSpawnChest {
             visual,
             locked,
+            key,
+            pick_string,
             translation,
             rotation,
         } => {
             info!("Replay spawning chest {visual:?} at {translation:?}");
             let visual = visual.clone();
             let chest_locked = *locked;
+            let key = key.clone().unwrap_or_default();
+            let pick_string = pick_string.clone().unwrap_or_default();
             let transform = Transform {
                 translation: *translation,
                 rotation: rotation_from_degrees(*rotation),
                 scale: Vec3::ONE,
             };
             commands.queue(move |world: &mut World| {
-                crate::zengin::request_chest_spawn(world, &visual, chest_locked, "", "", transform);
+                crate::zengin::request_chest_spawn(
+                    world,
+                    &visual,
+                    chest_locked,
+                    &key,
+                    &pick_string,
+                    transform,
+                );
             });
         }
         ReplayCommand::TestClearLogBuffer => {

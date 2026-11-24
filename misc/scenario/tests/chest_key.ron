@@ -1,0 +1,36 @@
+[
+    // Setup
+    IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginSpawnChest(
+        visual: "CHESTBIG_NW_NORMAL_LOCKED",
+        locked: true,
+        key: "ITKE_KEY_01",
+        translation: (0.0, 0.0, -2.0),
+        rotation: (0.0, 0.0, 0.0),
+    ),
+    Wait(frame_dt: 20),
+
+    // Act
+    TestClearLogBuffer,
+    PressRelease(action: Gameplay(Interact)),
+    Wait(frame_dt: 100),
+
+    // Assert
+    TestLogExists(regex: "unlocked chest\\(.*\\) vob\\(TEST_CHEST_CHESTBIG\\) with key\\(ITKE_KEY_01\\)"),
+    TestLogExists(regex: "opened chest"),
+    TestLogExists(regex: "Loot opened for chest"),
+
+    // Repeat
+    PressRelease(action: Gui(CancelAction)),
+    Wait(frame_dt: 100),
+    TestLogExists(regex: "leaves chest|released mob"),
+    TestClearLogBuffer,
+    PressRelease(action: Gameplay(Interact)),
+    Wait(frame_dt: 100),
+
+    // Assert
+    TestLogExists(regex: "opened chest"),
+    TestLogNotExists(regex: "unlocked chest"),
+
+    ExitGame,
+]
