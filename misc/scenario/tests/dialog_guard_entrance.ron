@@ -9,11 +9,28 @@
     ZenginSpawnPlayerCharacter(translation: (-78.4, 3.9, -70.2), rotation: (0.0, 0.0, 0.0)),
     SetCameraLocation(translation: (-78.4, 3.9, -70.2), rotation: (-30.0, -160, 0.0)),
     PressRelease(action: Editor(ToggleEditorMode)),
-    Wait(frame_dt: 200),
+    Wait(frame_dt: 5),
+
+    PressRelease(action: Shared(SkipDialog)),
+    PressRelease(action: Shared(SkipDialog)),
+    PressRelease(action: Shared(SkipDialog)),
+    PressRelease(action: Shared(SkipDialog)),
+    PressRelease(action: Shared(SkipDialog)),
+    PressRelease(action: Shared(SkipDialog)),
 
     // Assert
     TestLogExists(regex: "Dialog open npc\\(.*\\) player\\(.*\\) roots\\([1-9][0-9]*\\)"),
     TestScreenshot(path: "00_auto_dialog.png"),
+
+    // Act
+    Wait(frame_dt: 50),
+    PressRelease(action: Gui(Up)),
+    PressRelease(action: Gui(Confirm)),
+
+    Axis(action: Gameplay(Move), value: (0.0, 1.0)),
+    Wait(frame_dt: 10),
+    Axis(action: Gameplay(Move), value: (0.0, 0.0)),
+    Wait(frame_dt: 200),
 
     ExitGame,
 ]

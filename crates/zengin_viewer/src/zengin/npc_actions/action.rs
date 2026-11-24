@@ -8,6 +8,7 @@ use crate::zengin::npc_actions::goto_npc::GoToNpcAction;
 use crate::zengin::npc_actions::item_state::NpcItemUse;
 use crate::zengin::npc_actions::item_state::UseItemStateAction;
 use crate::zengin::npc_actions::stand_up::StandUpAction;
+use crate::zengin::npc_actions::start_state::StartStateAction;
 use crate::zengin::npc_actions::use_mob::UseMobAction;
 use crate::zengin::npc_actions::wait::WaitAction;
 
@@ -52,6 +53,7 @@ pub(crate) fn remove_actions_on_marker_removed(
                 UseItemStateAction,
                 WaitAction,
                 StandUpAction,
+                StartStateAction,
             )>();
         });
 }

@@ -99,7 +99,6 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             );
             return;
         };
-        let state_name = self.symbol_table.symbol_name(state).unwrap_or_default();
         let waypoint = self.symbol_table.string(waypoint).filter(|_| {
             self.symbol_table
                 .string_content(waypoint)
@@ -116,30 +115,14 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             npc.live.target
         });
         // bevy::log::info!(
-        //     "AI_StartState({state_name}) npc({}) other({other:?})",
+        //     "AI_StartState npc({}) other({other:?})",
         //     npc.value()
         // );
-        // The engine drops the ai action queue when a state starts.
-        self.messages
-            .clear_ai_queue
-            .send(ClearAiQueueChange { instance_id: npc });
         self.messages.start_state.send(StartStateChange {
             instance_id: npc,
             state: state_fn,
             other,
         });
-        // `zs_attack_loop` is the retail trigger for the fight, but it can end
-        // before reaching `AI_Attack` when the ai variables
-        // (`AIV_FIGHTDISTCANCEL`, `AIV_MM_FOLLOWTIME`) are not initialised, so
-        // the attack is requested together with the state.
-        if state_name.eq_ignore_ascii_case("zs_attack")
-            && let Some(target) = other
-        {
-            self.messages.attack.send(AttackChange {
-                instance_id: npc,
-                target,
-            });
-        }
     }
     fake_impl!(ai_continueroutine(_0));
     /// Plays the NPC voice line named by the `$`-key (`b_say`). `target` has no

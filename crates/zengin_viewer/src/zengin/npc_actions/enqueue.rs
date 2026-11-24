@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::graphics::AnimationController;
 use crate::perf_debug;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
@@ -9,11 +10,11 @@ use crate::zengin::npc_actions::goto_npc::GoToNpcAction;
 use crate::zengin::npc_actions::item_state::UseItemStateAction;
 use crate::zengin::npc_actions::queue::NpcActionQueue;
 use crate::zengin::npc_actions::use_mob::UseMobAction;
-use crate::zengin::npc_routines::NpcRoutineState;
+use crate::zengin::npc_routines::{NpcRoutineState, RoutineExecutor};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{
     AlignToWpChange, AttackChange, ClearAiQueueChange, GotoChange, GotoFpChange, GotoNpcChange,
-    StandUpChange, UseItemStateChange, UseMobChange, WaitChange,
+    StandUpChange, StartStateChange, UseItemStateChange, UseMobChange, WaitChange,
 };
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::{InstanceId, StringId};
@@ -257,6 +258,45 @@ fn enqueue_goto_npc_for_entity(
             "AI_GotoNpc npc({}) target({}) not queued: action queue is full",
             change.instance_id, change.target
         );
+    }
+}
+
+/// Turns `AI_StartState` requests into queued start actions. The action waits
+/// behind the running one and only the state-owning entity gets it.
+pub(crate) fn enqueue_start_state_actions(
+    mut changes: MessageReader<StartStateChange>,
+    index: Res<InstanceIndex>,
+    executors: Query<(), With<RoutineExecutor>>,
+    controllers: Query<(), With<AnimationController>>,
+    mut action_queues: Query<&mut NpcActionQueue>,
+) {
+    let _perf = perf_debug!();
+    for change in changes.read() {
+        let entities = index.npcs(change.instance_id);
+        // The state functions run per script instance; duplicated spawns share
+        // one instance, so only one entity owns the executor.
+        let owner = entities
+            .iter()
+            .copied()
+            .find(|&entity| executors.contains(entity))
+            .or_else(|| {
+                entities
+                    .iter()
+                    .copied()
+                    .find(|&entity| controllers.contains(entity))
+            });
+        let Some(entity) = owner else {
+            continue;
+        };
+        let Ok(mut queue) = action_queues.get_mut(entity) else {
+            continue;
+        };
+        if !queue.push_start_state(change.state, change.other) {
+            warn!(
+                "AI_StartState npc({}) not queued: action queue is full",
+                change.instance_id
+            );
+        }
     }
 }
 

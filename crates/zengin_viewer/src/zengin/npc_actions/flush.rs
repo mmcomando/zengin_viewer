@@ -34,6 +34,7 @@ pub(crate) fn flush_npc_action_queue(
             QueuedAction::UseItemState(action) => commands.entity(entity).insert(action),
             QueuedAction::Wait(action) => commands.entity(entity).insert(action),
             QueuedAction::StandUp(action) => commands.entity(entity).insert(action),
+            QueuedAction::StartState(action) => commands.entity(entity).insert(action),
         };
     }
 }

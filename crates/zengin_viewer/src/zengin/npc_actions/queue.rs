@@ -7,10 +7,11 @@ use crate::zengin::npc_actions::goto::GoToWaypointAction;
 use crate::zengin::npc_actions::goto_npc::GoToNpcAction;
 use crate::zengin::npc_actions::item_state::UseItemStateAction;
 use crate::zengin::npc_actions::stand_up::StandUpAction;
+use crate::zengin::npc_actions::start_state::StartStateAction;
 use crate::zengin::npc_actions::use_mob::UseMobAction;
 use crate::zengin::npc_actions::wait::WaitAction;
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 
 /// Queued actions, the front one is moved onto the npc when it is free.
 #[derive(Component, Default)]
@@ -98,6 +99,20 @@ impl NpcActionQueue {
         self.push_back(QueuedAction::StandUp(StandUpAction))
     }
 
+    /// A repeated `AI_StartState` for the same state is a no-op.
+    pub(crate) fn push_start_state(
+        &mut self,
+        state: FunctionId,
+        other: Option<InstanceId>,
+    ) -> bool {
+        if self.actions.iter().any(
+            |action| matches!(action, QueuedAction::StartState(queued) if queued.state == state),
+        ) {
+            return true;
+        }
+        self.push_back(QueuedAction::StartState(StartStateAction { state, other }))
+    }
+
     /// Attacks always append; the `AiState` loop gate prevents duplicates.
     pub(crate) fn push_attack(&mut self, target: Entity) -> bool {
         self.push_back(QueuedAction::Attack(Box::new(AttackAction::new(target))))
@@ -141,6 +156,7 @@ pub(crate) enum QueuedAction {
     UseItemState(UseItemStateAction),
     Wait(WaitAction),
     StandUp(StandUpAction),
+    StartState(StartStateAction),
 }
 
 /// Upper bound of queued actions, including the action at the front.
@@ -266,6 +282,18 @@ mod tests {
         queue.clear();
 
         assert!(queue.actions.front().is_none());
+    }
+
+    #[test]
+    fn start_state_does_not_stack_the_same_state() {
+        let mut queue = NpcActionQueue::default();
+        let state = FunctionId::new(1).expect("valid state id");
+        let other = InstanceId::new(2).expect("valid instance id");
+
+        assert!(queue.push_start_state(state, Some(other)));
+        assert!(queue.push_start_state(state, Some(other)));
+
+        assert_eq!(queue.actions.len(), 1);
     }
 
     #[test]

@@ -10,6 +10,7 @@ mod goto_npc;
 mod item_state;
 mod queue;
 mod stand_up;
+mod start_state;
 mod use_mob;
 mod wait;
 
@@ -24,7 +25,8 @@ pub(crate) use attack::{
 pub(crate) use enqueue::{
     clear_npc_actions, enqueue_align_actions, enqueue_attack_actions, enqueue_goto_actions,
     enqueue_goto_fp_actions, enqueue_goto_npc_actions, enqueue_npc_goto, enqueue_stand_up_actions,
-    enqueue_use_item_state_actions, enqueue_use_mob_actions, enqueue_wait_actions,
+    enqueue_start_state_actions, enqueue_use_item_state_actions, enqueue_use_mob_actions,
+    enqueue_wait_actions,
 };
 pub(crate) use flush::flush_npc_action_queue;
 pub(crate) use goto::{GoToWaypointAction, end_goto_action, run_goto_action, start_goto_action};
@@ -37,6 +39,7 @@ pub(crate) use item_state::{
 };
 pub(crate) use queue::NpcActionQueue;
 pub(crate) use stand_up::{StandUpAction, start_stand_up_action};
+pub(crate) use start_state::{StartStateAction, run_start_state_action, start_start_state_action};
 pub(crate) use use_mob::{
     MobUsePose, UseMobAction, advance_mob_use_pose, end_use_mob_action, mob_animation_name,
     mob_scheme_has_player_pose, release_mob_use, release_mob_use_actions, run_use_mob_action,
