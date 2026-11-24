@@ -193,7 +193,12 @@ pub(crate) fn convert_zengin_model_to_entities(
                 && let Some(skinned_mesh) = bones_data.clone()
             {
                 sub_entity.insert(skinned_mesh);
-                sub_entity.insert(Transform::IDENTITY);
+                // A skinned mesh renders at `joint_global * inverse_bind * vertex`,
+                // and the bind poses carry the hierarchy root translation, so the
+                // visible mesh sits `-root_translation` from the baked vertices.
+                // Skinning ignores this entity's transform, but the collider and
+                // the culling box do not, so offset them into the rendered space.
+                sub_entity.insert(Transform::from_translation(-model.root_translation));
                 // The bounds are static, so `calculate_bounds` must not replace
                 // the expanded box with the bind-pose one.
                 sub_entity.insert((skinned_aabb, NoAutoAabb));
