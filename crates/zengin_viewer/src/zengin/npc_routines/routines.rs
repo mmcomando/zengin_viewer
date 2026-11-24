@@ -655,14 +655,6 @@ pub(crate) fn run_routine_loops(
             executor.state_time += delta;
             executor.next_loop_in -= delta;
         }
-        // A state that started or was replaced in this update has no actions
-        // visible yet: the script bridge forwards host requests on the next
-        // update. Defer the first loop so it sees what the start hook queued,
-        // matching the engine's next-tick loop start.
-        if executor.is_changed() {
-            perf.increment_tag("started_skip", 1);
-            continue;
-        }
         if executor.next_loop_in > 0.0 {
             perf.increment_tag("waiting", 1);
             continue;

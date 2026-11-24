@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use crate::external_messages::ExternalMessageAppExt;
+use crate::external_messages::{ExternalMessageAppExt, pump_external_messages};
 use crate::game_state::AppState;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::gui::GameLogEntry;
@@ -74,6 +74,22 @@ impl Plugin for ScriptBridgePlugin {
         app.add_systems(
             Update,
             (
+                pump_external_messages::<AlignToWpChange>,
+                pump_external_messages::<GotoChange>,
+                pump_external_messages::<GotoFpChange>,
+                pump_external_messages::<GotoNpcChange>,
+                pump_external_messages::<AttackChange>,
+                pump_external_messages::<TurnToNpcChange>,
+                pump_external_messages::<UseMobChange>,
+                pump_external_messages::<UseItemStateChange>,
+                pump_external_messages::<WaitChange>,
+                pump_external_messages::<StandUpChange>,
+            )
+                .in_set(ScriptOutputFlush),
+        );
+        app.add_systems(
+            Update,
+            (
                 sync_script_clock,
                 apply_script_requests,
                 send_npc_changes,
@@ -106,6 +122,11 @@ impl Plugin for ScriptBridgePlugin {
 /// reacting to those changes run after this set.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ScriptChangesApplied;
+
+/// Copies host requests queued during the current update into the message
+/// buffers, so action consumers later in the same update see them.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ScriptOutputFlush;
 
 /// Exposes the running clock to the script host (`Wld_GetDay` and the refuse
 /// talk deadline).

@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use crate::game_state::AppState;
 use crate::gameplay::game_time::advance_game_time;
 use crate::graphics::AutoAnimSequencerSet;
-use crate::zengin::script::bridge::ScriptChangesApplied;
+use crate::zengin::script::bridge::{ScriptChangesApplied, ScriptOutputFlush};
 use crate::zengin::{ZenginVfs, loaders::vfs::animation_file_names};
 
 use crate::perf_debug;
@@ -61,6 +61,17 @@ impl Plugin for NpcRoutinesPlugin {
         app.init_resource::<AnimationFiles>();
         app.add_systems(Startup, load_animation_files);
         app.init_resource::<NpcRoutineCheckState>();
+        // State hooks queue their actions through the script bridge; flush those
+        // requests before the action enqueue systems so the busy predicate sees
+        // them in the update the state started.
+        app.configure_sets(
+            Update,
+            ScriptOutputFlush
+                .after(apply_start_state_changes)
+                .after(update_routine_executors)
+                .after(start_npc_start_ai_states)
+                .after(end_removed_routine_entries),
+        );
         app.add_observer(remove_actions_on_marker_removed);
         app.add_systems(
             Update,
@@ -153,10 +164,12 @@ impl Plugin for NpcRoutinesPlugin {
                     // deferred-command sync points the transitions rely on.
                     .chain()
                     .after(update_npc_routines)
-                    .after(clear_npc_actions),
+                    .after(clear_npc_actions)
+                    .after(ScriptOutputFlush),
                 (apply_turn_to_npc, apply_look_at)
                     .chain()
-                    .after(update_npc_routines),
+                    .after(update_npc_routines)
+                    .after(ScriptOutputFlush),
                 apply_weapon_mode.after(apply_scripted_animations),
                 update_npc_attachments,
                 update_npc_mob_use_items,
