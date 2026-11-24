@@ -21,6 +21,7 @@ use super::world::{
     toggle_player_armor,
 };
 use crate::perf_debug;
+use crate::test_world::TestCubeSpawn;
 
 /// Applies buffered replay location commands after the camera toggle, so a
 /// camera switch sync point overrides the toggle's placement at the drifted
@@ -195,6 +196,23 @@ pub(super) fn apply_replay_command(
         // Includes are expanded while loading the scenario, before scheduling.
         ReplayCommand::IncludeScenario { path } => {
             warn!("IncludeScenario({path:?}) reached the replay unexpanded");
+        }
+        ReplayCommand::PlaceCube {
+            translation,
+            rotation,
+            size,
+            color,
+        } => {
+            info!("Replay placing cube at {translation:?} size {size:?}");
+            let cube = TestCubeSpawn {
+                center: *translation,
+                size: *size,
+                rotation: rotation_from_degrees(*rotation),
+                color: Color::srgb(color.red, color.green, color.blue),
+            };
+            commands.queue(move |world: &mut World| {
+                crate::test_world::request_test_cube_spawn(world, cube);
+            });
         }
         ReplayCommand::TestWorld { name } => {
             info!("Replay requested the test world {name}");

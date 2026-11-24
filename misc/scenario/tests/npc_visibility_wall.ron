@@ -1,0 +1,40 @@
+[
+    // Setup
+    IncludeScenario(path: "/common/test_room_free_camera"),
+    ZenginSpawnNpc(name: "wolf", translation: (0.0, 0.0, -20.0), rotation: (0.0, 0.0, 0.0)),
+    ZenginSetDebugNpc(name: "wolf"),
+    PlaceCube(
+        translation: (0.0, 2.5, -16.0),
+        rotation: (0.0, 0.0, 0.0),
+        size: (6.0, 5.0, 0.5),
+        color: (red: 0.75, green: 0.7, blue: 0.65),
+    ),
+    Wait(frame_dt: 10),
+    SetCameraLocation(
+        translation: (14.0, 5.0, -8.0),
+        rotation: (-14.0, 60.0, 0.0),
+    ),
+    TestScreenshot(path: "00_wall_between.png"),
+
+    // Act
+    TestClearLogBuffer,
+    TeleportPlayer(translation: (0.0, 0.0, -12.5), rotation: (0.0, 0.0, 0.0)),
+    Wait(frame_dt: 250),
+
+    // Assert
+    TestLogNotExists(regex: "DebugNPC: animation .*current=WOLF-T_WARN"),
+    TestLogNotExists(regex: "AI_Attack requested by npc"),
+    TestLogNotExists(regex: "DebugNPC: actions Attack\\("),
+    TestScreenshot(path: "01_behind_wall.png"),
+
+    // Act
+    TestClearLogBuffer,
+    TeleportPlayer(translation: (5.0, 0.0, -15.0), rotation: (0.0, 0.0, 0.0)),
+    Wait(frame_dt: 400),
+
+    // Assert
+    TestLogExists(regex: "AI_Attack requested by npc"),
+    TestScreenshot(path: "02_clear_line_of_sight.png"),
+
+    ExitGame,
+]

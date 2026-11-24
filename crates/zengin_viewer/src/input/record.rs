@@ -51,6 +51,16 @@ pub(crate) enum RecordedAction {
     Editor(EditorAction),
 }
 
+/// sRGB color components in the `0..=1` range, the `PlaceCube` command's
+/// `color` field.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ReplayColor {
+    pub(crate) red: f32,
+    pub(crate) green: f32,
+    pub(crate) blue: f32,
+}
+
 /// One recorded replay command. Together these fully describe the triggered
 /// inputs and extra commands of a run so they can be replayed frame by frame.
 ///
@@ -198,6 +208,15 @@ pub(crate) enum ReplayCommand {
         locked: bool,
         translation: Vec3,
         rotation: Vec3,
+    },
+    /// Spawns a static, colliding cube at `translation` with `size` in world
+    /// units and `rotation` in axis labeled degrees. Adds geometry the test
+    /// worlds do not provide, e.g. a wall between two actors.
+    PlaceCube {
+        translation: Vec3,
+        rotation: Vec3,
+        size: Vec3,
+        color: ReplayColor,
     },
     /// Spawns the test world `name` defined in code, with its own camera.
     /// Does not load a zengin world archive.

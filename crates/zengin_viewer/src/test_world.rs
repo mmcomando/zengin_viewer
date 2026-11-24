@@ -9,8 +9,8 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::gui_debug::WorldMesh;
-use crate::zengin::{DYNAMIC_OBJECT, STATIC_OBJECT, ZenGinModelComponentLoaded};
 use crate::perf_debug;
+use crate::zengin::{DYNAMIC_OBJECT, STATIC_OBJECT, ZenGinModelComponentLoaded};
 
 /// Spawns the test worlds requested by scenario replays.
 pub struct TestWorldPlugin;
@@ -18,11 +18,13 @@ pub struct TestWorldPlugin;
 impl Plugin for TestWorldPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PendingTestWorldSpawns>();
+        app.init_resource::<PendingTestCubes>();
         app.init_resource::<TestWorldRoot>();
         app.add_plugins(InfiniteGridPlugin);
         app.add_systems(
             Update,
-            spawn_test_world
+            (spawn_test_world, spawn_test_cubes)
+                .chain()
                 .run_if(in_state(AppState::LoadScreen).or_else(in_state(AppState::InGame))),
         );
     }
@@ -31,6 +33,20 @@ impl Plugin for TestWorldPlugin {
 /// Test world spawn requests, drained by [`spawn_test_world`].
 #[derive(Resource, Default)]
 struct PendingTestWorldSpawns(VecDeque<String>);
+
+/// Standalone cube spawn requests, drained by [`spawn_test_cubes`]. The cubes
+/// become children of [`TestWorldRoot`], so a new test world removes them.
+#[derive(Resource, Default)]
+struct PendingTestCubes(VecDeque<TestCubeSpawn>);
+
+/// Static collider cube requested by the `PlaceCube` scenario command, given by
+/// its center, full size and rotation in world units.
+pub(crate) struct TestCubeSpawn {
+    pub(crate) center: Vec3,
+    pub(crate) size: Vec3,
+    pub(crate) rotation: Quat,
+    pub(crate) color: Color,
+}
 
 /// Root entity of the most recently spawned test world.
 #[derive(Resource, Default)]
@@ -41,6 +57,10 @@ pub(crate) fn request_test_world_spawn(world: &mut World, name: &str) {
         .resource_mut::<PendingTestWorldSpawns>()
         .0
         .push_back(name.to_string());
+}
+
+pub(crate) fn request_test_cube_spawn(world: &mut World, cube: TestCubeSpawn) {
+    world.resource_mut::<PendingTestCubes>().0.push_back(cube);
 }
 
 /// Removes the test world geometry.
@@ -141,6 +161,34 @@ fn spawn_test_world(
         despawn_test_world(&mut commands, &mut root);
         root.0 = Some(world_root);
         info!("Spawned test world({name})");
+    }
+}
+
+fn spawn_test_cubes(
+    mut pending: ResMut<PendingTestCubes>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    root: Res<TestWorldRoot>,
+) {
+    let _perf = perf_debug!();
+    if pending.0.is_empty() {
+        return;
+    }
+    let mut cubes = Vec::with_capacity(pending.0.len());
+    for cube in pending.0.drain(..) {
+        cubes.push(spawn_box(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            cube.center,
+            cube.size,
+            cube.rotation,
+            cube.color,
+        ));
+    }
+    if let Some(root) = root.0 {
+        commands.entity(root).add_children(&cubes);
     }
 }
 
@@ -250,9 +298,30 @@ fn spawn_cube(
     materials: &mut Assets<StandardMaterial>,
     cube: &TestCube,
 ) -> Entity {
-    let mesh = meshes.add(Cuboid::new(cube.size.x, cube.size.y, cube.size.z));
+    spawn_box(
+        commands,
+        meshes,
+        materials,
+        cube.center,
+        cube.size,
+        Quat::IDENTITY,
+        cube.color,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_box(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    center: Vec3,
+    size: Vec3,
+    rotation: Quat,
+    color: Color,
+) -> Entity {
+    let mesh = meshes.add(Cuboid::new(size.x, size.y, size.z));
     let material = materials.add(StandardMaterial {
-        base_color: cube.color,
+        base_color: color,
         perceptual_roughness: 1.0,
         metallic: 0.0,
         ..default()
@@ -261,9 +330,9 @@ fn spawn_cube(
         .spawn((
             Mesh3d(mesh),
             MeshMaterial3d(material),
-            Transform::from_translation(cube.center),
+            Transform::from_translation(center).with_rotation(rotation),
             RigidBody::Static,
-            Collider::cuboid(cube.size.x, cube.size.y, cube.size.z),
+            Collider::cuboid(size.x, size.y, size.z),
             CollisionLayers::from_bits(STATIC_OBJECT, DYNAMIC_OBJECT),
         ))
         .id()

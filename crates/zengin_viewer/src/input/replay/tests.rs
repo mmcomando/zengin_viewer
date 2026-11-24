@@ -186,6 +186,23 @@ fn npc_use_mob_command_parses_and_schedules() {
 }
 
 #[test]
+fn place_cube_command_parses_and_schedules() {
+    let commands = parse(
+        "[PlaceCube(translation: (0.0, 2.5, -16.0), rotation: (0.0, 0.0, 0.0), size: (6.0, 5.0, 0.5), color: (red: 0.8, green: 0.2, blue: 0.2))]",
+    );
+    assert_eq!(frames(&commands), [5]);
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::PlaceCube { translation, size, color, .. }
+            if *translation == Vec3::new(0.0, 2.5, -16.0)
+                && *size == Vec3::new(6.0, 5.0, 0.5)
+                && (color.red - 0.8).abs() < f32::EPSILON
+                && (color.green - 0.2).abs() < f32::EPSILON
+                && (color.blue - 0.2).abs() < f32::EPSILON
+    ));
+}
+
+#[test]
 fn spawn_mob_command_parses_and_schedules() {
     let commands = parse(
         "[ZenginSpawnMob(visual: \"CHAIR_NW_NORMAL_01\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",
