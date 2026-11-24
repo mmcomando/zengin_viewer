@@ -55,18 +55,4 @@ impl Inventory {
         }
         removed
     }
-
-    /// Empties the inventory, returning the removed contents.
-    pub fn take_all(&mut self) -> Inventory {
-        Inventory {
-            items: std::mem::take(&mut self.items),
-        }
-    }
-
-    /// Absorbs all stacks of `other` into this inventory.
-    pub fn merge(&mut self, other: Inventory) {
-        for (item, count) in other.items {
-            *self.items.entry(item).or_insert(0) += count;
-        }
-    }
 }

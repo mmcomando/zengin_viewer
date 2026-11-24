@@ -7,10 +7,9 @@ use leafwing_input_manager::prelude::ActionState;
 
 use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::PlayerCharacter;
-use crate::gui::{GameLog, GameLogEntry};
+use crate::gui::GameLog;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::perf_debug;
-use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
@@ -144,35 +143,6 @@ fn weapon_state(
     };
     let name = if ranged { "ranged" } else { "melee" };
     Some((equipped, drawn, name))
-}
-
-/// Moves all items between the requested instance inventories and logs each
-/// moved stack bottom-left.
-pub(super) fn handle_transfer_items(
-    mut requests: MessageReader<TransferItems>,
-    mut game_log: MessageWriter<GameLogEntry>,
-    gothic_script: Res<ScriptResource>,
-) {
-    let _perf = perf_debug!();
-    for request in requests.read() {
-        let mut script = gothic_script.lock();
-        let moved = script.transfer_inventory(request.instance_from_id, request.instance_to_id);
-        if moved.is_empty() {
-            continue;
-        }
-        info!(
-            "Moved {} item stack(s) from instance({}) to instance({})",
-            moved.len(),
-            request.instance_from_id,
-            request.instance_to_id
-        );
-        for (item, count) in moved {
-            let name = script.item_log_name(item);
-            game_log.write(GameLogEntry {
-                text: format!("{name} x{count}"),
-            });
-        }
-    }
 }
 
 /// Picks up the selected item on `E`: it is added to the player's inventory

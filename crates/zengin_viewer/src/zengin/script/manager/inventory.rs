@@ -4,22 +4,6 @@ use super::super::state::{ITEM_MAINFLAG_ARMOR, WeaponKind, WeaponMode};
 use super::super::symbol_id::InstanceId;
 
 impl super::ScriptManager {
-    /// Moves all items of `from`'s inventory into `to`'s inventory, returning the
-    /// moved `(item, count)` pairs.
-    pub fn transfer_inventory(
-        &mut self,
-        from: InstanceId,
-        to: InstanceId,
-    ) -> Vec<(InstanceId, i32)> {
-        let taken = self.npc_state_mut(from).inventory.take_all();
-        let moved = taken.items();
-        if moved.is_empty() {
-            return Vec::new();
-        }
-        self.npc_state_mut(to).inventory.merge(taken);
-        moved
-    }
-
     pub fn add_inventory(&mut self, npc: InstanceId, item: InstanceId, count: i32) {
         self.npc_state_mut(npc).inventory.create(item, count);
     }

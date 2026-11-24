@@ -19,7 +19,6 @@ use crate::zengin::npc_routines::{
     AnimationFiles, NpcEquippedWeapon, NpcLookAt, NpcOverlay, NpcWeaponMode,
 };
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
-use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
@@ -37,8 +36,8 @@ pub(super) type NpcHitQueryData = (
     Has<PlayerCharacter>,
 );
 
-/// An npc died (hitpoints reached 0): its inventory moves to the player, the
-/// drawn weapon drops on the ground and the npc entity is despawned.
+/// An npc died (hitpoints reached 0): its inventory stays on the corpse and the
+/// drawn weapon drops on the ground.
 #[derive(Message)]
 pub struct NpcDied {
     pub entity: Entity,
@@ -406,14 +405,13 @@ fn drop_drawn_weapon(
 #[derive(Message)]
 pub(super) struct NpcDeathResolved {
     pub npc_id: InstanceId,
-    pub player_id: Option<InstanceId>,
     pub position: Vec3,
     pub dropped_weapon: Option<InstanceId>,
 }
 
 /// Handles npc death: runs the script death state, clears the corpse's
-/// equipment and marks the entity as a corpse. Moving the inventory and dropping
-/// the drawn weapon are separate jobs fed by [`NpcDeathResolved`].
+/// equipment and marks the entity as a corpse. Dropping the drawn weapon is a
+/// separate job fed by [`NpcDeathResolved`].
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(super) fn handle_npc_death(
     mut deaths: MessageReader<NpcDied>,
@@ -431,7 +429,6 @@ pub(super) fn handle_npc_death(
         ),
         Without<PlayerCharacter>,
     >,
-    player_npc: Query<&GameNpc, With<PlayerCharacter>>,
 ) {
     let perf = perf_debug!();
     for death in deaths.read() {
@@ -459,32 +456,25 @@ pub(super) fn handle_npc_death(
             let mut state = script.npc_state_mut(npc_id);
             state.live.position = None;
             // The corpse keeps its armor visual, but no weapon stays in its
-            // hand: the drawn one was dropped and the rest moved to the player.
+            // hand: the drawn one drops and the rest stays in the inventory.
             state.equipment.melee = None;
             state.equipment.ranged = None;
             state.equipment.weapon_mode = None;
         }
         visibility.write(VisibilityRefresh);
         let position = death.position;
-        // Only the drawn weapon drops on the ground; sheathed weapons stay
-        // part of the inventory that moves to the player
+        // Only the drawn weapon drops on the ground; sheathed weapons stay in
+        // the corpse inventory.
         let dropped = match weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0) {
             WeaponMode::Melee => equipped.and_then(|equipped| equipped.melee),
             WeaponMode::Ranged => equipped.and_then(|equipped| equipped.ranged),
             WeaponMode::Fists => None,
         };
 
-        // Without a player (npc-vs-npc death) there is no inventory recipient,
-        // but the corpse still has to be marked and animated. The weapon drop
-        // does not need the player either.
-        let player_id = player_npc.single().ok().map(GameNpc::instance_id);
-        if player_id.is_none() {
-            perf.increment_tag("no_player", 1);
-        }
         perf.increment_tag("handled", 1);
+        info!("Npc({}) died, its inventory stays on the corpse", npc_id);
         resolved.write(NpcDeathResolved {
             npc_id,
-            player_id,
             position,
             dropped_weapon: dropped,
         });
@@ -511,31 +501,6 @@ pub(super) fn handle_npc_death(
             selection.kind = None;
             selection.name.clear();
         }
-    }
-}
-
-/// Moves a dead npc's inventory to the player.
-pub(super) fn transfer_npc_death_inventory(
-    mut resolved: MessageReader<NpcDeathResolved>,
-    mut transfer_items: MessageWriter<TransferItems>,
-) {
-    let _perf = perf_debug!();
-    for death in resolved.read() {
-        let Some(player_id) = death.player_id else {
-            debug!(
-                "Npc({}) died without a player, its inventory stays on the corpse",
-                death.npc_id
-            );
-            continue;
-        };
-        transfer_items.write(TransferItems {
-            instance_from_id: death.npc_id,
-            instance_to_id: player_id,
-        });
-        info!(
-            "Npc({}) died, moved its inventory to player({})",
-            death.npc_id, player_id
-        );
     }
 }
 

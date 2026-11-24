@@ -18,14 +18,12 @@ pub(crate) use debug::{grant_test_items, seed_test_journal};
 
 use crate::game_state::AppState;
 use crate::input::world_input_enabled;
-use crate::zengin::script::TransferItems;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 
 pub struct PlayerInteractionPlugin;
 
 impl Plugin for PlayerInteractionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<TransferItems>();
         app.add_message::<NpcDied>();
         app.add_message::<MeleeHit>();
         app.add_message::<combat::NpcDeathResolved>();
@@ -35,9 +33,7 @@ impl Plugin for PlayerInteractionPlugin {
             (
                 combat::npc_melee_swing_hit,
                 crate::graphics::npc_hit_reaction_end,
-                combat::transfer_npc_death_inventory,
                 combat::drop_npc_death_weapon,
-                actions::handle_transfer_items,
                 player_mob::start_auto_end_release
                     .before(player_mob::stand_up_player_from_mob)
                     .before(player_mob::advance_player_mob_release),
