@@ -9,7 +9,9 @@ use crate::gui::StatsUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::perf_debug;
 use crate::zengin::DialogUiState;
-use crate::zengin::{GameChest, GameNpc, InstanceId, MobBase, ScriptResource, WeaponKind};
+use crate::zengin::{
+    GameChest, GameNpc, InstanceId, MobBase, ScriptManager, ScriptResource, WeaponKind,
+};
 
 use super::data::{
     chest_add_item, chest_inventory_window, chest_remove_item, clamp_selection,
@@ -79,36 +81,15 @@ pub(super) fn open_loot(
     );
     let player_stacks = player.items.len();
     let left = match request.source {
-        LootSource::Chest(chest_entity) => {
-            let Ok((chest, base)) = chests.get(chest_entity) else {
-                warn!("Loot request for missing chest entity({chest_entity})");
-                return;
-            };
-            let title = script.mob_focus_name(&base.focus_name);
-            let window = chest_inventory_window(&mut script, title, &chest.items);
-            info!(
-                "Loot opened for chest({chest_entity}) vob({}): player {player_stacks} stack(s), chest {} stack(s)",
-                base.vob_name,
-                window.items.len()
-            );
-            window
+        LootSource::Chest(entity) => {
+            open_chest_loot_window(&mut script, entity, player_stacks, &chests)
         }
-        LootSource::Corpse(corpse_entity) => {
-            let Ok(npc) = npcs.get(corpse_entity) else {
-                warn!("Loot request for missing corpse entity({corpse_entity})");
-                return;
-            };
-            let npc_id = npc.instance_id();
-            let title = script
-                .npc_display_name(npc_id)
-                .unwrap_or_else(|| script.call_get_name(npc_id.symbol()));
-            let window = corpse_inventory_window(&mut script, npc_id, title);
-            info!(
-                "Loot opened for corpse({corpse_entity}) npc({npc_id}): player {player_stacks} stack(s), corpse {} stack(s)",
-                window.items.len()
-            );
-            window
+        LootSource::Corpse(entity) => {
+            open_corpse_loot_window(&mut script, entity, player_stacks, &npcs)
         }
+    };
+    let Some(left) = left else {
+        return;
     };
     state.windows[PLAYER_WINDOW] = Some(player);
     state.windows[TRADER_WINDOW] = Some(left);
@@ -280,6 +261,50 @@ pub(super) fn close_orphaned_trade(
     if state.is_trade() && !dialog_ui.is_open() {
         state.close();
     }
+}
+
+/// Builds the left loot window of a chest, `None` when the entity is gone.
+fn open_chest_loot_window(
+    script: &mut ScriptManager,
+    chest_entity: Entity,
+    player_stacks: usize,
+    chests: &Query<(&GameChest, &MobBase)>,
+) -> Option<InventoryWindowState> {
+    let Ok((chest, base)) = chests.get(chest_entity) else {
+        warn!("Loot request for missing chest entity({chest_entity})");
+        return None;
+    };
+    let title = script.mob_focus_name(&base.focus_name);
+    let window = chest_inventory_window(script, title, &chest.items);
+    info!(
+        "Loot opened for chest({chest_entity}) vob({}): player {player_stacks} stack(s), chest {} stack(s)",
+        base.vob_name,
+        window.items.len()
+    );
+    Some(window)
+}
+
+/// Builds the left loot window of a corpse, `None` when the entity is gone.
+fn open_corpse_loot_window(
+    script: &mut ScriptManager,
+    corpse_entity: Entity,
+    player_stacks: usize,
+    npcs: &Query<&GameNpc>,
+) -> Option<InventoryWindowState> {
+    let Ok(npc) = npcs.get(corpse_entity) else {
+        warn!("Loot request for missing corpse entity({corpse_entity})");
+        return None;
+    };
+    let npc_id = npc.instance_id();
+    let title = script
+        .npc_display_name(npc_id)
+        .unwrap_or_else(|| script.call_get_name(npc_id.symbol()));
+    let window = corpse_inventory_window(script, npc_id, title);
+    info!(
+        "Loot opened for corpse({corpse_entity}) npc({npc_id}): player {player_stacks} stack(s), corpse {} stack(s)",
+        window.items.len()
+    );
+    Some(window)
 }
 
 /// Buys one item from the trader window or sells one from the player window,
@@ -592,9 +617,8 @@ fn equip_selected_item(
     let player_id = player_npc.instance_id();
 
     let mut script = gothic_script.lock();
-    let (equipped_melee, equipped_ranged, equipped_armor) = script
-        .npc_state(player_id)
-        .map_or_default(|npc| {
+    let (equipped_melee, equipped_ranged, equipped_armor) =
+        script.npc_state(player_id).map_or_default(|npc| {
             (
                 npc.equipment.melee,
                 npc.equipment.ranged,
@@ -624,15 +648,13 @@ fn equip_selected_item(
                 entry.instance_id.value()
             );
         }
-        return script
-            .npc_state(player_id)
-            .map_or_default(|npc| {
-                (
-                    npc.equipment.melee,
-                    npc.equipment.ranged,
-                    npc.equipment.armor,
-                )
-            });
+        return script.npc_state(player_id).map_or_default(|npc| {
+            (
+                npc.equipment.melee,
+                npc.equipment.ranged,
+                npc.equipment.armor,
+            )
+        });
     }
     let Some(kind) = WeaponKind::from_symbol_name(&symbol) else {
         game_log.add(format!("{} is not a weapon or armor", entry.name));
@@ -661,15 +683,13 @@ fn equip_selected_item(
         );
     }
 
-    script
-        .npc_state(player_id)
-        .map_or_default(|npc| {
-            (
-                npc.equipment.melee,
-                npc.equipment.ranged,
-                npc.equipment.armor,
-            )
-        })
+    script.npc_state(player_id).map_or_default(|npc| {
+        (
+            npc.equipment.melee,
+            npc.equipment.ranged,
+            npc.equipment.armor,
+        )
+    })
 }
 
 #[cfg(test)]

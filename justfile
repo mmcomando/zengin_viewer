@@ -41,6 +41,7 @@ all-test-scenarios:
     just test-scenario tests/player_use_lever
     just test-scenario tests/player_use_door
     just test-scenario tests/chest_open
+    just test-scenario tests/corpse_loot
     just test-scenario tests/npc_use_mob
     just test-scenario tests/npc_death_scripts
     just test-scenario tests/npc_falls

@@ -472,7 +472,7 @@ pub(super) fn handle_npc_death(
         };
 
         perf.increment_tag("handled", 1);
-        info!("Npc({}) died, its inventory stays on the corpse", npc_id);
+        info!("Npc({}) died", npc_id);
         resolved.write(NpcDeathResolved {
             npc_id,
             position,

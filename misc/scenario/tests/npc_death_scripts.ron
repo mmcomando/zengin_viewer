@@ -16,7 +16,6 @@
 
     // Assert
     TestLogExists(regex: "ran the ZS_DEAD state for killer"),
-    TestLogExists(regex: "died, moved its inventory to player"),
     TestLogExists(regex: "DebugNPC: animation .*current=WOLF-(T_DEAD|S_DEAD)"),
     TestScreenshot(path: "00_dead.png"),
 

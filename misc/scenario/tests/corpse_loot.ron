@@ -1,0 +1,58 @@
+[
+    // Setup
+    ZenginFilterSpawnWithPosition(points: [(center: (0, 0, 0), radius: 10.0)]),
+    ZenginFilterNpcWithName(filters: ["wolf"]),
+    IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginSpawnNpc(name: "wolf", translation: (0.0, 0.0, -3.0), rotation: (0.0, 0.0, 0.0)),
+    ZenginSetDebugNpc(name: "wolf"),
+    ZenginEquipWeapon(item: "itmw_1h_mil_sword"),
+    Wait(frame_dt: 50),
+    TestScreenshot(path: "00_initial.png"),
+
+    // Act
+    TestClearLogBuffer,
+    Press(action: Gameplay(DealDamage)),
+    Wait(frame_dt: 600),
+    Release(action: Gameplay(DealDamage)),
+
+    // Assert
+    TestLogExists(regex: "ran the ZS_DEAD state for killer"),
+    TestScreenshot(path: "01_dead.png"),
+
+    // Act
+    TestClearLogBuffer,
+    PressRelease(action: Gameplay(DrawWeapon)),
+    Wait(frame_dt: 100),
+
+    // Assert
+    TestLogExists(regex: "sheathed its .* weapon"),
+    TestScreenshot(path: "02_sheathed.png"),
+
+    // Act
+    TestClearLogBuffer,
+    PressRelease(action: Gameplay(Interact)),
+    Wait(frame_dt: 100),
+
+    // Assert
+    TestLogExists(regex: "opened corpse"),
+    TestLogExists(regex: "Loot opened for corpse"),
+    TestScreenshot(path: "03_loot.png"),
+
+    // Act
+    TestClearLogBuffer,
+    PressRelease(action: Gui(Confirm)),
+    Wait(frame_dt: 100),
+
+    // Assert
+    TestLogExists(regex: "took item\\(.*\\) from corpse"),
+    TestScreenshot(path: "04_taken.png"),
+
+    // Release
+    PressRelease(action: Gui(CancelAction)),
+    Wait(frame_dt: 100),
+
+    // Assert
+    TestScreenshot(path: "05_closed.png"),
+
+    ExitGame,
+]
