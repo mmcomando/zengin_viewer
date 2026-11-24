@@ -60,7 +60,7 @@ pub(crate) use crate::zengin::loaders::vdf_reader::{
     ZenginVfs, create_zengin_asset_loader, create_zengin_vfs,
 };
 pub(crate) use crate::zengin::loaders::vfs::{resolve_sound_asset, resolve_texture_asset};
-pub(crate) use crate::zengin::mobs::{MobOccupant, MobRegistry, NpcMobUse};
+pub(crate) use crate::zengin::mobs::{MobHiddenModel, MobOccupant, MobRegistry, NpcMobUse};
 pub(crate) use crate::zengin::movers::{GameMover, VobTrigger};
 pub(crate) use crate::zengin::npc_actions::NpcActionQueue;
 pub(crate) use crate::zengin::npc_actions::enqueue_npc_goto;

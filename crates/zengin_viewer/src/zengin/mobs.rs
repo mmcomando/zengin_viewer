@@ -111,6 +111,11 @@ pub struct NpcMobUse {
 #[derive(Component, Debug, Clone, Copy)]
 pub struct MobOccupant(pub Entity);
 
+/// Model of a mob whose vob has `showVisual = false`. It is loaded only to
+/// read its `ZS_POS*` attachment nodes and never turned into mesh entities.
+#[derive(Component, Debug, Clone)]
+pub struct MobHiddenModel(pub Handle<ZenGinModel>);
+
 /// Animation currently applied to a mob for its state.
 #[derive(Component, Debug, Clone)]
 pub struct MobAnimation {
@@ -517,15 +522,23 @@ fn add_mob_selection_colliders(
 
 /// Fills [`MobPose::positions`] once the vob model asset is loaded.
 fn extract_mob_positions(
-    mut mobs: Query<(&mut MobPose, &MobBase, &ZenGinModelComponent)>,
+    mut mobs: Query<(
+        &mut MobPose,
+        &MobBase,
+        Option<&ZenGinModelComponent>,
+        Option<&MobHiddenModel>,
+    )>,
     models: Res<Assets<ZenGinModel>>,
 ) {
     let _perf = perf_debug!();
-    for (mut pose, base, model_component) in &mut mobs {
+    for (mut pose, base, model_component, hidden_model) in &mut mobs {
         if pose.positions.is_some() {
             continue;
         }
-        let Some(model) = models.get(&model_component.model_handle) else {
+        let model_handle = model_component
+            .map(|component| &component.model_handle)
+            .or_else(|| hidden_model.map(|hidden| &hidden.0));
+        let Some(model) = model_handle.and_then(|handle| models.get(handle)) else {
             continue;
         };
         let positions = mob_positions(model);
@@ -545,13 +558,14 @@ fn extract_mob_positions(
 
 /// `ZS_POS*` nodes of a mob model with their model-space transforms.
 ///
-/// Skinned meshes are rendered in raw hierarchy space: the joint chain uses
-/// the raw node transforms while the bind poses carry the hierarchy root
-/// translation, so the two cancel out. Attachment points therefore have to be
-/// taken without `root_translation` too, otherwise they are shifted relative
-/// to the visible mesh by that offset. Static meshes render their vertices in
-/// model space and keep the root offset, so their attachment points keep it as
-/// well.
+/// The hierarchy root translation is a bind-pose offset, not part of the node
+/// space the engine positions actors in: the attachment nodes are taken from
+/// the raw node chain. The visible mesh cancels the offset too (skinned joints
+/// use the raw chain while their bind poses carry it), so keeping it would move
+/// the attachment point by the root offset relative to the mesh. For static
+/// attachment-only models (the hidden `REPAIR_PLANK`, whose geometry has no
+/// texture and is not rendered) it would also lift the actor off the ground by
+/// the whole root height.
 fn mob_positions(model: &ZenGinModel) -> Vec<crate::zengin::MobPosition> {
     model
         .node_names
@@ -560,9 +574,7 @@ fn mob_positions(model: &ZenGinModel) -> Vec<crate::zengin::MobPosition> {
         .filter(|(name, _)| name.starts_with("ZS_POS"))
         .map(|(name, transform)| {
             let mut mob_transform = *transform;
-            if model.has_skinned_meshes {
-                mob_transform.translation -= model.root_translation;
-            }
+            mob_transform.translation -= model.root_translation;
             crate::zengin::MobPosition {
                 name: name.clone(),
                 transform: mob_transform,
@@ -612,7 +624,10 @@ mod tests {
     }
 
     #[test]
-    fn static_mob_positions_keep_the_hierarchy_root_translation() {
+    fn mob_positions_remove_the_root_translation_without_rendered_meshes() {
+        // The hidden `REPAIR_PLANK` only ships a textureless attachment, so the
+        // model has no skinned meshes; the bind-pose offset must be removed all
+        // the same, or the actor floats one root height above the ground.
         let root = Vec3::new(0.0, 1.336, 0.55);
         let model = ZenGinModel {
             node_names: vec!["ZM_BOOK1".to_string(), "ZS_POS0".to_string()],
@@ -624,9 +639,11 @@ mod tests {
         let positions = mob_positions(&model);
 
         assert_eq!(positions.len(), 1);
-        assert_eq!(
-            positions[0].transform.translation,
-            Vec3::new(0.0, 0.971, -0.021)
+        let expected = Vec3::new(0.0, 0.971 - 1.336, -0.021 - 0.55);
+        assert!(
+            (positions[0].transform.translation - expected).length() < 1e-5,
+            "got {:?}, expected {expected:?}",
+            positions[0].transform.translation
         );
     }
 

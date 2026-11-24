@@ -1,0 +1,18 @@
+[
+    // Setup
+    SetCameraLocation(
+        translation: (-66.5, 5.7, -23.0),
+        rotation: (-26.0, 0.0, 0.0),
+    ),
+    TestClearLogBuffer,
+    IncludeScenario(path: "/common/new_world"),
+
+    // Act
+    Wait(frame_dt: 250),
+
+    // Assert
+    TestLogExists(regex: "uses mob\\(.*\\) vob\\(.*\\) scheme\\(repair\\) state\\(1\\) animation\\(S_REPAIR_S1\\) transition\\(Some\\(\"T_REPAIR_S0_2_S1\"\\)\\)"),
+    TestScreenshot(path: "00_repair.png"),
+
+    ExitGame,
+]

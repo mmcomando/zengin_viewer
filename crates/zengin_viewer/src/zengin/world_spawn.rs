@@ -14,7 +14,7 @@ use crate::perf_debug;
 use crate::zengin::common::{is_switch_mob_scheme, mob_scheme, mob_visual_stem};
 use crate::zengin::loaders::vdf_reader::ZenginVfs;
 use crate::zengin::loaders::vfs::find_mesh_path;
-use crate::zengin::mobs::{MobAnimation, mob_state_animation};
+use crate::zengin::mobs::{MobAnimation, MobHiddenModel, mob_state_animation};
 use crate::zengin::movers::GameMover;
 use crate::zengin::npc_routines::AnimationFiles;
 use crate::zengin::resources::{CachedAssetHandles, SELECTABLE, ZenGinModelComponent};
@@ -78,6 +78,9 @@ pub(crate) struct SpawnMob {
     pub(crate) tr: Transform,
     /// Mesh asset path, empty when the vob has no visual.
     pub(crate) archetype: String,
+    /// The vob has `showVisual = false`: load the model only for its `ZS_POS*`
+    /// attachment nodes, without rendering it.
+    pub(crate) visual_hidden: bool,
     pub(crate) collides: bool,
     /// `AI_UseMob` / player animation scheme derived from the visual stem.
     pub(crate) scheme: String,
@@ -211,6 +214,7 @@ pub(crate) fn request_mob_spawn(
         },
         tr,
         archetype,
+        visual_hidden: false,
         collides: true,
         scheme: scheme.clone(),
         visual_stem: mob_visual_stem(visual),
@@ -260,6 +264,7 @@ pub(crate) fn request_chest_spawn(
         },
         tr,
         archetype,
+        visual_hidden: false,
         collides: true,
         scheme,
         visual_stem: mob_visual_stem(visual),
@@ -379,6 +384,7 @@ fn spawn_mobs(
             base,
             tr,
             archetype,
+            visual_hidden,
             collides,
             scheme,
             visual_stem,
@@ -449,6 +455,12 @@ fn spawn_mobs(
             }
         }
         if let Some(model_handle) = model_handle {
+            // Hidden vobs keep their model only for the `ZS_POS*` attachment
+            // nodes: no mesh children, no state animation.
+            if visual_hidden {
+                entity.insert(MobHiddenModel(model_handle));
+                continue;
+            }
             let animation_handle = mob_state_animation(
                 &animation_files,
                 &mut handles_map,

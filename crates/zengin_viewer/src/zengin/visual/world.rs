@@ -110,7 +110,7 @@ fn load_objects(
     } else if obj.get_type() == VobType::oCMobContainer {
         handle_container(vfs, item_ids, obj, has_visual, spawns, restore);
     } else if is_interactive_mob(obj.get_type()) {
-        handle_mob(vfs, obj, has_visual, spawns);
+        handle_mob(vfs, obj, spawns);
     } else if has_visual {
         assert_ne!(obj.get_type(), VobType::zCVobLight);
         if let Some(asset_path) = visual_asset_path(vfs, &visual) {
@@ -176,13 +176,16 @@ fn is_interactive_mob(type_: VobType) -> bool {
     )
 }
 
-fn handle_mob(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, spawns: &WorldSpawnMessages) {
+fn handle_mob(vfs: &Vfs, obj: &VirtualObject, spawns: &WorldSpawnMessages) {
     let visual = obj.visual();
-    let archetype = has_visual
+    let visual_name = visual.name();
+    // The engine loads the mesh of a `showVisual=false` mob as well, it only
+    // skips drawing it. Keep the model to read the `ZS_POS*` attachment nodes.
+    let archetype = (!visual_name.is_empty())
         .then(|| visual_asset_path(vfs, &visual))
         .flatten()
         .unwrap_or_default();
-    let scheme = mob_scheme(&visual.name());
+    let scheme = mob_scheme(&visual_name);
     // Switch-like vobs end the player's use automatically; the scheme fallback
     // covers mods that use an `oCMobInter` class for a lever/button visual.
     let auto_end = matches!(
@@ -199,9 +202,10 @@ fn handle_mob(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, spawns: &WorldSp
         },
         tr: get_obj_tr(obj),
         archetype,
+        visual_hidden: !obj.show_visual(),
         collides: obj.cd_dynamic(),
         scheme: scheme.clone(),
-        visual_stem: mob_visual_stem(&visual.name()),
+        visual_stem: mob_visual_stem(&visual_name),
         state_num: obj.interactive_state(),
         kind: MobSpawnKind::Interactive(InteractiveSpawn {
             use_with_item: obj.interactive_use_with_item(),
@@ -274,6 +278,7 @@ fn handle_container(
         },
         tr: get_obj_tr(obj),
         archetype,
+        visual_hidden: false,
         collides: obj.cd_dynamic(),
         scheme: mob_scheme(&visual_name),
         visual_stem: mob_visual_stem(&visual_name),

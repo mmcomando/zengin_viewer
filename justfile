@@ -43,6 +43,7 @@ all-test-scenarios:
     just test-scenario tests/chest_open
     just test-scenario tests/corpse_loot
     just test-scenario tests/npc_use_mob
+    just test-scenario tests/npc_use_repair
     just test-scenario tests/npc_death_scripts
     just test-scenario tests/npc_falls
     just test-scenario tests/npc_attacked_during_goto

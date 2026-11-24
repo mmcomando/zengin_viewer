@@ -21,7 +21,9 @@ use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{BS_LIE, BS_SIT, UseMobChange};
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::{GameMob, GameNpc, MobBase, MobOccupant, MobPose, MobRegistry, NpcMobUse};
+use crate::zengin::{
+    GameMob, GameNpc, MobBase, MobHiddenModel, MobOccupant, MobPose, MobRegistry, NpcMobUse,
+};
 
 const MOB_USE_DISTANCE: f32 = MAX_AI_USE_DISTANCE;
 
@@ -227,6 +229,7 @@ pub(crate) fn run_use_mob_action(
         &GlobalTransform,
         Option<&MobOccupant>,
         Option<&ZenGinModelComponent>,
+        Option<&MobHiddenModel>,
     )>,
     mut npcs: Query<(
         Entity,
@@ -528,6 +531,7 @@ fn select_mob(
         &GlobalTransform,
         Option<&MobOccupant>,
         Option<&ZenGinModelComponent>,
+        Option<&MobHiddenModel>,
     )>,
     registry: &MobRegistry,
     claimed: &HashSet<Entity>,
@@ -546,14 +550,15 @@ fn select_mob(
         if claimed.contains(&mob_entity) {
             continue;
         }
-        let Ok((mob, pose, base, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
+        let Ok((mob, pose, base, mob_tr, occupant, model, hidden)) = mobs.get_mut(mob_entity)
+        else {
             continue;
         };
         if occupant.is_some() {
             continue;
         }
         let Some((use_pos, use_rot, position_tag, ready, attached)) =
-            mob_use_transform(&pose, mob_tr, npc_pos, model.is_some())
+            mob_use_transform(&pose, mob_tr, npc_pos, model.is_some() || hidden.is_some())
         else {
             continue;
         };
@@ -593,18 +598,19 @@ fn mob_choice(
         &GlobalTransform,
         Option<&MobOccupant>,
         Option<&ZenGinModelComponent>,
+        Option<&MobHiddenModel>,
     )>,
     mob_entity: Entity,
     npc_pos: Vec3,
 ) -> Option<MobChoice> {
-    let Ok((mob, pose, base, mob_tr, occupant, model)) = mobs.get_mut(mob_entity) else {
+    let Ok((mob, pose, base, mob_tr, occupant, model, hidden)) = mobs.get_mut(mob_entity) else {
         return None;
     };
     if occupant.is_some() {
         return None;
     }
     let (use_pos, use_rot, position_tag, ready, attached) =
-        mob_use_transform(&pose, mob_tr, npc_pos, model.is_some())?;
+        mob_use_transform(&pose, mob_tr, npc_pos, model.is_some() || hidden.is_some())?;
     Some(MobChoice {
         mob: mob_entity,
         vob_name: base.vob_name.clone(),
@@ -791,6 +797,7 @@ mod tests {
             &'static GlobalTransform,
             Option<&'static MobOccupant>,
             Option<&'static ZenGinModelComponent>,
+            Option<&'static MobHiddenModel>,
         ),
     >;
 
