@@ -179,6 +179,9 @@ pub(crate) struct SavedItemEntity {
 pub(crate) struct SavedChest {
     pub(crate) vob_id: u32,
     pub(crate) items: Vec<(InstanceId, i32)>,
+    /// Defaults to `false` (still locked) when absent from the save.
+    #[serde(default)]
+    pub(crate) cracked: bool,
 }
 
 /// Payload of `player.ron`.

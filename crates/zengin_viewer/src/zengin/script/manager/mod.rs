@@ -7,6 +7,7 @@ mod death;
 mod dialog;
 mod freepoints;
 mod inventory;
+mod locks;
 mod menu;
 mod mobs;
 mod npc;

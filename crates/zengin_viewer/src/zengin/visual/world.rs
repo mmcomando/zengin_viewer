@@ -261,12 +261,11 @@ fn handle_container(
         .flatten()
         .unwrap();
     let vob_id = obj.id();
-    let items = restore
-        .and_then(|save| save.chests.iter().find(|saved| saved.vob_id == vob_id))
-        .map_or_else(
-            || container_items(&obj.container_contents(), item_ids),
-            |saved| saved.items.clone(),
-        );
+    let saved = restore.and_then(|save| save.chests.iter().find(|saved| saved.vob_id == vob_id));
+    let items = saved.map_or_else(
+        || container_items(&obj.container_contents(), item_ids),
+        |saved| saved.items.clone(),
+    );
     spawns.mobs.send(SpawnMob {
         base: MobBase {
             vob_id,
@@ -282,6 +281,9 @@ fn handle_container(
         kind: MobSpawnKind::Container(ContainerSpawn {
             items,
             locked: obj.container_locked(),
+            key: obj.container_key(),
+            pick_string: obj.container_pick_string(),
+            cracked: saved.is_some_and(|saved| saved.cracked),
         }),
     });
 }

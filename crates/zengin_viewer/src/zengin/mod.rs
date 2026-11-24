@@ -241,8 +241,14 @@ pub struct GameMob {
 #[derive(Debug, Component)]
 #[require(WorldEntityMarker)]
 pub struct GameChest {
-    /// Vob `locked` flag, reported when the chest is opened.
+    /// Vob `locked` flag as loaded. A key or pick string is required to unlock.
     pub locked: bool,
+    /// Script instance name of the unlocking item, empty when none.
+    pub key: String,
+    /// Lockpick combination, one `R`/`L` per step, empty when not pickable.
+    pub pick_string: String,
+    /// Unlocked by a key or a completed lockpick sequence, persists in saves.
+    pub cracked: bool,
     /// Remaining contents as `(item, count)` pairs.
     pub items: Vec<(InstanceId, i32)>,
 }

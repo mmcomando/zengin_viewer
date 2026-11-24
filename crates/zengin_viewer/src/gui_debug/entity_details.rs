@@ -96,6 +96,9 @@ struct ItemRuntimeView {
 #[derive(Reflect, Debug)]
 struct ChestView {
     locked: bool,
+    key: String,
+    pick_string: String,
+    cracked: bool,
     items: Vec<String>,
 }
 
@@ -291,7 +294,8 @@ fn npc_details(
             .iter()
             .map(|entry| {
                 let state = entry
-                    .state_fn.map_or_else(|| "-".to_owned(), |id| resolve(id.value()));
+                    .state_fn
+                    .map_or_else(|| "-".to_owned(), |id| resolve(id.value()));
                 format!(
                     "{:02}:{:02}-{:02}:{:02} {state} @ {}",
                     entry.start_h, entry.start_m, entry.stop_h, entry.stop_m, entry.way_point
@@ -419,6 +423,9 @@ fn chest_details(ui: &mut egui::Ui, details: &DetailsData, type_registry: &TypeR
     if let Some(chest) = details.chest {
         let view = ChestView {
             locked: chest.locked,
+            key: chest.key.clone(),
+            pick_string: chest.pick_string.clone(),
+            cracked: chest.cracked,
             items: chest
                 .items
                 .iter()

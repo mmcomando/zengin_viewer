@@ -370,7 +370,7 @@ pub(super) fn apply_replay_command(
                 scale: Vec3::ONE,
             };
             commands.queue(move |world: &mut World| {
-                crate::zengin::request_chest_spawn(world, &visual, chest_locked, transform);
+                crate::zengin::request_chest_spawn(world, &visual, chest_locked, "", "", transform);
             });
         }
         ReplayCommand::TestClearLogBuffer => {

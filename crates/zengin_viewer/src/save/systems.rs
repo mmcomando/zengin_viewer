@@ -165,6 +165,7 @@ fn quick_save(
         .map(|(chest, base)| SavedChest {
             vob_id: base.vob_id,
             items: chest.items.clone(),
+            cracked: chest.cracked,
         })
         .collect();
 

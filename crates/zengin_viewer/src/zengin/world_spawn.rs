@@ -122,6 +122,12 @@ pub(crate) struct InteractiveSpawn {
 pub(crate) struct ContainerSpawn {
     pub(crate) items: Vec<(InstanceId, i32)>,
     pub(crate) locked: bool,
+    /// Script instance name of the unlocking item.
+    pub(crate) key: String,
+    /// `R`/`L` per lockpick step, empty when the lock cannot be picked.
+    pub(crate) pick_string: String,
+    /// Restored from a save, `false` for a fresh chest.
+    pub(crate) cracked: bool,
 }
 
 /// Moving trigger vob (`zCMover`).
@@ -221,7 +227,14 @@ pub(crate) fn request_mob_spawn(
 /// Spawns an empty container vob from a visual mesh name resolved against the
 /// game archives, used by scenario replays to place chests without a world
 /// load.
-pub(crate) fn request_chest_spawn(world: &mut World, visual: &str, locked: bool, tr: Transform) {
+pub(crate) fn request_chest_spawn(
+    world: &mut World,
+    visual: &str,
+    locked: bool,
+    key: &str,
+    pick_string: &str,
+    tr: Transform,
+) {
     let Some(vfs) = world.get_resource::<ZenginVfs>() else {
         warn!("Chest({visual}) spawn requested without the zengin vfs");
         return;
@@ -254,6 +267,9 @@ pub(crate) fn request_chest_spawn(world: &mut World, visual: &str, locked: bool,
         kind: MobSpawnKind::Container(ContainerSpawn {
             items: Vec::new(),
             locked,
+            key: key.to_string(),
+            pick_string: pick_string.to_string(),
+            cracked: false,
         }),
     });
 }
@@ -425,6 +441,9 @@ fn spawn_mobs(
             MobSpawnKind::Container(container) => {
                 entity.insert(GameChest {
                     locked: container.locked,
+                    key: container.key,
+                    pick_string: container.pick_string,
+                    cracked: container.cracked,
                     items: container.items,
                 });
             }
