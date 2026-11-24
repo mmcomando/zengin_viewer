@@ -1,5 +1,6 @@
-//! Picks the world object (npc, item or chest) the player is most likely aiming
-//! at and draws its name above it, as a 3d text label anchored to the object.
+//! Picks the world object (npc, corpse, item, chest or interactive mob) the
+//! player is most likely aiming at and draws its name above it, as a 3d text
+//! label anchored to the object.
 
 use avian3d::prelude::*;
 use bevy::prelude::*;
@@ -31,6 +32,9 @@ const NPC_COLLIDER_OFFSET: f32 = f32::midpoint(NPC_COLLIDER_LENGTH, 2.0 * NPC_CO
 const NPC_LABEL_HEIGHT: f32 = 2.2;
 /// Height of the name label above a selected item.
 const ITEM_LABEL_HEIGHT: f32 = 0.6;
+/// Height of the name label above a selected corpse: the body lies on the
+/// ground, so the standing npc height would float far above it.
+const CORPSE_LABEL_HEIGHT: f32 = 0.8;
 /// Height of the name label above a selected chest.
 const CHEST_LABEL_HEIGHT: f32 = 1.2;
 /// Height of the name label above a selected interactive mob.
@@ -66,6 +70,7 @@ impl Plugin for SelectionPlugin {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectionKind {
     Npc,
+    Corpse,
     Item,
     Chest,
     Mob,
@@ -177,14 +182,15 @@ fn focus_name(gothic_script: &ScriptResource, base: Option<&MobBase>) -> String 
     gothic_script.lock().mob_focus_name(&base.focus_name)
 }
 
-/// Selects the in-range npc/item best matching the aim direction (camera
-/// forward) weighted over distance — direction matters more than raw distance. With a weapon drawn only npcs are selectable; a drawn ranged weapon
-/// extends the range to [`RANGED_SELECTION_RANGE`]. Candidate entities are
-/// found with an avian spatial query over the AABBs of their selection
-/// colliders, which must be on the queried entities themselves so the returned
-/// entities match `GameNpc`/`GameItem`. The npc name is resolved through the
-/// script only when the selection changes, so the per-frame cost is just the
-/// query and the distance scan of its hits.
+/// Selects the in-range npc/corpse/item/chest/mob best matching the aim
+/// direction (camera forward) weighted over distance — direction matters more
+/// than raw distance. With a weapon drawn only living npcs are selectable; a
+/// drawn ranged weapon extends the range to [`RANGED_SELECTION_RANGE`].
+/// Candidate entities are found with an avian spatial query over the AABBs of
+/// their selection colliders, which must be on the queried entities themselves
+/// so the returned entities match `GameNpc`/`GameItem`. The npc name is
+/// resolved through the script only when the selection changes, so the
+/// per-frame cost is just the query and the distance scan of its hits.
 #[allow(clippy::type_complexity)]
 fn update_selection(
     gothic_script: Res<ScriptResource>,
@@ -196,19 +202,17 @@ fn update_selection(
     camera: Query<&GlobalTransform, With<Camera3d>>,
     player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     hit_colliders: Query<&HitColliderOwner>,
-    candidates: Query<
-        (
-            Entity,
-            Option<&GameNpc>,
-            Option<&GameItem>,
-            Option<&GameChest>,
-            Option<&GameMob>,
-            Option<&MobBase>,
-            Has<PlayerCharacter>,
-            &GlobalTransform,
-        ),
-        Without<NpcCorpseMarker>,
-    >,
+    candidates: Query<(
+        Entity,
+        Option<&GameNpc>,
+        Option<&GameItem>,
+        Option<&GameChest>,
+        Option<&GameMob>,
+        Option<&MobBase>,
+        Has<PlayerCharacter>,
+        Has<NpcCorpseMarker>,
+        &GlobalTransform,
+    )>,
 ) {
     let _perf = perf_debug!();
     let Ok((player_entity, player_tr)) = player.single() else {
@@ -246,7 +250,9 @@ fn update_selection(
         if entity == player_entity {
             continue;
         }
-        let Ok((_, npc, item, chest, mob, _base, is_player, tr)) = candidates.get(entity) else {
+        let Ok((_, npc, item, chest, mob, _base, is_player, is_corpse, tr)) =
+            candidates.get(entity)
+        else {
             continue;
         };
 
@@ -254,8 +260,8 @@ fn update_selection(
         if is_player || (npc.is_none() && item.is_none() && chest.is_none() && mob.is_none()) {
             continue;
         }
-        // With a weapon drawn items and chests are not selectable.
-        if npcs_only && npc.is_none() {
+        // With a weapon drawn only living npcs are selectable.
+        if npcs_only && (npc.is_none() || is_corpse) {
             continue;
         }
         let delta = tr.translation() - player_pos;
@@ -283,7 +289,7 @@ fn update_selection(
         return;
     }
 
-    let Ok((_, npc, item, chest, mob, base, _, _)) = candidates.get(entity) else {
+    let Ok((_, npc, item, chest, mob, base, _, is_corpse, _)) = candidates.get(entity) else {
         return;
     };
     if let Some(item) = item {
@@ -301,7 +307,11 @@ fn update_selection(
         selection.kind = Some(SelectionKind::Mob);
         selection.name = focus_name(&gothic_script, base);
     } else if let Some(npc) = npc {
-        selection.kind = Some(SelectionKind::Npc);
+        selection.kind = Some(if is_corpse {
+            SelectionKind::Corpse
+        } else {
+            SelectionKind::Npc
+        });
         selection.name = gothic_script
             .lock()
             .npc_display_name(npc.instance_id())
@@ -345,6 +355,7 @@ fn update_selection_label(
 
     let height = match selection.kind {
         Some(SelectionKind::Item) => ITEM_LABEL_HEIGHT,
+        Some(SelectionKind::Corpse) => CORPSE_LABEL_HEIGHT,
         Some(SelectionKind::Chest) => CHEST_LABEL_HEIGHT,
         Some(SelectionKind::Mob) => MOB_LABEL_HEIGHT,
         Some(SelectionKind::Npc) | None => NPC_LABEL_HEIGHT,
