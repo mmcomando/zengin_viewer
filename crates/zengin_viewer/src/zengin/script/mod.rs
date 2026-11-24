@@ -17,8 +17,11 @@ pub(crate) use daedalus_typed::{
 };
 pub(crate) use menu::{MenuDefinition, MenuItemDefinition, MenuScriptResource, ensure_menu_script};
 pub mod state;
+mod stats;
 pub mod string_value;
 pub mod symbol_id;
+
+pub(crate) use stats::ScriptCallStats;
 
 #[cfg(test)]
 mod debug_zengin_scripts;

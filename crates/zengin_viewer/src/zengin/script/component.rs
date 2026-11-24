@@ -30,6 +30,8 @@ impl Plugin for GothicScriptsPlugin {
                 .run_if(crate::game_state::loading_screen_ready),
         );
         app.add_systems(Update, update_script_npc_state);
+        #[cfg(feature = "debug_perf")]
+        app.add_systems(Last, flush_script_call_stats);
     }
 }
 
@@ -87,6 +89,14 @@ fn set_npc_script_position(handle: &NpcHandle, position: Option<Vec3>) {
     if !runtime.live.dead {
         runtime.live.position = position;
     }
+}
+
+#[cfg(feature = "debug_perf")]
+fn flush_script_call_stats(script: Option<Res<ScriptResource>>) {
+    let Some(script) = script else {
+        return;
+    };
+    script.lock().flush_call_stats();
 }
 
 /// Bevy resource holding the world script vm behind `Arc<Mutex>` so it can be

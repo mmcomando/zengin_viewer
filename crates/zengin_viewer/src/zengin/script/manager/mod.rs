@@ -25,6 +25,7 @@ use wasmtime::{Engine, Store};
 
 use crate::save::format::fnv1a_64;
 
+use super::ScriptCallStats;
 use super::bindings::MmWorld;
 use super::state::{ImportCallState, RoutineFunctions, ScriptMessages};
 use super::symbol_id::FunctionId;
@@ -39,6 +40,7 @@ pub struct ScriptManager {
     /// Stable fingerprint of the raw `GOTHIC.DAT` bytes, used to reject saves
     /// made against a different script build. `0` when the source is unknown.
     script_fingerprint: u64,
+    call_stats: ScriptCallStats,
 }
 
 /// Display stats of an item instance for the inventory info panel, string
@@ -137,6 +139,7 @@ impl ScriptManager {
             routine_functions: HashMap::new(),
             global_startup_done: false,
             script_fingerprint: 0,
+            call_stats: ScriptCallStats::default(),
         }
     }
 
@@ -153,6 +156,7 @@ impl ScriptManager {
     /// compiled with the returns flag set. The guest picks the indirect call
     /// type from the symbol's flag instead.
     pub(super) fn try_call_function(&mut self, symbol_id: FunctionId) -> wasmtime::Result<()> {
+        self.call_stats.record(symbol_id);
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest.call_call_function_discard(&mut self.store, symbol_id.value())
     }
@@ -164,11 +168,13 @@ impl ScriptManager {
         &mut self,
         symbol_id: FunctionId,
     ) -> wasmtime::Result<bool> {
+        self.call_stats.record(symbol_id);
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest.call_call_function_bool(&mut self.store, symbol_id.value())
     }
 
     pub fn call_function(&mut self, symbol_id: FunctionId) {
+        self.call_stats.record(symbol_id);
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_call_function_discard(&mut self.store, symbol_id.value())
@@ -176,10 +182,18 @@ impl ScriptManager {
     }
 
     pub fn call_function_bool(&mut self, symbol_id: FunctionId) -> bool {
+        self.call_stats.record(symbol_id);
         let guest = self.instance.mmcomando_zengine_scripts_manage();
         guest
             .call_call_function_bool(&mut self.store, symbol_id.value())
             .unwrap()
+    }
+
+    /// Logs the host-initiated script function call counts accumulated since the
+    /// previous flush, see [`ScriptCallStats`].
+    #[cfg(feature = "debug_perf")]
+    pub(crate) fn flush_call_stats(&mut self) {
+        self.call_stats.flush(&self.store.data().symbol_table);
     }
 
     /// Runs every daedalus instance initializer in symbol order, binding the
