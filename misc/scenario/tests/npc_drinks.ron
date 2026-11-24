@@ -1,0 +1,19 @@
+[
+
+    // Setup
+    SetCameraLocation(
+        translation: (-60, 7, 32),
+        rotation: (-20.0, -70.0, 0.0),
+    ),
+    ZenginFilterNpcWithName(filters: ["ulf"]),
+    ZenginSetDebugNpc(name: "ulf"),
+    IncludeScenario(path: "/common/new_world"),
+
+    // Act
+    TestClearLogBuffer,
+    Wait(frame_dt: 300),
+    TestScreenshot(path: "00_drinks.png"),
+
+
+    ExitGame,
+]

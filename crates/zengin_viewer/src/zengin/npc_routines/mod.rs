@@ -40,7 +40,9 @@ use routines::{
     update_npc_routine_entries, update_npc_routines, update_routine_executors,
 };
 use script_animation::apply_scripted_animations;
-use weapons::{apply_weapon_mode, update_npc_attachments, update_npc_mob_use_items};
+use weapons::{
+    apply_weapon_mode, update_npc_attachments, update_npc_item_use_items, update_npc_mob_use_items,
+};
 
 pub(crate) use armor::{NpcArmorItem, NpcBodyMarker};
 pub(crate) use health::NpcHealth;
@@ -168,6 +170,7 @@ impl Plugin for NpcRoutinesPlugin {
                 apply_weapon_mode.after(apply_scripted_animations),
                 update_npc_attachments,
                 update_npc_mob_use_items,
+                update_npc_item_use_items,
                 (sync_npc_armor_visual, materialize_armor_visuals).chain(),
                 move_along_path
                     .after(run_goto_action)
