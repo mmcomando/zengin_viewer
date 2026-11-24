@@ -25,7 +25,7 @@ use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::{
-    RoutineEntry, RoutineFunctions, ScriptFreePoint, TurnToNpcChange,
+    RoutineEntry, RoutineFunctions, ScriptFreePoint, StartStateChange, TurnToNpcChange,
 };
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::FunctionId;
@@ -56,6 +56,10 @@ impl NpcRoutineState {
 
 /// Engine loop cadence of a running routine state (`ZS_*_loop`), in seconds.
 const ROUTINE_LOOP_INTERVAL_SECS: f32 = 1.0;
+
+/// End time of the `C_Npc.start_aistate` fallback state, the engine's
+/// `gtime(4, 0)` in game minutes.
+const START_AISTATE_END_MINUTES: u32 = 4 * 60;
 
 /// Why a routine state is running.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -450,18 +454,26 @@ pub(crate) fn update_routine_executors(
     }
 }
 
-/// Starts the `C_Npc.start_aistate` state of npcs without a daily routine
-/// (monsters). Their state is not scheduled by `TA_Min`, so without this the
-/// script never registers perceptions or runs any monster AI.
+/// Runs the `C_Npc.start_aistate` fallback state of npcs without a daily routine
+/// (monsters) while they have none. Their state is not scheduled by `TA_Min`, so
+/// without this the script never registers perceptions or runs any monster AI.
 #[allow(clippy::type_complexity)]
 pub(crate) fn start_npc_start_ai_states(
     mut commands: Commands,
+    game_time: Res<GameTime>,
     gothic_script: Res<ScriptResource>,
     index: Res<InstanceIndex>,
+    mut pending_starts: MessageReader<StartStateChange>,
     npcs: Query<
-        (Entity, &GameNpc, Option<&RoutineExecutor>),
         (
-            Added<AnimationController>,
+            Entity,
+            &GameNpc,
+            Option<&RoutineExecutor>,
+            Option<&NpcActionQueue>,
+            Has<ExecutingActionMarker>,
+        ),
+        (
+            With<AnimationController>,
             Without<RoutineEntry>,
             Without<NpcCorpseMarker>,
             Without<ChildOf>,
@@ -472,20 +484,29 @@ pub(crate) fn start_npc_start_ai_states(
     if npcs.is_empty() {
         return;
     }
+    let pending: HashSet<InstanceId> = pending_starts
+        .read()
+        .map(|change| change.instance_id)
+        .collect();
     let mut script = gothic_script.lock();
     let mut started = HashSet::new();
-    for (entity, npc, executor) in &npcs {
+    for (entity, npc, executor, queue, executing) in &npcs {
         if executor.is_some() {
             continue;
         }
         let instance = npc.instance_id();
+        // The engine selects the fallback state only while no op is pending.
+        let busy = queue.is_some_and(|queue| !queue.is_empty()) || executing;
+        if busy || pending.contains(&instance) {
+            continue;
+        }
         // Duplicated spawns share one script instance, only one of them runs
         // the state.
         let owned_elsewhere = index.npcs(instance).iter().copied().any(|other| {
             other != entity
                 && npcs
                     .get(other)
-                    .is_ok_and(|(_, _, executor)| executor.is_some())
+                    .is_ok_and(|(_, _, executor, _, _)| executor.is_some())
         });
         if owned_elsewhere {
             continue;
@@ -518,7 +539,7 @@ pub(crate) fn start_npc_start_ai_states(
             other: None,
             state_time: 0.0,
             next_loop_in: 0.0,
-            end_at: None,
+            end_at: Some(game_time.absolute_minutes() + START_AISTATE_END_MINUTES),
         });
     }
 }
