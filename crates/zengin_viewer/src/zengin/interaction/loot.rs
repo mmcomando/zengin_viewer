@@ -7,16 +7,16 @@ use leafwing_input_manager::prelude::ActionState;
 
 use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::PlayerCharacter;
-use crate::gui::{LootSource, OpenLoot};
+use crate::gui::{LootSource, OpenLockpick, OpenLoot};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::perf_debug;
 use crate::zengin::npc_actions::UseMobAction;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::manager::TALENT_PICKLOCK;
+use crate::zengin::script::manager::{ScriptManager, TALENT_PICKLOCK};
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::{GameChest, GameNpc, MobBase, MobPose, NpcCorpseMarker};
+use crate::zengin::{GameChest, GameNpc, InstanceId, MobBase, MobPose, NpcCorpseMarker};
 
 /// What the player may do with a chest lock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,35 +29,67 @@ enum ChestAccess {
     MissingKeyOrLockpick,
 }
 
-fn chest_access(
+fn chest_access(lock: ChestLock) -> ChestAccess {
+    if !lock.locked || lock.cracked {
+        return ChestAccess::Open;
+    }
+    if lock.has_key {
+        return ChestAccess::Key;
+    }
+    if lock.pick_present && lock.can_pick {
+        return ChestAccess::Lockpick;
+    }
+    if lock.key_present && lock.pick_present {
+        return ChestAccess::MissingKeyOrLockpick;
+    }
+    if lock.key_present {
+        return ChestAccess::MissingKey;
+    }
+    if lock.pick_present {
+        return ChestAccess::MissingLockpick;
+    }
+    // A locked flag without a key or pick string gates nothing, matching the
+    // engine.
+    ChestAccess::Open
+}
+
+#[allow(clippy::struct_excessive_bools)]
+struct ChestLock {
     locked: bool,
     cracked: bool,
     key_present: bool,
     pick_present: bool,
     has_key: bool,
     can_pick: bool,
+}
+
+fn resolve_access(
+    script: &mut ScriptManager,
+    player: InstanceId,
+    chest: &GameChest,
 ) -> ChestAccess {
-    if !locked || cracked {
-        return ChestAccess::Open;
+    let key_present = !chest.key.trim().is_empty();
+    let pick_present = !chest.pick_string.trim().is_empty();
+    let has_key = key_present
+        && script
+            .symbol_instance(&chest.key.trim().to_lowercase())
+            .is_some_and(|item| script.item_count(player, item) > 0);
+    let can_pick = pick_present
+        && script.talent_skill(player, TALENT_PICKLOCK) != 0
+        && script.has_lockpick(player);
+    let lock = ChestLock {
+        locked: chest.locked,
+        cracked: chest.cracked,
+        key_present,
+        pick_present,
+        has_key,
+        can_pick,
+    };
+    let access = chest_access(lock);
+    if let Some(function) = refusal_function(access) {
+        script.call_player_refusal(player, function);
     }
-    if has_key {
-        return ChestAccess::Key;
-    }
-    if pick_present && can_pick {
-        return ChestAccess::Lockpick;
-    }
-    if key_present && pick_present {
-        return ChestAccess::MissingKeyOrLockpick;
-    }
-    if key_present {
-        return ChestAccess::MissingKey;
-    }
-    if pick_present {
-        return ChestAccess::MissingLockpick;
-    }
-    // A locked flag without a key or pick string gates nothing, matching the
-    // engine.
-    ChestAccess::Open
+    access
 }
 
 fn refusal_function(access: ChestAccess) -> Option<&'static str> {
@@ -69,7 +101,7 @@ fn refusal_function(access: ChestAccess) -> Option<&'static str> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
 pub(super) fn open_selected_chest(
     mut commands: Commands,
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
@@ -79,6 +111,7 @@ pub(super) fn open_selected_chest(
     mut chests: Query<(&mut GameChest, &MobBase, &MobPose)>,
     gothic_script: Res<ScriptResource>,
     mut requests: MessageWriter<OpenLoot>,
+    mut lockpick_requests: MessageWriter<OpenLockpick>,
 ) {
     let _perf = perf_debug!();
     if !action_state.just_pressed(&GameplayAction::Interact) {
@@ -104,32 +137,9 @@ pub(super) fn open_selected_chest(
     };
     let player = player_npc.instance_id();
 
-    let access = {
-        let mut script = gothic_script.lock();
-        let key_present = !chest.key.trim().is_empty();
-        let pick_present = !chest.pick_string.trim().is_empty();
-        let has_key = key_present
-            && script
-                .symbol_instance(&chest.key.trim().to_lowercase())
-                .is_some_and(|item| script.item_count(player, item) > 0);
-        let can_pick = pick_present
-            && script.talent_skill(player, TALENT_PICKLOCK) != 0
-            && script.has_lockpick(player);
-        let access = chest_access(
-            chest.locked,
-            chest.cracked,
-            key_present,
-            pick_present,
-            has_key,
-            can_pick,
-        );
-        if let Some(function) = refusal_function(access) {
-            script.call_player_refusal(player, function);
-        }
-        access
-    };
+    let access = resolve_access(&mut gothic_script.lock(), player, &chest);
 
-    let access = match access {
+    match access {
         ChestAccess::MissingKey
         | ChestAccess::MissingLockpick
         | ChestAccess::MissingKeyOrLockpick => {
@@ -139,15 +149,28 @@ pub(super) fn open_selected_chest(
             );
             return;
         }
-        ChestAccess::Open | ChestAccess::Key => access,
         ChestAccess::Lockpick => {
             info!(
                 "Player({player}) must pick the lock of chest({target}) vob({})",
                 base.vob_name
             );
+            lockpick_requests.write(OpenLockpick {
+                player,
+                chest: target,
+            });
+            if pose.state_num > 0 && !pose.scheme.is_empty() {
+                commands
+                    .entity(player_entity)
+                    .insert(UseMobAction::player_switch(
+                        target,
+                        StringCanon::new(&pose.scheme),
+                        0,
+                    ));
+            }
             return;
         }
-    };
+        ChestAccess::Open | ChestAccess::Key => {}
+    }
     if access == ChestAccess::Key {
         chest.cracked = true;
         info!(
@@ -220,7 +243,7 @@ pub(super) fn open_selected_corpse(
 
 #[cfg(test)]
 mod tests {
-    use super::{ChestAccess, chest_access};
+    use super::{ChestAccess, ChestLock, chest_access};
 
     fn access(
         locked: bool,
@@ -230,7 +253,14 @@ mod tests {
         has_key: bool,
         can_pick: bool,
     ) -> ChestAccess {
-        chest_access(locked, cracked, key, pick, has_key, can_pick)
+        chest_access(ChestLock {
+            locked,
+            cracked,
+            key_present: key,
+            pick_present: pick,
+            has_key,
+            can_pick,
+        })
     }
 
     #[test]

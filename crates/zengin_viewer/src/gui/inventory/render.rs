@@ -3,11 +3,11 @@ use bevy::prelude::*;
 use crate::ui_kit::{set_display, set_text, set_visibility};
 
 use super::spawn::{
-    InventoryContainer, InventoryInfoText, InventoryInfoValues, InventorySlot,
-    InventorySlotEquippedOverlay, InventorySlotTextOrCount, InventoryTextures,
-    InventoryWindowGoldText, InventoryWindowPanel, InventoryWindowTitleText,
+    InventoryContainer, InventoryInfoText, InventoryInfoValues, InventoryLockpickPanel,
+    InventoryLockpickText, InventorySlot, InventorySlotEquippedOverlay, InventorySlotTextOrCount,
+    InventoryTextures, InventoryWindowGoldText, InventoryWindowPanel, InventoryWindowTitleText,
 };
-use super::state::{InventoryEntry, InventoryUiState};
+use super::state::{InventoryEntry, InventoryMode, InventoryUiState};
 use super::style::InventoryStyle;
 use crate::perf_debug;
 
@@ -64,13 +64,43 @@ pub(super) fn sync_inventory_ui(
             Without<InventoryWindowGoldText>,
         ),
     >,
+    mut lockpick_panels: Query<
+        &mut Visibility,
+        (With<InventoryLockpickPanel>, Without<InventoryContainer>),
+    >,
+    mut lockpick_text: Query<
+        &mut Text,
+        (
+            With<InventoryLockpickText>,
+            Without<InventoryInfoText>,
+            Without<InventorySlotTextOrCount>,
+            Without<InventoryWindowTitleText>,
+            Without<InventoryWindowGoldText>,
+        ),
+    >,
 ) {
     let _perf = perf_debug!();
+    let lockpicking = state.mode == InventoryMode::LockPick;
     for (_, mut visibility) in containers.iter_mut() {
         set_visibility(&mut visibility, state.open);
     }
+    for mut visibility in &mut lockpick_panels {
+        set_visibility(&mut visibility, state.open && lockpicking);
+    }
     if !state.open {
         return;
+    }
+    if lockpicking {
+        let text = state.lockpick.as_ref().map_or_else(String::new, |session| {
+            format!(
+                "Lockpicking  {}/{}\nLeft/Right (A/D) work the pick, Space cancels",
+                session.progress,
+                session.sequence.len()
+            )
+        });
+        for mut lockpick_text in &mut lockpick_text {
+            set_text(&mut lockpick_text, &text);
+        }
     }
 
     for (panel, mut node) in panels.iter_mut() {

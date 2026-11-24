@@ -51,6 +51,14 @@ pub(super) struct InventoryInfoText;
 #[derive(Component)]
 pub(super) struct InventoryInfoValues;
 
+/// Container of the lockpick progress overlay
+#[derive(Component)]
+pub(super) struct InventoryLockpickPanel;
+
+/// Lockpick progress text
+#[derive(Component)]
+pub(super) struct InventoryLockpickText;
+
 /// Textures shared by all inventory windows
 #[derive(Resource)]
 pub(super) struct InventoryTextures {
@@ -143,6 +151,47 @@ pub(super) fn spawn_inventory_ui(mut commands: Commands, asset_server: Res<Asset
         });
 
     commands.insert_resource(textures);
+
+    spawn_lockpick_panel(&mut commands, root);
+}
+
+fn spawn_lockpick_panel(commands: &mut Commands, root: Entity) {
+    let panel = commands
+        .spawn((
+            ChildOf(root),
+            InventoryLockpickPanel,
+            Visibility::Hidden,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                bottom: Val::Px(48.0),
+                display: Display::Flex,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+        ))
+        .id();
+    let text_box = commands
+        .spawn((
+            ChildOf(panel),
+            BackgroundColor(InventoryStyle::PANEL_BACKGROUND),
+            Node {
+                padding: UiRect::all(Val::Px(16.0)),
+                ..default()
+            },
+        ))
+        .id();
+    commands.spawn((
+        ChildOf(text_box),
+        InventoryLockpickText,
+        UiText::new(
+            String::new(),
+            InventoryStyle::INFO_FONT_SIZE,
+            InventoryStyle::TEXT_COLOR,
+        )
+        .justify(Justify::Center),
+    ));
 }
 
 /// Spawns one header box: a fixed size background node with the text as a

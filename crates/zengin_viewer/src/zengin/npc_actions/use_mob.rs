@@ -90,6 +90,12 @@ pub(crate) struct MobUsePose {
     pose: String,
 }
 
+impl MobUsePose {
+    pub(crate) fn new(transition: String, pose: String) -> Self {
+        Self { transition, pose }
+    }
+}
+
 /// Queues the mob pose when the entering transition ends.
 pub(crate) fn advance_mob_use_pose(
     mut commands: Commands,

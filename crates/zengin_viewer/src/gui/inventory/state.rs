@@ -61,6 +61,7 @@ pub(crate) enum InventoryMode {
     Player,
     Trade,
     Loot,
+    LockPick,
 }
 
 /// Request to open the trade panels for the player and the trader npc.
@@ -84,6 +85,45 @@ pub(crate) struct OpenLoot {
     pub(crate) source: LootSource,
 }
 
+/// Request to start the lockpick sequence on a chest.
+#[derive(Message)]
+pub(crate) struct OpenLockpick {
+    pub(crate) player: InstanceId,
+    pub(crate) chest: Entity,
+}
+
+/// The lockpick sequence completed, the chest is ready to be opened.
+#[derive(Message)]
+pub(crate) struct LockpickOpened {
+    pub(crate) chest: Entity,
+}
+
+/// Lockpick sequence in progress.
+pub(crate) struct LockpickSession {
+    pub(crate) chest: Entity,
+    /// `R`/`L` steps, other characters are dropped.
+    pub(crate) sequence: Vec<char>,
+    pub(crate) progress: usize,
+}
+
+impl LockpickSession {
+    pub(crate) fn new(chest: Entity, pick_string: &str) -> Self {
+        let sequence = pick_string
+            .chars()
+            .filter_map(|step| match step.to_ascii_uppercase() {
+                'L' => Some('L'),
+                'R' => Some('R'),
+                _ => None,
+            })
+            .collect();
+        Self {
+            chest,
+            sequence,
+            progress: 0,
+        }
+    }
+}
+
 /// The loot panels closed, the player should leave the chest.
 #[derive(Message)]
 pub(crate) struct LootClosed {
@@ -104,6 +144,8 @@ pub(crate) struct InventoryUiState {
     pub(crate) gold_item: Option<InstanceId>,
     /// Chest or corpse of the loot session, consumed when the panels close.
     pub(crate) loot_source: Option<LootSource>,
+    /// Active lockpick sequence, only set in [`InventoryMode::LockPick`].
+    pub(crate) lockpick: Option<LockpickSession>,
 }
 
 impl InventoryUiState {
@@ -117,6 +159,7 @@ impl InventoryUiState {
         self.windows = Default::default();
         self.active_window = 0;
         self.gold_item = None;
+        self.lockpick = None;
         // `loot_source` stays until the close is consumed, so the interaction
         // side can leave the chest.
     }

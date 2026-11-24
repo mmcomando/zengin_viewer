@@ -10,7 +10,7 @@ use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalSection, JournalStatus};
-use crate::zengin::script::manager::ScriptManager;
+use crate::zengin::script::manager::{ScriptManager, TALENT_PICKLOCK};
 use crate::zengin::script::symbol_id::InstanceId;
 
 /// Hardcoded test items granted by [`give_test_items`]: one weapon of each
@@ -31,6 +31,7 @@ const TEST_ITEMS: &[(&str, i32)] = &[
     ("ITPO_MANA_01", 5),
     ("ITRI_STR_01", 1),
     ("ITAM_HP_01", 1),
+    ("ITKE_LOCKPICK", 10),
 ];
 
 /// Hardcoded journal topics seeded by [`seed_test_journal`], with the sections,
@@ -195,6 +196,10 @@ pub(super) fn debug_equipment_on_start(
         };
         script.equip_item(player_id, weapon);
     }
+    script
+        .npc_state_mut(player_id)
+        .talents
+        .set_skill(TALENT_PICKLOCK, 1);
     // if let Some(armor) = armor {
     //     info!(
     //         "Player({}) equipped debug armor({})",

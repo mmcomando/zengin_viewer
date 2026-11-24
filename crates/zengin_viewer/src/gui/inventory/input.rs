@@ -2,6 +2,7 @@ use bevy::log::{info, warn};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
+use crate::audio::PlaySound;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::gui::JournalUiState;
@@ -10,7 +11,8 @@ use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::perf_debug;
 use crate::zengin::DialogUiState;
 use crate::zengin::{
-    GameChest, GameNpc, InstanceId, MobBase, ScriptManager, ScriptResource, WeaponKind,
+    GameChest, GameNpc, InstanceId, MobBase, ScriptManager, ScriptResource, WeaponKind, ZenginVfs,
+    resolve_sound_asset,
 };
 
 use super::data::{
@@ -19,7 +21,8 @@ use super::data::{
 };
 use super::state::{
     InventoryEntry, InventoryMode, InventoryOwner, InventoryUiState, InventoryWindowState,
-    LootClosed, LootSource, OpenLoot, OpenTrade, PLAYER_WINDOW, TRADER_WINDOW,
+    LockpickOpened, LockpickSession, LootClosed, LootSource, OpenLockpick, OpenLoot, OpenTrade,
+    PLAYER_WINDOW, TRADER_WINDOW,
 };
 use super::style::InventoryStyle;
 
@@ -98,6 +101,110 @@ pub(super) fn open_loot(
     state.gold_item = None;
     state.open = true;
     state.loot_source = Some(request.source);
+    state.lockpick = None;
+}
+
+/// Opens the lockpick sequence for a locked chest, the player is already
+/// kneeling at it.
+pub(super) fn open_lockpick(
+    mut requests: MessageReader<OpenLockpick>,
+    mut state: ResMut<InventoryUiState>,
+    chests: Query<&GameChest>,
+    mut closed: MessageWriter<LootClosed>,
+) {
+    let _perf = perf_debug!();
+    let Some(request) = requests.read().last() else {
+        return;
+    };
+    let Ok(chest) = chests.get(request.chest) else {
+        return;
+    };
+    let session = LockpickSession::new(request.chest, &chest.pick_string);
+    if session.sequence.is_empty() {
+        warn!(
+            "Chest({}) pick_string({:?}) has no L/R steps",
+            request.chest, chest.pick_string
+        );
+        closed.write(LootClosed {
+            source: LootSource::Chest(request.chest),
+        });
+        return;
+    }
+    info!(
+        "Player({}) started lockpicking chest({}) with {} step(s)",
+        request.player,
+        request.chest,
+        session.sequence.len()
+    );
+    state.open = true;
+    state.mode = InventoryMode::LockPick;
+    state.windows = Default::default();
+    state.active_window = PLAYER_WINDOW;
+    state.gold_item = None;
+    state.lockpick = Some(session);
+    state.loot_source = Some(LootSource::Chest(request.chest));
+}
+
+/// Advances the lockpick sequence on `Left`/`Right` input; a wrong step resets
+/// the progress.
+pub(super) fn handle_lockpick_input(
+    action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
+    mut state: ResMut<InventoryUiState>,
+    gothic_script: Res<ScriptResource>,
+    vfs: Res<ZenginVfs>,
+    mut game_log: ResMut<GameLog>,
+    mut sounds: MessageWriter<PlaySound>,
+    mut opened: MessageWriter<LockpickOpened>,
+) {
+    let _perf = perf_debug!();
+    if state.mode != InventoryMode::LockPick {
+        return;
+    }
+    let step = if action_state.just_pressed(&GuiAction::Left) {
+        Some('L')
+    } else if action_state.just_pressed(&GuiAction::Right) {
+        Some('R')
+    } else {
+        None
+    };
+    let Some(step) = step else {
+        return;
+    };
+    let Some(session) = state.lockpick.as_mut() else {
+        return;
+    };
+    let expected = session.sequence.get(session.progress).copied();
+    if expected != Some(step) {
+        session.progress = 0;
+        play_lockpick_sound(&vfs, &mut sounds, "PICKLOCK_FAILURE");
+        game_log.add(lockpick_text(
+            &gothic_script,
+            "print_picklock_failure",
+            "The lock resists.",
+        ));
+        info!("Lockpick step({step}) was wrong, progress reset");
+        return;
+    }
+    session.progress += 1;
+    let chest = session.chest;
+    if session.progress < session.sequence.len() {
+        play_lockpick_sound(&vfs, &mut sounds, "PICKLOCK_SUCCESS");
+        game_log.add(lockpick_text(
+            &gothic_script,
+            "print_picklock_success",
+            "The pick slides into place.",
+        ));
+        return;
+    }
+    state.lockpick = None;
+    play_lockpick_sound(&vfs, &mut sounds, "PICKLOCK_UNLOCK");
+    game_log.add(lockpick_text(
+        &gothic_script,
+        "print_picklock_unlock",
+        "The lock clicks open.",
+    ));
+    info!("Lockpick of chest({chest}) completed");
+    opened.write(LockpickOpened { chest });
 }
 
 /// The dialog UI takes precedence: no inventory while a dialog or the journal
@@ -163,6 +270,9 @@ pub(super) fn handle_inventory_input(
     }
     if action_state.just_pressed(&GuiAction::CancelAction) {
         state.close();
+        return;
+    }
+    if state.mode == InventoryMode::LockPick {
         return;
     }
 
@@ -234,6 +344,7 @@ pub(super) fn handle_inventory_input(
                 window.equipped_armor = equipped_armor;
             }
         }
+        InventoryMode::LockPick => {}
     }
 }
 
@@ -690,6 +801,25 @@ fn equip_selected_item(
             npc.equipment.armor,
         )
     })
+}
+
+fn play_lockpick_sound(vfs: &ZenginVfs, sounds: &mut MessageWriter<PlaySound>, name: &str) {
+    let Some(asset_path) = resolve_sound_asset(vfs, name) else {
+        warn!("Lockpick sound({name}) not found");
+        return;
+    };
+    sounds.write(PlaySound {
+        asset_path,
+        position: None,
+    });
+}
+
+fn lockpick_text(script: &ScriptResource, symbol: &str, fallback: &str) -> String {
+    script
+        .lock()
+        .string_variable(symbol)
+        .filter(|text| !text.is_empty())
+        .unwrap_or_else(|| fallback.to_string())
 }
 
 #[cfg(test)]

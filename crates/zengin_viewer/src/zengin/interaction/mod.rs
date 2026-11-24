@@ -6,6 +6,7 @@ pub mod selection;
 mod actions;
 mod combat;
 mod debug;
+mod lockpick;
 mod loot;
 mod player_mob;
 mod use_mob;
@@ -38,6 +39,7 @@ impl Plugin for PlayerInteractionPlugin {
                     .before(player_mob::stand_up_player_from_mob)
                     .before(player_mob::advance_player_mob_release),
                 player_mob::close_looted_chest.before(player_mob::advance_player_mob_release),
+                lockpick::open_lockpicked_chest,
                 player_mob::release_stale_player_mob_use,
                 player_mob::advance_player_mob_release,
                 player_mob::sync_player_mob_physics
