@@ -430,10 +430,11 @@ impl super::ScriptManager {
     }
 
     /// Runs the loop hook of a routine state, `true` when it returned
-    /// `LOOP_END`.
+    /// `LOOP_END` or the state has no loop hook. The engine ends such states on
+    /// the first loop tick for Gothic 2.
     pub fn call_routine_loop(&mut self, npc: InstanceId, functions: RoutineFunctions) -> bool {
         let Some(loop_fn) = functions.loop_fn else {
-            return false;
+            return true;
         };
         self.set_self(npc);
         self.set_instance(npc);

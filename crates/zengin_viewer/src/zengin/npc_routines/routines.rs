@@ -90,6 +90,9 @@ pub(crate) struct RoutineExecutor {
     state_time: f32,
     /// Seconds until the next loop hook call.
     next_loop_in: f32,
+    /// The engine runs the first loop on the tick after the start hook, once the
+    /// hook's requests reached the action queue.
+    first_loop_pending: bool,
     /// Absolute game minute (`GameTime::absolute_minutes`) at which the state
     /// ends; `None` runs until `LOOP_END`.
     end_at: Option<u32>,
@@ -129,6 +132,7 @@ pub(crate) fn start_ai_state(
             other,
             state_time: 0.0,
             next_loop_in: 0.0,
+            first_loop_pending: true,
             end_at: None,
         });
     };
@@ -146,6 +150,7 @@ pub(crate) fn start_ai_state(
     executor.way_point = StringCanon::default();
     executor.state_time = 0.0;
     executor.next_loop_in = 0.0;
+    executor.first_loop_pending = true;
     None
 }
 
@@ -411,6 +416,7 @@ pub(crate) fn update_routine_executors(
                 // The engine runs the first loop on the next tick, the loop
                 // system picks it up on the next update.
                 next_loop_in: 0.0,
+                first_loop_pending: true,
                 end_at: Some(routine_end_at(&entry, &game_time)),
             });
             continue;
@@ -450,6 +456,7 @@ pub(crate) fn update_routine_executors(
         executor.way_point = entry.way_point.clone();
         executor.state_time = 0.0;
         executor.next_loop_in = 0.0;
+        executor.first_loop_pending = true;
         executor.end_at = Some(routine_end_at(&entry, &game_time));
     }
 }
@@ -539,6 +546,7 @@ pub(crate) fn start_npc_start_ai_states(
             other: None,
             state_time: 0.0,
             next_loop_in: 0.0,
+            first_loop_pending: true,
             end_at: Some(game_time.absolute_minutes() + START_AISTATE_END_MINUTES),
         });
     }
@@ -663,6 +671,11 @@ pub(crate) fn run_routine_loops(
             executor.state_time += delta;
             executor.next_loop_in -= delta;
         }
+        if executor.first_loop_pending {
+            executor.bypass_change_detection().first_loop_pending = false;
+            perf.increment_tag("first_loop_skip", 1);
+            continue;
+        }
         if executor.next_loop_in > 0.0 {
             perf.increment_tag("waiting", 1);
             continue;
@@ -716,6 +729,7 @@ pub(crate) fn run_routine_loops(
                 executor.way_point = entry.way_point.clone();
                 executor.state_time = 0.0;
                 executor.next_loop_in = 0.0;
+                executor.first_loop_pending = true;
                 executor.end_at = Some(routine_end_at(entry, &game_time));
                 continue;
             }
