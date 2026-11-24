@@ -406,7 +406,7 @@ fn drop_drawn_weapon(
 #[derive(Message)]
 pub(super) struct NpcDeathResolved {
     pub npc_id: InstanceId,
-    pub player_id: InstanceId,
+    pub player_id: Option<InstanceId>,
     pub position: Vec3,
     pub dropped_weapon: Option<InstanceId>,
 }
@@ -472,11 +472,13 @@ pub(super) fn handle_npc_death(
             WeaponMode::Fists => None,
         };
 
-        let Ok(player_npc) = player_npc.single() else {
+        // Without a player (npc-vs-npc death) there is no inventory recipient,
+        // but the corpse still has to be marked and animated. The weapon drop
+        // does not need the player either.
+        let player_id = player_npc.single().ok().map(GameNpc::instance_id);
+        if player_id.is_none() {
             perf.increment_tag("no_player", 1);
-            return;
-        };
-        let player_id = player_npc.instance_id();
+        }
         perf.increment_tag("handled", 1);
         resolved.write(NpcDeathResolved {
             npc_id,
@@ -517,13 +519,20 @@ pub(super) fn transfer_npc_death_inventory(
 ) {
     let _perf = perf_debug!();
     for death in resolved.read() {
+        let Some(player_id) = death.player_id else {
+            debug!(
+                "Npc({}) died without a player, its inventory stays on the corpse",
+                death.npc_id
+            );
+            continue;
+        };
         transfer_items.write(TransferItems {
             instance_from_id: death.npc_id,
-            instance_to_id: death.player_id,
+            instance_to_id: player_id,
         });
         info!(
             "Npc({}) died, moved its inventory to player({})",
-            death.npc_id, death.player_id
+            death.npc_id, player_id
         );
     }
 }

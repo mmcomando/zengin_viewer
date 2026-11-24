@@ -89,7 +89,12 @@ impl Plugin for NpcRoutinesPlugin {
                     .after(apply_start_state_changes),
                 run_routine_loops
                     .after(update_routine_executors)
-                    .after(end_removed_routine_entries),
+                    .after(end_removed_routine_entries)
+                    // The state start hook queues its first action through the
+                    // script bridge; run the loop after that action is queued so
+                    // the busy predicate sees it. Otherwise a state whose start
+                    // hook moves the npc (zs_mm_hunt) ends on its first loop.
+                    .after(enqueue_wait_actions),
                 apply_scripted_animations,
                 restore_routine_stand
                     .after(update_routine_executors)
