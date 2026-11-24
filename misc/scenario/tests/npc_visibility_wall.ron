@@ -19,7 +19,7 @@
     // Act
     TestClearLogBuffer,
     TeleportPlayer(translation: (0.0, 0.0, -12.5), rotation: (0.0, 0.0, 0.0)),
-    Wait(frame_dt: 250),
+    Wait(frame_dt: 500),
 
     // Assert
     TestLogNotExists(regex: "DebugNPC: animation .*current=WOLF-T_WARN"),

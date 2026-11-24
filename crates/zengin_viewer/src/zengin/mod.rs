@@ -66,7 +66,7 @@ pub(crate) use crate::zengin::npc_actions::NpcActionQueue;
 pub(crate) use crate::zengin::npc_actions::enqueue_npc_goto;
 pub(crate) use crate::zengin::npc_corpse::NpcCorpseMarker;
 pub(crate) use crate::zengin::npc_data::NpcHandle;
-pub(crate) use crate::zengin::npc_perception::NpcAutoTalkOptions;
+pub(crate) use crate::zengin::npc_perception::{NpcAutoTalkOptions, VisibilityRefresh};
 pub(crate) use crate::zengin::npc_routines::NpcEquippedWeapon;
 pub(crate) use crate::zengin::npc_routines::NpcHealth;
 pub(crate) use crate::zengin::npc_routines::NpcWeaponMode;

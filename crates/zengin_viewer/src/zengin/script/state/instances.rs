@@ -205,6 +205,11 @@ pub struct NpcPerceptionState {
     /// engine default. Rebuilt by the state start hooks, so not saved.
     #[serde(skip)]
     pub interval: Option<f32>,
+    /// Npcs this npc has an unobstructed sight line to within `senses_range`.
+    /// `None` until the world side refreshes it; npcs far from the player never
+    /// get a set, so their sight falls back to the distance check.
+    #[serde(skip)]
+    pub seen: Option<HashSet<InstanceId>>,
 }
 
 /// Live world facts shared with the ECS side.

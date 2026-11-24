@@ -2,6 +2,7 @@
 //! the script callback the state registered with `Npc_PercEnable`.
 
 use bevy::log::warn;
+use bevy::math::Vec3;
 
 use super::ScriptManager;
 use crate::zengin::common::to_world_units;
@@ -27,6 +28,16 @@ impl ScriptManager {
             .npc_state(npc)
             .and_then(|npc| npc.perception.interval)
             .unwrap_or(DEFAULT_PERCEPTION_INTERVAL_SECS)
+    }
+
+    /// Rebuilds the cached set of npcs `npc` can see, see
+    /// [`ImportCallState::refresh_visibility`](crate::zengin::script::state::ImportCallState::refresh_visibility).
+    pub(crate) fn refresh_visibility(
+        &mut self,
+        npc: InstanceId,
+        blocked: &mut dyn FnMut(Vec3, Vec3) -> bool,
+    ) {
+        self.store.data_mut().refresh_visibility(npc, blocked);
     }
 
     /// Runs one perception pass for `npc`: senses are dispatched to the
@@ -132,17 +143,21 @@ impl ScriptManager {
     }
 
     /// Dispatches `PERC_ASSESSPLAYER` when the player is within the npc senses
-    /// range. Conditions of the dialog infos are evaluated only inside the
-    /// dialog distance, matching the short-circuit in `b_assessplayer`.
+    /// range and in sight. Conditions of the dialog infos are evaluated only
+    /// inside the dialog distance, matching the short-circuit in
+    /// `b_assessplayer`.
     fn run_player_perception(&mut self, npc: InstanceId) {
         let Some(callback) = self.perception_callback(npc, PERC_ASSESSPLAYER) else {
             return;
         };
-        let (player, position, player_position, senses_range) = {
+        let Some(player) = self.store.data().player_instance else {
+            return;
+        };
+        if self.store.data().cached_sight(npc, player) == Some(false) {
+            return;
+        }
+        let (position, player_position, senses_range) = {
             let data = self.store.data();
-            let Some(player) = data.player_instance else {
-                return;
-            };
             let Some(position) = data.npc_state(npc).and_then(|npc| npc.live.position) else {
                 return;
             };
@@ -154,7 +169,7 @@ impl ScriptManager {
                 .typed
                 .npc(npc.value() as u32)
                 .map_or(0, |npc| npc.senses_range);
-            (player, position, player_position, senses_range)
+            (position, player_position, senses_range)
         };
         let range = self
             .store

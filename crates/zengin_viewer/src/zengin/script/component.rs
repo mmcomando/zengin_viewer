@@ -3,7 +3,7 @@ use crate::perf_debug;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::state::ScriptMessages;
 use crate::zengin::script::string_value::StringCanon;
-use crate::zengin::{GameNpc, NpcHandle, load_fight_ai_tables};
+use crate::zengin::{GameNpc, NpcHandle, VisibilityRefresh, load_fight_ai_tables};
 use crate::zengin::{
     common::{gothic_dat_path, gothic2_dir},
     script::manager::{ScriptManager, wasm_cache_path},
@@ -63,6 +63,10 @@ fn initialize_game_script(world: &mut World) {
     world.insert_resource(load_dialog_texts());
 }
 
+/// Position change in a single update that counts as a teleport, in meters.
+/// Walking stays far below it even on a long frame.
+const VISIBILITY_JUMP_DISTANCE: f32 = 2.0;
+
 /// Keeps the npc world positions in sync with the world. Uses `GlobalTransform`
 /// so npcs that are parented to something are still tracked at their world
 /// position; the player visual is a `GameNpc` child and is included. Only npcs
@@ -74,21 +78,35 @@ fn update_script_npc_state(
         (&GameNpc, &GlobalTransform),
         Or<(Changed<GlobalTransform>, Changed<GameNpc>)>,
     >,
+    mut visibility: MessageWriter<VisibilityRefresh>,
 ) {
     let _perf = perf_debug!();
     for (npc, transform) in &changed_npcs {
-        set_npc_script_position(npc.handle(), Some(transform.translation()));
+        if set_npc_script_position(npc.handle(), Some(transform.translation())) {
+            // A teleport invalidates every observer that saw the npc.
+            visibility.write(VisibilityRefresh);
+        }
     }
 }
 
-fn set_npc_script_position(handle: &NpcHandle, position: Option<Vec3>) {
+/// Mirrors the position into the script runtime and answers whether it moved
+/// farther than [`VISIBILITY_JUMP_DISTANCE`] in one update.
+fn set_npc_script_position(handle: &NpcHandle, position: Option<Vec3>) -> bool {
     let mut runtime = handle
         .runtime()
         .write()
         .unwrap_or_else(PoisonError::into_inner);
-    if !runtime.live.dead {
-        runtime.live.position = position;
+    if runtime.live.dead {
+        return false;
     }
+    let jumped = match (runtime.live.position, position) {
+        (Some(previous), Some(position)) => {
+            previous.distance_squared(position) > VISIBILITY_JUMP_DISTANCE.powi(2)
+        }
+        _ => false,
+    };
+    runtime.live.position = position;
+    jumped
 }
 
 #[cfg(feature = "debug_perf")]

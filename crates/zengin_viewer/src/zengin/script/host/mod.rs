@@ -11,7 +11,7 @@ use super::state::{
 use super::string_value::StringCanon;
 use super::symbol_id::InstanceId;
 use crate::warn_unimplemented;
-use crate::zengin::common::{to_world_units, to_zengin_units};
+use crate::zengin::common::{DEFAULT_SIGHT_RANGE_METERS, to_world_units, to_zengin_units};
 use bevy::log::warn;
 use bevy::math::Vec3;
 

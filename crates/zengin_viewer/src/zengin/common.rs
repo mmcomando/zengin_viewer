@@ -27,6 +27,11 @@ pub fn to_world_units(zengin_units: f32) -> f32 {
     zengin_units / ZENGIN_UNITS_PER_WORLD_UNIT
 }
 
+/// Sight distance when the npc has no `senses_range`, in meters:
+/// `PERC_DIST_ACTIVE_MAX` is 2000 Gothic units and the viewer uses 100 Gothic
+/// units per meter.
+pub const DEFAULT_SIGHT_RANGE_METERS: f32 = 20.0;
+
 /// Radius within which an npc may pick or use a mob of a scheme, in world units
 /// (meters). `OpenGothic` `availableMob` uses 1000 engine units.
 pub const MOB_SEARCH_RADIUS: f32 = 10.0;

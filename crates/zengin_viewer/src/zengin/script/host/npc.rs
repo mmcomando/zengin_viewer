@@ -191,8 +191,10 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_getheighttoitem(_0, _1) -> i32);
     fake_impl!(npc_getdisttoplayer(_0) -> i32);
     fake_impl!(npc_getdisttoitem(_0, _1) -> i32);
-    /// Distance check only: the engine casts a ray, but the host has no access
-    /// to the physics world, so facing and occlusion are not modelled.
+    /// Whether `npc` has an unobstructed sight line to `other`. Answered from
+    /// the per-npc set the world side refreshes when it is available, otherwise
+    /// distance only (npcs far from the player are not scanned). The view cone
+    /// is not modelled.
     fn npc_canseenpc(&mut self, npc: i32, other: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return 0;
@@ -200,6 +202,14 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
         let Some(other) = self.symbol_table.instance(other) else {
             return 0;
         };
+        {
+            let Some(state) = self.npc_state(npc) else {
+                return 0;
+            };
+            if let Some(seen) = &state.perception.seen {
+                return i32::from(seen.contains(&other));
+            }
+        }
         let positions = (
             self.npc_state(npc).and_then(|npc| npc.live.position),
             self.npc_state(other).and_then(|npc| npc.live.position),
@@ -215,8 +225,9 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             .unwrap_or(DEFAULT_SIGHT_RANGE_METERS);
         i32::from((npc_position - other_position).length() <= range)
     }
-    /// Distance check only: the engine casts a visibility ray, the host has no
-    /// access to the physics world.
+    /// Same as [`npc_canseenpc`](Self::npc_canseenpc): both variants of the
+    /// engine call ray-cast and the cached sight line already ignores the view
+    /// direction.
     fn npc_canseenpcfreelos(&mut self, npc: i32, other: i32) -> i32 {
         self.npc_canseenpc(npc, other)
     }
@@ -638,8 +649,3 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_getportalowner(_0) -> i32);
     fake_impl!(npc_getportalguild(_0) -> i32);
 }
-
-/// Sight distance when the npc has no `senses_range`, in meters:
-/// `PERC_DIST_ACTIVE_MAX` is 2000 Gothic units and the viewer uses 100 Gothic
-/// units per meter.
-const DEFAULT_SIGHT_RANGE_METERS: f32 = 20.0;

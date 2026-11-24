@@ -22,7 +22,7 @@ pub(crate) use instances::{
 };
 pub(crate) use weapons::{ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponKind, WeaponMode};
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use bevy::log::warn;
@@ -37,7 +37,8 @@ use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 use crate::external_messages::ExternalMessageSender;
 use crate::zengin::common::{
-    FREEPOINT_SEARCH_RADIUS, MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, to_world_units,
+    DEFAULT_SIGHT_RANGE_METERS, FREEPOINT_SEARCH_RADIUS, MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS,
+    to_world_units,
 };
 use bevy::ecs::resource::Resource;
 
@@ -838,7 +839,9 @@ impl ImportCallState {
             return source;
         };
         self.next_copy_instance_id = Some(copy.value() + 1);
-        let runtime = self.npc_state(source).map_or_default(|npc| npc.clone());
+        let mut runtime = self.npc_state(source).map_or_default(|npc| npc.clone());
+        // The copy has no entity yet, its sight must not inherit the source's.
+        runtime.perception.seen = None;
         if !self
             .typed
             .copy_instance(source.value() as u32, copy.value() as u32)
@@ -929,9 +932,13 @@ impl ImportCallState {
 
     /// Nearest live npc `npc` is hostile to and can sense within its
     /// `PERC_ASSESSENEMY` range, the way `Npc::updateNearestEnemy` picks one.
-    /// Sight is distance only, facing and occlusion are not modelled.
+    /// The cached sight set filters candidates when the world side built it;
+    /// npcs without a set fall back to distance only.
     pub fn nearest_enemy(&self, npc: InstanceId) -> Option<InstanceId> {
-        let position = self.npc_state(npc)?.live.position?;
+        let (position, seen) = {
+            let state = self.npc_state(npc)?;
+            (state.live.position?, state.perception.seen.clone())
+        };
         let senses_range = self
             .typed
             .npc(npc.value() as u32)
@@ -944,6 +951,9 @@ impl ImportCallState {
         let mut best: Option<(InstanceId, f32)> = None;
         for (&candidate, runtime) in &self.loaded_state.npc_instances {
             if candidate == npc {
+                continue;
+            }
+            if seen.as_ref().is_some_and(|seen| !seen.contains(&candidate)) {
                 continue;
             }
             let candidate_position = {
@@ -973,6 +983,77 @@ impl ImportCallState {
             }
         }
         best.map(|(instance, _)| instance)
+    }
+
+    /// Sight radius of `npc` in world units: the `senses_range` the engine uses
+    /// for `Npc_CanSeeNpc`, the default when the script left it unset.
+    pub fn sight_range(&self, npc: InstanceId) -> f32 {
+        self.typed
+            .npc(npc.value() as u32)
+            .map(|npc| to_world_units(npc.senses_range as f32))
+            .filter(|range| *range > 0.0)
+            .unwrap_or(DEFAULT_SIGHT_RANGE_METERS)
+    }
+
+    /// Rebuilds the cached set of npcs `npc` can see: every live npc within
+    /// [`sight_range`](Self::sight_range) for which `blocked` reports no static
+    /// geometry between the two roots.
+    pub fn refresh_visibility(
+        &mut self,
+        npc: InstanceId,
+        blocked: &mut dyn FnMut(Vec3, Vec3) -> bool,
+    ) {
+        let Some(position) = self.npc_state(npc).and_then(|npc| npc.live.position) else {
+            // Without an entity (dead, not spawned) there is nothing to see.
+            self.store_seen(npc, HashSet::new());
+            return;
+        };
+        let range = self.sight_range(npc);
+        let range_squared = range * range;
+        let mut seen = HashSet::new();
+        for (&candidate, runtime) in &self.loaded_state.npc_instances {
+            if candidate == npc {
+                continue;
+            }
+            let candidate_position = {
+                let runtime = runtime.read().unwrap_or_else(PoisonError::into_inner);
+                if runtime.live.dead {
+                    continue;
+                }
+                let Some(candidate_position) = runtime.live.position else {
+                    continue;
+                };
+                candidate_position
+            };
+            if (candidate_position - position).length_squared() > range_squared {
+                continue;
+            }
+            if blocked(position, candidate_position) {
+                continue;
+            }
+            seen.insert(candidate);
+        }
+        self.store_seen(npc, seen);
+    }
+
+    /// Cached answer to whether `npc` sees `other`, `None` when no set was built
+    /// for this npc yet.
+    pub fn cached_sight(&self, npc: InstanceId, other: InstanceId) -> Option<bool> {
+        self.npc_state(npc)?
+            .perception
+            .seen
+            .as_ref()
+            .map(|seen| seen.contains(&other))
+    }
+
+    /// Writes the visibility cache without recording the npc as changed, it is
+    /// scratch data the ECS side mirrors nothing from.
+    fn store_seen(&mut self, npc: InstanceId, seen: HashSet<InstanceId>) {
+        let Some(runtime) = self.loaded_state.npc_instances.get(&npc) else {
+            return;
+        };
+        let mut runtime = runtime.write().unwrap_or_else(PoisonError::into_inner);
+        runtime.perception.seen = Some(seen);
     }
 
     /// Resolves both ids as npc/item instance symbols, `None` when either is
@@ -1494,6 +1575,58 @@ mod tests {
 
         state.npc_state_mut(player).live.dead = true;
         assert_eq!(state.nearest_enemy(npc), None);
+    }
+
+    #[test]
+    fn enemy_selection_uses_the_cached_sight_set() {
+        use crate::zengin::script::host::ATT_HOSTILE;
+
+        let mut state = ImportCallState::default();
+        let npc = insert_npc(&mut state, 1, Vec3::ZERO, false, None);
+        let player = insert_npc(&mut state, 2, Vec3::new(5.0, 0.0, 0.0), false, None);
+        state.player_instance = Some(player);
+        state.perc_ranges.insert(PERC_ASSESSENEMY, 2000);
+        state.npc_state_mut(npc).social.attitude = Some(ATT_HOSTILE);
+
+        state.npc_state_mut(npc).perception.seen = Some(HashSet::new());
+        assert_eq!(state.nearest_enemy(npc), None);
+
+        state.npc_state_mut(npc).perception.seen = Some(HashSet::from([player]));
+        assert_eq!(state.nearest_enemy(npc), Some(player));
+
+        // No cache: an npc away from the player falls back to distance only.
+        state.npc_state_mut(npc).perception.seen = None;
+        assert_eq!(state.nearest_enemy(npc), Some(player));
+    }
+
+    #[test]
+    fn visibility_refresh_applies_the_sight_test_and_range() {
+        let mut state = ImportCallState::default();
+        let npc = insert_npc(&mut state, 1, Vec3::ZERO, false, None);
+        let behind_wall = insert_npc(&mut state, 2, Vec3::new(-3.0, 0.0, 0.0), false, None);
+        let in_sight = insert_npc(&mut state, 3, Vec3::new(3.0, 0.0, 0.0), false, None);
+        let far = insert_npc(&mut state, 4, Vec3::new(100.0, 0.0, 0.0), false, None);
+
+        // A wall at x = 0.
+        state.refresh_visibility(npc, &mut |_, target| target.x < 0.0);
+
+        assert_eq!(state.cached_sight(npc, in_sight), Some(true));
+        assert_eq!(state.cached_sight(npc, behind_wall), Some(false));
+        assert_eq!(state.cached_sight(npc, far), Some(false));
+    }
+
+    #[test]
+    fn visibility_refresh_skips_dead_and_positionless_npcs() {
+        let mut state = ImportCallState::default();
+        let npc = insert_npc(&mut state, 1, Vec3::ZERO, false, None);
+        let dead = insert_npc(&mut state, 2, Vec3::new(1.0, 0.0, 0.0), true, None);
+        let unspawned = insert_npc(&mut state, 3, Vec3::new(2.0, 0.0, 0.0), false, None);
+        state.npc_state_mut(unspawned).live.position = None;
+
+        state.refresh_visibility(npc, &mut |_, _| false);
+
+        assert_eq!(state.cached_sight(npc, dead), Some(false));
+        assert_eq!(state.cached_sight(npc, unspawned), Some(false));
     }
 
     #[test]

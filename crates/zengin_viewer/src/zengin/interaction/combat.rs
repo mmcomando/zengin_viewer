@@ -23,7 +23,7 @@ use crate::zengin::script::TransferItems;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{GameItem, GameNpc, NpcCorpseMarker};
+use crate::zengin::{GameItem, GameNpc, NpcCorpseMarker, VisibilityRefresh};
 
 /// Query data of the npc state needed to apply hits and deaths.
 /// Shared with the ranged hit system in [`super::ranged`].
@@ -418,6 +418,7 @@ pub(super) struct NpcDeathResolved {
 pub(super) fn handle_npc_death(
     mut deaths: MessageReader<NpcDied>,
     mut resolved: MessageWriter<NpcDeathResolved>,
+    mut visibility: MessageWriter<VisibilityRefresh>,
     mut selection: ResMut<Selection>,
     gothic_scripts: Res<ScriptResource>,
     mut commands: Commands,
@@ -463,6 +464,7 @@ pub(super) fn handle_npc_death(
             state.equipment.ranged = None;
             state.equipment.weapon_mode = None;
         }
+        visibility.write(VisibilityRefresh);
         let position = death.position;
         // Only the drawn weapon drops on the ground; sheathed weapons stay
         // part of the inventory that moves to the player
