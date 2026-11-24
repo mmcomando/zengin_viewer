@@ -38,7 +38,7 @@ use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
 use crate::external_messages::ExternalMessageSender;
 use crate::zengin::common::{
     DEFAULT_SIGHT_RANGE_METERS, FREEPOINT_SEARCH_RADIUS, MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS,
-    to_world_units,
+    horizontal_offset, to_world_units,
 };
 use bevy::ecs::resource::Resource;
 
@@ -52,6 +52,9 @@ pub const PERC_ASSESSENEMY: i32 = 2;
 /// `PERC_ASSESSDAMAGE` script constant, the perception delivered to the victim
 /// of a damage event.
 pub const PERC_ASSESSDAMAGE: i32 = 8;
+
+/// Cosine of the `Npc_CanSeeNpc` ±100° view range.
+const VIEW_CONE_COS: f32 = -0.173_648_18;
 
 /// A mob state assignment scheduled by `Wld_SetMobRoutine`: the mob with
 /// `mob_name` should be switched to `state` when the game time reaches
@@ -1046,6 +1049,42 @@ impl ImportCallState {
             .map(|seen| seen.contains(&other))
     }
 
+    /// Whether `other` is inside the npc ±100° view cone (`Npc_CanSeeNpc`).
+    /// `true` when the facing or a position is unknown, so the cone never hides
+    /// an npc the world side did not describe.
+    pub fn in_view_cone(&self, npc: InstanceId, other: InstanceId) -> bool {
+        let Some((facing, position)) = self
+            .npc_state(npc)
+            .and_then(|state| Some((state.live.facing?, state.live.position?)))
+        else {
+            return true;
+        };
+        let Some(other_position) = self.npc_state(other).and_then(|state| state.live.position)
+        else {
+            return true;
+        };
+        let Some(to_other) = horizontal_offset(position, other_position).try_normalize() else {
+            return true;
+        };
+        facing.dot(to_other) > VIEW_CONE_COS
+    }
+
+    /// Whether `npc` sees `other`: the refreshed sight set (with the view cone
+    /// unless `free_los`) or, for npcs never scanned, distance only.
+    pub fn can_see(&self, npc: InstanceId, other: InstanceId, free_los: bool) -> bool {
+        if let Some(seen) = self.cached_sight(npc, other) {
+            return seen && (free_los || self.in_view_cone(npc, other));
+        }
+        let positions = (
+            self.npc_state(npc).and_then(|npc| npc.live.position),
+            self.npc_state(other).and_then(|npc| npc.live.position),
+        );
+        let (Some(npc_position), Some(other_position)) = positions else {
+            return false;
+        };
+        (npc_position - other_position).length() <= self.sight_range(npc)
+    }
+
     /// Writes the visibility cache without recording the npc as changed, it is
     /// scratch data the ECS side mirrors nothing from.
     fn store_seen(&mut self, npc: InstanceId, seen: HashSet<InstanceId>) {
@@ -1627,6 +1666,34 @@ mod tests {
 
         assert_eq!(state.cached_sight(npc, dead), Some(false));
         assert_eq!(state.cached_sight(npc, unspawned), Some(false));
+    }
+
+    #[test]
+    fn view_cone_limits_non_free_sight() {
+        let mut state = ImportCallState::default();
+        let npc = insert_npc(&mut state, 1, Vec3::ZERO, false, None);
+        let front = insert_npc(&mut state, 2, Vec3::new(0.0, 0.0, 3.0), false, None);
+        let behind = insert_npc(&mut state, 3, Vec3::new(0.0, 0.0, -3.0), false, None);
+        state.npc_state_mut(npc).live.facing = Some(Vec3::Z);
+
+        assert!(state.in_view_cone(npc, front));
+        assert!(!state.in_view_cone(npc, behind));
+
+        // Unknown facing: the cone never hides the target.
+        state.npc_state_mut(npc).live.facing = None;
+        assert!(state.in_view_cone(npc, behind));
+    }
+
+    #[test]
+    fn can_see_applies_the_cone_only_without_free_los() {
+        let mut state = ImportCallState::default();
+        let npc = insert_npc(&mut state, 1, Vec3::ZERO, false, None);
+        let behind = insert_npc(&mut state, 2, Vec3::new(0.0, 0.0, -3.0), false, None);
+        state.npc_state_mut(npc).live.facing = Some(Vec3::Z);
+        state.npc_state_mut(npc).perception.seen = Some(HashSet::from([behind]));
+
+        assert!(!state.can_see(npc, behind, false));
+        assert!(state.can_see(npc, behind, true));
     }
 
     #[test]

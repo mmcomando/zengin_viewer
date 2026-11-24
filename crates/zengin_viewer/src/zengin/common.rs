@@ -337,6 +337,25 @@ mod tests {
     }
 
     #[test]
+    fn face_direction_quat_faces_the_given_direction() {
+        let directions = [
+            Vec3::Z,
+            Vec3::NEG_Z,
+            Vec3::X,
+            Vec3::NEG_X,
+            Vec3::new(1.0, 0.0, 1.0).normalize(),
+            Vec3::new(-3.0, 0.0, 2.0).normalize(),
+        ];
+        for direction in directions {
+            let facing = face_direction_quat(direction) * Vec3::Z;
+            assert!(
+                facing.abs_diff_eq(direction, 1e-4),
+                "facing {facing:?} does not match {direction:?}"
+            );
+        }
+    }
+
+    #[test]
     fn mover_keyframe_rotation_matches_the_vob_rest_pose() {
         use crate::zengin::loaders::ZenginQuatToGlam;
 

@@ -234,6 +234,10 @@ pub struct NpcLiveState {
     /// running.
     #[serde(default)]
     pub walk_mode: i32,
+    /// Horizontal facing direction, rebuilt from the entity transform every
+    /// update, so not saved.
+    #[serde(skip)]
+    pub facing: Option<Vec3>,
 }
 
 impl NpcRuntime {

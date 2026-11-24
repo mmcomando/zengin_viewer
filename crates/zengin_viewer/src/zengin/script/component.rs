@@ -82,16 +82,21 @@ fn update_script_npc_state(
 ) {
     let _perf = perf_debug!();
     for (npc, transform) in &changed_npcs {
-        if set_npc_script_position(npc.handle(), Some(transform.translation())) {
+        let facing = transform.rotation() * Vec3::Z;
+        if set_npc_script_position(npc.handle(), Some(transform.translation()), Some(facing)) {
             // A teleport invalidates every observer that saw the npc.
             visibility.write(VisibilityRefresh);
         }
     }
 }
 
-/// Mirrors the position into the script runtime and answers whether it moved
-/// farther than [`VISIBILITY_JUMP_DISTANCE`] in one update.
-fn set_npc_script_position(handle: &NpcHandle, position: Option<Vec3>) -> bool {
+/// Mirrors the position and facing into the script runtime and answers whether
+/// the position moved farther than [`VISIBILITY_JUMP_DISTANCE`] in one update.
+fn set_npc_script_position(
+    handle: &NpcHandle,
+    position: Option<Vec3>,
+    facing: Option<Vec3>,
+) -> bool {
     let mut runtime = handle
         .runtime()
         .write()
@@ -106,6 +111,8 @@ fn set_npc_script_position(handle: &NpcHandle, position: Option<Vec3>) -> bool {
         _ => false,
     };
     runtime.live.position = position;
+    runtime.live.facing =
+        facing.and_then(|facing| Vec3::new(facing.x, 0.0, facing.z).try_normalize());
     jumped
 }
 

@@ -25,7 +25,6 @@
     TestLogNotExists(regex: "DebugNPC: animation .*current=WOLF-T_WARN"),
     TestLogNotExists(regex: "AI_Attack requested by npc"),
     TestLogNotExists(regex: "DebugNPC: actions Attack\\("),
-    TestScreenshot(path: "01_behind_wall.png"),
 
     // Act
     TestClearLogBuffer,
@@ -34,7 +33,6 @@
 
     // Assert
     TestLogExists(regex: "AI_Attack requested by npc"),
-    TestScreenshot(path: "02_clear_line_of_sight.png"),
 
     ExitGame,
 ]

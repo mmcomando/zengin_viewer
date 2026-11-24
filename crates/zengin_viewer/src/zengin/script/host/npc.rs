@@ -191,10 +191,9 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_getheighttoitem(_0, _1) -> i32);
     fake_impl!(npc_getdisttoplayer(_0) -> i32);
     fake_impl!(npc_getdisttoitem(_0, _1) -> i32);
-    /// Whether `npc` has an unobstructed sight line to `other`. Answered from
-    /// the per-npc set the world side refreshes when it is available, otherwise
-    /// distance only (npcs far from the player are not scanned). The view cone
-    /// is not modelled.
+    /// Whether `npc` sees `other` with the `Npc_CanSeeNpc` view cone. Answered
+    /// from the refreshed sight set, distance only when the npc was never
+    /// scanned.
     fn npc_canseenpc(&mut self, npc: i32, other: i32) -> i32 {
         let Some(npc) = self.symbol_table.instance(npc) else {
             return 0;
@@ -202,34 +201,17 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
         let Some(other) = self.symbol_table.instance(other) else {
             return 0;
         };
-        {
-            let Some(state) = self.npc_state(npc) else {
-                return 0;
-            };
-            if let Some(seen) = &state.perception.seen {
-                return i32::from(seen.contains(&other));
-            }
-        }
-        let positions = (
-            self.npc_state(npc).and_then(|npc| npc.live.position),
-            self.npc_state(other).and_then(|npc| npc.live.position),
-        );
-        let (Some(npc_position), Some(other_position)) = positions else {
+        i32::from(self.can_see(npc, other, false))
+    }
+    /// `Npc_CanSeeNpcFreeLOS`: the same sight line without the view cone.
+    fn npc_canseenpcfreelos(&mut self, npc: i32, other: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
             return 0;
         };
-        let range = self
-            .typed
-            .npc(npc.value() as u32)
-            .map(|npc| to_world_units(npc.senses_range as f32))
-            .filter(|range| *range > 0.0)
-            .unwrap_or(DEFAULT_SIGHT_RANGE_METERS);
-        i32::from((npc_position - other_position).length() <= range)
-    }
-    /// Same as [`npc_canseenpc`](Self::npc_canseenpc): both variants of the
-    /// engine call ray-cast and the cached sight line already ignores the view
-    /// direction.
-    fn npc_canseenpcfreelos(&mut self, npc: i32, other: i32) -> i32 {
-        self.npc_canseenpc(npc, other)
+        let Some(other) = self.symbol_table.instance(other) else {
+            return 0;
+        };
+        i32::from(self.can_see(npc, other, true))
     }
     fake_impl!(npc_canseeitem(_0, _1) -> i32);
     /// True when the npc is the recorded player instance (`PC_Hero`).
@@ -549,7 +531,17 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
         let until = (seconds > 0).then(|| self.world_seconds + f64::from(seconds));
         self.npc_state_mut(npc).social.refuse_talk_until = until;
     }
-    fake_impl!(npc_canseesource(_0) -> i32);
+    /// `Npc_CanSeeSource`: the npc sees the npc it currently looks at. Sound
+    /// sources are not tracked, so this is the engine's look-at fallback.
+    fn npc_canseesource(&mut self, npc: i32) -> i32 {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            return 0;
+        };
+        let Some(look_at) = self.npc_state(npc).and_then(|state| state.live.look_at) else {
+            return 0;
+        };
+        i32::from(self.can_see(npc, look_at, false))
+    }
     fake_impl!(npc_checkavailablemission(_0, _1, _2) -> i32);
     fake_impl!(npc_checkrunningmission(_0, _1) -> i32);
     fake_impl!(npc_isdrawingweapon(_0) -> i32);
