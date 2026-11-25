@@ -1,6 +1,7 @@
 //! Semantic model of the G2 `C_Npc` members the host uses.
 
 use super::access::ScriptVmAccess;
+use super::damage::DAMAGE_TYPES;
 use super::ids::{FunctionId, StringId};
 use super::registry::FieldSlot;
 
@@ -10,14 +11,34 @@ pub const AIVAR_MAX: usize = 100;
 /// `C_Npc.hitchance` size in G2.
 pub const HITCHANCE_MAX: usize = 5;
 
-/// `C_Npc.protection` size in G2.
-pub const PROTECTION_MAX: usize = 8;
-
-/// `C_Npc.damage` size in G2.
-pub const DAMAGE_MAX: usize = 8;
-
 /// `C_Npc.mission` size in G2.
 pub const MISSION_MAX: usize = 5;
+
+/// `ATR_HITPOINTS` attribute slot.
+pub const ATR_HITPOINTS: i32 = 0;
+/// `ATR_HITPOINTS_MAX` attribute slot.
+pub const ATR_HITPOINTS_MAX: i32 = 1;
+/// `ATR_MANA` attribute slot.
+pub const ATR_MANA: i32 = 2;
+/// `ATR_MANA_MAX` attribute slot.
+pub const ATR_MANA_MAX: i32 = 3;
+/// `ATR_STRENGTH` attribute slot.
+pub const ATR_STRENGTH: i32 = 4;
+/// `ATR_DEXTERITY` attribute slot.
+pub const ATR_DEXTERITY: i32 = 5;
+/// `ATR_REGENERATEHP` attribute slot.
+pub const ATR_REGENERATE_HP: i32 = 6;
+/// `ATR_REGENERATEMANA` attribute slot.
+pub const ATR_REGENERATE_MANA: i32 = 7;
+/// `ATR_INDEX_MAX`, one past the last attribute slot.
+pub const ATR_INDEX_MAX: i32 = 8;
+
+/// `TALENT_UNKNOWN`, the unarmed `C_Npc.hitchance` slot.
+pub const TALENT_UNKNOWN: usize = 0;
+/// `NPC_TALENT_1H`, the one-handed `C_Npc.hitchance` slot.
+pub const TALENT_1H: usize = 1;
+/// `NPC_TALENT_2H`, the two-handed `C_Npc.hitchance` slot.
+pub const TALENT_2H: usize = 2;
 
 /// `C_Npc` members modeled by the host.
 #[derive(Debug, Clone)]
@@ -55,9 +76,9 @@ pub struct Npc {
     /// `C_Npc.hitchance`.
     pub hitchance: [i32; HITCHANCE_MAX],
     /// `C_Npc.protection`.
-    pub protection: [i32; PROTECTION_MAX],
+    pub protection: [i32; DAMAGE_TYPES],
     /// `C_Npc.damage`.
-    pub damage: [i32; DAMAGE_MAX],
+    pub damage: [i32; DAMAGE_TYPES],
     /// `C_Npc.damagetype`.
     pub damagetype: i32,
     /// `C_Npc.guild`.
@@ -104,6 +125,30 @@ pub struct Npc {
     pub nofocus: i32,
 }
 
+impl Npc {
+    /// Applies `delta` to one `ATR_*` attribute slot. Hitpoints and mana clamp
+    /// to their maxima, every slot clamps at zero. Returns `false` for an
+    /// unknown slot.
+    pub fn change_attribute(&mut self, atr: i32, delta: i32) -> bool {
+        match atr {
+            ATR_HITPOINTS => {
+                self.hitpoints = (self.hitpoints + delta).clamp(0, self.hitpoints_max);
+            }
+            ATR_HITPOINTS_MAX => self.hitpoints_max = (self.hitpoints_max + delta).max(0),
+            ATR_MANA => self.mana = (self.mana + delta).clamp(0, self.mana_max),
+            ATR_MANA_MAX => self.mana_max = (self.mana_max + delta).max(0),
+            ATR_STRENGTH => self.strength = (self.strength + delta).max(0),
+            ATR_DEXTERITY => self.dexterity = (self.dexterity + delta).max(0),
+            ATR_REGENERATE_HP => self.regenerate_hp = (self.regenerate_hp + delta).max(0),
+            ATR_REGENERATE_MANA => {
+                self.regenerate_mana = (self.regenerate_mana + delta).max(0);
+            }
+            _ => return false,
+        }
+        true
+    }
+}
+
 impl Default for Npc {
     fn default() -> Self {
         Self {
@@ -123,8 +168,8 @@ impl Default for Npc {
             regenerate_hp: 0,
             regenerate_mana: 0,
             hitchance: [0; HITCHANCE_MAX],
-            protection: [0; PROTECTION_MAX],
-            damage: [0; DAMAGE_MAX],
+            protection: [0; DAMAGE_TYPES],
+            damage: [0; DAMAGE_TYPES],
             damagetype: 0,
             guild: 0,
             level: 0,
@@ -631,4 +676,60 @@ fn write_function_slot(slots: &mut [Option<FunctionId>], index: usize, value: i3
     };
     *slot = function_id(value);
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn npc() -> Npc {
+        Npc {
+            hitpoints: 50,
+            hitpoints_max: 100,
+            mana: 20,
+            mana_max: 40,
+            strength: 10,
+            dexterity: 10,
+            regenerate_hp: 1,
+            regenerate_mana: 1,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn hitpoints_change_by_delta_and_clamp() {
+        let mut npc = npc();
+        assert!(npc.change_attribute(ATR_HITPOINTS, -10));
+        assert_eq!(npc.hitpoints, 40);
+        npc.change_attribute(ATR_HITPOINTS, 500);
+        assert_eq!(npc.hitpoints, 100);
+        npc.change_attribute(ATR_HITPOINTS, -500);
+        assert_eq!(npc.hitpoints, 0);
+    }
+
+    #[test]
+    fn mana_and_max_attributes_clamp_at_zero() {
+        let mut npc = npc();
+        npc.change_attribute(ATR_MANA, -500);
+        assert_eq!(npc.mana, 0);
+        npc.change_attribute(ATR_MANA_MAX, -500);
+        assert_eq!(npc.mana_max, 0);
+        npc.change_attribute(ATR_HITPOINTS_MAX, -500);
+        assert_eq!(npc.hitpoints_max, 0);
+    }
+
+    #[test]
+    fn strength_and_dexterity_change_by_delta() {
+        let mut npc = npc();
+        npc.change_attribute(ATR_STRENGTH, 5);
+        npc.change_attribute(ATR_DEXTERITY, -20);
+        assert_eq!(npc.strength, 15);
+        assert_eq!(npc.dexterity, 0);
+    }
+
+    #[test]
+    fn unknown_attribute_reports_no_change() {
+        let mut npc = npc();
+        assert!(!npc.change_attribute(99, 5));
+    }
 }

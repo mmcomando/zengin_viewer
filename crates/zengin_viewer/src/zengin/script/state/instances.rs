@@ -301,9 +301,6 @@ pub struct DialogChoice {
 /// Talent slots per npc, `TALENT_MAX_G2`.
 pub const TALENTS_MAX: usize = 22;
 
-/// Talent slot `NPC_TALENT_1H` of the Gothic 2 script constants.
-pub const TALENT_1H: i32 = 1;
-
 /// Talent skill and value slots of one npc.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NpcTalents {

@@ -1,16 +1,6 @@
-use daedalus_typed::Npc;
+use daedalus_typed::ATR_HITPOINTS;
 
 use super::*;
-
-/// `ATR_*` attribute indices of the G2 `C_Npc.attribute` array.
-const ATR_HITPOINTS: i32 = 0;
-const ATR_HITPOINTS_MAX: i32 = 1;
-const ATR_MANA: i32 = 2;
-const ATR_MANA_MAX: i32 = 3;
-const ATR_STRENGTH: i32 = 4;
-const ATR_DEXTERITY: i32 = 5;
-const ATR_REGENERATE_HP: i32 = 6;
-const ATR_REGENERATE_MANA: i32 = 7;
 
 impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     /// Distance from the npc to a named waypoint in engine units. The engine
@@ -157,7 +147,11 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             let mut data = handle
                 .write()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            apply_attribute_delta(&mut data, atr, value, self.player_instance == Some(npc))
+            let changed = data.change_attribute(atr, value);
+            if changed && atr == ATR_HITPOINTS && self.player_instance == Some(npc) {
+                data.hitpoints = data.hitpoints.max(1);
+            }
+            changed
         };
         if changed {
             self.pending.npc_changed.insert(npc);
@@ -650,87 +644,4 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
     fake_impl!(npc_wasplayerinmyroom(_0) -> i32);
     fake_impl!(npc_getportalowner(_0) -> i32);
     fake_impl!(npc_getportalguild(_0) -> i32);
-}
-
-fn apply_attribute_delta(data: &mut Npc, atr: i32, value: i32, is_player: bool) -> bool {
-    match atr {
-        ATR_HITPOINTS => {
-            data.hitpoints = (data.hitpoints + value).clamp(0, data.hitpoints_max);
-            if is_player {
-                data.hitpoints = data.hitpoints.max(1);
-            }
-        }
-        ATR_HITPOINTS_MAX => data.hitpoints_max = (data.hitpoints_max + value).max(0),
-        ATR_MANA => data.mana = (data.mana + value).clamp(0, data.mana_max),
-        ATR_MANA_MAX => data.mana_max = (data.mana_max + value).max(0),
-        ATR_STRENGTH => data.strength = (data.strength + value).max(0),
-        ATR_DEXTERITY => data.dexterity = (data.dexterity + value).max(0),
-        ATR_REGENERATE_HP => data.regenerate_hp = (data.regenerate_hp + value).max(0),
-        ATR_REGENERATE_MANA => data.regenerate_mana = (data.regenerate_mana + value).max(0),
-        _ => return false,
-    }
-    true
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn npc() -> Npc {
-        Npc {
-            hitpoints: 50,
-            hitpoints_max: 100,
-            mana: 20,
-            mana_max: 40,
-            strength: 10,
-            dexterity: 10,
-            regenerate_hp: 1,
-            regenerate_mana: 1,
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn hitpoints_change_by_delta_and_clamp() {
-        let mut npc = npc();
-        assert!(apply_attribute_delta(&mut npc, ATR_HITPOINTS, -10, false));
-        assert_eq!(npc.hitpoints, 40);
-        apply_attribute_delta(&mut npc, ATR_HITPOINTS, 500, false);
-        assert_eq!(npc.hitpoints, 100);
-        apply_attribute_delta(&mut npc, ATR_HITPOINTS, -500, false);
-        assert_eq!(npc.hitpoints, 0);
-    }
-
-    #[test]
-    fn player_hitpoints_floor_at_one() {
-        let mut npc = npc();
-        apply_attribute_delta(&mut npc, ATR_HITPOINTS, -500, true);
-        assert_eq!(npc.hitpoints, 1);
-    }
-
-    #[test]
-    fn mana_and_max_attributes_clamp_at_zero() {
-        let mut npc = npc();
-        apply_attribute_delta(&mut npc, ATR_MANA, -500, false);
-        assert_eq!(npc.mana, 0);
-        apply_attribute_delta(&mut npc, ATR_MANA_MAX, -500, false);
-        assert_eq!(npc.mana_max, 0);
-        apply_attribute_delta(&mut npc, ATR_HITPOINTS_MAX, -500, false);
-        assert_eq!(npc.hitpoints_max, 0);
-    }
-
-    #[test]
-    fn strength_and_dexterity_change_by_delta() {
-        let mut npc = npc();
-        apply_attribute_delta(&mut npc, ATR_STRENGTH, 5, false);
-        apply_attribute_delta(&mut npc, ATR_DEXTERITY, -20, false);
-        assert_eq!(npc.strength, 15);
-        assert_eq!(npc.dexterity, 0);
-    }
-
-    #[test]
-    fn unknown_attribute_reports_no_change() {
-        let mut npc = npc();
-        assert!(!apply_attribute_delta(&mut npc, 99, 5, false));
-    }
 }

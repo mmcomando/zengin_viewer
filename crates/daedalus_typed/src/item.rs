@@ -1,14 +1,9 @@
 //! Semantic model of the G2 `C_Item` members the host uses.
 
 use super::access::ScriptVmAccess;
+use super::damage::DAMAGE_TYPES;
 use super::ids::{FunctionId, StringId};
 use super::registry::FieldSlot;
-
-/// `C_Item.damage` size in G2.
-pub const DAMAGE_MAX: usize = 8;
-
-/// `C_Item.protection` size in G2.
-pub const PROTECTION_MAX: usize = 8;
 
 /// `C_Item.on_state` size in G2.
 pub const ON_STATE_MAX: usize = 4;
@@ -39,11 +34,11 @@ pub struct Item {
     /// Total damage.
     pub damage_total: i32,
     /// Damage by type.
-    pub damage: [i32; DAMAGE_MAX],
+    pub damage: [i32; DAMAGE_TYPES],
     /// Wear value.
     pub wear: i32,
     /// Protection by type.
-    pub protection: [i32; PROTECTION_MAX],
+    pub protection: [i32; DAMAGE_TYPES],
     /// Nutrition value.
     pub nutrition: i32,
     /// Equip requirement attributes.

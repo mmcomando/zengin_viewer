@@ -89,7 +89,7 @@ pub(crate) use crate::zengin::script::state::ScriptSound;
 pub(crate) use crate::zengin::script::state::SetGameTime;
 pub(crate) use crate::zengin::script::state::SpawnNpc;
 pub(crate) use crate::zengin::script::state::SvmLine;
-pub(crate) use crate::zengin::script::state::TALENT_1H;
+
 pub(crate) use crate::zengin::script::state::WeaponKind;
 pub(crate) use crate::zengin::script::state::WeaponMode;
 pub(crate) use crate::zengin::script::state::{

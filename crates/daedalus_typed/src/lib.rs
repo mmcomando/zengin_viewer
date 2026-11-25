@@ -11,6 +11,7 @@
 //! silently read and write the wrong fields.
 
 mod access;
+mod damage;
 mod generic;
 pub mod ids;
 mod info;
@@ -22,9 +23,16 @@ mod registry;
 mod symbol;
 
 pub use access::{ScriptConversion, ScriptVmAccess};
+pub use damage::{
+    DAM_BARRIER, DAM_BLUNT, DAM_EDGE, DAM_FALL, DAM_FIRE, DAM_FLY, DAM_INDEX_BARRIER,
+    DAM_INDEX_BLUNT, DAM_INDEX_EDGE, DAM_INDEX_FALL, DAM_INDEX_FIRE, DAM_INDEX_FLY,
+    DAM_INDEX_MAGIC, DAM_INDEX_MAX, DAM_INDEX_POINT, DAM_INVALID, DAM_MAGIC, DAM_POINT,
+    DAMAGE_TYPES, PROT_BARRIER, PROT_BLUNT, PROT_EDGE, PROT_FALL, PROT_FIRE, PROT_FLY, PROT_MAGIC,
+    PROT_POINT,
+};
 pub use generic::GenericVariable;
 pub use info::Info;
-pub use item::Item;
+pub use item::{Item, ON_STATE_MAX};
 pub use menu::{
     MENU_FLAG_ALIGN_CENTER, MENU_FLAG_DONT_SCALE_DIM, MENU_FLAG_DONT_SCALE_POS,
     MENU_FLAG_EXCLUSIVE, MENU_FLAG_NO_ANI, MENU_FLAG_OVERTOP, MENU_FLAG_SHOW_INFO, MENU_SCRIPT_DIV,
@@ -42,6 +50,10 @@ pub use menu_item::{
     SEL_ACTION_EXEC_COMMANDS, SEL_ACTION_PLAY_SOUND, SEL_ACTION_START_ITEM, SEL_ACTION_START_MENU,
     SEL_ACTION_UNDEF,
 };
-pub use npc::Npc;
+pub use npc::{
+    AIVAR_MAX, ATR_DEXTERITY, ATR_HITPOINTS, ATR_HITPOINTS_MAX, ATR_INDEX_MAX, ATR_MANA,
+    ATR_MANA_MAX, ATR_REGENERATE_HP, ATR_REGENERATE_MANA, ATR_STRENGTH, HITCHANCE_MAX, MISSION_MAX,
+    Npc, TALENT_1H, TALENT_2H, TALENT_UNKNOWN,
+};
 pub use registry::{ClassKind, TypedInstance, TypedRegistry};
 pub use symbol::{SymbolDecl, SymbolKind};

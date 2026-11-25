@@ -1,24 +1,13 @@
 //! Gothic II damage formula, detached from the script VM.
 
+use daedalus_typed::{
+    DAM_BLUNT, DAM_INVALID, DAMAGE_TYPES, HITCHANCE_MAX, TALENT_1H, TALENT_2H, TALENT_UNKNOWN,
+};
+
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 
 use super::ScriptManager;
-
-/// Number of `C_Npc.protection`, `C_Npc.damage` and `C_Item.damage` slots.
-const DAMAGE_TYPES: usize = 8;
-
-/// `DAM_INVALID`, the "no damage type" bitmask.
-const DAM_INVALID: i32 = 0;
-/// `DAM_BLUNT`, the melee default when an npc has no damage type.
-const DAM_BLUNT: i32 = 1 << 1;
-
-/// `TALENT_UNKNOWN`, the talent slot used by unarmed attacks.
-const TALENT_UNKNOWN: usize = 0;
-/// `NPC_TALENT_1H`.
-const TALENT_1H: usize = 1;
-/// `NPC_TALENT_2H`.
-const TALENT_2H: usize = 2;
 
 /// Gothic II floors every hit at this damage after protection.
 const MIN_DAMAGE: i32 = 5;
@@ -44,7 +33,7 @@ pub(crate) struct DamageStats {
     /// `C_Npc.attribute[ATR_DEXTERITY]`.
     pub dexterity: i32,
     /// `C_Npc.hitchance` indexed by talent.
-    pub hitchance: [i32; 5],
+    pub hitchance: [i32; HITCHANCE_MAX],
     /// `C_Npc.damage` by damage type.
     pub damage: [i32; DAMAGE_TYPES],
     /// `C_Npc.damagetype` bitmask.
@@ -228,9 +217,9 @@ fn is_monster_guild(guild: i32) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use daedalus_typed::{DAM_EDGE, DAM_INDEX_BARRIER, DAM_INDEX_BLUNT, PROT_EDGE};
 
-    const DAM_EDGE: i32 = 1 << 2;
+    use super::*;
 
     fn attacker() -> DamageStats {
         DamageStats {
@@ -272,7 +261,7 @@ mod tests {
             ..attacker()
         };
         let mut protection = protection();
-        protection[2] = 15;
+        protection[PROT_EDGE] = 15;
         assert_eq!(
             melee_damage(&attacker, Some(&weapon()), &protection, 50),
             15
@@ -299,7 +288,7 @@ mod tests {
             ..attacker()
         };
         let mut protection = protection();
-        protection[2] = 100;
+        protection[PROT_EDGE] = 100;
         assert_eq!(melee_damage(&attacker, Some(&weapon()), &protection, 50), 5);
     }
 
@@ -316,15 +305,17 @@ mod tests {
 
     #[test]
     fn unarmed_human_falls_back_to_blunt_and_uses_talent_zero() {
+        let mut damage = [0; DAMAGE_TYPES];
+        damage[DAM_INDEX_BLUNT] = 2;
         let attacker = DamageStats {
             strength: 10,
             hitchance: [100, 0, 0, 0, 0],
             damagetype: DAM_INVALID,
-            damage: [0, 2, 0, 0, 0, 0, 0, 0],
+            damage,
             ..Default::default()
         };
         let mut protection = protection();
-        protection[2] = 100;
+        protection[PROT_EDGE] = 100;
         assert_eq!(melee_damage(&attacker, None, &protection, 50), 12);
     }
 
@@ -350,10 +341,9 @@ mod tests {
             hitchance: [0, 100, 0, 0, 0],
             ..attacker()
         };
-        let weapon = WeaponStats {
-            damage: [100, 0, 0, 0, 0, 0, 0, 0],
-            ..weapon()
-        };
+        let mut damage = [0; DAMAGE_TYPES];
+        damage[DAM_INDEX_BARRIER] = 100;
+        let weapon = WeaponStats { damage, ..weapon() };
         assert_eq!(
             melee_damage(&attacker, Some(&weapon), &protection(), 50),
             30
@@ -373,7 +363,7 @@ mod tests {
     #[test]
     fn ranged_subtracts_protection_and_floors_at_minimum_damage() {
         let mut protection = protection();
-        protection[2] = 100;
+        protection[PROT_EDGE] = 100;
         assert_eq!(ranged_damage(&attacker(), &weapon(), &protection), 5);
     }
 

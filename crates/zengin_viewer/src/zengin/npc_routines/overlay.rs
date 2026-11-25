@@ -6,7 +6,8 @@ use std::sync::PoisonError;
 use bevy::prelude::*;
 
 use crate::zengin::NpcHandle;
-use crate::zengin::script::state::TALENT_1H;
+
+use daedalus_typed::TALENT_1H;
 
 /// Overlay animation scheme currently applied to an npc (`Mdl_ApplyOverlayMds`).
 #[derive(Component, Default)]
@@ -44,7 +45,7 @@ pub(crate) fn talent_overlay_for(handle: &NpcHandle) -> NpcTalentOverlay {
         .read()
         .unwrap_or_else(PoisonError::into_inner)
         .talents
-        .skill(TALENT_1H);
+        .skill(TALENT_1H as i32);
     NpcTalentOverlay(one_hand_talent_overlay(skill))
 }
 

@@ -8,9 +8,11 @@ use crate::input::log_capture::LogBuffer;
 use crate::input::record::ReplayCommand;
 use crate::zengin::{
     DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SetGameTime, SpawnNpc,
-    SpawnPositionFilter, StringCanon, TALENT_1H, UseMobChange, add_waypoint, enqueue_npc_goto,
+    SpawnPositionFilter, StringCanon, UseMobChange, add_waypoint, enqueue_npc_goto,
     grant_test_items, seed_test_journal,
 };
+
+use daedalus_typed::TALENT_1H;
 
 use super::failures::TestFailures;
 use super::log_check::{check_log_exists, check_log_not_exists};
@@ -130,7 +132,7 @@ pub(super) fn apply_replay_command(
                 .lock()
                 .npc_state_mut(player_id)
                 .talents
-                .set_skill(TALENT_1H, *skill);
+                .set_skill(TALENT_1H as i32, *skill);
             info!("Replay set the player 1H talent skill to {skill}");
         }
         ReplayCommand::ZenginSetPlayerAttribute { attribute, value } => {
