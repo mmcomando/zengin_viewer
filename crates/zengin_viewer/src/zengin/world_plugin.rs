@@ -63,12 +63,12 @@ impl Plugin for ZenGinWorldPlugin {
         app.init_resource::<CurrentWorld>();
         app.init_resource::<LoadingWorld>();
         app.init_resource::<PendingWorldSpawns>();
-        app.init_resource::<PendingPlayerSpawns>();
         app.init_resource::<NpcSpawnNameFilter>();
         app.init_resource::<LoadScreenElapsed>();
 
         app.add_message::<RestartWorld>();
         app.add_message::<NewGame>();
+        app.add_message::<SpawnPlayer>();
         app.add_systems(
             OnEnter(AppState::LoadScreen),
             (reset_load_screen_elapsed, request_initial_world),
@@ -77,8 +77,10 @@ impl Plugin for ZenGinWorldPlugin {
         app.add_systems(First, new_game.run_if(on_message::<NewGame>));
         app.add_systems(
             Update,
-            spawn_requested_player
+            spawn_player_entities
                 .after(GameScriptLoaded)
+                .after(spawn_world)
+                .before(ScriptChangesApplied)
                 .run_if(resource_exists::<ScriptResource>)
                 .run_if(in_state(AppState::LoadScreen).or_else(in_state(AppState::InGame))),
         );
@@ -129,10 +131,12 @@ pub struct SpawnWorld {
 #[derive(Resource, Default)]
 pub(crate) struct PendingWorldSpawns(VecDeque<SpawnWorld>);
 
-/// Explicit player character spawn requests, drained by
-/// [`spawn_requested_player`].
-#[derive(Resource, Default)]
-struct PendingPlayerSpawns(VecDeque<Transform>);
+/// Player character spawn request; `transform` overrides the default start
+/// location.
+#[derive(Message)]
+struct SpawnPlayer {
+    transform: Option<Transform>,
+}
 
 /// Set by the debug UI to tear down and respawn the current world.
 #[derive(Message)]
@@ -228,13 +232,15 @@ pub(crate) fn request_world_spawn(world: &mut World, world_name: &str) {
     *world.resource_mut::<LoadingWorld>() = LoadingWorld(world_name.to_string());
 }
 
-/// Queues an explicit player character spawn, so it can run before the game
-/// script is loaded.
+/// Requests a player character spawn.
 pub(crate) fn request_player_spawn(world: &mut World, transform: Transform) {
-    world
-        .resource_mut::<PendingPlayerSpawns>()
-        .0
-        .push_back(transform);
+    let Some(mut spawns) = world.get_resource_mut::<Messages<SpawnPlayer>>() else {
+        warn!("Player spawn requested before the spawn message is registered");
+        return;
+    };
+    spawns.write(SpawnPlayer {
+        transform: Some(transform),
+    });
 }
 
 /// A request for a fresh world without saved state.
@@ -268,19 +274,17 @@ fn new_game(world: &mut World) {
     begin_world_load(world, START_WORLD, None, None);
 }
 
-fn spawn_requested_player(
-    mut pending: ResMut<PendingPlayerSpawns>,
+/// Spawns the player character for every request, skipping duplicates.
+fn spawn_player_entities(
+    mut requests: MessageReader<SpawnPlayer>,
     mut commands: Commands,
     scripts: Res<ScriptResource>,
     mut instance_index: ResMut<InstanceIndex>,
     players: Query<(), With<PlayerCharacter>>,
 ) {
     let _perf = perf_debug!();
-    if pending.0.is_empty() {
-        return;
-    }
     let mut player_exists = players.iter().next().is_some();
-    for transform in pending.0.drain(..) {
+    for request in requests.read() {
         if player_exists {
             warn!("Player character spawn requested, but the player already exists");
             continue;
@@ -290,7 +294,7 @@ fn spawn_requested_player(
             &mut commands,
             &mut script,
             &mut instance_index,
-            Some(transform),
+            request.transform,
         );
         player_exists = true;
         info!("Spawned the player character on request");
@@ -343,6 +347,14 @@ fn begin_world_load_with(
     }
 
     world.resource::<WorldSpawnMessages>().clear();
+    // Spawn messages written straight into the ECS buffers skip the external
+    // inbox clear above; do not let them leak into the next world.
+    if let Some(mut spawns) = world.get_resource_mut::<Messages<SpawnItem>>() {
+        spawns.clear();
+    }
+    if let Some(mut spawns) = world.get_resource_mut::<Messages<SpawnPlayer>>() {
+        spawns.clear();
+    }
 
     world.resource_mut::<InventoryUiState>().close();
     world.resource_mut::<JournalUiState>().close();
@@ -453,6 +465,7 @@ fn spawn_world(
     mut instance_index: ResMut<InstanceIndex>,
     spawns: Res<WorldSpawnMessages>,
     mut spawn_npc: MessageWriter<SpawnNpc>,
+    mut spawn_player: MessageWriter<SpawnPlayer>,
     options: Res<Options>,
 ) {
     let _perf = perf_debug!();
@@ -486,6 +499,7 @@ fn spawn_world(
             &mut instance_index,
             &spawns,
             &mut spawn_npc,
+            &mut spawn_player,
         );
     }
 }
@@ -507,6 +521,7 @@ fn spawn_world_data(
     instance_index: &mut InstanceIndex,
     spawns: &WorldSpawnMessages,
     spawn_npc: &mut MessageWriter<SpawnNpc>,
+    player_spawn: &mut MessageWriter<SpawnPlayer>,
 ) {
     commands.insert_resource(CurrentWorld(world_name.to_string()));
     // A test world cannot be part of a zengin world spawn, drop its geometry.
@@ -605,12 +620,9 @@ fn spawn_world_data(
     if (spawn_default_player || restore.is_some() || player_transform.is_some())
         && (force_player_spawn || !gothic_script.has_player_instance())
     {
-        spawn_player(
-            commands,
-            &mut gothic_script,
-            instance_index,
-            player_transform,
-        );
+        player_spawn.write(SpawnPlayer {
+            transform: player_transform,
+        });
     }
 
     if let Some(save) = restore {
@@ -669,7 +681,7 @@ fn init_named_models(
 ///
 /// The player is the `PC_HERO` instance, the `hero` instance global has no data
 /// of its own (its stats come from `PC_HERO`).
-pub(crate) fn spawn_player(
+fn spawn_player(
     commands: &mut Commands,
     gothic_script: &mut ScriptManager,
     instance_index: &mut InstanceIndex,

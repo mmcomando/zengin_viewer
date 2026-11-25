@@ -1,8 +1,6 @@
 //! Test worlds defined in code from cubes, spawned by the `TestWorld` scenario
 //! command. They do not need a zengin world archive or the game scripts.
 
-use std::collections::VecDeque;
-
 use avian3d::prelude::*;
 use bevy::dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin, InfiniteGridSettings};
 use bevy::prelude::*;
@@ -17,8 +15,8 @@ pub struct TestWorldPlugin;
 
 impl Plugin for TestWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PendingTestWorldSpawns>();
-        app.init_resource::<PendingTestCubes>();
+        app.add_message::<SpawnTestWorld>();
+        app.add_message::<TestCubeSpawn>();
         app.init_resource::<TestWorldRoot>();
         app.add_plugins(InfiniteGridPlugin);
         app.add_systems(
@@ -30,17 +28,15 @@ impl Plugin for TestWorldPlugin {
     }
 }
 
-/// Test world spawn requests, drained by [`spawn_test_world`].
-#[derive(Resource, Default)]
-struct PendingTestWorldSpawns(VecDeque<String>);
-
-/// Standalone cube spawn requests, drained by [`spawn_test_cubes`]. The cubes
-/// become children of [`TestWorldRoot`], so a new test world removes them.
-#[derive(Resource, Default)]
-struct PendingTestCubes(VecDeque<TestCubeSpawn>);
+/// Test world spawn request, consumed by [`spawn_test_world`].
+#[derive(Message)]
+struct SpawnTestWorld {
+    name: String,
+}
 
 /// Static collider cube requested by the `PlaceCube` scenario command, given by
 /// its center, full size and rotation in world units.
+#[derive(Message)]
 pub(crate) struct TestCubeSpawn {
     pub(crate) center: Vec3,
     pub(crate) size: Vec3,
@@ -53,14 +49,21 @@ pub(crate) struct TestCubeSpawn {
 struct TestWorldRoot(Option<Entity>);
 
 pub(crate) fn request_test_world_spawn(world: &mut World, name: &str) {
-    world
-        .resource_mut::<PendingTestWorldSpawns>()
-        .0
-        .push_back(name.to_string());
+    let Some(mut spawns) = world.get_resource_mut::<Messages<SpawnTestWorld>>() else {
+        warn!("Test world spawn requested before the spawn message is registered");
+        return;
+    };
+    spawns.write(SpawnTestWorld {
+        name: name.to_string(),
+    });
 }
 
 pub(crate) fn request_test_cube_spawn(world: &mut World, cube: TestCubeSpawn) {
-    world.resource_mut::<PendingTestCubes>().0.push_back(cube);
+    let Some(mut spawns) = world.get_resource_mut::<Messages<TestCubeSpawn>>() else {
+        warn!("Test cube spawn requested before the spawn message is registered");
+        return;
+    };
+    spawns.write(cube);
 }
 
 /// Removes the test world geometry.
@@ -141,7 +144,7 @@ const SIMPLE_ROOM_CUBES: &[TestCube] = &[
 const TEST_WORLD_SIMPLE: &str = "simple";
 
 fn spawn_test_world(
-    mut pending: ResMut<PendingTestWorldSpawns>,
+    mut requests: MessageReader<SpawnTestWorld>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -149,34 +152,28 @@ fn spawn_test_world(
     mut cameras: Query<&mut Transform, With<Camera3d>>,
 ) {
     let _perf = perf_debug!();
-    if pending.0.is_empty() {
-        return;
-    }
-    for name in pending.0.drain(..) {
-        let world_root = if name == TEST_WORLD_SIMPLE {
+    for request in requests.read() {
+        let world_root = if request.name == TEST_WORLD_SIMPLE {
             create_simple_test_world(&mut commands, &mut meshes, &mut materials, &mut cameras)
         } else {
-            panic!("Unknown test world({name})");
+            panic!("Unknown test world({})", request.name);
         };
         despawn_test_world(&mut commands, &mut root);
         root.0 = Some(world_root);
-        info!("Spawned test world({name})");
+        info!("Spawned test world({})", request.name);
     }
 }
 
 fn spawn_test_cubes(
-    mut pending: ResMut<PendingTestCubes>,
+    mut requests: MessageReader<TestCubeSpawn>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     root: Res<TestWorldRoot>,
 ) {
     let _perf = perf_debug!();
-    if pending.0.is_empty() {
-        return;
-    }
-    let mut cubes = Vec::with_capacity(pending.0.len());
-    for cube in pending.0.drain(..) {
+    let mut cubes = Vec::new();
+    for cube in requests.read() {
         cubes.push(spawn_box(
             &mut commands,
             &mut meshes,
@@ -186,6 +183,9 @@ fn spawn_test_cubes(
             cube.rotation,
             cube.color,
         ));
+    }
+    if cubes.is_empty() {
+        return;
     }
     if let Some(root) = root.0 {
         commands.entity(root).add_children(&cubes);

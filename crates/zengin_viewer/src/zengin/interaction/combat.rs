@@ -4,26 +4,23 @@
 use bevy::prelude::*;
 
 use super::selection::{Selection, SelectionKind};
-use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::AnimationController;
 use crate::graphics::{NpcHitReaction, play_hit_reaction};
 use crate::gui::GameLog;
 use crate::perf_debug;
 use crate::zengin::instance_index::InstanceIndex;
-use crate::zengin::loaders::vdf_reader::ZenginVfs;
-use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::npc_actions::{ExecutingActionMarker, NpcActionQueue};
 use crate::zengin::npc_routines::NpcPath;
 use crate::zengin::npc_routines::{
     AnimationFiles, NpcEquippedWeapon, NpcLookAt, NpcOverlay, NpcWeaponMode,
 };
-use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
+use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::AttackKind;
-use crate::zengin::script::state::WeaponMode;
+use crate::zengin::script::state::{SpawnItem, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{GameItem, GameNpc, NpcCorpseMarker, VisibilityRefresh};
+use crate::zengin::{GameNpc, NpcCorpseMarker, VisibilityRefresh};
 
 /// Query data of the npc state needed to apply hits and deaths.
 /// Shared with the ranged hit system in [`super::ranged`].
@@ -323,22 +320,16 @@ pub(crate) struct DamageTargetData<'a> {
     pub is_player: bool,
 }
 
-/// Removes the drawn weapon from the dead npc's inventory and spawns it on
-/// the ground as a pickable item.
-#[allow(clippy::too_many_arguments)]
+/// Removes the drawn weapon from the dead npc's inventory and queues it on the
+/// ground as a pickable item.
 fn drop_drawn_weapon(
     gothic_scripts: &ScriptResource,
-    vfs: &ZenginVfs,
-    handles: &mut CachedAssetHandles,
-    asset_server: &Res<AssetServer>,
-    commands: &mut Commands,
-    instance_index: &mut InstanceIndex,
+    spawn_items: &mut MessageWriter<SpawnItem>,
     npc_id: InstanceId,
     item: InstanceId,
     position: Vec3,
 ) {
-    let mut script = gothic_scripts.lock();
-    let removed = script.remove_inventory(npc_id, item, 1);
+    let removed = gothic_scripts.lock().remove_inventory(npc_id, item, 1);
     if removed == 0 {
         warn!(
             "Dropped weapon item({}) of npc({}) was not in its inventory",
@@ -346,32 +337,11 @@ fn drop_drawn_weapon(
             npc_id.value()
         );
     }
-    let Some(handle) = script.item_handle(item) else {
-        warn!("No item handle for dropped weapon item({})", item.value());
-        return;
-    };
-    let name = script
-        .symbol_table()
-        .symbol_name(item.value())
-        .unwrap_or_else(|| item.to_string());
-    drop(script);
-    instance_index.insert_item_handle(handle.clone());
-    let Some(path) = item_model_path(gothic_scripts, vfs, item) else {
-        warn!("No mesh path for dropped weapon item({item})");
-        return;
-    };
-    let model_handle = handles.get_model_handle(asset_server, &path, None);
-    commands.spawn((
-        Name::new(name),
-        ClassifyDistance::default(),
-        ZenGinModelComponent {
-            model_handle,
-            ..default()
-        },
-        Visibility::default(),
-        Transform::from_translation(position),
-        GameItem::new(handle),
-    ));
+    spawn_items.write(SpawnItem {
+        instance_id: item,
+        location_name: None,
+        transform: Some(Transform::from_translation(position)),
+    });
 }
 
 /// A death that already ran the script death state and cleared the corpse's
@@ -505,15 +475,10 @@ pub(super) fn handle_npc_death(
 }
 
 /// Drops the drawn weapon of a dead npc on the ground.
-#[allow(clippy::too_many_arguments)]
 pub(super) fn drop_npc_death_weapon(
     gothic_scripts: Res<ScriptResource>,
-    vfs: Res<ZenginVfs>,
-    mut handles: ResMut<CachedAssetHandles>,
-    asset_server: Res<AssetServer>,
-    mut instance_index: ResMut<InstanceIndex>,
-    mut commands: Commands,
     mut resolved: MessageReader<NpcDeathResolved>,
+    mut spawn_items: MessageWriter<SpawnItem>,
 ) {
     let _perf = perf_debug!();
     for death in resolved.read() {
@@ -522,11 +487,7 @@ pub(super) fn drop_npc_death_weapon(
         };
         drop_drawn_weapon(
             &gothic_scripts,
-            &vfs,
-            &mut handles,
-            &asset_server,
-            &mut commands,
-            &mut instance_index,
+            &mut spawn_items,
             death.npc_id,
             item,
             death.position,
