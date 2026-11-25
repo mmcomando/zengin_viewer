@@ -285,7 +285,7 @@ fn handle_container(
         state_num: obj.interactive_state(),
         kind: MobSpawnKind::Container(ContainerSpawn {
             items,
-            locked: obj.container_locked(),
+            locked: saved.map_or_else(|| obj.container_locked(), |saved| saved.locked),
             key: obj.container_key(),
             pick_string: obj.container_pick_string(),
             cracked: saved.is_some_and(|saved| saved.cracked),

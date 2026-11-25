@@ -15,7 +15,7 @@ use crate::zengin::JournalTopic;
 use crate::zengin::{ItemRuntime, MobRoutineEntry, NpcRuntime};
 
 /// Version of the on-disk save format. Increment on any incompatible change.
-pub(crate) const SAVE_FORMAT_VERSION: u32 = 3;
+pub(crate) const SAVE_FORMAT_VERSION: u32 = 5;
 
 /// Directory containing all saves, relative to the workspace root.
 const SAVE_DIR: &str = "../../misc/saves";
@@ -211,10 +211,14 @@ pub(crate) struct SavedItem {
     pub(crate) instance_id: InstanceId,
 }
 
-/// Serialized `GameChest` component plus the `MobBase` vob id that locates it.
+/// Remaining state of one chest, keyed by the vob id in the ZEN archive. The
+/// entity itself is spawned from the world definition; only its state is saved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SavedChest {
     pub(crate) vob_id: u32,
+    /// Defaults to the world-definition value when absent from the save.
+    #[serde(default)]
+    pub(crate) locked: bool,
     pub(crate) items: Vec<(InstanceId, i32)>,
     /// Defaults to `false` (still locked) when absent from the save.
     #[serde(default)]
@@ -482,6 +486,7 @@ mod tests {
                     item: None,
                     chest: Some(SavedChest {
                         vob_id: 42,
+                        locked: true,
                         items: vec![(item_id, 3)],
                         cracked: true,
                     }),
@@ -510,6 +515,7 @@ mod tests {
         );
         let chest = restored.objects[2].chest.as_ref().expect("chest payload");
         assert_eq!(chest.vob_id, 42);
+        assert!(chest.locked);
         assert_eq!(chest.items, vec![(item_id, 3)]);
         assert!(chest.cracked);
     }

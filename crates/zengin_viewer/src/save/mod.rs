@@ -2,6 +2,7 @@
 
 mod file;
 pub(crate) mod format;
+mod object;
 mod systems;
 
 pub(crate) use file::{

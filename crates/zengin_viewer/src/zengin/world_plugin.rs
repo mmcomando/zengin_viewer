@@ -16,7 +16,7 @@ use crate::gui_debug::WorldMesh;
 use crate::input::Options;
 use crate::perf_debug;
 use crate::save::PendingLoad;
-use crate::save::format::SaveGame;
+use crate::save::format::{SaveGame, SavedObject};
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::change_level::ChangeLevelTriggers;
 use crate::zengin::common::get_full_texture_path;
@@ -615,39 +615,57 @@ fn spawn_world_data(
     println!("\n----CREATE ENGINE ENTITIES------\n");
 
     // Scenarios spawn the player character explicitly with
-    // `ZenginSpawnPlayerCharacter`. A restored or restarted world gets the
-    // player it was saved with.
-    if (spawn_default_player || restore.is_some() || player_transform.is_some())
-        && (force_player_spawn || !gothic_script.has_player_instance())
-    {
+    // `ZenginSpawnPlayerCharacter`. A clean spawn gets its player here, a
+    // restored world gets the player object from the save.
+    let spawn_player_entity = (spawn_default_player || player_transform.is_some())
+        && (force_player_spawn || !gothic_script.has_player_instance());
+
+    if let Some(save) = restore {
+        for object in &save.objects {
+            spawn_saved_object(object, spawn_player_entity, spawn_npc, player_spawn, spawns);
+        }
+    } else if spawn_player_entity {
         player_spawn.write(SpawnPlayer {
             transform: player_transform,
         });
     }
+}
 
-    if let Some(save) = restore {
-        for object in &save.objects {
-            // The player entity is spawned from the player payload, so its npc
-            // payload must not spawn a second entity.
-            if let Some(npc) = &object.npc
-                && object.player.is_none()
-            {
-                spawn_npc.write(SpawnNpc {
-                    instance_id: npc.instance_id,
-                    location_name: None,
-                    transform: Some(object.transform),
-                    exact_transform: true,
-                    overlay: npc.overlay.clone(),
-                });
-            }
-            if let Some(item) = &object.item {
-                spawns.items.send(SpawnItem {
-                    instance_id: item.instance_id,
-                    location_name: None,
-                    transform: Some(object.transform),
-                });
-            }
+/// Spawns the npc/item/player entity described by a saved object through the
+/// world spawn messages. The player is only emitted when `spawn_player` is set,
+/// so the caller keeps the "player already exists" decision; its npc payload
+/// never spawns a second entity. Chests are not spawned here, the world
+/// definition supplies their entities and the save only restores their state.
+fn spawn_saved_object(
+    object: &SavedObject,
+    spawn_player: bool,
+    spawn_npc: &mut MessageWriter<SpawnNpc>,
+    player_spawn: &mut MessageWriter<SpawnPlayer>,
+    spawns: &WorldSpawnMessages,
+) {
+    if object.player.is_some() {
+        if spawn_player {
+            player_spawn.write(SpawnPlayer {
+                transform: Some(object.transform),
+            });
         }
+        return;
+    }
+    if let Some(npc) = &object.npc {
+        spawn_npc.write(SpawnNpc {
+            instance_id: npc.instance_id,
+            location_name: None,
+            transform: Some(object.transform),
+            exact_transform: true,
+            overlay: npc.overlay.clone(),
+        });
+    }
+    if let Some(item) = &object.item {
+        spawns.items.send(SpawnItem {
+            instance_id: item.instance_id,
+            location_name: None,
+            transform: Some(object.transform),
+        });
     }
 }
 

@@ -17,8 +17,7 @@ use crate::gui::GameLogEntry;
 use crate::input::{Options, SharedAction, SharedInputMarker};
 use crate::perf_debug;
 use crate::save::format::{
-    SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedChest, SavedItem, SavedNpc,
-    SavedObject, SavedPlayer,
+    SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedObject,
 };
 use crate::save::{current_script_fingerprint, new_save_dir, newest_save, read_save, write_save};
 use crate::zengin::{
@@ -131,7 +130,7 @@ fn quick_save(
     let objects: Vec<SavedObject> = entities
         .iter()
         .filter_map(|(transform, player, npc, overlay, item, chest, base)| {
-            saved_object(transform, player, npc, overlay, item, chest, base)
+            SavedObject::from_components(transform, player, npc, overlay, item, chest, base)
         })
         .collect();
     if !objects.iter().any(|object| object.player.is_some()) {
@@ -203,47 +202,6 @@ fn quick_save(
         }
         Err(error) => error!("Save failed: {error}"),
     }
-}
-
-/// Serializes the saveable components of one entity. Returns `None` for
-/// entities that carry only a transform (world meshes, GUI, camera, ...).
-#[allow(clippy::too_many_arguments)]
-fn saved_object(
-    transform: &Transform,
-    player: Option<&PlayerCharacter>,
-    npc: Option<&GameNpc>,
-    overlay: Option<&NpcOverlay>,
-    item: Option<&GameItem>,
-    chest: Option<&GameChest>,
-    base: Option<&MobBase>,
-) -> Option<SavedObject> {
-    let npc = npc.map(|npc| SavedNpc {
-        instance_id: npc.instance_id(),
-        overlay: overlay.and_then(|overlay| overlay.0.clone()),
-    });
-    let item = item.map(|item| SavedItem {
-        instance_id: item.instance_id(),
-    });
-    let chest = match (chest, base) {
-        (Some(chest), Some(base)) => Some(SavedChest {
-            vob_id: base.vob_id,
-            items: chest.items.clone(),
-            cracked: chest.cracked,
-        }),
-        (Some(_), None) => {
-            warn!("Chest entity has no MobBase, its contents are not saved");
-            None
-        }
-        (None, _) => None,
-    };
-    let object = SavedObject {
-        transform: *transform,
-        player: player.map(|_| SavedPlayer),
-        npc,
-        item,
-        chest,
-    };
-    (!object.is_empty()).then_some(object)
 }
 
 /// Resizes a captured window screenshot to the load-screen thumbnail size and
