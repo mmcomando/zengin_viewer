@@ -283,7 +283,17 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
     }
     fake_impl!(ai_equipbestrangedweapon(_0) -> i32);
     fake_impl!(ai_equipbestarmor(_0));
-    fake_impl!(ai_unequipweapons(_0));
+    fn ai_unequipweapons(&mut self, npc: i32) {
+        let Some(npc) = self.symbol_table.instance(npc) else {
+            warn!("AI_UnEquipWeapons with invalid npc instance({npc})");
+            return;
+        };
+        bevy::log::info!(
+            "AI_UnEquipWeapons npc({}) unequips its weapons",
+            npc.value()
+        );
+        self.npc_state_mut(npc).equipment.unequip_weapons();
+    }
     fake_impl!(ai_unequiparmor(_0));
     fake_impl!(ai_equiparmor(_0, _1));
     fn ai_readymeleeweapon(&mut self, npc: i32) {

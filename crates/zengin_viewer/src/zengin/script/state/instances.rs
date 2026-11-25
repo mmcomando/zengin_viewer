@@ -152,6 +152,14 @@ impl NpcEquipmentState {
         self.weapon_mode = Some(mode);
     }
 
+    /// Unequips both weapon slots and sheathes to fists (`AI_UnEquipWeapons`
+    /// semantics). The items stay in the inventory and armor is untouched.
+    pub fn unequip_weapons(&mut self) {
+        self.melee = None;
+        self.ranged = None;
+        self.set_weapon_mode(WeaponMode::Fists);
+    }
+
     /// Weapon mode to draw next: the last drawn weapon when it is still
     /// equipped, otherwise the melee weapon, otherwise fists.
     pub fn last_used_weapon(&self) -> WeaponMode {
@@ -398,5 +406,23 @@ mod tests {
         assert_eq!(entry.minutes_until_stop(8 * 60), 4 * 60);
         assert_eq!(entry.minutes_until_stop(11 * 60 + 30), 30);
         assert_eq!(entry.minutes_until_stop(13 * 60), 0);
+    }
+
+    #[test]
+    fn unequip_weapons_clears_weapons_and_keeps_armor() {
+        let mut equipment = NpcEquipmentState {
+            melee: InstanceId::new(1),
+            ranged: InstanceId::new(2),
+            armor: InstanceId::new(3),
+            weapon_mode: Some(WeaponMode::Ranged),
+            ..Default::default()
+        };
+
+        equipment.unequip_weapons();
+
+        assert_eq!(equipment.melee, None);
+        assert_eq!(equipment.ranged, None);
+        assert_eq!(equipment.armor, InstanceId::new(3));
+        assert_eq!(equipment.weapon_mode, Some(WeaponMode::Fists));
     }
 }

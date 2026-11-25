@@ -123,16 +123,11 @@ impl super::ScriptManager {
         }
     }
 
-    /// Unequips all of the npc's weapons and sheathes them (`AI_RemoveWeapon`
-    /// and clearing `EquipItem` semantics).
-    #[allow(dead_code)] // semantics kept for the AI_UnEquipWeapons host import
+    /// Unequips all of the npc's weapons and sheathes them (`AI_UnEquipWeapons`
+    /// semantics).
+    #[allow(dead_code)] // no ECS caller yet, the host import uses the same helper
     pub fn unequip_item(&mut self, npc: InstanceId) {
-        {
-            let mut instance = self.npc_state_mut(npc);
-            instance.equipment.melee = None;
-            instance.equipment.ranged = None;
-            instance.equipment.set_weapon_mode(WeaponMode::Fists);
-        }
+        self.npc_state_mut(npc).equipment.unequip_weapons();
     }
 
     /// Contents of an npc's inventory as `(item, count)` pairs, empty when the
