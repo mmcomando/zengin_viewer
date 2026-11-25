@@ -18,7 +18,11 @@ impl mmcomando::zengine_scripts::mdl_scripts::Host for ImportCallState {
         let body_model_id = self.symbol_table.string(body_model);
         let head_model_id = self.symbol_table.string(head_model);
         // The armor argument is an item instance symbol, not a string literal
-        self.set_npc_armor(npc_index, InstanceId::new(armor_model));
+        let armor = InstanceId::new(armor_model);
+        if let Some(armor) = armor {
+            self.ensure_npc_item(npc_index, armor);
+        }
+        self.set_npc_armor(npc_index, armor);
         let mut entry = self.npc_state_mut(npc_index);
         entry.visual.body_model_id = body_model_id;
         entry.visual.head_model_id = head_model_id;

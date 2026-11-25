@@ -58,6 +58,7 @@ impl ScriptCallStats {
 pub(crate) struct ScriptCallStats;
 
 #[cfg(not(feature = "debug_perf"))]
+#[allow(clippy::unused_self)]
 impl ScriptCallStats {
     #[inline]
     pub(crate) fn record(&mut self, _function: FunctionId) {}

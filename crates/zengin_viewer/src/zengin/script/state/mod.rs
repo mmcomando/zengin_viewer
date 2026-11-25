@@ -482,6 +482,15 @@ impl ImportCallState {
         )
     }
 
+    /// Adds one `item` to the npc inventory when it has none, like the engine's
+    /// `addItem` before an equip.
+    pub fn ensure_npc_item(&mut self, npc: InstanceId, item: InstanceId) {
+        let mut state = self.npc_state_mut(npc);
+        if state.inventory.count(item) == 0 {
+            state.inventory.create(item, 1);
+        }
+    }
+
     /// Mutable runtime state of an item, records the instance as changed.
     pub fn item_state_mut(&mut self, instance: InstanceId) -> RwLockWriteGuard<'_, ItemRuntime> {
         self.pending.item_changed.insert(instance);

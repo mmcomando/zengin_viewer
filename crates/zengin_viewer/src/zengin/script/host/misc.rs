@@ -84,6 +84,7 @@ impl mmcomando::zengine_scripts::misc_scripts::Host for ImportCallState {
         let Some(item) = self.symbol_table.instance(item) else {
             return;
         };
+        self.ensure_npc_item(npc, item);
         let mainflag = self
             .typed
             .item(item.value() as u32)
