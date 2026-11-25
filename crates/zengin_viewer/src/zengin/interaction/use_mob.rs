@@ -14,6 +14,7 @@ use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::perf_debug;
+use crate::test_log;
 use crate::zengin::npc_actions::{UseMobAction, mob_scheme_has_player_pose};
 use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay, NpcWeaponMode};
 use crate::zengin::script::component::ScriptResource;
@@ -146,7 +147,7 @@ pub(super) fn use_selected_mob(
         _ => false,
     };
     if has_pose {
-        info!(
+        test_log!(
             "Player({player}) uses vob_id({}), mob({target}) vob({}) visual_stem({}) focus({}) condition_func({}) on_state_func({}) -> state({pose_state})",
             base.vob_id,
             base.vob_name,
@@ -168,9 +169,12 @@ pub(super) fn use_selected_mob(
 
     let state = i32::from(pose.state <= 0);
     pose.state = state;
-    info!(
+    test_log!(
         "Player({player}) used mob({target}) vob({}) focus({}) condition_func({}) on_state_func({}) -> state({state})",
-        base.vob_name, base.focus_name, mob.condition_func, mob.on_state_func,
+        base.vob_name,
+        base.focus_name,
+        mob.condition_func,
+        mob.on_state_func,
     );
     fire_trigger(&mut mob, &mut vob_trigger);
     gothic_script

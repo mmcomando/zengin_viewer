@@ -110,6 +110,7 @@ mod gui_debug;
 mod input;
 mod perf_debug;
 mod save;
+mod test_log;
 mod test_world;
 mod ui_kit;
 mod updater;

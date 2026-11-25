@@ -153,10 +153,14 @@ pub(crate) enum ReplayCommand {
     /// point. Repeated commands extend the same list. The world mesh,
     /// waypoint navigation nodes and the player are not filtered.
     ZenginFilterSpawnWithPosition { points: Vec<SpawnPoint> },
-    /// Selects the npc traced by the debug npc trace, matched as a
-    /// case-insensitive substring of its script symbol name. A blank `name`
-    /// disables the trace.
-    ZenginSetDebugNpc { name: String },
+    /// Adds the npc traced by the debug npc trace, matched as a
+    /// case-insensitive substring of its script symbol name. Repeated commands
+    /// extend the trace; `clear` drops the npcs traced before.
+    ZenginSetDebugNpc {
+        name: String,
+        #[serde(default)]
+        clear: bool,
+    },
     /// Kills the npc instance `name` through `Npc_ChangeAttribute`, exercising
     /// the script driven death flow.
     ZenginKillNpc { name: String },

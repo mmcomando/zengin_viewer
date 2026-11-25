@@ -18,6 +18,7 @@ use crate::graphics::{
 use crate::gui::{LootClosed, LootSource};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::perf_debug;
+use crate::test_log;
 use crate::zengin::npc_actions::{
     ExecutingActionMarker, MobUsePose, UseMobAction, mob_animation_name, release_mob_use,
 };
@@ -220,7 +221,7 @@ pub(super) fn close_looted_chest(
             );
             continue;
         }
-        info!(
+        test_log!(
             "Player({}) leaves chest({}) transition({:?})",
             npc.instance_id(),
             mob_use.mob,
@@ -397,7 +398,7 @@ pub(super) fn start_auto_end_release(
             mob_use.position_tag.as_deref(),
             mob_use.state,
         );
-        info!(
+        test_log!(
             "Player({}) auto-ends mob({}) use, pose({pose})",
             npc.instance_id(),
             mob_use.mob
@@ -523,7 +524,7 @@ fn finish_player_mob_release(
             Err(_) => None,
         }
     };
-    info!(
+    test_log!(
         "Player({}) released mob({})",
         npc.instance_id(),
         mob_use.mob

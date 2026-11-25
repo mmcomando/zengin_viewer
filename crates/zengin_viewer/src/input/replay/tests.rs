@@ -114,7 +114,13 @@ fn debug_npc_command_parses_and_schedules() {
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
-        ReplayCommand::ZenginSetDebugNpc { name } if name == "lares"
+        ReplayCommand::ZenginSetDebugNpc { name, clear: false } if name == "lares"
+    ));
+
+    let commands = parse("[ZenginSetDebugNpc(name: \"lares, wolf\", clear: true)]");
+    assert!(matches!(
+        &commands[0].command,
+        ReplayCommand::ZenginSetDebugNpc { name, clear: true } if name == "lares, wolf"
     ));
 }
 

@@ -277,11 +277,13 @@ fn debug_npc_section(ui: &mut Ui, debug_npc: &mut DebugNpc, text: &mut String) {
             let current = debug_npc.text();
             if text.trim().to_lowercase() != current {
                 text.clear();
-                text.push_str(current);
+                text.push_str(&current);
             }
             ui.horizontal(|ui| {
-                let response =
-                    ui.add(egui::TextEdit::singleline(text).hint_text("npc symbol substring"));
+                let response = ui.add(
+                    egui::TextEdit::singleline(text)
+                        .hint_text("npc symbol substring, comma separated"),
+                );
                 if response.changed() {
                     debug_npc.set(text);
                 }

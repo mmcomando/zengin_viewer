@@ -10,6 +10,7 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::{LootSource, OpenLockpick, OpenLoot};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::perf_debug;
+use crate::test_log;
 use crate::zengin::npc_actions::UseMobAction;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::component::ScriptResource;
@@ -143,7 +144,7 @@ pub(super) fn open_selected_chest(
         ChestAccess::MissingKey
         | ChestAccess::MissingLockpick
         | ChestAccess::MissingKeyOrLockpick => {
-            info!(
+            test_log!(
                 "Player({player}) cannot open locked chest({target}) vob({})",
                 base.vob_name
             );
@@ -173,9 +174,10 @@ pub(super) fn open_selected_chest(
     }
     if access == ChestAccess::Key {
         chest.cracked = true;
-        info!(
+        test_log!(
             "Player({player}) unlocked chest({target}) vob({}) with key({})",
-            base.vob_name, chest.key
+            base.vob_name,
+            chest.key
         );
     }
 
@@ -187,7 +189,7 @@ pub(super) fn open_selected_chest(
         ));
     }
 
-    info!(
+    test_log!(
         "Player({player}) opened chest({target}) vob({})",
         base.vob_name
     );
@@ -230,7 +232,7 @@ pub(super) fn open_selected_corpse(
         return;
     };
 
-    info!(
+    test_log!(
         "Player({}) opened corpse({target}) npc({})",
         player_npc.instance_id(),
         corpse.instance_id()

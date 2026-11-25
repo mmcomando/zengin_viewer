@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::graphics::AnimationController;
 use crate::perf_debug;
+use crate::test_log;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::attack::AttackAction;
@@ -446,12 +447,12 @@ fn cancel_executing_action(
     commands.entity(entity).remove::<ExecutingActionMarker>();
     let name = name.map_or("<unnamed>", Name::as_str);
     if let Some(goto) = goto {
-        info!(
+        test_log!(
             "Npc_ClearAIQueue npc({instance_id}) canceled the executing goto({}) entity({entity}) name({name})",
             goto.waypoint.as_str()
         );
     } else {
-        info!(
+        test_log!(
             "Npc_ClearAIQueue npc({instance_id}) canceled the executing action entity({entity}) name({name})"
         );
     }

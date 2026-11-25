@@ -286,11 +286,12 @@ pub(super) fn apply_replay_command(
             };
             kill_npc(gothic_script, name);
         }
-        ReplayCommand::ZenginSetDebugNpc { name } => {
-            info!("Replay debug npc filter: {name:?}");
+        ReplayCommand::ZenginSetDebugNpc { name, clear } => {
+            info!("Replay debug npc filter: {name:?} clear({clear})");
             let name = name.clone();
+            let clear = *clear;
             commands.queue(move |world: &mut World| {
-                world.resource_mut::<DebugNpc>().set(&name);
+                world.resource_mut::<DebugNpc>().add(&name, clear);
             });
         }
         ReplayCommand::ZenginSpawnNpc {

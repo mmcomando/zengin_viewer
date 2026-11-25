@@ -288,7 +288,7 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             warn!("AI_UnEquipWeapons with invalid npc instance({npc})");
             return;
         };
-        bevy::log::info!(
+        crate::test_log!(
             "AI_UnEquipWeapons npc({}) unequips its weapons",
             npc.value()
         );
@@ -368,7 +368,7 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             );
             return;
         };
-        bevy::log::info!(
+        crate::test_log!(
             "AI_Attack requested by npc({}) on target({})",
             npc.value(),
             target.value()

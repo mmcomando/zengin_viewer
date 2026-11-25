@@ -10,6 +10,7 @@ use crate::graphics::AnimationController;
 use crate::graphics::{NpcHitReaction, play_hit_reaction};
 use crate::gui::GameLog;
 use crate::perf_debug;
+use crate::test_log;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::loaders::vdf_reader::ZenginVfs;
 use crate::zengin::loaders::vfs::item_model_path;
@@ -285,19 +286,19 @@ pub(crate) fn deal_damage(
         (damage, hitpoints, shooter_is_player)
     };
     if target_data.is_player {
-        info!(
+        test_log!(
             "Npc({}) dealt {damage} damage to player({target_id}), hitpoints now {hitpoints}",
             shooter_id.value()
         );
         game_log.add(format!("Took {damage} damage"));
     } else if shooter_is_player {
-        info!(
+        test_log!(
             "Player({}) dealt {damage} damage to npc({target_id}), hitpoints now {hitpoints}",
             shooter_id.value()
         );
         game_log.add(format!("Dealt {damage} damage"));
     } else {
-        info!(
+        test_log!(
             "Npc({}) dealt {damage} damage to npc({target_id}), hitpoints now {hitpoints}",
             shooter_id.value()
         );

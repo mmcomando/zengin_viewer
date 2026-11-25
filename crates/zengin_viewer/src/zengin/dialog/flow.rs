@@ -10,6 +10,7 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::OpenTrade;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::perf_debug;
+use crate::test_log;
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::instance_index::InstanceIndex;
@@ -347,7 +348,7 @@ fn open_dialog(
         dialog_ui.close();
         return false;
     };
-    info!(
+    test_log!(
         "Dialog open npc({}) player({}) roots({})",
         npc_talk_to.value(),
         npc_from.value(),

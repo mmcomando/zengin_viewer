@@ -6,6 +6,7 @@ use bevy::prelude::*;
 
 use crate::graphics::AnimationController;
 use crate::perf_debug;
+use crate::test_log;
 use crate::zengin::GameNpc;
 use crate::zengin::npc_actions::{
     AttackAction, GoToNpcAction, GoToWaypointAction, NpcActionQueue, StandUpAction,
@@ -35,26 +36,47 @@ impl Plugin for DebugNpcPlugin {
     }
 }
 
-/// Case-insensitive substring of the script symbol name of the npc to trace.
-/// `None` disables the trace.
+/// Case-insensitive substrings of script symbol names of the traced npcs. An
+/// empty list disables the trace.
 #[derive(Resource, Default)]
-pub(crate) struct DebugNpc(Option<String>);
+pub(crate) struct DebugNpc(Vec<String>);
 
 impl DebugNpc {
-    /// Selects the traced npc; a blank `name` disables the trace.
-    pub(crate) fn set(&mut self, name: &str) {
-        let name = name.trim().to_lowercase();
-        self.0 = (!name.is_empty()).then_some(name);
+    /// Replaces the traced npcs with the comma separated `text`; blank parts
+    /// are ignored and an empty `text` disables the trace.
+    pub(crate) fn set(&mut self, text: &str) {
+        self.0 = split_filters(text);
     }
 
-    /// Current filter as entered, blank when the trace is disabled.
-    pub(crate) fn text(&self) -> &str {
-        self.0.as_deref().unwrap_or_default()
+    /// Adds the comma separated npcs in `text`; `clear` drops the filters added
+    /// before.
+    pub(crate) fn add(&mut self, text: &str, clear: bool) {
+        if clear {
+            self.0.clear();
+        }
+        self.0.extend(split_filters(text));
     }
 
-    fn filter(&self) -> Option<&str> {
-        self.0.as_deref()
+    /// Current filters joined with `", "`.
+    pub(crate) fn text(&self) -> String {
+        self.0.join(", ")
     }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    fn matches(&self, name: &str) -> bool {
+        let name = name.to_lowercase();
+        self.0.iter().any(|filter| name.contains(filter.as_str()))
+    }
+}
+
+fn split_filters(text: &str) -> Vec<String> {
+    text.split(',')
+        .map(|part| part.trim().to_lowercase())
+        .filter(|part| !part.is_empty())
+        .collect()
 }
 
 /// Trace state of a matched npc, its presence marks the traced entity.
@@ -76,7 +98,7 @@ impl Default for DebugNpcTrace {
 }
 
 fn debug_npc_configured(debug_npc: Res<DebugNpc>) -> bool {
-    debug_npc.filter().is_some()
+    !debug_npc.is_empty()
 }
 
 fn mark_debug_npc(
@@ -87,9 +109,9 @@ fn mark_debug_npc(
     spawned: Query<Entity, Added<GameNpc>>,
 ) {
     let _perf = perf_debug!();
-    let Some(filter) = debug_npc.filter() else {
+    if debug_npc.is_empty() {
         return;
-    };
+    }
     let Some(scripts) = scripts else {
         return;
     };
@@ -104,9 +126,7 @@ fn mark_debug_npc(
         let name = scripts
             .symbol_table()
             .symbol_name(npc.instance_id().value());
-        let matches = name
-            .as_deref()
-            .is_some_and(|name| name.to_lowercase().contains(filter));
+        let matches = name.as_deref().is_some_and(|name| debug_npc.matches(name));
         match (matches, traced) {
             (true, false) => {
                 info!(
@@ -140,7 +160,7 @@ fn log_animation_changes(mut npcs: Query<(Entity, &AnimationController, &mut Deb
         if trace.animation == signature {
             continue;
         }
-        info!("DebugNPC: animation entity({entity}) {signature}");
+        test_log!("DebugNPC: animation entity({entity}) {signature}");
         trace.animation = signature;
     }
 }
@@ -201,7 +221,7 @@ fn log_action_changes(
         if trace.actions == signature {
             continue;
         }
-        info!("DebugNPC: actions {signature}");
+        test_log!("DebugNPC: actions {signature}");
         trace.actions = signature;
     }
 }
@@ -234,9 +254,11 @@ fn log_periodic_state(
         let ranged = weapon
             .and_then(|weapon| weapon.ranged)
             .map_or_else(|| "none".to_string(), |item| item_name(&mut script, item));
-        info!(
+        test_log!(
             "DebugNPC: state position=({:.2}, {:.2}, {:.2}) weapon_mode={weapon_mode} melee={melee} ranged={ranged}",
-            position.x, position.y, position.z
+            position.x,
+            position.y,
+            position.z
         );
     }
 }

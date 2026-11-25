@@ -8,6 +8,7 @@ use crate::graphics::{
     animation_name_from_path,
 };
 use crate::perf_debug;
+use crate::test_log;
 use crate::zengin::common::{
     MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, face_direction_quat, horizontal_offset,
 };
@@ -169,9 +170,10 @@ pub(crate) fn release_mob_use_actions(
             let Ok((mob_use, mut sequencer, mut controller)) = npcs.get_mut(entity) else {
                 continue;
             };
-            info!(
+            test_log!(
                 "npc({}) released mob({}) on stop request",
-                change.instance_id, mob_use.mob
+                change.instance_id,
+                mob_use.mob
             );
             release_mob_use(
                 &mut commands,
@@ -362,7 +364,7 @@ pub(crate) fn run_use_mob_action(
             })
             .flatten();
         let actor = if is_player { "Player" } else { "npc" };
-        info!(
+        test_log!(
             "{actor}({}) uses mob({}) vob({}) scheme({}) state({}) animation({}) transition({transition:?})",
             npc.instance_id(),
             choice.mob,

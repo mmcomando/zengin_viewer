@@ -9,6 +9,7 @@ use crate::gui::JournalUiState;
 use crate::gui::StatsUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::perf_debug;
+use crate::test_log;
 use crate::zengin::DialogUiState;
 use crate::zengin::{
     GameChest, GameNpc, InstanceId, MobBase, ScriptManager, ScriptResource, WeaponKind, ZenginVfs,
@@ -130,7 +131,7 @@ pub(super) fn open_lockpick(
         });
         return;
     }
-    info!(
+    test_log!(
         "Player({}) started lockpicking chest({}) with {} step(s)",
         request.player,
         request.chest,
@@ -182,7 +183,7 @@ pub(super) fn handle_lockpick_input(
             "print_picklock_failure",
             "The lock resists.",
         ));
-        info!("Lockpick step({step}) was wrong, progress reset");
+        test_log!("Lockpick step({step}) was wrong, progress reset");
         return;
     }
     session.progress += 1;
@@ -203,7 +204,7 @@ pub(super) fn handle_lockpick_input(
         "print_picklock_unlock",
         "The lock clicks open.",
     ));
-    info!("Lockpick of chest({chest}) completed");
+    test_log!("Lockpick of chest({chest}) completed");
     opened.write(LockpickOpened { chest });
 }
 
@@ -387,7 +388,7 @@ fn open_chest_loot_window(
     };
     let title = script.mob_focus_name(&base.focus_name);
     let window = chest_inventory_window(script, title, &chest.items);
-    info!(
+    test_log!(
         "Loot opened for chest({chest_entity}) vob({}): player {player_stacks} stack(s), chest {} stack(s)",
         base.vob_name,
         window.items.len()
@@ -411,7 +412,7 @@ fn open_corpse_loot_window(
         .npc_display_name(npc_id)
         .unwrap_or_else(|| script.call_get_name(npc_id.symbol()));
     let window = corpse_inventory_window(script, npc_id, title);
-    info!(
+    test_log!(
         "Loot opened for corpse({corpse_entity}) npc({npc_id}): player {player_stacks} stack(s), corpse {} stack(s)",
         window.items.len()
     );
@@ -676,7 +677,7 @@ fn corpse_loot_confirm(
     }
     script.add_inventory(player, item, 1);
     game_log.add(format!("Took {item_name}"));
-    info!(
+    test_log!(
         "Player({}) took item({}) from corpse({corpse_entity}) npc({})",
         player.value(),
         item.value(),
