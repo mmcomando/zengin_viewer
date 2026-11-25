@@ -137,6 +137,7 @@ pub(super) fn toggle_player_armor(
     }
 }
 
+#[allow(clippy::cognitive_complexity)]
 pub(super) fn set_player_attribute(
     gothic_script: &ScriptResource,
     player_npc: &Query<&GameNpc, With<PlayerCharacter>>,
@@ -177,6 +178,7 @@ pub(super) fn set_player_attribute(
     );
 }
 
+#[allow(clippy::cognitive_complexity)]
 pub(super) fn set_player_fight_skill(
     gothic_script: &ScriptResource,
     player_npc: &Query<&GameNpc, With<PlayerCharacter>>,
