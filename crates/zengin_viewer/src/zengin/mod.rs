@@ -1,6 +1,5 @@
 mod change_level;
 mod common;
-mod debug_npc;
 pub(crate) mod dialog;
 mod fight_ai;
 mod instance_index;
@@ -8,8 +7,8 @@ mod interaction;
 mod loaders;
 mod mobs;
 mod movers;
+pub(crate) use crate::debug::DebugNpc;
 pub(crate) use crate::zengin::common::choose_animation_scheme;
-pub(crate) use crate::zengin::debug_npc::DebugNpc;
 pub(crate) use crate::zengin::interaction::{NpcDied, grant_test_items, seed_test_journal};
 pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
 pub(crate) use crate::zengin::npc_routines::{
@@ -66,6 +65,10 @@ pub(crate) use crate::zengin::mobs::{MobHiddenModel, MobOccupant, MobRegistry, N
 pub(crate) use crate::zengin::movers::{GameMover, VobTrigger};
 pub(crate) use crate::zengin::npc_actions::NpcActionQueue;
 pub(crate) use crate::zengin::npc_actions::enqueue_npc_goto;
+pub(crate) use crate::zengin::npc_actions::{
+    AttackAction, GoToNpcAction, GoToWaypointAction, MobUsePose, StandUpAction, UseItemStateAction,
+    UseMobAction,
+};
 pub(crate) use crate::zengin::npc_corpse::NpcCorpseMarker;
 pub(crate) use crate::zengin::npc_data::NpcHandle;
 pub(crate) use crate::zengin::npc_perception::{NpcAutoTalkOptions, VisibilityRefresh};
@@ -93,6 +96,7 @@ pub(crate) use crate::zengin::script::state::SvmLine;
 pub(crate) use crate::zengin::script::state::WeaponClass;
 pub(crate) use crate::zengin::script::state::WeaponKind;
 pub(crate) use crate::zengin::script::state::WeaponMode;
+pub(crate) use crate::zengin::script::state::{ClearAiQueueChange, NpcEntitiesChanged};
 pub(crate) use crate::zengin::script::state::{
     ItemRuntime, MobRoutineEntry, NpcRuntime, ScriptMessages, UseMobChange,
 };
@@ -136,7 +140,6 @@ impl Plugin for ZenginPlugin {
         app.add_plugins(crate::graphics::AnimationTriggersPlugin);
         app.add_plugins(crate::zengin::script::component::GothicScriptsPlugin);
         app.add_plugins(crate::zengin::dialog::GameDialogPlugin);
-        app.add_plugins(crate::zengin::debug_npc::DebugNpcPlugin);
     }
 }
 

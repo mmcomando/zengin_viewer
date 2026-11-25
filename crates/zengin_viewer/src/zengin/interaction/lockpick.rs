@@ -7,7 +7,6 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::AnimationController;
 use crate::gui::{LockpickOpened, LootSource, OpenLoot};
 use crate::perf_debug;
-use crate::test_log;
 use crate::zengin::npc_actions::{
     MobUsePose, UseMobAction, enter_animation_name, mob_animation_name,
 };
@@ -108,7 +107,6 @@ pub(super) fn open_lockpicked_chest(
         }
 
         pose.state = 1;
-        test_log!("Player({player}) opened lockpicked chest({})", event.chest);
         requests.write(OpenLoot {
             player,
             source: LootSource::Chest(event.chest),

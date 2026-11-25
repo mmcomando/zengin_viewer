@@ -101,6 +101,7 @@
 )]
 
 mod audio;
+mod debug;
 mod external_messages;
 mod game_state;
 mod gameplay;
@@ -214,6 +215,10 @@ fn main() {
         .add_plugins(crate::gui::MainMenuPlugin)
         .add_plugins(crate::gui::ScreenMessagesPlugin)
         .add_plugins(crate::gui::StatsUiPlugin);
+
+    // Debug-only observation systems; they consume game messages and must be
+    // added after the plugins that register them.
+    app.add_plugins(crate::debug::DebugPlugin);
 
     // The debug UI and gizmos are disabled with `--no-debug-gui`, GuiDebugPlugin
     // handles that.

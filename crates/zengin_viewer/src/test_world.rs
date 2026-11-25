@@ -161,7 +161,7 @@ fn spawn_test_world(
         };
         despawn_test_world(&mut commands, &mut root);
         root.0 = Some(world_root);
-        test_log!("Spawned test world({name})");
+        info!("Spawned test world({name})");
     }
 }
 

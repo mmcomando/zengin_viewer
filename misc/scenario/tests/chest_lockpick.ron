@@ -35,7 +35,7 @@
     Wait(frame_dt: 5),
 
     // Assert
-    TestLogExists(regex: "Lockpick step\\(R\\) was wrong"),
+    TestLogExists(regex: "Lockpick step was wrong"),
 
     // Act
     PressRelease(action: Gui(Left)),

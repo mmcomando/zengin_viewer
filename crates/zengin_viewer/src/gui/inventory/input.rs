@@ -83,14 +83,9 @@ pub(super) fn open_loot(
         false,
         true,
     );
-    let player_stacks = player.items.len();
     let left = match request.source {
-        LootSource::Chest(entity) => {
-            open_chest_loot_window(&mut script, entity, player_stacks, &chests)
-        }
-        LootSource::Corpse(entity) => {
-            open_corpse_loot_window(&mut script, entity, player_stacks, &npcs)
-        }
+        LootSource::Chest(entity) => open_chest_loot_window(&mut script, entity, &chests),
+        LootSource::Corpse(entity) => open_corpse_loot_window(&mut script, entity, &npcs),
     };
     let Some(left) = left else {
         return;
@@ -131,12 +126,6 @@ pub(super) fn open_lockpick(
         });
         return;
     }
-    test_log!(
-        "Player({}) started lockpicking chest({}) with {} step(s)",
-        request.player,
-        request.chest,
-        session.sequence.len()
-    );
     state.open = true;
     state.mode = InventoryMode::LockPick;
     state.windows = Default::default();
@@ -183,7 +172,6 @@ pub(super) fn handle_lockpick_input(
             "print_picklock_failure",
             "The lock resists.",
         ));
-        test_log!("Lockpick step({step}) was wrong, progress reset");
         return;
     }
     session.progress += 1;
@@ -204,7 +192,6 @@ pub(super) fn handle_lockpick_input(
         "print_picklock_unlock",
         "The lock clicks open.",
     ));
-    test_log!("Lockpick of chest({chest}) completed");
     opened.write(LockpickOpened { chest });
 }
 
@@ -379,7 +366,6 @@ pub(super) fn close_orphaned_trade(
 fn open_chest_loot_window(
     script: &mut ScriptManager,
     chest_entity: Entity,
-    player_stacks: usize,
     chests: &Query<(&GameChest, &MobBase)>,
 ) -> Option<InventoryWindowState> {
     let Ok((chest, base)) = chests.get(chest_entity) else {
@@ -388,11 +374,6 @@ fn open_chest_loot_window(
     };
     let title = script.mob_focus_name(&base.focus_name);
     let window = chest_inventory_window(script, title, &chest.items);
-    test_log!(
-        "Loot opened for chest({chest_entity}) vob({}): player {player_stacks} stack(s), chest {} stack(s)",
-        base.vob_name,
-        window.items.len()
-    );
     Some(window)
 }
 
@@ -400,7 +381,6 @@ fn open_chest_loot_window(
 fn open_corpse_loot_window(
     script: &mut ScriptManager,
     corpse_entity: Entity,
-    player_stacks: usize,
     npcs: &Query<&GameNpc>,
 ) -> Option<InventoryWindowState> {
     let Ok(npc) = npcs.get(corpse_entity) else {
@@ -412,10 +392,6 @@ fn open_corpse_loot_window(
         .npc_display_name(npc_id)
         .unwrap_or_else(|| script.call_get_name(npc_id.symbol()));
     let window = corpse_inventory_window(script, npc_id, title);
-    test_log!(
-        "Loot opened for corpse({corpse_entity}) npc({npc_id}): player {player_stacks} stack(s), corpse {} stack(s)",
-        window.items.len()
-    );
     Some(window)
 }
 

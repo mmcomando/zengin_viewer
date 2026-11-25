@@ -10,20 +10,15 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::graphics::AnimationController;
 use crate::perf_debug;
 use crate::test_log;
-use crate::zengin::GameNpc;
-use crate::zengin::npc_actions::{
-    AttackAction, GoToNpcAction, GoToWaypointAction, MobUsePose, NpcActionQueue, StandUpAction,
-    UseItemStateAction, UseMobAction,
+use crate::zengin::{
+    AttackAction, ClearAiQueueChange, GameMob, GameNpc, GoToNpcAction, GoToWaypointAction,
+    InstanceId, MobBase, MobPose, MobUsePose, NpcActionQueue, NpcDied, NpcEntitiesChanged,
+    NpcEquippedWeapon, NpcHealth, NpcMobUse, NpcWeaponMode, ScriptManager, ScriptResource,
+    StandUpAction, UseItemStateAction, UseMobAction, WeaponMode,
 };
-use crate::zengin::npc_routines::{NpcEquippedWeapon, NpcHealth, NpcWeaponMode};
-use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::manager::ScriptManager;
-use crate::zengin::script::state::{ClearAiQueueChange, NpcEntitiesChanged, WeaponMode};
-use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{GameMob, MobBase, MobPose, NpcDied, NpcMobUse};
 
 /// Adds the [`DebugNpc`] trace systems.
-pub struct DebugNpcPlugin;
+pub(crate) struct DebugNpcPlugin;
 
 impl Plugin for DebugNpcPlugin {
     fn build(&self, app: &mut App) {

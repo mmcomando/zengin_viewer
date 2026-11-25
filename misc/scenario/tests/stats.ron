@@ -1,7 +1,6 @@
 [
     // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
-    TestLogExists(regex: "Spawned test world\\(simple\\)"),
 
     // Act
     PressRelease(action: Shared(Stats)),

@@ -189,10 +189,6 @@ pub(super) fn open_selected_chest(
         ));
     }
 
-    test_log!(
-        "Player({player}) opened chest({target}) vob({})",
-        base.vob_name
-    );
     requests.write(OpenLoot {
         player,
         source: LootSource::Chest(target),
@@ -225,18 +221,13 @@ pub(super) fn open_selected_corpse(
     let Some(target) = selection.target else {
         return;
     };
-    let Ok(corpse) = corpses.get(target) else {
+    let Ok(_corpse) = corpses.get(target) else {
         return;
     };
     let Ok(player_npc) = player_npc.single() else {
         return;
     };
 
-    test_log!(
-        "Player({}) opened corpse({target}) npc({})",
-        player_npc.instance_id(),
-        corpse.instance_id()
-    );
     requests.write(OpenLoot {
         player: player_npc.instance_id(),
         source: LootSource::Corpse(target),

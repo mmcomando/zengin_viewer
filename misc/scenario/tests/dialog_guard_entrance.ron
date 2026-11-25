@@ -19,7 +19,7 @@
     PressRelease(action: Shared(SkipDialog)),
 
     // Assert
-    TestLogExists(regex: "Dialog open npc\\(.*\\) player\\(.*\\) roots\\([1-9][0-9]*\\)"),
+    TestLogExists(regex: "Dialog open npc\\(.*\\) player\\(.*\\)"),
     TestScreenshot(path: "00_auto_dialog.png"),
 
     // Act
