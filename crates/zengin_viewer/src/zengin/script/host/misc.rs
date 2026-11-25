@@ -25,7 +25,9 @@ impl mmcomando::zengine_scripts::misc_scripts::Host for ImportCallState {
         content
     }
     fake_impl!(floattoint(_0) -> i32);
-    fake_impl!(print(_0));
+    fn print(&mut self, text: i32) {
+        self.push_print(text);
+    }
     fake_impl!(printdebug(_0));
     /// Shows a message on the screen for `time` seconds. The engine queues the
     /// `ai_` variant into the npc AI queue, the viewer shows both immediately.

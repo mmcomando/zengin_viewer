@@ -439,6 +439,7 @@ interface manage {
     get-name: func(symbol-id: s32) -> string;
     call-function: func(symbol-id: s32);
     call-function-discard: func(symbol-id: s32);
+    call-function-args2-discard: func(symbol-id: s32, arg0: s32, arg1: s32);
     call-function-bool: func(symbol-id: s32) -> bool;
     get-symbol-id: func(symbol-name: string) -> option<s32>;
     get-all-symbols-num: func() -> s32;

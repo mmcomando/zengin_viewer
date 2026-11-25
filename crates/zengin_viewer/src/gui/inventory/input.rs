@@ -2,7 +2,6 @@ use bevy::log::{info, warn};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::audio::PlaySound;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::gui::JournalUiState;
@@ -12,8 +11,7 @@ use crate::perf_debug;
 use crate::test_log;
 use crate::zengin::DialogUiState;
 use crate::zengin::{
-    GameChest, GameNpc, InstanceId, MobBase, ScriptManager, ScriptResource, WeaponKind, ZenginVfs,
-    resolve_sound_asset,
+    GameChest, GameNpc, InstanceId, MobBase, ScriptManager, ScriptResource, WeaponKind,
 };
 
 use super::data::{
@@ -139,11 +137,9 @@ pub(super) fn open_lockpick(
 /// the progress.
 pub(super) fn handle_lockpick_input(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
+    player_npc: Single<&GameNpc, With<PlayerCharacter>>,
     mut state: ResMut<InventoryUiState>,
     gothic_script: Res<ScriptResource>,
-    vfs: Res<ZenginVfs>,
-    mut game_log: ResMut<GameLog>,
-    mut sounds: MessageWriter<PlaySound>,
     mut opened: MessageWriter<LockpickOpened>,
 ) {
     let _perf = perf_debug!();
@@ -163,35 +159,21 @@ pub(super) fn handle_lockpick_input(
     let Some(session) = state.lockpick.as_mut() else {
         return;
     };
+    let player = player_npc.instance_id();
     let expected = session.sequence.get(session.progress).copied();
     if expected != Some(step) {
         session.progress = 0;
-        play_lockpick_sound(&vfs, &mut sounds, "PICKLOCK_FAILURE");
-        game_log.add(lockpick_text(
-            &gothic_script,
-            "print_picklock_failure",
-            "The lock resists.",
-        ));
+        gothic_script.lock().call_picklock(player, false, false);
         return;
     }
     session.progress += 1;
     let chest = session.chest;
     if session.progress < session.sequence.len() {
-        play_lockpick_sound(&vfs, &mut sounds, "PICKLOCK_SUCCESS");
-        game_log.add(lockpick_text(
-            &gothic_script,
-            "print_picklock_success",
-            "The pick slides into place.",
-        ));
+        gothic_script.lock().call_picklock(player, true, false);
         return;
     }
     state.lockpick = None;
-    play_lockpick_sound(&vfs, &mut sounds, "PICKLOCK_UNLOCK");
-    game_log.add(lockpick_text(
-        &gothic_script,
-        "print_picklock_unlock",
-        "The lock clicks open.",
-    ));
+    gothic_script.lock().call_picklock(player, true, true);
     opened.write(LockpickOpened { chest });
 }
 
@@ -778,25 +760,6 @@ fn equip_selected_item(
             npc.equipment.armor,
         )
     })
-}
-
-fn play_lockpick_sound(vfs: &ZenginVfs, sounds: &mut MessageWriter<PlaySound>, name: &str) {
-    let Some(asset_path) = resolve_sound_asset(vfs, name) else {
-        warn!("Lockpick sound({name}) not found");
-        return;
-    };
-    sounds.write(PlaySound {
-        asset_path,
-        position: None,
-    });
-}
-
-fn lockpick_text(script: &ScriptResource, symbol: &str, fallback: &str) -> String {
-    script
-        .lock()
-        .string_variable(symbol)
-        .filter(|text| !text.is_empty())
-        .unwrap_or_else(|| fallback.to_string())
 }
 
 #[cfg(test)]

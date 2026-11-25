@@ -3,9 +3,9 @@
 
 use bevy::prelude::*;
 
-use crate::audio::PlaySound;
 use crate::gui::{LockpickOpened, LootSource, OpenLockpick, OpenLoot};
 use crate::test_log;
+use crate::zengin::ScriptSound;
 use crate::zengin::dialog::DialogRequest;
 
 /// Logs lockpick, loot and dialog events with the `TEST_LOG` target.
@@ -43,9 +43,9 @@ fn log_lockpick_completed(mut messages: MessageReader<LockpickOpened>) {
     }
 }
 
-fn log_lockpick_failure(mut messages: MessageReader<PlaySound>) {
+fn log_lockpick_failure(mut messages: MessageReader<ScriptSound>) {
     for event in messages.read() {
-        if event.asset_path.to_uppercase().contains("PICKLOCK_FAILURE") {
+        if event.name == "PICKLOCK_FAILURE" {
             test_log!("Lockpick step was wrong, progress reset");
         }
     }

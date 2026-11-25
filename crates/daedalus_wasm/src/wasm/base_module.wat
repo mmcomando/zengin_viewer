@@ -3,6 +3,10 @@
   (type $void_void_func (func))
   ;; Type used by call_indirect for functions with no parameters returning i32 (treated as bool)
   (type $bool_void_func (func (result i32)))
+  ;; Type used by call_indirect for functions with two i32 parameters and no result
+  (type $void_i32_i32_func (func (param i32 i32)))
+  ;; Type used by call_indirect for functions with two i32 parameters returning i32
+  (type $bool_i32_i32_func (func (param i32 i32) (result i32)))
 
   ;; Memories, indices are significant, they match constants in DaedalusMemoryLayout (memory.rs):
   ;; 0 - main memory: allocator region, (ptr, size) pairs of symbol names and static strings,
@@ -564,6 +568,36 @@
     i32.add
   )
 
+  ;; Calls a two-argument function of the given symbol, discarding its result
+  ;; when it has one.
+  (func $call_function_args2_discard (param $symbol_id i32) (param $arg0 i32) (param $arg1 i32)
+    (local $record_base i32) (local $func_index i32)
+
+    local.get $symbol_id
+    i32.const 16
+    i32.mul
+    local.set $record_base
+
+    local.get $record_base
+    i32.load $symbol_info offset=8 ;; Function index in wasm table
+    local.set $func_index
+
+    local.get $record_base
+    i32.load8_u $symbol_info offset=2 ;; returns value flag
+    if
+      local.get $arg0
+      local.get $arg1
+      local.get $func_index
+      call_indirect (type $bool_i32_i32_func)
+      drop
+    else
+      local.get $arg0
+      local.get $arg1
+      local.get $func_index
+      call_indirect (type $void_i32_i32_func)
+    end
+  )
+
   ;; Export section
   (export "cabi_realloc" (func $cabi_realloc))
   (export "mmcomando:zengine-scripts/manage@0.1.0#set-instance" (func $set_instance))
@@ -572,6 +606,7 @@
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-symbol-id" (func $get_symbol_id))
   (export "mmcomando:zengine-scripts/manage@0.1.0#call-function" (func $call_function))
   (export "mmcomando:zengine-scripts/manage@0.1.0#call-function-discard" (func $call_function_discard))
+  (export "mmcomando:zengine-scripts/manage@0.1.0#call-function-args2-discard" (func $call_function_args2_discard))
   (export "mmcomando:zengine-scripts/manage@0.1.0#call-function-bool" (func $call_function_bool))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-symbols-num" (func $get_all_symbols_num))
   (export "mmcomando:zengine-scripts/manage@0.1.0#get-all-strings-num" (func $get_all_strings_num))

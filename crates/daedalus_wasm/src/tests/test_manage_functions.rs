@@ -184,6 +184,33 @@ fn test_call_function() {
 }
 
 #[test]
+fn test_call_function_with_two_args() {
+    let symbols = &mut [
+        symbol(0, false, 1, None),
+        symbol(1, false, 1, None),
+        symbol(2, false, 1, None),
+        symbol(3, false, 1, None),
+    ];
+
+    // The wasm params are pushed before the body runs, the function stores the
+    // topmost one first.
+    let instructions = vec![
+        InstDD::PushVar(3),
+        InstDD::AssignInteger,
+        InstDD::PushVar(2),
+        InstDD::AssignInteger,
+        InstDD::Return,
+    ];
+    let call_signature = CallSignature::new(2, false);
+    symbols[1].function = Some(Function::new("my-test", call_signature, &instructions));
+
+    let mut executor = WasmExecutor::prepare_test(&[InstDD::PushInt(55), InstDD::Return], symbols);
+    executor.call_function_args2_discard(1, 11, 22);
+    assert_eq!(executor.read_symbol_word(2), 11);
+    assert_eq!(executor.read_symbol_word(3), 22);
+}
+
+#[test]
 fn test_call_initialize_all_instances() {
     let symbols = &mut [
         symbol(0, false, 1, None),

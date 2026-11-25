@@ -227,6 +227,12 @@ pub struct ScreenMessage {
     pub time_sec: i32,
 }
 
+/// Game log line requested by `Print`.
+#[derive(Debug, Clone, Message)]
+pub struct PrintLine {
+    pub text: String,
+}
+
 /// Chapter introduction requested by `IntroduceChapter`: a splash screen with
 /// a background texture, a title and a subtitle, shown for `time_ms`
 /// milliseconds (`<= 0` keeps it until the player closes it).

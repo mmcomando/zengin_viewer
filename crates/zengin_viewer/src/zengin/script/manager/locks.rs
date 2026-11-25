@@ -34,6 +34,23 @@ impl ScriptManager {
         self.item_count(npc, item) > 0
     }
 
+    /// Runs `g_picklock` with `player` bound as `self`. The script plays the
+    /// result sound and prints the matching message; `broken` selects the
+    /// broken-pick variants.
+    pub fn call_picklock(&mut self, player: InstanceId, success: bool, broken: bool) {
+        let Some(function) = self.try_get_function_id("g_picklock") else {
+            warn!("picklock function(g_picklock) is not declared");
+            return;
+        };
+        self.set_self(player);
+        self.set_instance(player);
+        if let Err(err) =
+            self.try_call_function_args2(function, i32::from(success), i32::from(broken))
+        {
+            warn!("g_picklock player({player}) failed: {err:?}");
+        }
+    }
+
     /// Runs a `player_mob_*` refusal with `player` bound as `self`.
     pub fn call_player_refusal(&mut self, player: InstanceId, function: &str) {
         let Some(function_id) = self.try_get_function_id(function) else {

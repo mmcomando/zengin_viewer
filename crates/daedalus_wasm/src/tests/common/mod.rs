@@ -686,6 +686,21 @@ impl WasmExecutor {
             .unwrap()
     }
 
+    pub fn call_function_args2_discard(&mut self, symbol_id: i32, arg0: i32, arg1: i32) {
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest
+            .call_call_function_args2_discard(&mut self.store, symbol_id, arg0, arg1)
+            .unwrap()
+    }
+
+    pub fn read_symbol_word(&self, symbol_id: u32) -> i32 {
+        self.store
+            .data()
+            .symbol_store
+            .read_offset(symbol_id, 0)
+            .unwrap_or_default()
+    }
+
     pub fn play_ani_calls(&self) -> &[(i32, i32, i32)] {
         &self.store.data().play_ani_calls
     }

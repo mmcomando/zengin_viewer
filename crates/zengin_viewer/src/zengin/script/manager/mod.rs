@@ -165,6 +165,19 @@ impl ScriptManager {
         guest.call_call_function_discard(&mut self.store, symbol_id.value())
     }
 
+    /// Calls a two-argument function, discarding its result like
+    /// [`ScriptManager::try_call_function`].
+    pub(super) fn try_call_function_args2(
+        &mut self,
+        symbol_id: FunctionId,
+        arg0: i32,
+        arg1: i32,
+    ) -> wasmtime::Result<()> {
+        self.call_stats.record(symbol_id);
+        let guest = self.instance.mmcomando_zengine_scripts_manage();
+        guest.call_call_function_args2_discard(&mut self.store, symbol_id.value(), arg0, arg1)
+    }
+
     /// Calls a function returning a value (`ZS_*_loop` functions do). The guest
     /// function table is typed, so such functions must use the bool call path
     /// or the call would trap on the signature mismatch.

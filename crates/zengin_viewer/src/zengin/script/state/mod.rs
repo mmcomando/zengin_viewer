@@ -14,9 +14,9 @@ pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, GotoNpcChange, InventoryGain, ItemChanged,
     ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, PassivePerception,
-    ProcessInfosChange, RoutineExchange, ScreenMessage, ScriptSound, SetGameTime, SpawnItem,
-    SpawnNpc, StandUpChange, StartStateChange, SvmLine, TurnToNpcChange, UseItemStateChange,
-    UseMobChange, WaitChange,
+    PrintLine, ProcessInfosChange, RoutineExchange, ScreenMessage, ScriptSound, SetGameTime,
+    SpawnItem, SpawnNpc, StandUpChange, StartStateChange, SvmLine, TurnToNpcChange,
+    UseItemStateChange, UseMobChange, WaitChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -424,6 +424,8 @@ pub struct ScriptMessages {
     pub inventory_gains: ExternalMessageSender<InventoryGain>,
     /// On-screen messages requested by `PrintScreen`/`AI_PrintScreen`.
     pub screen_messages: ExternalMessageSender<ScreenMessage>,
+    /// Game log lines requested by `Print`.
+    pub print_lines: ExternalMessageSender<PrintLine>,
     /// Sounds requested by `Snd_Play`/`Snd_Play3D` and the `AI_Snd_Play*`
     /// variants.
     pub sounds: ExternalMessageSender<ScriptSound>,
@@ -460,6 +462,7 @@ impl ScriptMessages {
         self.dialog_lines.clear();
         self.inventory_gains.clear();
         self.screen_messages.clear();
+        self.print_lines.clear();
         self.sounds.clear();
         self.svm.clear();
         self.passive_perception.clear();
@@ -1157,6 +1160,19 @@ impl ImportCallState {
             da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
         })?;
         Some(name.clone())
+    }
+
+    /// Queues a game log line for the ECS bridge, empty messages are dropped
+    /// (the engine ignores them too).
+    pub(crate) fn push_print(&mut self, msg: i32) {
+        let Some(msg_id) = self.symbol_table.string(msg) else {
+            crate::warn_unimplemented!("print with non-string text({msg})");
+            return;
+        };
+        let Some(text) = self.get_string_non_0(msg_id.value()) else {
+            return;
+        };
+        self.messages.print_lines.send(PrintLine { text });
     }
 
     /// Queues an on-screen message for the ECS bridge, empty messages are

@@ -23,7 +23,7 @@ use crate::zengin::script::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, GotoNpcChange, InventoryGain, ItemChanged,
     ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest,
-    PassivePerception, ProcessInfosChange, RoutineEntry, ScreenMessage, ScriptMessages,
+    PassivePerception, PrintLine, ProcessInfosChange, RoutineEntry, ScreenMessage, ScriptMessages,
     ScriptSound, SetGameTime, SpawnNpc, StandUpChange, StartStateChange, SvmLine, TurnToNpcChange,
     UseItemStateChange, UseMobChange, WaitChange, WeaponMode,
 };
@@ -58,6 +58,7 @@ impl Plugin for ScriptBridgePlugin {
             dialog_lines: app.add_external_message::<DialogLine>(),
             inventory_gains: app.add_external_message::<InventoryGain>(),
             screen_messages: app.add_external_message::<ScreenMessage>(),
+            print_lines: app.add_external_message::<PrintLine>(),
             sounds: app.add_external_message::<ScriptSound>(),
             svm: app.add_external_message::<SvmLine>(),
             passive_perception: app.add_external_message::<PassivePerception>(),
@@ -98,6 +99,7 @@ impl Plugin for ScriptBridgePlugin {
                 send_item_changes,
                 expand_item_changes,
                 log_inventory_gains,
+                log_print_lines,
                 log_journal_changes,
                 forward_chapter_intro,
                 sync_npc_routine_entry,
@@ -272,6 +274,15 @@ fn log_inventory_gains(
             name,
             gain.count
         );
+    }
+}
+
+fn log_print_lines(mut lines: MessageReader<PrintLine>, mut game_log: MessageWriter<GameLogEntry>) {
+    let _perf = perf_debug!();
+    for line in lines.read() {
+        game_log.write(GameLogEntry {
+            text: line.text.clone(),
+        });
     }
 }
 
