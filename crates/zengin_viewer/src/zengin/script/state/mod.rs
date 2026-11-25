@@ -1333,7 +1333,6 @@ impl ScriptRandom {
 
 /// Mersenne Twister generator for combat rolls, with its own seed so damage
 /// does not perturb [`ScriptRandom`].
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct CombatRandom {
     rng: Mt,
@@ -1347,7 +1346,6 @@ impl Default for CombatRandom {
     }
 }
 
-#[allow(dead_code)]
 impl CombatRandom {
     /// Uniform integer in `0..bound`, `1` when `bound` is not positive.
     pub fn roll(&mut self, bound: i32) -> i32 {

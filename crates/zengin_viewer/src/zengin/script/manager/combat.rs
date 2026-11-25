@@ -1,6 +1,11 @@
 //! Gothic II damage formula, detached from the script VM.
 #![allow(dead_code)]
 
+use crate::zengin::script::state::WeaponMode;
+use crate::zengin::script::symbol_id::InstanceId;
+
+use super::ScriptManager;
+
 /// Number of `C_Npc.protection`, `C_Npc.damage` and `C_Item.damage` slots.
 const DAMAGE_TYPES: usize = 8;
 
@@ -18,6 +23,19 @@ const TALENT_2H: usize = 2;
 
 /// Gothic II floors every hit at this damage after protection.
 const MIN_DAMAGE: i32 = 5;
+
+/// `GIL_SEPERATOR_HUM`, guilds below it are humans.
+const GIL_SEPARATOR_HUMAN: i32 = 16;
+/// `GIL_SEPERATOR_ORC`, guilds up to it are monsters.
+const GIL_SEPARATOR_ORC: i32 = 58;
+
+/// `ITEM_2HD_SWD` item flag.
+const ITEM_2HD_SWD: i32 = 1 << 16;
+/// `ITEM_2HD_AXE` item flag.
+const ITEM_2HD_AXE: i32 = 1 << 17;
+
+/// Upper bound of the melee hit-chance roll.
+const HIT_CHANCE_BOUND: i32 = 100;
 
 /// Attacker stats of one damage calculation.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -47,6 +65,15 @@ pub(crate) struct WeaponStats {
     pub damagetype: i32,
     /// `C_Item.flags` carries `ITEM_2HD_SWD` or `ITEM_2HD_AXE`.
     pub two_handed: bool,
+}
+
+/// Kind of attack whose damage is being calculated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AttackKind {
+    /// Melee swing, uses the attacker's drawn melee weapon when there is one.
+    Melee,
+    /// Ranged hit with the given weapon item.
+    Ranged(InstanceId),
 }
 
 /// Damage of one melee hit, `crit_roll` is the attacker's 0..100 roll before
@@ -133,6 +160,71 @@ fn combined_damage(attacker: &DamageStats, weapon: Option<&WeaponStats>) -> [i32
         }
     }
     damage
+}
+
+impl ScriptManager {
+    /// Final damage of one hit, `None` when the attacker or victim has no typed
+    /// `C_Npc` record.
+    pub(crate) fn combat_damage(
+        &mut self,
+        attacker: InstanceId,
+        victim: InstanceId,
+        kind: AttackKind,
+    ) -> Option<i32> {
+        let stats = self.damage_stats(attacker)?;
+        let protection = self.npc_data(victim.value() as u32)?.protection;
+        match kind {
+            AttackKind::Melee => {
+                let weapon = self
+                    .drawn_melee_weapon(attacker)
+                    .and_then(|weapon| self.weapon_stats(weapon));
+                let crit_roll = self.store.data_mut().combat_rng.roll(HIT_CHANCE_BOUND);
+                Some(melee_damage(
+                    &stats,
+                    weapon.as_ref(),
+                    &protection,
+                    crit_roll,
+                ))
+            }
+            AttackKind::Ranged(weapon) => {
+                let weapon = self.weapon_stats(weapon)?;
+                Some(ranged_damage(&stats, &weapon, &protection))
+            }
+        }
+    }
+
+    fn damage_stats(&self, npc: InstanceId) -> Option<DamageStats> {
+        let data = self.npc_data(npc.value() as u32)?;
+        Some(DamageStats {
+            strength: data.strength,
+            dexterity: data.dexterity,
+            hitchance: data.hitchance,
+            damage: data.damage,
+            damagetype: data.damagetype,
+            is_monster: is_monster_guild(data.guild),
+        })
+    }
+
+    fn weapon_stats(&self, item: InstanceId) -> Option<WeaponStats> {
+        let data = self.item_data(item.value() as u32)?;
+        Some(WeaponStats {
+            damage_total: data.damage_total,
+            damage: data.damage,
+            damagetype: data.damagetype,
+            two_handed: data.flags & (ITEM_2HD_SWD | ITEM_2HD_AXE) != 0,
+        })
+    }
+
+    fn drawn_melee_weapon(&self, npc: InstanceId) -> Option<InstanceId> {
+        let state = self.npc_state(npc)?;
+        (state.equipment.weapon_mode == Some(WeaponMode::Melee))
+            .then_some(state.equipment.melee)
+            .flatten()
+    }
+}
+
+fn is_monster_guild(guild: i32) -> bool {
+    GIL_SEPARATOR_HUMAN < guild && guild < GIL_SEPARATOR_ORC
 }
 
 #[cfg(test)]
@@ -284,5 +376,13 @@ mod tests {
         let mut protection = protection();
         protection[2] = 100;
         assert_eq!(ranged_damage(&attacker(), &weapon(), &protection), 5);
+    }
+
+    #[test]
+    fn monster_guild_range_matches_the_engine() {
+        assert!(!is_monster_guild(16));
+        assert!(is_monster_guild(17));
+        assert!(is_monster_guild(57));
+        assert!(!is_monster_guild(58));
     }
 }

@@ -202,7 +202,7 @@ impl super::ScriptManager {
         item.value().to_string()
     }
 
-    fn npc_data(&self, instance: u32) -> Option<Npc> {
+    pub(super) fn npc_data(&self, instance: u32) -> Option<Npc> {
         self.store.data().typed.npc(instance)
     }
 
