@@ -1,6 +1,6 @@
 use bevy::log::warn;
 
-use super::super::state::{ITEM_MAINFLAG_ARMOR, WeaponKind, WeaponMode};
+use super::super::state::{ITEM_MAINFLAG_ARMOR, WeaponClass, WeaponKind, WeaponMode};
 use super::super::symbol_id::InstanceId;
 
 impl super::ScriptManager {
@@ -51,6 +51,13 @@ impl super::ScriptManager {
     pub fn item_is_armor(&self, item: InstanceId) -> bool {
         self.item_data(item.value() as u32)
             .is_some_and(|data| data.mainflag & ITEM_MAINFLAG_ARMOR != 0)
+    }
+
+    /// Melee weapon class of an item (`C_Item.flags`), `None` for a non-melee
+    /// item.
+    pub fn item_melee_class(&self, item: InstanceId) -> Option<WeaponClass> {
+        let data = self.item_data(item.value() as u32)?;
+        WeaponClass::from_item_flags(data.flags)
     }
 
     /// Removes the npc's armor and its protection.

@@ -1,7 +1,8 @@
 //! Gothic II damage formula, detached from the script VM.
 
 use daedalus_typed::{
-    DAM_BLUNT, DAM_INVALID, DAMAGE_TYPES, HITCHANCE_MAX, TALENT_1H, TALENT_2H, TALENT_UNKNOWN,
+    DAM_BLUNT, DAM_INVALID, DAMAGE_TYPES, HITCHANCE_MAX, ITEM_2HD_AXE, ITEM_2HD_SWD, TALENT_1H,
+    TALENT_2H, TALENT_UNKNOWN,
 };
 
 use crate::zengin::script::state::WeaponMode;
@@ -16,11 +17,6 @@ const MIN_DAMAGE: i32 = 5;
 const GIL_SEPARATOR_HUMAN: i32 = 16;
 /// `GIL_SEPERATOR_ORC`, guilds up to it are monsters.
 const GIL_SEPARATOR_ORC: i32 = 58;
-
-/// `ITEM_2HD_SWD` item flag.
-const ITEM_2HD_SWD: i32 = 1 << 16;
-/// `ITEM_2HD_AXE` item flag.
-const ITEM_2HD_AXE: i32 = 1 << 17;
 
 /// Upper bound of the melee hit-chance roll.
 const HIT_CHANCE_BOUND: i32 = 100;

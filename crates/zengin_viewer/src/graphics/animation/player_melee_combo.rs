@@ -15,7 +15,8 @@ use crate::graphics::AnimationGraph;
 use crate::input::{GameplayAction, GameplayInputMarker, WorldInputViews};
 use crate::perf_debug;
 use crate::zengin::{
-    CachedAssetHandles, NpcMobUse, NpcTalentOverlay, NpcWeaponMode, Selection, WeaponMode,
+    CachedAssetHandles, NpcEquippedWeapon, NpcMobUse, NpcTalentOverlay, NpcWeaponMode, Selection,
+    WeaponClass, WeaponMode,
 };
 
 use super::animation_triggers::{AnimationTriggers, AttackTimeline, animation_ident_from_path};
@@ -37,7 +38,11 @@ pub(crate) struct PlayerMeleeCombo {
     timeline: Option<AttackTimeline>,
 }
 
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+#[allow(
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::cognitive_complexity
+)]
 pub(super) fn player_melee_combo(
     mut commands: Commands,
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
@@ -59,6 +64,7 @@ pub(super) fn player_melee_combo(
             &GlobalTransform,
             Option<&NpcWeaponMode>,
             Option<&NpcTalentOverlay>,
+            Option<&NpcEquippedWeapon>,
             Option<&NpcMobUse>,
         ),
         With<PlayerCharacter>,
@@ -78,6 +84,7 @@ pub(super) fn player_melee_combo(
         player_tr,
         weapon_mode,
         talent_overlay,
+        equipped,
         mob_use,
     )) = players.single_mut()
     else {
@@ -96,6 +103,7 @@ pub(super) fn player_melee_combo(
         return;
     }
     let mode = weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0);
+    let melee_class = equipped.and_then(|equipped| equipped.melee_class);
     let current = controller.current().clone();
     let is_melee_attack = is_melee_attack_animation(&current);
     let combo_ident = current
@@ -115,6 +123,29 @@ pub(super) fn player_melee_combo(
     let held = action_state.pressed(&GameplayAction::Interact)
         || action_state.pressed(&GameplayAction::DealDamage);
 
+    if melee_class == Some(WeaponClass::TwoHanded) {
+        combo.combo_len = 0;
+        combo.timeline = None;
+        if !held || is_melee_attack {
+            return;
+        }
+        if queue_desired_now(
+            &graph,
+            &mut handles,
+            &asset_server,
+            &mut controller,
+            model,
+            weapon_mode,
+            melee_class,
+            talent_overlay,
+            DesiredAnimation::MeleeAttack(MeleeAttackKind::Default),
+        ) {
+            face_target(&mut sequencer, player_tr, &selection, &transforms);
+            debug!("Player 2H swing started");
+        }
+        return;
+    }
+
     let Some((scheme, animation)) = combo_ident else {
         combo.combo_len = 0;
         combo.timeline = None;
@@ -128,6 +159,7 @@ pub(super) fn player_melee_combo(
             &mut controller,
             model,
             weapon_mode,
+            melee_class,
             talent_overlay,
             DesiredAnimation::MeleeAttack(MeleeAttackKind::Combo),
         ) {
@@ -164,6 +196,7 @@ pub(super) fn player_melee_combo(
                 &mut controller,
                 model,
                 weapon_mode,
+                melee_class,
                 talent_overlay,
                 desired,
             );

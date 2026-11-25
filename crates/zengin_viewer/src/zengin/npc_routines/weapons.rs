@@ -14,7 +14,7 @@ use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::npc_routines::routines::has_animation;
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::script::state::{WeaponKind, WeaponMode};
+use crate::zengin::script::state::{WeaponClass, WeaponKind, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameMob, NpcMobUse};
 
@@ -150,6 +150,8 @@ pub struct NpcAttachmentMarker;
 pub struct NpcEquippedWeapon {
     pub melee: Option<InstanceId>,
     pub ranged: Option<InstanceId>,
+    /// Class of the equipped melee weapon, `None` when there is none.
+    pub melee_class: Option<WeaponClass>,
 }
 
 type NpcAttachmentQueryData = (

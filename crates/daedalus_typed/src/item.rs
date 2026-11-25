@@ -8,6 +8,23 @@ use super::registry::FieldSlot;
 /// `C_Item.on_state` size in G2.
 pub const ON_STATE_MAX: usize = 4;
 
+/// `ITEM_DAG` item flag.
+pub const ITEM_DAG: i32 = 1 << 13;
+/// `ITEM_SWD` item flag.
+pub const ITEM_SWD: i32 = 1 << 14;
+/// `ITEM_AXE` item flag.
+pub const ITEM_AXE: i32 = 1 << 15;
+/// `ITEM_2HD_SWD` item flag.
+pub const ITEM_2HD_SWD: i32 = 1 << 16;
+/// `ITEM_2HD_AXE` item flag.
+pub const ITEM_2HD_AXE: i32 = 1 << 17;
+/// `ITEM_SHIELD` item flag.
+pub const ITEM_SHIELD: i32 = 1 << 18;
+/// `ITEM_BOW` item flag.
+pub const ITEM_BOW: i32 = 1 << 19;
+/// `ITEM_CROSSBOW` item flag.
+pub const ITEM_CROSSBOW: i32 = 1 << 20;
+
 /// `C_Item` members modeled by the host.
 #[derive(Debug, Default, Clone)]
 pub struct Item {

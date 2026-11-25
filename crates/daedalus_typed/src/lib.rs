@@ -32,7 +32,10 @@ pub use damage::{
 };
 pub use generic::GenericVariable;
 pub use info::Info;
-pub use item::{Item, ON_STATE_MAX};
+pub use item::{
+    ITEM_2HD_AXE, ITEM_2HD_SWD, ITEM_AXE, ITEM_BOW, ITEM_CROSSBOW, ITEM_DAG, ITEM_SHIELD, ITEM_SWD,
+    Item, ON_STATE_MAX,
+};
 pub use menu::{
     MENU_FLAG_ALIGN_CENTER, MENU_FLAG_DONT_SCALE_DIM, MENU_FLAG_DONT_SCALE_POS,
     MENU_FLAG_EXCLUSIVE, MENU_FLAG_NO_ANI, MENU_FLAG_OVERTOP, MENU_FLAG_SHOW_INFO, MENU_SCRIPT_DIV,

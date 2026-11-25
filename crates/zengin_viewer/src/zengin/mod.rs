@@ -90,6 +90,7 @@ pub(crate) use crate::zengin::script::state::SetGameTime;
 pub(crate) use crate::zengin::script::state::SpawnNpc;
 pub(crate) use crate::zengin::script::state::SvmLine;
 
+pub(crate) use crate::zengin::script::state::WeaponClass;
 pub(crate) use crate::zengin::script::state::WeaponKind;
 pub(crate) use crate::zengin::script::state::WeaponMode;
 pub(crate) use crate::zengin::script::state::{

@@ -462,23 +462,30 @@ fn sync_npc_equipped_weapon(
     mut commands: Commands,
     mut changes: MessageReader<NpcEntitiesChanged>,
     npcs: Query<&NpcEquippedWeapon>,
+    gothic_script: Res<ScriptResource>,
 ) {
     let _perf = perf_debug!();
     for change in changes.read() {
-        let equipped = {
+        let (melee, ranged) = {
             let runtime = change
                 .handle
                 .runtime()
                 .read()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            let melee = runtime.equipment.melee;
-            let ranged = runtime.equipment.ranged;
-            (melee.is_some() || ranged.is_some()).then_some(NpcEquippedWeapon { melee, ranged })
+            (runtime.equipment.melee, runtime.equipment.ranged)
         };
+        let melee_class = melee.and_then(|item| gothic_script.lock().item_melee_class(item));
+        let equipped = (melee.is_some() || ranged.is_some()).then_some(NpcEquippedWeapon {
+            melee,
+            ranged,
+            melee_class,
+        });
         for &entity in &change.entities {
             let needs_update = match (&equipped, npcs.get(entity).ok()) {
                 (Some(equipped), Some(current)) => {
-                    equipped.melee != current.melee || equipped.ranged != current.ranged
+                    equipped.melee != current.melee
+                        || equipped.ranged != current.ranged
+                        || equipped.melee_class != current.melee_class
                 }
                 (None, None) => false,
                 _ => true,
@@ -631,6 +638,7 @@ fn seed_npc_components_on_add(
     added_npcs: Query<(Entity, &GameNpc), Added<GameNpc>>,
     index: Res<InstanceIndex>,
     game_time: Res<GameTime>,
+    gothic_script: Res<ScriptResource>,
 ) {
     let _perf = perf_debug!();
     if added_npcs.is_empty() {
@@ -651,29 +659,33 @@ fn seed_npc_components_on_add(
             .entity(entity)
             .try_insert(NpcHealth::new(hitpoints, hitpoints_max));
 
-        let instance = npc
-            .handle()
-            .runtime()
-            .read()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        set_routine_entry(&mut commands, entity, instance.get_routine_entry(minutes));
-        let target = instance
-            .live
-            .look_at
-            .and_then(|id| index.npcs(id).first().copied());
-        set_look_at(&mut commands, entity, target);
-        set_weapon_mode(&mut commands, entity, instance.equipment.weapon_mode);
-        commands
-            .entity(entity)
-            .try_insert(NpcWalkMode(instance.live.walk_mode));
-        commands
-            .entity(entity)
-            .try_insert(NpcArmorItem(instance.equipment.armor));
-        let equipped = (instance.equipment.melee.is_some() || instance.equipment.ranged.is_some())
-            .then_some(NpcEquippedWeapon {
-                melee: instance.equipment.melee,
-                ranged: instance.equipment.ranged,
-            });
+        let (melee, ranged) = {
+            let instance = npc
+                .handle()
+                .runtime()
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            set_routine_entry(&mut commands, entity, instance.get_routine_entry(minutes));
+            let target = instance
+                .live
+                .look_at
+                .and_then(|id| index.npcs(id).first().copied());
+            set_look_at(&mut commands, entity, target);
+            set_weapon_mode(&mut commands, entity, instance.equipment.weapon_mode);
+            commands
+                .entity(entity)
+                .try_insert(NpcWalkMode(instance.live.walk_mode));
+            commands
+                .entity(entity)
+                .try_insert(NpcArmorItem(instance.equipment.armor));
+            (instance.equipment.melee, instance.equipment.ranged)
+        };
+        let melee_class = melee.and_then(|item| gothic_script.lock().item_melee_class(item));
+        let equipped = (melee.is_some() || ranged.is_some()).then_some(NpcEquippedWeapon {
+            melee,
+            ranged,
+            melee_class,
+        });
         set_equipped_weapon(&mut commands, entity, equipped);
     }
 }

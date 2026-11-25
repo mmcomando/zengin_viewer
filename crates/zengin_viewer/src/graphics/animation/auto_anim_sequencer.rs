@@ -20,8 +20,8 @@ use bevy::prelude::*;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{AnimationGraph, AnimationIndex, animation_name_from_path};
 use crate::zengin::{
-    ArrowShot, CachedAssetHandles, MeleeHit, NpcTalentOverlay, NpcWeaponMode, WeaponMode,
-    face_direction_quat, get_animation_path,
+    ArrowShot, CachedAssetHandles, MeleeHit, NpcEquippedWeapon, NpcTalentOverlay, NpcWeaponMode,
+    WeaponClass, WeaponMode, face_direction_quat, get_animation_path,
 };
 
 use super::components::{AnimationEnds, AnimationTrigger};
@@ -169,40 +169,58 @@ pub enum MeleeAttackKind {
 }
 
 impl MeleeAttackKind {
-    /// Every attack kind, used to recognize attack animations.
-    const ALL: [Self; 5] = [
-        Self::Default,
-        Self::Combo,
-        Self::Left,
-        Self::Right,
-        Self::Fist,
-    ];
-
     /// Scheme relative animation names this kind may resolve to, best match
     /// first; a scheme gets its first existing name. 1H schemes only have
     /// left/right swings, so the default one is the right swing.
-    fn candidates(self) -> &'static [&'static str] {
+    fn candidates(
+        self,
+        weapon_mode: WeaponMode,
+        melee_class: Option<WeaponClass>,
+    ) -> &'static [&'static str] {
+        let two_handed =
+            weapon_mode == WeaponMode::Melee && melee_class == Some(WeaponClass::TwoHanded);
         match self {
+            Self::Default | Self::Right if two_handed => {
+                &["T_2HATTACKR", "T_1HATTACKR", "S_FISTATTACK", "T_FISTATTACK"]
+            }
             Self::Default | Self::Right => &["T_1HATTACKR", "S_FISTATTACK", "T_FISTATTACK"],
             Self::Combo => &["S_1HATTACK", "T_1HATTACKR", "S_FISTATTACK", "T_FISTATTACK"],
+            Self::Left if two_handed => {
+                &["T_2HATTACKL", "T_1HATTACKL", "S_FISTATTACK", "T_FISTATTACK"]
+            }
             Self::Left => &["T_1HATTACKL", "S_FISTATTACK", "T_FISTATTACK"],
             Self::Fist => &["S_FISTATTACK", "T_FISTATTACK"],
         }
     }
 }
 
+/// Animation names of every melee swing, for recognizing attack animations.
+const MELEE_ATTACK_ANIMATIONS: &[&str] = &[
+    "T_1HATTACKR",
+    "T_1HATTACKL",
+    "S_1HATTACK",
+    "T_2HATTACKR",
+    "T_2HATTACKL",
+    "S_FISTATTACK",
+    "T_FISTATTACK",
+];
+
 impl DesiredAnimation {
     /// Scheme relative animation names this state may resolve to, best match
     /// first. Humans use the `S_RUN`/`T_1HATTACKR` naming, creatures the
     /// `S_FISTRUN`/`S_FISTATTACK` one; a scheme gets its first existing name.
-    fn candidates(self, weapon_mode: WeaponMode) -> &'static [&'static str] {
+    fn candidates(
+        self,
+        weapon_mode: WeaponMode,
+        melee_class: Option<WeaponClass>,
+    ) -> &'static [&'static str] {
         match self {
             DesiredAnimation::Stand => &["S_RUN", "S_FISTRUN", "S_FISTRUNL", "S_FISTWALK"],
             DesiredAnimation::Run => &["S_RUNL", "S_FISTRUNL", "S_FISTRUN", "S_FISTWALK"],
             DesiredAnimation::Walk => walk_candidates(weapon_mode),
             DesiredAnimation::Sneak => sneak_candidates(weapon_mode),
             DesiredAnimation::Fire => &["T_BOWRELOAD"],
-            DesiredAnimation::MeleeAttack(kind) => kind.candidates(),
+            DesiredAnimation::MeleeAttack(kind) => kind.candidates(weapon_mode, melee_class),
             DesiredAnimation::Turn(direction) => direction.candidates(),
             DesiredAnimation::Dead => &["S_DEAD", "S_DEADB"],
             DesiredAnimation::StrafeLeft => strafe_candidates("L", weapon_mode),
@@ -359,6 +377,7 @@ fn apply_forced_change(
             &NpcModel,
             Option<&NpcWeaponMode>,
             Option<&NpcTalentOverlay>,
+            Option<&NpcEquippedWeapon>,
         ),
         Changed<AutoAnimSequencer>,
     >,
@@ -368,7 +387,7 @@ fn apply_forced_change(
         return;
     };
     let graph = graph.into_inner();
-    for (seq, mut controller, model, weapon_mode, talent_overlay) in &mut sequencers {
+    for (seq, mut controller, model, weapon_mode, talent_overlay, equipped) in &mut sequencers {
         let Some(desired) = seq.desired else {
             continue;
         };
@@ -380,8 +399,15 @@ fn apply_forced_change(
             continue;
         }
         let scheme = animation_scheme(model);
-        let Some(desired) = resolve_animation(graph, scheme, talent_overlay, desired, weapon_mode)
-        else {
+        let melee_class = equipped.and_then(|equipped| equipped.melee_class);
+        let Some(desired) = resolve_animation(
+            graph,
+            scheme,
+            talent_overlay,
+            desired,
+            weapon_mode,
+            melee_class,
+        ) else {
             warn_once!(
                 "Scheme({scheme}) has no animation for desired({:?}), it is not queued",
                 seq.desired
@@ -417,6 +443,7 @@ fn advance_on_animation_ends(
         &NpcModel,
         Option<&NpcWeaponMode>,
         Option<&NpcTalentOverlay>,
+        Option<&NpcEquippedWeapon>,
     )>,
 ) {
     let _perf = perf_debug!();
@@ -426,7 +453,7 @@ fn advance_on_animation_ends(
     };
     let graph = graph.into_inner();
     for end in ends.read() {
-        let Ok((entity, seq, mut controller, model, weapon_mode, talent_overlay)) =
+        let Ok((entity, seq, mut controller, model, weapon_mode, talent_overlay, equipped)) =
             sequencers.get_mut(end.who)
         else {
             // Most skeletons have no sequencer; their ends are not ours.
@@ -447,6 +474,7 @@ fn advance_on_animation_ends(
             &mut controller,
             animation_scheme(model),
             weapon_mode,
+            equipped.and_then(|equipped| equipped.melee_class),
             talent_overlay,
             &mut arrows,
             &mut handles,
@@ -464,6 +492,7 @@ fn advance_sequencer_on_end(
     controller: &mut AnimationController,
     scheme: &str,
     weapon_mode: Option<&NpcWeaponMode>,
+    melee_class: Option<WeaponClass>,
     talent_overlay: Option<&NpcTalentOverlay>,
     arrows: &mut MessageWriter<ArrowShot>,
     handles: &mut CachedAssetHandles,
@@ -474,9 +503,14 @@ fn advance_sequencer_on_end(
         // or mob pose), leave it alone.
         return;
     };
-    let Some(desired_index) =
-        resolve_animation(graph, scheme, talent_overlay, desired, weapon_mode)
-    else {
+    let Some(desired_index) = resolve_animation(
+        graph,
+        scheme,
+        talent_overlay,
+        desired,
+        weapon_mode,
+        melee_class,
+    ) else {
         warn!(
             "AutoAnimSequencer({entity}) scheme({scheme}) has no animation for desired({desired:?})"
         );
@@ -648,6 +682,7 @@ fn resolve_animation(
     talent_overlay: Option<&NpcTalentOverlay>,
     desired: DesiredAnimation,
     weapon_mode: Option<&NpcWeaponMode>,
+    melee_class: Option<WeaponClass>,
 ) -> Option<AnimationIndex> {
     let weapon_mode = weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0);
     let overlay = if let DesiredAnimation::MeleeAttack(MeleeAttackKind::Combo) = desired {
@@ -656,7 +691,7 @@ fn resolve_animation(
         None
     };
     desired
-        .candidates(weapon_mode)
+        .candidates(weapon_mode, melee_class)
         .iter()
         .find_map(|animation| {
             overlay
@@ -675,11 +710,19 @@ pub(super) fn queue_desired_now(
     controller: &mut AnimationController,
     model: &NpcModel,
     weapon_mode: Option<&NpcWeaponMode>,
+    melee_class: Option<WeaponClass>,
     talent_overlay: Option<&NpcTalentOverlay>,
     desired: DesiredAnimation,
 ) -> bool {
     let scheme = animation_scheme(model);
-    let Some(index) = resolve_animation(graph, scheme, talent_overlay, desired, weapon_mode) else {
+    let Some(index) = resolve_animation(
+        graph,
+        scheme,
+        talent_overlay,
+        desired,
+        weapon_mode,
+        melee_class,
+    ) else {
         return false;
     };
     queue_animation(
@@ -701,11 +744,7 @@ fn animation_name(handle: &Handle<AnimationData>) -> Option<&str> {
 
 /// Whether the animation handle is one of the melee attack animations.
 pub(crate) fn is_melee_attack_animation(handle: &Handle<AnimationData>) -> bool {
-    animation_name(handle).is_some_and(|name| {
-        MeleeAttackKind::ALL
-            .iter()
-            .any(|kind| kind.candidates().contains(&name))
-    })
+    animation_name(handle).is_some_and(|name| MELEE_ATTACK_ANIMATIONS.contains(&name))
 }
 
 /// Whether the animation handle is the `T_GOTHIT` hit reaction one-shot.
@@ -731,6 +770,8 @@ fn queue_animation(
 #[cfg(test)]
 mod tests {
     use bevy::ecs::system::RunSystemOnce;
+
+    use crate::zengin::InstanceId;
 
     use super::*;
 
@@ -1206,6 +1247,61 @@ mod tests {
         run_sequencer(&mut world);
 
         assert_eq!(queued_next(&world, model), Some(attack));
+    }
+
+    #[test]
+    fn two_handed_default_swing_uses_the_2h_animation() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        world.entity_mut(model).insert((
+            NpcWeaponMode(WeaponMode::Melee),
+            NpcEquippedWeapon {
+                melee: InstanceId::new(1),
+                ranged: None,
+                melee_class: Some(WeaponClass::TwoHanded),
+            },
+        ));
+        let attack = animation_handle(&mut world, "T_2HATTACKR");
+
+        send_desired_force(
+            &mut world,
+            model,
+            DesiredAnimation::MeleeAttack(MeleeAttackKind::Default),
+            true,
+        );
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(attack));
+    }
+
+    #[test]
+    fn two_handed_left_swing_uses_the_2h_left_animation() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        world.entity_mut(model).insert((
+            NpcWeaponMode(WeaponMode::Melee),
+            NpcEquippedWeapon {
+                melee: InstanceId::new(1),
+                ranged: None,
+                melee_class: Some(WeaponClass::TwoHanded),
+            },
+        ));
+        let attack = animation_handle(&mut world, "T_2HATTACKL");
+
+        send_desired_force(
+            &mut world,
+            model,
+            DesiredAnimation::MeleeAttack(MeleeAttackKind::Left),
+            true,
+        );
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(attack));
+    }
+
+    #[test]
+    fn two_handed_swings_are_recognized_as_melee_attacks() {
+        let (mut world, _) = run_sequencer_world("S_RUN");
+        let handle = animation_handle(&mut world, "T_2HATTACKR");
+        assert!(is_melee_attack_animation(&handle));
     }
 
     #[test]

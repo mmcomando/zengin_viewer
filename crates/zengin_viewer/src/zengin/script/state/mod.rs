@@ -21,7 +21,9 @@ pub(crate) use changes::{
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry, RoutineFunctions,
 };
-pub(crate) use weapons::{ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponKind, WeaponMode};
+pub(crate) use weapons::{
+    ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponClass, WeaponKind, WeaponMode,
+};
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};

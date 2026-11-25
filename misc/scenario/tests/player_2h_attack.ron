@@ -1,0 +1,20 @@
+[
+    // Setup
+    IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginEquipWeapon(item: "itmw_2h_sld_axe"),
+    ZenginSetDebugNpc(name: "hero"),
+    Wait(frame_dt: 100),
+
+    // Act
+    TestClearLogBuffer,
+    Press(action: Gameplay(Interact)),
+    Wait(frame_dt: 60),
+    Release(action: Gameplay(Interact)),
+    Wait(frame_dt: 150),
+
+    // Assert
+    TestLogExists(regex: "current=HUMANS-T_2HATTACK"),
+    TestLogNotExists(regex: "current=HUMANS-T_1HATTACK"),
+
+    ExitGame,
+]
