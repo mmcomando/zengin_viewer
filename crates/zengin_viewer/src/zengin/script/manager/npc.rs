@@ -346,12 +346,6 @@ impl super::ScriptManager {
         Some(changed)
     }
 
-    /// Total damage of an item instance (`C_Item.damagetotal`).
-    pub fn item_damage_total(&mut self, item: InstanceId) -> i32 {
-        self.item_data(item.value() as u32)
-            .map_or(0, |item| item.damage_total)
-    }
-
     /// Display stats of an item instance for the inventory info panel.
     pub fn item_display_data(&mut self, item: InstanceId) -> ItemDisplayData {
         let Some(info) = self.item_data(item.value() as u32) else {

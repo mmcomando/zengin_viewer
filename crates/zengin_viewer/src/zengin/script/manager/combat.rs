@@ -1,5 +1,4 @@
 //! Gothic II damage formula, detached from the script VM.
-#![allow(dead_code)]
 
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;

@@ -15,6 +15,7 @@ use crate::zengin::resources::{
     ARROW, CachedAssetHandles, NPC_BODY, NamedModels, ZenGinModelComponent,
 };
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::manager::AttackKind;
 use crate::zengin::script::symbol_id::InstanceId;
 use avian3d::prelude::*;
 
@@ -58,11 +59,11 @@ pub struct ArrowShot {
     pub shooter: Entity,
 }
 
-/// Data of a flying arrow, used for damage and cleanup.
+/// Data of a flying arrow, used for the hit and cleanup.
 #[derive(Component)]
 #[require(WorldEntityMarker)]
 pub struct Arrow {
-    pub damage: i32,
+    pub weapon: InstanceId,
     pub shooter: InstanceId,
     spawned_at: f32,
     /// Shot origin, contacts hit before the arrow travels
@@ -143,17 +144,16 @@ fn spawn_shot(
         return;
     }
 
-    // Damage of the currently equipped ranged weapon.
-    let damage = {
-        let mut script = gothic_script.lock();
-        let weapon = script
+    // Ranged weapon of the currently drawn bow.
+    let weapon = {
+        let script = gothic_script.lock();
+        script
             .npc_state(shooter)
-            .and_then(|player| player.equipment.ranged);
-        weapon.map(|weapon| script.item_damage_total(weapon))
+            .and_then(|player| player.equipment.ranged)
     };
-    let Some(damage) = damage else {
+    let Some(weapon) = weapon else {
         warn!(
-            "Arrow of npc({}) not spawned: no ranged weapon damage",
+            "Arrow of npc({}) not spawned: no ranged weapon",
             shooter.value()
         );
         return;
@@ -165,7 +165,7 @@ fn spawn_shot(
     let transform = Transform::from_translation(origin)
         .with_rotation(Quat::from_rotation_arc(ARROW_MESH_FORWARD, direction));
     let arrow = Arrow {
-        damage,
+        weapon,
         shooter,
         spawned_at: time.elapsed_secs(),
         spawn_origin: origin,
@@ -184,8 +184,9 @@ fn spawn_shot(
         ));
     }
     info!(
-        "Npc({}) shot an arrow dealing {damage} damage towards {}",
+        "Npc({}) shot an arrow with weapon({}) towards {}",
         shooter.value(),
+        weapon.value(),
         target.map_or_else(
             || "the facing direction".to_string(),
             |target| format!("npc({target})")
@@ -274,7 +275,7 @@ fn arrow_hits(
             &mut commands,
             hit_entity,
             target_data,
-            arrow.damage,
+            AttackKind::Ranged(arrow.weapon),
             arrow.shooter,
             &gothic_script,
             &files,

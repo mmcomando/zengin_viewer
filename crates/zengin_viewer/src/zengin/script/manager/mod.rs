@@ -31,6 +31,7 @@ use super::ScriptCallStats;
 use super::bindings::MmWorld;
 use super::state::{ImportCallState, RoutineFunctions, ScriptMessages};
 use super::symbol_id::FunctionId;
+pub(crate) use combat::AttackKind;
 pub(crate) use locks::TALENT_PICKLOCK;
 
 pub struct ScriptManager {

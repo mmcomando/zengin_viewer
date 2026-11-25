@@ -20,6 +20,7 @@ use crate::zengin::npc_routines::{
 };
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::script::manager::AttackKind;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc, NpcCorpseMarker, VisibilityRefresh};
@@ -48,10 +49,6 @@ pub struct NpcDied {
     pub position: Vec3,
 }
 
-/// Base damage of an unarmed melee swing. There is no script constant for it,
-/// the engine hardcodes the fist damage.
-const FIST_DAMAGE: i32 = 5;
-
 /// Horizontal distance within which an npc swing can connect. Slightly larger
 /// than the attack range so a target stepping back mid-swing is still hit.
 const MELEE_HIT_RANGE: f32 = 2.5;
@@ -66,16 +63,14 @@ pub struct MeleeHit {
 }
 
 /// Applies the melee swing damage to the currently selected npc when a
-/// [`MeleeHit`] arrives. The damage is the drawn weapon's `damagetotal`; a
-/// swing without a selected npc hits nothing. The npc dies when its hitpoints
-/// reach 0.
+/// [`MeleeHit`] arrives. A swing without a selected npc hits nothing. The npc
+/// dies when its hitpoints reach 0.
 pub(super) fn melee_swing_hit(
     mut commands: Commands,
     mut hits: MessageReader<MeleeHit>,
     selection: Res<Selection>,
     mut npcs: Query<NpcHitQueryData, Without<PlayerCharacter>>,
     player_npc: Query<&GameNpc, With<PlayerCharacter>>,
-    player_weapon: Query<&NpcWeaponMode, With<PlayerCharacter>>,
     gothic_script: Res<ScriptResource>,
     files: Res<AnimationFiles>,
     mut handles: ResMut<CachedAssetHandles>,
@@ -84,9 +79,6 @@ pub(super) fn melee_swing_hit(
     mut npc_died: MessageWriter<NpcDied>,
 ) {
     let _perf = perf_debug!();
-    let weapon_mode = player_weapon
-        .single()
-        .map_or(WeaponMode::Fists, |mode| mode.0);
     for hit in hits.read() {
         // Npc swings are handled by `npc_melee_swing_hit`.
         if !player_npc.contains(hit.shooter) {
@@ -117,26 +109,11 @@ pub(super) fn melee_swing_hit(
         };
         let player_id = player_npc.instance_id();
 
-        let damage = {
-            let mut script = gothic_script.lock();
-            let weapon = script
-                .npc_state(player_id)
-                .and_then(|player| player.equipment.melee)
-                .filter(|_| weapon_mode == WeaponMode::Melee);
-            let Some(weapon) = weapon else {
-                warn!(
-                    "Melee hit ignored: player({}) swing ended without an equipped melee weapon",
-                    player_id.value()
-                );
-                continue;
-            };
-            script.item_damage_total(weapon)
-        };
         deal_damage(
             &mut commands,
             target,
             target_data,
-            damage,
+            AttackKind::Melee,
             player_id,
             &gothic_script,
             &files,
@@ -208,14 +185,6 @@ pub(super) fn npc_melee_swing_hit(
             continue;
         }
 
-        let damage = {
-            let mut script = gothic_script.lock();
-            let melee = script
-                .npc_state(attacker_id)
-                .and_then(|npc| npc.equipment.melee);
-            melee.map_or(FIST_DAMAGE, |item| script.item_damage_total(item))
-        };
-
         let Ok((target_npc, target_gt, model, overlay, controller, reaction, is_player)) =
             targets.get_mut(target_entity)
         else {
@@ -238,7 +207,7 @@ pub(super) fn npc_melee_swing_hit(
             &mut commands,
             target_entity,
             target_data,
-            damage,
+            AttackKind::Melee,
             attacker_id,
             &gothic_script,
             &files,
@@ -254,13 +223,14 @@ pub(super) fn npc_melee_swing_hit(
 /// of whether the victim is the player or an npc. Changes the hitpoints, logs,
 /// plays the `T_GOTHIT` hit reaction and emits `NpcDied` when an npc's
 /// hitpoints reach 0. The player's hitpoints are floored at one, it never dies.
-/// Logs a warn when the victim has no hitpoints data.
+/// Logs a warn when the victim has no hitpoints data or either side has no
+/// combat stats.
 #[allow(clippy::too_many_arguments, clippy::cognitive_complexity)]
 pub(crate) fn deal_damage(
     commands: &mut Commands,
     target: Entity,
     target_data: DamageTargetData,
-    damage: i32,
+    attack: AttackKind,
     shooter_id: InstanceId,
     gothic_script: &Res<ScriptResource>,
     files: &AnimationFiles,
@@ -270,12 +240,19 @@ pub(crate) fn deal_damage(
     npc_died: &mut MessageWriter<NpcDied>,
 ) {
     let target_id = target_data.npc.instance_id();
-    let (hitpoints, shooter_is_player) = {
+    let (damage, hitpoints, shooter_is_player) = {
         let mut script = gothic_script.lock();
         if !target_data.is_player && script.npc_state(target_id).is_some_and(|npc| npc.live.dead) {
             return;
         }
         let shooter_is_player = script.player_instance() == Some(shooter_id);
+        let Some(damage) = script.combat_damage(shooter_id, target_id, attack) else {
+            warn!(
+                "Damage ignored: no combat stats for attacker({}) or target({target_id})",
+                shooter_id.value()
+            );
+            return;
+        };
         let Some(hitpoints) = script.change_hitpoints(target_id, -damage) else {
             warn!(
                 "Damage ignored: no hitpoints data for instance({})",
@@ -295,7 +272,7 @@ pub(crate) fn deal_damage(
         if !target_data.is_player && hitpoints > 0 {
             script.run_damage_perception(target_id, shooter_id);
         }
-        (hitpoints, shooter_is_player)
+        (damage, hitpoints, shooter_is_player)
     };
     if target_data.is_player {
         info!(
