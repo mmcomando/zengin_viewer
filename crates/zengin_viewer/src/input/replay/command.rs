@@ -12,7 +12,7 @@ use crate::zengin::{
     grant_test_items, seed_test_journal,
 };
 
-use daedalus_typed::TALENT_1H;
+use daedalus_typed::{TALENT_1H, TALENT_2H};
 
 use super::failures::TestFailures;
 use super::log_check::{check_log_exists, check_log_not_exists};
@@ -134,6 +134,23 @@ pub(super) fn apply_replay_command(
                 .talents
                 .set_skill(TALENT_1H as i32, *skill);
             info!("Replay set the player 1H talent skill to {skill}");
+        }
+        ReplayCommand::ZenginSetPlayerTwoHandSkill { skill } => {
+            let Some(gothic_script) = gothic_script else {
+                warn!("ZenginSetPlayerTwoHandSkill replay command: game script is not loaded");
+                return false;
+            };
+            let Ok(player_npc) = player_npc.single() else {
+                warn!("ZenginSetPlayerTwoHandSkill replay command: player npc is not spawned");
+                return false;
+            };
+            let player_id = player_npc.instance_id();
+            gothic_script
+                .lock()
+                .npc_state_mut(player_id)
+                .talents
+                .set_skill(TALENT_2H as i32, *skill);
+            info!("Replay set the player 2H talent skill to {skill}");
         }
         ReplayCommand::ZenginSetPlayerAttribute { attribute, value } => {
             let Some(gothic_script) = gothic_script else {

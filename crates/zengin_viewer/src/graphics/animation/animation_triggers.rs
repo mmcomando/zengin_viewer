@@ -45,6 +45,14 @@ const SKILL_MODEL_SCRIPTS: &[(&str, &str)] = &[
         "HUMANS_1HST2",
         "_WORK/DATA/ANIMS/_COMPILED/HUMANS_1HST2.MSB",
     ),
+    (
+        "HUMANS_2HST1",
+        "_WORK/DATA/ANIMS/_COMPILED/HUMANS_2HST1.MSB",
+    ),
+    (
+        "HUMANS_2HST2",
+        "_WORK/DATA/ANIMS/_COMPILED/HUMANS_2HST2.MSB",
+    ),
 ];
 
 /// One animation event: `name` fires when the animation reaches `frame`.

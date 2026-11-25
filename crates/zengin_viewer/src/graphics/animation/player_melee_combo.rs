@@ -1,9 +1,9 @@
-//! Skill driven 1H melee combos of the player.
+//! Skill driven melee combos of the player.
 //!
 //! The talent overlay selected by [`PlayerMeleeCombo`]'s skill adds a
-//! multi-segment `S_1HATTACK` animation. A press starts it, presses inside a
-//! segment's combo window jump the playback to the next segment and a segment
-//! that is not chained ends the swing early.
+//! multi-segment `S_1HATTACK`/`S_2HATTACK` animation. A press starts it, presses
+//! inside a segment's combo window jump the playback to the next segment and a
+//! segment that is not chained ends the swing early.
 
 use std::sync::atomic::Ordering;
 
@@ -30,8 +30,18 @@ use super::locomotion::TIME_SCALE;
 
 /// Animation of the skill dependent 1H combo.
 const ONE_HAND_COMBO_ANIMATION: &str = "S_1HATTACK";
+/// Animation of the skill dependent 2H combo.
+const TWO_HAND_COMBO_ANIMATION: &str = "S_2HATTACK";
 
-/// Segment of the player's current 1H attack combo, `0` when no combo runs.
+/// Combo animation of the drawn melee weapon class.
+fn combo_animation(class: Option<WeaponClass>) -> &'static str {
+    match class {
+        Some(WeaponClass::TwoHanded) => TWO_HAND_COMBO_ANIMATION,
+        _ => ONE_HAND_COMBO_ANIMATION,
+    }
+}
+
+/// Segment of the player's current melee attack combo, `0` when no combo runs.
 #[derive(Component, Default, Debug)]
 pub(crate) struct PlayerMeleeCombo {
     combo_len: usize,
@@ -109,7 +119,7 @@ pub(super) fn player_melee_combo(
     let combo_ident = current
         .path()
         .and_then(|path| animation_ident_from_path(path.path()))
-        .filter(|(_scheme, animation)| *animation == ONE_HAND_COMBO_ANIMATION);
+        .filter(|(_scheme, animation)| *animation == combo_animation(melee_class));
     if mode != WeaponMode::Melee {
         combo.combo_len = 0;
         combo.timeline = None;
@@ -122,29 +132,6 @@ pub(super) fn player_melee_combo(
     // starts the next one, while chaining inside it still needs a fresh press.
     let held = action_state.pressed(&GameplayAction::Interact)
         || action_state.pressed(&GameplayAction::DealDamage);
-
-    if melee_class == Some(WeaponClass::TwoHanded) {
-        combo.combo_len = 0;
-        combo.timeline = None;
-        if !held || is_melee_attack {
-            return;
-        }
-        if queue_desired_now(
-            &graph,
-            &mut handles,
-            &asset_server,
-            &mut controller,
-            model,
-            weapon_mode,
-            melee_class,
-            talent_overlay,
-            DesiredAnimation::MeleeAttack(MeleeAttackKind::Default),
-        ) {
-            face_target(&mut sequencer, player_tr, &selection, &transforms);
-            debug!("Player 2H swing started");
-        }
-        return;
-    }
 
     let Some((scheme, animation)) = combo_ident else {
         combo.combo_len = 0;
@@ -164,7 +151,7 @@ pub(super) fn player_melee_combo(
             DesiredAnimation::MeleeAttack(MeleeAttackKind::Combo),
         ) {
             face_target(&mut sequencer, player_tr, &selection, &transforms);
-            debug!("Player 1H combo started");
+            debug!("Player melee combo started");
         }
         return;
     };
@@ -185,7 +172,7 @@ pub(super) fn player_melee_combo(
         ComboStep::Chain { frame, next_len } => {
             seek_frame(state, frame);
             combo.combo_len = next_len;
-            debug!("Player 1H combo chained to segment {next_len}");
+            debug!("Player melee combo chained to segment {next_len}");
         }
         ComboStep::End => {
             let desired = sequencer.desired.unwrap_or(DesiredAnimation::Stand);

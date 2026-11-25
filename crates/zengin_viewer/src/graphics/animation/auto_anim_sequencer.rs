@@ -184,6 +184,9 @@ impl MeleeAttackKind {
                 &["T_2HATTACKR", "T_1HATTACKR", "S_FISTATTACK", "T_FISTATTACK"]
             }
             Self::Default | Self::Right => &["T_1HATTACKR", "S_FISTATTACK", "T_FISTATTACK"],
+            Self::Combo if two_handed => {
+                &["S_2HATTACK", "T_2HATTACKR", "S_FISTATTACK", "T_FISTATTACK"]
+            }
             Self::Combo => &["S_1HATTACK", "T_1HATTACKR", "S_FISTATTACK", "T_FISTATTACK"],
             Self::Left if two_handed => {
                 &["T_2HATTACKL", "T_1HATTACKL", "S_FISTATTACK", "T_FISTATTACK"]
@@ -201,6 +204,7 @@ const MELEE_ATTACK_ANIMATIONS: &[&str] = &[
     "S_1HATTACK",
     "T_2HATTACKR",
     "T_2HATTACKL",
+    "S_2HATTACK",
     "S_FISTATTACK",
     "T_FISTATTACK",
 ];
@@ -686,7 +690,7 @@ fn resolve_animation(
 ) -> Option<AnimationIndex> {
     let weapon_mode = weapon_mode.map_or(WeaponMode::Fists, |mode| mode.0);
     let overlay = if let DesiredAnimation::MeleeAttack(MeleeAttackKind::Combo) = desired {
-        talent_overlay.and_then(|overlay| overlay.0.as_deref())
+        talent_overlay.and_then(|overlay| overlay.for_class(melee_class))
     } else {
         None
     };
@@ -1290,6 +1294,34 @@ mod tests {
             &mut world,
             model,
             DesiredAnimation::MeleeAttack(MeleeAttackKind::Left),
+            true,
+        );
+        run_sequencer(&mut world);
+
+        assert_eq!(queued_next(&world, model), Some(attack));
+    }
+
+    #[test]
+    fn two_handed_combo_uses_the_two_hand_overlay() {
+        let (mut world, model) = run_sequencer_world("S_RUN");
+        world.entity_mut(model).insert((
+            NpcWeaponMode(WeaponMode::Melee),
+            NpcEquippedWeapon {
+                melee: InstanceId::new(1),
+                ranged: None,
+                melee_class: Some(WeaponClass::TwoHanded),
+            },
+            NpcTalentOverlay {
+                one_hand: None,
+                two_hand: Some("HUMANS_2HST1".to_string()),
+            },
+        ));
+        let attack = animation_handle_for(&mut world, "HUMANS_2HST1", "S_2HATTACK");
+
+        send_desired_force(
+            &mut world,
+            model,
+            DesiredAnimation::MeleeAttack(MeleeAttackKind::Combo),
             true,
         );
         run_sequencer(&mut world);

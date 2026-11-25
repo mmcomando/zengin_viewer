@@ -1,0 +1,44 @@
+[
+    // Setup
+    IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginEquipWeapon(item: "itmw_2h_sld_axe"),
+    ZenginSetPlayerTwoHandSkill(skill: 1),
+    ZenginSetDebugNpc(name: "hero"),
+    Wait(frame_dt: 100),
+
+    // Act
+    TestClearLogBuffer,
+    Press(action: Gameplay(Interact)),
+    Wait(frame_dt: 60),
+    Release(action: Gameplay(Interact)),
+    Wait(frame_dt: 150),
+
+    // Assert
+    TestLogExists(regex: "current=HUMANS_2HST1-S_2HATTACK"),
+
+    // Act
+    ZenginSetPlayerTwoHandSkill(skill: 2),
+    Wait(frame_dt: 20),
+    TestClearLogBuffer,
+    Press(action: Gameplay(Interact)),
+    Wait(frame_dt: 60),
+    Release(action: Gameplay(Interact)),
+    Wait(frame_dt: 150),
+
+    // Assert
+    TestLogExists(regex: "current=HUMANS_2HST2-S_2HATTACK"),
+
+    // Act
+    ZenginSetPlayerTwoHandSkill(skill: 0),
+    Wait(frame_dt: 20),
+    TestClearLogBuffer,
+    Press(action: Gameplay(Interact)),
+    Wait(frame_dt: 60),
+    Release(action: Gameplay(Interact)),
+    Wait(frame_dt: 150),
+
+    // Assert
+    TestLogExists(regex: "current=HUMANS-S_2HATTACK"),
+
+    ExitGame,
+]

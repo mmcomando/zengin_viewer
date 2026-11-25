@@ -7,13 +7,11 @@
 
     // Act
     TestClearLogBuffer,
-    Press(action: Gameplay(Interact)),
+    PressRelease(action: Gameplay(AttackLeft)),
     Wait(frame_dt: 60),
-    Release(action: Gameplay(Interact)),
-    Wait(frame_dt: 150),
 
     // Assert
-    TestLogExists(regex: "current=HUMANS-T_2HATTACK"),
+    TestLogExists(regex: "current=HUMANS-T_2HATTACKL"),
     TestLogNotExists(regex: "current=HUMANS-T_1HATTACK"),
 
     ExitGame,

@@ -94,6 +94,8 @@ pub(crate) enum ReplayCommand {
     ZenginEquipWeapon { item: String },
     /// Sets the player's 1H weapon talent skill (`1` trained, `2` master).
     ZenginSetPlayerOneHandSkill { skill: i32 },
+    /// Sets the player's 2H weapon talent skill (`1` trained, `2` master).
+    ZenginSetPlayerTwoHandSkill { skill: i32 },
     /// Sets the player's `C_Npc` attribute by name (`strength`, `dexterity`).
     ZenginSetPlayerAttribute { attribute: String, value: i32 },
     /// Sets the player's `C_Npc.hitchance[talent]`, the melee critical roll.
