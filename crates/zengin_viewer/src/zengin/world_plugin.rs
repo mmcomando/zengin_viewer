@@ -39,7 +39,10 @@ use crate::zengin::script::state::{LoadedState, RoutineEntry, SpawnItem, SpawnNp
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
-use crate::zengin::world_spawn::{SpawnPositionFilter, WorldSpawnMessages, WorldSpawnPlugin};
+use crate::zengin::world_spawn::{
+    MobSpawnKind, SpawnPositionFilter, VobPrototype, VobPrototypes, WorldSpawnMessages,
+    WorldSpawnPlugin,
+};
 use crate::zengin::{
     DialogUiState, GameItem, GameNpc, MusicZones, NpcActionQueue, NpcHandle, NpcOverlay, ZenginVfs,
     talent_overlay_for,
@@ -534,8 +537,20 @@ fn spawn_world_data(
     let world_path = format!("/_WORK/DATA/WORLDS/{world_name}.ZEN");
     let mut world_data = {
         let vfs = vfs.0.lock().unwrap();
-        load_zengin_world_data(&vfs, &world_path, loaded_state, spawns, restore)
+        load_zengin_world_data(&vfs, &world_path, loaded_state, spawns)
     };
+    // Every spawnable vob was resolved while the ZEN was parsed. Loaded state
+    // replaces the world-definition data of the same vob, then the initial
+    // world is spawned from the prototypes, which stay available for later
+    // respawns.
+    let mut prototypes = VobPrototypes::from_map(std::mem::take(&mut world_data.prototypes));
+    if let Some(save) = restore {
+        apply_loaded_state(&mut prototypes, save);
+    }
+    for prototype in prototypes.values() {
+        spawns.send_prototype(prototype);
+    }
+    commands.insert_resource(prototypes);
     // `zCTriggerWorldStart` events are fired once the world is in game, after
     // the movers they address exist. A restored world only fires the triggers
     // that are not limited to the first start.
@@ -666,6 +681,23 @@ fn spawn_saved_object(
             location_name: None,
             transform: Some(object.transform),
         });
+    }
+}
+
+/// Replaces the world-definition state of prototypes with state loaded from a
+/// save. Only container state is persisted today, so other vob kinds keep their
+/// world-definition prototype.
+fn apply_loaded_state(prototypes: &mut VobPrototypes, save: &SaveGame) {
+    for saved in save.chests() {
+        let Some(VobPrototype::Mob(mob)) = prototypes.get_mut(saved.vob_id) else {
+            continue;
+        };
+        let MobSpawnKind::Container(container) = &mut mob.kind else {
+            continue;
+        };
+        container.items.clone_from(&saved.items);
+        container.locked = saved.locked;
+        container.cracked = saved.cracked;
     }
 }
 

@@ -1,6 +1,10 @@
 //! Spawn messages for the entities produced by the world Zen load: the world
 //! mesh, static vob models, mob vobs (interactive and containers) and movers.
-//! The loader queues them and the systems here turn them into ECS entities.
+//! The loader resolves one [`VobPrototype`] per spawnable vob and keeps them in
+//! [`VobPrototypes`]; the systems here turn a prototype (dispatched directly at
+//! load or requested later by [`SpawnVob`]) into ECS entities.
+
+use std::collections::BTreeMap;
 
 use avian3d::prelude::{Collider, CollisionLayers};
 use bevy::prelude::*;
@@ -39,10 +43,13 @@ impl Plugin for WorldSpawnPlugin {
         };
         app.insert_resource(messages);
         app.init_resource::<SpawnPositionFilter>();
+        app.init_resource::<VobPrototypes>();
+        app.add_message::<SpawnVob>();
         app.add_systems(
             Update,
             (
                 spawn_world_mesh,
+                spawn_vobs,
                 spawn_static_models,
                 spawn_mobs,
                 sync_script_containers,
@@ -63,7 +70,7 @@ pub(crate) struct SpawnWorldMesh {
 }
 
 /// Static vob visual placed at its world transform.
-#[derive(Debug, Default, Message)]
+#[derive(Debug, Default, Clone, Message)]
 pub(crate) struct SpawnStaticModel {
     pub(crate) tr: Transform,
     pub(crate) archetype: String,
@@ -169,6 +176,72 @@ impl WorldSpawnMessages {
         self.mobs.clear();
         self.movers.clear();
         self.items.clear();
+    }
+
+    /// Queues the typed spawn message a prototype describes.
+    pub(crate) fn send_prototype(&self, prototype: &VobPrototype) {
+        match prototype {
+            VobPrototype::Static(spawn) => self.static_models.send(spawn.clone()),
+            VobPrototype::Mob(spawn) => self.mobs.send(spawn.clone()),
+            VobPrototype::Mover(spawn) => self.movers.send(spawn.clone()),
+            VobPrototype::Item(spawn) => self.items.send(spawn.clone()),
+        }
+    }
+}
+
+/// Pre-resolved spawn data of one world vob. Re-spawning it needs only its
+/// archive id instead of the full descriptor.
+#[derive(Debug, Clone)]
+pub(crate) enum VobPrototype {
+    Static(SpawnStaticModel),
+    Mob(SpawnMob),
+    Mover(SpawnMover),
+    Item(SpawnItem),
+}
+
+/// Spawn prototypes of the currently loaded world, keyed by the vob id in the
+/// ZEN archive.
+#[derive(Resource, Debug, Default)]
+pub(crate) struct VobPrototypes(BTreeMap<u32, VobPrototype>);
+
+impl VobPrototypes {
+    pub(crate) fn from_map(map: BTreeMap<u32, VobPrototype>) -> Self {
+        Self(map)
+    }
+
+    pub(crate) fn get(&self, vob_id: u32) -> Option<&VobPrototype> {
+        self.0.get(&vob_id)
+    }
+
+    pub(crate) fn get_mut(&mut self, vob_id: u32) -> Option<&mut VobPrototype> {
+        self.0.get_mut(&vob_id)
+    }
+
+    pub(crate) fn values(&self) -> impl Iterator<Item = &VobPrototype> {
+        self.0.values()
+    }
+}
+
+/// Requests spawning the vob prototype stored under `vob_id`.
+#[derive(Debug, Message)]
+pub(crate) struct SpawnVob {
+    pub(crate) vob_id: u32,
+}
+
+/// Spawns the requested vob prototypes. Used for respawns; the initial world
+/// spawn dispatches the prototypes directly so loading stays one pass.
+fn spawn_vobs(
+    mut requests: MessageReader<SpawnVob>,
+    prototypes: Res<VobPrototypes>,
+    spawns: Res<WorldSpawnMessages>,
+) {
+    let _perf = perf_debug!();
+    for request in requests.read() {
+        let Some(prototype) = prototypes.get(request.vob_id) else {
+            warn!("No vob prototype for vob({})", request.vob_id);
+            continue;
+        };
+        spawns.send_prototype(prototype);
     }
 }
 
@@ -555,6 +628,54 @@ mod tests {
 
     fn point(center: Vec3, radius: f32) -> SpawnPoint {
         SpawnPoint { center, radius }
+    }
+
+    fn empty_spawns() -> WorldSpawnMessages {
+        WorldSpawnMessages {
+            world_mesh: default(),
+            static_models: default(),
+            mobs: default(),
+            movers: default(),
+            items: default(),
+        }
+    }
+
+    fn static_model(archetype: &str) -> SpawnStaticModel {
+        SpawnStaticModel {
+            tr: Transform::from_xyz(1.0, 2.0, 3.0),
+            archetype: archetype.to_string(),
+            collides: true,
+        }
+    }
+
+    #[test]
+    fn prototypes_are_keyed_by_vob_id() {
+        let prototypes = VobPrototypes::from_map(BTreeMap::from([
+            (7, VobPrototype::Static(static_model("a"))),
+            (
+                9,
+                VobPrototype::Item(SpawnItem {
+                    instance_id: InstanceId::new(1).expect("instance id"),
+                    location_name: None,
+                    transform: None,
+                }),
+            ),
+        ]));
+
+        assert!(matches!(prototypes.get(7), Some(VobPrototype::Static(_))));
+        assert!(matches!(prototypes.get(9), Some(VobPrototype::Item(_))));
+        assert!(prototypes.get(8).is_none());
+    }
+
+    #[test]
+    fn send_prototype_queues_the_matching_typed_message() {
+        let spawns = empty_spawns();
+        spawns.send_prototype(&VobPrototype::Static(static_model("a")));
+
+        let static_models = spawns.static_models.take();
+        assert_eq!(static_models.len(), 1);
+        assert_eq!(static_models[0].archetype, "a");
+        assert!(spawns.mobs.take().is_empty());
     }
 
     #[test]

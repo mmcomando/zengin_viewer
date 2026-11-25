@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     env::home_dir,
     path::PathBuf,
 };
@@ -9,6 +9,7 @@ use bevy::shape::Aabb3d;
 use zen_kit_rs::vfs::VfsNode;
 
 use crate::zengin::waypoint_graph::WaypointGraph;
+use crate::zengin::world_spawn::VobPrototype;
 
 /// zenkit cords have mirrored X compared to bevy
 pub const MIRROR_X: bool = true;
@@ -290,6 +291,8 @@ pub struct ZenGinWorldData {
     pub world_start_triggers: Vec<WorldStartTrigger>,
     /// `oCTriggerChangeLevel` areas of the world.
     pub change_level_triggers: Vec<ChangeLevelTrigger>,
+    /// Pre-resolved spawn data of every spawnable vob, keyed by archive id.
+    pub prototypes: BTreeMap<u32, VobPrototype>,
 }
 
 /// Area that loads another world when the player enters it

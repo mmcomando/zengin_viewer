@@ -183,7 +183,7 @@ pub struct ClearAiQueueChange {
 }
 
 /// Requests an item entity to be spawned, with its resolved world placement.
-#[derive(Message)]
+#[derive(Message, Debug, Clone)]
 pub struct SpawnItem {
     pub instance_id: InstanceId,
     pub location_name: Option<StringId>, // Waypoint or spot name

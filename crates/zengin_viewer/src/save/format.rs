@@ -131,12 +131,11 @@ impl SaveGame {
             .map(|object| object.transform)
     }
 
-    /// Restored state of the chest with the given vob id.
-    pub(crate) fn chest(&self, vob_id: u32) -> Option<&SavedChest> {
+    /// Restored state of every chest in the save.
+    pub(crate) fn chests(&self) -> impl Iterator<Item = &SavedChest> {
         self.objects
             .iter()
             .filter_map(|object| object.chest.as_ref())
-            .find(|chest| chest.vob_id == vob_id)
     }
 }
 
