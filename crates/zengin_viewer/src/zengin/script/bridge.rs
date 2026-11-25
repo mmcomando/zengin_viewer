@@ -22,10 +22,10 @@ use crate::zengin::script::journal::{JournalAction, JournalChange, JournalSectio
 use crate::zengin::script::state::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, GotoNpcChange, InventoryGain, ItemChanged,
-    ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest,
-    PassivePerception, ProcessInfosChange, RoutineEntry, ScreenMessage, ScriptMessages,
-    ScriptSound, SetGameTime, SpawnNpc, StandUpChange, StartStateChange, SvmLine, TurnToNpcChange,
-    UseItemStateChange, UseMobChange, WaitChange, WeaponMode,
+    ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, NpcWeaponsUnequipped, OverlayChange,
+    OverlayRequest, PassivePerception, ProcessInfosChange, RoutineEntry, ScreenMessage,
+    ScriptMessages, ScriptSound, SetGameTime, SpawnNpc, StandUpChange, StartStateChange, SvmLine,
+    TurnToNpcChange, UseItemStateChange, UseMobChange, WaitChange, WeaponMode,
 };
 use crate::zengin::world_spawn::WorldSpawnMessages;
 
@@ -53,6 +53,7 @@ impl Plugin for ScriptBridgePlugin {
             wait: app.add_external_message::<WaitChange>(),
             stand_up: app.add_external_message::<StandUpChange>(),
             clear_ai_queue: app.add_external_message::<ClearAiQueueChange>(),
+            weapons_unequipped: app.add_external_message::<NpcWeaponsUnequipped>(),
             spawn_items,
             spawn_npcs: app.add_external_message::<SpawnNpc>(),
             dialog_lines: app.add_external_message::<DialogLine>(),

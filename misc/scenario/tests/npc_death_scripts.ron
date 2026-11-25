@@ -19,7 +19,7 @@
     // Assert
     TestLogExists(regex: "Player\\(\\d+\\) dealt 110 damage to npc\\(\\d+\\)"),
     TestLogExists(regex: "ran the ZS_DEAD state for killer"),
-    TestLogExists(regex: "AI_UnEquipWeapons npc\\("),
+    TestLogExists(regex: "DebugNPC: weapon .* unequipped"),
     TestLogExists(regex: "DebugNPC: animation .*current=WOLF-(T_DEAD|S_DEAD)"),
     TestScreenshot(path: "00_dead.png"),
 

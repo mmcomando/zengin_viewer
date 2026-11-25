@@ -14,7 +14,6 @@ use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::perf_debug;
-use crate::test_log;
 use crate::zengin::npc_actions::{UseMobAction, mob_scheme_has_player_pose};
 use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay, NpcWeaponMode};
 use crate::zengin::script::component::ScriptResource;
@@ -22,7 +21,7 @@ use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{GameMob, GameNpc, MobBase, MobPose, NpcMobUse, VobTrigger};
+use crate::zengin::{GameMob, GameNpc, MobBase, MobPose, MobUseTrace, NpcMobUse, VobTrigger};
 
 /// Runs the mob's script-side use conditions and logs the reason when the
 /// player is not allowed to interact.
@@ -87,6 +86,7 @@ pub(super) fn use_selected_mob(
     animation_files: Option<Res<AnimationFiles>>,
     gothic_script: Res<ScriptResource>,
     mut vob_trigger: MessageWriter<VobTrigger>,
+    mut mob_use_trace: MessageWriter<MobUseTrace>,
 ) {
     let _perf = perf_debug!();
     if !action_state.just_pressed(&GameplayAction::Interact) {
@@ -147,15 +147,6 @@ pub(super) fn use_selected_mob(
         _ => false,
     };
     if has_pose {
-        test_log!(
-            "Player({player}) uses vob_id({}), mob({target}) vob({}) visual_stem({}) focus({}) condition_func({}) on_state_func({}) -> state({pose_state})",
-            base.vob_id,
-            base.vob_name,
-            pose.visual_stem,
-            base.focus_name,
-            mob.condition_func,
-            mob.on_state_func
-        );
         fire_trigger(&mut mob, &mut vob_trigger);
         let scheme = StringCanon::new(&pose.scheme);
         let action = if mob.auto_end {
@@ -169,13 +160,20 @@ pub(super) fn use_selected_mob(
 
     let state = i32::from(pose.state <= 0);
     pose.state = state;
-    test_log!(
-        "Player({player}) used mob({target}) vob({}) focus({}) condition_func({}) on_state_func({}) -> state({state})",
-        base.vob_name,
-        base.focus_name,
-        mob.condition_func,
-        mob.on_state_func,
-    );
+    mob_use_trace.write(MobUseTrace {
+        actor: player,
+        is_player: true,
+        mob: target,
+        vob_name: base.vob_name.clone(),
+        visual_stem: pose.visual_stem.clone(),
+        focus_name: base.focus_name.clone(),
+        condition_func: mob.condition_func.clone(),
+        on_state_func: mob.on_state_func.clone(),
+        scheme: pose.scheme.clone(),
+        state,
+        animation: String::new(),
+        transition: None,
+    });
     fire_trigger(&mut mob, &mut vob_trigger);
     gothic_script
         .lock()

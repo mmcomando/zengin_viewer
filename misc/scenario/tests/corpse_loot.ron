@@ -4,7 +4,7 @@
     ZenginFilterNpcWithName(filters: ["wolf"]),
     IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnNpc(name: "wolf", translation: (0.0, 0.0, -3.0), rotation: (0.0, 0.0, 0.0)),
-    ZenginSetDebugNpc(name: "wolf"),
+    ZenginSetDebugNpc(name: "wolf, hero"),
     ZenginEquipWeapon(item: "itmw_1h_mil_sword"),
     Wait(frame_dt: 50),
     TestScreenshot(path: "00_initial.png"),

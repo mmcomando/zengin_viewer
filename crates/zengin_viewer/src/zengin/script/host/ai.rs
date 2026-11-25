@@ -288,11 +288,10 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             warn!("AI_UnEquipWeapons with invalid npc instance({npc})");
             return;
         };
-        crate::test_log!(
-            "AI_UnEquipWeapons npc({}) unequips its weapons",
-            npc.value()
-        );
         self.npc_state_mut(npc).equipment.unequip_weapons();
+        self.messages
+            .weapons_unequipped
+            .send(crate::zengin::script::state::NpcWeaponsUnequipped { instance_id: npc });
     }
     fake_impl!(ai_unequiparmor(_0));
     fake_impl!(ai_equiparmor(_0, _1));

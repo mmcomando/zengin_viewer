@@ -8,7 +8,6 @@ use crate::graphics::{
     animation_name_from_path,
 };
 use crate::perf_debug;
-use crate::test_log;
 use crate::zengin::common::{
     MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, face_direction_quat, horizontal_offset,
 };
@@ -23,7 +22,8 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{BS_LIE, BS_SIT, UseMobChange};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{
-    GameMob, GameNpc, MobBase, MobHiddenModel, MobOccupant, MobPose, MobRegistry, NpcMobUse,
+    GameMob, GameNpc, MobBase, MobHiddenModel, MobOccupant, MobPose, MobRegistry,
+    MobUseReleaseReason, MobUseReleaseTrace, MobUseTrace, NpcMobUse,
 };
 
 const MOB_USE_DISTANCE: f32 = MAX_AI_USE_DISTANCE;
@@ -158,6 +158,7 @@ pub(crate) fn advance_mob_use_pose(
 pub(crate) fn release_mob_use_actions(
     mut commands: Commands,
     mut changes: MessageReader<UseMobChange>,
+    mut mob_use_trace: MessageWriter<MobUseReleaseTrace>,
     index: Res<InstanceIndex>,
     mut npcs: Query<(&NpcMobUse, &mut AutoAnimSequencer, &mut AnimationController)>,
 ) {
@@ -170,11 +171,13 @@ pub(crate) fn release_mob_use_actions(
             let Ok((mob_use, mut sequencer, mut controller)) = npcs.get_mut(entity) else {
                 continue;
             };
-            test_log!(
-                "npc({}) released mob({}) on stop request",
-                change.instance_id,
-                mob_use.mob
-            );
+            mob_use_trace.write(MobUseReleaseTrace {
+                actor: change.instance_id,
+                mob: mob_use.mob,
+                reason: MobUseReleaseReason::StopRequest,
+                transition: None,
+                animation: None,
+            });
             release_mob_use(
                 &mut commands,
                 entity,
@@ -223,6 +226,7 @@ pub(crate) fn run_use_mob_action(
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut desired: MessageWriter<SetDesiredAnimation>,
+    mut mob_use_trace: MessageWriter<MobUseTrace>,
     mob_registry: Res<MobRegistry>,
     mut mobs: Query<(
         Option<&GameMob>,
@@ -363,16 +367,24 @@ pub(crate) fn run_use_mob_action(
                 )
             })
             .flatten();
-        let actor = if is_player { "Player" } else { "npc" };
-        test_log!(
-            "{actor}({}) uses mob({}) vob({}) scheme({}) state({}) animation({}) transition({transition:?})",
-            npc.instance_id(),
-            choice.mob,
-            choice.vob_name,
-            action.scheme,
-            use_state,
-            pose
-        );
+        if let Ok((game_mob, mob_pose, base, ..)) = mobs.get(choice.mob) {
+            mob_use_trace.write(MobUseTrace {
+                actor: npc.instance_id(),
+                is_player,
+                mob: choice.mob,
+                vob_name: choice.vob_name.clone(),
+                visual_stem: mob_pose.visual_stem.clone(),
+                focus_name: base.focus_name.clone(),
+                condition_func: game_mob
+                    .map(|mob| mob.condition_func.clone())
+                    .unwrap_or_default(),
+                on_state_func: choice.on_state_func.clone(),
+                scheme: action.scheme.as_str().to_string(),
+                state: use_state,
+                animation: pose.clone(),
+                transition: transition.clone(),
+            });
+        }
         let first = transition.as_deref().unwrap_or(&pose);
         queue_named_animation(
             &mut controller,

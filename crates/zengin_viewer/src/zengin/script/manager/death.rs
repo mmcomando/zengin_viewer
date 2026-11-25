@@ -4,7 +4,6 @@
 use bevy::log::warn;
 
 use super::super::symbol_id::InstanceId;
-use crate::test_log;
 
 impl super::ScriptManager {
     /// Runs the `ZS_DEAD` state for a dying npc. The previous state's end hook
@@ -46,10 +45,5 @@ impl super::ScriptManager {
         // The engine keeps looping the dead state while the corpse exists. The
         // viewer despawns the npc, one step is enough for its one-time work.
         self.call_routine_loop(npc, functions);
-        let killer = killer.map_or_else(|| "none".to_string(), |killer| killer.value().to_string());
-        test_log!(
-            "Npc({npc}) ran the ZS_DEAD state for killer({killer})",
-            npc = npc.value()
-        );
     }
 }

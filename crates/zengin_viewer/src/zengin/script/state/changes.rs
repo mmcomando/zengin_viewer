@@ -46,6 +46,13 @@ pub struct NpcChanged {
     pub instance_id: InstanceId,
 }
 
+/// Signal that an npc ran `AI_UnEquipWeapons`. The debug trace logs it even
+/// when the resulting weapon mode did not change.
+#[derive(Debug, Message, Clone, Copy)]
+pub struct NpcWeaponsUnequipped {
+    pub instance_id: InstanceId,
+}
+
 /// Signal that the entities carrying an npc instance need to refresh their
 /// mirrored components.
 #[derive(Debug, Message, Clone)]

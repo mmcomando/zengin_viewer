@@ -5,6 +5,7 @@
         rotation: (-26.0, 0.0, 0.0),
     ),
     TestClearLogBuffer,
+    ZenginSetDebugNpc(name: "*"),
     IncludeScenario(path: "/common/new_world"),
 
     // Act

@@ -10,7 +10,6 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::perf_debug;
-use crate::test_log;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
@@ -75,15 +74,10 @@ fn toggle_last_weapon(gothic_script: &ScriptResource, player_id: InstanceId) {
     }
     if drawn {
         script.sheathe_weapon(player_id);
-        test_log!(
-            "Player({}) sheathed its {target:?} weapon",
-            player_id.value()
-        );
         return;
     }
     let ranged = target == WeaponMode::Ranged;
     script.draw_weapon(player_id, ranged);
-    info!("Player({}) drew its {target:?} weapon", player_id.value());
 }
 
 /// Applies one weapon toggle press for the player.
@@ -115,12 +109,6 @@ fn toggle_weapon(
     } else {
         script.draw_weapon(player_id, ranged);
     }
-    test_log!(
-        "Player({}) {} its {} weapon",
-        player_id.value(),
-        if drawn { "sheathed" } else { "drew" },
-        name
-    );
 }
 
 /// Equipped/drawn state of the player's `{ranged,melee}` weapon. Returns

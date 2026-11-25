@@ -1,6 +1,7 @@
 [
     // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginSetDebugNpc(name: "hero"),
     ZenginSpawnChest(
         visual: "CHESTBIG_NW_NORMAL_LOCKED",
         locked: true,
