@@ -17,8 +17,8 @@ use super::log_check::{check_log_exists, check_log_not_exists};
 use super::screenshot::apply_replay_screenshot;
 use super::state::{ActionReplay, PendingLocations};
 use super::world::{
-    equip_player_weapon, rotation_from_degrees, set_camera_location, teleport_player,
-    toggle_player_armor,
+    equip_player_weapon, rotation_from_degrees, set_camera_location, set_player_attribute,
+    set_player_fight_skill, teleport_player, toggle_player_armor,
 };
 use crate::perf_debug;
 use crate::test_world::TestCubeSpawn;
@@ -132,6 +132,20 @@ pub(super) fn apply_replay_command(
                 .talents
                 .set_skill(TALENT_1H, *skill);
             info!("Replay set the player 1H talent skill to {skill}");
+        }
+        ReplayCommand::ZenginSetPlayerAttribute { attribute, value } => {
+            let Some(gothic_script) = gothic_script else {
+                warn!("ZenginSetPlayerAttribute replay command: game script is not loaded");
+                return false;
+            };
+            set_player_attribute(gothic_script, player_npc, attribute, *value);
+        }
+        ReplayCommand::ZenginSetPlayerFightSkill { talent, value } => {
+            let Some(gothic_script) = gothic_script else {
+                warn!("ZenginSetPlayerFightSkill replay command: game script is not loaded");
+                return false;
+            };
+            set_player_fight_skill(gothic_script, player_npc, *talent, *value);
         }
         ReplayCommand::ZenginToggleArmor { item } => {
             let Some(gothic_script) = gothic_script else {

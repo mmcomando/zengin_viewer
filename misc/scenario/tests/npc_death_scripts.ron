@@ -5,6 +5,8 @@
     IncludeScenario(path: "/common/test_room_player_pov"),
     ZenginSpawnNpc(name: "wolf", translation: (0.0, 0.0, -3.0), rotation: (0.0, 0.0, 0.0)),
     ZenginSetDebugNpc(name: "wolf"),
+    ZenginSetPlayerAttribute(attribute: "strength", value: 100),
+    ZenginSetPlayerFightSkill(talent: 1, value: 100),
     ZenginEquipWeapon(item: "itmw_1h_mil_sword"),
     Wait(frame_dt: 50),
 
@@ -15,6 +17,7 @@
     Release(action: Gameplay(DealDamage)),
 
     // Assert
+    TestLogExists(regex: "Player\\(\\d+\\) dealt 110 damage to npc\\(\\d+\\)"),
     TestLogExists(regex: "ran the ZS_DEAD state for killer"),
     TestLogExists(regex: "DebugNPC: animation .*current=WOLF-(T_DEAD|S_DEAD)"),
     TestScreenshot(path: "00_dead.png"),

@@ -1,3 +1,5 @@
+use std::sync::PoisonError;
+
 use bevy::prelude::*;
 
 use crate::gameplay::objects::PlayerCharacter;
@@ -133,4 +135,84 @@ pub(super) fn toggle_player_armor(
             player_id.value()
         );
     }
+}
+
+pub(super) fn set_player_attribute(
+    gothic_script: &ScriptResource,
+    player_npc: &Query<&GameNpc, With<PlayerCharacter>>,
+    attribute: &str,
+    value: i32,
+) {
+    let Ok(player_npc) = player_npc.single() else {
+        warn!("Replay attribute change failed: player npc is not spawned");
+        return;
+    };
+    let player_id = player_npc.instance_id();
+    let mut script = gothic_script.lock();
+    let Some(handle) = script.npc_handle(player_id) else {
+        warn!(
+            "Replay attribute change failed: player({}) has no typed data",
+            player_id.value()
+        );
+        return;
+    };
+    {
+        let mut data = handle
+            .typed()
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
+        match attribute.to_ascii_lowercase().as_str() {
+            "strength" => data.strength = value,
+            "dexterity" => data.dexterity = value,
+            other => {
+                warn!("Replay attribute change failed: unknown attribute({other})");
+                return;
+            }
+        }
+    }
+    script.pending_changes().npc_changed.insert(player_id);
+    info!(
+        "Replay set player({}) {attribute} to {value}",
+        player_id.value()
+    );
+}
+
+pub(super) fn set_player_fight_skill(
+    gothic_script: &ScriptResource,
+    player_npc: &Query<&GameNpc, With<PlayerCharacter>>,
+    talent: i32,
+    value: i32,
+) {
+    let Ok(player_npc) = player_npc.single() else {
+        warn!("Replay fight skill change failed: player npc is not spawned");
+        return;
+    };
+    let player_id = player_npc.instance_id();
+    let mut script = gothic_script.lock();
+    let Some(handle) = script.npc_handle(player_id) else {
+        warn!(
+            "Replay fight skill change failed: player({}) has no typed data",
+            player_id.value()
+        );
+        return;
+    };
+    {
+        let mut data = handle
+            .typed()
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
+        let Some(slot) = usize::try_from(talent)
+            .ok()
+            .and_then(|talent| data.hitchance.get_mut(talent))
+        else {
+            warn!("Replay fight skill change failed: talent({talent}) is out of range");
+            return;
+        };
+        *slot = value;
+    }
+    script.pending_changes().npc_changed.insert(player_id);
+    info!(
+        "Replay set player({}) talent({talent}) hitchance to {value}",
+        player_id.value()
+    );
 }

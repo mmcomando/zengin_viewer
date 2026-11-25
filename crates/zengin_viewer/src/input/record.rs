@@ -94,6 +94,10 @@ pub(crate) enum ReplayCommand {
     ZenginEquipWeapon { item: String },
     /// Sets the player's 1H weapon talent skill (`1` trained, `2` master).
     ZenginSetPlayerOneHandSkill { skill: i32 },
+    /// Sets the player's `C_Npc` attribute by name (`strength`, `dexterity`).
+    ZenginSetPlayerAttribute { attribute: String, value: i32 },
+    /// Sets the player's `C_Npc.hitchance[talent]`, the melee critical roll.
+    ZenginSetPlayerFightSkill { talent: i32, value: i32 },
     /// Sets the in-game time speed multiplier, `0.0` pauses the time. Replays
     /// start with a multiplier of `0.0`.
     ZenginSetGameTimeSpeed { speed: f32 },
