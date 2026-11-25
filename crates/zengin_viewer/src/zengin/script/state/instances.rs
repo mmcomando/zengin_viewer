@@ -224,6 +224,10 @@ pub struct NpcLiveState {
     pub look_at: Option<InstanceId>,
     /// Npc the ai targets (`Npc_SetTarget`), the entity `AI_Attack` attacks.
     pub target: Option<InstanceId>,
+    /// Last npc that damaged this one (engine `lastHit`), used as the killer of
+    /// a script driven death.
+    #[serde(skip)]
+    pub last_hitter: Option<InstanceId>,
     /// Body state imposed by the mob being used (`Npc_GetBodyState`), `None`
     /// while the npc is not attached to one. Rebuilt from the interaction on
     /// load, so it is not saved.

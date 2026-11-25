@@ -1,0 +1,20 @@
+[
+    // Setup
+    ZenginFilterSpawnWithPosition(points: [(center: (0, 0, 0), radius: 10.0)]),
+    ZenginFilterNpcWithName(filters: ["wolf"]),
+    IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginSpawnNpc(name: "wolf", translation: (0.0, 0.0, -3.0), rotation: (0.0, 0.0, 0.0)),
+    ZenginSetDebugNpc(name: "wolf"),
+    Wait(frame_dt: 50),
+
+    // Act
+    TestClearLogBuffer,
+    ZenginKillNpc(name: "wolf"),
+    Wait(frame_dt: 120),
+
+    // Assert
+    TestLogExists(regex: "ran the ZS_DEAD state for killer"),
+    TestLogExists(regex: "DebugNPC: animation .*current=WOLF-(T_DEAD|S_DEAD)"),
+
+    ExitGame,
+]

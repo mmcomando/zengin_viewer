@@ -35,6 +35,14 @@ impl super::ScriptManager {
             .collect()
     }
 
+    /// Script driven deaths queued by `Npc_ChangeAttribute`, with the last
+    /// hitter as killer.
+    pub fn drain_npc_deaths(&mut self) -> Vec<(InstanceId, Option<InstanceId>)> {
+        std::mem::take(&mut self.pending_changes().npc_deaths)
+            .into_iter()
+            .collect()
+    }
+
     pub fn clear_npc_changes(&mut self) {
         self.pending_changes().npc_changed.clear();
     }

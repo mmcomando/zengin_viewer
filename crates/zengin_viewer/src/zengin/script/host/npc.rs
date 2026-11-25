@@ -143,7 +143,7 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
         else {
             return;
         };
-        let changed = {
+        let (changed, hitpoints) = {
             let mut data = handle
                 .write()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -151,10 +151,18 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             if changed && atr == ATR_HITPOINTS && self.player_instance == Some(npc) {
                 data.hitpoints = data.hitpoints.max(1);
             }
-            changed
+            (changed, data.hitpoints)
         };
         if changed {
             self.pending.npc_changed.insert(npc);
+        }
+        if changed && atr == ATR_HITPOINTS && value < 0 && hitpoints <= 0 {
+            let (dead, killer) = self.npc_state(npc).map_or((false, None), |state| {
+                (state.live.dead, state.live.last_hitter)
+            });
+            if !dead {
+                self.pending.npc_deaths.entry(npc).or_insert(killer);
+            }
         }
     }
     fake_impl!(npc_getcomrades(_0) -> i32);

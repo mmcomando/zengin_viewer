@@ -25,7 +25,7 @@ pub(crate) use weapons::{
     ITEM_MAINFLAG_ARMOR, OverlayRequest, WeaponClass, WeaponKind, WeaponMode,
 };
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use bevy::log::warn;
@@ -372,6 +372,10 @@ pub struct PendingChanges {
     pub npc_changed: BTreeSet<InstanceId>,
     /// Item instances whose data was edited since the last drain.
     pub item_changed: BTreeSet<InstanceId>,
+    /// Npc instances whose hitpoints reached zero through `Npc_ChangeAttribute`,
+    /// with the engine's last hitter as killer. Deduplicated; the first request
+    /// wins.
+    pub npc_deaths: BTreeMap<InstanceId, Option<InstanceId>>,
 }
 
 /// Queues of the changes the script produces for the ECS. They live outside

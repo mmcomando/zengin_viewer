@@ -6,6 +6,7 @@ use daedalus_typed::{Item, Npc};
 use crate::zengin::{ItemHandle, NpcHandle};
 
 use super::super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
+use super::super::bindings::mmcomando::zengine_scripts::npc_scripts::Host;
 use super::super::state::{NpcRuntime, RoutineFunctions};
 use super::super::string_value::ShowString;
 use super::super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
@@ -75,6 +76,16 @@ impl super::ScriptManager {
             .data_mut()
             .typed
             .set_npc_waypoint(npc.value() as u32, Some(waypoint));
+    }
+
+    /// Kills an npc through the `Npc_ChangeAttribute` host import, so the script
+    /// driven death path runs instead of the damage path.
+    pub fn kill_npc_via_change_attribute(&mut self, npc: InstanceId) {
+        self.store.data_mut().npc_changeattribute(
+            npc.value(),
+            daedalus_typed::ATR_HITPOINTS,
+            -1_000_000,
+        );
     }
 
     pub fn set_instance(&mut self, instance_index: InstanceId) {

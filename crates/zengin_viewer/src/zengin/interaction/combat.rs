@@ -37,14 +37,23 @@ pub(super) type NpcHitQueryData = (
     Has<PlayerCharacter>,
 );
 
+/// Query data of an npc entity on death.
+type NpcDeathQueryData = (
+    Option<&'static GameNpc>,
+    Option<&'static NpcEquippedWeapon>,
+    Option<&'static NpcWeaponMode>,
+    Option<&'static mut NpcActionQueue>,
+);
+
 /// An npc died (hitpoints reached 0): its inventory stays on the corpse and the
 /// drawn weapon drops on the ground.
 #[derive(Message)]
 pub struct NpcDied {
     pub entity: Entity,
     pub instance_id: InstanceId,
-    /// Instance that dealt the killing hit.
-    pub killer: InstanceId,
+    /// Instance that dealt the killing hit, `None` for a script driven death
+    /// without a last hitter.
+    pub killer: Option<InstanceId>,
     /// Position where the dropped weapon is placed.
     pub position: Vec3,
 }
@@ -260,6 +269,7 @@ pub(crate) fn deal_damage(
             );
             return;
         };
+        script.npc_state_mut(target_id).live.last_hitter = Some(shooter_id);
         let hitpoints = if target_data.is_player && hitpoints < 1 {
             // The player never dies: the damage is applied but the hitpoints
             // floor at one.
@@ -307,7 +317,7 @@ pub(crate) fn deal_damage(
         npc_died.write(NpcDied {
             entity: target,
             instance_id: target_id,
-            killer: shooter_id,
+            killer: Some(shooter_id),
             position: target_data.global_tr.translation(),
         });
     }
@@ -390,6 +400,40 @@ pub(super) struct NpcDeathResolved {
 /// equipment and marks the entity as a corpse. Dropping the drawn weapon is a
 /// separate job fed by [`NpcDeathResolved`].
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+/// Forwards script driven deaths (`Npc_ChangeAttribute` reaching zero hitpoints)
+/// into the regular death flow.
+pub(super) fn script_npc_deaths(
+    gothic_script: Res<ScriptResource>,
+    index: Res<InstanceIndex>,
+    transforms: Query<&GlobalTransform>,
+    mut deaths: MessageWriter<NpcDied>,
+) {
+    let _perf = perf_debug!();
+    let requests = gothic_script.lock().drain_npc_deaths();
+    for (instance_id, killer) in requests {
+        let Some(&entity) = index.npcs(instance_id).first() else {
+            let mut script = gothic_script.lock();
+            script.call_death_state(instance_id, killer);
+            let mut state = script.npc_state_mut(instance_id);
+            state.live.position = None;
+            state.equipment.melee = None;
+            state.equipment.ranged = None;
+            state.equipment.weapon_mode = None;
+            info!("Npc({}) died without an entity", instance_id.value());
+            continue;
+        };
+        let position = transforms
+            .get(entity)
+            .map_or(Vec3::ZERO, |transform| transform.translation());
+        deaths.write(NpcDied {
+            entity,
+            instance_id,
+            killer,
+            position,
+        });
+    }
+}
+
 pub(super) fn handle_npc_death(
     mut deaths: MessageReader<NpcDied>,
     mut resolved: MessageWriter<NpcDeathResolved>,
@@ -397,15 +441,7 @@ pub(super) fn handle_npc_death(
     mut selection: ResMut<Selection>,
     gothic_scripts: Res<ScriptResource>,
     mut commands: Commands,
-    mut npcs: Query<
-        (
-            Option<&GameNpc>,
-            Option<&NpcEquippedWeapon>,
-            Option<&NpcWeaponMode>,
-            Option<&mut NpcActionQueue>,
-        ),
-        Without<PlayerCharacter>,
-    >,
+    mut npcs: Query<NpcDeathQueryData, Without<PlayerCharacter>>,
 ) {
     let perf = perf_debug!();
     for death in deaths.read() {

@@ -48,6 +48,15 @@ impl Plugin for PlayerInteractionPlugin {
             )
                 .run_if(in_state(AppState::InGame)),
         );
+        // Script driven deaths are queued by the script host; forwarding them
+        // after the change systems keeps the script lock contention out of the
+        // death handler itself.
+        app.add_systems(
+            Update,
+            combat::script_npc_deaths
+                .after(ScriptChangesApplied)
+                .run_if(in_state(AppState::InGame)),
+        );
         // Death handling takes the game script lock several times. Run it in
         // `PostUpdate`, which cannot overlap `Update`, so it does not contend
         // with the world-wide mob systems that also lock the script every frame.

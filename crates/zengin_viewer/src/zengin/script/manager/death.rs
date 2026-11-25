@@ -11,9 +11,13 @@ impl super::ScriptManager {
     /// installed as the current state and its init and one loop step run.
     ///
     /// The npc position is still valid during the calls so scripts can measure
-    /// distances; the caller clears it afterwards.
-    pub fn call_death_state(&mut self, npc: InstanceId, killer: InstanceId) {
-        self.set_other(killer);
+    /// distances; the caller clears it afterwards. `None` clears `other`, like
+    /// the engine's `onNoHealth` with no `lastHit`.
+    pub fn call_death_state(&mut self, npc: InstanceId, killer: Option<InstanceId>) {
+        match killer {
+            Some(killer) => self.set_other(killer),
+            None => self.clear_other(),
+        }
         self.set_victim(None);
 
         let death = self.try_get_function_id("zs_dead");
@@ -41,10 +45,10 @@ impl super::ScriptManager {
         // The engine keeps looping the dead state while the corpse exists. The
         // viewer despawns the npc, one step is enough for its one-time work.
         self.call_routine_loop(npc, functions);
+        let killer = killer.map_or_else(|| "none".to_string(), |killer| killer.value().to_string());
         info!(
             "Npc({npc}) ran the ZS_DEAD state for killer({killer})",
-            npc = npc.value(),
-            killer = killer.value()
+            npc = npc.value()
         );
     }
 }

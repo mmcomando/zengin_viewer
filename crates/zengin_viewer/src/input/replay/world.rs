@@ -137,6 +137,16 @@ pub(super) fn toggle_player_armor(
     }
 }
 
+pub(super) fn kill_npc(gothic_script: &ScriptResource, name: &str) {
+    let mut script = gothic_script.lock();
+    let Some(instance) = script.symbol_instance(name) else {
+        warn!("Replay kill failed: no npc instance named {name}");
+        return;
+    };
+    script.kill_npc_via_change_attribute(instance);
+    info!("Replay killed npc({name}) through Npc_ChangeAttribute");
+}
+
 #[allow(clippy::cognitive_complexity)]
 pub(super) fn set_player_attribute(
     gothic_script: &ScriptResource,

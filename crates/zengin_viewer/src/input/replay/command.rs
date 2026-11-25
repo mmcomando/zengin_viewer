@@ -19,8 +19,8 @@ use super::log_check::{check_log_exists, check_log_not_exists};
 use super::screenshot::apply_replay_screenshot;
 use super::state::{ActionReplay, PendingLocations};
 use super::world::{
-    equip_player_weapon, rotation_from_degrees, set_camera_location, set_player_attribute,
-    set_player_fight_skill, teleport_player, toggle_player_armor,
+    equip_player_weapon, kill_npc, rotation_from_degrees, set_camera_location,
+    set_player_attribute, set_player_fight_skill, teleport_player, toggle_player_armor,
 };
 use crate::perf_debug;
 use crate::test_world::TestCubeSpawn;
@@ -278,6 +278,13 @@ pub(super) fn apply_replay_command(
         ReplayCommand::ZenginFilterSpawnWithPosition { points } => {
             spawn_filter.add(points);
             info!("Replay spawn position filters: {points:?}");
+        }
+        ReplayCommand::ZenginKillNpc { name } => {
+            let Some(gothic_script) = gothic_script else {
+                warn!("ZenginKillNpc replay command: game script is not loaded");
+                return false;
+            };
+            kill_npc(gothic_script, name);
         }
         ReplayCommand::ZenginSetDebugNpc { name } => {
             info!("Replay debug npc filter: {name:?}");

@@ -157,6 +157,9 @@ pub(crate) enum ReplayCommand {
     /// case-insensitive substring of its script symbol name. A blank `name`
     /// disables the trace.
     ZenginSetDebugNpc { name: String },
+    /// Kills the npc instance `name` through `Npc_ChangeAttribute`, exercising
+    /// the script driven death flow.
+    ZenginKillNpc { name: String },
     /// Spawns the npc instance `name` (case-insensitive script symbol name) at
     /// `translation` with `rotation` in axis labeled degrees
     /// `(x = pitch, y = yaw, z = roll)`, matching the camera info overlay.
