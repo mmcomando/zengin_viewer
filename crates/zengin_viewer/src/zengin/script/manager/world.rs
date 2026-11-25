@@ -3,7 +3,7 @@ use std::path::Path;
 use bevy::log::{info, warn};
 
 use crate::zengin::script::journal::JournalManager;
-use crate::zengin::script::state::{LoadedState, PendingChanges, ScriptRandom};
+use crate::zengin::script::state::{CombatRandom, LoadedState, PendingChanges, ScriptRandom};
 
 use super::ScriptManager;
 
@@ -30,6 +30,7 @@ impl ScriptManager {
             data.check_info.clear();
             data.way_points.clear();
             data.rng = ScriptRandom::default();
+            data.combat_rng = CombatRandom::default();
         }
         // `startup_global` writes globals which were just reset, it has to run
         // again on the next world load.

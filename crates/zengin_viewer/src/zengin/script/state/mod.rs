@@ -338,6 +338,9 @@ pub struct ImportCallState {
     pub npc_freepoint: HashMap<InstanceId, String>,
     /// Generator backing `Hlp_Random`.
     pub rng: ScriptRandom,
+    /// Generator for combat rolls, kept separate so damage does not shift the
+    /// script random stream.
+    pub combat_rng: CombatRandom,
 }
 
 /// Symbol ids of the well known daedalus instance variables, resolved once when
@@ -1325,6 +1328,31 @@ impl Default for ScriptRandom {
 impl ScriptRandom {
     pub fn next(&mut self) -> u32 {
         self.rng.next_u32()
+    }
+}
+
+/// Mersenne Twister generator for combat rolls, with its own seed so damage
+/// does not perturb [`ScriptRandom`].
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct CombatRandom {
+    rng: Mt,
+}
+
+impl Default for CombatRandom {
+    fn default() -> Self {
+        Self {
+            rng: Mt::new(0xC0DE_5EED),
+        }
+    }
+}
+
+#[allow(dead_code)]
+impl CombatRandom {
+    /// Uniform integer in `0..bound`, `1` when `bound` is not positive.
+    pub fn roll(&mut self, bound: i32) -> i32 {
+        let bound = bound.max(1) as u32;
+        (self.rng.next_u32() % bound) as i32
     }
 }
 

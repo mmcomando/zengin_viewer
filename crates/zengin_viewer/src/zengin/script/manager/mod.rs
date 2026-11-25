@@ -3,6 +3,7 @@
 
 mod body_state;
 mod changes;
+mod combat;
 mod death;
 mod dialog;
 mod freepoints;

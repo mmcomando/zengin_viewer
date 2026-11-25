@@ -15,7 +15,9 @@ use crate::save::format::{SavedGuildAttitude, SavedValues, ScriptSnapshot};
 use crate::zengin::{ItemHandle, NpcHandle};
 
 use super::super::journal::JournalManager;
-use super::super::state::{ItemRuntime, LoadedState, NpcRuntime, PendingChanges, ScriptRandom};
+use super::super::state::{
+    CombatRandom, ItemRuntime, LoadedState, NpcRuntime, PendingChanges, ScriptRandom,
+};
 use super::super::symbol_id::InstanceId;
 
 impl super::ScriptManager {
@@ -164,6 +166,7 @@ impl super::ScriptManager {
             // Waypoints were published by the world spawn before this call and
             // must stay available to the world entry points.
             data.rng = ScriptRandom::default();
+            data.combat_rng = CombatRandom::default();
         }
 
         self.apply_globals(&save.globals);
