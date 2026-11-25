@@ -626,21 +626,27 @@ fn spawn_world_data(
     }
 
     if let Some(save) = restore {
-        for npc in &save.live_npcs {
-            spawn_npc.write(SpawnNpc {
-                instance_id: npc.instance_id,
-                location_name: None,
-                transform: Some(npc.transform),
-                exact_transform: true,
-                overlay: npc.overlay.clone(),
-            });
-        }
-        for item in &save.live_items {
-            spawns.items.send(SpawnItem {
-                instance_id: item.instance_id,
-                location_name: None,
-                transform: Some(item.transform),
-            });
+        for object in &save.objects {
+            // The player entity is spawned from the player payload, so its npc
+            // payload must not spawn a second entity.
+            if let Some(npc) = &object.npc
+                && object.player.is_none()
+            {
+                spawn_npc.write(SpawnNpc {
+                    instance_id: npc.instance_id,
+                    location_name: None,
+                    transform: Some(object.transform),
+                    exact_transform: true,
+                    overlay: npc.overlay.clone(),
+                });
+            }
+            if let Some(item) = &object.item {
+                spawns.items.send(SpawnItem {
+                    instance_id: item.instance_id,
+                    location_name: None,
+                    transform: Some(object.transform),
+                });
+            }
         }
     }
 }

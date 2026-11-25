@@ -130,7 +130,6 @@ impl super::ScriptManager {
         guild_attitudes.sort_by_key(|entry| (entry.guild_a, entry.guild_b));
 
         ScriptSnapshot {
-            player_instance: data.player_instance,
             globals,
             instances,
             npc_runtimes,

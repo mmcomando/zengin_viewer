@@ -17,8 +17,8 @@ use crate::gui::GameLogEntry;
 use crate::input::{Options, SharedAction, SharedInputMarker};
 use crate::perf_debug;
 use crate::save::format::{
-    SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedChest, SavedItemEntity,
-    SavedNpcEntity,
+    SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedChest, SavedItem, SavedNpc,
+    SavedObject, SavedPlayer,
 };
 use crate::save::{current_script_fingerprint, new_save_dir, newest_save, read_save, write_save};
 use crate::zengin::{
@@ -96,6 +96,7 @@ fn handle_quick_save_load_input(
 
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::cognitive_complexity)]
+#[allow(clippy::type_complexity)]
 fn quick_save(
     mut commands: Commands,
     mut requests: MessageReader<QuickSave>,
@@ -105,10 +106,15 @@ fn quick_save(
     game_time: Res<GameTime>,
     play_time: Res<PlayTime>,
     options: Res<Options>,
-    player: Query<&Transform, With<PlayerCharacter>>,
-    npcs: Query<(&GameNpc, &Transform, Option<&NpcOverlay>), Without<PlayerCharacter>>,
-    items: Query<(&GameItem, &Transform)>,
-    chests: Query<(&GameChest, &MobBase)>,
+    entities: Query<(
+        &Transform,
+        Option<&PlayerCharacter>,
+        Option<&GameNpc>,
+        Option<&NpcOverlay>,
+        Option<&GameItem>,
+        Option<&GameChest>,
+        Option<&MobBase>,
+    )>,
 ) {
     let _perf = perf_debug!();
     if requests.read().count() == 0 {
@@ -119,10 +125,19 @@ fn quick_save(
         error!("Save requested before a world was spawned");
         return;
     }
-    let Ok(player_transform) = player.single() else {
+
+    // Every entity is saved by the components it carries, never by its kind.
+    // Transform-only entities (world meshes, GUI, camera) produce no object.
+    let objects: Vec<SavedObject> = entities
+        .iter()
+        .filter_map(|(transform, player, npc, overlay, item, chest, base)| {
+            saved_object(transform, player, npc, overlay, item, chest, base)
+        })
+        .collect();
+    if !objects.iter().any(|object| object.player.is_some()) {
         error!("Save requested without a player entity");
         return;
-    };
+    }
 
     let (script_fingerprint, mut script) = {
         let script = scripts.lock();
@@ -131,9 +146,11 @@ fn quick_save(
 
     // A saved runtime without a live entity is a dead npc, mark it so
     // `Npc_IsDead` stays true after loading.
-    let live_npcs: HashSet<i32> = npcs
+    let live_npcs: HashSet<i32> = objects
         .iter()
-        .map(|(npc, _, _)| npc.instance_id().value())
+        .filter(|object| object.player.is_none())
+        .filter_map(|object| object.npc.as_ref())
+        .map(|npc| npc.instance_id.value())
         .collect();
     for (instance, runtime) in &mut script.npc_runtimes {
         if live_npcs.contains(&instance.value()) {
@@ -144,30 +161,6 @@ fn quick_save(
         runtime.live.look_at = None;
         runtime.live.target = None;
     }
-
-    let live_npcs: Vec<SavedNpcEntity> = npcs
-        .iter()
-        .map(|(npc, transform, overlay)| SavedNpcEntity {
-            instance_id: npc.instance_id(),
-            transform: *transform,
-            overlay: overlay.and_then(|overlay| overlay.0.clone()),
-        })
-        .collect();
-    let live_items: Vec<SavedItemEntity> = items
-        .iter()
-        .map(|(item, transform)| SavedItemEntity {
-            instance_id: item.instance_id(),
-            transform: *transform,
-        })
-        .collect();
-    let chests: Vec<SavedChest> = chests
-        .iter()
-        .map(|(chest, base)| SavedChest {
-            vob_id: base.vob_id,
-            items: chest.items.clone(),
-            cracked: chest.cracked,
-        })
-        .collect();
 
     let (path, saved_at_unix) = match new_save_dir() {
         Ok(dir) => dir,
@@ -186,11 +179,8 @@ fn quick_save(
             play_time_seconds: play_time.seconds,
             screenshot: (!options.renderless()).then(|| SCREENSHOT_FILE.to_string()),
         },
-        player_transform: *player_transform,
         script,
-        live_npcs,
-        live_items,
-        chests,
+        objects,
     };
 
     match write_save(&save, &path) {
@@ -213,6 +203,47 @@ fn quick_save(
         }
         Err(error) => error!("Save failed: {error}"),
     }
+}
+
+/// Serializes the saveable components of one entity. Returns `None` for
+/// entities that carry only a transform (world meshes, GUI, camera, ...).
+#[allow(clippy::too_many_arguments)]
+fn saved_object(
+    transform: &Transform,
+    player: Option<&PlayerCharacter>,
+    npc: Option<&GameNpc>,
+    overlay: Option<&NpcOverlay>,
+    item: Option<&GameItem>,
+    chest: Option<&GameChest>,
+    base: Option<&MobBase>,
+) -> Option<SavedObject> {
+    let npc = npc.map(|npc| SavedNpc {
+        instance_id: npc.instance_id(),
+        overlay: overlay.and_then(|overlay| overlay.0.clone()),
+    });
+    let item = item.map(|item| SavedItem {
+        instance_id: item.instance_id(),
+    });
+    let chest = match (chest, base) {
+        (Some(chest), Some(base)) => Some(SavedChest {
+            vob_id: base.vob_id,
+            items: chest.items.clone(),
+            cracked: chest.cracked,
+        }),
+        (Some(_), None) => {
+            warn!("Chest entity has no MobBase, its contents are not saved");
+            None
+        }
+        (None, _) => None,
+    };
+    let object = SavedObject {
+        transform: *transform,
+        player: player.map(|_| SavedPlayer),
+        npc,
+        item,
+        chest,
+    };
+    (!object.is_empty()).then_some(object)
 }
 
 /// Resizes a captured window screenshot to the load-screen thumbnail size and
@@ -320,13 +351,8 @@ fn apply_pending_load(world: &mut World) {
 fn perform_load(world: &mut World, save: SaveGame) {
     info!("Load: spawning world({})", save.metadata.world_name);
     let world_name = save.metadata.world_name.clone();
-    let player_transform = save.player_transform;
-    begin_world_load(
-        world,
-        &world_name,
-        Some(player_transform),
-        Some(Box::new(save)),
-    );
+    let player_transform = save.player_transform();
+    begin_world_load(world, &world_name, player_transform, Some(Box::new(save)));
     world.write_message(GameLogEntry {
         text: "Loaded save".to_string(),
     });

@@ -10,9 +10,8 @@ use serde::de::DeserializeOwned;
 
 use super::format::{
     GLOBALS_FILE, GUILDS_FILE, GlobalsSave, GuildsSave, INSTANCES_FILE, ITEMS_FILE, InstancesSave,
-    ItemsSave, JOURNAL_FILE, JournalSave, METADATA_FILE, NPCS_FILE, NpcsSave, PLAYER_FILE,
-    PlayerSave, SaveGame, SaveMetadata, ScriptSnapshot, WORLD_FILE, WorldSave, fnv1a_64,
-    format_unix_utc, saves_dir,
+    ItemsSave, JOURNAL_FILE, JournalSave, METADATA_FILE, NPCS_FILE, NpcsSave, SaveGame,
+    SaveMetadata, ScriptSnapshot, WORLD_FILE, WorldSave, fnv1a_64, format_unix_utc, saves_dir,
 };
 
 use crate::zengin::gothic_dat_path;
@@ -85,18 +84,9 @@ fn write_save_files(save: &SaveGame, dir: &Path) -> Result<(), String> {
 
     write_ron(&dir.join(METADATA_FILE), &save.metadata)?;
     write_ron(
-        &dir.join(PLAYER_FILE),
-        &PlayerSave {
-            player_instance: save.script.player_instance,
-            player_transform: save.player_transform,
-        },
-    )?;
-    write_ron(
         &dir.join(WORLD_FILE),
         &WorldSave {
-            live_npcs: save.live_npcs.clone(),
-            live_items: save.live_items.clone(),
-            chests: save.chests.clone(),
+            objects: save.objects.clone(),
             mob_routines: save.script.mob_routines.clone(),
         },
     )?;
@@ -144,7 +134,6 @@ fn write_save_files(save: &SaveGame, dir: &Path) -> Result<(), String> {
 /// separately.
 pub(crate) fn read_save(dir: &Path) -> Result<SaveGame, String> {
     let metadata = read_metadata(dir)?;
-    let player: PlayerSave = read_ron(&dir.join(PLAYER_FILE))?;
     let world: WorldSave = read_ron(&dir.join(WORLD_FILE))?;
     let npcs: NpcsSave = read_ron(&dir.join(NPCS_FILE))?;
     let items: ItemsSave = read_ron(&dir.join(ITEMS_FILE))?;
@@ -155,9 +144,7 @@ pub(crate) fn read_save(dir: &Path) -> Result<SaveGame, String> {
 
     Ok(SaveGame {
         metadata,
-        player_transform: player.player_transform,
         script: ScriptSnapshot {
-            player_instance: player.player_instance,
             globals: globals.globals,
             instances: instances.instances,
             npc_runtimes: npcs.npc_runtimes,
@@ -166,9 +153,7 @@ pub(crate) fn read_save(dir: &Path) -> Result<SaveGame, String> {
             guild_attitudes: guilds.guild_attitudes,
             mob_routines: world.mob_routines,
         },
-        live_npcs: world.live_npcs,
-        live_items: world.live_items,
-        chests: world.chests,
+        objects: world.objects,
     })
 }
 
@@ -279,7 +264,6 @@ mod tests {
     use super::*;
     use crate::gameplay::game_time::GameTime;
     use crate::save::format::SAVE_FORMAT_VERSION;
-    use crate::zengin::InstanceId;
 
     fn test_root(name: &str) -> PathBuf {
         let root =
@@ -303,14 +287,8 @@ mod tests {
     fn save() -> SaveGame {
         SaveGame {
             metadata: metadata(1_762_957_800),
-            player_transform: bevy::prelude::Transform::IDENTITY,
-            script: ScriptSnapshot {
-                player_instance: InstanceId::new(7),
-                ..ScriptSnapshot::default()
-            },
-            live_npcs: Vec::new(),
-            live_items: Vec::new(),
-            chests: Vec::new(),
+            script: ScriptSnapshot::default(),
+            objects: Vec::new(),
         }
     }
 
@@ -322,7 +300,7 @@ mod tests {
         let restored = read_save(&dir).expect("read save");
 
         assert_eq!(restored.metadata.world_name, "NEWWORLD/NEWWORLD");
-        assert_eq!(restored.script.player_instance, InstanceId::new(7));
+        assert!(restored.objects.is_empty());
         assert!(restored.script.globals.is_empty());
 
         fs::remove_dir_all(root).expect("cleanup");

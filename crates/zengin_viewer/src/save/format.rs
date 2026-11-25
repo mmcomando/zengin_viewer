@@ -15,7 +15,7 @@ use crate::zengin::JournalTopic;
 use crate::zengin::{ItemRuntime, MobRoutineEntry, NpcRuntime};
 
 /// Version of the on-disk save format. Increment on any incompatible change.
-pub(crate) const SAVE_FORMAT_VERSION: u32 = 2;
+pub(crate) const SAVE_FORMAT_VERSION: u32 = 3;
 
 /// Directory containing all saves, relative to the workspace root.
 const SAVE_DIR: &str = "../../misc/saves";
@@ -24,8 +24,6 @@ const SAVE_DIR: &str = "../../misc/saves";
 pub(crate) const METADATA_FILE: &str = "metadata.ron";
 /// Name of the thumbnail inside a save directory.
 pub(crate) const SCREENSHOT_FILE: &str = "screenshot.png";
-/// Name of the player document inside a save directory.
-pub(crate) const PLAYER_FILE: &str = "player.ron";
 /// Name of the world document inside a save directory.
 pub(crate) const WORLD_FILE: &str = "world.ron";
 /// Name of the npc document inside a save directory.
@@ -115,11 +113,8 @@ impl SaveMetadata {
 #[derive(Debug, Clone)]
 pub(crate) struct SaveGame {
     pub(crate) metadata: SaveMetadata,
-    pub(crate) player_transform: Transform,
     pub(crate) script: ScriptSnapshot,
-    pub(crate) live_npcs: Vec<SavedNpcEntity>,
-    pub(crate) live_items: Vec<SavedItemEntity>,
-    pub(crate) chests: Vec<SavedChest>,
+    pub(crate) objects: Vec<SavedObject>,
 }
 
 impl SaveGame {
@@ -127,12 +122,27 @@ impl SaveGame {
     pub(crate) fn validate(&self, script_fingerprint: u64) -> Result<(), String> {
         self.metadata.validate(script_fingerprint)
     }
+
+    /// Transform of the saved player entity, if the save has one.
+    pub(crate) fn player_transform(&self) -> Option<Transform> {
+        self.objects
+            .iter()
+            .find(|object| object.player.is_some())
+            .map(|object| object.transform)
+    }
+
+    /// Restored state of the chest with the given vob id.
+    pub(crate) fn chest(&self, vob_id: u32) -> Option<&SavedChest> {
+        self.objects
+            .iter()
+            .filter_map(|object| object.chest.as_ref())
+            .find(|chest| chest.vob_id == vob_id)
+    }
 }
 
 /// Script-owned part of a save, collected under one script lock.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct ScriptSnapshot {
-    pub(crate) player_instance: Option<InstanceId>,
     pub(crate) globals: Vec<SavedValues>,
     pub(crate) instances: Vec<SavedValues>,
     /// The routine field of `NpcRuntime` is skipped by serde and rebuilt on
@@ -159,22 +169,49 @@ pub(crate) struct SavedGuildAttitude {
     pub(crate) attitude: i32,
 }
 
-/// A live npc entity, spawned back at its exact transform on load.
+/// One live world entity. The set of `Some` payloads describes what the entity
+/// is, so the format never names entity kinds; each payload is the serialized
+/// form of one optional component.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SavedNpcEntity {
-    pub(crate) instance_id: InstanceId,
+pub(crate) struct SavedObject {
     pub(crate) transform: Transform,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) player: Option<SavedPlayer>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) npc: Option<SavedNpc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) item: Option<SavedItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) chest: Option<SavedChest>,
+}
+
+impl SavedObject {
+    /// Whether any serializable component is present. Transform-only entities
+    /// (world meshes, GUI, camera) are skipped by the save.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.player.is_none() && self.npc.is_none() && self.item.is_none() && self.chest.is_none()
+    }
+}
+
+/// Serialized `PlayerCharacter` component.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub(crate) struct SavedPlayer;
+
+/// Serialized `GameNpc` component plus its `NpcOverlay`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct SavedNpc {
+    pub(crate) instance_id: InstanceId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) overlay: Option<String>,
 }
 
-/// A live item entity, spawned back at its exact transform on load.
+/// Serialized `GameItem` component.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SavedItemEntity {
+pub(crate) struct SavedItem {
     pub(crate) instance_id: InstanceId,
-    pub(crate) transform: Transform,
 }
 
-/// Remaining loot of one chest, keyed by the vob id in the ZEN archive.
+/// Serialized `GameChest` component plus the `MobBase` vob id that locates it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SavedChest {
     pub(crate) vob_id: u32,
@@ -184,19 +221,10 @@ pub(crate) struct SavedChest {
     pub(crate) cracked: bool,
 }
 
-/// Payload of `player.ron`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct PlayerSave {
-    pub(crate) player_instance: Option<InstanceId>,
-    pub(crate) player_transform: Transform,
-}
-
 /// Payload of `world.ron`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct WorldSave {
-    pub(crate) live_npcs: Vec<SavedNpcEntity>,
-    pub(crate) live_items: Vec<SavedItemEntity>,
-    pub(crate) chests: Vec<SavedChest>,
+    pub(crate) objects: Vec<SavedObject>,
     pub(crate) mob_routines: Vec<MobRoutineEntry>,
 }
 
@@ -420,5 +448,81 @@ mod tests {
             .expect("serialize");
         let restored: JournalSave = ron::from_str(&text).expect("deserialize");
         assert_eq!(restored.journal[0].entries, vec!["entry".to_string()]);
+    }
+
+    #[test]
+    fn saved_objects_round_trip_component_payloads() {
+        let npc_id = InstanceId::new(5).expect("npc id");
+        let item_id = InstanceId::new(9).expect("item id");
+        let part = WorldSave {
+            objects: vec![
+                SavedObject {
+                    transform: Transform::IDENTITY,
+                    player: Some(SavedPlayer),
+                    npc: Some(SavedNpc {
+                        instance_id: npc_id,
+                        overlay: Some("HUMANS_SPRINT".to_string()),
+                    }),
+                    item: None,
+                    chest: None,
+                },
+                SavedObject {
+                    transform: Transform::from_xyz(1.0, 2.0, 3.0),
+                    player: None,
+                    npc: None,
+                    item: Some(SavedItem {
+                        instance_id: item_id,
+                    }),
+                    chest: None,
+                },
+                SavedObject {
+                    transform: Transform::IDENTITY,
+                    player: None,
+                    npc: None,
+                    item: None,
+                    chest: Some(SavedChest {
+                        vob_id: 42,
+                        items: vec![(item_id, 3)],
+                        cracked: true,
+                    }),
+                },
+            ],
+            mob_routines: Vec::new(),
+        };
+        let text = ron::ser::to_string_pretty(&part, ron::ser::PrettyConfig::default())
+            .expect("serialize");
+        let restored: WorldSave = ron::from_str(&text).expect("deserialize");
+
+        assert_eq!(restored.objects.len(), 3);
+        let player = &restored.objects[0];
+        assert!(player.player.is_some());
+        assert_eq!(player.npc.as_ref().map(|npc| npc.instance_id), Some(npc_id));
+        assert_eq!(
+            player.npc.as_ref().and_then(|npc| npc.overlay.as_deref()),
+            Some("HUMANS_SPRINT")
+        );
+        assert_eq!(
+            restored.objects[1]
+                .item
+                .as_ref()
+                .map(|item| item.instance_id),
+            Some(item_id)
+        );
+        let chest = restored.objects[2].chest.as_ref().expect("chest payload");
+        assert_eq!(chest.vob_id, 42);
+        assert_eq!(chest.items, vec![(item_id, 3)]);
+        assert!(chest.cracked);
+    }
+
+    #[test]
+    fn transform_only_object_is_empty() {
+        let object = SavedObject {
+            transform: Transform::IDENTITY,
+            player: None,
+            npc: None,
+            item: None,
+            chest: None,
+        };
+        assert!(object.is_empty());
     }
 }

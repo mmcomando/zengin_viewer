@@ -265,7 +265,7 @@ fn handle_container(
         .flatten()
         .unwrap();
     let vob_id = obj.id();
-    let saved = restore.and_then(|save| save.chests.iter().find(|saved| saved.vob_id == vob_id));
+    let saved = restore.and_then(|save| save.chest(vob_id));
     let items = saved.map_or_else(
         || container_items(&obj.container_contents(), item_ids),
         |saved| saved.items.clone(),
