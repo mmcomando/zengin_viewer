@@ -1,0 +1,225 @@
+//! Debug-only entity round-trip: serialize the keepable world objects, empty the
+//! world, then respawn the serialized objects after a short delay.
+
+use bevy::prelude::*;
+
+use crate::game_state::AppState;
+use crate::gameplay::objects::PlayerCharacter;
+use crate::gui_debug::StaticMesh;
+use crate::perf_debug;
+use crate::save::format::SavedObject;
+use crate::world_entity::WorldEntityMarker;
+use crate::zengin::{
+    GameChest, GameItem, GameMover, GameNpc, MobBase, NpcOverlay, spawn_saved_object_messages,
+};
+
+/// Frames the world stays empty before the serialized objects are restored.
+const RESTORE_DELAY_FRAMES: u32 = 10;
+
+/// Debug UI request: serialize every saveable object, despawn every
+/// [`WorldEntityMarker`] entity, then spawn the serialized objects back after
+/// [`RESTORE_DELAY_FRAMES`].
+#[derive(Message)]
+pub(crate) struct ReloadWorldEntities;
+
+#[derive(Resource, Default)]
+struct ReloadState {
+    requested: bool,
+    frames_left: u32,
+    objects: Vec<SavedObject>,
+}
+
+pub(crate) struct DebugReloadPlugin;
+
+impl Plugin for DebugReloadPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_message::<ReloadWorldEntities>();
+        app.init_resource::<ReloadState>();
+        app.add_systems(
+            Update,
+            (request_reload, reload_entities)
+                .chain()
+                .run_if(in_state(AppState::InGame)),
+        );
+    }
+}
+
+fn request_reload(
+    mut requests: MessageReader<ReloadWorldEntities>,
+    mut state: ResMut<ReloadState>,
+) {
+    if requests.read().count() == 0 {
+        return;
+    }
+    state.requested = true;
+}
+
+enum ReloadStep {
+    Idle,
+    Collect,
+    Wait,
+    Restore,
+}
+
+/// Exclusive system: the collect/despawn and the restore pass both need full
+/// world access, and the restore is delayed by [`RESTORE_DELAY_FRAMES`].
+fn reload_entities(world: &mut World) {
+    let _perf = perf_debug!();
+    match next_step(world) {
+        ReloadStep::Idle | ReloadStep::Wait => {}
+        ReloadStep::Collect => collect_and_clear(world),
+        ReloadStep::Restore => restore_objects(world),
+    }
+}
+
+fn next_step(world: &mut World) -> ReloadStep {
+    let mut state = world.resource_mut::<ReloadState>();
+    if state.requested {
+        state.requested = false;
+        state.frames_left = RESTORE_DELAY_FRAMES;
+        return ReloadStep::Collect;
+    }
+    if state.frames_left == 0 {
+        return ReloadStep::Idle;
+    }
+    state.frames_left -= 1;
+    if state.frames_left == 0 {
+        ReloadStep::Restore
+    } else {
+        ReloadStep::Wait
+    }
+}
+
+fn collect_and_clear(world: &mut World) {
+    let objects = collect_saved_objects(world);
+    let count = objects.len();
+    despawn_world_entities(world);
+    world.resource_mut::<ReloadState>().objects = objects;
+    info!("Debug reload: serialized {count} objects, world entities despawned");
+}
+
+fn restore_objects(world: &mut World) {
+    let objects = std::mem::take(&mut world.resource_mut::<ReloadState>().objects);
+    let spawn_player = objects.iter().any(|object| object.player.is_some());
+    for object in &objects {
+        spawn_saved_object_messages(world, object, spawn_player);
+    }
+    let restored = objects
+        .iter()
+        .filter(|object| object.chest.is_none())
+        .count();
+    info!(
+        "Debug reload: restored {restored} objects ({} chest payloads stay world-definition-only)",
+        objects.len() - restored
+    );
+}
+
+#[allow(clippy::type_complexity)]
+fn collect_saved_objects(world: &mut World) -> Vec<SavedObject> {
+    let mut query = world.query::<(
+        &Transform,
+        Option<&PlayerCharacter>,
+        Option<&GameNpc>,
+        Option<&NpcOverlay>,
+        Option<&GameItem>,
+        Option<&GameChest>,
+        Option<&MobBase>,
+        Option<&StaticMesh>,
+        Option<&GameMover>,
+    )>();
+    query
+        .iter(world)
+        .filter_map(
+            |(transform, player, npc, overlay, item, chest, base, static_mesh, mover)| {
+                SavedObject::from_components(
+                    transform,
+                    player,
+                    npc,
+                    overlay,
+                    item,
+                    chest,
+                    base,
+                    static_mesh,
+                    mover,
+                )
+            },
+        )
+        .collect()
+}
+
+fn despawn_world_entities(world: &mut World) {
+    let entities: Vec<Entity> = {
+        let mut query = world.query_filtered::<Entity, With<WorldEntityMarker>>();
+        query.iter(world).collect()
+    };
+    for entity in entities {
+        world.despawn(entity);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn spawn_chest(world: &mut World) {
+        world.spawn((
+            Transform::default(),
+            GameChest {
+                locked: true,
+                key: String::new(),
+                pick_string: String::new(),
+                cracked: false,
+                items: Vec::new(),
+            },
+            MobBase {
+                vob_id: 7,
+                ..default()
+            },
+        ));
+    }
+
+    #[test]
+    fn collects_saveable_objects_and_despawns_world_entities() {
+        let mut world = World::new();
+        world.spawn((Transform::default(), PlayerCharacter));
+        spawn_chest(&mut world);
+        world.spawn((Transform::default(), StaticMesh { vob_id: 42 }));
+        // Marker-only entity: despawned, but it has no SavedObject payload.
+        world.spawn(WorldEntityMarker);
+
+        let objects = collect_saved_objects(&mut world);
+        assert_eq!(objects.len(), 3);
+        assert!(objects.iter().any(|object| object.player.is_some()));
+        assert!(
+            objects
+                .iter()
+                .any(|object| object.chest.as_ref().is_some_and(|chest| chest.vob_id == 7))
+        );
+        assert!(objects.iter().any(|object| {
+            object
+                .static_object
+                .as_ref()
+                .is_some_and(|static_object| static_object.vob_id == 42)
+        }));
+
+        despawn_world_entities(&mut world);
+        let mut query = world.query_filtered::<Entity, With<WorldEntityMarker>>();
+        assert_eq!(query.iter(&world).count(), 0);
+    }
+
+    #[test]
+    fn restore_waits_ten_frames() {
+        let mut world = World::new();
+        world.insert_resource(ReloadState {
+            requested: true,
+            ..default()
+        });
+
+        assert!(matches!(next_step(&mut world), ReloadStep::Collect));
+        for _ in 0..9 {
+            assert!(matches!(next_step(&mut world), ReloadStep::Wait));
+        }
+        assert!(matches!(next_step(&mut world), ReloadStep::Restore));
+        assert!(matches!(next_step(&mut world), ReloadStep::Idle));
+    }
+}

@@ -24,12 +24,15 @@ fn insert_resources(mut commands: Commands) {
 }
 
 #[derive(Component, Default)]
-#[require(WorldEntityMarker)]
+// #[require(WorldEntityMarker)]
 pub struct WorldMesh {}
 
 #[derive(Component, Default)]
 #[require(WorldEntityMarker)]
-pub struct StaticMesh {}
+pub struct StaticMesh {
+    /// Index of the vob in the ZEN archive, `0` for a non-vob static entity.
+    pub vob_id: u32,
+}
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Resource)]

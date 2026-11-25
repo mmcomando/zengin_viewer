@@ -14,6 +14,7 @@ use crate::game_state::{AppState, world_is_loaded};
 use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLogEntry;
+use crate::gui_debug::StaticMesh;
 use crate::input::{Options, SharedAction, SharedInputMarker};
 use crate::perf_debug;
 use crate::save::format::{
@@ -21,8 +22,8 @@ use crate::save::format::{
 };
 use crate::save::{current_script_fingerprint, new_save_dir, newest_save, read_save, write_save};
 use crate::zengin::{
-    CurrentWorld, GameChest, GameItem, GameNpc, LoadingWorld, MobBase, NpcOverlay, ScriptResource,
-    begin_world_load, request_initial_world,
+    CurrentWorld, GameChest, GameItem, GameMover, GameNpc, LoadingWorld, MobBase, NpcOverlay,
+    ScriptResource, begin_world_load, request_initial_world,
 };
 
 /// Size of the saved thumbnail. The load screen slot is 4:3, so a full window
@@ -113,6 +114,8 @@ fn quick_save(
         Option<&GameItem>,
         Option<&GameChest>,
         Option<&MobBase>,
+        Option<&StaticMesh>,
+        Option<&GameMover>,
     )>,
 ) {
     let _perf = perf_debug!();
@@ -129,9 +132,21 @@ fn quick_save(
     // Transform-only entities (world meshes, GUI, camera) produce no object.
     let objects: Vec<SavedObject> = entities
         .iter()
-        .filter_map(|(transform, player, npc, overlay, item, chest, base)| {
-            SavedObject::from_components(transform, player, npc, overlay, item, chest, base)
-        })
+        .filter_map(
+            |(transform, player, npc, overlay, item, chest, base, static_mesh, mover)| {
+                SavedObject::from_components(
+                    transform,
+                    player,
+                    npc,
+                    overlay,
+                    item,
+                    chest,
+                    base,
+                    static_mesh,
+                    mover,
+                )
+            },
+        )
         .collect();
     if !objects.iter().any(|object| object.player.is_some()) {
         error!("Save requested without a player entity");

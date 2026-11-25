@@ -2,6 +2,7 @@ use bevy::ecs::system::{Local, SystemParam};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Ui};
 
+use crate::debug::ReloadWorldEntities;
 use crate::game_state::AppState;
 use crate::gameplay::camera::{TELEPORT_LOCATIONS, TeleportToLocation};
 use crate::gameplay::game_time::GameTime;
@@ -31,6 +32,7 @@ pub(crate) struct InfoParams<'w, 's> {
     quick_save: MessageWriter<'w, QuickSave>,
     quick_load: MessageWriter<'w, QuickLoad>,
     teleports: MessageWriter<'w, TeleportToLocation>,
+    reload_world_entities: MessageWriter<'w, ReloadWorldEntities>,
     next_app_state: ResMut<'w, NextState<AppState>>,
     debug_npc: ResMut<'w, DebugNpc>,
     debug_npc_text: Local<'s, String>,
@@ -61,6 +63,7 @@ pub(crate) fn info_tab_ui(ui: &mut Ui, info: &mut InfoParams) {
                 &mut info.restart_world,
                 &mut info.quick_save,
                 &mut info.quick_load,
+                &mut info.reload_world_entities,
                 &mut info.next_app_state,
             );
 
@@ -314,6 +317,7 @@ fn world_section(
     restart_world: &mut MessageWriter<RestartWorld>,
     quick_save: &mut MessageWriter<QuickSave>,
     quick_load: &mut MessageWriter<QuickLoad>,
+    reload_world_entities: &mut MessageWriter<ReloadWorldEntities>,
     next_app_state: &mut NextState<AppState>,
 ) {
     egui::CollapsingHeader::new("World").show(ui, |ui| {
@@ -333,5 +337,14 @@ fn world_section(
                 quick_load.write(QuickLoad);
             }
         });
+        if ui
+            .button("Reload Entities (10 frames)")
+            .on_hover_text(
+                "Serialize saveable objects, despawn world entities, then spawn the objects back",
+            )
+            .clicked()
+        {
+            reload_world_entities.write(ReloadWorldEntities);
+        }
     });
 }

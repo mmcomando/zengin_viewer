@@ -15,7 +15,7 @@ use crate::zengin::JournalTopic;
 use crate::zengin::{ItemRuntime, MobRoutineEntry, NpcRuntime};
 
 /// Version of the on-disk save format. Increment on any incompatible change.
-pub(crate) const SAVE_FORMAT_VERSION: u32 = 5;
+pub(crate) const SAVE_FORMAT_VERSION: u32 = 6;
 
 /// Directory containing all saves, relative to the workspace root.
 const SAVE_DIR: &str = "../../misc/saves";
@@ -181,6 +181,8 @@ pub(crate) struct SavedObject {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) item: Option<SavedItem>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) static_object: Option<SavedStatic>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) chest: Option<SavedChest>,
 }
 
@@ -188,7 +190,11 @@ impl SavedObject {
     /// Whether any serializable component is present. Transform-only entities
     /// (world meshes, GUI, camera) are skipped by the save.
     pub(crate) fn is_empty(&self) -> bool {
-        self.player.is_none() && self.npc.is_none() && self.item.is_none() && self.chest.is_none()
+        self.player.is_none()
+            && self.npc.is_none()
+            && self.item.is_none()
+            && self.static_object.is_none()
+            && self.chest.is_none()
     }
 }
 
@@ -208,6 +214,12 @@ pub(crate) struct SavedNpc {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SavedItem {
     pub(crate) instance_id: InstanceId,
+}
+
+/// Serialized `StaticMesh` component. The vob is respawned from its prototype.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct SavedStatic {
+    pub(crate) vob_id: u32,
 }
 
 /// Remaining state of one chest, keyed by the vob id in the ZEN archive. The
@@ -467,6 +479,7 @@ mod tests {
                         overlay: Some("HUMANS_SPRINT".to_string()),
                     }),
                     item: None,
+                    static_object: None,
                     chest: None,
                 },
                 SavedObject {
@@ -476,6 +489,7 @@ mod tests {
                     item: Some(SavedItem {
                         instance_id: item_id,
                     }),
+                    static_object: None,
                     chest: None,
                 },
                 SavedObject {
@@ -483,12 +497,21 @@ mod tests {
                     player: None,
                     npc: None,
                     item: None,
+                    static_object: None,
                     chest: Some(SavedChest {
                         vob_id: 42,
                         locked: true,
                         items: vec![(item_id, 3)],
                         cracked: true,
                     }),
+                },
+                SavedObject {
+                    transform: Transform::from_xyz(4.0, 5.0, 6.0),
+                    player: None,
+                    npc: None,
+                    item: None,
+                    static_object: Some(SavedStatic { vob_id: 11 }),
+                    chest: None,
                 },
             ],
             mob_routines: Vec::new(),
@@ -497,7 +520,7 @@ mod tests {
             .expect("serialize");
         let restored: WorldSave = ron::from_str(&text).expect("deserialize");
 
-        assert_eq!(restored.objects.len(), 3);
+        assert_eq!(restored.objects.len(), 4);
         let player = &restored.objects[0];
         assert!(player.player.is_some());
         assert_eq!(player.npc.as_ref().map(|npc| npc.instance_id), Some(npc_id));
@@ -517,6 +540,13 @@ mod tests {
         assert!(chest.locked);
         assert_eq!(chest.items, vec![(item_id, 3)]);
         assert!(chest.cracked);
+        assert_eq!(
+            restored.objects[3]
+                .static_object
+                .as_ref()
+                .map(|static_object| static_object.vob_id),
+            Some(11)
+        );
     }
 
     #[test]
@@ -526,6 +556,7 @@ mod tests {
             player: None,
             npc: None,
             item: None,
+            static_object: None,
             chest: None,
         };
         assert!(object.is_empty());

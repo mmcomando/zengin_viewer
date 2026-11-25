@@ -3,8 +3,9 @@
 use bevy::prelude::*;
 
 use crate::gameplay::objects::PlayerCharacter;
-use crate::save::format::{SavedChest, SavedItem, SavedNpc, SavedObject, SavedPlayer};
-use crate::zengin::{GameChest, GameItem, GameNpc, MobBase, NpcOverlay};
+use crate::gui_debug::StaticMesh;
+use crate::save::format::{SavedChest, SavedItem, SavedNpc, SavedObject, SavedPlayer, SavedStatic};
+use crate::zengin::{GameChest, GameItem, GameMover, GameNpc, MobBase, NpcOverlay};
 
 impl SavedObject {
     /// Collects the saveable components of one entity. Returns `None` when the
@@ -18,6 +19,8 @@ impl SavedObject {
         item: Option<&GameItem>,
         chest: Option<&GameChest>,
         base: Option<&MobBase>,
+        static_mesh: Option<&StaticMesh>,
+        mover: Option<&GameMover>,
     ) -> Option<Self> {
         let npc = npc.map(|npc| SavedNpc {
             instance_id: npc.instance_id(),
@@ -26,6 +29,13 @@ impl SavedObject {
         let item = item.map(|item| SavedItem {
             instance_id: item.instance_id(),
         });
+        // Movers also carry `StaticMesh`; they are rebuilt from their own
+        // prototype and must not be serialized as static objects.
+        let static_object = static_mesh
+            .filter(|mesh| mesh.vob_id != 0 && mover.is_none())
+            .map(|mesh| SavedStatic {
+                vob_id: mesh.vob_id,
+            });
         let chest = match (chest, base) {
             (Some(chest), Some(base)) => Some(SavedChest {
                 vob_id: base.vob_id,
@@ -44,6 +54,7 @@ impl SavedObject {
             player: player.map(|_| SavedPlayer),
             npc,
             item,
+            static_object,
             chest,
         };
         (!object.is_empty()).then_some(object)
@@ -84,6 +95,8 @@ mod tests {
             None,
             Some(&chest),
             Some(&base),
+            None,
+            None,
         )
         .expect("chest object");
 
@@ -104,7 +117,34 @@ mod tests {
             None,
             None,
             Some(&base),
+            None,
+            None,
         );
         assert!(object.is_none());
+    }
+
+    #[test]
+    fn static_mesh_saves_its_vob_id() {
+        let static_mesh = StaticMesh { vob_id: 5 };
+        let object = SavedObject::from_components(
+            &Transform::IDENTITY,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(&static_mesh),
+            None,
+        )
+        .expect("static object");
+
+        assert_eq!(
+            object
+                .static_object
+                .as_ref()
+                .map(|static_object| static_object.vob_id),
+            Some(5)
+        );
     }
 }

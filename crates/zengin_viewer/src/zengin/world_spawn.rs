@@ -72,6 +72,8 @@ pub(crate) struct SpawnWorldMesh {
 /// Static vob visual placed at its world transform.
 #[derive(Debug, Default, Clone, Message)]
 pub(crate) struct SpawnStaticModel {
+    /// Index of the vob in the ZEN archive.
+    pub(crate) vob_id: u32,
     pub(crate) tr: Transform,
     pub(crate) archetype: String,
     pub(crate) collides: bool,
@@ -143,6 +145,8 @@ pub(crate) struct ContainerSpawn {
 /// Moving trigger vob (`zCMover`).
 #[derive(Debug, Clone, Message)]
 pub(crate) struct SpawnMover {
+    /// Index of the vob in the ZEN archive.
+    pub(crate) vob_id: u32,
     pub(crate) tr: Transform,
     /// Mesh asset path, empty when the vob has no visual.
     pub(crate) archetype: String,
@@ -431,7 +435,9 @@ fn spawn_static_models(
             },
             Visibility::default(),
             spawn.tr,
-            StaticMesh::default(),
+            StaticMesh {
+                vob_id: spawn.vob_id,
+            },
         ));
     }
 }
@@ -600,7 +606,9 @@ fn spawn_movers(
         let mut entity = commands.spawn((
             Name::new(spawn.name.clone()),
             ClassifyDistance::default(),
-            StaticMesh::default(),
+            StaticMesh {
+                vob_id: spawn.vob_id,
+            },
             Visibility::default(),
             spawn.tr,
             GameMover::new(
@@ -642,6 +650,7 @@ mod tests {
 
     fn static_model(archetype: &str) -> SpawnStaticModel {
         SpawnStaticModel {
+            vob_id: 1,
             tr: Transform::from_xyz(1.0, 2.0, 3.0),
             archetype: archetype.to_string(),
             collides: true,
@@ -674,6 +683,7 @@ mod tests {
 
         let static_models = spawns.static_models.take();
         assert_eq!(static_models.len(), 1);
+        assert_eq!(static_models[0].vob_id, 1);
         assert_eq!(static_models[0].archetype, "a");
         assert!(spawns.mobs.take().is_empty());
     }

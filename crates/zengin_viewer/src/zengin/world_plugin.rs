@@ -40,7 +40,7 @@ use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::world::load_zengin_world_data;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph, spawn_waypoint_entities};
 use crate::zengin::world_spawn::{
-    MobSpawnKind, SpawnPositionFilter, VobPrototype, VobPrototypes, WorldSpawnMessages,
+    MobSpawnKind, SpawnPositionFilter, SpawnVob, VobPrototype, VobPrototypes, WorldSpawnMessages,
     WorldSpawnPlugin,
 };
 use crate::zengin::{
@@ -547,10 +547,16 @@ fn spawn_world_data(
     if let Some(save) = restore {
         apply_loaded_state(&mut prototypes, save);
     }
+    // A restored world spawns static vobs and world items from the save (they
+    // are SavedObjects), so only the world-definition-only kinds come straight
+    // from the prototypes here.
+    let restoring = restore.is_some();
     for prototype in prototypes.values() {
+        if restoring && matches!(prototype, VobPrototype::Static(_) | VobPrototype::Item(_)) {
+            continue;
+        }
         spawns.send_prototype(prototype);
     }
-    commands.insert_resource(prototypes);
     // `zCTriggerWorldStart` events are fired once the world is in game, after
     // the movers they address exist. A restored world only fires the triggers
     // that are not limited to the first start.
@@ -637,19 +643,66 @@ fn spawn_world_data(
 
     if let Some(save) = restore {
         for object in &save.objects {
-            spawn_saved_object(object, spawn_player_entity, spawn_npc, player_spawn, spawns);
+            spawn_saved_object(
+                object,
+                spawn_player_entity,
+                spawn_npc,
+                player_spawn,
+                spawns,
+                &prototypes,
+            );
         }
     } else if spawn_player_entity {
         player_spawn.write(SpawnPlayer {
             transform: player_transform,
         });
     }
+    commands.insert_resource(prototypes);
 }
 
-/// Spawns the npc/item/player entity described by a saved object through the
-/// world spawn messages. The player is only emitted when `spawn_player` is set,
-/// so the caller keeps the "player already exists" decision; its npc payload
-/// never spawns a second entity. Chests are not spawned here, the world
+/// Writes the spawn requests of one saved object straight into the world.
+/// Exclusive-system callers (the debug entity reload) use this instead of a
+/// [`MessageWriter`].
+pub(crate) fn spawn_saved_object_messages(
+    world: &mut World,
+    object: &SavedObject,
+    spawn_player: bool,
+) {
+    if object.player.is_some() {
+        if spawn_player {
+            world.write_message(SpawnPlayer {
+                transform: Some(object.transform),
+            });
+        }
+        return;
+    }
+    if let Some(npc) = &object.npc {
+        world.write_message(SpawnNpc {
+            instance_id: npc.instance_id,
+            location_name: None,
+            transform: Some(object.transform),
+            exact_transform: true,
+            overlay: npc.overlay.clone(),
+        });
+    }
+    if let Some(item) = &object.item {
+        world.write_message(SpawnItem {
+            instance_id: item.instance_id,
+            location_name: None,
+            transform: Some(object.transform),
+        });
+    }
+    if let Some(static_object) = &object.static_object {
+        world.write_message(SpawnVob {
+            vob_id: static_object.vob_id,
+        });
+    }
+}
+
+/// Spawns the npc/item/static/player entity described by a saved object through
+/// the world spawn messages. The player is only emitted when `spawn_player` is
+/// set, so the caller keeps the "player already exists" decision; its npc
+/// payload never spawns a second entity. Chests are not spawned here, the world
 /// definition supplies their entities and the save only restores their state.
 fn spawn_saved_object(
     object: &SavedObject,
@@ -657,6 +710,7 @@ fn spawn_saved_object(
     spawn_npc: &mut MessageWriter<SpawnNpc>,
     player_spawn: &mut MessageWriter<SpawnPlayer>,
     spawns: &WorldSpawnMessages,
+    prototypes: &VobPrototypes,
 ) {
     if object.player.is_some() {
         if spawn_player {
@@ -681,6 +735,15 @@ fn spawn_saved_object(
             location_name: None,
             transform: Some(object.transform),
         });
+    }
+    if let Some(static_object) = &object.static_object {
+        match prototypes.get(static_object.vob_id) {
+            Some(prototype) => spawns.send_prototype(prototype),
+            None => warn!(
+                "No static prototype for saved vob({})",
+                static_object.vob_id
+            ),
+        }
     }
 }
 
