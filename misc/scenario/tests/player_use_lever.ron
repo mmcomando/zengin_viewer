@@ -19,7 +19,6 @@
     // Assert
     TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_LEVER\\)"),
     TestLogExists(regex: "animation\\(S_LEVER_S1\\)"),
-    TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_LEVER_S1\\)"),
     TestLogExists(regex: "current=HUMANS-T_LEVER_S1_2_STAND"),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
     TestScreenshot(path: "01_lever_used.png"),
@@ -32,7 +31,6 @@
     // Assert
     TestLogExists(regex: "animation\\(S_LEVER_S0\\)"),
     TestLogExists(regex: "-> state\\(0\\)"),
-    TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_LEVER_S0\\)"),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
 
     // Release

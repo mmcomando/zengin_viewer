@@ -32,7 +32,7 @@
     Wait(frame_dt: 400),
 
     // Assert
-    TestLogExists(regex: "AI_Attack requested by npc"),
+    TestLogExists(regex: "DebugNPC: actions Attack\\(target="),
 
     ExitGame,
 ]

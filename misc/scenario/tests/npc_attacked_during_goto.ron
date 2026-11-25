@@ -37,9 +37,8 @@
     Wait(frame_dt: 320),
 
     // Assert
-    TestLogExists(regex: "Npc_ClearAIQueue npc\\(\\d+\\) canceled the executing goto\\(test_wp_end\\)"),
+    TestLogExists(regex: "DebugNPC: clear queue npc\\(\\d+\\)"),
     TestLogExists(regex: "DebugNPC: actions Attack\\(target="),
-    TestLogExists(regex: "AI_Attack requested by npc\\(\\d+\\) on target\\(\\d+\\)"),
 
     ExitGame,
 ]

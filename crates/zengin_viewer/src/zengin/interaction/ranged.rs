@@ -9,7 +9,6 @@ use super::selection::{HitColliderOwner, Selection};
 use super::{DamageTargetData, NpcDied, deal_damage};
 use crate::gui::GameLog;
 use crate::world_entity::WorldEntityMarker;
-use crate::zengin::DamageTrace;
 use crate::zengin::GameNpc;
 use crate::zengin::npc_routines::AnimationFiles;
 use crate::zengin::resources::{
@@ -235,7 +234,6 @@ fn arrow_hits(
     asset_server: Res<AssetServer>,
     mut game_log: ResMut<GameLog>,
     mut npc_died: MessageWriter<NpcDied>,
-    mut damage_trace: MessageWriter<DamageTrace>,
     mut commands: Commands,
 ) {
     let _perf = perf_debug!();
@@ -285,7 +283,6 @@ fn arrow_hits(
             &asset_server,
             &mut game_log,
             &mut npc_died,
-            &mut damage_trace,
         );
         commands.entity(arrow_entity).despawn();
     }

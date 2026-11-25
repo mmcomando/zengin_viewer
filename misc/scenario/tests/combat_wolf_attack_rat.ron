@@ -1,6 +1,6 @@
 [
     // Setup
-    ZenginSetDebugNpc(name: "wolf"),
+    ZenginSetDebugNpc(name: "wolf, rat"),
     ZenginFilterNpcWithName(filters: ["ygiant_rat"]),
     ZenginFilterNpcWithName(filters: ["ywolf"]),
     ZenginFilterSpawnWithPosition(points: [(center: (-261, 8, -125), radius: 20.0)]),
@@ -15,10 +15,8 @@
 
     // Assert
     TestLogExists(regex: "DebugNPC: actions GoToNpc\\(target="),
-    TestLogExists(regex: "AI_Attack requested by npc\\(\\d+\\) on target\\(\\d+\\)"),
     TestLogExists(regex: "DebugNPC: actions Attack\\(target="),
     TestLogExists(regex: "DebugNPC: animation .*current=WOLF-S_FISTATTACK next=- root_motion=true"),
-    TestLogExists(regex: "Npc\\(\\d+\\) dealt \\d+ damage to npc\\(\\d+\\)"),
     TestLogExists(regex: "hitpoints now 0"),
 
     ExitGame,

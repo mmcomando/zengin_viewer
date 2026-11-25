@@ -289,9 +289,6 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             return;
         };
         self.npc_state_mut(npc).equipment.unequip_weapons();
-        self.messages
-            .weapons_unequipped
-            .send(crate::zengin::script::state::NpcWeaponsUnequipped { instance_id: npc });
     }
     fake_impl!(ai_unequiparmor(_0));
     fake_impl!(ai_equiparmor(_0, _1));
@@ -367,7 +364,7 @@ impl mmcomando::zengine_scripts::ai_scripts::Host for ImportCallState {
             );
             return;
         };
-        crate::test_log!(
+        bevy::log::info!(
             "AI_Attack requested by npc({}) on target({})",
             npc.value(),
             target.value()

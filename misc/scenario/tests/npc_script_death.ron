@@ -13,7 +13,7 @@
     Wait(frame_dt: 120),
 
     // Assert
-    TestLogExists(regex: "ran the ZS_DEAD state for killer"),
+    TestLogExists(regex: "DebugNPC: death .* killer"),
     TestLogExists(regex: "DebugNPC: animation .*current=WOLF-(T_DEAD|S_DEAD)"),
 
     ExitGame,

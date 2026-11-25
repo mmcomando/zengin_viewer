@@ -1,22 +1,26 @@
 //! Manual per-npc trace: animations, position, weapons and actions of the npc
 //! selected by [`DebugNpc`].
 
+use std::sync::PoisonError;
+
 use bevy::asset::AssetPath;
 use bevy::prelude::*;
 
+use crate::gameplay::objects::PlayerCharacter;
 use crate::graphics::AnimationController;
 use crate::perf_debug;
 use crate::test_log;
 use crate::zengin::GameNpc;
 use crate::zengin::npc_actions::{
-    AttackAction, GoToNpcAction, GoToWaypointAction, NpcActionQueue, StandUpAction,
+    AttackAction, GoToNpcAction, GoToWaypointAction, MobUsePose, NpcActionQueue, StandUpAction,
     UseItemStateAction, UseMobAction,
 };
-use crate::zengin::npc_routines::{NpcEquippedWeapon, NpcWeaponMode};
+use crate::zengin::npc_routines::{NpcEquippedWeapon, NpcHealth, NpcWeaponMode};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::ScriptManager;
-use crate::zengin::script::state::{NpcWeaponsUnequipped, WeaponMode};
+use crate::zengin::script::state::{ClearAiQueueChange, NpcEntitiesChanged, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::{GameMob, MobBase, MobPose, NpcDied, NpcMobUse};
 
 /// Adds the [`DebugNpc`] trace systems.
 pub struct DebugNpcPlugin;
@@ -24,40 +28,34 @@ pub struct DebugNpcPlugin;
 impl Plugin for DebugNpcPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DebugNpc>();
-        app.add_message::<MobUseTrace>();
-        app.add_message::<MobUseReleaseTrace>();
-        app.add_message::<DamageTrace>();
-        app.add_message::<DeathTrace>();
-        app.add_message::<ActionCancelTrace>();
         app.add_systems(
             Update,
             (
                 mark_debug_npc,
                 log_animation_changes,
                 log_action_changes,
-                log_weapon_changes,
+                log_mob_use_changes,
+                log_mob_release_changes,
+                log_health_changes,
                 log_periodic_state,
             )
                 .run_if(debug_npc_configured),
         );
-        // The event consumers run even without a filter so their readers stay
+        // The message consumers run even without a filter so their readers stay
         // in sync with the message buffers.
         app.add_systems(
             Update,
             (
-                log_mob_use_messages,
-                log_mob_release_messages,
-                log_damage_messages,
+                log_weapon_changes,
                 log_death_messages,
                 log_action_cancel_messages,
-                log_weapons_unequipped_messages,
             ),
         );
     }
 }
 
 /// Case-insensitive substrings of script symbol names of the traced npcs. An
-/// empty list disables the trace.
+/// empty list disables the trace; `*` traces every npc.
 #[derive(Resource, Default)]
 pub(crate) struct DebugNpc(Vec<String>);
 
@@ -102,67 +100,11 @@ fn split_filters(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// One mob use, logged by the trace when the actor is traced.
-#[derive(Message)]
-pub(crate) struct MobUseTrace {
-    pub(crate) actor: InstanceId,
-    pub(crate) is_player: bool,
-    pub(crate) mob: Entity,
-    pub(crate) vob_name: String,
-    pub(crate) visual_stem: String,
-    pub(crate) focus_name: String,
-    pub(crate) condition_func: String,
-    pub(crate) on_state_func: String,
-    pub(crate) scheme: String,
-    pub(crate) state: i32,
-    pub(crate) animation: String,
-    pub(crate) transition: Option<String>,
-}
-
-/// A mob use that ended and why, logged by the trace when the actor is traced.
-#[derive(Message)]
-pub(crate) struct MobUseReleaseTrace {
-    pub(crate) actor: InstanceId,
-    pub(crate) mob: Entity,
-    pub(crate) reason: MobUseReleaseReason,
-    pub(crate) transition: Option<String>,
-    /// Pose the auto-end plays, if any.
-    pub(crate) animation: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum MobUseReleaseReason {
-    StopRequest,
-    AutoEnd,
-    LeavesChest,
-    Released,
-}
-
-/// A confirmed damage hit, logged by the trace when either side is traced.
-#[derive(Message)]
-pub(crate) struct DamageTrace {
-    pub(crate) shooter: InstanceId,
-    pub(crate) target: InstanceId,
-    pub(crate) shooter_is_player: bool,
-    pub(crate) target_is_player: bool,
-    pub(crate) damage: i32,
-    pub(crate) hitpoints: i32,
-}
-
-/// A dying npc that ran its script death state.
-#[derive(Message)]
-pub(crate) struct DeathTrace {
-    pub(crate) npc: InstanceId,
-    pub(crate) killer: Option<InstanceId>,
-}
-
-/// An executing npc action canceled by `Npc_ClearAIQueue`.
-#[derive(Message)]
-pub(crate) struct ActionCancelTrace {
-    pub(crate) npc: InstanceId,
-    pub(crate) entity: Entity,
-    pub(crate) goto: Option<String>,
-    pub(crate) name: String,
+/// Mob of the last logged use, so a removal can be reported with its id.
+#[derive(Clone, Copy)]
+struct MobUseSnapshot {
+    mob: Entity,
+    is_player: bool,
 }
 
 /// Trace state of a matched npc, its presence marks the traced entity.
@@ -170,8 +112,12 @@ pub(crate) struct ActionCancelTrace {
 struct DebugNpcTrace {
     animation: String,
     actions: String,
-    weapon: String,
     timer: Timer,
+    mob_use: Option<MobUseSnapshot>,
+    health: Option<i32>,
+    weapon_seen: bool,
+    weapon_mode: Option<WeaponMode>,
+    weapon_items: (Option<InstanceId>, Option<InstanceId>),
 }
 
 impl Default for DebugNpcTrace {
@@ -179,8 +125,12 @@ impl Default for DebugNpcTrace {
         Self {
             animation: String::new(),
             actions: String::new(),
-            weapon: String::new(),
             timer: Timer::from_seconds(0.5, TimerMode::Repeating),
+            mob_use: None,
+            health: None,
+            weapon_seen: false,
+            weapon_mode: None,
+            weapon_items: (None, None),
         }
     }
 }
@@ -314,30 +264,175 @@ fn log_action_changes(
     }
 }
 
-fn log_weapon_changes(mut npcs: Query<(Entity, &mut DebugNpcTrace, Option<&NpcWeaponMode>)>) {
+#[allow(clippy::type_complexity)]
+fn log_mob_use_changes(
+    mut npcs: Query<
+        (
+            Entity,
+            &GameNpc,
+            &NpcMobUse,
+            &mut DebugNpcTrace,
+            Has<PlayerCharacter>,
+            Option<&MobUsePose>,
+            Option<&AnimationController>,
+        ),
+        Added<NpcMobUse>,
+    >,
+    mobs: Query<(&MobBase, &MobPose, Option<&GameMob>)>,
+) {
     let _perf = perf_debug!();
-    for (entity, mut trace, mode) in &mut npcs {
-        let Some(mode) = mode else {
+    for (_entity, npc, mob_use, mut trace, is_player, pose, controller) in &mut npcs {
+        let Ok((base, mob_pose, game_mob)) = mobs.get(mob_use.mob) else {
             continue;
         };
-        let current = format!("{:?}", mode.0);
-        if trace.weapon.is_empty() {
-            trace.weapon = current;
-            continue;
-        }
-        if trace.weapon == current {
-            continue;
-        }
-        if mode.0 == WeaponMode::Fists {
-            test_log!(
-                "DebugNPC: weapon entity({entity}) sheathed its {} weapon",
-                trace.weapon
-            );
-        } else {
-            test_log!("DebugNPC: weapon entity({entity}) drew its {current} weapon");
-        }
-        trace.weapon = current;
+        let animation = pose.map_or_else(
+            || controller.map_or_else(|| "-".to_string(), |c| animation_label(c.current().path())),
+            |pose| pose.pose().to_string(),
+        );
+        let transition = pose.map(MobUsePose::transition);
+        let actor = if is_player { "Player" } else { "npc" };
+        test_log!(
+            "DebugNPC: mob entity({}) {actor}({}) uses mob({}) vob({}) scheme({}) state({}) animation({animation}) transition({transition:?}) visual_stem({}) focus({}) condition_func({}) on_state_func({}) -> state({})",
+            mob_use.mob,
+            npc.instance_id(),
+            mob_use.mob,
+            base.vob_name,
+            mob_use.scheme,
+            mob_use.state,
+            mob_pose.visual_stem,
+            base.focus_name,
+            game_mob.map_or("", |mob| mob.condition_func.as_str()),
+            game_mob.map_or("", |mob| mob.on_state_func.as_str()),
+            mob_use.state
+        );
+        trace.mob_use = Some(MobUseSnapshot {
+            mob: mob_use.mob,
+            is_player,
+        });
     }
+}
+
+fn log_mob_release_changes(
+    mut removed: RemovedComponents<NpcMobUse>,
+    mut npcs: Query<(Entity, &GameNpc, &mut DebugNpcTrace)>,
+) {
+    let _perf = perf_debug!();
+    for entity in removed.read() {
+        let Ok((_entity, npc, mut trace)) = npcs.get_mut(entity) else {
+            continue;
+        };
+        let Some(snapshot) = trace.mob_use.take() else {
+            continue;
+        };
+        let actor = if snapshot.is_player { "Player" } else { "npc" };
+        test_log!(
+            "DebugNPC: release {actor}({}) released mob({})",
+            npc.instance_id(),
+            snapshot.mob
+        );
+    }
+}
+
+fn log_health_changes(mut npcs: Query<(Entity, &mut DebugNpcTrace, Option<&NpcHealth>)>) {
+    let _perf = perf_debug!();
+    for (entity, mut trace, health) in &mut npcs {
+        let Some(health) = health else {
+            continue;
+        };
+        if trace.health == Some(health.hitpoints) {
+            continue;
+        }
+        let first = trace.health.is_none();
+        trace.health = Some(health.hitpoints);
+        if first {
+            continue;
+        }
+        test_log!(
+            "DebugNPC: health entity({entity}) hitpoints now {}",
+            health.hitpoints
+        );
+    }
+}
+
+fn log_weapon_changes(
+    mut changes: MessageReader<NpcEntitiesChanged>,
+    mut npcs: Query<(Entity, &mut DebugNpcTrace)>,
+) {
+    for change in changes.read() {
+        let (mode, items) = {
+            let runtime = change.handle.runtime();
+            let state = runtime.read().unwrap_or_else(PoisonError::into_inner);
+            (
+                state.equipment.weapon_mode,
+                (state.equipment.melee, state.equipment.ranged),
+            )
+        };
+        for &entity in &change.entities {
+            let Ok((entity, mut trace)) = npcs.get_mut(entity) else {
+                continue;
+            };
+            if !trace.weapon_seen {
+                trace.weapon_seen = true;
+                trace.weapon_mode = mode;
+                trace.weapon_items = items;
+                continue;
+            }
+            let previous_mode = trace.weapon_mode;
+            let previous_items = trace.weapon_items;
+            if previous_mode == mode && previous_items == items {
+                continue;
+            }
+            trace.weapon_mode = mode;
+            trace.weapon_items = items;
+            let unequipped = previous_items != (None, None) && items == (None, None);
+            if unequipped {
+                test_log!("DebugNPC: weapon entity({entity}) unequipped its weapons");
+            } else if matches!(mode, None | Some(WeaponMode::Fists)) {
+                let previous =
+                    previous_mode.map_or_else(|| "none".to_string(), |mode| format!("{mode:?}"));
+                test_log!("DebugNPC: weapon entity({entity}) sheathed its {previous} weapon");
+            } else if mode != previous_mode {
+                let mode = mode.expect("checked above");
+                test_log!("DebugNPC: weapon entity({entity}) drew its {mode:?} weapon");
+            }
+        }
+    }
+}
+
+fn log_death_messages(
+    mut messages: MessageReader<NpcDied>,
+    traced: Query<&GameNpc, With<DebugNpcTrace>>,
+) {
+    for event in messages.read() {
+        if !is_traced(&traced, &[event.instance_id]) {
+            continue;
+        }
+        let killer = event
+            .killer
+            .map_or_else(|| "none".to_string(), |killer| killer.value().to_string());
+        test_log!(
+            "DebugNPC: death Npc({}) killer({killer})",
+            event.instance_id
+        );
+    }
+}
+
+fn log_action_cancel_messages(
+    mut messages: MessageReader<ClearAiQueueChange>,
+    traced: Query<&GameNpc, With<DebugNpcTrace>>,
+) {
+    for event in messages.read() {
+        if !is_traced(&traced, &[event.instance_id]) {
+            continue;
+        }
+        test_log!("DebugNPC: clear queue npc({})", event.instance_id);
+    }
+}
+
+fn is_traced(traced: &Query<&GameNpc, With<DebugNpcTrace>>, instances: &[InstanceId]) -> bool {
+    traced
+        .iter()
+        .any(|npc| instances.contains(&npc.instance_id()))
 }
 
 #[allow(clippy::type_complexity)]
@@ -374,167 +469,6 @@ fn log_periodic_state(
             position.y,
             position.z
         );
-    }
-}
-
-fn is_traced(traced: &Query<&GameNpc, With<DebugNpcTrace>>, instances: &[InstanceId]) -> bool {
-    traced
-        .iter()
-        .any(|npc| instances.contains(&npc.instance_id()))
-}
-
-fn log_mob_use_messages(
-    mut messages: MessageReader<MobUseTrace>,
-    traced: Query<&GameNpc, With<DebugNpcTrace>>,
-) {
-    for event in messages.read() {
-        if !is_traced(&traced, &[event.actor]) {
-            continue;
-        }
-        let actor = if event.is_player { "Player" } else { "npc" };
-        test_log!(
-            "DebugNPC: mob entity({}) {actor}({}) uses mob({}) vob({}) scheme({}) state({}) animation({}) transition({:?}) visual_stem({}) focus({}) condition_func({}) on_state_func({}) -> state({})",
-            event.mob,
-            event.actor,
-            event.mob,
-            event.vob_name,
-            event.scheme,
-            event.state,
-            event.animation,
-            event.transition,
-            event.visual_stem,
-            event.focus_name,
-            event.condition_func,
-            event.on_state_func,
-            event.state
-        );
-    }
-}
-
-fn log_mob_release_messages(
-    mut messages: MessageReader<MobUseReleaseTrace>,
-    traced: Query<&GameNpc, With<DebugNpcTrace>>,
-) {
-    for event in messages.read() {
-        if !is_traced(&traced, &[event.actor]) {
-            continue;
-        }
-        match event.reason {
-            MobUseReleaseReason::StopRequest => test_log!(
-                "DebugNPC: release npc({}) released mob({}) on stop request",
-                event.actor,
-                event.mob
-            ),
-            MobUseReleaseReason::AutoEnd => test_log!(
-                "DebugNPC: release Player({}) auto-ends mob({}) use, pose({})",
-                event.actor,
-                event.mob,
-                event.animation.as_deref().unwrap_or("-")
-            ),
-            MobUseReleaseReason::LeavesChest => test_log!(
-                "DebugNPC: release Player({}) leaves chest({}) transition({:?})",
-                event.actor,
-                event.mob,
-                event.transition
-            ),
-            MobUseReleaseReason::Released => test_log!(
-                "DebugNPC: release Player({}) released mob({})",
-                event.actor,
-                event.mob
-            ),
-        }
-    }
-}
-
-fn log_damage_messages(
-    mut messages: MessageReader<DamageTrace>,
-    traced: Query<&GameNpc, With<DebugNpcTrace>>,
-) {
-    for event in messages.read() {
-        if !is_traced(&traced, &[event.shooter, event.target]) {
-            continue;
-        }
-        if event.target_is_player {
-            test_log!(
-                "DebugNPC: damage Npc({}) dealt {} damage to player({}), hitpoints now {}",
-                event.shooter,
-                event.damage,
-                event.target,
-                event.hitpoints
-            );
-        } else if event.shooter_is_player {
-            test_log!(
-                "DebugNPC: damage Player({}) dealt {} damage to npc({}), hitpoints now {}",
-                event.shooter,
-                event.damage,
-                event.target,
-                event.hitpoints
-            );
-        } else {
-            test_log!(
-                "DebugNPC: damage Npc({}) dealt {} damage to npc({}), hitpoints now {}",
-                event.shooter,
-                event.damage,
-                event.target,
-                event.hitpoints
-            );
-        }
-    }
-}
-
-fn log_death_messages(
-    mut messages: MessageReader<DeathTrace>,
-    traced: Query<&GameNpc, With<DebugNpcTrace>>,
-) {
-    for event in messages.read() {
-        if !is_traced(&traced, &[event.npc]) {
-            continue;
-        }
-        let killer = event
-            .killer
-            .map_or_else(|| "none".to_string(), |killer| killer.value().to_string());
-        test_log!(
-            "DebugNPC: death Npc({}) ran the ZS_DEAD state for killer({killer})",
-            event.npc
-        );
-    }
-}
-
-fn log_weapons_unequipped_messages(
-    mut messages: MessageReader<NpcWeaponsUnequipped>,
-    traced: Query<&GameNpc, With<DebugNpcTrace>>,
-) {
-    for event in messages.read() {
-        if !is_traced(&traced, &[event.instance_id]) {
-            continue;
-        }
-        test_log!(
-            "DebugNPC: weapon npc({}) unequipped its weapons",
-            event.instance_id
-        );
-    }
-}
-
-fn log_action_cancel_messages(
-    mut messages: MessageReader<ActionCancelTrace>,
-    traced: Query<&GameNpc, With<DebugNpcTrace>>,
-) {
-    for event in messages.read() {
-        if !is_traced(&traced, &[event.npc]) {
-            continue;
-        }
-        let name = &event.name;
-        let entity = event.entity;
-        match &event.goto {
-            Some(goto) => test_log!(
-                "DebugNPC: cancel Npc_ClearAIQueue npc({}) canceled the executing goto({goto}) entity({entity}) name({name})",
-                event.npc
-            ),
-            None => test_log!(
-                "DebugNPC: cancel Npc_ClearAIQueue npc({}) canceled the executing action entity({entity}) name({name})",
-                event.npc
-            ),
-        }
     }
 }
 

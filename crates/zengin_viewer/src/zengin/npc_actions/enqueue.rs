@@ -2,7 +2,6 @@ use bevy::prelude::*;
 
 use crate::graphics::AnimationController;
 use crate::perf_debug;
-use crate::zengin::ActionCancelTrace;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::attack::AttackAction;
@@ -402,14 +401,8 @@ pub(crate) fn enqueue_align_actions(
 pub(crate) fn clear_npc_actions(
     mut commands: Commands,
     mut changes: MessageReader<ClearAiQueueChange>,
-    mut action_cancel: MessageWriter<ActionCancelTrace>,
     index: Res<InstanceIndex>,
-    mut action_queues: Query<(
-        &mut NpcActionQueue,
-        Has<ExecutingActionMarker>,
-        Option<&GoToWaypointAction>,
-        Option<&Name>,
-    )>,
+    mut action_queues: Query<(&mut NpcActionQueue, Has<ExecutingActionMarker>)>,
 ) {
     let _perf = perf_debug!();
     for change in changes.read() {
@@ -422,20 +415,13 @@ pub(crate) fn clear_npc_actions(
             continue;
         }
         for &entity in entities {
-            let Ok((mut queue, executing, goto, name)) = action_queues.get_mut(entity) else {
+            let Ok((mut queue, executing)) = action_queues.get_mut(entity) else {
                 continue;
             };
             queue.clear();
             // The marker observer removes the action components.
             if executing {
-                cancel_executing_action(
-                    &mut commands,
-                    &mut action_cancel,
-                    entity,
-                    change.instance_id,
-                    goto,
-                    name,
-                );
+                cancel_executing_action(&mut commands, entity);
             }
             debug!(
                 "Npc_ClearAIQueue npc({}) cleared actions entity({entity})",
@@ -445,22 +431,8 @@ pub(crate) fn clear_npc_actions(
     }
 }
 
-fn cancel_executing_action(
-    commands: &mut Commands,
-    action_cancel: &mut MessageWriter<ActionCancelTrace>,
-    entity: Entity,
-    instance_id: InstanceId,
-    goto: Option<&GoToWaypointAction>,
-    name: Option<&Name>,
-) {
+fn cancel_executing_action(commands: &mut Commands, entity: Entity) {
     commands.entity(entity).remove::<ExecutingActionMarker>();
-    let name = name.map_or("<unnamed>", Name::as_str);
-    action_cancel.write(ActionCancelTrace {
-        npc: instance_id,
-        entity,
-        goto: goto.map(|goto| goto.waypoint.as_str().to_string()),
-        name: name.to_string(),
-    });
 }
 
 /// Turns `AI_UseMob` requests into queued actions.

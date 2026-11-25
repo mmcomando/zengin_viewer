@@ -13,10 +13,10 @@ pub(crate) use body_state::{
 pub(crate) use changes::{
     AlignToWpChange, AnimationChange, AttackChange, ChapterIntro, ClearAiQueueChange, DialogClose,
     DialogLine, GotoChange, GotoFpChange, GotoNpcChange, InventoryGain, ItemChanged,
-    ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, NpcWeaponsUnequipped, OverlayChange,
-    PassivePerception, ProcessInfosChange, RoutineExchange, ScreenMessage, ScriptSound,
-    SetGameTime, SpawnItem, SpawnNpc, StandUpChange, StartStateChange, SvmLine, TurnToNpcChange,
-    UseItemStateChange, UseMobChange, WaitChange,
+    ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, PassivePerception,
+    ProcessInfosChange, RoutineExchange, ScreenMessage, ScriptSound, SetGameTime, SpawnItem,
+    SpawnNpc, StandUpChange, StartStateChange, SvmLine, TurnToNpcChange, UseItemStateChange,
+    UseMobChange, WaitChange,
 };
 pub(crate) use instances::{
     DialogChoice, DialogRoot, ItemRuntime, NpcCheckInfo, NpcRuntime, RoutineEntry, RoutineFunctions,
@@ -413,8 +413,6 @@ pub struct ScriptMessages {
     pub stand_up: ExternalMessageSender<StandUpChange>,
     /// `Npc_ClearAIQueue` requests produced by the script.
     pub clear_ai_queue: ExternalMessageSender<ClearAiQueueChange>,
-    /// `AI_UnEquipWeapons` calls produced by the script.
-    pub weapons_unequipped: ExternalMessageSender<NpcWeaponsUnequipped>,
     /// Item spawn requests queued by the world load and `wld_insertitem`.
     pub spawn_items: ExternalMessageSender<SpawnItem>,
     /// Npc spawn requests queued by `wld_insertnpc`.
@@ -457,7 +455,6 @@ impl ScriptMessages {
         self.wait.clear();
         self.stand_up.clear();
         self.clear_ai_queue.clear();
-        self.weapons_unequipped.clear();
         self.spawn_items.clear();
         self.spawn_npcs.clear();
         self.dialog_lines.clear();

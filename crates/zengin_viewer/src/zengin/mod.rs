@@ -9,11 +9,8 @@ mod loaders;
 mod mobs;
 mod movers;
 pub(crate) use crate::zengin::common::choose_animation_scheme;
-pub(crate) use crate::zengin::debug_npc::{
-    ActionCancelTrace, DamageTrace, DeathTrace, DebugNpc, MobUseReleaseReason, MobUseReleaseTrace,
-    MobUseTrace,
-};
-pub(crate) use crate::zengin::interaction::{grant_test_items, seed_test_journal};
+pub(crate) use crate::zengin::debug_npc::DebugNpc;
+pub(crate) use crate::zengin::interaction::{NpcDied, grant_test_items, seed_test_journal};
 pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
 pub(crate) use crate::zengin::npc_routines::{
     AnimationFiles, NpcOverlay, NpcTalentOverlay, talent_overlay_for,

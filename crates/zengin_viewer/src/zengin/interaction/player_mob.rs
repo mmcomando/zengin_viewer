@@ -26,9 +26,7 @@ use crate::zengin::npc_routines::{
 };
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
-use crate::zengin::{
-    GameMob, GameNpc, MobPose, MobUseReleaseReason, MobUseReleaseTrace, NpcMobUse,
-};
+use crate::zengin::{GameMob, GameNpc, MobPose, NpcMobUse};
 
 /// Player is playing the stand-up transition; the mob use is released when it
 /// ends.
@@ -134,7 +132,6 @@ fn step_animation_name(mob_use: &NpcMobUse, from: i32, to: i32) -> String {
 pub(super) fn close_looted_chest(
     mut commands: Commands,
     mut closed: MessageReader<LootClosed>,
-    mut mob_use_trace: MessageWriter<MobUseReleaseTrace>,
     files: Option<Res<AnimationFiles>>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
@@ -220,17 +217,9 @@ pub(super) fn close_looted_chest(
                 &mut sequencer,
                 &mut mobs,
                 &gothic_script,
-                &mut mob_use_trace,
             );
             continue;
         }
-        mob_use_trace.write(MobUseReleaseTrace {
-            actor: npc.instance_id(),
-            mob: mob_use.mob,
-            reason: MobUseReleaseReason::LeavesChest,
-            transition: release.expected.clone(),
-            animation: None,
-        });
         commands.entity(entity).remove::<MobUsePose>();
         commands.entity(entity).insert(release);
     }
@@ -279,7 +268,6 @@ pub(super) fn release_stale_player_mob_use(
 pub(super) fn stand_up_player_from_mob(
     mut commands: Commands,
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,
-    mut mob_use_trace: MessageWriter<MobUseReleaseTrace>,
     files: Option<Res<AnimationFiles>>,
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
@@ -355,7 +343,6 @@ pub(super) fn stand_up_player_from_mob(
                 &mut sequencer,
                 &mut mobs,
                 &gothic_script,
-                &mut mob_use_trace,
             );
             continue;
         }
@@ -377,7 +364,6 @@ pub(super) fn stand_up_player_from_mob(
 #[allow(clippy::type_complexity)]
 pub(super) fn start_auto_end_release(
     mut commands: Commands,
-    mut mob_use_trace: MessageWriter<MobUseReleaseTrace>,
     files: Res<AnimationFiles>,
     mobs: Query<&GameMob>,
     players: Query<
@@ -390,7 +376,7 @@ pub(super) fn start_auto_end_release(
     >,
 ) {
     let _perf = perf_debug!();
-    for (entity, npc, mob_use, model, overlay) in &players {
+    for (entity, _npc, mob_use, model, overlay) in &players {
         let Ok(mob) = mobs.get(mob_use.mob) else {
             continue;
         };
@@ -405,13 +391,6 @@ pub(super) fn start_auto_end_release(
             mob_use.position_tag.as_deref(),
             mob_use.state,
         );
-        mob_use_trace.write(MobUseReleaseTrace {
-            actor: npc.instance_id(),
-            mob: mob_use.mob,
-            reason: MobUseReleaseReason::AutoEnd,
-            transition: None,
-            animation: Some(pose.clone()),
-        });
         commands.entity(entity).insert(PlayerMobRelease {
             expected: Some(pose),
             state: mob_use.state,
@@ -427,7 +406,6 @@ pub(super) fn start_auto_end_release(
 pub(super) fn advance_player_mob_release(
     time: Res<Time>,
     mut commands: Commands,
-    mut mob_use_trace: MessageWriter<MobUseReleaseTrace>,
     mut ends: MessageReader<AnimationEnds>,
     files: Res<AnimationFiles>,
     mut handles: ResMut<CachedAssetHandles>,
@@ -500,7 +478,6 @@ pub(super) fn advance_player_mob_release(
                 &mut sequencer,
                 &mut mobs,
                 &gothic_script,
-                &mut mob_use_trace,
             );
         }
     }
@@ -518,7 +495,6 @@ fn finish_player_mob_release(
     sequencer: &mut AutoAnimSequencer,
     mobs: &mut Query<(Option<&GameMob>, &mut MobPose)>,
     gothic_script: &ScriptResource,
-    mob_use_trace: &mut MessageWriter<MobUseReleaseTrace>,
 ) {
     // Switch-like mobs keep the state their use applied; only regular pose mobs
     // return to state 0 and report the release to `onStateFunc`.
@@ -536,13 +512,6 @@ fn finish_player_mob_release(
             Err(_) => None,
         }
     };
-    mob_use_trace.write(MobUseReleaseTrace {
-        actor: npc.instance_id(),
-        mob: mob_use.mob,
-        reason: MobUseReleaseReason::Released,
-        transition: None,
-        animation: None,
-    });
     release_mob_use(commands, entity, Some(mob_use), controller, sequencer);
     controller.set_root_motion(true);
     commands.entity(entity).remove::<PlayerMobRelease>();

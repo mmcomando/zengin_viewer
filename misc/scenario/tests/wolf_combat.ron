@@ -30,7 +30,6 @@
     // Assert
     TestScreenshot(path: "02_attack_chase.png"),
     Wait(frame_dt: 50),
-    TestLogExists(regex: "AI_Attack requested by npc\\(12562\\) on target\\(11471\\)"),
     TestLogExists(regex: "DebugNPC: actions Attack\\(target="),
     TestLogExists(regex: "DebugNPC: animation .*current=WOLF-S_FISTRUNL next=- root_motion=true"),
 

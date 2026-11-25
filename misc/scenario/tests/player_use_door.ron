@@ -21,7 +21,6 @@
     TestLogExists(regex: "animation\\(S_DOOR_FRONT_S1\\)"),
     TestLogExists(regex: "state position=\\(0\\.00, -0\\.09, 0\\.00\\)"),
     TestLogNotExists(regex: "state position=\\(.*, .*, -[1-9]"),
-    TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_DOOR_FRONT_S1\\)"),
     TestLogExists(regex: "current=HUMANS-T_DOOR_FRONT_S1_2_STAND"),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
     TestScreenshot(path: "01_door_opened.png"),
@@ -34,7 +33,6 @@
     // Assert
     TestLogExists(regex: "animation\\(S_DOOR_FRONT_S0\\)"),
     TestLogNotExists(regex: "state position=\\(.*, .*, -[1-9]"),
-    TestLogExists(regex: "auto-ends mob\\(.*\\) use, pose\\(S_DOOR_FRONT_S0\\)"),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
     TestScreenshot(path: "02_door_closed.png"),
 

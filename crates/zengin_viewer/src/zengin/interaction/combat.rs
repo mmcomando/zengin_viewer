@@ -23,9 +23,7 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::AttackKind;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{
-    DamageTrace, DeathTrace, GameItem, GameNpc, NpcCorpseMarker, VisibilityRefresh,
-};
+use crate::zengin::{GameItem, GameNpc, NpcCorpseMarker, VisibilityRefresh};
 
 /// Query data of the npc state needed to apply hits and deaths.
 /// Shared with the ranged hit system in [`super::ranged`].
@@ -88,7 +86,6 @@ pub(super) fn melee_swing_hit(
     asset_server: Res<AssetServer>,
     mut game_log: ResMut<GameLog>,
     mut npc_died: MessageWriter<NpcDied>,
-    mut damage_trace: MessageWriter<DamageTrace>,
 ) {
     let _perf = perf_debug!();
     for hit in hits.read() {
@@ -133,7 +130,6 @@ pub(super) fn melee_swing_hit(
             &asset_server,
             &mut game_log,
             &mut npc_died,
-            &mut damage_trace,
         );
     }
 }
@@ -154,7 +150,6 @@ pub(super) fn npc_melee_swing_hit(
     asset_server: Res<AssetServer>,
     mut game_log: ResMut<GameLog>,
     mut npc_died: MessageWriter<NpcDied>,
-    mut damage_trace: MessageWriter<DamageTrace>,
 ) {
     let _perf = perf_debug!();
     for hit in hits.read() {
@@ -229,7 +224,6 @@ pub(super) fn npc_melee_swing_hit(
             &asset_server,
             &mut game_log,
             &mut npc_died,
-            &mut damage_trace,
         );
     }
 }
@@ -253,7 +247,6 @@ pub(crate) fn deal_damage(
     asset_server: &AssetServer,
     game_log: &mut GameLog,
     npc_died: &mut MessageWriter<NpcDied>,
-    damage_trace: &mut MessageWriter<DamageTrace>,
 ) {
     let target_id = target_data.npc.instance_id();
     let (damage, hitpoints, shooter_is_player) = {
@@ -291,14 +284,6 @@ pub(crate) fn deal_damage(
         }
         (damage, hitpoints, shooter_is_player)
     };
-    damage_trace.write(DamageTrace {
-        shooter: shooter_id,
-        target: target_id,
-        shooter_is_player,
-        target_is_player: target_data.is_player,
-        damage,
-        hitpoints,
-    });
     if target_data.is_player {
         game_log.add(format!("Took {damage} damage"));
     } else if shooter_is_player {
@@ -439,7 +424,6 @@ pub(super) fn script_npc_deaths(
 pub(super) fn handle_npc_death(
     mut deaths: MessageReader<NpcDied>,
     mut resolved: MessageWriter<NpcDeathResolved>,
-    mut death_trace: MessageWriter<DeathTrace>,
     mut visibility: MessageWriter<VisibilityRefresh>,
     mut selection: ResMut<Selection>,
     gothic_scripts: Res<ScriptResource>,
@@ -477,10 +461,6 @@ pub(super) fn handle_npc_death(
             state.equipment.ranged = None;
             state.equipment.weapon_mode = None;
         }
-        death_trace.write(DeathTrace {
-            npc: npc_id,
-            killer: death.killer,
-        });
         visibility.write(VisibilityRefresh);
         let position = death.position;
         // Only the drawn weapon drops on the ground; sheathed weapons stay in

@@ -36,7 +36,7 @@
     Wait(frame_dt: 500),
 
     // Assert
-    TestLogExists(regex: "npc\\(\\d+\\) released mob\\([^)]+\\).*stop request"),
+    TestLogExists(regex: "DebugNPC: release .*released mob"),
     TestLogExists(regex: "DebugNPC: actions GoTo\\(nw_bigfarm_house_11\\)"),
 
     ExitGame,

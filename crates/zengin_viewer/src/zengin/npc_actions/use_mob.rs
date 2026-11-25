@@ -22,8 +22,7 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{BS_LIE, BS_SIT, UseMobChange};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{
-    GameMob, GameNpc, MobBase, MobHiddenModel, MobOccupant, MobPose, MobRegistry,
-    MobUseReleaseReason, MobUseReleaseTrace, MobUseTrace, NpcMobUse,
+    GameMob, GameNpc, MobBase, MobHiddenModel, MobOccupant, MobPose, MobRegistry, NpcMobUse,
 };
 
 const MOB_USE_DISTANCE: f32 = MAX_AI_USE_DISTANCE;
@@ -97,6 +96,14 @@ impl MobUsePose {
     pub(crate) fn new(transition: String, pose: String) -> Self {
         Self { transition, pose }
     }
+
+    pub(crate) fn transition(&self) -> &str {
+        &self.transition
+    }
+
+    pub(crate) fn pose(&self) -> &str {
+        &self.pose
+    }
 }
 
 /// Queues the mob pose when the entering transition ends.
@@ -158,7 +165,6 @@ pub(crate) fn advance_mob_use_pose(
 pub(crate) fn release_mob_use_actions(
     mut commands: Commands,
     mut changes: MessageReader<UseMobChange>,
-    mut mob_use_trace: MessageWriter<MobUseReleaseTrace>,
     index: Res<InstanceIndex>,
     mut npcs: Query<(&NpcMobUse, &mut AutoAnimSequencer, &mut AnimationController)>,
 ) {
@@ -171,13 +177,6 @@ pub(crate) fn release_mob_use_actions(
             let Ok((mob_use, mut sequencer, mut controller)) = npcs.get_mut(entity) else {
                 continue;
             };
-            mob_use_trace.write(MobUseReleaseTrace {
-                actor: change.instance_id,
-                mob: mob_use.mob,
-                reason: MobUseReleaseReason::StopRequest,
-                transition: None,
-                animation: None,
-            });
             release_mob_use(
                 &mut commands,
                 entity,
@@ -226,7 +225,6 @@ pub(crate) fn run_use_mob_action(
     mut handles: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     mut desired: MessageWriter<SetDesiredAnimation>,
-    mut mob_use_trace: MessageWriter<MobUseTrace>,
     mob_registry: Res<MobRegistry>,
     mut mobs: Query<(
         Option<&GameMob>,
@@ -264,7 +262,7 @@ pub(crate) fn run_use_mob_action(
         mut controller,
         npc_mob_use,
         body_root_offset,
-        is_player,
+        _is_player,
     ) in &mut npcs
     {
         let Some(model) = model else {
@@ -367,24 +365,6 @@ pub(crate) fn run_use_mob_action(
                 )
             })
             .flatten();
-        if let Ok((game_mob, mob_pose, base, ..)) = mobs.get(choice.mob) {
-            mob_use_trace.write(MobUseTrace {
-                actor: npc.instance_id(),
-                is_player,
-                mob: choice.mob,
-                vob_name: choice.vob_name.clone(),
-                visual_stem: mob_pose.visual_stem.clone(),
-                focus_name: base.focus_name.clone(),
-                condition_func: game_mob
-                    .map(|mob| mob.condition_func.clone())
-                    .unwrap_or_default(),
-                on_state_func: choice.on_state_func.clone(),
-                scheme: action.scheme.as_str().to_string(),
-                state: use_state,
-                animation: pose.clone(),
-                transition: transition.clone(),
-            });
-        }
         let first = transition.as_deref().unwrap_or(&pose);
         queue_named_animation(
             &mut controller,
@@ -513,7 +493,6 @@ fn release_mob_occupancy(
 /// Available mob selected for an `AI_UseMob` request.
 struct MobChoice {
     mob: Entity,
-    vob_name: String,
     /// Script hook run when the npc reaches the mob's final state.
     on_state_func: String,
     use_pos: Vec3,
@@ -564,7 +543,7 @@ fn select_mob(
         if claimed.contains(&mob_entity) {
             continue;
         }
-        let Ok((mob, pose, base, mob_tr, occupant, model, hidden)) = mobs.get_mut(mob_entity)
+        let Ok((mob, pose, _base, mob_tr, occupant, model, hidden)) = mobs.get_mut(mob_entity)
         else {
             continue;
         };
@@ -586,7 +565,6 @@ fn select_mob(
         {
             best = Some(MobChoice {
                 mob: mob_entity,
-                vob_name: base.vob_name.clone(),
                 on_state_func: mob.map_or_default(|mob| mob.on_state_func.clone()),
                 use_pos,
                 use_rot,
@@ -617,7 +595,7 @@ fn mob_choice(
     mob_entity: Entity,
     npc_pos: Vec3,
 ) -> Option<MobChoice> {
-    let Ok((mob, pose, base, mob_tr, occupant, model, hidden)) = mobs.get_mut(mob_entity) else {
+    let Ok((mob, pose, _base, mob_tr, occupant, model, hidden)) = mobs.get_mut(mob_entity) else {
         return None;
     };
     if occupant.is_some() {
@@ -627,7 +605,6 @@ fn mob_choice(
         mob_use_transform(&pose, mob_tr, npc_pos, model.is_some() || hidden.is_some())?;
     Some(MobChoice {
         mob: mob_entity,
-        vob_name: base.vob_name.clone(),
         on_state_func: mob.map_or_default(|mob| mob.on_state_func.clone()),
         use_pos,
         use_rot,

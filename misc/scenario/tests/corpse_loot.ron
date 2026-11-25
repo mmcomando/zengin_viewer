@@ -16,7 +16,7 @@
     Release(action: Gameplay(DealDamage)),
 
     // Assert
-    TestLogExists(regex: "ran the ZS_DEAD state for killer"),
+    TestLogExists(regex: "DebugNPC: death .* killer"),
     TestScreenshot(path: "01_dead.png"),
 
     // Act

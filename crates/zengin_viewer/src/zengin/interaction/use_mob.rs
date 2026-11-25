@@ -21,7 +21,7 @@ use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::InstanceId;
-use crate::zengin::{GameMob, GameNpc, MobBase, MobPose, MobUseTrace, NpcMobUse, VobTrigger};
+use crate::zengin::{GameMob, GameNpc, MobBase, MobPose, NpcMobUse, VobTrigger};
 
 /// Runs the mob's script-side use conditions and logs the reason when the
 /// player is not allowed to interact.
@@ -86,7 +86,6 @@ pub(super) fn use_selected_mob(
     animation_files: Option<Res<AnimationFiles>>,
     gothic_script: Res<ScriptResource>,
     mut vob_trigger: MessageWriter<VobTrigger>,
-    mut mob_use_trace: MessageWriter<MobUseTrace>,
 ) {
     let _perf = perf_debug!();
     if !action_state.just_pressed(&GameplayAction::Interact) {
@@ -160,20 +159,6 @@ pub(super) fn use_selected_mob(
 
     let state = i32::from(pose.state <= 0);
     pose.state = state;
-    mob_use_trace.write(MobUseTrace {
-        actor: player,
-        is_player: true,
-        mob: target,
-        vob_name: base.vob_name.clone(),
-        visual_stem: pose.visual_stem.clone(),
-        focus_name: base.focus_name.clone(),
-        condition_func: mob.condition_func.clone(),
-        on_state_func: mob.on_state_func.clone(),
-        scheme: pose.scheme.clone(),
-        state,
-        animation: String::new(),
-        transition: None,
-    });
     fire_trigger(&mut mob, &mut vob_trigger);
     gothic_script
         .lock()
