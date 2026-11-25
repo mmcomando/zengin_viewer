@@ -22,7 +22,7 @@ impl super::ScriptManager {
             .item_data(item.value() as u32)
             .map_or(0, |data| data.mainflag);
         if mainflag & ITEM_MAINFLAG_ARMOR != 0 {
-            self.npc_state_mut(npc).equipment.armor = Some(item);
+            self.store.data_mut().set_npc_armor(npc, Some(item));
             return;
         }
         let kind = self
@@ -53,9 +53,9 @@ impl super::ScriptManager {
             .is_some_and(|data| data.mainflag & ITEM_MAINFLAG_ARMOR != 0)
     }
 
-    /// Removes the npc's armor.
+    /// Removes the npc's armor and its protection.
     pub fn unequip_armor(&mut self, npc: InstanceId) {
-        self.npc_state_mut(npc).equipment.armor = None;
+        self.store.data_mut().set_npc_armor(npc, None);
     }
 
     /// Draws the npc's weapon into the hand (`Npc_SetToFightMode` semantics).

@@ -1,5 +1,6 @@
 #![allow(clippy::multiple_inherent_impl)]
 
+mod armor;
 mod body_state;
 mod changes;
 mod instances;

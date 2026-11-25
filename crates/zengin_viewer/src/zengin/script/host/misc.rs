@@ -89,7 +89,7 @@ impl mmcomando::zengine_scripts::misc_scripts::Host for ImportCallState {
             .item(item.value() as u32)
             .map_or(0, |data| data.mainflag);
         if mainflag & ITEM_MAINFLAG_ARMOR != 0 {
-            self.npc_state_mut(npc).equipment.armor = Some(item);
+            self.set_npc_armor(npc, Some(item));
             return;
         }
         let kind = self

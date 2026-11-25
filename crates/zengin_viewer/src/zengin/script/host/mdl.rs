@@ -17,11 +17,11 @@ impl mmcomando::zengine_scripts::mdl_scripts::Host for ImportCallState {
         };
         let body_model_id = self.symbol_table.string(body_model);
         let head_model_id = self.symbol_table.string(head_model);
+        // The armor argument is an item instance symbol, not a string literal
+        self.set_npc_armor(npc_index, InstanceId::new(armor_model));
         let mut entry = self.npc_state_mut(npc_index);
         entry.visual.body_model_id = body_model_id;
         entry.visual.head_model_id = head_model_id;
-        // The armor argument is an item instance symbol, not a string literal
-        entry.equipment.armor = InstanceId::new(armor_model);
         entry.visual.face_texture_index = face_texture_index;
         entry.visual.body_texture_index = body_texture_index;
         entry.visual.initialized = true;
