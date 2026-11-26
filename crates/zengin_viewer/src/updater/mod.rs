@@ -1,6 +1,5 @@
 //! Amortized periodic callback execution.
 
-mod executor;
 mod periodic;
 mod plugin;
 

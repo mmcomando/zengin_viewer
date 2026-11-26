@@ -3,8 +3,8 @@ use bevy::prelude::*;
 use crate::game_state::AppState;
 use crate::input::Options;
 
-use super::executor::AmortizedExecutor;
 use crate::perf_debug;
+use dev_util::amortized_executor::AmortizedExecutor;
 
 /// Registers [`AmortizedExecutor`] and advances it every frame.
 pub(crate) struct AmortizedExecutorPlugin;

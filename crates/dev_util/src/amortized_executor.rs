@@ -1,3 +1,6 @@
+//! Run a set of periodic callbacks on a virtual clock under a per-frame work
+//! budget, so their combined cost stays roughly constant between frames.
+
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap};
 use std::sync::Arc;
@@ -8,7 +11,7 @@ use std::time::Duration;
 ///
 /// Holds the Exponential Moving Average of the measured real cost of the work the callback triggers,
 /// in microseconds. The value can be updated from any thread once that work is finished.
-pub(crate) struct CallbackControl {
+pub struct CallbackControl {
     effort_us: AtomicU64,
     /// Period used when the callback is rescheduled, changeable at runtime.
     period_ms: AtomicU32,
@@ -24,12 +27,12 @@ impl CallbackControl {
 
     /// Current effort estimate in microseconds.
     #[must_use]
-    pub(crate) fn effort_us(&self) -> u64 {
+    pub fn effort_us(&self) -> u64 {
         self.effort_us.load(AtomicOrdering::Relaxed)
     }
 
     /// Feeds a freshly measured cost in microseconds into the estimate.
-    pub(crate) fn update_effort(&self, measured_us: u64) {
+    pub fn update_effort(&self, measured_us: u64) {
         let old = self.effort_us.load(AtomicOrdering::Relaxed);
         let new = (EMA_NEW_WEIGHT * measured_us + (EMA_TOTAL_WEIGHT - EMA_NEW_WEIGHT) * old)
             / EMA_TOTAL_WEIGHT;
@@ -38,7 +41,7 @@ impl CallbackControl {
     }
 
     /// Changes the period used for the following reschedules.
-    pub(crate) fn set_period(&self, period: Duration) {
+    pub fn set_period(&self, period: Duration) {
         let period_ms = to_period_ms(period);
         self.period_ms.store(period_ms, AtomicOrdering::Relaxed);
     }
@@ -50,7 +53,7 @@ impl CallbackControl {
 
 /// Identifier of a registered callback, used to remove it.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub(crate) struct CallbackHandle(u32);
+pub struct CallbackHandle(u32);
 
 /// Sorts callbacks by next deadline; the registration id breaks ties so equal
 /// deadlines keep a stable, deterministic order.
@@ -86,7 +89,7 @@ struct Task {
 /// Time is a virtual counter advanced only by [`execute`](Self::execute), so it
 /// can be paused and never jumps on real-time hitches. Deadlines are this
 /// virtual time in milliseconds, while effort is real execution time.
-pub(crate) struct AmortizedExecutor {
+pub struct AmortizedExecutor {
     now_ms: u32,
     /// Sub-millisecond part of the real delta that was not yet added to
     /// `now_ms`, so truncating the frame delta does not slow the clock down.
@@ -103,7 +106,7 @@ impl AmortizedExecutor {
     /// Executor that does not skip due work, used when replay determinism
     /// matters more than frame smoothing.
     #[must_use]
-    pub(crate) fn new_unlimited() -> Self {
+    pub fn new_unlimited() -> Self {
         Self {
             budget_us: u64::MAX,
             max_budget_us: u64::MAX,
@@ -117,7 +120,7 @@ impl AmortizedExecutor {
     ///
     /// The first run is offset into `(period, 2 * period)` by a deterministic
     /// jitter, so callbacks registered together do not all become due at once.
-    pub(crate) fn add(
+    pub fn add(
         &mut self,
         period: Duration,
         callback: impl FnMut(&Arc<CallbackControl>) + Send + Sync + 'static,
@@ -142,13 +145,13 @@ impl AmortizedExecutor {
 
     /// Removes a registered callback. Its heap entry is skipped when it comes
     /// due.
-    pub(crate) fn remove(&mut self, handle: CallbackHandle) {
+    pub fn remove(&mut self, handle: CallbackHandle) {
         self.tasks.remove(&handle.0);
     }
 
     /// Advances virtual time by `delta_us` and runs due callbacks until the
     /// frame budget is spent. At least one due callback always runs.
-    pub(crate) fn execute(&mut self, delta_us: u64) {
+    pub fn execute(&mut self, delta_us: u64) {
         self.advance(delta_us);
 
         let budget_us = self.budget_us;

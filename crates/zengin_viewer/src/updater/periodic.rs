@@ -7,9 +7,9 @@ use bevy::prelude::*;
 
 use crate::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
 
-use super::executor::{CallbackControl, CallbackHandle};
 use super::plugin::AmortizedExecutorResource;
 use crate::perf_debug;
+use dev_util::amortized_executor::{CallbackControl, CallbackHandle};
 
 /// Marker type selecting one independent stream of periodic updates.
 ///

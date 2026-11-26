@@ -5,7 +5,10 @@
 //! - [`test_log!`] a stable `TEST_LOG` log target for scenario assertions.
 //! - [`warn_once!`] and [`warn_unimplemented!`] log a warning only the first
 //!   time the call site runs.
+//! - [`amortized_executor`] runs a set of callbacks on a virtual clock under a
+//!   per-frame work budget.
 
+pub mod amortized_executor;
 mod logging;
 pub mod perf_debug;
 
