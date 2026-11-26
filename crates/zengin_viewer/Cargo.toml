@@ -9,7 +9,6 @@ edition = "2024"
 bevy = { workspace = true, features = ["dynamic_linking", "bevy_dev_tools", "render_dev_tools", "free_camera", "serialize"] }
 leafwing-input-manager = { workspace = true }
 avian3d = { workspace = true }
-bevy_rich_text3d = { workspace = true }
 bevy_egui = { workspace = true }
 # Upstream is slow to update
 bevy_mod_openxr = { workspace = true }
@@ -17,14 +16,7 @@ bevy_mod_xr = { workspace = true }
 bevy_xr_utils = { workspace = true }
 
 # ZenGin related
-ZenKit-rs = { path = "../ZenKit-rs" }
-dmusic-sys = { path = "../dmusic-sys" }
-daedalus_wasm = { path = "../daedalus_wasm" }
 daedalus_typed = { path = "../daedalus_typed" }
-wasmtime = { workspace = true }
-
-# Game related
-pathfinding = "4.16.0"
 
 # Internal developer utilities
 dev_util = { path = "../dev_util" }
@@ -45,7 +37,6 @@ rodio = { version = "0.22.2", features = ["symphonia-wav", "symphonia-adpcm"] }
 clap = { version = "4", features = ["derive"] }
 byteorder = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
-rand_mt = "6.1.0"
 regex = "1.13"
 bevy-inspector-egui = { workspace = true }
 egui_dock = { workspace = true }
