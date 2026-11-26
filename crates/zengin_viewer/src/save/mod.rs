@@ -11,4 +11,4 @@ pub(crate) use file::{
     SaveEntry, current_script_fingerprint, display_name, list_saves, new_save_dir, newest_save,
     read_save, write_save,
 };
-pub(crate) use systems::{LoadSaveRequest, PendingLoad, QuickLoad, QuickSave, QuickSavePlugin};
+pub(crate) use systems::{LoadSaveRequest, QuickLoad, QuickSave, QuickSavePlugin};

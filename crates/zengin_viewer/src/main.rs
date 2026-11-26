@@ -222,6 +222,13 @@ fn main() {
     // handles that.
     app.add_plugins(GuiDebugPlugin);
 
+    // The default world spawn is explicit: a direct start requests it here, a
+    // main menu run requests it when New Game is picked, and a scenario run
+    // requests its worlds itself.
+    if initial_state == AppState::LoadScreen && !scenario_enabled {
+        crate::zengin::request_initial_world(app.world_mut());
+    }
+
     // Run
     app.run();
 }

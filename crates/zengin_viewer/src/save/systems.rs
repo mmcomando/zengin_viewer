@@ -22,7 +22,7 @@ use crate::zengin::PlayerCharacter;
 use crate::zengin::StaticMesh;
 use crate::zengin::{
     CurrentWorld, GameChest, GameItem, GameNpc, LoadingWorld, MobBase, NpcOverlay, ScriptResource,
-    begin_world_load, request_initial_world,
+    begin_world_load,
 };
 use dev_util::perf_debug;
 
@@ -60,10 +60,7 @@ impl Plugin for QuickSavePlugin {
         app.add_message::<LoadSaveRequest>();
         app.init_resource::<PendingLoad>();
         app.add_systems(Update, handle_load_save_request);
-        app.add_systems(
-            OnEnter(AppState::LoadScreen),
-            apply_pending_load.after(request_initial_world),
-        );
+        app.add_systems(OnEnter(AppState::LoadScreen), apply_pending_load);
         app.add_systems(
             Update,
             handle_quick_save_load_input.run_if(in_state(AppState::InGame)),

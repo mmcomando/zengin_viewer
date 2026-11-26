@@ -13,7 +13,6 @@ use crate::gameplay::objects::NpcModel;
 use crate::graphics::{NpcAnimations, PlayerMeleeCombo};
 use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
 use crate::input::Options;
-use crate::save::PendingLoad;
 use crate::save::format::{SaveGame, SavedChest, SavedNpc, SavedObject, SavedObjectBuilder};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::WorldEntityMarker;
@@ -75,10 +74,7 @@ impl Plugin for ZenGinWorldPlugin {
         app.add_message::<NewGame>();
         app.add_message::<SpawnPlayer>();
         app.add_message::<SpawnNpc>();
-        app.add_systems(
-            OnEnter(AppState::LoadScreen),
-            (reset_load_screen_elapsed, request_initial_world),
-        );
+        app.add_systems(OnEnter(AppState::LoadScreen), reset_load_screen_elapsed);
         app.add_systems(First, restart_world.run_if(on_message::<RestartWorld>));
         app.add_systems(First, new_game.run_if(on_message::<NewGame>));
         app.add_systems(
@@ -208,31 +204,13 @@ impl NpcSpawnNameFilter {
     }
 }
 
-pub(crate) fn request_initial_world(
-    mut pending_spawns: ResMut<PendingWorldSpawns>,
-    current_world: Res<CurrentWorld>,
-    pending_load: Res<PendingLoad>,
-    mut loading_world: ResMut<LoadingWorld>,
-    options: Res<Options>,
-) {
+/// Queues the default world spawn. Called explicitly by the top-level setup
+/// and by the main menu's New Game action; replays request their worlds
+/// themselves instead.
+pub(crate) fn request_initial_world(world: &mut World) {
     let _perf = perf_debug!();
-    if options.scenario_enabled() {
-        info!("Skipping the default world spawn, the scenario run requests it explicitly");
-        return;
-    }
-    if pending_load.0.is_some() {
-        info!("Skipping the default world spawn, a save load is pending");
-        return;
-    }
-    if !current_world.0.is_empty() {
-        info!(
-            "World {} already spawned, resuming without reload",
-            current_world.0
-        );
-        return;
-    }
-    *loading_world = LoadingWorld(START_WORLD.to_string());
-    pending_spawns.0.push_back(clean_spawn_request(START_WORLD));
+    info!("Requesting the default world spawn {START_WORLD}");
+    request_world_spawn(world, START_WORLD);
 }
 
 /// Queues a spawn of `world_name` without touching script state, so it can

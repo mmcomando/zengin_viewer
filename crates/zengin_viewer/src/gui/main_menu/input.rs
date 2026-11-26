@@ -30,6 +30,7 @@ pub(super) fn handle_main_menu_input(
     mut new_game: MessageWriter<NewGame>,
     mut load_request: MessageWriter<LoadSaveRequest>,
     mut exit: MessageWriter<AppExit>,
+    mut commands: Commands,
 ) {
     let _perf = perf_debug!();
     if !state.open {
@@ -83,6 +84,7 @@ pub(super) fn handle_main_menu_input(
                 &mut quick_save,
                 &mut new_game,
                 &mut exit,
+                &mut commands,
             );
         }
         MainMenuScreen::Load => {
@@ -113,6 +115,7 @@ fn handle_main_item(
     quick_save: &mut MessageWriter<QuickSave>,
     new_game: &mut MessageWriter<NewGame>,
     exit: &mut MessageWriter<AppExit>,
+    commands: &mut Commands,
 ) {
     for (action, argument) in &item.on_sel_action {
         match (*action, argument.as_str()) {
@@ -124,7 +127,7 @@ fn handle_main_item(
                 open_load_screen(state, load);
             }
             (SEL_ACTION_CLOSE, "NEW_GAME") => {
-                start_new_game(in_game, play_time, new_game, next_state);
+                start_new_game(in_game, play_time, new_game, next_state, commands);
             }
             _ => apply_action(*action, argument, next_state, exit),
         }
@@ -139,14 +142,18 @@ fn start_new_game(
     play_time: &mut PlayTime,
     new_game: &mut MessageWriter<NewGame>,
     next_state: &mut NextState<AppState>,
+    commands: &mut Commands,
 ) {
     info!("Main menu: starting new game");
     play_time.reset();
     if in_game {
         new_game.write(NewGame);
-    } else {
-        next_state.set(AppState::LoadScreen);
+        return;
     }
+    // The game script is not loaded yet, so the default world spawn is only
+    // queued here; it runs once the loading screen has the script ready.
+    commands.queue(|world: &mut World| crate::zengin::request_initial_world(world));
+    next_state.set(AppState::LoadScreen);
 }
 
 fn handle_load_item(
