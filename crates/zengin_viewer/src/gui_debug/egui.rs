@@ -9,7 +9,7 @@ use crate::gui_debug::state::{
     DebugTab, DebugUiState, EntityQueryData, EntityQueryFilter, EntityRow, details_data,
 };
 use dev_util::perf_debug;
-use zengin_lib::gameplay::camera::{CameraResource, EditorMode};
+use zengin_lib::{CameraResource, EditorMode};
 use zengin_lib::{ScriptResource, Selection};
 
 pub struct GameDebugUI;

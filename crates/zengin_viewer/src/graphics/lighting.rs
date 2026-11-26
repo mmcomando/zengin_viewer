@@ -6,7 +6,7 @@ use std::f32::consts::PI;
 
 use super::RenderOptions;
 use dev_util::perf_debug;
-use zengin_lib::gameplay::game_time::GameTime;
+use zengin_lib::GameTime;
 
 /// Spawns the sun/moon light and adjusts day/night lighting from the game time.
 pub struct LightingPlugin;

@@ -1,15 +1,15 @@
 //! Player interactions with the selected world object.
 
-pub mod ranged;
-pub mod selection;
+pub(crate) mod ranged;
+pub(crate) mod selection;
 
-pub mod actions;
-pub mod combat;
-pub mod debug;
-pub mod lockpick;
-pub mod loot;
-pub mod player_mob;
-pub mod use_mob;
+pub(crate) mod actions;
+pub(crate) mod combat;
+pub(crate) mod debug;
+pub(crate) mod lockpick;
+pub(crate) mod loot;
+pub(crate) mod player_mob;
+pub(crate) mod use_mob;
 
 use bevy::prelude::*;
 

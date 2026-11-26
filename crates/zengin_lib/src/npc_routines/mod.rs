@@ -1,12 +1,12 @@
 //! Npc routine driving: waypoint routines, look-at and weapon state changes
 //! produced by the script vm, weapon mesh attachment and path following.
 
-pub mod armor;
-pub mod health;
-pub mod overlay;
-pub mod routines;
-pub mod script_animation;
-pub mod weapons;
+pub(crate) mod armor;
+pub(crate) mod health;
+pub(crate) mod overlay;
+pub(crate) mod routines;
+pub(crate) mod script_animation;
+pub(crate) mod weapons;
 
 use bevy::prelude::*;
 

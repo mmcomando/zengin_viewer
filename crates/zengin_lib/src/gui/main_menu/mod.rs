@@ -4,11 +4,11 @@ use crate::AppState;
 use crate::PendingMusic;
 use crate::{CurrentWorld, MenuScriptResource};
 
-pub mod input;
-pub mod render;
-pub mod spawn;
-pub mod state;
-pub mod style;
+pub(crate) mod input;
+pub(crate) mod render;
+pub(crate) mod spawn;
+pub(crate) mod state;
+pub(crate) mod style;
 
 pub use state::MainMenuState;
 

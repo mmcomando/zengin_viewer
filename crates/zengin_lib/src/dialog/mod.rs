@@ -1,8 +1,8 @@
-pub mod camera;
-pub mod flow;
-pub mod sounds;
-pub mod state;
-pub mod ui;
+pub(crate) mod camera;
+pub(crate) mod flow;
+pub(crate) mod sounds;
+pub(crate) mod state;
+pub(crate) mod ui;
 
 pub use sounds::SpeechSounds;
 

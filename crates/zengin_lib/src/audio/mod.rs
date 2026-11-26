@@ -4,11 +4,11 @@
 //! names, `DirectMusic` themes) lives here; the top-level `audio` module only
 //! plays the resulting [`PlaySound`] requests.
 
-pub mod music;
-pub mod music_definitions;
-pub mod script_sound;
-pub mod sound_definitions;
-pub mod svm;
+pub(crate) mod music;
+pub(crate) mod music_definitions;
+pub(crate) mod script_sound;
+pub(crate) mod sound_definitions;
+pub(crate) mod svm;
 
 use bevy::prelude::*;
 

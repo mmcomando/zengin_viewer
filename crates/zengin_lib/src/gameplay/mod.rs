@@ -1,6 +1,6 @@
-pub mod camera;
-pub mod character;
-pub mod character_camera;
-pub mod distance;
-pub mod game_time;
-pub mod objects;
+pub(crate) mod camera;
+pub(crate) mod character;
+pub(crate) mod character_camera;
+pub(crate) mod distance;
+pub(crate) mod game_time;
+pub(crate) mod objects;

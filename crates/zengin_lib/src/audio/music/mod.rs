@@ -5,8 +5,8 @@
 //! long-lived Bevy audio entity renders that performance through
 //! [`MusicSource`].
 
-pub mod engine;
-pub mod source;
+pub(crate) mod engine;
+pub(crate) mod source;
 
 use bevy::audio::AddAudioSource;
 use bevy::prelude::*;

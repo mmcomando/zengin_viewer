@@ -1,10 +1,10 @@
 #![allow(clippy::multiple_inherent_impl)]
 
-pub mod armor;
-pub mod body_state;
-pub mod changes;
-pub mod instances;
-pub mod weapons;
+pub(crate) mod armor;
+pub(crate) mod body_state;
+pub(crate) mod changes;
+pub(crate) mod instances;
+pub(crate) mod weapons;
 
 use crate::world_spawn::SpawnFromSavedObject;
 

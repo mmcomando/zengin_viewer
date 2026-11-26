@@ -8,8 +8,7 @@
     // From clippy::restriction
     clippy::blanket_clippy_restriction_lints, // We decide what to allow, if new ones come then we decide if we want them
 
-    // The crate was extracted from a binary; internals are public until the
-    // API is trimmed, so API-shape lints are deferred.
+    // API-shape lints are deferred for now.
     clippy::exhaustive_enums,
     clippy::exhaustive_structs,
     clippy::must_use_candidate,
@@ -110,121 +109,76 @@
     clippy::uninlined_format_args
 )]
 
-pub mod animation;
-pub mod audio;
-pub mod change_level;
-pub mod common;
-pub mod dialog;
-pub mod fight_ai;
-pub mod game_state;
-pub mod gameplay;
-pub mod gui;
-pub mod instance_index;
-pub mod interaction;
-pub mod loaders;
-pub mod mobs;
-pub mod movers;
-pub use crate::animation::{
-    AnimatedJoint, AnimationController, AnimationData, AnimationEnds, AnimationGraph,
-    AnimationSample, AnimationState, AnimationTriggers, AnimationTriggersPlugin, AutoAnimSequencer,
-    AutoAnimSequencerSet, BoneAnimationData, DesiredAnimation, FrameState, MeleeAttackKind,
-    NpcAnimations, NpcHitReaction, PlayerMeleeCombo, SetDesiredAnimation, SkeletalAnimations,
-    animation_name_from_path, is_melee_attack_animation, npc_hit_reaction_end, play_hit_reaction,
-};
-pub use crate::common::choose_animation_scheme;
-pub use crate::interaction::{NpcDied, grant_test_items, seed_test_journal};
-pub use crate::loaders::vdf_reader::get_zengin_asset_bytes;
-pub use crate::npc_routines::{AnimationFiles, NpcOverlay, NpcTalentOverlay, talent_overlay_for};
-pub mod item_data;
-pub mod item_visual;
-pub mod npc_actions;
-pub mod npc_corpse;
-pub mod npc_data;
-pub mod npc_perception;
-pub mod npc_routines;
-pub mod objects_to_entities;
-pub mod resources;
-pub mod save;
-pub mod script;
-pub mod statistics;
-pub mod visual;
-pub mod waypoint_graph;
-pub mod world_entity;
-pub mod world_plugin;
-pub mod world_spawn;
+mod animation;
+mod audio;
+mod change_level;
+mod common;
+mod dialog;
+mod fight_ai;
+mod game_state;
+mod gameplay;
+mod gui;
+mod instance_index;
+mod interaction;
+mod item_data;
+mod item_visual;
+mod loaders;
+mod mobs;
+mod movers;
+mod npc_actions;
+mod npc_corpse;
+mod npc_data;
+mod npc_perception;
+mod npc_routines;
+mod objects_to_entities;
+mod resources;
+mod save;
+mod script;
+mod statistics;
+mod visual;
+mod waypoint_graph;
+mod world_entity;
+mod world_plugin;
+mod world_spawn;
 
 use bevy::prelude::*;
 
-// Expose only what is needed for outside modules
-pub use crate::audio::{PendingMusic, PlaySound, PlayVoice, StopVoice};
-pub use crate::common::MobPosition;
-pub use crate::common::MusicZones;
-pub use crate::common::animation_file_name;
-pub use crate::common::face_direction_quat;
-pub use crate::common::get_animation_path;
-pub use crate::common::get_dialog_sound_path;
-pub use crate::common::get_full_texture_path;
-pub use crate::common::gothic_dat_path;
-pub use crate::common::gothic2_dir;
-pub use crate::common::to_world_units;
+// Public API consumed by the viewer crate.
+pub use crate::animation::{AnimatedJoint, AnimationController, SkeletalAnimations};
+pub use crate::audio::{PlaySound, PlayVoice, StopVoice};
 pub use crate::dialog::DialogRequest;
 pub use crate::dialog::DialogUiState;
 pub use crate::dialog::DialogVoice;
 pub use crate::dialog::SpeechSounds;
-pub use crate::fight_ai::{FightAiResource, load_fight_ai_tables};
-pub use crate::game_state::{
-    AppState, GameStatePlugin, LoadingScreenReady, loading_screen_ready, world_is_loaded,
-};
-pub use crate::interaction::MeleeHit;
-pub use crate::interaction::ranged::ArrowShot;
-pub use crate::interaction::selection::{Selection, SelectionKind};
-pub use crate::item_data::ItemHandle;
+pub use crate::game_state::{AppState, GameStatePlugin};
+pub use crate::interaction::selection::Selection;
+pub use crate::interaction::{NpcDied, grant_test_items, seed_test_journal};
 pub use crate::loaders::vdf_reader::{ZenginVfs, create_zengin_asset_loader, create_zengin_vfs};
-pub use crate::loaders::vfs::{resolve_sound_asset, resolve_texture_asset};
-pub use crate::mobs::{MobHiddenModel, MobOccupant, MobRegistry, NpcMobUse};
-pub use crate::movers::{GameMover, VobTrigger};
+pub use crate::mobs::NpcMobUse;
+pub use crate::movers::GameMover;
 pub use crate::npc_actions::NpcActionQueue;
 pub use crate::npc_actions::enqueue_npc_goto;
 pub use crate::npc_actions::{
     AttackAction, GoToNpcAction, GoToWaypointAction, MobUsePose, StandUpAction, UseItemStateAction,
     UseMobAction,
 };
-pub use crate::npc_corpse::NpcCorpseMarker;
-pub use crate::npc_data::NpcHandle;
-pub use crate::npc_perception::{NpcAutoTalkOptions, VisibilityRefresh};
+pub use crate::npc_perception::NpcAutoTalkOptions;
 pub use crate::npc_routines::NpcEquippedWeapon;
 pub use crate::npc_routines::NpcHealth;
+pub use crate::npc_routines::NpcOverlay;
 pub use crate::npc_routines::NpcWeaponMode;
 pub use crate::npc_routines::RoutineExecutor;
-pub use crate::resources::CachedAssetHandles;
-pub use crate::resources::NPC_BODY;
-pub use crate::resources::{DYNAMIC_OBJECT, SELECTABLE, STATIC_OBJECT, ZenGinModelComponentLoaded};
-pub use crate::script::bridge::ScriptChangesApplied;
+pub use crate::resources::{DYNAMIC_OBJECT, STATIC_OBJECT, ZenGinModelComponentLoaded};
 pub use crate::script::component::ScriptResource;
-pub use crate::script::journal::{JournalSection, JournalStatus, JournalTopic};
-pub use crate::script::manager::ItemDisplayData;
 pub use crate::script::manager::ScriptManager;
-pub use crate::script::state::ChapterIntro;
-pub use crate::script::state::ScreenMessage;
 pub use crate::script::state::ScriptSound;
 pub use crate::script::state::SetGameTime;
-pub use crate::script::state::SvmLine;
-
-pub use crate::script::state::WeaponClass;
 pub use crate::script::state::WeaponKind;
 pub use crate::script::state::WeaponMode;
 pub use crate::script::state::{ClearAiQueueChange, NpcEntitiesChanged};
-pub use crate::script::state::{
-    ItemRuntime, MobRoutineEntry, NpcRuntime, ScriptMessages, UseMobChange,
-};
+pub use crate::script::state::{ScriptMessages, UseMobChange};
 pub use crate::script::string_value::StringCanon;
 pub use crate::script::symbol_id::InstanceId;
-pub use crate::script::{
-    MENU_FLAG_ALIGN_CENTER, MENU_FLAG_DONT_SCALE_DIM, MENU_FLAG_SHOW_INFO, MENU_ITEM_FLAG_DISABLED,
-    MENU_ITEM_FLAG_TXT_CENTER, MENU_SCRIPT_DIV, MenuDefinition, MenuItemDefinition,
-    MenuScriptResource, SEL_ACTION_BACK, SEL_ACTION_CLOSE, SEL_ACTION_START_MENU,
-    ensure_menu_script,
-};
 pub use crate::statistics::StatisticsZengin;
 pub use crate::waypoint_graph::WaypointGraph;
 pub use crate::waypoint_graph::add_waypoint;
@@ -233,13 +187,82 @@ pub use crate::world_entity::{
     WorldMesh,
 };
 pub use crate::world_plugin::{
-    CurrentWorld, LoadingWorld, NewGame, NpcSpawnNameFilter, RestartWorld, START_WORLD,
-    begin_world_load, load_world_prototypes, request_initial_world, request_player_spawn,
-    request_world_spawn,
+    NpcSpawnNameFilter, RestartWorld, START_WORLD, load_world_prototypes, request_initial_world,
+    request_player_spawn, request_world_spawn,
 };
 pub use crate::world_spawn::{
     SpawnFromSavedObject, SpawnPoint, SpawnPositionFilter, VobPrototypes, WorldSpawnMessages,
 };
+
+pub use crate::gameplay::camera::{
+    CameraPlugin, CameraResource, EditorMode, TELEPORT_LOCATIONS, TeleportToLocation,
+};
+pub use crate::gameplay::character::CharacterControllerPlugin;
+pub use crate::gameplay::character_camera::camera_toggle_input;
+pub use crate::gameplay::distance::DistancePlugin;
+pub use crate::gameplay::game_time::{GameTime, GameTimePlugin};
+pub use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
+pub use crate::gui::{
+    ChapterScreenPlugin, ChapterScreenState, GameLog, GameLogPlugin, HealthBarsPlugin,
+    InventoryUiPlugin, InventoryUiState, JournalUiPlugin, JournalUiState, LoadingScreenPlugin,
+    LockpickOpened, LootSource, MainMenuPlugin, OpenLockpick, OpenLoot, ScreenMessagesPlugin,
+    StatsUiPlugin, StatsUiState,
+};
+pub use crate::save::format::{SavedObject, SavedObjectBuilder};
+pub use crate::save::{QuickLoad, QuickSave, QuickSavePlugin};
+
+// Crate-internal reexports kept for `crate::<Name>` convenience paths.
+pub(crate) use crate::animation::{
+    AnimationData, AnimationEnds, AnimationGraph, AnimationSample, AnimationState,
+    AnimationTriggers, AnimationTriggersPlugin, AutoAnimSequencer, AutoAnimSequencerSet,
+    BoneAnimationData, DesiredAnimation, FrameState, MeleeAttackKind, NpcAnimations,
+    NpcHitReaction, PlayerMeleeCombo, SetDesiredAnimation, animation_name_from_path,
+    is_melee_attack_animation, npc_hit_reaction_end, play_hit_reaction,
+};
+pub(crate) use crate::audio::PendingMusic;
+pub(crate) use crate::common::MobPosition;
+pub(crate) use crate::common::MusicZones;
+pub(crate) use crate::common::animation_file_name;
+pub(crate) use crate::common::choose_animation_scheme;
+pub(crate) use crate::common::face_direction_quat;
+pub(crate) use crate::common::get_animation_path;
+pub(crate) use crate::common::get_dialog_sound_path;
+pub(crate) use crate::common::get_full_texture_path;
+pub(crate) use crate::common::gothic_dat_path;
+pub(crate) use crate::common::gothic2_dir;
+pub(crate) use crate::common::to_world_units;
+pub(crate) use crate::fight_ai::{FightAiResource, load_fight_ai_tables};
+pub(crate) use crate::game_state::{LoadingScreenReady, loading_screen_ready, world_is_loaded};
+pub(crate) use crate::interaction::MeleeHit;
+pub(crate) use crate::interaction::ranged::ArrowShot;
+pub(crate) use crate::interaction::selection::SelectionKind;
+pub(crate) use crate::item_data::ItemHandle;
+pub(crate) use crate::loaders::vdf_reader::get_zengin_asset_bytes;
+pub(crate) use crate::loaders::vfs::{resolve_sound_asset, resolve_texture_asset};
+pub(crate) use crate::mobs::{MobHiddenModel, MobOccupant, MobRegistry};
+pub(crate) use crate::movers::VobTrigger;
+pub(crate) use crate::npc_corpse::NpcCorpseMarker;
+pub(crate) use crate::npc_data::NpcHandle;
+pub(crate) use crate::npc_perception::VisibilityRefresh;
+pub(crate) use crate::npc_routines::{AnimationFiles, NpcTalentOverlay, talent_overlay_for};
+pub(crate) use crate::resources::CachedAssetHandles;
+pub(crate) use crate::resources::NPC_BODY;
+pub(crate) use crate::resources::SELECTABLE;
+pub(crate) use crate::script::bridge::ScriptChangesApplied;
+pub(crate) use crate::script::journal::{JournalSection, JournalStatus, JournalTopic};
+pub(crate) use crate::script::manager::ItemDisplayData;
+pub(crate) use crate::script::state::ChapterIntro;
+pub(crate) use crate::script::state::ScreenMessage;
+pub(crate) use crate::script::state::SvmLine;
+pub(crate) use crate::script::state::WeaponClass;
+pub(crate) use crate::script::state::{ItemRuntime, MobRoutineEntry, NpcRuntime};
+pub(crate) use crate::script::{
+    MENU_FLAG_ALIGN_CENTER, MENU_FLAG_DONT_SCALE_DIM, MENU_FLAG_SHOW_INFO, MENU_ITEM_FLAG_DISABLED,
+    MENU_ITEM_FLAG_TXT_CENTER, MENU_SCRIPT_DIV, MenuDefinition, MenuItemDefinition,
+    MenuScriptResource, SEL_ACTION_BACK, SEL_ACTION_CLOSE, SEL_ACTION_START_MENU,
+    ensure_menu_script,
+};
+pub(crate) use crate::world_plugin::{CurrentWorld, LoadingWorld, NewGame, begin_world_load};
 
 /// Plugin which provides Zengin related functionality
 pub struct ZenginPlugin;

@@ -2,10 +2,10 @@
 
 #![allow(clippy::multiple_inherent_impl)]
 
-pub mod file;
-pub mod format;
-pub mod object;
-pub mod systems;
+pub(crate) mod file;
+pub(crate) mod format;
+pub(crate) mod object;
+pub(crate) mod systems;
 
 pub use file::{
     SaveEntry, current_script_fingerprint, display_name, list_saves, new_save_dir, newest_save,

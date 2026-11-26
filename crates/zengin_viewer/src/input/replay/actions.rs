@@ -10,9 +10,9 @@ use input_core::{
     GuiInputMarker, SharedAction, SharedInputMarker,
 };
 use zengin_lib::AppState;
+use zengin_lib::GameLog;
+use zengin_lib::GameTime;
 use zengin_lib::PlayerCharacter;
-use zengin_lib::gameplay::game_time::GameTime;
-use zengin_lib::gui::GameLog;
 use zengin_lib::{GameNpc, NpcSpawnNameFilter, ScriptResource, SpawnPositionFilter};
 
 use super::command::apply_replay_command;

@@ -7,12 +7,12 @@
 //! and the player side on the right. A normal inventory shows only the player
 //! panel, a trade shows both and enables buying/selling.
 
-pub mod data;
-pub mod input;
-pub mod render;
-pub mod spawn;
-pub mod state;
-pub mod style;
+pub(crate) mod data;
+pub(crate) mod input;
+pub(crate) mod render;
+pub(crate) mod spawn;
+pub(crate) mod state;
+pub(crate) mod style;
 
 pub use state::{
     InventoryUiState, LockpickOpened, LootClosed, LootSource, OpenLockpick, OpenLoot, OpenTrade,

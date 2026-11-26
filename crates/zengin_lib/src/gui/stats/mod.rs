@@ -1,11 +1,11 @@
 //! Stats (character sheet) UI, driven by the `menu_status` screen of MENU.DAT.
 
-pub mod data;
-pub mod input;
-pub mod render;
-pub mod spawn;
-pub mod state;
-pub mod style;
+pub(crate) mod data;
+pub(crate) mod input;
+pub(crate) mod render;
+pub(crate) mod spawn;
+pub(crate) mod state;
+pub(crate) mod style;
 
 pub use state::StatsUiState;
 

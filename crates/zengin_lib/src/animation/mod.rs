@@ -1,18 +1,18 @@
-pub mod animation_graph_nodes;
-pub mod animation_sounds;
-pub mod animation_triggers;
-pub mod auto_anim_sequencer;
-pub mod components;
-pub mod controller;
-pub mod corpse;
-pub mod data;
-pub mod hit_reaction;
-pub mod locomotion;
-pub mod player_melee_combo;
-pub mod send_desired;
+pub(crate) mod animation_graph_nodes;
+pub(crate) mod animation_sounds;
+pub(crate) mod animation_triggers;
+pub(crate) mod auto_anim_sequencer;
+pub(crate) mod components;
+pub(crate) mod controller;
+pub(crate) mod corpse;
+pub(crate) mod data;
+pub(crate) mod hit_reaction;
+pub(crate) mod locomotion;
+pub(crate) mod player_melee_combo;
+pub(crate) mod send_desired;
 
 #[cfg(test)]
-pub mod tests;
+pub(crate) mod tests;
 
 use bevy::prelude::*;
 

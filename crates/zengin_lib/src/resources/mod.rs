@@ -1,8 +1,8 @@
 //! Zengin resources: asset loading setup, cached handles and model entity
 //! spawning systems.
 
-pub mod handles;
-pub mod model_spawn;
+pub(crate) mod handles;
+pub(crate) mod model_spawn;
 
 use bevy::prelude::*;
 

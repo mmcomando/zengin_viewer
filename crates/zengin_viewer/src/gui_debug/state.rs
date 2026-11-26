@@ -3,11 +3,11 @@ use egui_dock::DockState;
 
 use zengin_lib::PlayerCharacter;
 use zengin_lib::WorldEntityMarker;
-use zengin_lib::gameplay::objects::{NpcBodyRootOffset, NpcModel};
 use zengin_lib::{
     GameChest, GameItem, GameMob, GameMover, GameNpc, MobBase, MobPose, NpcEquippedWeapon,
     NpcHealth, NpcWeaponMode, RoutineExecutor,
 };
+use zengin_lib::{NpcBodyRootOffset, NpcModel};
 
 /// Persistent state of the docked debug GUI.
 #[derive(Resource)]

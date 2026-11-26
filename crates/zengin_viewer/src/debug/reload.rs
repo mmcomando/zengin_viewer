@@ -6,9 +6,9 @@ use bevy::prelude::*;
 use dev_util::perf_debug;
 use zengin_lib::AppState;
 use zengin_lib::PlayerCharacter;
+use zengin_lib::SavedObject;
 use zengin_lib::StaticMesh;
 use zengin_lib::WorldEntityMarker;
-use zengin_lib::save::format::SavedObject;
 use zengin_lib::{
     GameChest, GameItem, GameNpc, MobBase, NpcOverlay, SpawnFromSavedObject, WorldSpawnMessages,
 };

@@ -122,14 +122,14 @@ use crate::gui_debug::GuiDebugPlugin;
 use crate::input::{ActionsPlugin, Options};
 use crate::xr::{XrPlugin, is_xr_enabled};
 use avian3d::prelude::*;
+use zengin_lib::CameraPlugin;
+use zengin_lib::CharacterControllerPlugin;
+use zengin_lib::DistancePlugin;
+use zengin_lib::GameLogPlugin;
+use zengin_lib::GameTimePlugin;
 use zengin_lib::SkeletalAnimations;
 use zengin_lib::SpeechSounds;
 use zengin_lib::ZenginPlugin;
-use zengin_lib::gameplay::camera::CameraPlugin;
-use zengin_lib::gameplay::character::CharacterControllerPlugin;
-use zengin_lib::gameplay::distance::DistancePlugin;
-use zengin_lib::gameplay::game_time::GameTimePlugin;
-use zengin_lib::gui::GameLogPlugin;
 use zengin_lib::{AppState, GameStatePlugin};
 use zengin_lib::{ZenginVfs, create_zengin_asset_loader, create_zengin_vfs};
 
@@ -182,7 +182,7 @@ fn main() {
         .add_plugins(ActionsPlugin)
         // World and its content
         .add_plugins(ZenginPlugin)
-        .add_plugins(zengin_lib::save::QuickSavePlugin)
+        .add_plugins(zengin_lib::QuickSavePlugin)
         // Environment
         .add_plugins(SkyBoxPlugin)
         .add_plugins(LightingPlugin)
@@ -203,14 +203,14 @@ fn main() {
         .add_plugins(RenderOptionsPlugin)
         .add_plugins(SoundPlugin)
         .add_plugins(GameLogPlugin)
-        .add_plugins(zengin_lib::gui::ChapterScreenPlugin)
-        .add_plugins(zengin_lib::gui::HealthBarsPlugin)
-        .add_plugins(zengin_lib::gui::InventoryUiPlugin)
-        .add_plugins(zengin_lib::gui::JournalUiPlugin)
-        .add_plugins(zengin_lib::gui::LoadingScreenPlugin)
-        .add_plugins(zengin_lib::gui::MainMenuPlugin)
-        .add_plugins(zengin_lib::gui::ScreenMessagesPlugin)
-        .add_plugins(zengin_lib::gui::StatsUiPlugin);
+        .add_plugins(zengin_lib::ChapterScreenPlugin)
+        .add_plugins(zengin_lib::HealthBarsPlugin)
+        .add_plugins(zengin_lib::InventoryUiPlugin)
+        .add_plugins(zengin_lib::JournalUiPlugin)
+        .add_plugins(zengin_lib::LoadingScreenPlugin)
+        .add_plugins(zengin_lib::MainMenuPlugin)
+        .add_plugins(zengin_lib::ScreenMessagesPlugin)
+        .add_plugins(zengin_lib::StatsUiPlugin);
 
     // Debug-only observation systems; they consume game messages and must be
     // added after the plugins that register them.

@@ -14,7 +14,7 @@ use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
 use dev_util::perf_debug;
 use zengin_lib::AppState;
-use zengin_lib::gui::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiState};
+use zengin_lib::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiState};
 use zengin_lib::{DialogRequest, DialogUiState, DialogVoice};
 
 /// Adds [`leafwing_input_manager`] with one input map per action group and

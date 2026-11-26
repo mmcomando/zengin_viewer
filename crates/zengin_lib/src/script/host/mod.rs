@@ -48,19 +48,19 @@ macro_rules! fake_impl {
 
 }
 
-pub mod ai;
-pub mod apply;
-pub mod doc;
-pub mod game;
-pub mod hlp;
-pub mod info;
-pub mod log;
-pub mod mdl;
-pub mod mis;
-pub mod misc;
-pub mod mob;
-pub mod npc;
-pub mod snd;
-pub mod symbols;
-pub mod ta;
-pub mod wld;
+pub(crate) mod ai;
+pub(crate) mod apply;
+pub(crate) mod doc;
+pub(crate) mod game;
+pub(crate) mod hlp;
+pub(crate) mod info;
+pub(crate) mod log;
+pub(crate) mod mdl;
+pub(crate) mod mis;
+pub(crate) mod misc;
+pub(crate) mod mob;
+pub(crate) mod npc;
+pub(crate) mod snd;
+pub(crate) mod symbols;
+pub(crate) mod ta;
+pub(crate) mod wld;

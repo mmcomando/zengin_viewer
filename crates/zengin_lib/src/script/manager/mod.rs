@@ -1,21 +1,21 @@
 // Method groups live in sibling files, one `impl` block per domain.
 #![allow(clippy::multiple_inherent_impl)]
 
-pub mod body_state;
-pub mod changes;
-pub mod combat;
-pub mod death;
-pub mod dialog;
-pub mod freepoints;
-pub mod inventory;
-pub mod locks;
-pub mod menu;
-pub mod mobs;
-pub mod npc;
-pub mod perception;
-pub mod save;
-pub mod strings;
-pub mod world;
+pub(crate) mod body_state;
+pub(crate) mod changes;
+pub(crate) mod combat;
+pub(crate) mod death;
+pub(crate) mod dialog;
+pub(crate) mod freepoints;
+pub(crate) mod inventory;
+pub(crate) mod locks;
+pub(crate) mod menu;
+pub(crate) mod mobs;
+pub(crate) mod npc;
+pub(crate) mod perception;
+pub(crate) mod save;
+pub(crate) mod strings;
+pub(crate) mod world;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

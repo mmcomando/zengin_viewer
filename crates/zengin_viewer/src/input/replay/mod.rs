@@ -24,7 +24,7 @@ use bevy::prelude::*;
 use leafwing_input_manager::plugin::InputManagerSystem;
 
 use crate::input::actions::update_input_mode;
-use zengin_lib::gameplay::character_camera::camera_toggle_input;
+use zengin_lib::camera_toggle_input;
 
 use actions::replay_actions;
 use command::apply_replay_locations;

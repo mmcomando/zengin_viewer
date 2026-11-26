@@ -1,18 +1,18 @@
 //! Npc actions. Each action is a component placed on the npc by the queue;
 //! removing [`ExecutingActionMarker`] cancels the action.
 
-pub mod action;
-pub mod attack;
-pub mod enqueue;
-pub mod flush;
-pub mod goto;
-pub mod goto_npc;
-pub mod item_state;
-pub mod queue;
-pub mod stand_up;
-pub mod start_state;
-pub mod use_mob;
-pub mod wait;
+pub(crate) mod action;
+pub(crate) mod attack;
+pub(crate) mod enqueue;
+pub(crate) mod flush;
+pub(crate) mod goto;
+pub(crate) mod goto_npc;
+pub(crate) mod item_state;
+pub(crate) mod queue;
+pub(crate) mod stand_up;
+pub(crate) mod start_state;
+pub(crate) mod use_mob;
+pub(crate) mod wait;
 
 pub use action::{
     ExecutingActionMarker, drop_item_pose_for_action, remove_actions_on_marker_removed,

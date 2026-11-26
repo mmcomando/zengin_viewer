@@ -1,14 +1,14 @@
-pub mod chapter_screen;
-pub mod game_log;
-pub mod health_bars;
-pub mod input_gate;
-pub mod inventory;
-pub mod journal;
-pub mod loading_screen;
-pub mod main_menu;
-pub mod menu_screen;
-pub mod screen_messages;
-pub mod stats;
+pub(crate) mod chapter_screen;
+pub(crate) mod game_log;
+pub(crate) mod health_bars;
+pub(crate) mod input_gate;
+pub(crate) mod inventory;
+pub(crate) mod journal;
+pub(crate) mod loading_screen;
+pub(crate) mod main_menu;
+pub(crate) mod menu_screen;
+pub(crate) mod screen_messages;
+pub(crate) mod stats;
 
 pub use crate::gui::chapter_screen::{
     ChapterScreenPlugin, ChapterScreenState, ChapterScreenUpdated,
