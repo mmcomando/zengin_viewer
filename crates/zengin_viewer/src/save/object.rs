@@ -4,7 +4,10 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui_debug::StaticMesh;
-use crate::save::format::{SavedChest, SavedItem, SavedNpc, SavedObject, SavedPlayer, SavedStatic};
+use crate::save::format::{
+    SavedChest, SavedItem, SavedMobBase, SavedNpc, SavedObject, SavedOverlay, SavedPlayer,
+    SavedStatic,
+};
 use crate::zengin::{GameChest, GameItem, GameMover, GameNpc, MobBase, NpcOverlay};
 
 impl SavedObject {
@@ -24,27 +27,32 @@ impl SavedObject {
     ) -> Option<Self> {
         let npc = npc.map(|npc| SavedNpc {
             instance_id: npc.instance_id(),
-            overlay: overlay.and_then(|overlay| overlay.0.clone()),
         });
+        let overlay = overlay.map(|overlay| SavedOverlay(overlay.0.clone()));
         let item = item.map(|item| SavedItem {
             instance_id: item.instance_id(),
         });
         // Movers also carry `StaticMesh`; they are rebuilt from their own
         // prototype and must not be serialized as static objects.
-        let static_object = static_mesh
+        let static_vob_id = static_mesh
             .filter(|mesh| mesh.vob_id != 0 && mover.is_none())
-            .map(|mesh| SavedStatic {
-                vob_id: mesh.vob_id,
-            });
-        let chest = match (chest, base) {
-            (Some(chest), Some(base)) => Some(SavedChest {
-                vob_id: base.vob_id,
+            .map(|mesh| mesh.vob_id);
+        // A vob with id 0 is a scenario/debug spawn with no world prototype, so
+        // it has no identity to save.
+        let mob_base = base
+            .filter(|base| base.vob_id != 0)
+            .map(|base| base.vob_id)
+            .or(static_vob_id)
+            .map(|vob_id| SavedMobBase { vob_id });
+        let static_object = static_vob_id.map(|_| SavedStatic);
+        let chest = match (chest, mob_base.is_some()) {
+            (Some(chest), true) => Some(SavedChest {
                 locked: chest.locked,
                 items: chest.items.clone(),
                 cracked: chest.cracked,
             }),
-            (Some(_), None) => {
-                warn!("Chest entity has no MobBase, its state is not saved");
+            (Some(_), false) => {
+                warn!("Chest entity has no vob id, its state is not saved");
                 None
             }
             (None, _) => None,
@@ -53,7 +61,9 @@ impl SavedObject {
             transform: *transform,
             player: player.map(|_| SavedPlayer),
             npc,
+            overlay,
             item,
+            mob_base,
             static_object,
             chest,
         };
@@ -84,7 +94,7 @@ mod tests {
     }
 
     #[test]
-    fn chest_saves_its_vob_id_and_state() {
+    fn chest_saves_its_state_and_takes_the_vob_id_from_mob_base() {
         let chest = chest();
         let base = mob_base();
         let object = SavedObject::from_components(
@@ -100,14 +110,14 @@ mod tests {
         )
         .expect("chest object");
 
+        assert_eq!(object.mob_base.as_ref().map(|base| base.vob_id), Some(3));
         let saved = object.chest.as_ref().expect("chest payload");
-        assert_eq!(saved.vob_id, 3);
         assert!(saved.locked);
         assert!(saved.cracked);
     }
 
     #[test]
-    fn interactive_mob_components_are_not_saved() {
+    fn mob_base_is_saved_with_its_vob_id() {
         let base = mob_base();
         let object = SavedObject::from_components(
             &Transform::IDENTITY,
@@ -119,12 +129,16 @@ mod tests {
             Some(&base),
             None,
             None,
-        );
-        assert!(object.is_none());
+        )
+        .expect("mob base object");
+
+        assert_eq!(object.mob_base.as_ref().map(|base| base.vob_id), Some(3));
+        assert!(object.static_object.is_none());
+        assert!(object.chest.is_none());
     }
 
     #[test]
-    fn static_mesh_saves_its_vob_id() {
+    fn static_mesh_is_a_marker_and_takes_the_vob_id_from_mob_base() {
         let static_mesh = StaticMesh { vob_id: 5 };
         let object = SavedObject::from_components(
             &Transform::IDENTITY,
@@ -139,12 +153,33 @@ mod tests {
         )
         .expect("static object");
 
+        assert!(object.static_object.is_some());
+        assert_eq!(object.mob_base.as_ref().map(|base| base.vob_id), Some(5));
+    }
+
+    #[test]
+    fn overlay_is_saved_separately_from_the_npc() {
+        let overlay = NpcOverlay(Some("HUMANS_SPRINT".to_string()));
+        let object = SavedObject::from_components(
+            &Transform::IDENTITY,
+            None,
+            None,
+            Some(&overlay),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("overlay object");
+
+        assert!(object.npc.is_none());
         assert_eq!(
             object
-                .static_object
+                .overlay
                 .as_ref()
-                .map(|static_object| static_object.vob_id),
-            Some(5)
+                .and_then(|overlay| overlay.0.as_deref()),
+            Some("HUMANS_SPRINT")
         );
     }
 }

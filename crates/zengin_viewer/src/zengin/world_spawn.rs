@@ -426,7 +426,7 @@ fn spawn_static_models(
             .unwrap_or("StaticMesh")
             .to_string();
         commands.spawn((
-            Name::new(name),
+            Name::new(name.clone()),
             ClassifyDistance::default(),
             ZenGinModelComponent {
                 model_handle,
@@ -435,6 +435,13 @@ fn spawn_static_models(
             },
             Visibility::default(),
             spawn.tr,
+            // Static vobs carry a `MobBase` so their identity is saved by the
+            // same payload as every other vob-backed object.
+            MobBase {
+                vob_id: spawn.vob_id,
+                vob_name: name,
+                focus_name: String::new(),
+            },
             StaticMesh {
                 vob_id: spawn.vob_id,
             },

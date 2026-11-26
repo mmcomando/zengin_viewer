@@ -682,7 +682,10 @@ pub(crate) fn spawn_saved_object_messages(
             location_name: None,
             transform: Some(object.transform),
             exact_transform: true,
-            overlay: npc.overlay.clone(),
+            overlay: object
+                .overlay
+                .as_ref()
+                .and_then(|overlay| overlay.0.clone()),
         });
     }
     if let Some(item) = &object.item {
@@ -692,9 +695,13 @@ pub(crate) fn spawn_saved_object_messages(
             transform: Some(object.transform),
         });
     }
-    if let Some(static_object) = &object.static_object {
+    if object.static_object.is_some() {
+        let Some(mob_base) = &object.mob_base else {
+            warn!("Saved static object has no MobBase, it is not respawned");
+            return;
+        };
         world.write_message(SpawnVob {
-            vob_id: static_object.vob_id,
+            vob_id: mob_base.vob_id,
         });
     }
 }
@@ -726,7 +733,10 @@ fn spawn_saved_object(
             location_name: None,
             transform: Some(object.transform),
             exact_transform: true,
-            overlay: npc.overlay.clone(),
+            overlay: object
+                .overlay
+                .as_ref()
+                .and_then(|overlay| overlay.0.clone()),
         });
     }
     if let Some(item) = &object.item {
@@ -736,13 +746,14 @@ fn spawn_saved_object(
             transform: Some(object.transform),
         });
     }
-    if let Some(static_object) = &object.static_object {
-        match prototypes.get(static_object.vob_id) {
+    if object.static_object.is_some() {
+        let Some(mob_base) = &object.mob_base else {
+            warn!("Saved static object has no MobBase, it is not respawned");
+            return;
+        };
+        match prototypes.get(mob_base.vob_id) {
             Some(prototype) => spawns.send_prototype(prototype),
-            None => warn!(
-                "No static prototype for saved vob({})",
-                static_object.vob_id
-            ),
+            None => warn!("No static prototype for saved vob({})", mob_base.vob_id),
         }
     }
 }
@@ -751,8 +762,8 @@ fn spawn_saved_object(
 /// save. Only container state is persisted today, so other vob kinds keep their
 /// world-definition prototype.
 fn apply_loaded_state(prototypes: &mut VobPrototypes, save: &SaveGame) {
-    for saved in save.chests() {
-        let Some(VobPrototype::Mob(mob)) = prototypes.get_mut(saved.vob_id) else {
+    for (vob_id, saved) in save.chests() {
+        let Some(VobPrototype::Mob(mob)) = prototypes.get_mut(vob_id) else {
             continue;
         };
         let MobSpawnKind::Container(container) = &mut mob.kind else {

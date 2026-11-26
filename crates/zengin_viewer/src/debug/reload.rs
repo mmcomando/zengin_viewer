@@ -190,16 +190,19 @@ mod tests {
         let objects = collect_saved_objects(&mut world);
         assert_eq!(objects.len(), 3);
         assert!(objects.iter().any(|object| object.player.is_some()));
-        assert!(
-            objects
-                .iter()
-                .any(|object| object.chest.as_ref().is_some_and(|chest| chest.vob_id == 7))
-        );
         assert!(objects.iter().any(|object| {
-            object
-                .static_object
-                .as_ref()
-                .is_some_and(|static_object| static_object.vob_id == 42)
+            object.chest.is_some()
+                && object
+                    .mob_base
+                    .as_ref()
+                    .is_some_and(|base| base.vob_id == 7)
+        }));
+        assert!(objects.iter().any(|object| {
+            object.static_object.is_some()
+                && object
+                    .mob_base
+                    .as_ref()
+                    .is_some_and(|base| base.vob_id == 42)
         }));
 
         despawn_world_entities(&mut world);

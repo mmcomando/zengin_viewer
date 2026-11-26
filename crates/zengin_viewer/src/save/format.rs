@@ -15,7 +15,7 @@ use crate::zengin::JournalTopic;
 use crate::zengin::{ItemRuntime, MobRoutineEntry, NpcRuntime};
 
 /// Version of the on-disk save format. Increment on any incompatible change.
-pub(crate) const SAVE_FORMAT_VERSION: u32 = 6;
+pub(crate) const SAVE_FORMAT_VERSION: u32 = 7;
 
 /// Directory containing all saves, relative to the workspace root.
 const SAVE_DIR: &str = "../../misc/saves";
@@ -131,11 +131,14 @@ impl SaveGame {
             .map(|object| object.transform)
     }
 
-    /// Restored state of every chest in the save.
-    pub(crate) fn chests(&self) -> impl Iterator<Item = &SavedChest> {
-        self.objects
-            .iter()
-            .filter_map(|object| object.chest.as_ref())
+    /// Restored state of every chest in the save, paired with the vob id of the
+    /// [`SavedMobBase`] it belongs to.
+    pub(crate) fn chests(&self) -> impl Iterator<Item = (u32, &SavedChest)> {
+        self.objects.iter().filter_map(|object| {
+            let mob_base = object.mob_base.as_ref()?;
+            let chest = object.chest.as_ref()?;
+            Some((mob_base.vob_id, chest))
+        })
     }
 }
 
@@ -179,7 +182,11 @@ pub(crate) struct SavedObject {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) npc: Option<SavedNpc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) overlay: Option<SavedOverlay>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) item: Option<SavedItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) mob_base: Option<SavedMobBase>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) static_object: Option<SavedStatic>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -192,7 +199,9 @@ impl SavedObject {
     pub(crate) fn is_empty(&self) -> bool {
         self.player.is_none()
             && self.npc.is_none()
+            && self.overlay.is_none()
             && self.item.is_none()
+            && self.mob_base.is_none()
             && self.static_object.is_none()
             && self.chest.is_none()
     }
@@ -202,13 +211,15 @@ impl SavedObject {
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub(crate) struct SavedPlayer;
 
-/// Serialized `GameNpc` component plus its `NpcOverlay`.
+/// Serialized `GameNpc` component.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SavedNpc {
     pub(crate) instance_id: InstanceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) overlay: Option<String>,
 }
+
+/// Serialized `NpcOverlay` component.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct SavedOverlay(pub(crate) Option<String>);
 
 /// Serialized `GameItem` component.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -216,17 +227,23 @@ pub(crate) struct SavedItem {
     pub(crate) instance_id: InstanceId,
 }
 
-/// Serialized `StaticMesh` component. The vob is respawned from its prototype.
+/// Serialized `MobBase` component. The vob is respawned from its prototype by
+/// [`SavedMobBase::vob_id`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SavedStatic {
+pub(crate) struct SavedMobBase {
     pub(crate) vob_id: u32,
 }
 
-/// Remaining state of one chest, keyed by the vob id in the ZEN archive. The
-/// entity itself is spawned from the world definition; only its state is saved.
+/// Marker for a `StaticMesh` object. The vob id comes from the sibling
+/// [`SavedMobBase`]; the geometry and transform are rebuilt from its prototype.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub(crate) struct SavedStatic;
+
+/// Remaining state of one chest. The entity itself is spawned from the world
+/// definition and its vob id comes from the sibling [`SavedMobBase`]; only its
+/// state is saved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SavedChest {
-    pub(crate) vob_id: u32,
     /// Defaults to the world-definition value when absent from the save.
     #[serde(default)]
     pub(crate) locked: bool,
@@ -476,9 +493,10 @@ mod tests {
                     player: Some(SavedPlayer),
                     npc: Some(SavedNpc {
                         instance_id: npc_id,
-                        overlay: Some("HUMANS_SPRINT".to_string()),
                     }),
+                    overlay: Some(SavedOverlay(Some("HUMANS_SPRINT".to_string()))),
                     item: None,
+                    mob_base: None,
                     static_object: None,
                     chest: None,
                 },
@@ -486,9 +504,11 @@ mod tests {
                     transform: Transform::from_xyz(1.0, 2.0, 3.0),
                     player: None,
                     npc: None,
+                    overlay: None,
                     item: Some(SavedItem {
                         instance_id: item_id,
                     }),
+                    mob_base: None,
                     static_object: None,
                     chest: None,
                 },
@@ -496,10 +516,11 @@ mod tests {
                     transform: Transform::IDENTITY,
                     player: None,
                     npc: None,
+                    overlay: None,
                     item: None,
+                    mob_base: Some(SavedMobBase { vob_id: 42 }),
                     static_object: None,
                     chest: Some(SavedChest {
-                        vob_id: 42,
                         locked: true,
                         items: vec![(item_id, 3)],
                         cracked: true,
@@ -509,8 +530,10 @@ mod tests {
                     transform: Transform::from_xyz(4.0, 5.0, 6.0),
                     player: None,
                     npc: None,
+                    overlay: None,
                     item: None,
-                    static_object: Some(SavedStatic { vob_id: 11 }),
+                    mob_base: Some(SavedMobBase { vob_id: 11 }),
+                    static_object: Some(SavedStatic),
                     chest: None,
                 },
             ],
@@ -525,7 +548,10 @@ mod tests {
         assert!(player.player.is_some());
         assert_eq!(player.npc.as_ref().map(|npc| npc.instance_id), Some(npc_id));
         assert_eq!(
-            player.npc.as_ref().and_then(|npc| npc.overlay.as_deref()),
+            player
+                .overlay
+                .as_ref()
+                .and_then(|overlay| overlay.0.as_deref()),
             Some("HUMANS_SPRINT")
         );
         assert_eq!(
@@ -536,15 +562,22 @@ mod tests {
             Some(item_id)
         );
         let chest = restored.objects[2].chest.as_ref().expect("chest payload");
-        assert_eq!(chest.vob_id, 42);
+        assert_eq!(
+            restored.objects[2]
+                .mob_base
+                .as_ref()
+                .map(|base| base.vob_id),
+            Some(42)
+        );
         assert!(chest.locked);
         assert_eq!(chest.items, vec![(item_id, 3)]);
         assert!(chest.cracked);
+        assert!(restored.objects[3].static_object.is_some());
         assert_eq!(
             restored.objects[3]
-                .static_object
+                .mob_base
                 .as_ref()
-                .map(|static_object| static_object.vob_id),
+                .map(|base| base.vob_id),
             Some(11)
         );
     }
@@ -555,7 +588,9 @@ mod tests {
             transform: Transform::IDENTITY,
             player: None,
             npc: None,
+            overlay: None,
             item: None,
+            mob_base: None,
             static_object: None,
             chest: None,
         };
