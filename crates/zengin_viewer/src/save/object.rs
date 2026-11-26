@@ -2,9 +2,9 @@
 
 use bevy::prelude::*;
 
-use crate::gameplay::objects::PlayerCharacter;
-use crate::gui_debug::StaticMesh;
 use crate::save::format::{SavedChest, SavedObject, SavedObjectBuilder};
+use crate::zengin::PlayerCharacter;
+use crate::zengin::StaticMesh;
 use crate::zengin::{GameChest, GameItem, GameNpc, MobBase, NpcOverlay};
 
 impl SavedObject {

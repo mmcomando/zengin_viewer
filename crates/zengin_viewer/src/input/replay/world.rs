@@ -2,7 +2,7 @@ use std::sync::PoisonError;
 
 use bevy::prelude::*;
 
-use crate::gameplay::objects::PlayerCharacter;
+use crate::zengin::PlayerCharacter;
 use crate::zengin::{GameNpc, ScriptResource, WeaponKind};
 
 /// Builds a quaternion from degrees labeled by axis:

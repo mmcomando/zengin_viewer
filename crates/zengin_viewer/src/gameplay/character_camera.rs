@@ -6,8 +6,8 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::camera::{CameraResource, CurrentCamera, EditorMode};
 use crate::gameplay::character::PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER;
-use crate::gameplay::objects::PlayerCharacter;
 use crate::input::{CameraSwitchedToThirdPerson, EditorAction, EditorInputMarker};
+use crate::zengin::PlayerCharacter;
 use crate::zengin::STATIC_OBJECT;
 use dev_util::perf_debug;
 

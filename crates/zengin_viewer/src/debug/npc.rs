@@ -6,8 +6,8 @@ use std::sync::PoisonError;
 use bevy::asset::AssetPath;
 use bevy::prelude::*;
 
-use crate::gameplay::objects::PlayerCharacter;
 use crate::graphics::AnimationController;
+use crate::zengin::PlayerCharacter;
 use crate::zengin::{
     AttackAction, ClearAiQueueChange, GameMob, GameNpc, GoToNpcAction, GoToWaypointAction,
     InstanceId, MobBase, MobPose, MobUsePose, NpcActionQueue, NpcDied, NpcEntitiesChanged,

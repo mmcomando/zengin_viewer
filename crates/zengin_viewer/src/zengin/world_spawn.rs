@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::game_state::AppState;
 use crate::gameplay::distance::ClassifyDistance;
-use crate::gui_debug::{StaticMesh, WorldMesh};
 use crate::save::format::SavedObject;
 use crate::zengin::mobs::{MobAnimation, MobHiddenModel, mob_state_animation};
 use crate::zengin::movers::GameMover;
@@ -23,6 +22,7 @@ use crate::zengin::script::state::SpawnItem;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::visual::model::ZenGinModel;
 use crate::zengin::{GameChest, GameMob, MobBase, MobPose};
+use crate::zengin::{StaticMesh, WorldMesh};
 use dev_util::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
 use dev_util::perf_debug;
 use zen_kit_rs::misc::MoverBehavior;

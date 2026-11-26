@@ -11,12 +11,13 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::gameplay::objects::{NpcModel, PlayerCharacter};
+use crate::gameplay::objects::NpcModel;
 use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, animation_name_from_path,
 };
 use crate::gui::{LootClosed, LootSource};
 use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::zengin::PlayerCharacter;
 use crate::zengin::npc_actions::{
     ExecutingActionMarker, MobUsePose, UseMobAction, mob_animation_name, release_mob_use,
 };

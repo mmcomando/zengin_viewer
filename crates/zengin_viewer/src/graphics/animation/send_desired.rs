@@ -7,8 +7,8 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
-use crate::gameplay::objects::PlayerCharacter;
 use crate::input::{GameplayAction, GameplayInputMarker, WorldInputViews};
+use crate::zengin::PlayerCharacter;
 use crate::zengin::{NpcMobUse, NpcWeaponMode, Selection, WeaponMode};
 
 use super::auto_anim_sequencer::{

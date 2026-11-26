@@ -27,6 +27,7 @@ mod script;
 mod statistics;
 mod visual;
 mod waypoint_graph;
+mod world_entity;
 mod world_plugin;
 mod world_spawn;
 
@@ -35,8 +36,6 @@ mod world_spawn;
 mod animation_graph_export;
 
 use bevy::prelude::*;
-
-use crate::world_entity::WorldEntityMarker;
 
 // Expose only what is needed for outside modules
 pub(crate) use crate::zengin::common::MobPosition;
@@ -110,6 +109,10 @@ pub(crate) use crate::zengin::script::{
 pub(crate) use crate::zengin::statistics::StatisticsZengin;
 pub(crate) use crate::zengin::waypoint_graph::WaypointGraph;
 pub(crate) use crate::zengin::waypoint_graph::add_waypoint;
+pub(crate) use crate::zengin::world_entity::{
+    GameChest, GameItem, GameMob, GameNpc, PlayerCharacter, StaticMesh, WorldEntityMarker,
+    WorldMesh,
+};
 pub(crate) use crate::zengin::world_plugin::{
     CurrentWorld, LoadingWorld, NewGame, NpcSpawnNameFilter, RestartWorld, START_WORLD,
     begin_world_load, load_world_prototypes, request_initial_world, request_player_spawn,
@@ -140,52 +143,6 @@ impl Plugin for ZenginPlugin {
         app.add_plugins(crate::graphics::AnimationTriggersPlugin);
         app.add_plugins(crate::zengin::script::component::GothicScriptsPlugin);
         app.add_plugins(crate::zengin::dialog::GameDialogPlugin);
-    }
-}
-
-/// Identifies Entity with the shared data of a Zengin script npc instance.
-#[derive(Debug, Component, Clone)]
-#[require(WorldEntityMarker)]
-pub struct GameNpc {
-    handle: NpcHandle,
-}
-
-impl GameNpc {
-    pub fn new(handle: NpcHandle) -> Self {
-        Self { handle }
-    }
-
-    /// Script instance id of this npc.
-    pub fn instance_id(&self) -> InstanceId {
-        self.handle.instance_id()
-    }
-
-    /// Shared typed and runtime data of this npc.
-    pub fn handle(&self) -> &NpcHandle {
-        &self.handle
-    }
-}
-
-/// Identifies Entity with the shared data of a Zengin script item instance.
-#[derive(Debug, Component, Clone)]
-#[require(WorldEntityMarker)]
-pub struct GameItem {
-    handle: ItemHandle,
-}
-
-impl GameItem {
-    pub fn new(handle: ItemHandle) -> Self {
-        Self { handle }
-    }
-
-    /// Script instance id of this item.
-    pub fn instance_id(&self) -> InstanceId {
-        self.handle.instance_id()
-    }
-
-    /// Shared typed and runtime data of this item.
-    pub fn handle(&self) -> &ItemHandle {
-        &self.handle
     }
 }
 
@@ -222,40 +179,4 @@ pub struct MobPose {
     pub no_move: bool,
     /// Current interaction state.
     pub state: i32,
-}
-
-/// Interactive mob vob (`oCMobInter` and its subtypes).
-#[allow(dead_code)] // metadata is consumed by the mob use action
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Component, Reflect)]
-#[require(WorldEntityMarker)]
-pub struct GameMob {
-    pub use_with_item: String,
-    pub on_state_func: String,
-    pub condition_func: String,
-    pub rewind: bool,
-    /// Script name of the vob notified when the mob is used.
-    pub trigger_target: String,
-    /// Whether `trigger_target` was already notified. A mob with `rewind ==
-    /// false` notifies it only once.
-    pub trigger_fired: bool,
-    /// Switch-like vob (lever, button, wheel, door): using it toggles the state
-    /// and the player stands up automatically after the use animation.
-    pub auto_end: bool,
-}
-
-/// Chest vob (`oCMobContainer`) with its remaining loot.
-#[derive(Debug, Component)]
-#[require(WorldEntityMarker)]
-pub struct GameChest {
-    /// Vob `locked` flag as loaded. A key or pick string is required to unlock.
-    pub locked: bool,
-    /// Script instance name of the unlocking item, empty when none.
-    pub key: String,
-    /// Lockpick combination, one `R`/`L` per step, empty when not pickable.
-    pub pick_string: String,
-    /// Unlocked by a key or a completed lockpick sequence, persists in saves.
-    pub cracked: bool,
-    /// Remaining contents as `(item, count)` pairs.
-    pub items: Vec<(InstanceId, i32)>,
 }

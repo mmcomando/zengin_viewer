@@ -3,8 +3,9 @@
 use bevy::ecs::entity::Entities;
 use bevy::prelude::*;
 
-use crate::gameplay::objects::{NpcModel, PlayerCharacter};
+use crate::gameplay::objects::NpcModel;
 use crate::graphics::{AnimationController, AnimationTriggers};
+use crate::zengin::PlayerCharacter;
 use crate::zengin::ZenginVfs;
 use crate::zengin::common::{choose_animation_scheme, get_animation_path};
 use crate::zengin::loaders::vfs::item_model_path;

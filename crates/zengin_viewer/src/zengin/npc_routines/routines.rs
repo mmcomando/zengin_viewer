@@ -9,11 +9,12 @@ use bevy::prelude::*;
 use crate::gameplay::character::NpcPhysicsMarker;
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::game_time::GameTime;
-use crate::gameplay::objects::{NpcModel, PlayerCharacter};
+use crate::gameplay::objects::NpcModel;
 use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
 };
 use crate::zengin::GameNpc;
+use crate::zengin::PlayerCharacter;
 use crate::zengin::common::{
     animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
 };

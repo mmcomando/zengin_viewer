@@ -1,9 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{
-    world_entity::WorldEntityMarker,
-    zengin::{GameChest, GameItem, GameMob, GameNpc},
-};
+use crate::zengin::{GameChest, GameItem, GameMob, GameNpc, StaticMesh, WorldMesh};
 use dev_util::perf_debug;
 
 #[derive(Default)]
@@ -22,15 +19,6 @@ fn insert_resources(mut commands: Commands) {
     let _perf = perf_debug!();
     commands.insert_resource(ShowOptions::default());
 }
-
-#[derive(Component, Default)]
-// #[require(WorldEntityMarker)]
-pub struct WorldMesh {}
-
-/// Static vob entity. Its vob id lives in the sibling `MobBase`.
-#[derive(Component, Default)]
-#[require(WorldEntityMarker)]
-pub struct StaticMesh;
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Resource)]

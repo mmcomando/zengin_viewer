@@ -8,7 +8,6 @@ use super::combat::NpcHitQueryData;
 use super::selection::{HitColliderOwner, Selection};
 use super::{DamageTargetData, NpcDied, deal_damage};
 use crate::gui::GameLog;
-use crate::world_entity::WorldEntityMarker;
 use crate::zengin::GameNpc;
 use crate::zengin::npc_routines::AnimationFiles;
 use crate::zengin::resources::{
@@ -17,6 +16,7 @@ use crate::zengin::resources::{
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::AttackKind;
 use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::world_entity::Arrow;
 use avian3d::prelude::*;
 
 use crate::game_state::AppState;
@@ -57,18 +57,6 @@ const ARROW_MIN_HIT_DISTANCE: f32 = 0.2;
 #[derive(Message)]
 pub struct ArrowShot {
     pub shooter: Entity,
-}
-
-/// Data of a flying arrow, used for the hit and cleanup.
-#[derive(Component)]
-#[require(WorldEntityMarker)]
-pub struct Arrow {
-    pub weapon: InstanceId,
-    pub shooter: InstanceId,
-    spawned_at: f32,
-    /// Shot origin, contacts hit before the arrow travels
-    /// [`ARROW_MIN_HIT_DISTANCE`] are ignored (the shooter's own hit volume).
-    spawn_origin: Vec3,
 }
 
 /// Spawns an arrow entity for each requested shot, aimed at the selected npc

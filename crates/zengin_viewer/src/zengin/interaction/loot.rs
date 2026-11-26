@@ -6,9 +6,9 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use super::selection::{Selection, SelectionKind};
-use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::{LootSource, OpenLockpick, OpenLoot};
 use crate::input::{GameplayAction, GameplayInputMarker};
+use crate::zengin::PlayerCharacter;
 use crate::zengin::npc_actions::UseMobAction;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::component::ScriptResource;

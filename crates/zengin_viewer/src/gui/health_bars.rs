@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use crate::gameplay::objects::PlayerCharacter;
+use crate::zengin::PlayerCharacter;
 use crate::zengin::{NpcHealth, Selection, SelectionKind};
 use dev_util::perf_debug;
 

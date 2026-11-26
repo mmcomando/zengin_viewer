@@ -14,7 +14,7 @@ use crate::gameplay::character::{
     ACCELERATION_MULTIPLIER, AcceleratingRootMotion, NpcPhysicsActiveMarker,
 };
 use crate::gameplay::distance::DistanceNear;
-use crate::gameplay::objects::PlayerCharacter;
+use crate::zengin::PlayerCharacter;
 use dev_util::perf_debug;
 
 use super::auto_anim_sequencer::AutoAnimSequencer;

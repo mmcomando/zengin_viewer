@@ -111,7 +111,6 @@ mod input;
 mod save;
 mod test_world;
 mod updater;
-mod world_entity;
 mod xr;
 mod zengin;
 

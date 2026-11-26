@@ -10,9 +10,10 @@ use std::sync::atomic::Ordering;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::gameplay::objects::{NpcModel, PlayerCharacter};
+use crate::gameplay::objects::NpcModel;
 use crate::graphics::AnimationGraph;
 use crate::input::{GameplayAction, GameplayInputMarker, WorldInputViews};
+use crate::zengin::PlayerCharacter;
 use crate::zengin::{
     CachedAssetHandles, NpcEquippedWeapon, NpcMobUse, NpcTalentOverlay, NpcWeaponMode, Selection,
     WeaponClass, WeaponMode,

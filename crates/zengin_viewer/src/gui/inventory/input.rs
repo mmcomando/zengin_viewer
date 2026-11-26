@@ -2,12 +2,12 @@ use bevy::log::{info, warn};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::gui::JournalUiState;
 use crate::gui::StatsUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::DialogUiState;
+use crate::zengin::PlayerCharacter;
 use crate::zengin::{
     GameChest, GameNpc, InstanceId, MobBase, ScriptManager, ScriptResource, WeaponKind,
 };

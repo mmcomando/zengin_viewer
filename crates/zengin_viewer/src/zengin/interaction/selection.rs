@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use bevy_rich_text3d::{Text3d, Text3dPlugin, Text3dStyling, TextAnchor, TextAtlas};
 
 use crate::game_state::AppState;
-use crate::gameplay::objects::PlayerCharacter;
+use crate::zengin::PlayerCharacter;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::resources::{ARROW, NPC_BODY, SELECTABLE};
 use crate::zengin::script::component::ScriptResource;

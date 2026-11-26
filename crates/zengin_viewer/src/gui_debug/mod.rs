@@ -18,8 +18,6 @@ pub(crate) use crate::gui_debug::statistics::{RefreshStatistics, StatisticsPlugi
 use crate::gui_debug::toggle_visibility::ToggleVisibility;
 use crate::input::Options;
 
-pub(crate) use crate::gui_debug::toggle_visibility::{StaticMesh, WorldMesh};
-
 /// Adds all debug UI plugins (visibility toggles, egui debug window, gizmos,
 /// statistics, FPS overlay). The debug UI can be disabled with `--no-debug-gui`,
 /// and the FPS overlay is skipped in renderless mode.

@@ -5,7 +5,6 @@ use leafwing_input_manager::prelude::{ActionState, Actionlike};
 
 use crate::game_state::AppState;
 use crate::gameplay::game_time::GameTime;
-use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::input::actions::{
     EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker, GuiAction,
@@ -13,6 +12,7 @@ use crate::input::actions::{
 };
 use crate::input::log_capture::LogBuffer;
 use crate::input::record::RecordedAction;
+use crate::zengin::PlayerCharacter;
 use crate::zengin::{GameNpc, NpcSpawnNameFilter, ScriptResource, SpawnPositionFilter};
 
 use super::command::apply_replay_command;

@@ -11,12 +11,13 @@ use crate::gameplay::character::{
     NPC_PHYSICS_RADIUS, NpcPhysicsMarker,
 };
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
-use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel, PlayerCharacter};
+use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
 use crate::graphics::{
     AnimatedJoint, AnimationController, AnimationData, AnimationState, AutoAnimSequencer,
     BoneAnimationData, FrameState, NpcAnimations,
 };
 use crate::zengin::GameNpc;
+use crate::zengin::PlayerCharacter;
 use crate::zengin::common::get_animation_path;
 use crate::zengin::interaction::selection::spawn_npc_selection_collider;
 use crate::zengin::npc_routines::NpcWeaponSlots;

@@ -2,11 +2,12 @@ use std::collections::HashSet;
 
 use bevy::prelude::*;
 
-use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel, PlayerCharacter};
+use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
 use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
     animation_name_from_path,
 };
+use crate::zengin::PlayerCharacter;
 use crate::zengin::common::{
     MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, face_direction_quat, horizontal_offset,
 };

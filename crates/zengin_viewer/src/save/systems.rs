@@ -12,14 +12,14 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::game_state::{AppState, world_is_loaded};
 use crate::gameplay::game_time::{GameTime, PlayTime};
-use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLogEntry;
-use crate::gui_debug::StaticMesh;
 use crate::input::{Options, SharedAction, SharedInputMarker};
 use crate::save::format::{
     SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedObject,
 };
 use crate::save::{current_script_fingerprint, new_save_dir, newest_save, read_save, write_save};
+use crate::zengin::PlayerCharacter;
+use crate::zengin::StaticMesh;
 use crate::zengin::{
     CurrentWorld, GameChest, GameItem, GameNpc, LoadingWorld, MobBase, NpcOverlay, ScriptResource,
     begin_world_load, request_initial_world,

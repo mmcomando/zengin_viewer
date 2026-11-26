@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use crate::gameplay::character::QUERY_ONLY_LAYER;
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::graphics::{AnimationController, AnimationData};
-use crate::gui_debug::WorldMesh;
+use crate::zengin::WorldMesh;
 use crate::zengin::objects_to_entities::create_skinned_mesh_data;
 use crate::zengin::resources::handles::CachedAssetHandles;
 use crate::zengin::visual::model::ZenGinModel;

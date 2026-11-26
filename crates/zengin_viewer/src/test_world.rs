@@ -6,7 +6,7 @@ use bevy::dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin, InfiniteG
 use bevy::prelude::*;
 
 use crate::game_state::AppState;
-use crate::gui_debug::WorldMesh;
+use crate::zengin::WorldMesh;
 use crate::zengin::{DYNAMIC_OBJECT, STATIC_OBJECT, ZenGinModelComponentLoaded};
 use dev_util::perf_debug;
 

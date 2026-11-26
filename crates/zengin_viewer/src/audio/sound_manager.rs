@@ -4,8 +4,8 @@ use bevy::audio::SpatialScale;
 use bevy::prelude::*;
 
 use crate::audio::SoundDefinitions;
-use crate::gameplay::objects::PlayerCharacter;
 use crate::zengin::InstanceId;
+use crate::zengin::PlayerCharacter;
 use crate::zengin::ScriptSound;
 use crate::zengin::SpeechSounds;
 use crate::zengin::SvmLine;

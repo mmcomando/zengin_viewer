@@ -4,9 +4,9 @@
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 
-use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::zengin::GameNpc;
+use crate::zengin::PlayerCharacter;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalSection, JournalStatus};
 use crate::zengin::script::manager::{ScriptManager, TALENT_PICKLOCK};
