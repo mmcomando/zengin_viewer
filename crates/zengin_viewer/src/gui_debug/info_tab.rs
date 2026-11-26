@@ -3,12 +3,12 @@ use bevy::prelude::*;
 use bevy_egui::egui::{self, Ui};
 
 use crate::debug::{DebugNpc, ReloadWorldEntities};
-use crate::gameplay::camera::{TELEPORT_LOCATIONS, TeleportToLocation};
-use crate::gameplay::game_time::GameTime;
 use crate::graphics::RenderOptions;
 use crate::gui_debug::gizmos::GizmosOptions;
 use crate::gui_debug::toggle_visibility::{OptionsChanged, ShowOptions};
 use crate::zengin::AppState;
+use crate::zengin::gameplay::camera::{TELEPORT_LOCATIONS, TeleportToLocation};
+use crate::zengin::gameplay::game_time::GameTime;
 use crate::zengin::save::{QuickLoad, QuickSave};
 use crate::zengin::{NpcAutoTalkOptions, RestartWorld, StatisticsZengin};
 use dev_util::statistics::{RefreshStatistics, Statistics};

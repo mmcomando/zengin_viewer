@@ -5,8 +5,8 @@ use bevy::ecs::system::SystemParam;
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
-use crate::gameplay::objects::NpcModel;
 use crate::zengin::ZenginVfs;
+use crate::zengin::gameplay::objects::NpcModel;
 use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;

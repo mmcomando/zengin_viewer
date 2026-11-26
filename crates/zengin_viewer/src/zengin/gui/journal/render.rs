@@ -2,7 +2,7 @@ use bevy::color::Alpha;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::gameplay::game_time::GameTime;
+use crate::zengin::gameplay::game_time::GameTime;
 use crate::zengin::gui::menu_screen::{item_rect, menu_area, menu_text};
 use crate::zengin::{
     MENU_ITEM_FLAG_TXT_CENTER, MENU_SCRIPT_DIV, MenuDefinition, MenuItemDefinition,

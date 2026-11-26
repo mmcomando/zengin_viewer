@@ -28,7 +28,7 @@ impl Plugin for CameraPlugin {
         app.add_systems(
             PreUpdate,
             apply_editor_mode
-                .after(crate::gameplay::character_camera::camera_toggle_input)
+                .after(crate::zengin::gameplay::character_camera::camera_toggle_input)
                 .run_if(in_state(AppState::InGame)),
         );
         app.add_systems(
@@ -43,7 +43,7 @@ impl Plugin for CameraPlugin {
         app.add_systems(
             Update,
             (rotate_third_person_camera, rotate_third_person_camera_mouse)
-                .before(crate::gameplay::character_camera::camera_movement_system)
+                .before(crate::zengin::gameplay::character_camera::camera_movement_system)
                 .run_if(use_third_person_camera)
                 .run_if(in_state(AppState::InGame)),
         );
@@ -314,7 +314,7 @@ fn sync_third_person_cursor(
 
 /// Rotates the third person camera with the `RotateCamera` action. The
 /// camera position follows from its rotation in
-/// [`crate::gameplay::character_camera::camera_movement_system`].
+/// [`crate::zengin::gameplay::character_camera::camera_movement_system`].
 fn rotate_third_person_camera(
     time: Res<Time>,
     action_state: Single<&ActionState<GameplayAction>, With<GameplayInputMarker>>,

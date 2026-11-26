@@ -23,8 +23,8 @@ pub(crate) use scenario::apply_scenario_window_settings;
 use bevy::prelude::*;
 use leafwing_input_manager::plugin::InputManagerSystem;
 
-use crate::gameplay::character_camera::camera_toggle_input;
 use crate::input::actions::update_input_mode;
+use crate::zengin::gameplay::character_camera::camera_toggle_input;
 
 use actions::replay_actions;
 use command::apply_replay_locations;

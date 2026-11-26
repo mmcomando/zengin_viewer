@@ -5,10 +5,10 @@
 
 use bevy::prelude::*;
 
-use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::zengin::AppState;
 use crate::zengin::GameNpc;
 use crate::zengin::PlayerCharacter;
+use crate::zengin::gameplay::game_time::{GameTime, advance_game_time};
 use crate::zengin::gui::GameLogEntry;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{

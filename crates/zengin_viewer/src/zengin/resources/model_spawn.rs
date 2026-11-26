@@ -8,8 +8,8 @@ use bevy::camera::visibility::NoAutoAabb;
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
-use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::zengin::WorldMesh;
+use crate::zengin::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::zengin::objects_to_entities::create_skinned_mesh_data;
 use crate::zengin::resources::handles::CachedAssetHandles;
 use crate::zengin::visual::model::ZenGinModel;

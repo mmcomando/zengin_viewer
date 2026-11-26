@@ -263,7 +263,7 @@ fn read_ron<T: DeserializeOwned>(path: &Path) -> Result<T, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gameplay::game_time::GameTime;
+    use crate::zengin::gameplay::game_time::GameTime;
     use crate::zengin::save::format::SAVE_FORMAT_VERSION;
 
     fn test_root(name: &str) -> PathBuf {

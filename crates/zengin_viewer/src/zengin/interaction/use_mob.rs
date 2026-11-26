@@ -11,9 +11,9 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use super::selection::{Selection, SelectionKind};
-use crate::gameplay::objects::NpcModel;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::PlayerCharacter;
+use crate::zengin::gameplay::objects::NpcModel;
 use crate::zengin::npc_actions::{UseMobAction, mob_scheme_has_player_pose};
 use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay, NpcWeaponMode};
 use crate::zengin::script::component::ScriptResource;

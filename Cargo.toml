@@ -12,6 +12,8 @@ members = [
     "crates/dmusic-sys",
 ]
 
+default-members = ["crates/zengin_viewer"]
+
 # Shared dependency versions. Members inherit with `{ workspace = true }` so
 # every crate builds against the same version; feature selections stay in the
 # member manifests.

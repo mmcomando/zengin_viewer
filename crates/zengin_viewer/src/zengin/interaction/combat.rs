@@ -4,10 +4,10 @@
 use bevy::prelude::*;
 
 use super::selection::{Selection, SelectionKind};
-use crate::gameplay::objects::NpcModel;
 use crate::zengin::AnimationController;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::SpawnFromSavedObject;
+use crate::zengin::gameplay::objects::NpcModel;
 use crate::zengin::gui::GameLog;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::{ExecutingActionMarker, NpcActionQueue};

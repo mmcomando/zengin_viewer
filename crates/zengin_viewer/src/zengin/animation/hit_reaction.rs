@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use crate::gameplay::objects::NpcModel;
+use crate::zengin::gameplay::objects::NpcModel;
 use crate::zengin::{
     AnimationFiles, CachedAssetHandles, NpcOverlay, animation_file_name, choose_animation_scheme,
     get_animation_path,

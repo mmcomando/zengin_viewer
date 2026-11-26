@@ -3,8 +3,8 @@
 //! opens, then one is picked at random for every spoken line.
 
 use super::state::DialogUiState;
-use crate::gameplay::camera::{CameraResource, DialogShotPose};
 use crate::zengin::STATIC_OBJECT;
+use crate::zengin::gameplay::camera::{CameraResource, DialogShotPose};
 use avian3d::prelude::{SpatialQuery, SpatialQueryFilter};
 use bevy::prelude::*;
 use dev_util::perf_debug;

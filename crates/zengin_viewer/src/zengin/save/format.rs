@@ -9,9 +9,9 @@ use std::path::PathBuf;
 use bevy::prelude::Transform;
 use serde::{Deserialize, Serialize};
 
-use crate::gameplay::game_time::GameTime;
 use crate::zengin::InstanceId;
 use crate::zengin::JournalTopic;
+use crate::zengin::gameplay::game_time::GameTime;
 use crate::zengin::{ItemRuntime, MobRoutineEntry, NpcRuntime};
 
 /// Version of the on-disk save format. Increment on any incompatible change.

@@ -11,9 +11,9 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::gameplay::objects::NpcModel;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::PlayerCharacter;
+use crate::zengin::gameplay::objects::NpcModel;
 use crate::zengin::gui::{LootClosed, LootSource};
 use crate::zengin::npc_actions::{
     ExecutingActionMarker, MobUsePose, UseMobAction, mob_animation_name, release_mob_use,

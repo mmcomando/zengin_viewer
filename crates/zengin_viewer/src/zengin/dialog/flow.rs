@@ -4,11 +4,11 @@
 
 use super::sounds::SpeechSounds;
 use super::state::{DialogLineView, DialogOptionView, DialogRequest, DialogUiState, DialogVoice};
-use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::GameNpc;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::common::get_dialog_sound_path;
+use crate::zengin::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::zengin::gui::OpenTrade;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::interaction::selection::{Selection, SelectionKind};

@@ -6,15 +6,15 @@ use std::sync::atomic::{AtomicBool, AtomicU32};
 use avian3d::prelude::{Collider, CollisionLayers, LinearVelocity};
 use bevy::ecs::query::Has;
 
-use crate::gameplay::character::{
-    CharacterMovementSettings, GroundDetection, NPC_PHYSICS_CENTER_ABOVE_ROOT, NPC_PHYSICS_LENGTH,
-    NPC_PHYSICS_RADIUS, NpcPhysicsMarker,
-};
-use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
-use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
 use crate::zengin::GameNpc;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::common::get_animation_path;
+use crate::zengin::gameplay::character::{
+    CharacterMovementSettings, GroundDetection, NPC_PHYSICS_CENTER_ABOVE_ROOT, NPC_PHYSICS_LENGTH,
+    NPC_PHYSICS_RADIUS, NpcPhysicsMarker,
+};
+use crate::zengin::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
+use crate::zengin::gameplay::objects::{NpcBodyRootOffset, NpcModel};
 use crate::zengin::interaction::selection::spawn_npc_selection_collider;
 use crate::zengin::npc_routines::NpcWeaponSlots;
 use crate::zengin::resources::{

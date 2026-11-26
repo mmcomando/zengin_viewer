@@ -14,9 +14,9 @@ use super::components::{AnimationEnds, AnimationState, AnimationTrigger, FrameSt
 use super::controller::AnimationController;
 use super::data::{AnimationData, AnimationSample};
 use super::locomotion::{ATOMIC_SCALE, TIME_SCALE, advance_animation, update_animations};
-use crate::gameplay::character::{NpcPhysicsActiveMarker, NpcPhysicsMarker};
-use crate::gameplay::distance::DistanceNear;
 use crate::zengin::PlayerCharacter;
+use crate::zengin::gameplay::character::{NpcPhysicsActiveMarker, NpcPhysicsMarker};
+use crate::zengin::gameplay::distance::DistanceNear;
 
 #[test]
 fn plays_half_frame_at_natural_pace() {

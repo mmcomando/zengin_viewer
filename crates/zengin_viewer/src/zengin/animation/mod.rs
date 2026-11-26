@@ -16,9 +16,9 @@ mod tests;
 
 use bevy::prelude::*;
 
-use crate::gameplay::character::move_and_slide;
 use crate::zengin::AppState;
 use crate::zengin::NpcMobUse;
+use crate::zengin::gameplay::character::move_and_slide;
 use components::AnimationTrigger;
 use locomotion::{compute_animations, update_animations};
 

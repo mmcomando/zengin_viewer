@@ -210,7 +210,7 @@ pub(super) fn is_selectable(data: &MenuDefinition, slot: usize, in_game: bool) -
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gameplay::game_time::GameTime;
+    use crate::zengin::gameplay::game_time::GameTime;
     use crate::zengin::save::format::{SAVE_FORMAT_VERSION, SaveMetadata};
     use daedalus_typed::{MENU_ITEM_FLAG_ONLY_IN_GAME, MENU_ITEM_FLAG_SELECTABLE};
 

@@ -10,11 +10,11 @@ use bevy::{
 use super::animation_triggers::{
     AnimationTriggers, animation_ident_from_path, crossed_sounds, crossed_triggers,
 };
-use crate::gameplay::character::{
+use crate::zengin::PlayerCharacter;
+use crate::zengin::gameplay::character::{
     ACCELERATION_MULTIPLIER, AcceleratingRootMotion, NpcPhysicsActiveMarker,
 };
-use crate::gameplay::distance::DistanceNear;
-use crate::zengin::PlayerCharacter;
+use crate::zengin::gameplay::distance::DistanceNear;
 use dev_util::perf_debug;
 
 use super::auto_anim_sequencer::AutoAnimSequencer;

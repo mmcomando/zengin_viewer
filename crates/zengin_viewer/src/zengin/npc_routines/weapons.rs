@@ -3,10 +3,10 @@
 use bevy::ecs::entity::Entities;
 use bevy::prelude::*;
 
-use crate::gameplay::objects::NpcModel;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::ZenginVfs;
 use crate::zengin::common::{choose_animation_scheme, get_animation_path};
+use crate::zengin::gameplay::objects::NpcModel;
 use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::npc_actions::NpcItemUse;
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};

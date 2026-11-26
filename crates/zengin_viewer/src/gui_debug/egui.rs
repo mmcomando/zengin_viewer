@@ -2,13 +2,13 @@ use bevy::prelude::*;
 use bevy_egui::{EguiContexts, EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass, egui};
 use bevy_inspector_egui::DefaultInspectorConfigPlugin;
 
-use crate::gameplay::camera::{CameraResource, EditorMode};
 use crate::gui_debug::entity_details::{DetailsAction, entity_details_ui};
 use crate::gui_debug::entity_list::{entity_list_ui, rebuild_rows};
 use crate::gui_debug::info_tab::{InfoParams, info_tab_ui};
 use crate::gui_debug::state::{
     DebugTab, DebugUiState, EntityQueryData, EntityQueryFilter, EntityRow, details_data,
 };
+use crate::zengin::gameplay::camera::{CameraResource, EditorMode};
 use crate::zengin::{ScriptResource, Selection};
 use dev_util::perf_debug;
 

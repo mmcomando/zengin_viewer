@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use std::f32::consts::PI;
 
 use super::RenderOptions;
-use crate::gameplay::game_time::GameTime;
+use crate::zengin::gameplay::game_time::GameTime;
 use dev_util::perf_debug;
 
 /// Spawns the sun/moon light and adjusts day/night lighting from the game time.

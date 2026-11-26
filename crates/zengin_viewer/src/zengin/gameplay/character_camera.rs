@@ -4,11 +4,11 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::gameplay::camera::{CameraResource, CurrentCamera, EditorMode};
-use crate::gameplay::character::PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER;
 use crate::input::{CameraSwitchedToThirdPerson, EditorAction, EditorInputMarker};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::STATIC_OBJECT;
+use crate::zengin::gameplay::camera::{CameraResource, CurrentCamera, EditorMode};
+use crate::zengin::gameplay::character::PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER;
 use dev_util::perf_debug;
 
 pub(crate) fn use_character_camera(info: Res<CameraResource>) -> bool {

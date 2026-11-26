@@ -9,8 +9,8 @@
 
 use bevy::prelude::*;
 
-use crate::gameplay::objects::NpcModel;
 use crate::zengin::common::choose_animation_scheme;
+use crate::zengin::gameplay::objects::NpcModel;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{
     AnimationFiles, NpcOverlay, NpcPath, has_animation, queue_named_animation,

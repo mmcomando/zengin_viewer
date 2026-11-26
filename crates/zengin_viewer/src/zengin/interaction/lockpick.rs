@@ -3,9 +3,9 @@
 use bevy::log::warn;
 use bevy::prelude::*;
 
-use crate::gameplay::objects::NpcModel;
 use crate::zengin::AnimationController;
 use crate::zengin::PlayerCharacter;
+use crate::zengin::gameplay::objects::NpcModel;
 use crate::zengin::gui::{LockpickOpened, LootSource, OpenLoot};
 use crate::zengin::npc_actions::{
     MobUsePose, UseMobAction, enter_animation_name, mob_animation_name,

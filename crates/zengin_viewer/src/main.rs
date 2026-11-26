@@ -102,7 +102,6 @@
 
 mod audio;
 mod debug;
-mod gameplay;
 mod graphics;
 mod gui_debug;
 mod input;
@@ -119,10 +118,6 @@ pub fn main_assets_dir() -> &'static str {
 }
 
 use crate::audio::SoundPlugin;
-use crate::gameplay::camera::CameraPlugin;
-use crate::gameplay::character::CharacterControllerPlugin;
-use crate::gameplay::distance::DistancePlugin;
-use crate::gameplay::game_time::GameTimePlugin;
 use crate::graphics::{LightingPlugin, RenderOptionsPlugin, SkyBoxPlugin};
 use crate::gui_debug::GuiDebugPlugin;
 use crate::input::{ActionsPlugin, Options};
@@ -130,6 +125,10 @@ use crate::xr::{XrPlugin, is_xr_enabled};
 use crate::zengin::SkeletalAnimations;
 use crate::zengin::SpeechSounds;
 use crate::zengin::ZenginPlugin;
+use crate::zengin::gameplay::camera::CameraPlugin;
+use crate::zengin::gameplay::character::CharacterControllerPlugin;
+use crate::zengin::gameplay::distance::DistancePlugin;
+use crate::zengin::gameplay::game_time::GameTimePlugin;
 use crate::zengin::gui::GameLogPlugin;
 use crate::zengin::{AppState, GameStatePlugin};
 use crate::zengin::{ZenginVfs, create_zengin_asset_loader, create_zengin_vfs};
