@@ -6,10 +6,11 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::input::log_capture::LogBuffer;
 use crate::input::record::ReplayCommand;
+use crate::save::format::SavedObjectBuilder;
 use crate::zengin::{
-    DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SetGameTime, SpawnNpc,
-    SpawnPositionFilter, StringCanon, UseMobChange, add_waypoint, enqueue_npc_goto,
-    grant_test_items, seed_test_journal,
+    DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SetGameTime,
+    SpawnFromSavedObject, SpawnPositionFilter, StringCanon, UseMobChange, WorldSpawnMessages,
+    add_waypoint, enqueue_npc_goto, grant_test_items, seed_test_journal,
 };
 
 use daedalus_typed::{TALENT_1H, TALENT_2H};
@@ -315,16 +316,12 @@ pub(super) fn apply_replay_command(
                 scale: Vec3::ONE,
             };
             commands.queue(move |world: &mut World| {
-                let Some(mut spawns) = world.get_resource_mut::<Messages<SpawnNpc>>() else {
-                    warn!("ZenginSpawnNpc replay command: npc spawn messages are not registered");
+                let Some(spawns) = world.get_resource::<WorldSpawnMessages>() else {
+                    warn!("ZenginSpawnNpc replay command: world spawn messages are not registered");
                     return;
                 };
-                spawns.write(SpawnNpc {
-                    instance_id,
-                    location_name: None,
-                    transform: Some(transform),
-                    exact_transform: true,
-                    overlay: None,
+                spawns.objects.send(SpawnFromSavedObject {
+                    object: SavedObjectBuilder::new(transform).npc(instance_id).build(),
                 });
             });
         }

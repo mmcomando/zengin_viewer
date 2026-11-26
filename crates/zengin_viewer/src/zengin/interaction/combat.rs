@@ -9,6 +9,8 @@ use crate::graphics::AnimationController;
 use crate::graphics::{NpcHitReaction, play_hit_reaction};
 use crate::gui::GameLog;
 use crate::perf_debug;
+use crate::save::format::SavedObjectBuilder;
+use crate::zengin::SpawnFromSavedObject;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::{ExecutingActionMarker, NpcActionQueue};
 use crate::zengin::npc_routines::NpcPath;
@@ -18,7 +20,7 @@ use crate::zengin::npc_routines::{
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::AttackKind;
-use crate::zengin::script::state::{SpawnItem, WeaponMode};
+use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameNpc, NpcCorpseMarker, VisibilityRefresh};
 
@@ -324,7 +326,7 @@ pub(crate) struct DamageTargetData<'a> {
 /// ground as a pickable item.
 fn drop_drawn_weapon(
     gothic_scripts: &ScriptResource,
-    spawn_items: &mut MessageWriter<SpawnItem>,
+    spawn_items: &mut MessageWriter<SpawnFromSavedObject>,
     npc_id: InstanceId,
     item: InstanceId,
     position: Vec3,
@@ -337,10 +339,10 @@ fn drop_drawn_weapon(
             npc_id.value()
         );
     }
-    spawn_items.write(SpawnItem {
-        instance_id: item,
-        location_name: None,
-        transform: Some(Transform::from_translation(position)),
+    spawn_items.write(SpawnFromSavedObject {
+        object: SavedObjectBuilder::new(Transform::from_translation(position))
+            .item(item)
+            .build(),
     });
 }
 
@@ -478,7 +480,7 @@ pub(super) fn handle_npc_death(
 pub(super) fn drop_npc_death_weapon(
     gothic_scripts: Res<ScriptResource>,
     mut resolved: MessageReader<NpcDeathResolved>,
-    mut spawn_items: MessageWriter<SpawnItem>,
+    mut spawn_items: MessageWriter<SpawnFromSavedObject>,
 ) {
     let _perf = perf_debug!();
     for death in resolved.read() {

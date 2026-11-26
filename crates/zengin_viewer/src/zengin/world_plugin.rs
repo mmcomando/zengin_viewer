@@ -246,12 +246,12 @@ pub(crate) fn request_world_spawn(world: &mut World, world_name: &str) {
 
 /// Requests a player character spawn.
 pub(crate) fn request_player_spawn(world: &mut World, transform: Transform) {
-    let Some(mut spawns) = world.get_resource_mut::<Messages<SpawnPlayer>>() else {
+    let Some(spawns) = world.get_resource::<WorldSpawnMessages>() else {
         warn!("Player spawn requested before the spawn message is registered");
         return;
     };
-    spawns.write(SpawnPlayer {
-        transform: Some(transform),
+    spawns.objects.send(SpawnFromSavedObject {
+        object: SavedObjectBuilder::new(transform).player().build(),
     });
 }
 

@@ -90,7 +90,6 @@ pub(crate) use crate::zengin::script::state::ChapterIntro;
 pub(crate) use crate::zengin::script::state::ScreenMessage;
 pub(crate) use crate::zengin::script::state::ScriptSound;
 pub(crate) use crate::zengin::script::state::SetGameTime;
-pub(crate) use crate::zengin::script::state::SpawnNpc;
 pub(crate) use crate::zengin::script::state::SvmLine;
 
 pub(crate) use crate::zengin::script::state::WeaponClass;
