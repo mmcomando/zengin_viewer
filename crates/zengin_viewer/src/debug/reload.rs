@@ -10,7 +10,7 @@ use crate::perf_debug;
 use crate::save::format::SavedObject;
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::{
-    GameChest, GameItem, GameNpc, MobBase, NpcOverlay, spawn_saved_object_messages,
+    GameChest, GameItem, GameNpc, MobBase, NpcOverlay, SpawnFromSavedObject, WorldSpawnMessages,
 };
 
 /// Frames the world stays empty before the serialized objects are restored.
@@ -100,18 +100,15 @@ fn collect_and_clear(world: &mut World) {
 
 fn restore_objects(world: &mut World) {
     let objects = std::mem::take(&mut world.resource_mut::<ReloadState>().objects);
-    let spawn_player = objects.iter().any(|object| object.player.is_some());
-    for object in &objects {
-        spawn_saved_object_messages(world, object, spawn_player);
+    let count = objects.len();
+    let Some(spawns) = world.get_resource::<WorldSpawnMessages>() else {
+        warn!("Debug reload: world spawn messages are not registered");
+        return;
+    };
+    for object in objects {
+        spawns.objects.send(SpawnFromSavedObject { object });
     }
-    let restored = objects
-        .iter()
-        .filter(|object| object.chest.is_none())
-        .count();
-    info!(
-        "Debug reload: restored {restored} objects ({} chest payloads stay world-definition-only)",
-        objects.len() - restored
-    );
+    info!("Debug reload: restored {count} objects");
 }
 
 #[allow(clippy::type_complexity)]

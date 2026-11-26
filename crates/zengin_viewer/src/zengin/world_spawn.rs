@@ -15,6 +15,7 @@ use crate::game_state::AppState;
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gui_debug::{StaticMesh, WorldMesh};
 use crate::perf_debug;
+use crate::save::format::SavedObject;
 use crate::zengin::common::{is_switch_mob_scheme, mob_scheme, mob_visual_stem};
 use crate::zengin::loaders::vdf_reader::ZenginVfs;
 use crate::zengin::loaders::vfs::find_mesh_path;
@@ -40,6 +41,7 @@ impl Plugin for WorldSpawnPlugin {
             mobs: app.add_external_message::<SpawnMob>(),
             movers: app.add_external_message::<SpawnMover>(),
             items: app.add_external_message::<SpawnItem>(),
+            objects: app.add_external_message::<SpawnFromSavedObject>(),
         };
         app.insert_resource(messages);
         app.init_resource::<SpawnPositionFilter>();
@@ -170,6 +172,7 @@ pub(crate) struct WorldSpawnMessages {
     pub(crate) mobs: ExternalMessageSender<SpawnMob>,
     pub(crate) movers: ExternalMessageSender<SpawnMover>,
     pub(crate) items: ExternalMessageSender<SpawnItem>,
+    pub(crate) objects: ExternalMessageSender<SpawnFromSavedObject>,
 }
 
 impl WorldSpawnMessages {
@@ -180,6 +183,7 @@ impl WorldSpawnMessages {
         self.mobs.clear();
         self.movers.clear();
         self.items.clear();
+        self.objects.clear();
     }
 
     /// Queues the typed spawn message a prototype describes.
@@ -191,6 +195,13 @@ impl WorldSpawnMessages {
             VobPrototype::Item(spawn) => self.items.send(spawn.clone()),
         }
     }
+}
+
+/// Requests spawning the entities described by a [`SavedObject`]. World load,
+/// script inserts and runtime spawns all go through this message.
+#[derive(Message, Debug, Clone)]
+pub(crate) struct SpawnFromSavedObject {
+    pub(crate) object: SavedObject,
 }
 
 /// Pre-resolved spawn data of one world vob. Re-spawning it needs only its
@@ -215,10 +226,6 @@ impl VobPrototypes {
 
     pub(crate) fn get(&self, vob_id: u32) -> Option<&VobPrototype> {
         self.0.get(&vob_id)
-    }
-
-    pub(crate) fn get_mut(&mut self, vob_id: u32) -> Option<&mut VobPrototype> {
-        self.0.get_mut(&vob_id)
     }
 
     pub(crate) fn values(&self) -> impl Iterator<Item = &VobPrototype> {
@@ -653,6 +660,7 @@ mod tests {
             mobs: default(),
             movers: default(),
             items: default(),
+            objects: default(),
         }
     }
 

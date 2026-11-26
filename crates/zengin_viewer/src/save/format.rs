@@ -130,16 +130,6 @@ impl SaveGame {
             .find(|object| object.player.is_some())
             .map(|object| object.transform)
     }
-
-    /// Restored state of every chest in the save, paired with the vob id of the
-    /// [`SavedMobBase`] it belongs to.
-    pub(crate) fn chests(&self) -> impl Iterator<Item = (u32, &SavedChest)> {
-        self.objects.iter().filter_map(|object| {
-            let mob_base = object.mob_base.as_ref()?;
-            let chest = object.chest.as_ref()?;
-            Some((mob_base.vob_id, chest))
-        })
-    }
 }
 
 /// Script-owned part of a save, collected under one script lock.
