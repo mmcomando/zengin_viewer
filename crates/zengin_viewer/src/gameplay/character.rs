@@ -5,13 +5,13 @@ use avian3d::{math::*, prelude::*};
 use bevy::{ecs::query::Has, prelude::*};
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::game_state::AppState;
 use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character_camera::{
     camera_movement_system, camera_toggle_input, use_character_camera,
 };
 use crate::input::{GameplayAction, GameplayInputMarker, world_input_enabled};
-use crate::zengin::{NPC_BODY, NpcMobUse};
+use crate::zengin::AppState;
+use crate::zengin::{NPC_BODY, NpcMobUse, SELECTABLE};
 use dev_util::perf_debug;
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
@@ -101,13 +101,6 @@ const FAST_PATH_CLEARANCE_MARGIN: f32 = 0.05;
 
 /// How often a body gets an authoritative full sweep regardless of its state.
 const GROUND_PROBE_PERIOD_SECS: f32 = 2.0;
-
-/// Collision layer bit for colliders that exist only to be found by explicit
-/// spatial queries (like npc selection), they must never block or carry the
-/// character controller: [`move_and_slide`] and [`update_grounded`] mask this
-/// layer out of their query filters.
-/// See also [`crate::zengin::resources::SELECTABLE`].
-pub const QUERY_ONLY_LAYER: u32 = 1 << 3;
 
 /// Distance from the player entity origin (model root/feet) up to the capsule
 /// collider center.
@@ -315,7 +308,7 @@ fn update_grounded(
             ground_detection.max_distance,
             true,
             &SpatialQueryFilter::from_excluded_entities([entity])
-                .with_mask(!(QUERY_ONLY_LAYER | NPC_BODY)),
+                .with_mask(!(SELECTABLE | NPC_BODY)),
         );
 
         // The character is grounded if we hit a surface that isn't too steep
@@ -665,7 +658,7 @@ pub fn move_and_slide(
             // player would collide with its own hit volume and the invisible
             // capsules of nearby npcs.
             &SpatialQueryFilter::from_excluded_entities([entity])
-                .with_mask(!(QUERY_ONLY_LAYER | NPC_BODY)),
+                .with_mask(!(SELECTABLE | NPC_BODY)),
             |hit| {
                 // This callback is called for each surface we collide with during move-and-slide.
                 // In this example, we use it to customize collision behavior for ground surfaces,
@@ -828,7 +821,7 @@ fn horizontal_path_is_clear(
             direction,
             &ShapeCastConfig::from_max_distance(distance),
             &SpatialQueryFilter::from_excluded_entities([entity])
-                .with_mask(!(QUERY_ONLY_LAYER | NPC_BODY)),
+                .with_mask(!(SELECTABLE | NPC_BODY)),
         )
         .is_none()
 }

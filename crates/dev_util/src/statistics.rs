@@ -1,12 +1,19 @@
+//! Debug statistics shared by the debug UI and the subsystems that report into
+//! it: the [`Statistics`] resource, the [`RefreshStatistics`] request message
+//! and the [`StatisticsPlugin`] that recounts them.
+
 use bevy::prelude::*;
-use dev_util::perf_debug;
+
+use crate::perf_debug;
 
 /// Requests a recount of the debug statistics. The scans are expensive, so
 /// they only run when the debug UI asks for them.
 #[derive(Message)]
 pub struct RefreshStatistics;
 
+/// Adds the mesh count and registers [`RefreshStatistics`].
 pub struct StatisticsPlugin;
+
 impl Plugin for StatisticsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Statistics>();
@@ -15,6 +22,7 @@ impl Plugin for StatisticsPlugin {
     }
 }
 
+/// Number of Bevy meshes in the world and how many of them are visible.
 #[derive(Resource, Default)]
 pub struct Statistics {
     pub meshes: i64,

@@ -9,8 +9,8 @@ use avian3d::prelude::{Collider, CollisionLayers};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::game_state::AppState;
 use crate::gameplay::distance::ClassifyDistance;
+use crate::zengin::AppState;
 use crate::zengin::mobs::{MobAnimation, MobHiddenModel, mob_state_animation};
 use crate::zengin::movers::GameMover;
 use crate::zengin::npc_routines::AnimationFiles;

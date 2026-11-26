@@ -10,8 +10,8 @@ use std::time::{Duration, Instant};
 use avian3d::prelude::{SpatialQuery, SpatialQueryFilter};
 use bevy::prelude::*;
 
-use crate::game_state::AppState;
 use crate::zengin::AnimationController;
+use crate::zengin::AppState;
 use crate::zengin::GameNpc;
 use crate::zengin::STATIC_OBJECT;
 use crate::zengin::dialog::DialogUiState;

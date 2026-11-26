@@ -10,7 +10,6 @@ use image::ImageFormat;
 use image::imageops::FilterType;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::game_state::{AppState, world_is_loaded};
 use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::input::{Options, SharedAction, SharedInputMarker};
 use crate::zengin::PlayerCharacter;
@@ -22,6 +21,7 @@ use crate::zengin::save::format::{
 use crate::zengin::save::{
     current_script_fingerprint, new_save_dir, newest_save, read_save, write_save,
 };
+use crate::zengin::{AppState, world_is_loaded};
 use crate::zengin::{
     CurrentWorld, GameChest, GameItem, GameNpc, LoadingWorld, MobBase, NpcOverlay, ScriptResource,
     begin_world_load,

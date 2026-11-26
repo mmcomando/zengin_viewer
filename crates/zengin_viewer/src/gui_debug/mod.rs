@@ -4,7 +4,6 @@ mod entity_list;
 mod gizmos;
 mod info_tab;
 mod state;
-mod statistics;
 mod toggle_visibility;
 
 use std::time::Duration;
@@ -14,9 +13,9 @@ use bevy::prelude::*;
 
 use crate::gui_debug::egui::GameDebugUI;
 use crate::gui_debug::gizmos::GizmosPlugin;
-pub(crate) use crate::gui_debug::statistics::{RefreshStatistics, StatisticsPlugin};
 use crate::gui_debug::toggle_visibility::ToggleVisibility;
 use crate::input::Options;
+use dev_util::statistics::StatisticsPlugin;
 
 /// Adds all debug UI plugins (visibility toggles, egui debug window, gizmos,
 /// statistics, FPS overlay). The debug UI can be disabled with `--no-debug-gui`,

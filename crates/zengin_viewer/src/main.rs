@@ -102,7 +102,6 @@
 
 mod audio;
 mod debug;
-mod game_state;
 mod gameplay;
 mod graphics;
 mod gui_debug;
@@ -120,7 +119,6 @@ pub fn main_assets_dir() -> &'static str {
 }
 
 use crate::audio::SoundPlugin;
-use crate::game_state::{AppState, GameStatePlugin};
 use crate::gameplay::camera::CameraPlugin;
 use crate::gameplay::character::CharacterControllerPlugin;
 use crate::gameplay::distance::DistancePlugin;
@@ -133,6 +131,7 @@ use crate::zengin::SkeletalAnimations;
 use crate::zengin::SpeechSounds;
 use crate::zengin::ZenginPlugin;
 use crate::zengin::gui::GameLogPlugin;
+use crate::zengin::{AppState, GameStatePlugin};
 use crate::zengin::{ZenginVfs, create_zengin_asset_loader, create_zengin_vfs};
 use avian3d::prelude::*;
 

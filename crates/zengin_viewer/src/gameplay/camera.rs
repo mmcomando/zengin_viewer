@@ -6,9 +6,9 @@ use bevy::{
     prelude::*,
 };
 
-use crate::game_state::AppState;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::xr::is_xr_enabled;
+use crate::zengin::AppState;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::face_direction_quat;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};

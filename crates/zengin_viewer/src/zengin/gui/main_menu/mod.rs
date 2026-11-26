@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::audio::PendingMusic;
-use crate::game_state::AppState;
+use crate::zengin::AppState;
 use crate::zengin::{CurrentWorld, MenuScriptResource};
 
 mod input;

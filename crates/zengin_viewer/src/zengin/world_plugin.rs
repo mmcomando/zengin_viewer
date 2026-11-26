@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 use std::f32::consts::PI;
 
-use crate::game_state::AppState;
 use crate::gameplay::camera::CameraResource;
 use crate::gameplay::character::{
     CharacterCollisions, CharacterController, CharacterMovementSettings, GroundDetection,
@@ -11,6 +10,7 @@ use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::NpcModel;
 use crate::input::Options;
+use crate::zengin::AppState;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::WorldEntityMarker;
 use crate::zengin::WorldMesh;
@@ -93,7 +93,7 @@ impl Plugin for ZenGinWorldPlugin {
             spawn_world
                 .after(GameScriptLoaded)
                 .before(ScriptChangesApplied)
-                .run_if(crate::game_state::loading_screen_ready)
+                .run_if(crate::zengin::loading_screen_ready)
                 .run_if(resource_exists::<ScriptResource>)
                 .run_if(in_state(AppState::LoadScreen).or_else(in_state(AppState::InGame))),
         );

@@ -8,7 +8,6 @@ use bevy::camera::visibility::NoAutoAabb;
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
-use crate::gameplay::character::QUERY_ONLY_LAYER;
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::zengin::WorldMesh;
 use crate::zengin::objects_to_entities::create_skinned_mesh_data;
@@ -22,7 +21,7 @@ pub const STATIC_OBJECT: u32 = 1 << 1;
 pub const DYNAMIC_OBJECT: u32 = 1 << 2;
 /// Collision layer of colliders that only exist for spatial queries (selection),
 /// they collide with nothing.
-pub const SELECTABLE: u32 = QUERY_ONLY_LAYER;
+pub const SELECTABLE: u32 = 1 << 3;
 /// Collision layer of the npc hit volumes, used by flying arrows (sensors) to
 /// detect hits on npcs.
 pub const NPC_BODY: u32 = 1 << 4;

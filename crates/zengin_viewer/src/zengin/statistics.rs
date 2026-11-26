@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
-use crate::gui_debug::RefreshStatistics;
 use crate::zengin::GameNpc;
 use crate::zengin::resources::ZenGinModelComponent;
 use dev_util::perf_debug;
+use dev_util::statistics::RefreshStatistics;
 
 /// Counts zengin models and npcs for the debug UI.
 pub struct StatisticsZenginPlugin;

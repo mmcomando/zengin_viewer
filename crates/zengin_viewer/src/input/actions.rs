@@ -5,10 +5,10 @@ use leafwing_input_manager::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::game_state::AppState;
 use crate::input::horizontal_axis::HorizontalAxis;
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
+use crate::zengin::AppState;
 use crate::zengin::gui::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiState};
 use crate::zengin::{DialogRequest, DialogUiState, DialogVoice};
 use dev_util::perf_debug;

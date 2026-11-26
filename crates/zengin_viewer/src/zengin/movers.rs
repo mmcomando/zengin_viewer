@@ -6,7 +6,7 @@ use bevy::log::{debug, info};
 use bevy::prelude::*;
 use zen_kit_rs::misc::MoverBehavior;
 
-use crate::game_state::AppState;
+use crate::zengin::AppState;
 use dev_util::perf_debug;
 
 pub struct MoversPlugin;

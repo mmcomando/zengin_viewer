@@ -17,8 +17,8 @@ pub(crate) use combat::{DamageTargetData, deal_damage};
 pub(crate) use combat::{MeleeHit, NpcDied};
 pub(crate) use debug::{grant_test_items, seed_test_journal};
 
-use crate::game_state::AppState;
 use crate::input::world_input_enabled;
+use crate::zengin::AppState;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 
 pub struct PlayerInteractionPlugin;

@@ -1,4 +1,4 @@
-use crate::game_state::AppState;
+use crate::zengin::AppState;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::state::ScriptMessages;
 use crate::zengin::script::string_value::StringCanon;
@@ -27,7 +27,7 @@ impl Plugin for GothicScriptsPlugin {
                 .in_set(GameScriptLoaded)
                 .run_if(in_state(AppState::LoadScreen))
                 .run_if(not(resource_exists::<ScriptResource>))
-                .run_if(crate::game_state::loading_screen_ready),
+                .run_if(crate::zengin::loading_screen_ready),
         );
         app.add_systems(Update, update_script_npc_state);
         #[cfg(feature = "debug_perf")]

@@ -32,7 +32,7 @@ use super::data::AnimationData;
 use super::player_melee_combo::player_melee_combo;
 use super::send_desired::send_desired_animations;
 
-use crate::game_state::AppState;
+use crate::zengin::AppState;
 
 pub struct AutoAnimSequencerPlugin;
 

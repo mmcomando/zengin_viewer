@@ -14,12 +14,14 @@
 //! - [`updater`] periodic entity update streams driven by the amortized
 //!   executor.
 //! - [`wav_duration`] reads the play time out of a wav byte buffer.
+//! - [`statistics`] the debug statistics resource, refresh message and plugin.
 
 pub mod amortized_executor;
 pub mod external_messages;
 pub mod hash;
 mod logging;
 pub mod perf_debug;
+pub mod statistics;
 pub mod ui_kit;
 pub mod updater;
 mod wav;

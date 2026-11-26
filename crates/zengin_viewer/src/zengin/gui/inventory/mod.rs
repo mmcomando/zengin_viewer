@@ -20,7 +20,7 @@ pub(crate) use state::{
 
 use bevy::prelude::*;
 
-use crate::game_state::AppState;
+use crate::zengin::AppState;
 
 pub struct InventoryUiPlugin;
 

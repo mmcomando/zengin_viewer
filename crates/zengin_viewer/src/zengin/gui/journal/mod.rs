@@ -11,7 +11,7 @@ pub(crate) use state::JournalUiState;
 
 use bevy::prelude::*;
 
-use crate::game_state::AppState;
+use crate::zengin::AppState;
 use crate::zengin::ensure_menu_script;
 
 use data::JournalMenuData;

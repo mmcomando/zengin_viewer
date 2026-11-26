@@ -10,9 +10,9 @@ pub(crate) use state::DialogRequest;
 pub(crate) use state::DialogUiState;
 pub(crate) use state::DialogVoice;
 
-use crate::game_state::AppState;
 use crate::gameplay::camera::EditorMode;
 use crate::input::InputMode;
+use crate::zengin::AppState;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::DialogLine;

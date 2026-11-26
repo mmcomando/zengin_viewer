@@ -5,7 +5,7 @@ use std::sync::PoisonError;
 use bevy::asset::LoadState;
 use bevy::prelude::*;
 
-use crate::game_state::{AppState, LoadingScreenReady};
+use crate::zengin::{AppState, LoadingScreenReady};
 use crate::zengin::{LoadingWorld, ZenginVfs, get_full_texture_path, get_zengin_asset_bytes};
 use dev_util::perf_debug;
 use dev_util::ui_kit::{set_visibility, spawn_gui_root};

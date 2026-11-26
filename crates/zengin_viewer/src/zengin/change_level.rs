@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use crate::game_state::AppState;
+use crate::zengin::AppState;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::common::ChangeLevelTrigger;
 use crate::zengin::world_plugin::begin_level_change;

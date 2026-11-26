@@ -19,7 +19,7 @@ use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::world_entity::Arrow;
 use avian3d::prelude::*;
 
-use crate::game_state::AppState;
+use crate::zengin::AppState;
 use dev_util::perf_debug;
 
 pub struct RangedCombatPlugin;

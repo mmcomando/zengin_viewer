@@ -3,6 +3,7 @@ mod change_level;
 mod common;
 pub(crate) mod dialog;
 mod fight_ai;
+mod game_state;
 pub(crate) mod gui;
 mod instance_index;
 mod interaction;
@@ -62,6 +63,9 @@ pub(crate) use crate::zengin::dialog::DialogUiState;
 pub(crate) use crate::zengin::dialog::DialogVoice;
 pub(crate) use crate::zengin::dialog::SpeechSounds;
 pub(crate) use crate::zengin::fight_ai::{FightAiResource, load_fight_ai_tables};
+pub(crate) use crate::zengin::game_state::{
+    AppState, GameStatePlugin, LoadingScreenReady, loading_screen_ready, world_is_loaded,
+};
 pub(crate) use crate::zengin::interaction::MeleeHit;
 pub(crate) use crate::zengin::interaction::ranged::ArrowShot;
 pub(crate) use crate::zengin::interaction::selection::{Selection, SelectionKind};
@@ -88,7 +92,7 @@ pub(crate) use crate::zengin::npc_routines::RoutineExecutor;
 pub(crate) use crate::zengin::resources::CachedAssetHandles;
 pub(crate) use crate::zengin::resources::NPC_BODY;
 pub(crate) use crate::zengin::resources::{
-    DYNAMIC_OBJECT, STATIC_OBJECT, ZenGinModelComponentLoaded,
+    DYNAMIC_OBJECT, SELECTABLE, STATIC_OBJECT, ZenGinModelComponentLoaded,
 };
 pub(crate) use crate::zengin::script::bridge::ScriptChangesApplied;
 pub(crate) use crate::zengin::script::component::ScriptResource;

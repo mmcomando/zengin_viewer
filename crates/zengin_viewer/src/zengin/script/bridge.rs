@@ -5,8 +5,8 @@
 
 use bevy::prelude::*;
 
-use crate::game_state::AppState;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
+use crate::zengin::AppState;
 use crate::zengin::GameNpc;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gui::GameLogEntry;
