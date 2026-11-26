@@ -18,8 +18,8 @@ use bevy::prelude::*;
 use dev_util::perf_debug;
 use dev_util::warn_once;
 
+use super::{AnimationGraph, AnimationIndex, animation_name_from_path};
 use crate::gameplay::objects::NpcModel;
-use crate::graphics::{AnimationGraph, AnimationIndex, animation_name_from_path};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::{
     ArrowShot, CachedAssetHandles, MeleeHit, NpcEquippedWeapon, NpcTalentOverlay, NpcWeaponMode,

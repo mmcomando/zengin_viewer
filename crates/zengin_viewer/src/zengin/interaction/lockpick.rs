@@ -4,7 +4,7 @@ use bevy::log::warn;
 use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
-use crate::graphics::AnimationController;
+use crate::zengin::AnimationController;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gui::{LockpickOpened, LootSource, OpenLoot};
 use crate::zengin::npc_actions::{

@@ -10,16 +10,16 @@ use bevy::prelude::*;
 use daedalus_wasm::daedalus::FightAiMove;
 use rand_mt::Mt;
 
-use crate::graphics::{
-    AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind,
-    SetDesiredAnimation, is_melee_attack_animation,
-};
 use crate::zengin::common::horizontal_offset;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{NpcHealth, queue_root_motion_animation, queue_stand_animation};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::{
+    AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, MeleeAttackKind,
+    SetDesiredAnimation, is_melee_attack_animation,
+};
 use crate::zengin::{FightAiResource, GameNpc};
 use dev_util::perf_debug;
 

@@ -3,10 +3,6 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 
 use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
-use crate::graphics::{
-    AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
-    animation_name_from_path,
-};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::common::{
     MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, face_direction_quat, horizontal_offset,
@@ -21,6 +17,10 @@ use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{BS_LIE, BS_SIT, UseMobChange};
 use crate::zengin::script::string_value::StringCanon;
+use crate::zengin::{
+    AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
+    animation_name_from_path,
+};
 use crate::zengin::{
     GameMob, GameNpc, MobBase, MobHiddenModel, MobOccupant, MobPose, MobRegistry, NpcMobUse,
 };

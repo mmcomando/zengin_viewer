@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::graphics::AnimationController;
+use crate::zengin::AnimationController;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::attack::AttackAction;

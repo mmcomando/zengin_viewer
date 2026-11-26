@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 
-use crate::graphics::{
-    AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
-};
 use crate::zengin::GameNpc;
 use crate::zengin::common::horizontal_offset;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{
     NpcWalkMode, queue_root_motion_animation, queue_stand_animation,
+};
+use crate::zengin::{
+    AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
 };
 use dev_util::perf_debug;
 

@@ -6,7 +6,7 @@ use std::sync::PoisonError;
 use bevy::asset::AssetPath;
 use bevy::prelude::*;
 
-use crate::graphics::AnimationController;
+use crate::zengin::AnimationController;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::{
     AttackAction, ClearAiQueueChange, GameMob, GameNpc, GoToNpcAction, GoToWaypointAction,

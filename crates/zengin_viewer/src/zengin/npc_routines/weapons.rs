@@ -4,7 +4,6 @@ use bevy::ecs::entity::Entities;
 use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
-use crate::graphics::{AnimationController, AnimationTriggers};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::ZenginVfs;
 use crate::zengin::common::{choose_animation_scheme, get_animation_path};
@@ -16,6 +15,7 @@ use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{WeaponClass, WeaponKind, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::{AnimationController, AnimationTriggers};
 use crate::zengin::{GameMob, NpcMobUse};
 use dev_util::perf_debug;
 

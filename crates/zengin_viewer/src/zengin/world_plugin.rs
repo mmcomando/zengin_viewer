@@ -10,7 +10,6 @@ use crate::gameplay::character::{
 use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::NpcModel;
-use crate::graphics::{NpcAnimations, PlayerMeleeCombo};
 use crate::input::Options;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::WorldEntityMarker;
@@ -48,6 +47,7 @@ use crate::zengin::{
     DialogUiState, GameItem, GameNpc, MusicZones, NpcActionQueue, NpcHandle, NpcOverlay, ZenginVfs,
     talent_overlay_for,
 };
+use crate::zengin::{NpcAnimations, PlayerMeleeCombo};
 use avian3d::prelude::*;
 use bevy::prelude::*;
 use dev_util::perf_debug;

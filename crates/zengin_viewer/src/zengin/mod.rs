@@ -1,3 +1,4 @@
+mod animation;
 mod change_level;
 mod common;
 pub(crate) mod dialog;
@@ -8,6 +9,13 @@ mod interaction;
 mod loaders;
 mod mobs;
 mod movers;
+pub(crate) use crate::zengin::animation::{
+    AnimatedJoint, AnimationController, AnimationData, AnimationEnds, AnimationGraph,
+    AnimationSample, AnimationState, AnimationTriggers, AnimationTriggersPlugin, AutoAnimSequencer,
+    AutoAnimSequencerSet, BoneAnimationData, DesiredAnimation, FrameState, MeleeAttackKind,
+    NpcAnimations, NpcHitReaction, PlayerMeleeCombo, SetDesiredAnimation, SkeletalAnimations,
+    animation_name_from_path, is_melee_attack_animation, npc_hit_reaction_end, play_hit_reaction,
+};
 pub(crate) use crate::zengin::common::choose_animation_scheme;
 pub(crate) use crate::zengin::interaction::{NpcDied, grant_test_items, seed_test_journal};
 pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
@@ -142,7 +150,7 @@ impl Plugin for ZenginPlugin {
         app.add_plugins(crate::zengin::interaction::PlayerInteractionPlugin);
         app.add_plugins(crate::zengin::interaction::ranged::RangedCombatPlugin);
         app.add_plugins(crate::zengin::statistics::StatisticsZenginPlugin);
-        app.add_plugins(crate::graphics::AnimationTriggersPlugin);
+        app.add_plugins(crate::zengin::AnimationTriggersPlugin);
         app.add_plugins(crate::zengin::script::component::GothicScriptsPlugin);
         app.add_plugins(crate::zengin::dialog::GameDialogPlugin);
     }

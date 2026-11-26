@@ -33,7 +33,7 @@ impl Plugin for PlayerInteractionPlugin {
             Update,
             (
                 combat::npc_melee_swing_hit,
-                crate::graphics::npc_hit_reaction_end,
+                crate::zengin::npc_hit_reaction_end,
                 combat::drop_npc_death_weapon,
                 player_mob::start_auto_end_release
                     .before(player_mob::stand_up_player_from_mob)

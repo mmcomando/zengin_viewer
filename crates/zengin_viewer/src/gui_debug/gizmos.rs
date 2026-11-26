@@ -2,7 +2,7 @@ use avian3d::parry::shape::TypedShape;
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
-use crate::graphics::AnimatedJoint;
+use crate::zengin::AnimatedJoint;
 use crate::zengin::WaypointGraph;
 use dev_util::perf_debug;
 

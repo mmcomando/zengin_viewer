@@ -12,7 +12,7 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::gameplay::game_time::advance_game_time;
-use crate::graphics::AutoAnimSequencerSet;
+use crate::zengin::AutoAnimSequencerSet;
 use crate::zengin::script::bridge::{ScriptChangesApplied, ScriptOutputFlush};
 use crate::zengin::{ZenginVfs, loaders::vfs::animation_file_names};
 

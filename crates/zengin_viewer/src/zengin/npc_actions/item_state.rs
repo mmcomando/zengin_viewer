@@ -10,9 +10,6 @@
 use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
-use crate::graphics::{
-    AnimationController, AnimationEnds, AnimationGraph, AutoAnimSequencer, animation_name_from_path,
-};
 use crate::zengin::common::choose_animation_scheme;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{
@@ -24,6 +21,9 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::BS_ITEMINTERACT;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::InstanceId;
+use crate::zengin::{
+    AnimationController, AnimationEnds, AnimationGraph, AutoAnimSequencer, animation_name_from_path,
+};
 use crate::zengin::{GameNpc, NpcMobUse};
 use dev_util::perf_debug;
 

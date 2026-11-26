@@ -10,8 +10,8 @@ use std::sync::atomic::Ordering;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
+use super::AnimationGraph;
 use crate::gameplay::objects::NpcModel;
-use crate::graphics::AnimationGraph;
 use crate::input::{GameplayAction, GameplayInputMarker, WorldInputViews};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::{

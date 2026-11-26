@@ -5,8 +5,7 @@ use bevy::prelude::*;
 
 use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::NpcModel;
-use crate::graphics::AnimationController;
-use crate::graphics::{NpcHitReaction, play_hit_reaction};
+use crate::zengin::AnimationController;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::SpawnFromSavedObject;
 use crate::zengin::gui::GameLog;
@@ -23,6 +22,7 @@ use crate::zengin::script::manager::AttackKind;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameNpc, NpcCorpseMarker, VisibilityRefresh};
+use crate::zengin::{NpcHitReaction, play_hit_reaction};
 use dev_util::perf_debug;
 
 /// Query data of the npc state needed to apply hits and deaths.

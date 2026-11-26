@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::graphics::AnimationController;
+use crate::zengin::AnimationController;
 use crate::zengin::NpcCorpseMarker;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::queue::{NpcActionQueue, QueuedAction};
@@ -42,11 +42,11 @@ pub(crate) fn flush_npc_action_queue(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graphics::{AnimationController, AnimationData};
     use crate::zengin::npc_actions::action::ExecutingActionMarker;
     use crate::zengin::npc_actions::attack::AttackAction;
     use crate::zengin::npc_actions::goto::GoToWaypointAction;
     use crate::zengin::script::string_value::StringCanon;
+    use crate::zengin::{AnimationController, AnimationData};
     use bevy::asset::Handle;
 
     fn app() -> App {

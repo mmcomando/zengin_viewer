@@ -8,9 +8,6 @@ use bevy::prelude::*;
 
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::game_time::GameTime;
-use crate::graphics::{
-    AnimationController, AnimationData, AnimationEnds, animation_name_from_path,
-};
 use crate::zengin::GameChest;
 use crate::zengin::GameMob;
 use crate::zengin::GameNpc;
@@ -27,6 +24,7 @@ use crate::zengin::script::state::ScriptMob;
 use crate::zengin::script::state::{BS_ITEMINTERACT, MobRoutineEntry};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::visual::model::ZenGinModel;
+use crate::zengin::{AnimationController, AnimationData, AnimationEnds, animation_name_from_path};
 use dev_util::perf_debug;
 
 /// Lower bound of a mob selection collider half extent, in meters, so tiny

@@ -12,10 +12,6 @@ use crate::gameplay::character::{
 };
 use crate::gameplay::distance::{ClassifyDistance, DistanceFar, DistanceNear};
 use crate::gameplay::objects::{NpcBodyRootOffset, NpcModel};
-use crate::graphics::{
-    AnimatedJoint, AnimationController, AnimationData, AnimationState, AutoAnimSequencer,
-    BoneAnimationData, FrameState, NpcAnimations,
-};
 use crate::zengin::GameNpc;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::common::get_animation_path;
@@ -25,6 +21,10 @@ use crate::zengin::resources::{
     CachedAssetHandles, NPC_BODY, ZenGinModelComponent, despawn_visual_when_far_resource,
 };
 use crate::zengin::visual::model::ZenGinModel;
+use crate::zengin::{
+    AnimatedJoint, AnimationController, AnimationData, AnimationState, AutoAnimSequencer,
+    BoneAnimationData, FrameState, NpcAnimations,
+};
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 use dev_util::perf_debug;

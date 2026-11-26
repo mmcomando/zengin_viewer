@@ -11,7 +11,7 @@ use avian3d::prelude::{SpatialQuery, SpatialQueryFilter};
 use bevy::prelude::*;
 
 use crate::game_state::AppState;
-use crate::graphics::AnimationController;
+use crate::zengin::AnimationController;
 use crate::zengin::GameNpc;
 use crate::zengin::STATIC_OBJECT;
 use crate::zengin::dialog::DialogUiState;

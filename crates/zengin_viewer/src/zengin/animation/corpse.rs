@@ -3,11 +3,11 @@
 
 use bevy::prelude::*;
 
-use crate::gameplay::objects::NpcModel;
-use crate::graphics::{
+use super::{
     AnimationController, AnimationData, AutoAnimSequencer, DesiredAnimation,
     animation_name_from_path,
 };
+use crate::gameplay::objects::NpcModel;
 use crate::zengin::{
     AnimationFiles, CachedAssetHandles, NpcCorpseMarker, animation_file_name, get_animation_path,
 };

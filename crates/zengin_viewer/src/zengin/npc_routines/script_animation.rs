@@ -3,13 +3,13 @@
 use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
-use crate::graphics::{AnimationController, AutoAnimSequencer};
 use crate::zengin::common::{choose_animation_scheme, get_animation_path};
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_routines::overlay::{AnimationFiles, NpcOverlay};
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::state::AnimationChange;
 use crate::zengin::script::string_value::StringCanon;
+use crate::zengin::{AnimationController, AutoAnimSequencer};
 
 use super::routines::{STANDING_ANIMATION, has_animation};
 use dev_util::perf_debug;

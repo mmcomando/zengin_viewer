@@ -12,9 +12,6 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::gameplay::objects::NpcModel;
-use crate::graphics::{
-    AnimationController, AnimationEnds, AutoAnimSequencer, animation_name_from_path,
-};
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gui::{LootClosed, LootSource};
@@ -26,6 +23,9 @@ use crate::zengin::npc_routines::{
 };
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
+use crate::zengin::{
+    AnimationController, AnimationEnds, AutoAnimSequencer, animation_name_from_path,
+};
 use crate::zengin::{GameMob, GameNpc, MobPose, NpcMobUse};
 use dev_util::perf_debug;
 

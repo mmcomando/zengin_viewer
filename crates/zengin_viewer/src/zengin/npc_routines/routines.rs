@@ -10,9 +10,6 @@ use crate::gameplay::character::NpcPhysicsMarker;
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::game_time::GameTime;
 use crate::gameplay::objects::NpcModel;
-use crate::graphics::{
-    AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
-};
 use crate::zengin::GameNpc;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::common::{
@@ -30,6 +27,9 @@ use crate::zengin::script::state::{
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::FunctionId;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph};
+use crate::zengin::{
+    AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
+};
 use crate::zengin::{DialogUiState, InstanceId, NpcCorpseMarker};
 use dev_util::perf_debug;
 use dev_util::warn_once;

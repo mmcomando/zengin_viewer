@@ -6,7 +6,7 @@ mod model_spawn;
 
 use bevy::prelude::*;
 
-use crate::graphics::AnimationData;
+use crate::zengin::AnimationData;
 use crate::zengin::loaders::animation::ZenGinAnimationLoader;
 use crate::zengin::loaders::model::ZenGinModelLoader;
 use crate::zengin::loaders::texture::ZenGinTextureLoader;

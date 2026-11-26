@@ -7,7 +7,7 @@ use bevy::asset::AssetId;
 use bevy::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy::prelude::*;
 
-use crate::graphics::AnimationData;
+use crate::zengin::AnimationData;
 use crate::zengin::loaders::model::ZenGinModelLoaderSettings;
 use crate::zengin::visual::material::MaterialHashed;
 use crate::zengin::visual::model::ZenGinModel;
