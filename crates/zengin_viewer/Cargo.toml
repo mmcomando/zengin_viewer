@@ -27,7 +27,6 @@ wasmtime = { workspace = true }
 pathfinding = "4.16.0"
 
 # Internal developer utilities
-# perf_debug! / test_log! / warn_once! / warn_unimplemented!
 dev_util = { path = "../dev_util" }
 
 # VR
@@ -36,8 +35,6 @@ openxr = { workspace = true }
 # File formats
 serde = { workspace = true }
 ron = { workspace = true }
-# Thumbnail encoding/decoding for save screenshots. `image 0.25` is already in
-# the lock through `bevy_image`.
 image = { version = "0.25", default-features = false, features = ["png"] }
 rodio = { version = "0.22.2", features = ["symphonia-wav", "symphonia-adpcm"] }
 

@@ -2,9 +2,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use bevy::prelude::*;
+use dev_util::wav_duration;
 use zen_kit_rs::vfs::Vfs;
-
-use crate::audio::wav_duration;
 
 /// Durations of speech wav files, read directly from the shared vfs and
 /// cached, keyed by the zengin asset path of the sound
