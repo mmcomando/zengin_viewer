@@ -68,6 +68,17 @@ perf-debug scenario="walk_through_city" frames="800":
 export-symbol-names:
     cargo test -p ZenGinViewer -- --ignored --nocapture debug_zengin_scripts > misc/script_game_symbols.log
 
+# List Rust functions and types grouped by module (extra args go to the script).
+# Skips the vendored/helper crates; pass --skip-crate to narrow further.
+symbol-dump *args:
+    python3 misc/scripts/rust_symbol_dump.py \
+        --skip-crate ZenKitCAPI_sys \
+        --skip-crate ZenKit_rs \
+        --skip-crate daedalus_typed \
+        --skip-crate daedalus_wasm \
+        --skip-crate dmusic_sys \
+        {{args}}
+
 generate-animation-graph:
     cargo run -p dev_tools --bin animation_graph_export
 
