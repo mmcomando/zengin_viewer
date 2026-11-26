@@ -11,9 +11,9 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use super::AnimationGraph;
-use crate::input::WorldInputViews;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gameplay::objects::NpcModel;
+use crate::zengin::gui::WorldInputViews;
 use crate::zengin::{
     CachedAssetHandles, NpcEquippedWeapon, NpcMobUse, NpcTalentOverlay, NpcWeaponMode, Selection,
     WeaponClass, WeaponMode,

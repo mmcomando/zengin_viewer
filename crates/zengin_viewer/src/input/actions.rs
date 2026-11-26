@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::*;
@@ -14,6 +13,7 @@ use crate::input::horizontal_axis::HorizontalAxis;
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
 use crate::zengin::AppState;
+use crate::zengin::gui::WorldInputViews;
 use crate::zengin::gui::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiState};
 use crate::zengin::{DialogRequest, DialogUiState, DialogVoice};
 use dev_util::perf_debug;
@@ -185,30 +185,6 @@ pub(crate) fn update_input_mode(
             shared.disable_all_actions();
             editor.enable_all_actions();
         }
-    }
-}
-
-/// The views that own the input while open. Read directly rather than through
-/// [`InputMode`], which changes on the next frame, so a view opened in the same
-/// frame blocks immediately.
-#[derive(SystemParam)]
-pub(crate) struct WorldInputViews<'w> {
-    dialog: Res<'w, DialogUiState>,
-    chapter_screen: Res<'w, ChapterScreenState>,
-    inventory: Res<'w, InventoryUiState>,
-    journal: Res<'w, JournalUiState>,
-    stats: Res<'w, StatsUiState>,
-}
-
-impl WorldInputViews<'_> {
-    /// Whether player-driven world systems may read gameplay input. False while
-    /// a dialog, inventory, journal, stats menu or chapter screen is open.
-    pub(crate) fn enabled(&self) -> bool {
-        !self.dialog.is_open()
-            && !self.chapter_screen.is_open()
-            && !self.inventory.is_open()
-            && !self.journal.is_open()
-            && !self.stats.is_open()
     }
 }
 

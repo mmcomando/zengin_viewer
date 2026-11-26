@@ -6,9 +6,9 @@
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::input::WorldInputViews;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gameplay::camera::{CameraResource, CurrentCamera};
+use crate::zengin::gui::WorldInputViews;
 use crate::zengin::{NpcMobUse, NpcWeaponMode, Selection, WeaponMode};
 use input_core::{GameplayAction, GameplayInputMarker};
 

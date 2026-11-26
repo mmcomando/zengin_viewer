@@ -1,6 +1,7 @@
 mod chapter_screen;
 mod game_log;
 mod health_bars;
+mod input_gate;
 mod inventory;
 mod journal;
 mod loading_screen;
@@ -14,6 +15,7 @@ pub(crate) use crate::zengin::gui::chapter_screen::{
 };
 pub(crate) use crate::zengin::gui::game_log::{GameLog, GameLogEntry, GameLogPlugin};
 pub(crate) use crate::zengin::gui::health_bars::HealthBarsPlugin;
+pub(crate) use crate::zengin::gui::input_gate::WorldInputViews;
 pub(crate) use crate::zengin::gui::inventory::{
     InventoryUiPlugin, InventoryUiState, LockpickOpened, LootClosed, LootSource, OpenLockpick,
     OpenLoot, OpenTrade,
