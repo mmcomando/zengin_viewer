@@ -199,6 +199,74 @@ impl SavedObject {
     }
 }
 
+/// Builds a [`SavedObject`]; every payload starts empty.
+#[derive(Debug, Clone)]
+pub(crate) struct SavedObjectBuilder {
+    object: SavedObject,
+}
+
+impl SavedObjectBuilder {
+    pub(crate) fn new(transform: Transform) -> Self {
+        Self {
+            object: SavedObject {
+                transform,
+                spawn_at_place: None,
+                player: None,
+                npc: None,
+                overlay: None,
+                item: None,
+                mob_base: None,
+                static_object: None,
+                chest: None,
+            },
+        }
+    }
+
+    pub(crate) fn spawn_at_place(mut self, place: String) -> Self {
+        self.object.spawn_at_place = Some(SavedSpawnAtPlace { place });
+        self
+    }
+
+    pub(crate) fn player(mut self) -> Self {
+        self.object.player = Some(SavedPlayer);
+        self
+    }
+
+    pub(crate) fn npc(mut self, instance_id: InstanceId) -> Self {
+        self.object.npc = Some(SavedNpc { instance_id });
+        self
+    }
+
+    pub(crate) fn overlay(mut self, scheme: Option<String>) -> Self {
+        self.object.overlay = Some(SavedOverlay(scheme));
+        self
+    }
+
+    pub(crate) fn item(mut self, instance_id: InstanceId) -> Self {
+        self.object.item = Some(SavedItem { instance_id });
+        self
+    }
+
+    pub(crate) fn mob_base(mut self, vob_id: u32) -> Self {
+        self.object.mob_base = Some(SavedMobBase { vob_id });
+        self
+    }
+
+    pub(crate) fn static_object(mut self) -> Self {
+        self.object.static_object = Some(SavedStatic);
+        self
+    }
+
+    pub(crate) fn chest(mut self, chest: SavedChest) -> Self {
+        self.object.chest = Some(chest);
+        self
+    }
+
+    pub(crate) fn build(self) -> SavedObject {
+        self.object
+    }
+}
+
 /// Serialized `SpawnAtPlace` component. When present the spawner places the
 /// entity at this named waypoint or spot instead of at [`SavedObject::transform`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -487,58 +555,26 @@ mod tests {
         let item_id = InstanceId::new(9).expect("item id");
         let part = WorldSave {
             objects: vec![
-                SavedObject {
-                    transform: Transform::IDENTITY,
-                    spawn_at_place: None,
-                    player: Some(SavedPlayer),
-                    npc: Some(SavedNpc {
-                        instance_id: npc_id,
-                    }),
-                    overlay: Some(SavedOverlay(Some("HUMANS_SPRINT".to_string()))),
-                    item: None,
-                    mob_base: None,
-                    static_object: None,
-                    chest: None,
-                },
-                SavedObject {
-                    transform: Transform::from_xyz(1.0, 2.0, 3.0),
-                    spawn_at_place: None,
-                    player: None,
-                    npc: None,
-                    overlay: None,
-                    item: Some(SavedItem {
-                        instance_id: item_id,
-                    }),
-                    mob_base: None,
-                    static_object: None,
-                    chest: None,
-                },
-                SavedObject {
-                    transform: Transform::IDENTITY,
-                    spawn_at_place: None,
-                    player: None,
-                    npc: None,
-                    overlay: None,
-                    item: None,
-                    mob_base: Some(SavedMobBase { vob_id: 42 }),
-                    static_object: None,
-                    chest: Some(SavedChest {
+                SavedObjectBuilder::new(Transform::IDENTITY)
+                    .player()
+                    .npc(npc_id)
+                    .overlay(Some("HUMANS_SPRINT".to_string()))
+                    .build(),
+                SavedObjectBuilder::new(Transform::from_xyz(1.0, 2.0, 3.0))
+                    .item(item_id)
+                    .build(),
+                SavedObjectBuilder::new(Transform::IDENTITY)
+                    .mob_base(42)
+                    .chest(SavedChest {
                         locked: true,
                         items: vec![(item_id, 3)],
                         cracked: true,
-                    }),
-                },
-                SavedObject {
-                    transform: Transform::from_xyz(4.0, 5.0, 6.0),
-                    spawn_at_place: None,
-                    player: None,
-                    npc: None,
-                    overlay: None,
-                    item: None,
-                    mob_base: Some(SavedMobBase { vob_id: 11 }),
-                    static_object: Some(SavedStatic),
-                    chest: None,
-                },
+                    })
+                    .build(),
+                SavedObjectBuilder::new(Transform::from_xyz(4.0, 5.0, 6.0))
+                    .mob_base(11)
+                    .static_object()
+                    .build(),
             ],
             mob_routines: Vec::new(),
         };
@@ -587,19 +623,9 @@ mod tests {
 
     #[test]
     fn spawn_at_place_round_trips_and_is_optional() {
-        let object = SavedObject {
-            transform: Transform::IDENTITY,
-            spawn_at_place: Some(SavedSpawnAtPlace {
-                place: "OC_WP".to_string(),
-            }),
-            player: None,
-            npc: None,
-            overlay: None,
-            item: None,
-            mob_base: None,
-            static_object: None,
-            chest: None,
-        };
+        let object = SavedObjectBuilder::new(Transform::IDENTITY)
+            .spawn_at_place("OC_WP".to_string())
+            .build();
         let text = ron::ser::to_string(&object).expect("serialize");
         let restored: SavedObject = ron::from_str(&text).expect("deserialize");
         assert_eq!(
@@ -607,27 +633,14 @@ mod tests {
             Some("OC_WP".to_string())
         );
 
-        let without = SavedObject {
-            spawn_at_place: None,
-            ..object
-        };
+        let without = SavedObjectBuilder::new(Transform::IDENTITY).build();
         let text = ron::ser::to_string(&without).expect("serialize");
         assert!(!text.contains("spawn_at_place"));
     }
 
     #[test]
     fn transform_only_object_is_empty() {
-        let object = SavedObject {
-            transform: Transform::IDENTITY,
-            spawn_at_place: None,
-            player: None,
-            npc: None,
-            overlay: None,
-            item: None,
-            mob_base: None,
-            static_object: None,
-            chest: None,
-        };
+        let object = SavedObjectBuilder::new(Transform::IDENTITY).build();
         assert!(object.is_empty());
     }
 }

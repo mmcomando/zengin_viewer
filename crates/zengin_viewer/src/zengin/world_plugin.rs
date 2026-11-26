@@ -16,9 +16,7 @@ use crate::gui_debug::WorldMesh;
 use crate::input::Options;
 use crate::perf_debug;
 use crate::save::PendingLoad;
-use crate::save::format::{
-    SaveGame, SavedChest, SavedItem, SavedMobBase, SavedObject, SavedPlayer, SavedStatic,
-};
+use crate::save::format::{SaveGame, SavedChest, SavedNpc, SavedObject, SavedObjectBuilder};
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::change_level::ChangeLevelTriggers;
 use crate::zengin::common::get_full_texture_path;
@@ -74,6 +72,7 @@ impl Plugin for ZenGinWorldPlugin {
         app.add_message::<RestartWorld>();
         app.add_message::<NewGame>();
         app.add_message::<SpawnPlayer>();
+        app.add_message::<SpawnNpc>();
         app.add_systems(
             OnEnter(AppState::LoadScreen),
             (reset_load_screen_elapsed, request_initial_world),
@@ -648,17 +647,11 @@ fn spawn_world_data(
         }
         if spawn_player_entity {
             spawns.objects.send(SpawnFromSavedObject {
-                object: SavedObject {
-                    transform: player_transform.unwrap_or_else(default_player_transform),
-                    spawn_at_place: None,
-                    player: Some(SavedPlayer),
-                    npc: None,
-                    overlay: None,
-                    item: None,
-                    mob_base: None,
-                    static_object: None,
-                    chest: None,
-                },
+                object: SavedObjectBuilder::new(
+                    player_transform.unwrap_or_else(default_player_transform),
+                )
+                .player()
+                .build(),
             });
         }
     }
@@ -668,43 +661,25 @@ fn spawn_world_data(
 /// Turns a world prototype into the spawn descriptor a fresh world sends to
 /// [`spawn_from_saved_objects`].
 fn saved_object_from_prototype(prototype: &VobPrototype) -> Option<SavedObject> {
-    let (transform, mob_base, static_object, chest, item) = match prototype {
-        VobPrototype::Static(spawn) => (
-            spawn.tr,
-            Some(SavedMobBase {
-                vob_id: spawn.vob_id,
-            }),
-            Some(SavedStatic),
-            None,
-            None,
-        ),
-        VobPrototype::Mover(spawn) => (
-            spawn.tr,
-            Some(SavedMobBase {
-                vob_id: spawn.vob_id,
-            }),
-            Some(SavedStatic),
-            None,
-            None,
-        ),
+    let object = match prototype {
+        VobPrototype::Static(spawn) => SavedObjectBuilder::new(spawn.tr)
+            .mob_base(spawn.vob_id)
+            .static_object()
+            .build(),
+        VobPrototype::Mover(spawn) => SavedObjectBuilder::new(spawn.tr)
+            .mob_base(spawn.vob_id)
+            .static_object()
+            .build(),
         VobPrototype::Mob(spawn) => {
-            let chest = match &spawn.kind {
-                MobSpawnKind::Container(container) => Some(SavedChest {
+            let mut builder = SavedObjectBuilder::new(spawn.tr).mob_base(spawn.base.vob_id);
+            if let MobSpawnKind::Container(container) = &spawn.kind {
+                builder = builder.chest(SavedChest {
                     locked: container.locked,
                     items: container.items.clone(),
                     cracked: container.cracked,
-                }),
-                MobSpawnKind::Interactive(_) => None,
-            };
-            (
-                spawn.tr,
-                Some(SavedMobBase {
-                    vob_id: spawn.base.vob_id,
-                }),
-                None,
-                chest,
-                None,
-            )
+                });
+            }
+            builder.build()
         }
         VobPrototype::Item(spawn) => {
             let Some(transform) = spawn.transform else {
@@ -714,28 +689,12 @@ fn saved_object_from_prototype(prototype: &VobPrototype) -> Option<SavedObject> 
                 );
                 return None;
             };
-            (
-                transform,
-                None,
-                None,
-                None,
-                Some(SavedItem {
-                    instance_id: spawn.instance_id,
-                }),
-            )
+            SavedObjectBuilder::new(transform)
+                .item(spawn.instance_id)
+                .build()
         }
     };
-    Some(SavedObject {
-        transform,
-        spawn_at_place: None,
-        player: None,
-        npc: None,
-        overlay: None,
-        item,
-        mob_base,
-        static_object,
-        chest,
-    })
+    Some(object)
 }
 
 /// Start position of the player when a world spawn has no explicit one.
@@ -755,27 +714,24 @@ fn spawn_from_saved_objects(
     let _perf = perf_debug!();
     for request in requests.read() {
         let object = &request.object;
-        let Some(transform) = saved_object_transform(object, &way_points, &spots) else {
-            continue;
-        };
         if object.player.is_some() {
+            let Some(transform) = saved_object_transform(object, &way_points, &spots) else {
+                continue;
+            };
             player_spawn.write(SpawnPlayer {
                 transform: Some(transform),
             });
             continue;
         }
         if let Some(npc) = &object.npc {
-            spawn_npc.write(SpawnNpc {
-                instance_id: npc.instance_id,
-                location_name: None,
-                transform: Some(transform),
-                exact_transform: true,
-                overlay: object
-                    .overlay
-                    .as_ref()
-                    .and_then(|overlay| overlay.0.clone()),
-            });
+            spawn_npc.write(npc_spawn_request(npc, object));
         }
+        if object.item.is_none() && object.mob_base.is_none() {
+            continue;
+        }
+        let Some(transform) = saved_object_transform(object, &way_points, &spots) else {
+            continue;
+        };
         if let Some(item) = &object.item {
             spawns.items.send(SpawnItem {
                 instance_id: item.instance_id,
@@ -791,6 +747,26 @@ fn spawn_from_saved_objects(
             continue;
         };
         send_saved_prototype(&spawns, prototype, object.chest.as_ref());
+    }
+}
+
+/// An npc spawn keeps the place name so `spawn_npc_entities` can apply the
+/// routine waypoint, ground offset and model scale.
+fn npc_spawn_request(npc: &SavedNpc, object: &SavedObject) -> SpawnNpc {
+    let place = object
+        .spawn_at_place
+        .as_ref()
+        .map(|place| place.place.clone());
+    let exact = place.is_none();
+    SpawnNpc {
+        instance_id: npc.instance_id,
+        location_name: place,
+        transform: exact.then_some(object.transform),
+        exact_transform: exact,
+        overlay: object
+            .overlay
+            .as_ref()
+            .and_then(|overlay| overlay.0.clone()),
     }
 }
 
@@ -966,11 +942,7 @@ fn npc_spawn_script_data(
         .symbol_name(spawn.instance_id.value())
         .unwrap_or_default();
     let display_name = script.npc_display_name(spawn.instance_id);
-    // Resolve the location string first, the instance state borrow below is
-    // immutable while `get_canon_string` needs `&mut`
-    let location_name = spawn
-        .location_name
-        .and_then(|id| script.get_canon_string(id));
+    let location_name = spawn.location_name.as_deref().map(StringCanon::new);
     let handle = script.npc_handle(spawn.instance_id)?;
     script.ensure_npc_routine(spawn.instance_id);
     let state = script.get_loaded_state();
@@ -1235,7 +1207,7 @@ mod tests {
         NpcSpawnNameFilter, Spots, WayPoints, saved_object_from_prototype, saved_object_transform,
         send_saved_prototype,
     };
-    use crate::save::format::{SavedChest, SavedObject, SavedSpawnAtPlace};
+    use crate::save::format::{SavedChest, SavedObject, SavedObjectBuilder, SavedSpawnAtPlace};
     use crate::zengin::InstanceId;
     use crate::zengin::MobBase;
     use crate::zengin::script::state::SpawnItem;
@@ -1282,17 +1254,7 @@ mod tests {
     }
 
     fn saved_object(transform: Transform) -> SavedObject {
-        SavedObject {
-            transform,
-            spawn_at_place: None,
-            player: None,
-            npc: None,
-            overlay: None,
-            item: None,
-            mob_base: None,
-            static_object: None,
-            chest: None,
-        }
+        SavedObjectBuilder::new(transform).build()
     }
 
     fn empty_world_spawns() -> WorldSpawnMessages {

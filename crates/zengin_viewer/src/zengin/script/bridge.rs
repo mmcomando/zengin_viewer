@@ -24,7 +24,7 @@ use crate::zengin::script::state::{
     DialogLine, GotoChange, GotoFpChange, GotoNpcChange, InventoryGain, ItemChanged,
     ItemEntitiesChanged, NpcChanged, NpcEntitiesChanged, OverlayChange, OverlayRequest,
     PassivePerception, PrintLine, ProcessInfosChange, RoutineEntry, ScreenMessage, ScriptMessages,
-    ScriptSound, SetGameTime, SpawnNpc, StandUpChange, StartStateChange, SvmLine, TurnToNpcChange,
+    ScriptSound, SetGameTime, StandUpChange, StartStateChange, SvmLine, TurnToNpcChange,
     UseItemStateChange, UseMobChange, WaitChange, WeaponMode,
 };
 use crate::zengin::world_spawn::WorldSpawnMessages;
@@ -33,10 +33,10 @@ pub struct ScriptBridgePlugin;
 
 impl Plugin for ScriptBridgePlugin {
     fn build(&self, app: &mut App) {
-        // The world loader and the script share one `SpawnItem` queue; the ECS
-        // inbox is keyed by message type, so a second `add_external_message`
-        // would orphan this sender.
-        let spawn_items = app.world().resource::<WorldSpawnMessages>().items.clone();
+        // The world loader and the script share one `SpawnFromSavedObject`
+        // queue; the ECS inbox is keyed by message type, so a second
+        // `add_external_message` would orphan this sender.
+        let spawn_objects = app.world().resource::<WorldSpawnMessages>().objects.clone();
         let messages = ScriptMessages {
             align_to_wp: app.add_external_message::<AlignToWpChange>(),
             overlay: app.add_external_message::<OverlayChange>(),
@@ -53,8 +53,7 @@ impl Plugin for ScriptBridgePlugin {
             wait: app.add_external_message::<WaitChange>(),
             stand_up: app.add_external_message::<StandUpChange>(),
             clear_ai_queue: app.add_external_message::<ClearAiQueueChange>(),
-            spawn_items,
-            spawn_npcs: app.add_external_message::<SpawnNpc>(),
+            spawn_objects,
             dialog_lines: app.add_external_message::<DialogLine>(),
             inventory_gains: app.add_external_message::<InventoryGain>(),
             screen_messages: app.add_external_message::<ScreenMessage>(),

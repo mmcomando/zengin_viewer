@@ -1,7 +1,10 @@
 #![allow(clippy::multiple_inherent_impl)]
 
 use super::*;
+use crate::save::format::SavedObjectBuilder;
+use crate::zengin::SpawnFromSavedObject;
 use crate::zengin::common::to_world_units;
+use bevy::prelude::Transform;
 
 impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
     fn wld_insertnpc(&mut self, npc_index: i32, waypoint_string_id: i32) {
@@ -9,6 +12,9 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
             return;
         };
         let Some(waypoint_string_id) = self.symbol_table.string(waypoint_string_id) else {
+            return;
+        };
+        let Some(place) = self.get_canon_string(waypoint_string_id) else {
             return;
         };
         // The same instance can be inserted several times (`ywolf` and friends).
@@ -19,34 +25,28 @@ impl mmcomando::zengine_scripts::wld_scripts::Host for ImportCallState {
         // routine state start updates it to the active routine waypoint later.
         self.typed
             .set_npc_waypoint(object.value() as u32, Some(waypoint_string_id));
-        // println!(
-        //     "NEW wld_insertnpc npc_index({npc_index}), waypoint_string_id({waypoint_string_id})"
-        // );
-
-        self.messages.spawn_npcs.send(SpawnNpc {
-            instance_id: object,
-            transform: None,
-            exact_transform: false,
-            overlay: None,
-            location_name: Some(waypoint_string_id),
+        self.messages.spawn_objects.send(SpawnFromSavedObject {
+            object: SavedObjectBuilder::new(Transform::IDENTITY)
+                .spawn_at_place(place.as_str().to_string())
+                .npc(object)
+                .build(),
         });
     }
     fn wld_insertitem(&mut self, item_index: i32, waypoint_string_id: i32) {
-        // println!("CCC");
         let Some(item_index) = self.symbol_table.instance(item_index) else {
             return;
         };
         let Some(waypoint_string_id) = self.symbol_table.string(waypoint_string_id) else {
             return;
         };
-        // println!(
-        //     "NEW wld_insertitem item_index({item_index}), item_name({item_name}), waypoint_string_id({waypoint_string_id}), waypoint_name({waypoint_name})"
-        // );
-
-        self.messages.spawn_items.send(SpawnItem {
-            instance_id: item_index,
-            transform: None,
-            location_name: Some(waypoint_string_id),
+        let Some(place) = self.get_canon_string(waypoint_string_id) else {
+            return;
+        };
+        self.messages.spawn_objects.send(SpawnFromSavedObject {
+            object: SavedObjectBuilder::new(Transform::IDENTITY)
+                .spawn_at_place(place.as_str().to_string())
+                .item(item_index)
+                .build(),
         });
     }
     fake_impl!(wld_detectitem(_0, _1) -> i32);

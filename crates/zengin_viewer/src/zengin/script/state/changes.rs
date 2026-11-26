@@ -194,12 +194,13 @@ pub struct SpawnItem {
 #[derive(Message)]
 pub struct SpawnNpc {
     pub instance_id: InstanceId,
-    pub location_name: Option<StringId>, // Waypoint or spot name
+    /// Waypoint or spot name the npc is placed at when `transform` is absent.
+    pub location_name: Option<String>,
     pub transform: Option<Transform>,
     /// Use the transform verbatim instead of the ground-placement offset and
-    /// model-scale override. Used when restoring a saved world.
+    /// model-scale override.
     pub exact_transform: bool,
-    /// Overlay animation scheme to apply at spawn (saved world restore).
+    /// Overlay animation scheme to apply at spawn.
     pub overlay: Option<String>,
 }
 

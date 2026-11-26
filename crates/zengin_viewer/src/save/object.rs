@@ -4,10 +4,7 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui_debug::StaticMesh;
-use crate::save::format::{
-    SavedChest, SavedItem, SavedMobBase, SavedNpc, SavedObject, SavedOverlay, SavedPlayer,
-    SavedStatic,
-};
+use crate::save::format::{SavedChest, SavedObject, SavedObjectBuilder};
 use crate::zengin::{GameChest, GameItem, GameNpc, MobBase, NpcOverlay};
 
 impl SavedObject {
@@ -25,27 +22,33 @@ impl SavedObject {
         base: Option<&MobBase>,
         static_mesh: Option<&StaticMesh>,
     ) -> Option<Self> {
-        let object = Self {
-            transform: *transform,
-            spawn_at_place: None,
-            player: player.map(|_| SavedPlayer),
-            npc: npc.map(|npc| SavedNpc {
-                instance_id: npc.instance_id(),
-            }),
-            overlay: overlay.map(|overlay| SavedOverlay(overlay.0.clone())),
-            item: item.map(|item| SavedItem {
-                instance_id: item.instance_id(),
-            }),
-            mob_base: base.map(|base| SavedMobBase {
-                vob_id: base.vob_id,
-            }),
-            static_object: static_mesh.map(|_| SavedStatic),
-            chest: chest.map(|chest| SavedChest {
+        let mut builder = SavedObjectBuilder::new(*transform);
+        if player.is_some() {
+            builder = builder.player();
+        }
+        if let Some(npc) = npc {
+            builder = builder.npc(npc.instance_id());
+        }
+        if let Some(overlay) = overlay {
+            builder = builder.overlay(overlay.0.clone());
+        }
+        if let Some(item) = item {
+            builder = builder.item(item.instance_id());
+        }
+        if let Some(base) = base {
+            builder = builder.mob_base(base.vob_id);
+        }
+        if static_mesh.is_some() {
+            builder = builder.static_object();
+        }
+        if let Some(chest) = chest {
+            builder = builder.chest(SavedChest {
                 locked: chest.locked,
                 items: chest.items.clone(),
                 cracked: chest.cracked,
-            }),
-        };
+            });
+        }
+        let object = builder.build();
         (!object.is_empty()).then_some(object)
     }
 }

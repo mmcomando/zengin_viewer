@@ -6,6 +6,8 @@ mod changes;
 mod instances;
 mod weapons;
 
+use crate::zengin::world_spawn::SpawnFromSavedObject;
+
 pub(crate) use body_state::{
     BS_ITEMINTERACT, BS_LIE, BS_SIT, BS_STAND, MobSchemeLists, body_state_for_scheme,
     current_body_state, has_body_flag,
@@ -413,10 +415,9 @@ pub struct ScriptMessages {
     pub stand_up: ExternalMessageSender<StandUpChange>,
     /// `Npc_ClearAIQueue` requests produced by the script.
     pub clear_ai_queue: ExternalMessageSender<ClearAiQueueChange>,
-    /// Item spawn requests queued by the world load and `wld_insertitem`.
-    pub spawn_items: ExternalMessageSender<SpawnItem>,
-    /// Npc spawn requests queued by `wld_insertnpc`.
-    pub spawn_npcs: ExternalMessageSender<SpawnNpc>,
+    /// Item and npc spawn requests queued by the world load and
+    /// `wld_insertitem`/`wld_insertnpc`.
+    pub spawn_objects: ExternalMessageSender<SpawnFromSavedObject>,
     /// Dialog lines output by the script (`AI_Output`).
     pub dialog_lines: ExternalMessageSender<DialogLine>,
     /// Items the player's inventory gained through the script
@@ -457,8 +458,7 @@ impl ScriptMessages {
         self.wait.clear();
         self.stand_up.clear();
         self.clear_ai_queue.clear();
-        self.spawn_items.clear();
-        self.spawn_npcs.clear();
+        self.spawn_objects.clear();
         self.dialog_lines.clear();
         self.inventory_gains.clear();
         self.screen_messages.clear();
