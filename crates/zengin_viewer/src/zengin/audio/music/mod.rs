@@ -11,39 +11,18 @@ mod source;
 use bevy::audio::AddAudioSource;
 use bevy::prelude::*;
 
-use crate::audio::music::engine::MusicEngine;
-use crate::audio::music::source::MusicSource;
-use crate::audio::music_definitions::MusicDefinitions;
 use crate::zengin::AppState;
+use crate::zengin::audio::music::engine::MusicEngine;
+use crate::zengin::audio::music::source::MusicSource;
+use crate::zengin::audio::music_definitions::MusicDefinitions;
+use crate::zengin::audio::{MusicRequest, PendingMusic};
 use dev_util::perf_debug;
-
-/// Latest music request from a menu or gameplay system. It is applied in
-/// `Update`, after the startup systems had a chance to create the engine and
-/// load `MUSIC.DAT`.
-#[derive(Resource, Default)]
-pub(crate) struct PendingMusic(Option<MusicRequest>);
-
-enum MusicRequest {
-    Play(String),
-    Stop,
-}
-
-impl PendingMusic {
-    pub(crate) fn play(&mut self, name: &str) {
-        self.0 = Some(MusicRequest::Play(name.to_string()));
-    }
-
-    pub(crate) fn stop(&mut self) {
-        self.0 = Some(MusicRequest::Stop);
-    }
-}
 
 /// Registers the music audio source and spawns the single playback entity.
 pub(crate) struct MusicPlaybackPlugin;
 
 impl Plugin for MusicPlaybackPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PendingMusic>();
         app.add_audio_source::<MusicSource>();
         app.add_systems(Startup, spawn_music_player);
         app.add_systems(Update, apply_pending_music);
@@ -70,7 +49,7 @@ fn apply_pending_music(
     let (Some(engine), Some(definitions)) = (engine, definitions) else {
         return;
     };
-    let Some(request) = pending.0.take() else {
+    let Some(request) = pending.take() else {
         return;
     };
     match request {

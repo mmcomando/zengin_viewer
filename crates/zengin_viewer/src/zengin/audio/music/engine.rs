@@ -9,7 +9,7 @@ use dmusic_sys::{DmEmbellishmentType, DmTiming, Loader, Performance};
 use zen_kit_rs::misc::{MusicTransitionEffect, MusicTransitionType};
 use zen_kit_rs::music_definitions::MusicTheme;
 
-use crate::audio::music_definitions::MusicDefinitions;
+use crate::zengin::audio::music_definitions::MusicDefinitions;
 use crate::zengin::gothic2_dir;
 
 pub(super) const SAMPLE_RATE: u32 = 44_100;

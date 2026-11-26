@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::audio::PlaySound;
+use crate::zengin::PlaySound;
 use crate::zengin::{
     ChapterIntro, ScriptChangesApplied, ZenginVfs, resolve_sound_asset, resolve_texture_asset,
 };

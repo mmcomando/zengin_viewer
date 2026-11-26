@@ -1,4 +1,5 @@
 mod animation;
+mod audio;
 mod change_level;
 mod common;
 pub(crate) mod dialog;
@@ -48,6 +49,7 @@ mod animation_graph_export;
 use bevy::prelude::*;
 
 // Expose only what is needed for outside modules
+pub(crate) use crate::zengin::audio::{PendingMusic, PlaySound, StopSound};
 pub(crate) use crate::zengin::common::MobPosition;
 pub(crate) use crate::zengin::common::MusicZones;
 pub(crate) use crate::zengin::common::animation_file_name;
@@ -141,6 +143,7 @@ pub struct ZenginPlugin;
 
 impl Plugin for ZenginPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(crate::zengin::audio::ZenginAudioPlugin);
         app.add_plugins(crate::zengin::world_plugin::ZenGinWorldPlugin);
         app.add_plugins(crate::zengin::mobs::MobsPlugin);
         app.add_plugins(crate::zengin::movers::MoversPlugin);
