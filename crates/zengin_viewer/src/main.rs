@@ -110,7 +110,6 @@ mod gui_debug;
 mod input;
 mod save;
 mod test_world;
-mod updater;
 mod xr;
 mod zengin;
 
@@ -173,6 +172,7 @@ fn main() {
         AppState::LoadScreen
     };
     app.insert_state(initial_state);
+    let scenario_enabled = app.world().resource::<Options>().scenario_enabled();
 
     // Plugins from crates
     app.add_plugins(PhysicsPlugins::default());
@@ -197,7 +197,10 @@ fn main() {
         .add_plugins(GameTimePlugin)
         .add_plugins(SkeletalAnimations)
         .add_plugins(crate::test_world::TestWorldPlugin)
-        .add_plugins(crate::updater::AmortizedExecutorPlugin)
+        .add_plugins(dev_util::updater::plugin::AmortizedExecutorPlugin {
+            unlimited: scenario_enabled,
+            active_state: AppState::InGame,
+        })
         // Presentation and UI
         .add_plugins(RenderOptionsPlugin)
         .add_plugins(SoundPlugin)

@@ -13,7 +13,6 @@ use bevy::prelude::*;
 use crate::game_state::AppState;
 use crate::graphics::AnimationController;
 use crate::gui::{InventoryUiState, JournalUiState};
-use crate::updater::{Periodic, PeriodicAppExt, PeriodicKind, PeriodicUpdate};
 use crate::zengin::GameNpc;
 use crate::zengin::STATIC_OBJECT;
 use crate::zengin::dialog::DialogUiState;
@@ -23,6 +22,7 @@ use crate::zengin::script::manager::ScriptManager;
 use crate::zengin::script::state::PassivePerception;
 use crate::zengin::script::symbol_id::InstanceId;
 use dev_util::perf_debug;
+use dev_util::updater::periodic::{Periodic, PeriodicAppExt, PeriodicKind, PeriodicUpdate};
 
 pub(crate) struct NpcPerceptionPlugin;
 

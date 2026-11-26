@@ -1,23 +1,29 @@
 use bevy::prelude::*;
 
-use crate::game_state::AppState;
-use crate::input::Options;
+use crate::amortized_executor::AmortizedExecutor;
+use crate::perf_debug;
 
-use dev_util::amortized_executor::AmortizedExecutor;
-use dev_util::perf_debug;
+/// Registers [`AmortizedExecutor`] and advances it every frame while
+/// `active_state` is active.
+pub struct AmortizedExecutorPlugin<S: States> {
+    /// Start without a per-frame budget so every due callback runs each frame.
+    pub unlimited: bool,
+    /// State in which the executor advances.
+    pub active_state: S,
+}
 
-/// Registers [`AmortizedExecutor`] and advances it every frame.
-pub(crate) struct AmortizedExecutorPlugin;
-
-impl Plugin for AmortizedExecutorPlugin {
+impl<S: States> Plugin for AmortizedExecutorPlugin<S> {
     fn build(&self, app: &mut App) {
-        let executor = if app.world().resource::<Options>().scenario_enabled() {
+        let executor = if self.unlimited {
             AmortizedExecutor::new_unlimited()
         } else {
             AmortizedExecutor::default()
         };
         app.insert_resource(AmortizedExecutorResource(executor));
-        app.add_systems(Update, run_executor.run_if(in_state(AppState::InGame)));
+        app.add_systems(
+            Update,
+            run_executor.run_if(in_state(self.active_state.clone())),
+        );
     }
 }
 

@@ -5,27 +5,27 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 
-use dev_util::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
+use crate::amortized_executor::{CallbackControl, CallbackHandle};
+use crate::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
+use crate::perf_debug;
 
 use super::plugin::AmortizedExecutorResource;
-use dev_util::amortized_executor::{CallbackControl, CallbackHandle};
-use dev_util::perf_debug;
 
 /// Marker type selecting one independent stream of periodic updates.
 ///
 /// Each kind gets its own message channel and executor callbacks, so different
 /// kinds can be registered and consumed without seeing each other's updates.
-pub(crate) trait PeriodicKind: Send + Sync + 'static {}
+pub trait PeriodicKind: Send + Sync + 'static {}
 
 /// Registers its entity in the `T` update stream, one update per `period`.
 #[derive(Component)]
-pub(crate) struct Periodic<T: PeriodicKind> {
+pub struct Periodic<T: PeriodicKind> {
     period: Duration,
     _kind: PhantomData<fn() -> T>,
 }
 
 impl<T: PeriodicKind> Periodic<T> {
-    pub(crate) fn new(period: Duration) -> Self {
+    pub fn new(period: Duration) -> Self {
         Self {
             period,
             _kind: PhantomData,
@@ -35,9 +35,9 @@ impl<T: PeriodicKind> Periodic<T> {
 
 /// One due update for `entity`, queued by the executor for the `T` stream.
 #[derive(Message)]
-pub(crate) struct PeriodicUpdate<T: PeriodicKind> {
-    pub(crate) entity: Entity,
-    pub(crate) control: Arc<CallbackControl>,
+pub struct PeriodicUpdate<T: PeriodicKind> {
+    pub entity: Entity,
+    pub control: Arc<CallbackControl>,
     _kind: PhantomData<fn() -> T>,
 }
 
@@ -56,7 +56,7 @@ impl<T: PeriodicKind> Default for PeriodicHandles<T> {
 }
 
 /// Adds the channel and registration systems for one periodic update stream.
-pub(crate) trait PeriodicAppExt {
+pub trait PeriodicAppExt {
     fn add_periodic_updates<T: PeriodicKind>(&mut self);
 }
 
