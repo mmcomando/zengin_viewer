@@ -16,7 +16,9 @@ use crate::gui_debug::WorldMesh;
 use crate::input::Options;
 use crate::perf_debug;
 use crate::save::PendingLoad;
-use crate::save::format::{SaveGame, SavedChest, SavedObject};
+use crate::save::format::{
+    SaveGame, SavedChest, SavedItem, SavedMobBase, SavedObject, SavedPlayer, SavedStatic,
+};
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::change_level::ChangeLevelTriggers;
 use crate::zengin::common::get_full_texture_path;
@@ -478,7 +480,6 @@ fn spawn_world(
     gothic_script: Res<ScriptResource>,
     mut instance_index: ResMut<InstanceIndex>,
     spawns: Res<WorldSpawnMessages>,
-    mut spawn_player: MessageWriter<SpawnPlayer>,
     options: Res<Options>,
 ) {
     let _perf = perf_debug!();
@@ -511,7 +512,6 @@ fn spawn_world(
             &gothic_script,
             &mut instance_index,
             &spawns,
-            &mut spawn_player,
         );
     }
 }
@@ -532,7 +532,6 @@ fn spawn_world_data(
     gothic_script: &ScriptResource,
     instance_index: &mut InstanceIndex,
     spawns: &WorldSpawnMessages,
-    player_spawn: &mut MessageWriter<SpawnPlayer>,
 ) {
     commands.insert_resource(CurrentWorld(world_name.to_string()));
     let _span = info_span!("spawn_world").entered();
@@ -550,13 +549,6 @@ fn spawn_world_data(
     // world is spawned from the prototypes, which stay available for later
     // respawns.
     let prototypes = VobPrototypes::from_map(std::mem::take(&mut world_data.prototypes));
-    // A restored world spawns every entity from the save's `SavedObject`s;
-    // prototypes only supply geometry and world-definition data.
-    if restore.is_none() {
-        for prototype in prototypes.values() {
-            spawns.send_prototype(prototype);
-        }
-    }
     // `zCTriggerWorldStart` events are fired once the world is in game, after
     // the movers they address exist. A restored world only fires the triggers
     // that are not limited to the first start.
@@ -650,12 +642,105 @@ fn spawn_world_data(
                 object: object.clone(),
             });
         }
-    } else if spawn_player_entity {
-        player_spawn.write(SpawnPlayer {
-            transform: player_transform,
-        });
+    } else {
+        for object in prototypes.values().filter_map(saved_object_from_prototype) {
+            spawns.objects.send(SpawnFromSavedObject { object });
+        }
+        if spawn_player_entity {
+            spawns.objects.send(SpawnFromSavedObject {
+                object: SavedObject {
+                    transform: player_transform.unwrap_or_else(default_player_transform),
+                    spawn_at_place: None,
+                    player: Some(SavedPlayer),
+                    npc: None,
+                    overlay: None,
+                    item: None,
+                    mob_base: None,
+                    static_object: None,
+                    chest: None,
+                },
+            });
+        }
     }
     commands.insert_resource(prototypes);
+}
+
+/// Turns a world prototype into the spawn descriptor a fresh world sends to
+/// [`spawn_from_saved_objects`].
+fn saved_object_from_prototype(prototype: &VobPrototype) -> Option<SavedObject> {
+    let (transform, mob_base, static_object, chest, item) = match prototype {
+        VobPrototype::Static(spawn) => (
+            spawn.tr,
+            Some(SavedMobBase {
+                vob_id: spawn.vob_id,
+            }),
+            Some(SavedStatic),
+            None,
+            None,
+        ),
+        VobPrototype::Mover(spawn) => (
+            spawn.tr,
+            Some(SavedMobBase {
+                vob_id: spawn.vob_id,
+            }),
+            Some(SavedStatic),
+            None,
+            None,
+        ),
+        VobPrototype::Mob(spawn) => {
+            let chest = match &spawn.kind {
+                MobSpawnKind::Container(container) => Some(SavedChest {
+                    locked: container.locked,
+                    items: container.items.clone(),
+                    cracked: container.cracked,
+                }),
+                MobSpawnKind::Interactive(_) => None,
+            };
+            (
+                spawn.tr,
+                Some(SavedMobBase {
+                    vob_id: spawn.base.vob_id,
+                }),
+                None,
+                chest,
+                None,
+            )
+        }
+        VobPrototype::Item(spawn) => {
+            let Some(transform) = spawn.transform else {
+                warn!(
+                    "Item prototype item({}) has no transform",
+                    spawn.instance_id.value()
+                );
+                return None;
+            };
+            (
+                transform,
+                None,
+                None,
+                None,
+                Some(SavedItem {
+                    instance_id: spawn.instance_id,
+                }),
+            )
+        }
+    };
+    Some(SavedObject {
+        transform,
+        spawn_at_place: None,
+        player: None,
+        npc: None,
+        overlay: None,
+        item,
+        mob_base,
+        static_object,
+        chest,
+    })
+}
+
+/// Start position of the player when a world spawn has no explicit one.
+fn default_player_transform() -> Transform {
+    Transform::from_xyz(-97.0, 5.0, -7.0)
 }
 
 fn spawn_from_saved_objects(
@@ -823,7 +908,7 @@ fn spawn_player(
             Collider::capsule(0.3, 1.2),
         )]),
         TransformInterpolation,
-        player_transform.unwrap_or(Transform::from_xyz(-97.0, 5.0, -7.0)),
+        player_transform.unwrap_or_else(default_player_transform),
         PlayerCharacter,
         GameNpc::new(handle),
         PlayerMeleeCombo::default(),
@@ -1147,13 +1232,15 @@ mod tests {
     use bevy::prelude::*;
 
     use super::{
-        NpcSpawnNameFilter, Spots, WayPoints, saved_object_transform, send_saved_prototype,
+        NpcSpawnNameFilter, Spots, WayPoints, saved_object_from_prototype, saved_object_transform,
+        send_saved_prototype,
     };
     use crate::save::format::{SavedChest, SavedObject, SavedSpawnAtPlace};
     use crate::zengin::InstanceId;
     use crate::zengin::MobBase;
+    use crate::zengin::script::state::SpawnItem;
     use crate::zengin::world_spawn::{
-        ContainerSpawn, MobSpawnKind, SpawnMob, VobPrototype, WorldSpawnMessages,
+        ContainerSpawn, MobSpawnKind, SpawnMob, SpawnStaticModel, VobPrototype, WorldSpawnMessages,
     };
 
     #[test]
@@ -1245,6 +1332,62 @@ mod tests {
             place: "MISSING".to_string(),
         });
         assert!(saved_object_transform(&object, &way_points, &spots).is_none());
+    }
+
+    #[test]
+    fn prototype_plan_matches_component_payloads() {
+        let static_proto = VobPrototype::Static(SpawnStaticModel {
+            vob_id: 4,
+            tr: Transform::from_xyz(1.0, 2.0, 3.0),
+            archetype: "mesh".to_string(),
+            collides: true,
+        });
+        let object = saved_object_from_prototype(&static_proto).expect("static plan");
+        assert_eq!(object.transform, Transform::from_xyz(1.0, 2.0, 3.0));
+        assert_eq!(object.mob_base.as_ref().map(|base| base.vob_id), Some(4));
+        assert!(object.static_object.is_some());
+        assert!(object.chest.is_none());
+
+        let item = InstanceId::new(3).expect("item id");
+        let container = VobPrototype::Mob(SpawnMob {
+            base: MobBase {
+                vob_id: 7,
+                vob_name: "CHEST".to_string(),
+                focus_name: String::new(),
+            },
+            tr: Transform::IDENTITY,
+            archetype: String::new(),
+            visual_hidden: false,
+            collides: false,
+            scheme: "CHEST".to_string(),
+            visual_stem: String::new(),
+            state_num: 1,
+            kind: MobSpawnKind::Container(ContainerSpawn {
+                items: vec![(item, 2)],
+                locked: true,
+                key: "KEY".to_string(),
+                pick_string: "LR".to_string(),
+                cracked: false,
+            }),
+        });
+        let object = saved_object_from_prototype(&container).expect("chest plan");
+        assert!(object.static_object.is_none());
+        assert_eq!(object.mob_base.as_ref().map(|base| base.vob_id), Some(7));
+        let chest = object.chest.as_ref().expect("chest payload");
+        assert!(chest.locked);
+        assert_eq!(chest.items, vec![(item, 2)]);
+        assert!(!chest.cracked);
+    }
+
+    #[test]
+    fn item_prototype_without_transform_is_not_planned() {
+        let item = InstanceId::new(3).expect("item id");
+        let prototype = VobPrototype::Item(SpawnItem {
+            instance_id: item,
+            location_name: None,
+            transform: None,
+        });
+        assert!(saved_object_from_prototype(&prototype).is_none());
     }
 
     #[test]
