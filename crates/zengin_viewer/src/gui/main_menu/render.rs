@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::gui::menu_screen::{MenuScreenTextMarker, item_rect, menu_area, spawn_menu_screen};
-use crate::save::SaveEntry;
+use crate::zengin::save::SaveEntry;
 use crate::zengin::{
     CurrentWorld, MENU_FLAG_SHOW_INFO, MenuDefinition, MenuItemDefinition, get_full_texture_path,
 };
@@ -269,7 +269,7 @@ fn screen_item_text(
 fn row_label(entry: &SaveEntry) -> String {
     format!(
         "{}  {}",
-        crate::save::display_name(&entry.path),
+        crate::zengin::save::display_name(&entry.path),
         short_world_name(&entry.metadata.world_name)
     )
 }

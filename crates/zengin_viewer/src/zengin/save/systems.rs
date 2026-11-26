@@ -14,12 +14,14 @@ use crate::game_state::{AppState, world_is_loaded};
 use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gui::GameLogEntry;
 use crate::input::{Options, SharedAction, SharedInputMarker};
-use crate::save::format::{
-    SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedObject,
-};
-use crate::save::{current_script_fingerprint, new_save_dir, newest_save, read_save, write_save};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::StaticMesh;
+use crate::zengin::save::format::{
+    SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedObject,
+};
+use crate::zengin::save::{
+    current_script_fingerprint, new_save_dir, newest_save, read_save, write_save,
+};
 use crate::zengin::{
     CurrentWorld, GameChest, GameItem, GameNpc, LoadingWorld, MobBase, NpcOverlay, ScriptResource,
     begin_world_load,
@@ -195,7 +197,7 @@ fn quick_save(
     match write_save(&save, &path) {
         Ok(()) => {
             let size = directory_size(&path);
-            let name = crate::save::display_name(&path);
+            let name = crate::zengin::save::display_name(&path);
             info!("Save written to {} ({size} bytes)", path.display());
             game_log.write(GameLogEntry {
                 text: format!("Game saved: {name} ({size} bytes)"),

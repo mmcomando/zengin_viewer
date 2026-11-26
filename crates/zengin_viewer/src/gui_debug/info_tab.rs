@@ -13,7 +13,7 @@ use crate::gui_debug::{
     statistics::Statistics,
     toggle_visibility::{OptionsChanged, ShowOptions},
 };
-use crate::save::{QuickLoad, QuickSave};
+use crate::zengin::save::{QuickLoad, QuickSave};
 use crate::zengin::{NpcAutoTalkOptions, RestartWorld, StatisticsZengin};
 
 /// Resources and message writers used by the generic options tab.

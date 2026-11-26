@@ -11,7 +11,7 @@ use std::sync::{Arc, PoisonError, RwLock};
 use bevy::log::info;
 use daedalus_typed::SymbolKind;
 
-use crate::save::format::{SavedGuildAttitude, SavedValues, ScriptSnapshot};
+use crate::zengin::save::format::{SavedGuildAttitude, SavedValues, ScriptSnapshot};
 use crate::zengin::{ItemHandle, NpcHandle};
 
 use super::super::journal::JournalManager;

@@ -8,7 +8,6 @@ use crate::gameplay::objects::NpcModel;
 use crate::graphics::AnimationController;
 use crate::graphics::{NpcHitReaction, play_hit_reaction};
 use crate::gui::GameLog;
-use crate::save::format::SavedObjectBuilder;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::SpawnFromSavedObject;
 use crate::zengin::instance_index::InstanceIndex;
@@ -18,6 +17,7 @@ use crate::zengin::npc_routines::{
     AnimationFiles, NpcEquippedWeapon, NpcLookAt, NpcOverlay, NpcWeaponMode,
 };
 use crate::zengin::resources::CachedAssetHandles;
+use crate::zengin::save::format::SavedObjectBuilder;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::AttackKind;
 use crate::zengin::script::state::WeaponMode;

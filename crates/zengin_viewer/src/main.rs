@@ -108,7 +108,6 @@ mod graphics;
 mod gui;
 mod gui_debug;
 mod input;
-mod save;
 mod test_world;
 mod xr;
 mod zengin;
@@ -186,7 +185,7 @@ fn main() {
         .add_plugins(ActionsPlugin)
         // World and its content
         .add_plugins(ZenginPlugin)
-        .add_plugins(crate::save::QuickSavePlugin)
+        .add_plugins(crate::zengin::save::QuickSavePlugin)
         // Environment
         .add_plugins(SkyBoxPlugin)
         .add_plugins(LightingPlugin)

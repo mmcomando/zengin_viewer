@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::save::SaveEntry;
+use crate::zengin::save::SaveEntry;
 use crate::zengin::{
     MENU_ITEM_FLAG_DISABLED, MenuDefinition, MenuItemDefinition, SEL_ACTION_BACK, SEL_ACTION_CLOSE,
     SEL_ACTION_START_MENU,
@@ -47,7 +47,7 @@ impl MainMenuState {
 
     pub fn open_load_screen(&mut self, selected_slot: usize) {
         self.screen = MainMenuScreen::Load;
-        self.saved_games = crate::save::list_saves();
+        self.saved_games = crate::zengin::save::list_saves();
         self.selected_slot = selected_slot;
         self.rebuild = true;
     }
@@ -211,7 +211,7 @@ pub(super) fn is_selectable(data: &MenuDefinition, slot: usize, in_game: bool) -
 mod tests {
     use super::*;
     use crate::gameplay::game_time::GameTime;
-    use crate::save::format::{SAVE_FORMAT_VERSION, SaveMetadata};
+    use crate::zengin::save::format::{SAVE_FORMAT_VERSION, SaveMetadata};
     use daedalus_typed::{MENU_ITEM_FLAG_ONLY_IN_GAME, MENU_ITEM_FLAG_SELECTABLE};
 
     fn item(slot: usize, name: &str) -> MenuItemDefinition {

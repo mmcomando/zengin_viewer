@@ -4,7 +4,7 @@ use leafwing_input_manager::prelude::ActionState;
 use crate::game_state::AppState;
 use crate::gameplay::game_time::PlayTime;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
-use crate::save::{LoadSaveRequest, QuickSave};
+use crate::zengin::save::{LoadSaveRequest, QuickSave};
 use crate::zengin::{
     CurrentWorld, MenuDefinition, MenuItemDefinition, NewGame, SEL_ACTION_BACK, SEL_ACTION_CLOSE,
     SEL_ACTION_START_MENU,

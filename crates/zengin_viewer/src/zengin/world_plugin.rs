@@ -13,7 +13,6 @@ use crate::gameplay::objects::NpcModel;
 use crate::graphics::{NpcAnimations, PlayerMeleeCombo};
 use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
 use crate::input::Options;
-use crate::save::format::{SaveGame, SavedChest, SavedNpc, SavedObject, SavedObjectBuilder};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::WorldEntityMarker;
 use crate::zengin::WorldMesh;
@@ -30,6 +29,9 @@ use crate::zengin::objects_to_entities::GameObjectSpawnEntities;
 use crate::zengin::resources::{
     CachedAssetHandles, NamedModels, ZenGinInsertResources, ZenGinModelComponent,
     ZenGinModelComponentLoaded,
+};
+use crate::zengin::save::format::{
+    SaveGame, SavedChest, SavedNpc, SavedObject, SavedObjectBuilder,
 };
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::{GameScriptLoaded, ScriptResource};
@@ -1197,9 +1199,11 @@ mod tests {
         NpcSpawnNameFilter, Spots, WayPoints, saved_object_from_prototype, saved_object_transform,
         send_saved_prototype,
     };
-    use crate::save::format::{SavedChest, SavedObject, SavedObjectBuilder, SavedSpawnAtPlace};
     use crate::zengin::InstanceId;
     use crate::zengin::MobBase;
+    use crate::zengin::save::format::{
+        SavedChest, SavedObject, SavedObjectBuilder, SavedSpawnAtPlace,
+    };
     use crate::zengin::script::state::SpawnItem;
     use crate::zengin::world_spawn::{
         ContainerSpawn, MobSpawnKind, SpawnMob, SpawnStaticModel, VobPrototype, WorldSpawnMessages,

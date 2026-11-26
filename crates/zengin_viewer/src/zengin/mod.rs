@@ -22,6 +22,7 @@ mod npc_perception;
 mod npc_routines;
 mod objects_to_entities;
 mod resources;
+pub(crate) mod save;
 mod script;
 mod statistics;
 mod visual;
