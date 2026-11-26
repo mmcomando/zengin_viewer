@@ -6,16 +6,16 @@ use std::sync::PoisonError;
 use bevy::asset::AssetPath;
 use bevy::prelude::*;
 
-use crate::zengin::AnimationController;
-use crate::zengin::PlayerCharacter;
-use crate::zengin::{
+use dev_util::perf_debug;
+use dev_util::test_log;
+use zengin_lib::AnimationController;
+use zengin_lib::PlayerCharacter;
+use zengin_lib::{
     AttackAction, ClearAiQueueChange, GameMob, GameNpc, GoToNpcAction, GoToWaypointAction,
     InstanceId, MobBase, MobPose, MobUsePose, NpcActionQueue, NpcDied, NpcEntitiesChanged,
     NpcEquippedWeapon, NpcHealth, NpcMobUse, NpcWeaponMode, ScriptManager, ScriptResource,
     StandUpAction, UseItemStateAction, UseMobAction, WeaponMode,
 };
-use dev_util::perf_debug;
-use dev_util::test_log;
 
 /// Adds the [`DebugNpc`] trace systems.
 pub(crate) struct DebugNpcPlugin;

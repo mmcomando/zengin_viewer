@@ -1,0 +1,32 @@
+use bevy::prelude::*;
+
+use dev_util::ui_kit::spawn_gui_root;
+
+use super::style::MainMenuStyle;
+use dev_util::perf_debug;
+
+#[derive(Component)]
+pub struct MainMenuRootMarker;
+
+#[derive(Component)]
+pub struct MainMenuContentMarker;
+
+pub fn spawn_main_menu(mut commands: Commands) {
+    let _perf = perf_debug!();
+    let root = spawn_gui_root(&mut commands, MainMenuRootMarker);
+    commands.entity(root).insert((
+        GlobalZIndex(100),
+        BackgroundColor(MainMenuStyle::BACKGROUND),
+    ));
+
+    commands.spawn((
+        ChildOf(root),
+        MainMenuContentMarker,
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+    ));
+}

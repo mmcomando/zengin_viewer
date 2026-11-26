@@ -9397,6 +9397,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "zengin_lib"
+version = "0.1.0"
+dependencies = [
+ "ZenKit-rs",
+ "avian3d",
+ "bevy",
+ "bevy_rich_text3d",
+ "daedalus_typed",
+ "daedalus_wasm",
+ "dev_util",
+ "dmusic-sys",
+ "image",
+ "input_core",
+ "leafwing-input-manager",
+ "pathfinding",
+ "rand_mt",
+ "ron",
+ "serde",
+ "strum",
+ "wasmtime",
+]
+
+[[package]]
 name = "zengin_viewer"
 version = "0.2.0"
 dependencies = [
@@ -9428,6 +9451,7 @@ dependencies = [
  "serde",
  "strum",
  "wasmtime",
+ "zengin_lib",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 //! Plays sound assets requested through [`PlaySound`] and dialog voice lines
-//! requested through [`PlayVoice`]/[`StopVoice`](crate::zengin::StopVoice).
+//! requested through [`PlayVoice`]/[`StopVoice`](zengin_lib::StopVoice).
 
 mod sound_manager;
 

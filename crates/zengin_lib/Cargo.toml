@@ -1,0 +1,45 @@
+[package]
+name = "zengin_lib"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Zengin world formats, gameplay, GUI and the script host. The viewer crate
+# provides the application shell (window, assets, input devices) on top.
+
+[dependencies]
+bevy = { workspace = true, features = [
+    "dynamic_linking",
+    "bevy_dev_tools",
+    "render_dev_tools",
+    "free_camera",
+    "serialize",
+] }
+leafwing-input-manager = { workspace = true }
+avian3d = { workspace = true }
+bevy_rich_text3d = { workspace = true }
+input_core = { path = "../input_core" }
+dev_util = { path = "../dev_util" }
+
+# ZenGin related
+ZenKit-rs = { path = "../ZenKit-rs" }
+dmusic-sys = { path = "../dmusic-sys" }
+daedalus_wasm = { path = "../daedalus_wasm" }
+daedalus_typed = { path = "../daedalus_typed" }
+wasmtime = { workspace = true }
+
+# Game related
+pathfinding = "4.16.0"
+
+# File formats
+serde = { workspace = true }
+ron = { workspace = true }
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+# Generic dependencies
+strum = { workspace = true, features = ["derive"] }
+rand_mt = "6.1.0"
+
+[features]
+# Logs per-function timing through `perf_debug!`. No-op when disabled.
+debug_perf = ["dev_util/debug_perf"]

@@ -2,9 +2,9 @@ use avian3d::parry::shape::TypedShape;
 use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
-use crate::zengin::AnimatedJoint;
-use crate::zengin::WaypointGraph;
 use dev_util::perf_debug;
+use zengin_lib::AnimatedJoint;
+use zengin_lib::WaypointGraph;
 
 pub struct GizmosPlugin;
 

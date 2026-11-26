@@ -3,12 +3,12 @@ use bevy::prelude::*;
 use crate::debug::DebugNpc;
 use crate::input::log_capture::LogBuffer;
 use crate::input::record::ReplayCommand;
-use crate::zengin::AppState;
-use crate::zengin::PlayerCharacter;
-use crate::zengin::gameplay::game_time::GameTime;
-use crate::zengin::gui::GameLog;
-use crate::zengin::save::format::SavedObjectBuilder;
-use crate::zengin::{
+use zengin_lib::AppState;
+use zengin_lib::PlayerCharacter;
+use zengin_lib::gameplay::game_time::GameTime;
+use zengin_lib::gui::GameLog;
+use zengin_lib::save::format::SavedObjectBuilder;
+use zengin_lib::{
     GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SetGameTime, SpawnFromSavedObject,
     SpawnPositionFilter, StringCanon, UseMobChange, VobPrototypes, WorldSpawnMessages,
     add_waypoint, enqueue_npc_goto, grant_test_items, load_world_prototypes, seed_test_journal,
@@ -224,14 +224,14 @@ pub(super) fn apply_replay_command(
                 .with_rotation(rotation_from_degrees(*rotation));
             info!("Replay requested the player character spawn at {translation}");
             commands.queue(move |world: &mut World| {
-                crate::zengin::request_player_spawn(world, transform);
+                zengin_lib::request_player_spawn(world, transform);
             });
         }
         ReplayCommand::ZenginSpawnWorld { world } => {
             info!("Replay requested the zengin world spawn of {world}");
             let world_name = world.clone();
             commands.queue(move |world: &mut World| {
-                crate::zengin::request_world_spawn(world, &world_name);
+                zengin_lib::request_world_spawn(world, &world_name);
             });
         }
         ReplayCommand::ZenginLoadWorldPrototypes { world } => {

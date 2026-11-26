@@ -15,12 +15,12 @@ use ron::extensions::Extensions;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
-use crate::zengin::{START_WORLD, SpawnPoint};
 use dev_util::perf_debug;
 use input_core::{
     CameraSwitchedToThirdPerson, EditorAction, EditorInputMarker, GameplayAction,
     GameplayInputMarker, GuiAction, GuiInputMarker, Options, SharedAction, SharedInputMarker,
 };
+use zengin_lib::{START_WORLD, SpawnPoint};
 
 /// Records every triggered action together with its frame number.
 pub struct ActionRecordingPlugin;

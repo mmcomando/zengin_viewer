@@ -8,9 +8,9 @@ use crate::gui_debug::info_tab::{InfoParams, info_tab_ui};
 use crate::gui_debug::state::{
     DebugTab, DebugUiState, EntityQueryData, EntityQueryFilter, EntityRow, details_data,
 };
-use crate::zengin::gameplay::camera::{CameraResource, EditorMode};
-use crate::zengin::{ScriptResource, Selection};
 use dev_util::perf_debug;
+use zengin_lib::gameplay::camera::{CameraResource, EditorMode};
+use zengin_lib::{ScriptResource, Selection};
 
 pub struct GameDebugUI;
 impl Plugin for GameDebugUI {

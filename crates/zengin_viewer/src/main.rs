@@ -107,7 +107,6 @@ mod gui_debug;
 mod input;
 mod test_world;
 mod xr;
-mod zengin;
 
 /// Directory of the main crate assets, the folder the
 /// [`bevy::asset::AssetServer`] reads from. Resolved against the crate
@@ -122,17 +121,17 @@ use crate::graphics::{LightingPlugin, RenderOptionsPlugin, SkyBoxPlugin};
 use crate::gui_debug::GuiDebugPlugin;
 use crate::input::{ActionsPlugin, Options};
 use crate::xr::{XrPlugin, is_xr_enabled};
-use crate::zengin::SkeletalAnimations;
-use crate::zengin::SpeechSounds;
-use crate::zengin::ZenginPlugin;
-use crate::zengin::gameplay::camera::CameraPlugin;
-use crate::zengin::gameplay::character::CharacterControllerPlugin;
-use crate::zengin::gameplay::distance::DistancePlugin;
-use crate::zengin::gameplay::game_time::GameTimePlugin;
-use crate::zengin::gui::GameLogPlugin;
-use crate::zengin::{AppState, GameStatePlugin};
-use crate::zengin::{ZenginVfs, create_zengin_asset_loader, create_zengin_vfs};
 use avian3d::prelude::*;
+use zengin_lib::SkeletalAnimations;
+use zengin_lib::SpeechSounds;
+use zengin_lib::ZenginPlugin;
+use zengin_lib::gameplay::camera::CameraPlugin;
+use zengin_lib::gameplay::character::CharacterControllerPlugin;
+use zengin_lib::gameplay::distance::DistancePlugin;
+use zengin_lib::gameplay::game_time::GameTimePlugin;
+use zengin_lib::gui::GameLogPlugin;
+use zengin_lib::{AppState, GameStatePlugin};
+use zengin_lib::{ZenginVfs, create_zengin_asset_loader, create_zengin_vfs};
 
 use bevy::prelude::*;
 use bevy::window::PresentMode;
@@ -183,7 +182,7 @@ fn main() {
         .add_plugins(ActionsPlugin)
         // World and its content
         .add_plugins(ZenginPlugin)
-        .add_plugins(crate::zengin::save::QuickSavePlugin)
+        .add_plugins(zengin_lib::save::QuickSavePlugin)
         // Environment
         .add_plugins(SkyBoxPlugin)
         .add_plugins(LightingPlugin)
@@ -204,14 +203,14 @@ fn main() {
         .add_plugins(RenderOptionsPlugin)
         .add_plugins(SoundPlugin)
         .add_plugins(GameLogPlugin)
-        .add_plugins(crate::zengin::gui::ChapterScreenPlugin)
-        .add_plugins(crate::zengin::gui::HealthBarsPlugin)
-        .add_plugins(crate::zengin::gui::InventoryUiPlugin)
-        .add_plugins(crate::zengin::gui::JournalUiPlugin)
-        .add_plugins(crate::zengin::gui::LoadingScreenPlugin)
-        .add_plugins(crate::zengin::gui::MainMenuPlugin)
-        .add_plugins(crate::zengin::gui::ScreenMessagesPlugin)
-        .add_plugins(crate::zengin::gui::StatsUiPlugin);
+        .add_plugins(zengin_lib::gui::ChapterScreenPlugin)
+        .add_plugins(zengin_lib::gui::HealthBarsPlugin)
+        .add_plugins(zengin_lib::gui::InventoryUiPlugin)
+        .add_plugins(zengin_lib::gui::JournalUiPlugin)
+        .add_plugins(zengin_lib::gui::LoadingScreenPlugin)
+        .add_plugins(zengin_lib::gui::MainMenuPlugin)
+        .add_plugins(zengin_lib::gui::ScreenMessagesPlugin)
+        .add_plugins(zengin_lib::gui::StatsUiPlugin);
 
     // Debug-only observation systems; they consume game messages and must be
     // added after the plugins that register them.
@@ -225,7 +224,7 @@ fn main() {
     // main menu run requests it when New Game is picked, and a scenario run
     // requests its worlds itself.
     if initial_state == AppState::LoadScreen && !scenario_enabled {
-        crate::zengin::request_initial_world(app.world_mut());
+        zengin_lib::request_initial_world(app.world_mut());
     }
 
     // Run

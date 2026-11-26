@@ -3,10 +3,10 @@
 
 use bevy::prelude::*;
 
-use crate::zengin::ScriptSound;
-use crate::zengin::dialog::DialogRequest;
-use crate::zengin::gui::{LockpickOpened, LootSource, OpenLockpick, OpenLoot};
 use dev_util::test_log;
+use zengin_lib::ScriptSound;
+use zengin_lib::dialog::DialogRequest;
+use zengin_lib::gui::{LockpickOpened, LootSource, OpenLockpick, OpenLoot};
 
 /// Logs lockpick, loot and dialog events with the `TEST_LOG` target.
 pub(crate) struct DebugEventsPlugin;

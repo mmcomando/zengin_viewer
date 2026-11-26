@@ -2,7 +2,7 @@ use bevy::audio::SpatialScale;
 use bevy::prelude::*;
 use dev_util::perf_debug;
 
-use crate::zengin::{PlaySound, PlayVoice, StopVoice};
+use zengin_lib::{PlaySound, PlayVoice, StopVoice};
 
 /// Bevy's spatial mixer attenuates with `1/distance²` in world units. The
 /// third-person camera sits up to 6 m from the player, which would reduce a

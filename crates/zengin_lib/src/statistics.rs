@@ -1,0 +1,51 @@
+use bevy::prelude::*;
+
+use crate::GameNpc;
+use crate::resources::ZenGinModelComponent;
+use dev_util::perf_debug;
+use dev_util::statistics::RefreshStatistics;
+
+/// Counts zengin models and npcs for the debug UI.
+pub struct StatisticsZenginPlugin;
+impl Plugin for StatisticsZenginPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<StatisticsZengin>();
+        app.add_message::<RefreshStatistics>();
+        app.add_systems(
+            Update,
+            zengin_model_added.run_if(on_message::<RefreshStatistics>),
+        );
+        app.add_systems(Update, npc_added.run_if(on_message::<RefreshStatistics>));
+    }
+}
+
+#[derive(Resource, Default)]
+pub struct StatisticsZengin {
+    pub zengin_models: i64,
+    pub zengin_models_visible: i64,
+    pub npcs: i64,
+    pub npcs_visible: i64,
+}
+
+fn zengin_model_added(
+    mut statistics: ResMut<StatisticsZengin>,
+    query: Query<&Visibility, With<ZenGinModelComponent>>,
+) {
+    let _perf = perf_debug!();
+    statistics.zengin_models = 0;
+    statistics.zengin_models_visible = 0;
+    for visibility in &query {
+        statistics.zengin_models += 1;
+        statistics.zengin_models_visible += i64::from(*visibility != Visibility::Hidden);
+    }
+}
+
+fn npc_added(mut statistics: ResMut<StatisticsZengin>, query: Query<&Visibility, With<GameNpc>>) {
+    let _perf = perf_debug!();
+    statistics.npcs = 0;
+    statistics.npcs_visible = 0;
+    for visibility in &query {
+        statistics.npcs += 1;
+        statistics.npcs_visible += i64::from(*visibility != Visibility::Hidden);
+    }
+}

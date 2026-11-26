@@ -2,8 +2,8 @@ use std::sync::PoisonError;
 
 use bevy::prelude::*;
 
-use crate::zengin::PlayerCharacter;
-use crate::zengin::{GameNpc, ScriptResource, WeaponKind};
+use zengin_lib::PlayerCharacter;
+use zengin_lib::{GameNpc, ScriptResource, WeaponKind};
 
 /// Builds a quaternion from degrees labeled by axis:
 /// `(x = pitch, y = yaw, z = roll)`, applied as yaw around Y first, then

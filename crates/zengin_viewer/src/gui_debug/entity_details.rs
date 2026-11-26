@@ -6,7 +6,7 @@ use bevy_egui::egui;
 use bevy_inspector_egui::reflect_inspector::{Context, InspectorUi};
 
 use crate::gui_debug::state::{DetailsData, WorldEntityKind};
-use crate::zengin::{ScriptResource, WeaponMode};
+use zengin_lib::{ScriptResource, WeaponMode};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum DetailsAction {

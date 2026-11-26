@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use egui_dock::DockState;
 
-use crate::zengin::PlayerCharacter;
-use crate::zengin::WorldEntityMarker;
-use crate::zengin::gameplay::objects::{NpcBodyRootOffset, NpcModel};
-use crate::zengin::{
+use zengin_lib::PlayerCharacter;
+use zengin_lib::WorldEntityMarker;
+use zengin_lib::gameplay::objects::{NpcBodyRootOffset, NpcModel};
+use zengin_lib::{
     GameChest, GameItem, GameMob, GameMover, GameNpc, MobBase, MobPose, NpcEquippedWeapon,
     NpcHealth, NpcWeaponMode, RoutineExecutor,
 };

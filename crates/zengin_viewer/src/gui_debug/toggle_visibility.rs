@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use crate::zengin::{GameChest, GameItem, GameMob, GameNpc, StaticMesh, WorldMesh};
 use dev_util::perf_debug;
+use zengin_lib::{GameChest, GameItem, GameMob, GameNpc, StaticMesh, WorldMesh};
 
 #[derive(Default)]
 pub struct ToggleVisibility;

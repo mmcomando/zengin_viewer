@@ -6,12 +6,12 @@ use crate::debug::{DebugNpc, ReloadWorldEntities};
 use crate::graphics::RenderOptions;
 use crate::gui_debug::gizmos::GizmosOptions;
 use crate::gui_debug::toggle_visibility::{OptionsChanged, ShowOptions};
-use crate::zengin::AppState;
-use crate::zengin::gameplay::camera::{TELEPORT_LOCATIONS, TeleportToLocation};
-use crate::zengin::gameplay::game_time::GameTime;
-use crate::zengin::save::{QuickLoad, QuickSave};
-use crate::zengin::{NpcAutoTalkOptions, RestartWorld, StatisticsZengin};
 use dev_util::statistics::{RefreshStatistics, Statistics};
+use zengin_lib::AppState;
+use zengin_lib::gameplay::camera::{TELEPORT_LOCATIONS, TeleportToLocation};
+use zengin_lib::gameplay::game_time::GameTime;
+use zengin_lib::save::{QuickLoad, QuickSave};
+use zengin_lib::{NpcAutoTalkOptions, RestartWorld, StatisticsZengin};
 
 /// Resources and message writers used by the generic options tab.
 #[derive(SystemParam)]

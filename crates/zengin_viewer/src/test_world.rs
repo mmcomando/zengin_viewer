@@ -5,10 +5,10 @@ use avian3d::prelude::*;
 use bevy::dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin, InfiniteGridSettings};
 use bevy::prelude::*;
 
-use crate::zengin::AppState;
-use crate::zengin::WorldMesh;
-use crate::zengin::{DYNAMIC_OBJECT, STATIC_OBJECT, ZenGinModelComponentLoaded};
 use dev_util::perf_debug;
+use zengin_lib::AppState;
+use zengin_lib::WorldMesh;
+use zengin_lib::{DYNAMIC_OBJECT, STATIC_OBJECT, ZenGinModelComponentLoaded};
 
 /// Spawns the test worlds requested by scenario replays.
 pub struct TestWorldPlugin;

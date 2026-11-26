@@ -1,0 +1,1024 @@
+//! Waypoint routines: active routine entries, their waypoint targets, routine
+//! state execution and `AI_GoToWP` path following.
+
+use std::collections::{HashMap, HashSet};
+use std::sync::PoisonError;
+
+use bevy::prelude::*;
+
+use crate::GameNpc;
+use crate::PlayerCharacter;
+use crate::common::{
+    animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
+};
+use crate::gameplay::character::NpcPhysicsMarker;
+use crate::gameplay::distance::DistanceNear;
+use crate::gameplay::game_time::GameTime;
+use crate::gameplay::objects::NpcModel;
+use crate::instance_index::InstanceIndex;
+use crate::npc_actions::{ExecutingActionMarker, NpcActionQueue, NpcItemUse};
+use crate::npc_routines::overlay::{AnimationFiles, NpcOverlay};
+use crate::resources::CachedAssetHandles;
+use crate::script::component::ScriptResource;
+use crate::script::manager::ScriptManager;
+use crate::script::state::{
+    RoutineEntry, RoutineFunctions, ScriptFreePoint, StartStateChange, TurnToNpcChange,
+};
+use crate::script::string_value::StringCanon;
+use crate::script::symbol_id::FunctionId;
+use crate::waypoint_graph::{Spots, WaypointGraph};
+use crate::{AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation};
+use crate::{DialogUiState, InstanceId, NpcCorpseMarker};
+use dev_util::perf_debug;
+use dev_util::warn_once;
+
+/// Waypoint transforms of the loaded world. Spots take precedence over way points,
+/// same lookup order as the initial npc placement.
+#[derive(Resource, Default)]
+pub struct WayPoints {
+    pub points: HashMap<String, Transform>,
+}
+
+/// Matches the body offset applied when npcs are placed at world load.
+pub const NPC_BODY_Y_OFFSET: f32 = -0.5;
+
+#[derive(Component)]
+pub struct NpcRoutineState {
+    /// Waypoint the npc was last assigned to by a routine check
+    assigned_waypoint: StringCanon,
+}
+
+impl NpcRoutineState {
+    pub fn assigned_waypoint(&self) -> &StringCanon {
+        &self.assigned_waypoint
+    }
+}
+
+/// Engine loop cadence of a running routine state (`ZS_*_loop`), in seconds.
+const ROUTINE_LOOP_INTERVAL_SECS: f32 = 1.0;
+
+/// End time of the `C_Npc.start_aistate` fallback state, the engine's
+/// `gtime(4, 0)` in game minutes.
+const START_AISTATE_END_MINUTES: u32 = 4 * 60;
+
+/// Why a routine state is running.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RoutineSource {
+    /// Started from the active [`RoutineEntry`].
+    Routine,
+    /// Pushed by `AI_StartState`; routine entry changes do not replace it.
+    AiState,
+}
+
+/// Running routine state of an npc with its resolved start/loop/end hooks. The
+/// lifecycle system starts the state, calls its loop once per
+/// [`ROUTINE_LOOP_INTERVAL_SECS`] and runs its end hook when the state is
+/// replaced or the component is removed.
+#[derive(Component, Debug, Clone)]
+pub struct RoutineExecutor {
+    functions: RoutineFunctions,
+    source: RoutineSource,
+    /// Routine waypoint the state was started for, empty for AI states. A
+    /// changed waypoint restarts the state even when the state function is the
+    /// same, so its end hook releases the previous mob or path.
+    way_point: StringCanon,
+    /// Script `other` partner of the state (attack target, perception actor).
+    /// The global is shared between all script calls, so it is bound before
+    /// every hook.
+    other: Option<InstanceId>,
+    /// Seconds since the state started or was last reset by `NPC_SetStateTime`.
+    state_time: f32,
+    /// Seconds until the next loop hook call.
+    next_loop_in: f32,
+    /// The engine runs the first loop on the tick after the start hook, once the
+    /// hook's requests reached the action queue.
+    first_loop_pending: bool,
+    /// Absolute game minute (`GameTime::absolute_minutes`) at which the state
+    /// ends; `None` runs until `LOOP_END`.
+    end_at: Option<u32>,
+}
+
+impl RoutineExecutor {
+    /// Resolved start/loop/end hooks of the running state.
+    pub fn functions(&self) -> RoutineFunctions {
+        self.functions
+    }
+
+    /// Whether the state was pushed by `AI_StartState` instead of the daily
+    /// schedule.
+    pub fn is_ai_state(&self) -> bool {
+        self.source == RoutineSource::AiState
+    }
+}
+
+/// Ends the running state and starts `state` as an AI state. Returns a new
+/// executor when the npc had none, `None` when the existing one was updated or
+/// already runs `state`.
+pub fn start_ai_state(
+    script: &mut ScriptManager,
+    instance: InstanceId,
+    executor: Option<&mut RoutineExecutor>,
+    state: FunctionId,
+    other: Option<InstanceId>,
+) -> Option<RoutineExecutor> {
+    let Some(executor) = executor else {
+        let functions = script.resolve_routine_functions(state);
+        script.set_state_other(other);
+        script.call_routine_start(instance, functions);
+        return Some(RoutineExecutor {
+            functions,
+            source: RoutineSource::AiState,
+            way_point: StringCanon::default(),
+            other,
+            state_time: 0.0,
+            next_loop_in: 0.0,
+            first_loop_pending: true,
+            end_at: None,
+        });
+    };
+    if executor.source == RoutineSource::AiState && executor.functions.start == state {
+        return None;
+    }
+    script.set_state_other(executor.other);
+    script.call_routine_end(instance, executor.functions);
+    let functions = script.resolve_routine_functions(state);
+    executor.other = other;
+    script.set_state_other(other);
+    script.call_routine_start(instance, functions);
+    executor.functions = functions;
+    executor.source = RoutineSource::AiState;
+    executor.way_point = StringCanon::default();
+    executor.state_time = 0.0;
+    executor.next_loop_in = 0.0;
+    executor.first_loop_pending = true;
+    None
+}
+
+/// Absolute game minute at which the active window of `entry` ends.
+fn routine_end_at(entry: &RoutineEntry, game_time: &GameTime) -> u32 {
+    game_time.absolute_minutes() + entry.minutes_until_stop(game_time.minutes_of_day())
+}
+
+#[derive(Resource, Default)]
+pub struct NpcRoutineCheckState {
+    last_checked_minute: Option<u32>,
+}
+
+/// Refreshes the active routine entry of already activated npcs on every in-game
+/// minute change. Only npcs that already carry a [`RoutineEntry`] component are
+/// touched; adding and removing the component is driven by the script bridge.
+pub fn update_npc_routine_entries(
+    mut check_state: ResMut<NpcRoutineCheckState>,
+    game_time: Res<GameTime>,
+    mut npcs: Query<(&GameNpc, &mut RoutineEntry), Without<ChildOf>>,
+) {
+    let _perf = perf_debug!();
+    let minutes = game_time.minutes_of_day();
+    if check_state.last_checked_minute == Some(minutes) {
+        return;
+    }
+    check_state.last_checked_minute = Some(minutes);
+
+    for (npc, mut entry) in &mut npcs {
+        let Some(active) = npc
+            .handle()
+            .runtime()
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get_routine_entry(minutes)
+            .cloned()
+        else {
+            continue;
+        };
+        if *entry == active {
+            continue;
+        }
+        *entry = active;
+    }
+}
+
+/// Reacts to the [`RoutineEntry`] component of an npc being added or changed.
+/// When the active routine entry changes, a waypoint action is queued unless an
+/// AI state owns the npc or another action is pending.
+#[allow(clippy::type_complexity)]
+pub fn update_npc_routines(
+    mut commands: Commands,
+    dialog_ui: Res<DialogUiState>,
+    mut npcs: Query<
+        (
+            Entity,
+            &GameNpc,
+            &RoutineEntry,
+            Option<&mut NpcRoutineState>,
+            Option<&mut NpcActionQueue>,
+            Option<&RoutineExecutor>,
+            Has<ExecutingActionMarker>,
+        ),
+        (Changed<RoutineEntry>, Without<ChildOf>),
+    >,
+    mut removed: RemovedComponents<RoutineEntry>,
+) {
+    let _perf = perf_debug!();
+    let talking_npc = dialog_ui.talking_npc();
+    for entity in removed.read() {
+        // Despawned entities are fine here (e.g. a killed npc), `try_remove`
+        // treats the command as a no-op for them.
+        commands.entity(entity).try_remove::<NpcRoutineState>();
+    }
+
+    for (entity, npc, entry, routine_state, mut queue, executor, executing) in &mut npcs {
+        let Some(mut state) = routine_state else {
+            // First assignment: npcs were already placed at the start hour by the
+            // world load, only record the current assignment.
+            commands.entity(entity).insert(NpcRoutineState {
+                assigned_waypoint: entry.way_point.clone(),
+            });
+            continue;
+        };
+        if state.assigned_waypoint == entry.way_point {
+            continue;
+        }
+        // An AI state keeps the npc until its end time, the routine schedule
+        // resumes from its start hook then.
+        let busy = queue.as_ref().is_some_and(|queue| !queue.is_empty())
+            || executor.is_some_and(|executor| executor.is_ai_state())
+            || executing;
+        state.assigned_waypoint = entry.way_point.clone();
+        queue_routine_waypoint(
+            npc,
+            entry,
+            queue.as_deref_mut(),
+            talking_npc == Some(npc.instance_id()),
+            busy,
+        );
+    }
+}
+
+/// Queues the waypoint of a changed routine entry, holding it while the npc is
+/// talking or has another action pending. The routine loop re-issues the
+/// movement once the npc is free.
+fn queue_routine_waypoint(
+    npc: &GameNpc,
+    entry: &RoutineEntry,
+    queue: Option<&mut NpcActionQueue>,
+    talking: bool,
+    busy: bool,
+) {
+    if talking {
+        debug!(
+            "talking routine npc({}) waypoint({}) not queued",
+            npc.instance_id(),
+            entry.way_point
+        );
+        return;
+    }
+    let Some(queue) = queue else {
+        warn_once!(
+            "routine npc({}) has no action queue, waypoint({})",
+            npc.instance_id(),
+            entry.way_point
+        );
+        return;
+    };
+    if busy {
+        debug!(
+            "routine npc({}) busy, waypoint({}) not queued",
+            npc.instance_id(),
+            entry.way_point
+        );
+        return;
+    }
+    if !queue.push_goto(entry.way_point.clone()) {
+        warn!(
+            "routine npc({}) action queue full, waypoint({}) not queued",
+            npc.instance_id(),
+            entry.way_point
+        );
+    }
+}
+
+/// Starts and ends the talk pause: when a npc starts talking its queued actions
+/// are dropped and its executing action is canceled so it stops walking or
+/// using a mob, and when the dialog closes its routine entry is marked changed
+/// so [`update_routine_executors`] reconciles a schedule that moved on while the
+/// npc was talking.
+pub fn pause_talking_npc_routine(
+    mut commands: Commands,
+    dialog_ui: Res<DialogUiState>,
+    index: Res<InstanceIndex>,
+    mut last_talking: Local<Option<InstanceId>>,
+    mut queues: Query<&mut NpcActionQueue>,
+    mut entries: Query<&mut RoutineEntry>,
+) {
+    let _perf = perf_debug!();
+    let talking = dialog_ui.talking_npc();
+    if *last_talking == talking {
+        return;
+    }
+    let previous = std::mem::replace(&mut *last_talking, talking);
+    if let Some(npc) = talking {
+        for &entity in index.npcs(npc) {
+            if let Ok(mut queue) = queues.get_mut(entity) {
+                queue.clear();
+            }
+            // Removing the marker cancels the running action and its end
+            // system stops the locomotion.
+            commands.entity(entity).remove::<ExecutingActionMarker>();
+        }
+    }
+    let Some(npc) = previous.filter(|npc| Some(*npc) != talking) else {
+        return;
+    };
+    for &entity in index.npcs(npc) {
+        if let Ok(mut entry) = entries.get_mut(entity) {
+            entry.set_changed();
+        }
+    }
+}
+
+/// Runs the end hook of routine states whose [`RoutineEntry`] disappeared and
+/// drops their executor.
+pub fn end_removed_routine_entries(
+    mut commands: Commands,
+    gothic_script: Res<ScriptResource>,
+    mut removed: RemovedComponents<RoutineEntry>,
+    npcs: Query<(Entity, &GameNpc, &RoutineExecutor), Without<RoutineEntry>>,
+) {
+    let _perf = perf_debug!();
+    let mut script = gothic_script.lock();
+    for entity in removed.read() {
+        // Despawned entities are fine here, the executor goes away with them.
+        let Ok((entity, npc, executor)) = npcs.get(entity) else {
+            continue;
+        };
+        if executor.source == RoutineSource::AiState {
+            continue;
+        }
+        script.set_state_other(executor.other);
+        script.call_routine_end(npc.instance_id(), executor.functions);
+        commands.entity(entity).remove::<RoutineExecutor>();
+    }
+}
+
+/// Starts, replaces and removes the running routine state from the active
+/// [`RoutineEntry`]. The previous state's end hook runs before the next start.
+/// Executors are only created for npcs whose visual is spawned, far npcs run
+/// neither their state script nor its animation.
+#[allow(clippy::type_complexity)]
+pub fn update_routine_executors(
+    mut commands: Commands,
+    game_time: Res<GameTime>,
+    gothic_script: Res<ScriptResource>,
+    dialog_ui: Res<DialogUiState>,
+    mut npcs: Query<
+        (
+            Entity,
+            &GameNpc,
+            Ref<RoutineEntry>,
+            Option<&mut RoutineExecutor>,
+        ),
+        (
+            Or<(Changed<RoutineEntry>, Added<AnimationController>)>,
+            With<AnimationController>,
+            Without<NpcCorpseMarker>,
+            // Routine npcs are world root entities, this also excludes the player visual
+            // entity which is a child of the player controller and also carries `GameNpc`.
+            Without<ChildOf>,
+        ),
+    >,
+) {
+    let _perf = perf_debug!();
+    let mut script = gothic_script.lock();
+    for (entity, npc, entry, executor) in &mut npcs {
+        let instance = npc.instance_id();
+        if script.npc_state(instance).is_some_and(|npc| npc.live.dead) {
+            continue;
+        }
+        // A talking npc resumes its schedule when the dialog closes.
+        if dialog_ui.talking_npc() == Some(instance) {
+            continue;
+        }
+        let desired = entry.state_fn;
+        let Some(mut executor) = executor else {
+            let Some(start) = desired else {
+                continue;
+            };
+            let functions = script.resolve_routine_functions(start);
+            script.set_state_other(None);
+            script.set_npc_waypoint(instance, entry.way_point_id);
+            script.call_routine_start(instance, functions);
+            commands.entity(entity).insert(RoutineExecutor {
+                functions,
+                source: RoutineSource::Routine,
+                way_point: entry.way_point.clone(),
+                other: None,
+                state_time: 0.0,
+                // The engine runs the first loop on the next tick, the loop
+                // system picks it up on the next update.
+                next_loop_in: 0.0,
+                first_loop_pending: true,
+                end_at: Some(routine_end_at(&entry, &game_time)),
+            });
+            continue;
+        };
+
+        if executor.source == RoutineSource::AiState {
+            if !entry.is_changed() {
+                // A visual respawn does not re-run the start hook, force one loop
+                // so scripts that request their pose from the loop can restore it.
+                executor.bypass_change_detection().next_loop_in = 0.0;
+            }
+            // The AI state keeps the end time it inherited when it started; the
+            // routine schedule waits until it elapses.
+            continue;
+        } else if Some(executor.functions.start) == desired && executor.way_point == entry.way_point
+        {
+            executor.bypass_change_detection().next_loop_in = 0.0;
+            continue;
+        }
+
+        // A state start does not clear the queue: routine requests are only
+        // produced while it is empty, so there is nothing routine-specific to
+        // drop here and explicit actions must survive a routine entry change.
+        script.set_state_other(executor.other);
+        script.call_routine_end(instance, executor.functions);
+        let Some(start) = desired else {
+            commands.entity(entity).remove::<RoutineExecutor>();
+            continue;
+        };
+        let functions = script.resolve_routine_functions(start);
+        executor.other = None;
+        script.set_state_other(executor.other);
+        script.set_npc_waypoint(instance, entry.way_point_id);
+        script.call_routine_start(instance, functions);
+        executor.functions = functions;
+        executor.source = RoutineSource::Routine;
+        executor.way_point = entry.way_point.clone();
+        executor.state_time = 0.0;
+        executor.next_loop_in = 0.0;
+        executor.first_loop_pending = true;
+        executor.end_at = Some(routine_end_at(&entry, &game_time));
+    }
+}
+
+/// Runs the `C_Npc.start_aistate` fallback state of npcs without a daily routine
+/// (monsters) while they have none. Their state is not scheduled by `TA_Min`, so
+/// without this the script never registers perceptions or runs any monster AI.
+#[allow(clippy::type_complexity)]
+pub fn start_npc_start_ai_states(
+    mut commands: Commands,
+    game_time: Res<GameTime>,
+    gothic_script: Res<ScriptResource>,
+    index: Res<InstanceIndex>,
+    mut pending_starts: MessageReader<StartStateChange>,
+    npcs: Query<
+        (
+            Entity,
+            &GameNpc,
+            Option<&RoutineExecutor>,
+            Option<&NpcActionQueue>,
+            Has<ExecutingActionMarker>,
+        ),
+        (
+            With<AnimationController>,
+            Without<RoutineEntry>,
+            Without<NpcCorpseMarker>,
+            Without<ChildOf>,
+        ),
+    >,
+) {
+    let _perf = perf_debug!();
+    if npcs.is_empty() {
+        return;
+    }
+    let pending: HashSet<InstanceId> = pending_starts
+        .read()
+        .map(|change| change.instance_id)
+        .collect();
+    let mut script = gothic_script.lock();
+    let mut started = HashSet::new();
+    for (entity, npc, executor, queue, executing) in &npcs {
+        if executor.is_some() {
+            continue;
+        }
+        let instance = npc.instance_id();
+        // The engine selects the fallback state only while no op is pending.
+        let busy = queue.is_some_and(|queue| !queue.is_empty()) || executing;
+        if busy || pending.contains(&instance) {
+            continue;
+        }
+        // Duplicated spawns share one script instance, only one of them runs
+        // the state.
+        let owned_elsewhere = index.npcs(instance).iter().copied().any(|other| {
+            other != entity
+                && npcs
+                    .get(other)
+                    .is_ok_and(|(_, _, executor, _, _)| executor.is_some())
+        });
+        if owned_elsewhere {
+            continue;
+        }
+        let state = npc
+            .handle()
+            .typed()
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .start_aistate;
+        let Some(state) = state else {
+            continue;
+        };
+        // Several entities of one instance activate in the same frame and the
+        // executors inserted above are deferred, so dedupe within this run too.
+        if !started.insert(instance) {
+            continue;
+        }
+        debug!(
+            "npc({instance}) starting start_aistate state({})",
+            state.value()
+        );
+        let functions = script.resolve_routine_functions(state);
+        script.set_state_other(None);
+        script.call_routine_start(instance, functions);
+        commands.entity(entity).insert(RoutineExecutor {
+            functions,
+            source: RoutineSource::AiState,
+            way_point: StringCanon::default(),
+            other: None,
+            state_time: 0.0,
+            next_loop_in: 0.0,
+            first_loop_pending: true,
+            end_at: Some(game_time.absolute_minutes() + START_AISTATE_END_MINUTES),
+        });
+    }
+}
+
+/// Publishes the world spots (freepoints) for the freepoint host functions.
+pub fn sync_script_freepoints(
+    gothic_script: Option<Res<ScriptResource>>,
+    spots: Res<Spots>,
+    mut initialized: Local<bool>,
+) {
+    let _perf = perf_debug!();
+    if *initialized && !spots.is_changed() {
+        return;
+    }
+    let Some(gothic_script) = gothic_script else {
+        return;
+    };
+    if spots.0.is_empty() {
+        return;
+    }
+    let freepoints: Vec<ScriptFreePoint> = spots
+        .0
+        .iter()
+        .map(|(name, tr)| ScriptFreePoint {
+            name: name.clone(),
+            position: tr.translation,
+        })
+        .collect();
+    debug!("published {} freepoints", freepoints.len());
+    gothic_script.lock().set_freepoints(freepoints);
+    *initialized = true;
+}
+
+/// Frees the freepoint of an npc whose routine state changed or ended.
+pub fn release_npc_freepoints(
+    gothic_script: Res<ScriptResource>,
+    changed: Query<&GameNpc, Changed<RoutineExecutor>>,
+    mut removed: RemovedComponents<RoutineExecutor>,
+    npcs: Query<&GameNpc>,
+) {
+    let _perf = perf_debug!();
+    let mut removed_entities: Vec<Entity> = removed.read().collect();
+    if changed.is_empty() && removed_entities.is_empty() {
+        return;
+    }
+    let mut script = gothic_script.lock();
+    for npc in &changed {
+        script.release_freepoint(npc.instance_id());
+    }
+    for entity in removed_entities.drain(..) {
+        let Ok(npc) = npcs.get(entity) else {
+            continue;
+        };
+        script.release_freepoint(npc.instance_id());
+    }
+}
+
+/// Calls the loop hook of every running routine state once per interval and
+/// ends the state when the loop returns `LOOP_END`.
+#[allow(clippy::type_complexity)]
+pub fn run_routine_loops(
+    time: Res<Time>,
+    game_time: Res<GameTime>,
+    mut commands: Commands,
+    gothic_script: Res<ScriptResource>,
+    dialog_ui: Res<DialogUiState>,
+    mut npcs: Query<
+        (
+            Entity,
+            &GameNpc,
+            &mut RoutineExecutor,
+            Option<&RoutineEntry>,
+            Option<&NpcActionQueue>,
+            Has<ExecutingActionMarker>,
+        ),
+        (
+            With<AnimationController>,
+            With<DistanceNear>,
+            Without<NpcCorpseMarker>,
+        ),
+    >,
+) {
+    let perf = perf_debug!();
+    if npcs.is_empty() {
+        return;
+    }
+
+    let delta = time.delta_secs();
+    let minutes = game_time.minutes_of_day();
+    let talking_npc = dialog_ui.talking_npc();
+    let mut script = gothic_script.lock();
+    for (entity, npc, mut executor, entry, queue, executing) in &mut npcs {
+        perf.increment_tag("npcs", 1);
+        if script
+            .npc_state(npc.instance_id())
+            .is_some_and(|state| state.live.dead)
+        {
+            perf.increment_tag("dead_skip", 1);
+            continue;
+        }
+        // Routine entries stop at their stop time even when no next entry is
+        // active yet; the end hook releases a used mob or path.
+        if executor.source == RoutineSource::Routine
+            && let Some(entry) = entry
+            && !entry.is_active_at(minutes)
+        {
+            perf.increment_tag("stopped", 1);
+            debug!(
+                "npc({}) routine entry stopped at minute {minutes}",
+                npc.instance_id()
+            );
+            script.set_state_other(executor.other);
+            script.call_routine_end(npc.instance_id(), executor.functions);
+            commands.entity(entity).remove::<RoutineExecutor>();
+            continue;
+        }
+        // Timer bookkeeping must not mark the executor changed, otherwise
+        // `restore_routine_stand` would reset the pose every frame.
+        {
+            let executor = executor.bypass_change_detection();
+            executor.state_time += delta;
+            executor.next_loop_in -= delta;
+        }
+        if executor.first_loop_pending {
+            executor.bypass_change_detection().first_loop_pending = false;
+            perf.increment_tag("first_loop_skip", 1);
+            continue;
+        }
+        if executor.next_loop_in > 0.0 {
+            perf.increment_tag("waiting", 1);
+            continue;
+        }
+        // An executing action or a pending one pauses every loop, routine or
+        // AI state. The action queue drains and the loop resumes on its next
+        // tick. Talking pauses only daily routine loops.
+        let busy = queue.is_some_and(|queue| !queue.is_empty()) || executing;
+        if busy {
+            perf.increment_tag("busy_skip", 1);
+            continue;
+        }
+        if executor.source == RoutineSource::Routine && talking_npc == Some(npc.instance_id()) {
+            perf.increment_tag("talking_skip", 1);
+            continue;
+        }
+        executor.bypass_change_detection().next_loop_in = ROUTINE_LOOP_INTERVAL_SECS;
+
+        let instance = npc.instance_id();
+        let state_time = executor.state_time as i32;
+        perf.increment_tag("loops", 1);
+        script.set_routine_state_time(instance, state_time);
+        script.set_state_other(executor.other);
+        let ended = script.call_routine_loop(instance, executor.functions);
+        if let Some(actual) = script.routine_state_time(instance)
+            && actual != state_time
+        {
+            // The script reset the state time via `NPC_SetStateTime`.
+            executor.bypass_change_detection().state_time = actual as f32;
+        }
+        let end_reached = executor
+            .end_at
+            .is_some_and(|end| game_time.absolute_minutes() >= end);
+        if ended || end_reached {
+            perf.increment_tag("ended", 1);
+            script.set_state_other(executor.other);
+            script.call_routine_end(instance, executor.functions);
+            if executor.source == RoutineSource::AiState
+                && let Some(entry) = entry
+                && entry.is_active_at(minutes)
+                && let Some(start) = entry.state_fn
+            {
+                perf.increment_tag("restarted", 1);
+                // The AI state returned control, resume the scheduled routine.
+                let functions = script.resolve_routine_functions(start);
+                executor.other = None;
+                script.set_state_other(executor.other);
+                script.call_routine_start(instance, functions);
+                executor.functions = functions;
+                executor.source = RoutineSource::Routine;
+                executor.way_point = entry.way_point.clone();
+                executor.state_time = 0.0;
+                executor.next_loop_in = 0.0;
+                executor.first_loop_pending = true;
+                executor.end_at = Some(routine_end_at(entry, &game_time));
+                continue;
+            }
+            commands.entity(entity).remove::<RoutineExecutor>();
+        }
+    }
+}
+
+/// Restores the standing idle when a routine state starts or ends. A state that
+/// requests no animation leaves the npc standing; requested animations arrive
+/// through the script bridge.
+#[allow(clippy::type_complexity)]
+pub fn restore_routine_stand(
+    mut commands: Commands,
+    mut removed: RemovedComponents<RoutineExecutor>,
+    mut changed: Query<
+        (Entity, &mut AutoAnimSequencer),
+        (
+            Changed<RoutineExecutor>,
+            With<RoutineExecutor>,
+            Without<NpcCorpseMarker>,
+        ),
+    >,
+    mut removed_npcs: Query<
+        &mut AutoAnimSequencer,
+        (Without<RoutineExecutor>, Without<NpcCorpseMarker>),
+    >,
+) {
+    let _perf = perf_debug!();
+    for (entity, mut sequencer) in &mut changed {
+        // A new routine state drops the previous item pose (`Npc::clearState`
+        // does `putState(0,0)`), the standing idle follows below.
+        commands.entity(entity).remove::<NpcItemUse>();
+        queue_stand_animation(&mut sequencer);
+    }
+    for entity in removed.read() {
+        let Ok(mut sequencer) = removed_npcs.get_mut(entity) else {
+            // Despawned npcs drop their item pose with the entity.
+            continue;
+        };
+        commands.entity(entity).remove::<NpcItemUse>();
+        queue_stand_animation(&mut sequencer);
+    }
+}
+
+/// Standing body state animation fallback, `S_RUN` is the human idle.
+pub const STANDING_ANIMATION: &str = "S_RUN";
+
+/// Entity the npc currently looks at (`AI_LookAtNPC`), maintained by the script
+/// bridge. Absent when the npc looks at nothing.
+#[derive(Component)]
+pub struct NpcLookAt(pub Entity);
+
+/// Rotates npcs to face their [`NpcLookAt`] target. The player visual (a child) is
+/// skipped on purpose: rotating it would fight the player controller. When the
+/// target entity is gone the npc stops looking. The target is maintained by the
+/// script bridge.
+pub fn apply_look_at(
+    mut commands: Commands,
+    mut npcs: Query<
+        (Entity, &NpcLookAt, &GlobalTransform, &mut Transform),
+        Without<PlayerCharacter>,
+    >,
+    transforms: Query<&GlobalTransform>,
+) {
+    let _perf = perf_debug!();
+    for (entity, look_at, npc_tr, mut tr) in &mut npcs {
+        let Ok(target_tr) = transforms.get(look_at.0) else {
+            // Target entity was destroyed, stop looking at it
+            commands.entity(entity).remove::<NpcLookAt>();
+            continue;
+        };
+        let direction = target_tr.translation() - npc_tr.translation();
+        if direction.length_squared() < 1e-4 {
+            continue;
+        }
+        tr.rotation = face_direction_quat(direction);
+    }
+}
+
+/// Rotates npcs once to face their `AI_TurnToNPC` target, including the player.
+pub fn apply_turn_to_npc(
+    mut changes: MessageReader<TurnToNpcChange>,
+    index: Res<InstanceIndex>,
+    mut npcs: Query<(&GlobalTransform, &mut Transform)>,
+    targets: Query<&GlobalTransform>,
+) {
+    let _perf = perf_debug!();
+    for change in changes.read() {
+        let Some(target_entity) = index.npcs(change.target).first().copied() else {
+            warn!(
+                "AI_TurnToNPC target({}) has no entity, npc({})",
+                change.target, change.instance_id
+            );
+            continue;
+        };
+        let Ok(target) = targets.get(target_entity) else {
+            continue;
+        };
+        for &entity in index.npcs(change.instance_id) {
+            let Ok((npc_global, mut tr)) = npcs.get_mut(entity) else {
+                continue;
+            };
+            let direction = target.translation() - npc_global.translation();
+            if direction.length_squared() < 1e-4 {
+                continue;
+            }
+            tr.rotation = face_direction_quat(direction);
+        }
+    }
+}
+
+/// Walk mode requested by the script (`AI_SetWalkMode`), mirrored from the
+/// script runtime state by the bridge. `0` run, `1` walk, `2` sneak.
+#[derive(Component, Clone, Copy, Default)]
+pub struct NpcWalkMode(pub i32);
+
+/// Distance to the next path node under which the npc advances along the path.
+const PATH_NODE_REACHED_DISTANCE: f32 = 0.5;
+
+/// Remaining waypoint node indices an npc walks through (`AI_GoToWP`).
+#[derive(Component, Default)]
+pub struct NpcPath {
+    nodes: Vec<usize>,
+    /// World position walked to after the last graph node, used for targets that
+    /// are not part of the way net (spots).
+    target: Option<Vec3>,
+}
+
+impl NpcPath {
+    pub fn new(nodes: Vec<usize>) -> Self {
+        Self {
+            nodes,
+            target: None,
+        }
+    }
+
+    pub fn with_target(nodes: Vec<usize>, target: Vec3) -> Self {
+        Self {
+            nodes,
+            target: Some(target),
+        }
+    }
+}
+
+/// Moves npcs along their [`NpcPath`]. The npc is moved by the root motion of
+/// the run animation through the [`AutoAnimSequencer`]. The npc faces the next
+/// node, keeps its height from the path nodes and restores the standing idle on
+/// arrival. The body offset matches npc placement, otherwise they would float
+/// above the ground while moving.
+#[allow(clippy::type_complexity)]
+pub fn move_along_path(
+    graph: Res<WaypointGraph>,
+    mut commands: Commands,
+    mut desired: MessageWriter<SetDesiredAnimation>,
+    mut npcs: Query<
+        (
+            Entity,
+            &mut Transform,
+            &mut NpcPath,
+            &mut AutoAnimSequencer,
+            &mut AnimationController,
+            Option<&NpcWalkMode>,
+            Option<&NpcPhysicsMarker>,
+        ),
+        Without<NpcCorpseMarker>,
+    >,
+) {
+    let perf = perf_debug!();
+    for (entity, mut transform, mut path, mut sequencer, mut controller, walk_mode, physics) in
+        &mut npcs
+    {
+        perf.increment_tag("npcs", 1);
+        let Some(direction) =
+            direction_to_next_node(&mut transform, &mut path, &graph, physics.is_none())
+        else {
+            perf.increment_tag("finished", 1);
+            // The path is done, restore the standing idle
+            commands.entity(entity).remove::<NpcPath>();
+            controller.set_root_motion(false);
+            queue_stand_animation(&mut sequencer);
+            continue;
+        };
+        transform.rotation = face_direction_quat(direction);
+        let animation = match walk_mode.map_or(0, |mode| mode.0) {
+            1 => DesiredAnimation::Walk,
+            2 => DesiredAnimation::Sneak,
+            _ => DesiredAnimation::Run,
+        };
+        queue_root_motion_animation(&mut desired, entity, &mut controller, animation, None);
+    }
+}
+
+/// Removes already reached nodes from the front of the path and returns the
+/// direction to the next one, `None` once the path is complete. Without a
+/// physics body the npc height is taken from the current path node, root motion
+/// only moves it horizontally. A physics npc follows the terrain instead, so its
+/// height is left to gravity and ground detection.
+fn direction_to_next_node(
+    transform: &mut Transform,
+    path: &mut NpcPath,
+    graph: &WaypointGraph,
+    snap_height: bool,
+) -> Option<Vec3> {
+    while let Some(node) = path.nodes.first().copied() {
+        let target = graph.nodes[node].position + Vec3::Y * NPC_BODY_Y_OFFSET;
+        if snap_height {
+            transform.translation.y = target.y;
+        }
+        let to_target = target - transform.translation;
+        let horizontal = Vec3::new(to_target.x, 0.0, to_target.z);
+        let distance = horizontal.length();
+        if distance <= PATH_NODE_REACHED_DISTANCE {
+            path.nodes.remove(0);
+            continue;
+        }
+        return Some(horizontal / distance);
+    }
+    let target = path.target?;
+    if snap_height {
+        transform.translation.y = target.y;
+    }
+    let to_target = target - transform.translation;
+    let horizontal = Vec3::new(to_target.x, 0.0, to_target.z);
+    let distance = horizontal.length();
+    if distance <= PATH_NODE_REACHED_DISTANCE {
+        path.target = None;
+        return None;
+    }
+    Some(horizontal / distance)
+}
+
+/// Queues an animation resolved through the npc scheme and its overlay.
+pub fn queue_named_animation(
+    controller: &mut AnimationController,
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    files: &AnimationFiles,
+    handles: &mut CachedAssetHandles,
+    asset_server: &AssetServer,
+    animation: &str,
+) {
+    let Some(scheme) = model.animation_scheme.as_deref() else {
+        return;
+    };
+    let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
+    let scheme = choose_animation_scheme(scheme, overlay, animation, &files.0);
+    let path = get_animation_path(scheme, animation);
+    controller.queue_next(handles.get_animation_handle(asset_server, &path), true);
+}
+
+/// True when the npc scheme (or its overlay scheme) has `animation` in the
+/// compiled anim archive. Scripts request animations unconditionally, not every
+/// scheme ships every variant (e.g. `SHADOW` has no `T_PERCEPTION`).
+pub fn has_animation(
+    model: &NpcModel,
+    overlay: Option<&NpcOverlay>,
+    files: &AnimationFiles,
+    animation: &str,
+) -> bool {
+    let Some(base) = model.animation_scheme.as_deref() else {
+        return false;
+    };
+    let overlay = overlay.and_then(|overlay| overlay.0.as_deref());
+    let scheme = choose_animation_scheme(base, overlay, animation, &files.0);
+    files.0.contains(&animation_file_name(scheme, animation))
+}
+
+/// Switches the npc back to its standing idle after a path.
+pub fn queue_stand_animation(sequencer: &mut AutoAnimSequencer) {
+    sequencer.set_desired_now(DesiredAnimation::Stand);
+}
+
+/// Enables root motion and requests `animation`, which is re-issued every frame
+/// with `force_change` so animations that are still loading are not skipped.
+pub fn queue_root_motion_animation(
+    desired: &mut MessageWriter<SetDesiredAnimation>,
+    entity: Entity,
+    controller: &mut AnimationController,
+    animation: DesiredAnimation,
+    direction: Option<Vec3>,
+) {
+    // The sequencer outlives a single action, so root motion has to be
+    // re-enabled every time the npc starts moving again.
+    controller.set_root_motion(true);
+    desired.write(SetDesiredAnimation {
+        who: entity,
+        animation,
+        force_change: true,
+        direction,
+    });
+}

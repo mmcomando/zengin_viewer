@@ -12,10 +12,10 @@ use input_core::{
 use crate::input::horizontal_axis::HorizontalAxis;
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
-use crate::zengin::AppState;
-use crate::zengin::gui::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiState};
-use crate::zengin::{DialogRequest, DialogUiState, DialogVoice};
 use dev_util::perf_debug;
+use zengin_lib::AppState;
+use zengin_lib::gui::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiState};
+use zengin_lib::{DialogRequest, DialogUiState, DialogVoice};
 
 /// Adds [`leafwing_input_manager`] with one input map per action group and
 /// spawns the global input entities with the profiles loaded from the assets

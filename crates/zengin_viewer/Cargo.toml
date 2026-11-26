@@ -29,6 +29,7 @@ pathfinding = "4.16.0"
 # Internal developer utilities
 dev_util = { path = "../dev_util" }
 input_core = { path = "../input_core" }
+zengin_lib = { path = "../zengin_lib" }
 
 # VR
 openxr = { workspace = true }

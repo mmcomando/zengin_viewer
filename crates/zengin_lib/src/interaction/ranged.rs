@@ -1,0 +1,286 @@
+//! Ranged combat: arrow projectiles of the player bow attack.
+//!
+//!  This module spawns the flying arrows, resolves their hits and cleans them up.
+
+use bevy::prelude::*;
+
+use super::combat::NpcHitQueryData;
+use super::selection::{HitColliderOwner, Selection};
+use super::{DamageTargetData, NpcDied, deal_damage};
+use crate::GameNpc;
+use crate::gui::GameLog;
+use crate::npc_routines::AnimationFiles;
+use crate::resources::{ARROW, CachedAssetHandles, NPC_BODY, NamedModels, ZenGinModelComponent};
+use crate::script::component::ScriptResource;
+use crate::script::manager::AttackKind;
+use crate::script::symbol_id::InstanceId;
+use crate::world_entity::Arrow;
+use avian3d::prelude::*;
+
+use crate::AppState;
+use dev_util::perf_debug;
+
+pub struct RangedCombatPlugin;
+
+impl Plugin for RangedCombatPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_message::<ArrowShot>();
+        app.add_systems(
+            Update,
+            (spawn_arrows, arrow_hits, arrow_cleanup)
+                .chain()
+                .run_if(in_state(AppState::InGame)),
+        );
+    }
+}
+
+/// Local axis of the arrow item mesh pointing along the shaft. The arrow
+/// meshes are authored sideways (like weapons: grip at origin), not along -Z,
+/// so the shot direction is aligned with this axis.
+const ARROW_MESH_FORWARD: Vec3 = Vec3::X;
+/// Initial arrow speed in meters per second.
+const ARROW_SPEED: f32 = 30.0;
+/// Height above the npc origin the arrow is shot from and aims at. The npc
+/// capsule spans roughly -0.9 to +0.9 around the feet origin, so 0.9 is its
+/// chest height.
+const BOW_HEIGHT: f32 = 0.9;
+/// Seconds after which an arrow that hit nothing despawns.
+const ARROW_LIFETIME: f32 = 10.0;
+/// Contacts hit before the arrow travels this far are ignored: at spawn the
+/// arrow is inside the shooter's own hit volume, this filters such
+/// self-contact out and lets the arrow keep flying.
+const ARROW_MIN_HIT_DISTANCE: f32 = 0.2;
+
+/// An arrow about to be spawned by the bow attack of the given shooter.
+#[derive(Message)]
+pub struct ArrowShot {
+    pub shooter: Entity,
+}
+
+/// Spawns an arrow entity for each requested shot, aimed at the selected npc
+/// or straight ahead when nothing is selected.
+#[allow(clippy::too_many_arguments)]
+fn spawn_arrows(
+    mut shots: MessageReader<ArrowShot>,
+    mut commands: Commands,
+    selection: Res<Selection>,
+    transforms: Query<&GlobalTransform>,
+    npcs: Query<&GameNpc>,
+    gothic_script: Res<ScriptResource>,
+    named_models: Res<NamedModels>,
+    time: Res<Time>,
+) {
+    let _perf = perf_debug!();
+    for shot in shots.read() {
+        let Ok(shooter_tr) = transforms.get(shot.shooter) else {
+            warn!(
+                "Arrow shot ignored: shooter({}) has no transform",
+                shot.shooter
+            );
+            continue;
+        };
+        let Some(shooter) = npcs.get(shot.shooter).ok().map(|npc| npc.instance_id()) else {
+            warn!(
+                "Arrow shot ignored: shooter({}) is not an npc",
+                shot.shooter
+            );
+            continue;
+        };
+        spawn_shot(
+            &mut commands,
+            &transforms,
+            &gothic_script,
+            &named_models,
+            &time,
+            shooter_tr,
+            shooter,
+            selection.target,
+        );
+    }
+}
+
+/// Spawns one arrow of one [`ArrowShot`] message.
+#[allow(clippy::too_many_arguments)]
+fn spawn_shot(
+    commands: &mut Commands,
+    transforms: &Query<&GlobalTransform>,
+    gothic_script: &ScriptResource,
+    named_models: &NamedModels,
+    time: &Time,
+    shooter_tr: &GlobalTransform,
+    shooter: InstanceId,
+    target: Option<Entity>,
+) {
+    let origin = shooter_tr.translation() + Vec3::Y * BOW_HEIGHT;
+    // Aim at the selected npc, fall back to the facing direction of the
+    // shooter (it faces local +Z, see the selection module).
+    let direction = target
+        .and_then(|target| transforms.get(target).ok())
+        .map(|target| (target.translation() + Vec3::Y * BOW_HEIGHT - origin).normalize_or_zero())
+        .filter(|direction| direction.length_squared() > 0.0)
+        .unwrap_or_else(|| {
+            let facing = shooter_tr.back();
+            Vec3::new(facing.x, 0.0, facing.z).normalize_or_zero()
+        });
+    if direction.length_squared() < 0.5 {
+        warn!(
+            "Arrow of npc({}) not spawned: no aim direction",
+            shooter.value()
+        );
+        return;
+    }
+
+    // Ranged weapon of the currently drawn bow.
+    let weapon = {
+        let script = gothic_script.lock();
+        script
+            .npc_state(shooter)
+            .and_then(|player| player.equipment.ranged)
+    };
+    let Some(weapon) = weapon else {
+        warn!(
+            "Arrow of npc({}) not spawned: no ranged weapon",
+            shooter.value()
+        );
+        return;
+    };
+
+    // The arrow mesh is authored sideways (shaft along the local X axis,
+    // like weapon meshes with the grip at the origin), so align that axis
+    // with the shot direction instead of the default -Z look-at.
+    let transform = Transform::from_translation(origin)
+        .with_rotation(Quat::from_rotation_arc(ARROW_MESH_FORWARD, direction));
+    let arrow = Arrow {
+        weapon,
+        shooter,
+        spawned_at: time.elapsed_secs(),
+        spawn_origin: origin,
+    };
+    let entity = spawn_arrow(commands, arrow, direction, transform);
+
+    // Visual: the arrow item mesh, resolved once at world load. Without it
+    // arrows have no visual.
+    if let Some(model_handle) = named_models.item_arrow.clone() {
+        commands.entity(entity).insert((
+            ZenGinModelComponent {
+                model_handle,
+                ..default()
+            },
+            Visibility::default(),
+        ));
+    }
+    info!(
+        "Npc({}) shot an arrow with weapon({}) towards {}",
+        shooter.value(),
+        weapon.value(),
+        target.map_or_else(
+            || "the facing direction".to_string(),
+            |target| format!("npc({target})")
+        )
+    );
+}
+
+/// Spawns a flying arrow entity: a small sensor collider rigid body on the
+/// `ARROW` collision layer, the visual is attached by the caller.
+fn spawn_arrow(
+    commands: &mut Commands,
+    arrow: Arrow,
+    direction: Vec3,
+    transform: Transform,
+) -> Entity {
+    commands
+        .spawn((
+            arrow,
+            RigidBody::Dynamic,
+            Collider::cuboid(0.6, 0.05, 0.05),
+            // The sensor collider contributes no mass, give the arrow an
+            // explicit one so the rigid body has no NaN mass properties.
+            MassPropertiesBundle::from_shape(&Collider::cuboid(0.6, 0.05, 0.05), 1.0),
+            Sensor,
+            CollisionEventsEnabled,
+            // Fast small projectile, swept CCD avoids tunneling.
+            SweptCcd::default(),
+            LinearVelocity(direction * ARROW_SPEED),
+            CollisionLayers::from_bits(ARROW, NPC_BODY),
+            transform,
+        ))
+        .id()
+}
+
+/// Applies arrow damage on contact with an npc and despawns the arrow.
+#[allow(clippy::too_many_arguments)]
+fn arrow_hits(
+    mut contacts: MessageReader<CollisionStart>,
+    arrows: Query<(&Arrow, &GlobalTransform)>,
+    hit_colliders: Query<&HitColliderOwner>,
+    mut npcs: Query<NpcHitQueryData>,
+    gothic_script: Res<ScriptResource>,
+    files: Res<AnimationFiles>,
+    mut handles: ResMut<CachedAssetHandles>,
+    asset_server: Res<AssetServer>,
+    mut game_log: ResMut<GameLog>,
+    mut npc_died: MessageWriter<NpcDied>,
+    mut commands: Commands,
+) {
+    let _perf = perf_debug!();
+    for contact in contacts.read() {
+        let (arrow_entity, hit_entity) = if arrows.contains(contact.collider1) {
+            (contact.collider1, contact.collider2)
+        } else if arrows.contains(contact.collider2) {
+            (contact.collider2, contact.collider1)
+        } else {
+            continue;
+        };
+        let Ok((arrow, arrow_tr)) = arrows.get(arrow_entity) else {
+            continue;
+        };
+        // The npc hit collider is a child entity, resolve it to the npc.
+        let hit_entity = hit_colliders
+            .get(hit_entity)
+            .map_or(hit_entity, |collider| collider.owner);
+        let Ok((npc, global_tr, npc_model, overlay, controller, reaction, is_player)) =
+            npcs.get_mut(hit_entity)
+        else {
+            continue;
+        };
+        // Right after spawn the arrow overlaps the shooter's own hit volume,
+        // ignore that contact instead of counting it as a hit.
+        if arrow_tr.translation().distance(arrow.spawn_origin) < ARROW_MIN_HIT_DISTANCE {
+            continue;
+        }
+        let target_data = DamageTargetData {
+            npc,
+            global_tr,
+            model: npc_model,
+            overlay,
+            controller,
+            reaction,
+            is_player,
+        };
+        deal_damage(
+            &mut commands,
+            hit_entity,
+            target_data,
+            AttackKind::Ranged(arrow.weapon),
+            arrow.shooter,
+            &gothic_script,
+            &files,
+            &mut handles,
+            &asset_server,
+            &mut game_log,
+            &mut npc_died,
+        );
+        commands.entity(arrow_entity).despawn();
+    }
+}
+
+/// Despawns arrows that hit nothing after [`ARROW_LIFETIME`] seconds.
+fn arrow_cleanup(time: Res<Time>, arrows: Query<(Entity, &Arrow)>, mut commands: Commands) {
+    let _perf = perf_debug!();
+    let now = time.elapsed_secs();
+    for (entity, arrow) in &arrows {
+        if now - arrow.spawned_at > ARROW_LIFETIME {
+            commands.entity(entity).try_despawn();
+        }
+    }
+}
