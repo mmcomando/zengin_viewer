@@ -2,7 +2,7 @@ use bevy::ecs::system::{Local, SystemParam};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Ui};
 
-use crate::debug::ReloadWorldEntities;
+use crate::debug::{DebugNpc, ReloadWorldEntities};
 use crate::game_state::AppState;
 use crate::gameplay::camera::{TELEPORT_LOCATIONS, TeleportToLocation};
 use crate::gameplay::game_time::GameTime;
@@ -14,7 +14,7 @@ use crate::gui_debug::{
     toggle_visibility::{OptionsChanged, ShowOptions},
 };
 use crate::save::{QuickLoad, QuickSave};
-use crate::zengin::{DebugNpc, NpcAutoTalkOptions, RestartWorld, StatisticsZengin};
+use crate::zengin::{NpcAutoTalkOptions, RestartWorld, StatisticsZengin};
 
 /// Resources and message writers used by the generic options tab.
 #[derive(SystemParam)]

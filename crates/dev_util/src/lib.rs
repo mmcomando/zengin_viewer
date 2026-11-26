@@ -7,6 +7,7 @@
 //!   time the call site runs.
 //! - [`amortized_executor`] runs a set of callbacks on a virtual clock under a
 //!   per-frame work budget.
+//! - [`hash`] a stable 64-bit FNV-1a hash for fixed on-disk contracts.
 //! - [`external_messages`] bridges messages produced outside the ECS into the
 //!   regular Bevy message buffers.
 //! - [`ui_kit`] small Bevy UI pieces shared by the overlay screens.
@@ -16,6 +17,7 @@
 
 pub mod amortized_executor;
 pub mod external_messages;
+pub mod hash;
 mod logging;
 pub mod perf_debug;
 pub mod ui_kit;

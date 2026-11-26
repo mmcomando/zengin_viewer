@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::debug::DebugNpc;
 use crate::game_state::AppState;
 use crate::gameplay::game_time::GameTime;
 use crate::gui::GameLog;
@@ -8,10 +9,9 @@ use crate::input::record::ReplayCommand;
 use crate::save::format::SavedObjectBuilder;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::{
-    DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SetGameTime,
-    SpawnFromSavedObject, SpawnPositionFilter, StringCanon, UseMobChange, VobPrototypes,
-    WorldSpawnMessages, add_waypoint, enqueue_npc_goto, grant_test_items, load_world_prototypes,
-    seed_test_journal,
+    GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SetGameTime, SpawnFromSavedObject,
+    SpawnPositionFilter, StringCanon, UseMobChange, VobPrototypes, WorldSpawnMessages,
+    add_waypoint, enqueue_npc_goto, grant_test_items, load_world_prototypes, seed_test_journal,
 };
 
 use daedalus_typed::{TALENT_1H, TALENT_2H};

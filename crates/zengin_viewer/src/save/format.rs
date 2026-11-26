@@ -47,16 +47,6 @@ pub(crate) fn saves_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(SAVE_DIR)
 }
 
-/// Stable 64-bit FNV-1a hash. Used for the `GOTHIC.DAT` fingerprint; unlike
-/// `DefaultHasher` the result is a fixed on-disk contract.
-pub(crate) fn fnv1a_64(bytes: &[u8]) -> u64 {
-    const OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
-    const PRIME: u64 = 0x0000_0100_0000_01b3;
-    bytes.iter().fold(OFFSET_BASIS, |hash, byte| {
-        (hash ^ u64::from(*byte)).wrapping_mul(PRIME)
-    })
-}
-
 /// Metadata shared by every file of one save. Stored in `metadata.ron` so the
 /// load screen can list saves without parsing the larger state documents.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -438,13 +428,6 @@ fn civil_from_days(days_since_epoch: i64) -> (i64, u32, u32) {
 mod tests {
     use super::*;
     use crate::zengin::{JournalSection, JournalStatus};
-
-    #[test]
-    fn fnv1a_matches_known_values() {
-        assert_eq!(fnv1a_64(b""), 0xcbf2_9ce4_8422_2325);
-        assert_eq!(fnv1a_64(b"a"), 0xaf63_dc4c_8601_ec8c);
-        assert_eq!(fnv1a_64(b"hello"), 0xa430_d846_80aa_bd0b);
-    }
 
     fn metadata() -> SaveMetadata {
         SaveMetadata {

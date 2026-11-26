@@ -11,8 +11,9 @@ use serde::de::DeserializeOwned;
 use super::format::{
     GLOBALS_FILE, GUILDS_FILE, GlobalsSave, GuildsSave, INSTANCES_FILE, ITEMS_FILE, InstancesSave,
     ItemsSave, JOURNAL_FILE, JournalSave, METADATA_FILE, NPCS_FILE, NpcsSave, SaveGame,
-    SaveMetadata, ScriptSnapshot, WORLD_FILE, WorldSave, fnv1a_64, format_unix_utc, saves_dir,
+    SaveMetadata, ScriptSnapshot, WORLD_FILE, WorldSave, format_unix_utc, saves_dir,
 };
+use dev_util::hash::fnv1a_64;
 
 use crate::zengin::gothic_dat_path;
 

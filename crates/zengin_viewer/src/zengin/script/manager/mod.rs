@@ -25,7 +25,7 @@ use daedalus_wasm::wasm::convert_daedalus_script;
 use wasmtime::component::{Component, HasData, Linker};
 use wasmtime::{Engine, Store};
 
-use crate::save::format::fnv1a_64;
+use dev_util::hash::fnv1a_64;
 
 use super::ScriptCallStats;
 use super::bindings::MmWorld;

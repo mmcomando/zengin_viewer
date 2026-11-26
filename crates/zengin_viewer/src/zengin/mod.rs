@@ -7,7 +7,6 @@ mod interaction;
 mod loaders;
 mod mobs;
 mod movers;
-pub(crate) use crate::debug::DebugNpc;
 pub(crate) use crate::zengin::common::choose_animation_scheme;
 pub(crate) use crate::zengin::interaction::{NpcDied, grant_test_items, seed_test_journal};
 pub(crate) use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
