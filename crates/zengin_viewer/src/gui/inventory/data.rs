@@ -50,9 +50,8 @@ pub(super) fn npc_inventory_window(
         .map(|(instance_id, count)| inventory_entry(script, instance_id, count))
         .collect();
     let gold_count = gold_sum(&items);
-    let (equipped_melee, equipped_ranged, equipped_armor) = script
-        .npc_state(npc)
-        .map_or_default(|npc| {
+    let (equipped_melee, equipped_ranged, equipped_armor) =
+        script.npc_state(npc).map_or_default(|npc| {
             (
                 npc.equipment.melee,
                 npc.equipment.ranged,
@@ -154,11 +153,7 @@ fn sort_inventory_items(items: &mut [InventoryEntry]) {
                 bb.stats
                     .as_ref()
                     .map_or_default(|st| st.damage_total)
-                    .cmp(
-                        &aa.stats
-                            .as_ref()
-                            .map_or_default(|st| st.damage_total),
-                    )
+                    .cmp(&aa.stats.as_ref().map_or_default(|st| st.damage_total))
             })
             .then_with(|| aa.instance_id.cmp(&bb.instance_id))
     });

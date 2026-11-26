@@ -13,9 +13,10 @@
 
 use std::path::Path;
 
-use crate::perf_debug;
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
+use dev_util::perf_debug;
+use dev_util::warn_once;
 
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{AnimationGraph, AnimationIndex, animation_name_from_path};

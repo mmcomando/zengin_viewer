@@ -14,7 +14,6 @@ use crate::graphics::{NpcAnimations, PlayerMeleeCombo};
 use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
 use crate::gui_debug::WorldMesh;
 use crate::input::Options;
-use crate::perf_debug;
 use crate::save::PendingLoad;
 use crate::save::format::{SaveGame, SavedChest, SavedNpc, SavedObject, SavedObjectBuilder};
 use crate::world_entity::WorldEntityMarker;
@@ -49,6 +48,8 @@ use crate::zengin::{
 };
 use avian3d::prelude::*;
 use bevy::prelude::*;
+use dev_util::perf_debug;
+use dev_util::warn_once;
 
 /// Loads the zengin world data and spawns the world and player entities.
 pub struct ZenGinWorldPlugin;
@@ -1176,7 +1177,7 @@ fn spawn_item_entities(
         };
         instance_index.insert_item_handle(handle.clone());
         let Some(model) = item_model_path(&gothic_scripts, &vfs, spawn.instance_id) else {
-            crate::warn_once!("No mesh path for item({})", spawn.instance_id);
+            warn_once!("No mesh path for item({})", spawn.instance_id);
             continue;
         };
         let Some(waypoint_tr) = spawn.transform else {

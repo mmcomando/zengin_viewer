@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
 use crate::graphics::AnimationController;
-use crate::perf_debug;
 use crate::zengin::NpcCorpseMarker;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::queue::{NpcActionQueue, QueuedAction};
+use dev_util::perf_debug;
 
 /// Moves the front queued action onto an npc that is not executing anything and
 /// has an animation controller, i.e. is animated. Far npcs that were never near

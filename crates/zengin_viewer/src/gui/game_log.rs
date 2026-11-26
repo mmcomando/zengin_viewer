@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 
 use crate::gui::{JournalUiState, StatsUiState};
-use crate::perf_debug;
-use crate::ui_kit::set_visibility;
+use dev_util::perf_debug;
+use dev_util::ui_kit::set_visibility;
 
 pub struct GameLogPlugin;
 

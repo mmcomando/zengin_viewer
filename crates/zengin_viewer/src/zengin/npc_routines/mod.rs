@@ -16,7 +16,6 @@ use crate::graphics::AutoAnimSequencerSet;
 use crate::zengin::script::bridge::{ScriptChangesApplied, ScriptOutputFlush};
 use crate::zengin::{ZenginVfs, loaders::vfs::animation_file_names};
 
-use crate::perf_debug;
 use crate::zengin::npc_actions::WaitAction;
 use crate::zengin::npc_actions::{
     AttackAction, GoToNpcAction, GoToWaypointAction, StandUpAction, StartStateAction,
@@ -33,6 +32,7 @@ use crate::zengin::npc_actions::{
     start_use_mob_action, sync_npc_item_body_state, warn_direct_action_removal,
 };
 use armor::{materialize_armor_visuals, sync_npc_armor_visual};
+use dev_util::perf_debug;
 use routines::{
     NpcRoutineCheckState, apply_look_at, apply_turn_to_npc, end_removed_routine_entries,
     move_along_path, pause_talking_npc_routine, release_npc_freepoints, restore_routine_stand,

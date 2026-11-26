@@ -4,10 +4,10 @@
 
 use super::state::DialogUiState;
 use crate::gameplay::camera::{CameraResource, DialogShotPose};
-use crate::perf_debug;
 use crate::zengin::STATIC_OBJECT;
 use avian3d::prelude::{SpatialQuery, SpatialQueryFilter};
 use bevy::prelude::*;
+use dev_util::perf_debug;
 use rand_mt::Mt;
 
 /// Height of the point the camera looks at, above a character's feet.

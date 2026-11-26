@@ -3,7 +3,6 @@
 
 use bevy::prelude::*;
 
-use crate::perf_debug;
 use crate::zengin::ZenginVfs;
 use crate::zengin::loaders::vfs::mesh_model_path;
 use crate::zengin::resources::{
@@ -12,6 +11,7 @@ use crate::zengin::resources::{
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::state::ItemEntitiesChanged;
 use crate::zengin::{GameItem, ItemHandle};
+use dev_util::perf_debug;
 
 pub struct ItemVisualPlugin;
 

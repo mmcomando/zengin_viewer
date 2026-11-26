@@ -9,7 +9,6 @@ use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::OpenTrade;
 use crate::input::{GameplayAction, GameplayInputMarker};
-use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::common::get_dialog_sound_path;
 use crate::zengin::instance_index::InstanceIndex;
@@ -23,6 +22,7 @@ use crate::zengin::script::state::{
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use bevy::log::{info, warn};
 use bevy::prelude::*;
+use dev_util::perf_debug;
 use leafwing_input_manager::prelude::ActionState;
 use std::collections::HashSet;
 

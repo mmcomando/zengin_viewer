@@ -10,7 +10,7 @@ use crate::zengin::{
 };
 
 use super::{AnimationController, AnimationData, AnimationEnds};
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 /// Npc currently playing the `T_GOTHIT` hit reaction; carries the animation
 /// handle to resume when the reaction one-shot ends.

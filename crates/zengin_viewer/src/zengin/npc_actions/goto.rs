@@ -2,11 +2,11 @@ use avian3d::prelude::SpatialQuery;
 use bevy::prelude::*;
 
 use crate::graphics::{AnimationController, AutoAnimSequencer};
-use crate::perf_debug;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{NPC_BODY_Y_OFFSET, NpcPath, WayPoints, queue_stand_animation};
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::waypoint_graph::{WaypointGraph, WaypointNodeIndex, nearest_waypoint_node};
+use dev_util::perf_debug;
 
 /// Walks the npc to a named waypoint.
 #[derive(Component)]

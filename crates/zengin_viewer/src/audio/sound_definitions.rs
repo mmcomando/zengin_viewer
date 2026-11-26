@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 use zen_kit_rs::sound_definitions::SoundDefinitions as ZkSoundDefinitions;
 
-use crate::perf_debug;
 use crate::zengin::{ZenginVfs, gothic2_dir};
+use dev_util::perf_debug;
 
 /// Sound definition name (e.g. `WAR_AMBIENT`) to wav file name.
 #[derive(Resource, Default)]

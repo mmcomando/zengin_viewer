@@ -9,11 +9,11 @@ use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
 use crate::input::{GameplayAction, GameplayInputMarker};
-use crate::perf_debug;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc};
+use dev_util::perf_debug;
 
 /// Toggles the player's equipped weapons between sheathed and drawn on
 /// `EquipMelee`/`EquipRanged`, and toggles the last used weapon on

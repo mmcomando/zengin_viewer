@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
 use crate::graphics::AnimationController;
-use crate::perf_debug;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::attack::AttackAction;
@@ -18,6 +17,7 @@ use crate::zengin::script::state::{
 };
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::{InstanceId, StringId};
+use dev_util::perf_debug;
 
 /// Queues a goto and cancels a goto that is already executing.
 fn queue_goto(

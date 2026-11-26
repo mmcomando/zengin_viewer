@@ -40,12 +40,13 @@ use super::bindings::exports::mmcomando::zengine_scripts::manage::SymbolKind;
 use super::journal::{JournalChange, JournalManager};
 use super::string_value::{ShowString, StringCanon};
 use super::symbol_id::{FunctionId, InstanceId, StringId, SymbolId};
-use crate::external_messages::ExternalMessageSender;
 use crate::zengin::common::{
     DEFAULT_SIGHT_RANGE_METERS, FREEPOINT_SEARCH_RADIUS, MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS,
     horizontal_offset, to_world_units,
 };
 use bevy::ecs::resource::Resource;
+use dev_util::external_messages::ExternalMessageSender;
+use dev_util::warn_unimplemented;
 
 /// `PERC_ASSESSPLAYER` script constant, the perception whose callback
 /// (`b_assessplayer`) starts npc initiated dialogs.
@@ -1166,7 +1167,7 @@ impl ImportCallState {
     /// (the engine ignores them too).
     pub(crate) fn push_print(&mut self, msg: i32) {
         let Some(msg_id) = self.symbol_table.string(msg) else {
-            crate::warn_unimplemented!("print with non-string text({msg})");
+            warn_unimplemented!("print with non-string text({msg})");
             return;
         };
         let Some(text) = self.get_string_non_0(msg_id.value()) else {
@@ -1179,7 +1180,7 @@ impl ImportCallState {
     /// dropped (the engine ignores them too)
     pub(crate) fn push_screen_message(&mut self, msg: i32, x: i32, y: i32, time: i32) {
         let Some(msg_id) = self.symbol_table.string(msg) else {
-            crate::warn_unimplemented!("printscreen with non-string text({msg})");
+            warn_unimplemented!("printscreen with non-string text({msg})");
             return;
         };
         let Some(text) = self.get_string_non_0(msg_id.value()) else {

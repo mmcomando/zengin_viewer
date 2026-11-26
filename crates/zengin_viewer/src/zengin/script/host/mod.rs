@@ -10,7 +10,6 @@ use super::state::{
 };
 use super::string_value::StringCanon;
 use super::symbol_id::InstanceId;
-use crate::warn_unimplemented;
 use crate::zengin::common::to_zengin_units;
 use bevy::log::warn;
 use bevy::math::Vec3;
@@ -22,15 +21,17 @@ pub(crate) const ATT_NEUTRAL: i32 = 2;
 /// `ATT_FRIENDLY` script constant.
 pub(crate) const ATT_FRIENDLY: i32 = 3;
 
+// Fully qualified because this macro expands in the `host` submodules, which
+// do not import `warn_unimplemented`.
 macro_rules! fake_impl {
     ($name:ident($($arg:ident),*)) => {
         fn $name(&mut self, $($arg: i32),*) {
-            $crate::warn_unimplemented!(stringify!($name));
+            dev_util::warn_unimplemented!(stringify!($name));
         }
     };
     ($name:ident($($arg:ident),*) -> i32) => {
         fn $name(&mut self, $($arg: i32),*) -> i32 {
-            $crate::warn_unimplemented!(stringify!($name));
+            dev_util::warn_unimplemented!(stringify!($name));
             0
         }
     };
@@ -39,7 +40,7 @@ macro_rules! fake_impl {
     // cursor only if every string-returning call is recorded
     ($name:ident($($arg:ident),*) -> Vec<u8>) => {
         fn $name(&mut self, $($arg: i32),*) -> Vec<u8> {
-            $crate::warn_unimplemented!(stringify!($name));
+            dev_util::warn_unimplemented!(stringify!($name));
             self.record_dynamic_string(Vec::new());
             Vec::new()
         }

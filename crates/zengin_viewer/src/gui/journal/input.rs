@@ -9,7 +9,7 @@ use crate::zengin::{DialogUiState, ScriptResource};
 
 use super::data::JournalMenuData;
 use super::state::{JournalFocus, JournalUiState};
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 /// The dialog UI and the inventory take precedence over the journal.
 pub(super) fn toggle_journal(

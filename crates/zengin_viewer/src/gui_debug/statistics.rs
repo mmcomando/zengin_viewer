@@ -1,5 +1,5 @@
-use crate::perf_debug;
 use bevy::prelude::*;
+use dev_util::perf_debug;
 
 /// Requests a recount of the debug statistics. The scans are expensive, so
 /// they only run when the debug UI asks for them.

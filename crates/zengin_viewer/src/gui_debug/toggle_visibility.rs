@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
-use crate::perf_debug;
 use crate::{
     world_entity::WorldEntityMarker,
     zengin::{GameChest, GameItem, GameMob, GameNpc},
 };
+use dev_util::perf_debug;
 
 #[derive(Default)]
 pub struct ToggleVisibility;

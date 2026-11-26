@@ -11,8 +11,8 @@ use crate::gui::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiSt
 use crate::input::horizontal_axis::HorizontalAxis;
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
-use crate::perf_debug;
 use crate::zengin::{DialogRequest, DialogUiState};
+use dev_util::perf_debug;
 
 /// Adds [`leafwing_input_manager`] with one input map per action group and
 /// spawns the global input entities with the profiles loaded from the RON

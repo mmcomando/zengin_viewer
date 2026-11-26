@@ -2,13 +2,13 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::gui::menu_screen::spawn_menu_screen;
-use crate::ui_kit::set_visibility;
+use dev_util::ui_kit::set_visibility;
 
 use super::data::StatsMenuData;
 use super::spawn::{StatsContentMarker, StatsRootMarker};
 use super::state::StatsUiState;
 use super::style::StatsStyle;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 pub(super) fn sync_stats_ui(
     mut commands: Commands,

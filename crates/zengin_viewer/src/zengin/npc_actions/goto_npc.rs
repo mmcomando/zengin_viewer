@@ -3,13 +3,13 @@ use bevy::prelude::*;
 use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
 };
-use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::common::horizontal_offset;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{
     NpcWalkMode, queue_root_motion_animation, queue_stand_animation,
 };
+use dev_util::perf_debug;
 
 /// Walks the npc to another entity, following it while it moves.
 #[derive(Component)]

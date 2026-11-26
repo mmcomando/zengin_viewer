@@ -7,11 +7,11 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::audio::PlaySound;
-use crate::perf_debug;
-use crate::ui_kit::{UiText, set_visibility, spawn_gui_root};
 use crate::zengin::{
     ChapterIntro, ScriptChangesApplied, ZenginVfs, resolve_sound_asset, resolve_texture_asset,
 };
+use dev_util::perf_debug;
+use dev_util::ui_kit::{UiText, set_visibility, spawn_gui_root};
 
 /// Original chapter image size in interface units.
 const CHAPTER_IMAGE_SIZE: Vec2 = Vec2::new(800.0, 600.0);

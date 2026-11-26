@@ -8,8 +8,8 @@ use crate::gameplay::camera::{CameraResource, CurrentCamera, EditorMode};
 use crate::gameplay::character::PLAYER_MODEL_ROOT_TO_CAPSULE_CENTER;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::input::{CameraSwitchedToThirdPerson, EditorAction, EditorInputMarker};
-use crate::perf_debug;
 use crate::zengin::STATIC_OBJECT;
+use dev_util::perf_debug;
 
 pub(crate) fn use_character_camera(info: Res<CameraResource>) -> bool {
     info.current() == CurrentCamera::ThirdPerson

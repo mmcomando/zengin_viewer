@@ -16,7 +16,6 @@ use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLogEntry;
 use crate::gui_debug::StaticMesh;
 use crate::input::{Options, SharedAction, SharedInputMarker};
-use crate::perf_debug;
 use crate::save::format::{
     SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedObject,
 };
@@ -25,6 +24,7 @@ use crate::zengin::{
     CurrentWorld, GameChest, GameItem, GameNpc, LoadingWorld, MobBase, NpcOverlay, ScriptResource,
     begin_world_load, request_initial_world,
 };
+use dev_util::perf_debug;
 
 /// Size of the saved thumbnail. The load screen slot is 4:3, so a full window
 /// screenshot is stretched into this size.
@@ -221,7 +221,7 @@ fn quick_save(
 /// writes it into the save directory.
 fn save_screenshot(path: PathBuf) -> impl FnMut(On<ScreenshotCaptured>) {
     move |captured: On<ScreenshotCaptured>| {
-        let _perf = crate::perf_debug::PerfDebug::new("save::systems::save_screenshot");
+        let _perf = dev_util::perf_debug::PerfDebug::new("save::systems::save_screenshot");
         let result = captured
             .image
             .clone()

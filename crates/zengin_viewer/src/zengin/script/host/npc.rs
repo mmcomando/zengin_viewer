@@ -1,4 +1,5 @@
 use daedalus_typed::ATR_HITPOINTS;
+use dev_util::warn_once;
 
 use super::*;
 
@@ -451,7 +452,7 @@ impl mmcomando::zengine_scripts::npc_scripts::Host for ImportCallState {
             return 0;
         };
         let Some(cached) = self.check_info.get(&npc) else {
-            crate::warn_once!(
+            warn_once!(
                 "Npc_CheckInfo npc({}) called before the cache was refreshed",
                 npc.value()
             );

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use crate::perf_debug;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
+use dev_util::perf_debug;
 
 /// Idles the npc for a fixed time (`AI_WaitMS`), blocking later queued actions.
 #[derive(Component)]

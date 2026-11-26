@@ -3,11 +3,11 @@
 use bevy::color::Alpha;
 use bevy::prelude::*;
 
-use crate::ui_kit::UiText;
 use crate::zengin::{
     MENU_FLAG_ALIGN_CENTER, MENU_FLAG_DONT_SCALE_DIM, MENU_ITEM_FLAG_TXT_CENTER, MENU_SCRIPT_DIV,
     MenuDefinition, MenuItemDefinition, get_full_texture_path,
 };
+use dev_util::ui_kit::UiText;
 
 /// Text entity spawned for one menu item, `slot` is the item index in the
 /// screen's `items[]` array.

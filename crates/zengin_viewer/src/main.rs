@@ -115,10 +115,6 @@ mod world_entity;
 mod xr;
 mod zengin;
 
-pub(crate) use dev_util::{
-    external_messages, perf_debug, test_log, ui_kit, warn_once, warn_unimplemented,
-};
-
 /// Directory of the main crate assets, the folder the
 /// [`bevy::asset::AssetServer`] reads from. Resolved against the crate
 /// directory so it is found regardless of the working directory.
@@ -184,7 +180,7 @@ fn main() {
 
     // Logs a per-frame marker so `debug_perf` output can be grouped by frame.
     #[cfg(feature = "debug_perf")]
-    app.add_plugins(crate::perf_debug::PerfDebugPlugin);
+    app.add_plugins(dev_util::perf_debug::PerfDebugPlugin);
 
     // This app custom plugins
     app.add_plugins(GameStatePlugin)

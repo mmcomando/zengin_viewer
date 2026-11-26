@@ -17,7 +17,6 @@ use crate::graphics::{
 };
 use crate::gui::{LootClosed, LootSource};
 use crate::input::{GameplayAction, GameplayInputMarker};
-use crate::perf_debug;
 use crate::zengin::npc_actions::{
     ExecutingActionMarker, MobUsePose, UseMobAction, mob_animation_name, release_mob_use,
 };
@@ -27,6 +26,7 @@ use crate::zengin::npc_routines::{
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::{GameMob, GameNpc, MobPose, NpcMobUse};
+use dev_util::perf_debug;
 
 /// Player is playing the stand-up transition; the mob use is released when it
 /// ends.

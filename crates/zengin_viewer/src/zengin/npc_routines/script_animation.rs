@@ -12,7 +12,7 @@ use crate::zengin::script::state::AnimationChange;
 use crate::zengin::script::string_value::StringCanon;
 
 use super::routines::{STANDING_ANIMATION, has_animation};
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 /// Applies the `AI_PlayAni(BS)` requests drained by the script bridge. Requests
 /// are applied in order, so a later one overrides an earlier one.

@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
-use crate::ui_kit::spawn_gui_root;
+use dev_util::ui_kit::spawn_gui_root;
 
 use super::style::MainMenuStyle;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 #[derive(Component)]
 pub(super) struct MainMenuRootMarker;

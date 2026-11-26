@@ -7,8 +7,8 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::gui_debug::WorldMesh;
-use crate::perf_debug;
 use crate::zengin::{DYNAMIC_OBJECT, STATIC_OBJECT, ZenGinModelComponentLoaded};
+use dev_util::perf_debug;
 
 /// Spawns the test worlds requested by scenario replays.
 pub struct TestWorldPlugin;

@@ -5,12 +5,10 @@
 
 use bevy::prelude::*;
 
-use crate::external_messages::{ExternalMessageAppExt, pump_external_messages};
 use crate::game_state::AppState;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLogEntry;
-use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{
@@ -28,6 +26,8 @@ use crate::zengin::script::state::{
     UseItemStateChange, UseMobChange, WaitChange, WeaponMode,
 };
 use crate::zengin::world_spawn::WorldSpawnMessages;
+use dev_util::external_messages::{ExternalMessageAppExt, pump_external_messages};
+use dev_util::perf_debug;
 
 pub struct ScriptBridgePlugin;
 

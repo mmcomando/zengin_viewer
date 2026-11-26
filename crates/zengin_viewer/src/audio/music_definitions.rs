@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 use zen_kit_rs::music_definitions::{MusicDefinitions as ZkMusicDefinitions, MusicTheme};
 
-use crate::perf_debug;
 use crate::zengin::{ZenginVfs, gothic2_dir};
+use dev_util::perf_debug;
 
 /// Music theme instance name to its segment and playback settings.
 #[derive(Resource, Default)]

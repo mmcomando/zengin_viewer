@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 
-use crate::ui_kit::{UiText, spawn_gui_root};
 use crate::zengin::get_full_texture_path;
+use dev_util::ui_kit::{UiText, spawn_gui_root};
 
 use super::state::{PLAYER_WINDOW, TRADER_WINDOW};
 use super::style::InventoryStyle;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 #[derive(Component)]
 pub(super) enum InventoryContainer {

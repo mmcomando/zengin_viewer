@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use crate::perf_debug;
 use bevy::prelude::*;
 use clap::Parser;
+use dev_util::perf_debug;
 
 pub struct OptionsPlugin;
 

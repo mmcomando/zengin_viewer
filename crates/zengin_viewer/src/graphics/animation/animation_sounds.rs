@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use super::components::AnimationSound;
 use crate::audio::{PlaySound, SoundDefinitions};
 use crate::gameplay::objects::PlayerCharacter;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 /// New sounds spawned in a single frame, keeps dense scenes from stacking
 /// voices.

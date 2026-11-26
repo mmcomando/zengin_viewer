@@ -6,9 +6,9 @@ use bevy::asset::LoadState;
 use bevy::prelude::*;
 
 use crate::game_state::{AppState, LoadingScreenReady};
-use crate::perf_debug;
-use crate::ui_kit::{set_visibility, spawn_gui_root};
 use crate::zengin::{LoadingWorld, ZenginVfs, get_full_texture_path, get_zengin_asset_bytes};
+use dev_util::perf_debug;
+use dev_util::ui_kit::{set_visibility, spawn_gui_root};
 
 /// Loading banner used by worlds without dedicated artwork.
 const FALLBACK_BANNER: &str = "LOADING.TGA";

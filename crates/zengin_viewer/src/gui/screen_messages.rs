@@ -3,8 +3,8 @@
 
 use bevy::prelude::*;
 
-use crate::perf_debug;
 use crate::zengin::ScreenMessage;
+use dev_util::perf_debug;
 
 pub struct ScreenMessagesPlugin;
 

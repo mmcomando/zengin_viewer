@@ -1,8 +1,8 @@
 use super::state::{DialogLineView, DialogOptionView, DialogUiState};
 use bevy::prelude::*;
 
-use crate::perf_debug;
-use crate::ui_kit::{
+use dev_util::perf_debug;
+use dev_util::ui_kit::{
     UiText, follow_selected_row, set_display, set_font_size, set_text, set_text_color,
     set_visibility, spawn_gui_root,
 };

@@ -20,8 +20,8 @@ use crate::input::actions::{
     GuiInputMarker, SharedAction, SharedInputMarker,
 };
 use crate::input::options::Options;
-use crate::perf_debug;
 use crate::zengin::{START_WORLD, SpawnPoint};
+use dev_util::perf_debug;
 
 /// Third person camera switch, carrying the free camera transform the player
 /// and camera are placed at. Recorded as `TeleportPlayer` and

@@ -4,8 +4,8 @@
 use bevy::prelude::*;
 
 use crate::gameplay::objects::PlayerCharacter;
-use crate::perf_debug;
 use crate::zengin::{NpcHealth, Selection, SelectionKind};
+use dev_util::perf_debug;
 
 pub struct HealthBarsPlugin;
 

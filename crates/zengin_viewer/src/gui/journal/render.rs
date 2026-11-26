@@ -4,11 +4,11 @@ use bevy::window::PrimaryWindow;
 
 use crate::gameplay::game_time::GameTime;
 use crate::gui::menu_screen::{item_rect, menu_area, menu_text};
-use crate::ui_kit::{UiText, follow_selected_row, set_text, set_text_color, set_visibility};
 use crate::zengin::{
     MENU_ITEM_FLAG_TXT_CENTER, MENU_SCRIPT_DIV, MenuDefinition, MenuItemDefinition,
     get_full_texture_path,
 };
+use dev_util::ui_kit::{UiText, follow_selected_row, set_text, set_text_color, set_visibility};
 
 use super::data::JournalMenuData;
 use super::spawn::{
@@ -17,7 +17,7 @@ use super::spawn::{
 };
 use super::state::{JournalCategory, JournalFocus, JournalUiState};
 use super::style::JournalStyle;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(super) fn sync_journal_ui(

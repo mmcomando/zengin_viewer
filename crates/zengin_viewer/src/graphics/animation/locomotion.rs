@@ -15,7 +15,7 @@ use crate::gameplay::character::{
 };
 use crate::gameplay::distance::DistanceNear;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 use super::auto_anim_sequencer::AutoAnimSequencer;
 use super::components::{

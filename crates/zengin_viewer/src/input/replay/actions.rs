@@ -18,7 +18,7 @@ use crate::zengin::{GameNpc, NpcSpawnNameFilter, ScriptResource, SpawnPositionFi
 use super::command::apply_replay_command;
 use super::failures::TestFailures;
 use super::state::{ActionReplay, PendingLocations};
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 /// Applies the replayed actions of the current frame.
 ///

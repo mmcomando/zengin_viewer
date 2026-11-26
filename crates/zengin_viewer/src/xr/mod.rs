@@ -18,7 +18,7 @@ use leafwing_input_manager::prelude::ActionState;
 use std::sync::OnceLock;
 
 use crate::input::{EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker};
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 /// Experiment with VR
 /// Worked with Pico 4 and `SteamVR` on Linux but very laggy (in the past I know it worked better)

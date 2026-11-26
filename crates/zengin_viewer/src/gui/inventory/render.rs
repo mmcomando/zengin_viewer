@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::ui_kit::{set_display, set_text, set_visibility};
+use dev_util::ui_kit::{set_display, set_text, set_visibility};
 
 use super::spawn::{
     InventoryContainer, InventoryInfoText, InventoryInfoValues, InventoryLockpickPanel,
@@ -9,7 +9,7 @@ use super::spawn::{
 };
 use super::state::{InventoryEntry, InventoryMode, InventoryUiState};
 use super::style::InventoryStyle;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 #[allow(clippy::type_complexity, clippy::cognitive_complexity)]
 pub(super) fn sync_inventory_ui(

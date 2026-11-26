@@ -7,12 +7,12 @@ use crate::gui::GameLog;
 use crate::gui::JournalUiState;
 use crate::gui::StatsUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
-use crate::perf_debug;
-use crate::test_log;
 use crate::zengin::DialogUiState;
 use crate::zengin::{
     GameChest, GameNpc, InstanceId, MobBase, ScriptManager, ScriptResource, WeaponKind,
 };
+use dev_util::perf_debug;
+use dev_util::test_log;
 
 use super::data::{
     chest_add_item, chest_inventory_window, chest_remove_item, clamp_selection,

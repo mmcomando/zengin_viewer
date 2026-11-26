@@ -5,12 +5,12 @@ use bevy::prelude::*;
 
 use crate::audio::SoundDefinitions;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::perf_debug;
 use crate::zengin::InstanceId;
 use crate::zengin::ScriptSound;
 use crate::zengin::SpeechSounds;
 use crate::zengin::SvmLine;
 use crate::zengin::get_dialog_sound_path;
+use dev_util::perf_debug;
 
 /// `WorldSound::talkRange` in engine units (2000) expressed in meters: speech
 /// outside this distance from the listener is not played.

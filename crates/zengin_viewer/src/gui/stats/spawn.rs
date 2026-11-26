@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use crate::perf_debug;
-use crate::ui_kit::spawn_gui_root;
+use dev_util::perf_debug;
+use dev_util::ui_kit::spawn_gui_root;
 
 #[derive(Component)]
 pub(super) struct StatsRootMarker;

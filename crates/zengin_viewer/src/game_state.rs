@@ -1,6 +1,6 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 /// Top-level application state. The game world exists in [`AppState::InGame`]
 /// and is being built in [`AppState::LoadScreen`].

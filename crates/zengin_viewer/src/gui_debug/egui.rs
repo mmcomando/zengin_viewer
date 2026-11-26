@@ -9,8 +9,8 @@ use crate::gui_debug::info_tab::{InfoParams, info_tab_ui};
 use crate::gui_debug::state::{
     DebugTab, DebugUiState, EntityQueryData, EntityQueryFilter, EntityRow, details_data,
 };
-use crate::perf_debug;
 use crate::zengin::{ScriptResource, Selection};
+use dev_util::perf_debug;
 
 pub struct GameDebugUI;
 impl Plugin for GameDebugUI {

@@ -13,11 +13,11 @@ use leafwing_input_manager::prelude::ActionState;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::AnimationGraph;
 use crate::input::{GameplayAction, GameplayInputMarker, WorldInputViews};
-use crate::perf_debug;
 use crate::zengin::{
     CachedAssetHandles, NpcEquippedWeapon, NpcMobUse, NpcTalentOverlay, NpcWeaponMode, Selection,
     WeaponClass, WeaponMode,
 };
+use dev_util::perf_debug;
 
 use super::animation_triggers::{AnimationTriggers, AttackTimeline, animation_ident_from_path};
 use super::auto_anim_sequencer::{

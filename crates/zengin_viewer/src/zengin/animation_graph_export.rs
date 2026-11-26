@@ -18,6 +18,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::File;
 
 use bevy::prelude::*;
+use dev_util::warn_once;
 use zen_kit_rs::model_scripts::ModelScript;
 use zen_kit_rs::stream::Read;
 

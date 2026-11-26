@@ -12,7 +12,7 @@ mod style;
 
 pub(crate) use state::MainMenuState;
 
-use crate::perf_debug;
+use dev_util::perf_debug;
 use state::{LoadMenuData, MainMenuData, initial_selection};
 
 /// Main menu driven by the `menu_main` instance of MENU.DAT.

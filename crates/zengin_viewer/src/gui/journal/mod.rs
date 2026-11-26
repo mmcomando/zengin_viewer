@@ -14,8 +14,8 @@ use bevy::prelude::*;
 use crate::game_state::AppState;
 use crate::zengin::ensure_menu_script;
 
-use crate::perf_debug;
 use data::JournalMenuData;
+use dev_util::perf_debug;
 
 pub struct JournalUiPlugin;
 

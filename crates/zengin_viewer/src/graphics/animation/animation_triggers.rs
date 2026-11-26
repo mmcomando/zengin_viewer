@@ -14,8 +14,8 @@ use bevy::prelude::*;
 use zen_kit_rs::model_scripts::ModelScript;
 use zen_kit_rs::stream::Read;
 
-use crate::perf_debug;
 use crate::zengin::{ZenginVfs, get_zengin_asset_bytes, to_world_units};
+use dev_util::perf_debug;
 
 pub struct AnimationTriggersPlugin;
 

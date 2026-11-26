@@ -6,12 +6,12 @@ use bevy::prelude::*;
 use crate::game_state::AppState;
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui_debug::StaticMesh;
-use crate::perf_debug;
 use crate::save::format::SavedObject;
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::{
     GameChest, GameItem, GameNpc, MobBase, NpcOverlay, SpawnFromSavedObject, WorldSpawnMessages,
 };
+use dev_util::perf_debug;
 
 /// Frames the world stays empty before the serialized objects are restored.
 const RESTORE_DELAY_FRAMES: u32 = 10;

@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::game_state::AppState;
 use crate::input::Options;
-use crate::perf_debug;
 use crate::zengin::SetGameTime;
+use dev_util::perf_debug;
 
 /// Advances the running game time every frame.
 pub struct GameTimePlugin;

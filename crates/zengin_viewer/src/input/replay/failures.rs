@@ -1,7 +1,7 @@
 //! Collected failures of the `Test*` scenario commands.
 
-use crate::perf_debug;
 use bevy::prelude::*;
+use dev_util::perf_debug;
 
 /// Failures of the `Test*` scenario commands. They are collected instead of
 /// panicking at the failing command, so the rest of the scenario still runs and

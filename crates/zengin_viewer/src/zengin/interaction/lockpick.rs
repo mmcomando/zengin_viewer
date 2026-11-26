@@ -6,7 +6,6 @@ use bevy::prelude::*;
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::AnimationController;
 use crate::gui::{LockpickOpened, LootSource, OpenLoot};
-use crate::perf_debug;
 use crate::zengin::npc_actions::{
     MobUsePose, UseMobAction, enter_animation_name, mob_animation_name,
 };
@@ -14,6 +13,7 @@ use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay, queue_named_animat
 use crate::zengin::resources::CachedAssetHandles;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{GameChest, GameNpc, MobPose, NpcMobUse};
+use dev_util::perf_debug;
 
 #[allow(clippy::cognitive_complexity, clippy::type_complexity)]
 pub(super) fn open_lockpicked_chest(

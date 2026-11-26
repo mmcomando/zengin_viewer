@@ -10,6 +10,7 @@ use std::collections::{HashMap, VecDeque};
 use std::path::Path;
 
 use bevy::prelude::*;
+use dev_util::warn_once;
 
 /// Distinct index of one animation inside an [`AnimationGraph`]. The graph
 /// stays pure data (no asset handles): it loads before any animation assets

@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 
-use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_routines::{RoutineExecutor, start_ai_state};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{AttackChange, ScriptMessages};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
+use dev_util::perf_debug;
 
 /// Starts an `AI_StartState` request; the running routine or AI state is ended
 /// and the requested one takes over.

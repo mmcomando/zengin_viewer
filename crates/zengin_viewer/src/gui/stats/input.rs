@@ -9,7 +9,7 @@ use crate::zengin::{DialogUiState, GameNpc, ScriptResource};
 
 use super::data::StatsSnapshot;
 use super::state::StatsUiState;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 /// The dialog, inventory and journal take precedence over the stats screen.
 pub(super) fn toggle_stats(

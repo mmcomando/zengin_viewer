@@ -5,9 +5,9 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::gameplay::objects::PlayerCharacter;
-use crate::perf_debug;
 use crate::zengin::common::ChangeLevelTrigger;
 use crate::zengin::world_plugin::begin_level_change;
+use dev_util::perf_debug;
 
 pub struct ChangeLevelPlugin;
 

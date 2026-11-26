@@ -24,8 +24,8 @@ use super::world::{
     equip_player_weapon, kill_npc, rotation_from_degrees, set_camera_location,
     set_player_attribute, set_player_fight_skill, teleport_player, toggle_player_armor,
 };
-use crate::perf_debug;
 use crate::test_world::TestCubeSpawn;
+use dev_util::perf_debug;
 
 /// Applies buffered replay location commands after the camera toggle, so a
 /// camera switch sync point overrides the toggle's placement at the drifted

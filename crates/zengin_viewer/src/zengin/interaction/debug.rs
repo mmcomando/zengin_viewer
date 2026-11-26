@@ -6,12 +6,12 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::GameLog;
-use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::journal::{JournalSection, JournalStatus};
 use crate::zengin::script::manager::{ScriptManager, TALENT_PICKLOCK};
 use crate::zengin::script::symbol_id::InstanceId;
+use dev_util::perf_debug;
 
 /// Hardcoded test items granted by [`give_test_items`]: one weapon of each
 /// kind, ammo, gold and a few extras worth testing with.

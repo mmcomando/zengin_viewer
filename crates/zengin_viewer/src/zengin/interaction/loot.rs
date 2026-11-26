@@ -9,8 +9,6 @@ use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::PlayerCharacter;
 use crate::gui::{LootSource, OpenLockpick, OpenLoot};
 use crate::input::{GameplayAction, GameplayInputMarker};
-use crate::perf_debug;
-use crate::test_log;
 use crate::zengin::npc_actions::UseMobAction;
 use crate::zengin::npc_routines::NpcWeaponMode;
 use crate::zengin::script::component::ScriptResource;
@@ -18,6 +16,8 @@ use crate::zengin::script::manager::{ScriptManager, TALENT_PICKLOCK};
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{GameChest, GameNpc, InstanceId, MobBase, MobPose, NpcCorpseMarker};
+use dev_util::perf_debug;
+use dev_util::test_log;
 
 /// What the player may do with a chest lock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

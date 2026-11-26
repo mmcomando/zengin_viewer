@@ -1,9 +1,9 @@
-use crate::perf_debug;
 /// Based on example <https://bevy.org/examples/3d-rendering/skybox>
 use bevy::camera_controller::free_camera::FreeCamera;
 use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
 use bevy::render::render_resource::{TextureViewDescriptor, TextureViewDimension};
+use dev_util::perf_debug;
 
 #[derive(Default)]
 pub struct SkyBoxPlugin;

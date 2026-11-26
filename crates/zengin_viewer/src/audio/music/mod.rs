@@ -15,7 +15,7 @@ use crate::audio::music::engine::MusicEngine;
 use crate::audio::music::source::MusicSource;
 use crate::audio::music_definitions::MusicDefinitions;
 use crate::game_state::AppState;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 /// Latest music request from a menu or gameplay system. It is applied in
 /// `Update`, after the startup systems had a chance to create the engine and

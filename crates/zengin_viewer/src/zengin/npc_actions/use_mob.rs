@@ -7,7 +7,6 @@ use crate::graphics::{
     AnimationController, AnimationEnds, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
     animation_name_from_path,
 };
-use crate::perf_debug;
 use crate::zengin::common::{
     MAX_AI_USE_DISTANCE, MOB_SEARCH_RADIUS, face_direction_quat, horizontal_offset,
 };
@@ -24,6 +23,7 @@ use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{
     GameMob, GameNpc, MobBase, MobHiddenModel, MobOccupant, MobPose, MobRegistry, NpcMobUse,
 };
+use dev_util::perf_debug;
 
 const MOB_USE_DISTANCE: f32 = MAX_AI_USE_DISTANCE;
 

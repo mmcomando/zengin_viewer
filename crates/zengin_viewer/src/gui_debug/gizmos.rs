@@ -3,8 +3,8 @@ use avian3d::prelude::*;
 use bevy::{color::palettes::tailwind, prelude::*};
 
 use crate::graphics::AnimatedJoint;
-use crate::perf_debug;
 use crate::zengin::WaypointGraph;
+use dev_util::perf_debug;
 
 pub struct GizmosPlugin;
 

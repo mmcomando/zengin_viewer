@@ -78,7 +78,7 @@ fn save_scenario_screenshot(
     update_reference: bool,
 ) -> impl FnMut(On<ScreenshotCaptured>, ResMut<TestFailures>) {
     move |captured: On<ScreenshotCaptured>, mut failures: ResMut<TestFailures>| {
-        let _perf = crate::perf_debug::PerfDebug::new(
+        let _perf = dev_util::perf_debug::PerfDebug::new(
             "input::replay::screenshot::save_scenario_screenshot",
         );
         let image = match captured.image.clone().try_into_dynamic() {

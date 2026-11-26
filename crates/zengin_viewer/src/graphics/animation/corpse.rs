@@ -8,10 +8,11 @@ use crate::graphics::{
     AnimationController, AnimationData, AutoAnimSequencer, DesiredAnimation,
     animation_name_from_path,
 };
-use crate::perf_debug;
 use crate::zengin::{
     AnimationFiles, CachedAssetHandles, NpcCorpseMarker, animation_file_name, get_animation_path,
 };
+use dev_util::perf_debug;
+use dev_util::warn_once;
 
 const DEATH_TRANSITIONS: &[&str] = &["T_DEAD", "T_DEADB"];
 const DEATH_POSES: &[&str] = &["S_DEAD", "S_DEADB"];
@@ -58,7 +59,7 @@ pub(crate) fn apply_corpse_animation(
             .find(|animation| files.0.contains(&animation_file_name(scheme, animation)))
             .copied();
         let Some(next) = next else {
-            crate::warn_once!("Scheme({scheme}) has no death animation, corpse keeps its pose");
+            warn_once!("Scheme({scheme}) has no death animation, corpse keeps its pose");
             suspend_if_sequencer_drives(&mut sequencer);
             continue;
         };

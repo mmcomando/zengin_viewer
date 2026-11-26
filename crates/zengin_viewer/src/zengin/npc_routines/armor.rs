@@ -6,13 +6,13 @@ use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
-use crate::perf_debug;
 use crate::zengin::ZenginVfs;
 use crate::zengin::loaders::vfs::item_model_path;
 use crate::zengin::resources::{CachedAssetHandles, ZenGinModelComponent};
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::visual::model::ZenGinModel;
+use dev_util::perf_debug;
 
 /// Armor equipped by the npc (`EquipItem`/`Mdl_SetVisualBody`), maintained by
 /// the script bridge. Always present, `None` when no armor is equipped.

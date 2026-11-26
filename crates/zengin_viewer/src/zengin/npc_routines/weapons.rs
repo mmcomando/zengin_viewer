@@ -5,7 +5,6 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{AnimationController, AnimationTriggers};
-use crate::perf_debug;
 use crate::zengin::ZenginVfs;
 use crate::zengin::common::{choose_animation_scheme, get_animation_path};
 use crate::zengin::loaders::vfs::item_model_path;
@@ -17,6 +16,7 @@ use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::{WeaponClass, WeaponKind, WeaponMode};
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameMob, NpcMobUse};
+use dev_util::perf_debug;
 
 /// Weapon mode of the npc (`Npc_SetToFightMode`/`SetToFistMode`/weapon AI),
 /// maintained by the script bridge.

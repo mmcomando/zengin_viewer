@@ -13,7 +13,6 @@ use leafwing_input_manager::prelude::ActionState;
 use super::selection::{Selection, SelectionKind};
 use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::input::{GameplayAction, GameplayInputMarker};
-use crate::perf_debug;
 use crate::zengin::npc_actions::{UseMobAction, mob_scheme_has_player_pose};
 use crate::zengin::npc_routines::{AnimationFiles, NpcOverlay, NpcWeaponMode};
 use crate::zengin::script::component::ScriptResource;
@@ -22,6 +21,7 @@ use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameMob, GameNpc, MobBase, MobPose, NpcMobUse, VobTrigger};
+use dev_util::perf_debug;
 
 /// Runs the mob's script-side use conditions and logs the reason when the
 /// player is not allowed to interact.

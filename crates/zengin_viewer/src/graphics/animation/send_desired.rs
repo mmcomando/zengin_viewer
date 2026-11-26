@@ -16,7 +16,7 @@ use super::auto_anim_sequencer::{
     is_melee_attack_animation,
 };
 use super::controller::AnimationController;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 /// Writes the desired animation of the player every frame from the move
 /// input, resolved camera relative (forward input moves away from the camera;

@@ -7,10 +7,10 @@ use bevy::window::PrimaryWindow;
 
 use crate::gui::menu_screen::{MenuScreenTextMarker, item_rect, menu_area, spawn_menu_screen};
 use crate::save::SaveEntry;
-use crate::ui_kit::{UiText, set_text, set_text_color, set_visibility};
 use crate::zengin::{
     CurrentWorld, MENU_FLAG_SHOW_INFO, MenuDefinition, MenuItemDefinition, get_full_texture_path,
 };
+use dev_util::ui_kit::{UiText, set_text, set_text_color, set_visibility};
 
 use super::spawn::{MainMenuContentMarker, MainMenuRootMarker};
 use super::state::{
@@ -18,7 +18,7 @@ use super::state::{
     load_selectable_slots, load_slot_index, selectable_slots,
 };
 use super::style::MainMenuStyle;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 #[derive(Component)]
 pub(super) struct MainMenuInfoTextMarker;

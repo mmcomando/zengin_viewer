@@ -12,7 +12,7 @@ use crate::input::record::{DEFAULT_FRAME_DT, ReplayCommand};
 
 use super::failures::TestFailures;
 use super::state::ActionReplay;
-use crate::perf_debug;
+use dev_util::perf_debug;
 
 /// Root directory of the scenario files.
 const SCENARIO_ROOT: &str = "misc/scenario";

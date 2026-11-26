@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 
 use crate::graphics::{AnimationController, AutoAnimSequencer};
-use crate::perf_debug;
 use crate::zengin::npc_actions::action::ExecutingActionMarker;
 use crate::zengin::npc_actions::use_mob::release_mob_use;
 use crate::zengin::npc_routines::queue_stand_animation;
 use crate::zengin::{MobPose, NpcMobUse};
+use dev_util::perf_debug;
 
 /// Stops the npc and stands it up idle.
 #[derive(Component)]

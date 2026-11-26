@@ -13,7 +13,6 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::{
     AnimationController, AutoAnimSequencer, DesiredAnimation, SetDesiredAnimation,
 };
-use crate::perf_debug;
 use crate::zengin::GameNpc;
 use crate::zengin::common::{
     animation_file_name, choose_animation_scheme, face_direction_quat, get_animation_path,
@@ -31,6 +30,8 @@ use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::FunctionId;
 use crate::zengin::waypoint_graph::{Spots, WaypointGraph};
 use crate::zengin::{DialogUiState, InstanceId, NpcCorpseMarker};
+use dev_util::perf_debug;
+use dev_util::warn_once;
 
 /// Waypoint transforms of the loaded world. Spots take precedence over way points,
 /// same lookup order as the initial npc placement.
@@ -273,7 +274,7 @@ fn queue_routine_waypoint(
         return;
     }
     let Some(queue) = queue else {
-        crate::warn_once!(
+        warn_once!(
             "routine npc({}) has no action queue, waypoint({})",
             npc.instance_id(),
             entry.way_point

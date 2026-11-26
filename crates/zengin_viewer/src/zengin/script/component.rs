@@ -1,5 +1,4 @@
 use crate::game_state::AppState;
-use crate::perf_debug;
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::script::state::ScriptMessages;
 use crate::zengin::script::string_value::StringCanon;
@@ -11,6 +10,7 @@ use crate::zengin::{
 use bevy::ecs::resource::Resource;
 use bevy::log::info;
 use bevy::prelude::*;
+use dev_util::perf_debug;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use zen_kit_rs::cutscene_library::CutsceneLibrary;

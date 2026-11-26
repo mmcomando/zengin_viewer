@@ -1,7 +1,6 @@
 use bevy::ecs::world::EntityWorldMut;
 use bevy::prelude::*;
 
-use crate::perf_debug;
 use crate::zengin::npc_actions::attack::AttackAction;
 use crate::zengin::npc_actions::goto::GoToWaypointAction;
 use crate::zengin::npc_actions::goto_npc::GoToNpcAction;
@@ -11,6 +10,7 @@ use crate::zengin::npc_actions::stand_up::StandUpAction;
 use crate::zengin::npc_actions::start_state::StartStateAction;
 use crate::zengin::npc_actions::use_mob::UseMobAction;
 use crate::zengin::npc_actions::wait::WaitAction;
+use dev_util::perf_debug;
 
 /// The npc currently executes an action. Removed to cancel the action.
 #[derive(Component, Default)]

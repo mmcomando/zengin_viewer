@@ -6,9 +6,9 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
-use crate::perf_debug;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc, ItemHandle, NpcHandle};
+use dev_util::perf_debug;
 
 pub struct InstanceIndexPlugin;
 

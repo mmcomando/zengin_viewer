@@ -5,11 +5,11 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 
-use crate::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
+use dev_util::external_messages::{ExternalMessageAppExt, ExternalMessageSender};
 
 use super::plugin::AmortizedExecutorResource;
-use crate::perf_debug;
 use dev_util::amortized_executor::{CallbackControl, CallbackHandle};
+use dev_util::perf_debug;
 
 /// Marker type selecting one independent stream of periodic updates.
 ///

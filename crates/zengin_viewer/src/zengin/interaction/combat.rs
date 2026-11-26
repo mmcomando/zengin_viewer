@@ -8,7 +8,6 @@ use crate::gameplay::objects::{NpcModel, PlayerCharacter};
 use crate::graphics::AnimationController;
 use crate::graphics::{NpcHitReaction, play_hit_reaction};
 use crate::gui::GameLog;
-use crate::perf_debug;
 use crate::save::format::SavedObjectBuilder;
 use crate::zengin::SpawnFromSavedObject;
 use crate::zengin::instance_index::InstanceIndex;
@@ -23,6 +22,7 @@ use crate::zengin::script::manager::AttackKind;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameNpc, NpcCorpseMarker, VisibilityRefresh};
+use dev_util::perf_debug;
 
 /// Query data of the npc state needed to apply hits and deaths.
 /// Shared with the ranged hit system in [`super::ranged`].

@@ -1,9 +1,9 @@
-use crate::perf_debug;
 use bevy::{
     camera::primitives::Aabb,
     ecs::{lifecycle::HookContext, world::DeferredWorld},
     prelude::*,
 };
+use dev_util::perf_debug;
 
 /// Automatically assign objects Distance components based on distance from camera.
 /// It allows other systems to iterate only on interesting entities.

@@ -9,15 +9,15 @@ pub(crate) use sounds::SpeechSounds;
 pub(crate) use state::DialogRequest;
 pub(crate) use state::DialogUiState;
 
-use crate::external_messages::pump_external_messages;
 use crate::game_state::AppState;
 use crate::gameplay::camera::EditorMode;
 use crate::input::InputMode;
-use crate::perf_debug;
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::DialogLine;
 use bevy::prelude::*;
+use dev_util::external_messages::pump_external_messages;
+use dev_util::perf_debug;
 
 pub struct GameDialogPlugin;
 

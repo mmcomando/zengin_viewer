@@ -8,14 +8,14 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::PlayerCharacter;
 use crate::graphics::AnimationController;
-use crate::perf_debug;
-use crate::test_log;
 use crate::zengin::{
     AttackAction, ClearAiQueueChange, GameMob, GameNpc, GoToNpcAction, GoToWaypointAction,
     InstanceId, MobBase, MobPose, MobUsePose, NpcActionQueue, NpcDied, NpcEntitiesChanged,
     NpcEquippedWeapon, NpcHealth, NpcMobUse, NpcWeaponMode, ScriptManager, ScriptResource,
     StandUpAction, UseItemStateAction, UseMobAction, WeaponMode,
 };
+use dev_util::perf_debug;
+use dev_util::test_log;
 
 /// Adds the [`DebugNpc`] trace systems.
 pub(crate) struct DebugNpcPlugin;
