@@ -7,8 +7,8 @@ use bevy::prelude::*;
 use super::combat::NpcHitQueryData;
 use super::selection::{HitColliderOwner, Selection};
 use super::{DamageTargetData, NpcDied, deal_damage};
-use crate::gui::GameLog;
 use crate::zengin::GameNpc;
+use crate::zengin::gui::GameLog;
 use crate::zengin::npc_routines::AnimationFiles;
 use crate::zengin::resources::{
     ARROW, CachedAssetHandles, NPC_BODY, NamedModels, ZenGinModelComponent,

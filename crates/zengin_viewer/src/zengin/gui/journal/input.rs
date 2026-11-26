@@ -2,9 +2,9 @@ use bevy::log::warn;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::gui::InventoryUiState;
-use crate::gui::StatsUiState;
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
+use crate::zengin::gui::InventoryUiState;
+use crate::zengin::gui::StatsUiState;
 use crate::zengin::{DialogUiState, ScriptResource};
 
 use super::data::JournalMenuData;

@@ -5,8 +5,8 @@ use bevy::prelude::*;
 
 use crate::gameplay::objects::NpcModel;
 use crate::graphics::AnimationController;
-use crate::gui::{LockpickOpened, LootSource, OpenLoot};
 use crate::zengin::PlayerCharacter;
+use crate::zengin::gui::{LockpickOpened, LootSource, OpenLoot};
 use crate::zengin::npc_actions::{
     MobUsePose, UseMobAction, enter_animation_name, mob_animation_name,
 };

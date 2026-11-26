@@ -2,9 +2,9 @@ use bevy::log::{info, warn};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::gui::{InventoryUiState, JournalUiState};
 use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::PlayerCharacter;
+use crate::zengin::gui::{InventoryUiState, JournalUiState};
 use crate::zengin::{DialogUiState, GameNpc, ScriptResource};
 
 use super::data::StatsSnapshot;

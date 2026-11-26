@@ -12,10 +12,10 @@ use leafwing_input_manager::prelude::ActionState;
 
 use crate::game_state::{AppState, world_is_loaded};
 use crate::gameplay::game_time::{GameTime, PlayTime};
-use crate::gui::GameLogEntry;
 use crate::input::{Options, SharedAction, SharedInputMarker};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::StaticMesh;
+use crate::zengin::gui::GameLogEntry;
 use crate::zengin::save::format::{
     SAVE_FORMAT_VERSION, SCREENSHOT_FILE, SaveGame, SaveMetadata, SavedObject,
 };

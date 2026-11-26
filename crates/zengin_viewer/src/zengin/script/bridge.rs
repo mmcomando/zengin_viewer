@@ -7,9 +7,9 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::gameplay::game_time::{GameTime, advance_game_time};
-use crate::gui::GameLogEntry;
 use crate::zengin::GameNpc;
 use crate::zengin::PlayerCharacter;
+use crate::zengin::gui::GameLogEntry;
 use crate::zengin::instance_index::{InstanceIndex, InstanceIndexUpdated};
 use crate::zengin::npc_routines::{
     NpcArmorItem, NpcEquippedWeapon, NpcHealth, NpcLookAt, NpcOverlay, NpcTalentOverlay,

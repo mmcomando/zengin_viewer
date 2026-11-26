@@ -105,7 +105,6 @@ mod debug;
 mod game_state;
 mod gameplay;
 mod graphics;
-mod gui;
 mod gui_debug;
 mod input;
 mod test_world;
@@ -127,12 +126,12 @@ use crate::gameplay::character::CharacterControllerPlugin;
 use crate::gameplay::distance::DistancePlugin;
 use crate::gameplay::game_time::GameTimePlugin;
 use crate::graphics::{LightingPlugin, RenderOptionsPlugin, SkeletalAnimations, SkyBoxPlugin};
-use crate::gui::GameLogPlugin;
 use crate::gui_debug::GuiDebugPlugin;
 use crate::input::{ActionsPlugin, Options};
 use crate::xr::{XrPlugin, is_xr_enabled};
 use crate::zengin::SpeechSounds;
 use crate::zengin::ZenginPlugin;
+use crate::zengin::gui::GameLogPlugin;
 use crate::zengin::{ZenginVfs, create_zengin_asset_loader, create_zengin_vfs};
 use avian3d::prelude::*;
 
@@ -204,14 +203,14 @@ fn main() {
         .add_plugins(RenderOptionsPlugin)
         .add_plugins(SoundPlugin)
         .add_plugins(GameLogPlugin)
-        .add_plugins(crate::gui::ChapterScreenPlugin)
-        .add_plugins(crate::gui::HealthBarsPlugin)
-        .add_plugins(crate::gui::InventoryUiPlugin)
-        .add_plugins(crate::gui::JournalUiPlugin)
-        .add_plugins(crate::gui::LoadingScreenPlugin)
-        .add_plugins(crate::gui::MainMenuPlugin)
-        .add_plugins(crate::gui::ScreenMessagesPlugin)
-        .add_plugins(crate::gui::StatsUiPlugin);
+        .add_plugins(crate::zengin::gui::ChapterScreenPlugin)
+        .add_plugins(crate::zengin::gui::HealthBarsPlugin)
+        .add_plugins(crate::zengin::gui::InventoryUiPlugin)
+        .add_plugins(crate::zengin::gui::JournalUiPlugin)
+        .add_plugins(crate::zengin::gui::LoadingScreenPlugin)
+        .add_plugins(crate::zengin::gui::MainMenuPlugin)
+        .add_plugins(crate::zengin::gui::ScreenMessagesPlugin)
+        .add_plugins(crate::zengin::gui::StatsUiPlugin);
 
     // Debug-only observation systems; they consume game messages and must be
     // added after the plugins that register them.

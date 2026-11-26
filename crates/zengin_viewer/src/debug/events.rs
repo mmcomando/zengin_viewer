@@ -3,9 +3,9 @@
 
 use bevy::prelude::*;
 
-use crate::gui::{LockpickOpened, LootSource, OpenLockpick, OpenLoot};
 use crate::zengin::ScriptSound;
 use crate::zengin::dialog::DialogRequest;
+use crate::zengin::gui::{LockpickOpened, LootSource, OpenLockpick, OpenLoot};
 use dev_util::test_log;
 
 /// Logs lockpick, loot and dialog events with the `TEST_LOG` target.

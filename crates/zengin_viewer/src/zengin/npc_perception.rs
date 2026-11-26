@@ -12,10 +12,10 @@ use bevy::prelude::*;
 
 use crate::game_state::AppState;
 use crate::graphics::AnimationController;
-use crate::gui::{InventoryUiState, JournalUiState};
 use crate::zengin::GameNpc;
 use crate::zengin::STATIC_OBJECT;
 use crate::zengin::dialog::DialogUiState;
+use crate::zengin::gui::{InventoryUiState, JournalUiState};
 use crate::zengin::script::bridge::ScriptChangesApplied;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::manager::ScriptManager;

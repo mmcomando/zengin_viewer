@@ -11,13 +11,13 @@ use crate::gameplay::distance::ClassifyDistance;
 use crate::gameplay::game_time::{GameTime, PlayTime};
 use crate::gameplay::objects::NpcModel;
 use crate::graphics::{NpcAnimations, PlayerMeleeCombo};
-use crate::gui::{InventoryUiState, JournalUiState, StatsUiState};
 use crate::input::Options;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::WorldEntityMarker;
 use crate::zengin::WorldMesh;
 use crate::zengin::change_level::ChangeLevelTriggers;
 use crate::zengin::common::get_full_texture_path;
+use crate::zengin::gui::{InventoryUiState, JournalUiState, StatsUiState};
 use crate::zengin::instance_index::InstanceIndex;
 use crate::zengin::interaction::selection::Selection;
 use crate::zengin::loaders::vfs::{

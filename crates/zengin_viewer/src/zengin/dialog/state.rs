@@ -1,5 +1,5 @@
-use crate::gui::OpenTrade;
 use crate::input::{GuiAction, GuiInputMarker};
+use crate::zengin::gui::OpenTrade;
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId, StringId};
 use bevy::prelude::*;
 use dev_util::perf_debug;
@@ -507,7 +507,7 @@ pub(super) fn handle_dialog_input(
     mut dialog_ui: ResMut<DialogUiState>,
     mut requests: MessageWriter<DialogRequest>,
     mut voices: MessageWriter<DialogVoice>,
-    inventory_ui: Res<crate::gui::InventoryUiState>,
+    inventory_ui: Res<crate::zengin::gui::InventoryUiState>,
 ) {
     let _perf = perf_debug!();
     if !dialog_ui.is_open() || inventory_ui.is_open() {

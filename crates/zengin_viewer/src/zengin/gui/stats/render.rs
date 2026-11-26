@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::gui::menu_screen::spawn_menu_screen;
+use crate::zengin::gui::menu_screen::spawn_menu_screen;
 use dev_util::ui_kit::set_visibility;
 
 use super::data::StatsMenuData;

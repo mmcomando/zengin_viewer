@@ -183,7 +183,7 @@ fn spawn_lines_panel(commands: &mut Commands, root: Entity) {
 pub(super) fn sync_dialog_ui(
     mut commands: Commands,
     mut dialog_ui: ResMut<DialogUiState>,
-    inventory_ui: Res<crate::gui::InventoryUiState>,
+    inventory_ui: Res<crate::zengin::gui::InventoryUiState>,
     mut containers: Query<(&DialogContainer, &mut Visibility)>,
     mut rows: Query<(
         Entity,

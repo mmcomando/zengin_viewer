@@ -6,9 +6,9 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use super::selection::{Selection, SelectionKind};
-use crate::gui::GameLog;
 use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::PlayerCharacter;
+use crate::zengin::gui::GameLog;
 use crate::zengin::script::component::ScriptResource;
 use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;

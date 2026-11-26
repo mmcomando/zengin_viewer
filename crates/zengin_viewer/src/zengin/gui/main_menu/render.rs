@@ -5,7 +5,9 @@ use bevy::color::Alpha;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::gui::menu_screen::{MenuScreenTextMarker, item_rect, menu_area, spawn_menu_screen};
+use crate::zengin::gui::menu_screen::{
+    MenuScreenTextMarker, item_rect, menu_area, spawn_menu_screen,
+};
 use crate::zengin::save::SaveEntry;
 use crate::zengin::{
     CurrentWorld, MENU_FLAG_SHOW_INFO, MenuDefinition, MenuItemDefinition, get_full_texture_path,

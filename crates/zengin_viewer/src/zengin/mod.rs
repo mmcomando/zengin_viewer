@@ -2,6 +2,7 @@ mod change_level;
 mod common;
 pub(crate) mod dialog;
 mod fight_ai;
+pub(crate) mod gui;
 mod instance_index;
 mod interaction;
 mod loaders;

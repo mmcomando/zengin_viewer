@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use crate::gui::{JournalUiState, StatsUiState};
+use crate::zengin::gui::{JournalUiState, StatsUiState};
 use dev_util::perf_debug;
 use dev_util::ui_kit::set_visibility;
 

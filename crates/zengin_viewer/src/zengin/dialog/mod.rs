@@ -78,7 +78,7 @@ impl Plugin for GameDialogPlugin {
             Update,
             sync_input_mode
                 .after(ScriptChangesApplied)
-                .after(crate::gui::ChapterScreenUpdated),
+                .after(crate::zengin::gui::ChapterScreenUpdated),
         );
     }
 }
@@ -96,10 +96,10 @@ pub(crate) fn sync_input_mode(
     state: Res<State<AppState>>,
     editor_mode: Res<EditorMode>,
     dialog_ui: Res<DialogUiState>,
-    chapter_screen: Res<crate::gui::ChapterScreenState>,
-    inventory_ui: Res<crate::gui::InventoryUiState>,
-    journal_ui: Res<crate::gui::JournalUiState>,
-    stats_ui: Res<crate::gui::StatsUiState>,
+    chapter_screen: Res<crate::zengin::gui::ChapterScreenState>,
+    inventory_ui: Res<crate::zengin::gui::InventoryUiState>,
+    journal_ui: Res<crate::zengin::gui::JournalUiState>,
+    stats_ui: Res<crate::zengin::gui::StatsUiState>,
     mut input_mode: ResMut<InputMode>,
 ) {
     let _perf = perf_debug!();
