@@ -3,12 +3,45 @@ resolver = "2"
 
 members = [
     "crates/zengin_viewer",
+    "crates/dev_util",
     "crates/daedalus_wasm",
     "crates/daedalus_typed",
     "crates/ZenKit-rs",
     "crates/ZenKit-sys",
     "crates/dmusic-sys",
 ]
+
+# Shared dependency versions. Members inherit with `{ workspace = true }` so
+# every crate builds against the same version; feature selections stay in the
+# member manifests.
+[workspace.dependencies]
+# Bevy ecosystem, kept in lockstep with `bevy`.
+bevy = "0.20.0"
+leafwing-input-manager = "0.22.0"
+avian3d = "0.8.0"
+bevy_rich_text3d = "0.8"
+bevy_egui = "0.43.1"
+bevy_mod_openxr = { git = "https://github.com/MaximilianHausen/bevy_oxr.git", branch = "bevy_0.20" }
+bevy_mod_xr = { git = "https://github.com/MaximilianHausen/bevy_oxr.git", branch = "bevy_0.20" }
+bevy_xr_utils = { git = "https://github.com/MaximilianHausen/bevy_oxr.git", branch = "bevy_0.20" }
+bevy-inspector-egui = "0.38.0"
+egui_dock = "0.21.0"
+openxr = "0.22.0"
+
+# Script toolchain (daedalus_wasm + the wasmtime host).
+wasmtime = "46.0.1"
+wat = "1.253.0"
+wasm-encoder = "0.248.0"
+wasmparser = "0.248.0"
+wit-component = "0.251.0"
+wit-parser = "0.251.0"
+
+# Serialization and parsing.
+serde = "1.0"
+ron = "0.12.0"
+byteorder = "1.5"
+encoding_rs = "0.8"
+strum = "0.28"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

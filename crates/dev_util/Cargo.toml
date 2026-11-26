@@ -1,0 +1,13 @@
+[package]
+name = "dev_util"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Only the always-available core plus logging is needed here; the app crate
+# enables the rest of bevy and feature unification covers the workspace build.
+bevy = { workspace = true, default-features = false, features = ["bevy_log"] }
+
+[features]
+# Enables the per-function timing guard behind `perf_debug!`. No-op when off.
+debug_perf = []

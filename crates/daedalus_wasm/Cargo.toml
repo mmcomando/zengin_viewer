@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-byteorder = "1.5.0"
-encoding_rs = "0.8"
-wat = "1.253.0"
-wasm-encoder = { "version" = "0.248.0", features = [ "wasmparser"] }
-wasmparser = "0.248.0"
-wit-component = "0.251.0"
-wit-parser = "0.251.0"
+byteorder = { workspace = true }
+encoding_rs = { workspace = true }
+wat = { workspace = true }
+wasm-encoder = { workspace = true, features = ["wasmparser"] }
+wasmparser = { workspace = true }
+wit-component = { workspace = true }
+wit-parser = { workspace = true }
 
 [dev-dependencies]
-wasmtime = { "version" = "44.0.0", features = ["component-model", "coredump"] }
+wasmtime = { workspace = true, features = ["component-model", "coredump"] }
 daedalus_typed = { path = "../daedalus_typed" }

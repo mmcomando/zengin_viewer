@@ -143,7 +143,7 @@ impl ScriptManager {
             routine_functions: HashMap::new(),
             global_startup_done: false,
             script_fingerprint: 0,
-            call_stats: ScriptCallStats,
+            call_stats: ScriptCallStats::default(),
         }
     }
 

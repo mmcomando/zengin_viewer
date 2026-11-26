@@ -33,7 +33,7 @@ use std::time::Instant;
 /// filled in automatically.
 #[cfg(feature = "debug_perf")]
 #[must_use]
-pub(crate) struct PerfDebug {
+pub struct PerfDebug {
     name: &'static str,
     start: Instant,
     fields: RefCell<Vec<(&'static str, u64)>>,
@@ -41,7 +41,7 @@ pub(crate) struct PerfDebug {
 
 #[cfg(feature = "debug_perf")]
 impl PerfDebug {
-    pub(crate) fn new(name: &'static str) -> Self {
+    pub fn new(name: &'static str) -> Self {
         Self {
             name,
             start: Instant::now(),
@@ -50,12 +50,12 @@ impl PerfDebug {
     }
 
     /// Records a named counter, replacing any previous value for that name.
-    pub(crate) fn record_count(&self, name: &'static str, value: usize) {
+    pub fn record_count(&self, name: &'static str, value: usize) {
         self.set(name, value as u64);
     }
 
     /// Adds `delta` to a named counter, creating it at `delta` when absent.
-    pub(crate) fn increment_tag(&self, name: &'static str, delta: u64) {
+    pub fn increment_tag(&self, name: &'static str, delta: u64) {
         let mut fields = self.fields.borrow_mut();
         if let Some((_, value)) = fields.iter_mut().find(|(field, _)| *field == name) {
             *value += delta;
@@ -93,21 +93,21 @@ impl Drop for PerfDebug {
 /// No-op guard when the `debug_perf` feature is disabled.
 #[cfg(not(feature = "debug_perf"))]
 #[must_use]
-pub(crate) struct PerfDebug;
+pub struct PerfDebug;
 
 #[cfg(not(feature = "debug_perf"))]
 #[allow(clippy::unused_self)] // The no-op methods keep the same API as the enabled guard.
 impl PerfDebug {
     #[inline]
-    pub(crate) fn new(_name: &'static str) -> Self {
+    pub fn new(_name: &'static str) -> Self {
         Self
     }
 
     #[inline]
-    pub(crate) fn record_count(&self, _name: &'static str, _value: usize) {}
+    pub fn record_count(&self, _name: &'static str, _value: usize) {}
 
     #[inline]
-    pub(crate) fn increment_tag(&self, _name: &'static str, _delta: u64) {}
+    pub fn increment_tag(&self, _name: &'static str, _delta: u64) {}
 }
 
 /// Creates a [`PerfDebug`] guard named after the enclosing function.
@@ -125,7 +125,12 @@ macro_rules! perf_debug {
             }
             let full = __perf_debug_type_name(__perf_debug_scope);
             let name = full.strip_suffix("::__perf_debug_scope").unwrap_or(full);
-            name.strip_prefix("zengin_viewer::").unwrap_or(name)
+            // Drop the leading crate segment so the log shows `module::path::fn`
+            // without the caller's crate name.
+            match name.split_once("::") {
+                Some((_crate_root, rest)) => rest,
+                None => name,
+            }
         };
         #[cfg(not(feature = "debug_perf"))]
         let name = "";
@@ -136,7 +141,7 @@ macro_rules! perf_debug {
 /// Logs a `frame(...)` marker at the start of every frame when `debug_perf` is
 /// enabled, so a script can split the log into per-frame sections.
 #[cfg(feature = "debug_perf")]
-pub(crate) struct PerfDebugPlugin;
+pub struct PerfDebugPlugin;
 
 #[cfg(feature = "debug_perf")]
 impl Plugin for PerfDebugPlugin {

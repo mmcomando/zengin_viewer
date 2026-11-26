@@ -6,32 +6,36 @@ edition = "2024"
 
 [dependencies]
 # On bevy update most of those need an update
-bevy = { version = "0.20.0", features = ["dynamic_linking", "bevy_dev_tools", "render_dev_tools", "free_camera", "serialize"] }
-leafwing-input-manager = "0.22.0"
-avian3d = "0.8.0"
-bevy_rich_text3d = "0.8"
-bevy_egui = "0.43.1"
+bevy = { workspace = true, features = ["dynamic_linking", "bevy_dev_tools", "render_dev_tools", "free_camera", "serialize"] }
+leafwing-input-manager = { workspace = true }
+avian3d = { workspace = true }
+bevy_rich_text3d = { workspace = true }
+bevy_egui = { workspace = true }
 # Upstream is slow to update
-bevy_mod_openxr = { git = "https://github.com/MaximilianHausen/bevy_oxr.git", branch = "bevy_0.20" }
-bevy_mod_xr = { git = "https://github.com/MaximilianHausen/bevy_oxr.git", branch = "bevy_0.20" }
-bevy_xr_utils = { git = "https://github.com/MaximilianHausen/bevy_oxr.git", branch = "bevy_0.20" }
+bevy_mod_openxr = { workspace = true }
+bevy_mod_xr = { workspace = true }
+bevy_xr_utils = { workspace = true }
 
 # ZenGin related
 ZenKit-rs = { path = "../ZenKit-rs" }
 dmusic-sys = { path = "../dmusic-sys" }
 daedalus_wasm = { path = "../daedalus_wasm" }
 daedalus_typed = { path = "../daedalus_typed" }
-wasmtime = "46.0.1"
+wasmtime = { workspace = true }
 
 # Game related
 pathfinding = "4.16.0"
 
+# Internal developer utilities
+# perf_debug! / test_log! / warn_once! / warn_unimplemented!
+dev_util = { path = "../dev_util" }
+
 # VR
-openxr = "0.22.0"
+openxr = { workspace = true }
 
 # File formats
-serde = "1.0.228"
-ron = "0.12.0"
+serde = { workspace = true }
+ron = { workspace = true }
 # Thumbnail encoding/decoding for save screenshots. `image 0.25` is already in
 # the lock through `bevy_image`.
 image = { version = "0.25", default-features = false, features = ["png"] }
@@ -40,17 +44,17 @@ rodio = { version = "0.22.2", features = ["symphonia-wav", "symphonia-adpcm"] }
 
 # Generic dependencies
 clap = { version = "4", features = ["derive"] }
-byteorder = "1.5"
-strum = { version = "0.28", features = ["derive"] }
+byteorder = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
 rand_mt = "6.1.0"
 regex = "1.13"
-bevy-inspector-egui = "0.38.0"
-egui_dock = "0.21.0"
+bevy-inspector-egui = { workspace = true }
+egui_dock = { workspace = true }
 
 [features]
 # Logs per-function timing and counters for movement systems through
 # `perf_debug!`, and per-frame script function call counts. No-op when disabled.
-debug_perf = []
+debug_perf = ["dev_util/debug_perf"]
 # Writes a `trace-<timestamp>.json` (chrome://tracing / Perfetto format) of the
 # schedule and system spans, for CPU profiling. Beware: it is very large.
 trace_chrome = ["bevy/trace_chrome"]
