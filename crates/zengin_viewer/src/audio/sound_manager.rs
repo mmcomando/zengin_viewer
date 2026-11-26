@@ -4,6 +4,7 @@ use bevy::audio::SpatialScale;
 use bevy::prelude::*;
 
 use crate::audio::SoundDefinitions;
+use crate::zengin::DialogVoice;
 use crate::zengin::InstanceId;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::ScriptSound;
@@ -106,6 +107,29 @@ pub(crate) fn handle_play_sound_messages(
                 SoundManager::play_positional_sound(&mut commands, audio_handle, position);
             }
             None => sound_manager.play_sound(&mut commands, audio_handle),
+        }
+    }
+}
+
+/// Translates the dialog line voice requests into the generic sound messages and
+/// the active-sound tracking, so the dialog module does not depend on the
+/// concrete sound system.
+pub(crate) fn handle_dialog_voices(
+    mut voices: MessageReader<DialogVoice>,
+    mut play_sound: MessageWriter<PlaySound>,
+    mut sound_manager: ResMut<SoundManager>,
+    mut commands: Commands,
+) {
+    let _perf = perf_debug!();
+    for voice in voices.read() {
+        match voice {
+            DialogVoice::Play { asset_path } => {
+                play_sound.write(PlaySound {
+                    asset_path: asset_path.clone(),
+                    position: None,
+                });
+            }
+            DialogVoice::Stop => sound_manager.stop_active(&mut commands),
         }
     }
 }

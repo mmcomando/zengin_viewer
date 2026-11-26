@@ -1,4 +1,3 @@
-use crate::audio::{PlaySound, SoundManager};
 use crate::gui::OpenTrade;
 use crate::input::{GuiAction, GuiInputMarker};
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId, StringId};
@@ -81,6 +80,17 @@ pub(crate) enum DialogRequest {
         from_sub_choices: bool,
         trade: bool,
     },
+}
+
+/// Voice playback requested by the dialog line playback. Consumed by the audio
+/// layer, which owns the actual sound spawning, so the dialog stays independent
+/// of the concrete sound system.
+#[derive(Message)]
+pub(crate) enum DialogVoice {
+    /// Play the voice of a dialog line from its zengin asset path
+    Play { asset_path: String },
+    /// Stop the voice that is currently playing
+    Stop,
 }
 
 /// What is currently presented by the dialog UI
@@ -390,18 +400,18 @@ impl DialogUiState {
     pub(super) fn begin_line_playback(
         &mut self,
         lines: Vec<DialogLineView>,
-        sounds: &mut MessageWriter<PlaySound>,
+        voices: &mut MessageWriter<DialogVoice>,
     ) {
         self.mode = DialogUiMode::Lines {
             lines,
             index: 0,
             timer: Timer::default(),
         };
-        self.start_current_line(sounds);
+        self.start_current_line(voices);
     }
 
     /// Restarts the display timer of the current line and plays its sound
-    fn start_current_line(&mut self, sounds: &mut MessageWriter<PlaySound>) {
+    fn start_current_line(&mut self, voices: &mut MessageWriter<DialogVoice>) {
         let DialogUiMode::Lines {
             lines,
             index,
@@ -415,9 +425,8 @@ impl DialogUiState {
         };
         *timer = Timer::from_seconds(line_display_seconds(line), TimerMode::Once);
         self.camera_shot_serial = self.camera_shot_serial.wrapping_add(1);
-        sounds.write(PlaySound {
+        voices.write(DialogVoice::Play {
             asset_path: line.sound_path.clone(),
-            position: None,
         });
     }
 
@@ -432,7 +441,7 @@ impl DialogUiState {
     pub(super) fn advance_playback(
         &mut self,
         delta: Duration,
-        sounds: &mut MessageWriter<PlaySound>,
+        voices: &mut MessageWriter<DialogVoice>,
         requests: &mut MessageWriter<DialogRequest>,
     ) {
         let DialogUiMode::Lines { timer, .. } = &mut self.mode else {
@@ -442,17 +451,19 @@ impl DialogUiState {
         if !timer.is_finished() {
             return;
         }
-        self.finish_current_line(sounds, requests);
+        self.finish_current_line(voices, requests);
     }
 
     /// Ends the current line early, the next one starts immediately. After the
     /// last line the options are shown again
     pub(crate) fn stop_current_line(
         &mut self,
-        sounds: &mut MessageWriter<PlaySound>,
+        voices: &mut MessageWriter<DialogVoice>,
         requests: &mut MessageWriter<DialogRequest>,
     ) {
-        self.finish_current_line(sounds, requests);
+        // The current line is cut off before the next one starts
+        voices.write(DialogVoice::Stop);
+        self.finish_current_line(voices, requests);
     }
 
     /// Starts the next line after the current one ended, or returns to options
@@ -461,7 +472,7 @@ impl DialogUiState {
     /// which options are available
     fn finish_current_line(
         &mut self,
-        sounds: &mut MessageWriter<PlaySound>,
+        voices: &mut MessageWriter<DialogVoice>,
         requests: &mut MessageWriter<DialogRequest>,
     ) {
         let DialogUiMode::Lines { lines, index, .. } = &mut self.mode else {
@@ -484,7 +495,7 @@ impl DialogUiState {
             return;
         }
         *index = next_index;
-        self.start_current_line(sounds);
+        self.start_current_line(voices);
     }
 }
 
@@ -495,10 +506,8 @@ pub(super) fn handle_dialog_input(
     action_state: Single<&ActionState<GuiAction>, With<GuiInputMarker>>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut requests: MessageWriter<DialogRequest>,
-    mut sounds: MessageWriter<PlaySound>,
-    mut sound_manager: ResMut<SoundManager>,
+    mut voices: MessageWriter<DialogVoice>,
     inventory_ui: Res<crate::gui::InventoryUiState>,
-    mut commands: Commands,
 ) {
     let _perf = perf_debug!();
     if !dialog_ui.is_open() || inventory_ui.is_open() {
@@ -513,8 +522,7 @@ pub(super) fn handle_dialog_input(
 
     if !dialog_ui.is_showing_options() {
         if action_state.just_pressed(&GuiAction::CancelAction) {
-            dialog_ui.stop_current_line(&mut sounds, &mut requests);
-            sound_manager.stop_active(&mut commands);
+            dialog_ui.stop_current_line(&mut voices, &mut requests);
         }
         return;
     }
@@ -543,7 +551,7 @@ fn line_display_seconds(view: &DialogLineView) -> f32 {
 pub(super) fn advance_dialog_playback(
     time: Res<Time>,
     mut dialog_ui: ResMut<DialogUiState>,
-    mut sounds: MessageWriter<PlaySound>,
+    mut voices: MessageWriter<DialogVoice>,
     mut requests: MessageWriter<DialogRequest>,
     mut trade_requests: MessageWriter<OpenTrade>,
 ) {
@@ -551,7 +559,7 @@ pub(super) fn advance_dialog_playback(
     if !dialog_ui.is_open() {
         return;
     }
-    dialog_ui.advance_playback(time.delta(), &mut sounds, &mut requests);
+    dialog_ui.advance_playback(time.delta(), &mut voices, &mut requests);
     if !dialog_ui.take_pending_trade() {
         return;
     }

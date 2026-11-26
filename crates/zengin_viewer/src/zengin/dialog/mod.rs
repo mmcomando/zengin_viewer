@@ -8,6 +8,7 @@ pub(crate) use sounds::SpeechSounds;
 
 pub(crate) use state::DialogRequest;
 pub(crate) use state::DialogUiState;
+pub(crate) use state::DialogVoice;
 
 use crate::game_state::AppState;
 use crate::gameplay::camera::EditorMode;
@@ -26,6 +27,7 @@ impl Plugin for GameDialogPlugin {
         app.init_resource::<DialogUiState>();
         app.init_resource::<camera::DialogCameraShots>();
         app.add_message::<DialogRequest>();
+        app.add_message::<DialogVoice>();
         app.add_systems(Startup, ui::override_default_font);
         app.add_systems(Startup, ui::spawn_dialog_ui);
         // The UI systems emit requests, `handle_dialog_requests` applies them

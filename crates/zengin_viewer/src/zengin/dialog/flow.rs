@@ -3,8 +3,7 @@
 //! dialog state.
 
 use super::sounds::SpeechSounds;
-use super::state::{DialogLineView, DialogOptionView, DialogRequest, DialogUiState};
-use crate::audio::PlaySound;
+use super::state::{DialogLineView, DialogOptionView, DialogRequest, DialogUiState, DialogVoice};
 use crate::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::gui::OpenTrade;
 use crate::input::{GameplayAction, GameplayInputMarker};
@@ -127,7 +126,7 @@ pub(super) fn handle_dialog_outputs(
     mut lines: MessageReader<DialogLine>,
     mut closes: MessageReader<DialogClose>,
     mut dialog_ui: ResMut<DialogUiState>,
-    mut sounds: MessageWriter<PlaySound>,
+    mut voices: MessageWriter<DialogVoice>,
     mut trade_requests: MessageWriter<OpenTrade>,
     dialog_texts: Res<DialogTexts>,
     speech_sounds: Res<SpeechSounds>,
@@ -172,7 +171,7 @@ pub(super) fn handle_dialog_outputs(
     let has_sub_choices = !choice_views.is_empty();
     dialog_ui.accept_sub_choices(choice_views);
     if !line_views.is_empty() {
-        dialog_ui.begin_line_playback(line_views, &mut sounds);
+        dialog_ui.begin_line_playback(line_views, &mut voices);
         if close_requested {
             // The close is deferred until the playback finished
             dialog_ui.request_close();

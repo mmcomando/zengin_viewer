@@ -5,13 +5,12 @@ use leafwing_input_manager::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::audio::{PlaySound, SoundManager};
 use crate::game_state::AppState;
 use crate::gui::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiState};
 use crate::input::horizontal_axis::HorizontalAxis;
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
-use crate::zengin::{DialogRequest, DialogUiState};
+use crate::zengin::{DialogRequest, DialogUiState, DialogVoice};
 use dev_util::perf_debug;
 
 /// Adds [`leafwing_input_manager`] with one input map per action group and
@@ -226,10 +225,8 @@ fn handle_back(
     mut stats_ui: ResMut<StatsUiState>,
     mut dialog_ui: ResMut<DialogUiState>,
     mut requests: MessageWriter<DialogRequest>,
-    mut sounds: MessageWriter<PlaySound>,
-    mut sound_manager: ResMut<SoundManager>,
+    mut voices: MessageWriter<DialogVoice>,
     mut exit: MessageWriter<AppExit>,
-    mut commands: Commands,
 ) {
     let _perf = perf_debug!();
     if *state.get() == AppState::MainMenu {
@@ -239,13 +236,7 @@ fn handle_back(
     // views or exit the game.
     if action_state.just_pressed(&SharedAction::SkipDialog) {
         if dialog_ui.is_playing_lines() {
-            skip_dialog_line(
-                &mut dialog_ui,
-                &mut requests,
-                &mut sounds,
-                &mut sound_manager,
-                &mut commands,
-            );
+            skip_dialog_line(&mut dialog_ui, &mut requests, &mut voices);
         }
         return;
     }
@@ -277,13 +268,7 @@ fn handle_back(
     }
     if dialog_ui.is_open() {
         if dialog_ui.is_playing_lines() {
-            skip_dialog_line(
-                &mut dialog_ui,
-                &mut requests,
-                &mut sounds,
-                &mut sound_manager,
-                &mut commands,
-            );
+            skip_dialog_line(&mut dialog_ui, &mut requests, &mut voices);
         } else {
             dialog_ui.close();
             info!("Back closed the open dialog");
@@ -299,12 +284,9 @@ fn handle_back(
 fn skip_dialog_line(
     dialog_ui: &mut DialogUiState,
     requests: &mut MessageWriter<DialogRequest>,
-    sounds: &mut MessageWriter<PlaySound>,
-    sound_manager: &mut SoundManager,
-    commands: &mut Commands,
+    voices: &mut MessageWriter<DialogVoice>,
 ) {
-    dialog_ui.stop_current_line(sounds, requests);
-    sound_manager.stop_active(commands);
+    dialog_ui.stop_current_line(voices, requests);
     info!("Skipped the playing dialog line");
 }
 
