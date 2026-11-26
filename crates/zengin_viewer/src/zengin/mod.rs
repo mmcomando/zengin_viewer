@@ -42,10 +42,6 @@ mod world_entity;
 mod world_plugin;
 mod world_spawn;
 
-// Used to debug data, it is more like a tool than a test
-#[cfg(test)]
-mod animation_graph_export;
-
 use bevy::prelude::*;
 
 // Expose only what is needed for outside modules

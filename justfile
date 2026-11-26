@@ -69,7 +69,7 @@ export-symbol-names:
     cargo test -p ZenGinViewer -- --ignored --nocapture debug_zengin_scripts > misc/script_game_symbols.log
 
 generate-animation-graph:
-    cargo test -p ZenGinViewer animation_graph -- --ignored
+    cargo run -p dev_tools --bin animation_graph_export
 
 get-submodules:
     git submodule update --init --recursive --checkout

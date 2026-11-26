@@ -1,4 +1,3 @@
-// Move to this to separate directory for helper binaries tests/examples or other suggest some solution, helper binaries should not be in form of tests, update justfile when moved
 //! Animation graph generation from the compiled anims archive.
 //!
 //! Every `<SCHEME>-<NAME>.MAN` in `_WORK/DATA/ANIMS/_COMPILED` is classified:
@@ -10,23 +9,24 @@
 //!
 //! The result is a simple graph export — every animation with the names of
 //! the animations that can follow it — written to a RON file. The runtime
-//! [`AnimationGraph`](crate::zengin::AnimationGraph)
-//! loads that file; this module is only the generator, run through the
-//! ignored test below.
+//! animation graph loads that file.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::File;
+use std::process::ExitCode;
+use std::sync::PoisonError;
 
-use bevy::prelude::*;
+use bevy::log::{info, warn};
+use dev_tools::gothic_vfs::{create_zengin_vfs, get_zengin_asset_bytes};
 use dev_util::warn_once;
 use zen_kit_rs::model_scripts::ModelScript;
 use zen_kit_rs::stream::Read;
 
-use crate::zengin::loaders::vdf_reader::get_zengin_asset_bytes;
-
 const COMPILED_ANIMS_DIR: &str = "/_WORK/DATA/ANIMS/_COMPILED";
-/// File name of the exported graph inside the main assets directory.
+/// File name of the exported graph inside the viewer assets directory.
 const OUTPUT_FILE: &str = "anim_graph.ron";
+/// Viewer assets directory, resolved from this crate's location.
+const ASSETS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../zengin_viewer/assets");
 
 /// Animation file names per scheme, plus the scheme names in sorted order.
 type SchemeFiles = (BTreeMap<String, Vec<String>>, Vec<String>);
@@ -391,15 +391,15 @@ fn canonical_state(
     }
 }
 
-fn save_graphs(export: &[(String, Vec<String>)]) {
-    let output_path = format!("{}/{OUTPUT_FILE}", crate::main_assets_dir());
+fn save_graphs(export: &[(String, Vec<String>)]) -> bool {
+    let output_path = format!("{ASSETS_DIR}/{OUTPUT_FILE}");
     let mut config = ron::ser::PrettyConfig::default();
     config.depth_limit = 4;
     let contents = match ron::ser::to_string_pretty(export, config) {
         Ok(contents) => contents,
         Err(error) => {
             warn!("Failed to serialize the animation graph: {error}");
-            return;
+            return false;
         }
     };
     let result = File::create(&output_path).and_then(|mut file| {
@@ -413,27 +413,26 @@ fn save_graphs(export: &[(String, Vec<String>)]) {
                 "Saved animation graph({output_path}, animations {}, edges {edges})",
                 export.len()
             );
+            true
         }
         Err(error) => {
             warn!("Failed to write {output_path}: {error}");
+            false
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Regenerates `assets/anim_graph.ron` from the Gothic 2 anims archives.
-    /// The runtime animation graph only loads that file.
-    #[test]
-    #[ignore = "regenerates assets from the game data; run manually"]
-    fn save_animation_graph_ron() {
-        let vfs = crate::zengin::loaders::vdf_reader::create_zengin_vfs();
-        let vfs = vfs.lock().unwrap();
-        let Some(graphs) = build_graphs(&vfs) else {
-            panic!("Compiled anims directory({COMPILED_ANIMS_DIR}) not found");
-        };
-        save_graphs(&export_animation_graph(&graphs));
+/// Regenerates `assets/anim_graph.ron` from the Gothic 2 anims archives.
+fn main() -> ExitCode {
+    let vfs = create_zengin_vfs();
+    let vfs = vfs.lock().unwrap_or_else(PoisonError::into_inner);
+    let Some(graphs) = build_graphs(&vfs) else {
+        eprintln!("Compiled anims directory({COMPILED_ANIMS_DIR}) not found");
+        return ExitCode::FAILURE;
+    };
+    if save_graphs(&export_animation_graph(&graphs)) {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
     }
 }

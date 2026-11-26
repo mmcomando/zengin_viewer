@@ -4,6 +4,7 @@ resolver = "2"
 members = [
     "crates/zengin_viewer",
     "crates/dev_util",
+    "crates/dev_tools",
     "crates/daedalus_wasm",
     "crates/daedalus_typed",
     "crates/ZenKit-rs",

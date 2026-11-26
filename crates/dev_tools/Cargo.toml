@@ -1,0 +1,14 @@
+[package]
+name = "dev_tools"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Helper binaries that regenerate or dump game data by hand, one per file in
+# `src/bin`. Run them with `cargo run -p dev_tools --bin <name>`.
+
+[dependencies]
+bevy = { workspace = true, default-features = false, features = ["bevy_log"] }
+dev_util = { path = "../dev_util" }
+ZenKit-rs = { path = "../ZenKit-rs" }
+ron = { workspace = true }

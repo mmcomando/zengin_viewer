@@ -3294,6 +3294,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dev_tools"
+version = "0.1.0"
+dependencies = [
+ "ZenKit-rs",
+ "bevy",
+ "dev_util",
+ "ron",
+]
+
+[[package]]
 name = "dev_util"
 version = "0.1.0"
 dependencies = [
