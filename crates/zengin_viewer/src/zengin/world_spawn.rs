@@ -145,8 +145,6 @@ pub(crate) struct ContainerSpawn {
 /// Moving trigger vob (`zCMover`).
 #[derive(Debug, Clone, Message)]
 pub(crate) struct SpawnMover {
-    /// Index of the vob in the ZEN archive.
-    pub(crate) vob_id: u32,
     pub(crate) tr: Transform,
     /// Mesh asset path, empty when the vob has no visual.
     pub(crate) archetype: String,
@@ -442,9 +440,7 @@ fn spawn_static_models(
                 vob_name: name,
                 focus_name: String::new(),
             },
-            StaticMesh {
-                vob_id: spawn.vob_id,
-            },
+            StaticMesh,
         ));
     }
 }
@@ -613,9 +609,7 @@ fn spawn_movers(
         let mut entity = commands.spawn((
             Name::new(spawn.name.clone()),
             ClassifyDistance::default(),
-            StaticMesh {
-                vob_id: spawn.vob_id,
-            },
+            StaticMesh,
             Visibility::default(),
             spawn.tr,
             GameMover::new(

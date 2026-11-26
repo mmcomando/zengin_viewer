@@ -11,8 +11,9 @@ use crate::save::format::{
 use crate::zengin::{GameChest, GameItem, GameMover, GameNpc, MobBase, NpcOverlay};
 
 impl SavedObject {
-    /// Collects the saveable components of one entity. Returns `None` when the
-    /// entity carries no saveable component besides its transform.
+    /// Collects the saveable components of one entity. Each component maps to
+    /// its own payload. Returns `None` when the entity carries no saveable
+    /// component besides its transform.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn from_components(
         transform: &Transform,
@@ -25,47 +26,28 @@ impl SavedObject {
         static_mesh: Option<&StaticMesh>,
         mover: Option<&GameMover>,
     ) -> Option<Self> {
-        let npc = npc.map(|npc| SavedNpc {
-            instance_id: npc.instance_id(),
-        });
-        let overlay = overlay.map(|overlay| SavedOverlay(overlay.0.clone()));
-        let item = item.map(|item| SavedItem {
-            instance_id: item.instance_id(),
-        });
-        // Movers also carry `StaticMesh`; they are rebuilt from their own
-        // prototype and must not be serialized as static objects.
-        let static_vob_id = static_mesh
-            .filter(|mesh| mesh.vob_id != 0 && mover.is_none())
-            .map(|mesh| mesh.vob_id);
-        // A vob with id 0 is a scenario/debug spawn with no world prototype, so
-        // it has no identity to save.
-        let mob_base = base
-            .filter(|base| base.vob_id != 0)
-            .map(|base| base.vob_id)
-            .or(static_vob_id)
-            .map(|vob_id| SavedMobBase { vob_id });
-        let static_object = static_vob_id.map(|_| SavedStatic);
-        let chest = match (chest, mob_base.is_some()) {
-            (Some(chest), true) => Some(SavedChest {
+        // Movers carry `StaticMesh` too, but the world definition respawns them
+        // from their prototype; a `SavedStatic` would duplicate them on load.
+        let static_mesh = static_mesh.filter(|_| mover.is_none());
+        let object = Self {
+            transform: *transform,
+            player: player.map(|_| SavedPlayer),
+            npc: npc.map(|npc| SavedNpc {
+                instance_id: npc.instance_id(),
+            }),
+            overlay: overlay.map(|overlay| SavedOverlay(overlay.0.clone())),
+            item: item.map(|item| SavedItem {
+                instance_id: item.instance_id(),
+            }),
+            mob_base: base.map(|base| SavedMobBase {
+                vob_id: base.vob_id,
+            }),
+            static_object: static_mesh.map(|_| SavedStatic),
+            chest: chest.map(|chest| SavedChest {
                 locked: chest.locked,
                 items: chest.items.clone(),
                 cracked: chest.cracked,
             }),
-            (Some(_), false) => {
-                warn!("Chest entity has no vob id, its state is not saved");
-                None
-            }
-            (None, _) => None,
-        };
-        let object = Self {
-            transform: *transform,
-            player: player.map(|_| SavedPlayer),
-            npc,
-            overlay,
-            item,
-            mob_base,
-            static_object,
-            chest,
         };
         (!object.is_empty()).then_some(object)
     }
@@ -139,7 +121,39 @@ mod tests {
 
     #[test]
     fn static_mesh_is_a_marker_and_takes_the_vob_id_from_mob_base() {
-        let static_mesh = StaticMesh { vob_id: 5 };
+        let static_mesh = StaticMesh;
+        let base = MobBase {
+            vob_id: 5,
+            ..default()
+        };
+        let object = SavedObject::from_components(
+            &Transform::IDENTITY,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(&base),
+            Some(&static_mesh),
+            None,
+        )
+        .expect("static object");
+
+        assert!(object.static_object.is_some());
+        assert_eq!(object.mob_base.as_ref().map(|base| base.vob_id), Some(5));
+    }
+
+    #[test]
+    fn mover_static_mesh_is_not_saved() {
+        let static_mesh = StaticMesh;
+        let mover = GameMover::new(
+            "DOOR".to_string(),
+            Vec::new(),
+            Transform::IDENTITY,
+            1.0,
+            true,
+            zen_kit_rs::misc::MoverBehavior::TOGGLE,
+        );
         let object = SavedObject::from_components(
             &Transform::IDENTITY,
             None,
@@ -149,12 +163,10 @@ mod tests {
             None,
             None,
             Some(&static_mesh),
-            None,
-        )
-        .expect("static object");
+            Some(&mover),
+        );
 
-        assert!(object.static_object.is_some());
-        assert_eq!(object.mob_base.as_ref().map(|base| base.vob_id), Some(5));
+        assert!(object.is_none());
     }
 
     #[test]

@@ -183,7 +183,14 @@ mod tests {
         let mut world = World::new();
         world.spawn((Transform::default(), PlayerCharacter));
         spawn_chest(&mut world);
-        world.spawn((Transform::default(), StaticMesh { vob_id: 42 }));
+        world.spawn((
+            Transform::default(),
+            StaticMesh,
+            MobBase {
+                vob_id: 42,
+                ..default()
+            },
+        ));
         // Marker-only entity: despawned, but it has no SavedObject payload.
         world.spawn(WorldEntityMarker);
 

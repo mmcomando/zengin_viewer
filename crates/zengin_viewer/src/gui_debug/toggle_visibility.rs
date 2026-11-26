@@ -27,12 +27,10 @@ fn insert_resources(mut commands: Commands) {
 // #[require(WorldEntityMarker)]
 pub struct WorldMesh {}
 
+/// Static vob entity. Its vob id lives in the sibling `MobBase`.
 #[derive(Component, Default)]
 #[require(WorldEntityMarker)]
-pub struct StaticMesh {
-    /// Index of the vob in the ZEN archive, `0` for a non-vob static entity.
-    pub vob_id: u32,
-}
+pub struct StaticMesh;
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Resource)]
