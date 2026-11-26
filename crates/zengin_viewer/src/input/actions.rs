@@ -13,7 +13,6 @@ use crate::input::horizontal_axis::HorizontalAxis;
 use crate::input::record::ActionRecordingPlugin;
 use crate::input::replay::ActionReplayPlugin;
 use crate::zengin::AppState;
-use crate::zengin::gui::WorldInputViews;
 use crate::zengin::gui::{ChapterScreenState, InventoryUiState, JournalUiState, StatsUiState};
 use crate::zengin::{DialogRequest, DialogUiState, DialogVoice};
 use dev_util::perf_debug;
@@ -188,10 +187,6 @@ pub(crate) fn update_input_mode(
     }
 }
 
-pub(crate) fn world_input_enabled(views: WorldInputViews) -> bool {
-    views.enabled()
-}
-
 /// Disables the editor actions except the mode toggle, which must stay
 /// available to leave editor mode. The toggle is enabled without resetting it,
 /// so a press is not lost when the mode changes on the same frame.
@@ -216,35 +211,5 @@ mod tests {
         ) {
             panic!("{error}");
         }
-    }
-
-    #[test]
-    fn no_open_view_allows_world_input() {
-        assert!(world_input_runs_with_inventory(false));
-    }
-
-    #[test]
-    fn open_inventory_blocks_world_input() {
-        assert!(!world_input_runs_with_inventory(true));
-    }
-
-    #[derive(Resource, Default)]
-    struct Ran(bool);
-
-    fn world_input_runs_with_inventory(open: bool) -> bool {
-        let mut app = App::new();
-        app.init_resource::<DialogUiState>();
-        app.init_resource::<ChapterScreenState>();
-        app.init_resource::<InventoryUiState>();
-        app.init_resource::<JournalUiState>();
-        app.init_resource::<StatsUiState>();
-        app.init_resource::<Ran>();
-        app.world_mut().resource_mut::<InventoryUiState>().open = open;
-        app.add_systems(
-            Update,
-            (|mut ran: ResMut<Ran>| ran.0 = true).run_if(world_input_enabled),
-        );
-        app.update();
-        app.world().resource::<Ran>().0
     }
 }

@@ -15,7 +15,7 @@ pub(crate) use crate::zengin::gui::chapter_screen::{
 };
 pub(crate) use crate::zengin::gui::game_log::{GameLog, GameLogEntry, GameLogPlugin};
 pub(crate) use crate::zengin::gui::health_bars::HealthBarsPlugin;
-pub(crate) use crate::zengin::gui::input_gate::WorldInputViews;
+pub(crate) use crate::zengin::gui::input_gate::{WorldInputViews, world_input_enabled};
 pub(crate) use crate::zengin::gui::inventory::{
     InventoryUiPlugin, InventoryUiState, LockpickOpened, LootClosed, LootSource, OpenLockpick,
     OpenLoot, OpenTrade,

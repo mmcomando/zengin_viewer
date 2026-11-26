@@ -5,12 +5,12 @@ use avian3d::{math::*, prelude::*};
 use bevy::{ecs::query::Has, prelude::*};
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::input::world_input_enabled;
 use crate::zengin::AppState;
 use crate::zengin::gameplay::camera::CameraResource;
 use crate::zengin::gameplay::character_camera::{
     camera_movement_system, camera_toggle_input, use_character_camera,
 };
+use crate::zengin::gui::world_input_enabled;
 use crate::zengin::{NPC_BODY, NpcMobUse, SELECTABLE};
 use dev_util::perf_debug;
 use input_core::{GameplayAction, GameplayInputMarker};
