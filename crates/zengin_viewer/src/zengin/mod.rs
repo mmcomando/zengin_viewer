@@ -46,7 +46,7 @@ mod world_spawn;
 use bevy::prelude::*;
 
 // Expose only what is needed for outside modules
-pub(crate) use crate::zengin::audio::{PendingMusic, PlaySound, StopSound};
+pub(crate) use crate::zengin::audio::{PendingMusic, PlaySound, PlayVoice, StopVoice};
 pub(crate) use crate::zengin::common::MobPosition;
 pub(crate) use crate::zengin::common::MusicZones;
 pub(crate) use crate::zengin::common::animation_file_name;

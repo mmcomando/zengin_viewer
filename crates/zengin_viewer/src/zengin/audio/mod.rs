@@ -24,7 +24,8 @@ pub(crate) struct ZenginAudioPlugin;
 impl Plugin for ZenginAudioPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<PlaySound>();
-        app.add_message::<StopSound>();
+        app.add_message::<PlayVoice>();
+        app.add_message::<StopVoice>();
         app.init_resource::<PendingMusic>();
         app.init_resource::<svm::SvmPlayback>();
         app.add_plugins(music::MusicPlaybackPlugin);
@@ -54,13 +55,20 @@ impl Plugin for ZenginAudioPlugin {
 pub struct PlaySound {
     pub asset_path: String,
     /// World position of a spatial sound. `None` plays the sound globally, e.g.
-    /// a UI cue or a dialog voice.
+    /// a UI cue.
     pub position: Option<Vec3>,
 }
 
-/// Stops the sound started most recently.
+/// Asset path of a dialog voice line to play. Only the most recently started
+/// voice line can be stopped, unlike [`PlaySound`].
 #[derive(Message)]
-pub struct StopSound;
+pub struct PlayVoice {
+    pub asset_path: String,
+}
+
+/// Stops the most recently started [`PlayVoice`] line.
+#[derive(Message)]
+pub struct StopVoice;
 
 /// Most recent music request, applied on the next `Update`.
 #[derive(Resource, Default)]
@@ -87,19 +95,18 @@ impl PendingMusic {
 
 fn dialog_voice_requests(
     mut voices: MessageReader<DialogVoice>,
-    mut play_sound: MessageWriter<PlaySound>,
-    mut stop_sound: MessageWriter<StopSound>,
+    mut play_voice: MessageWriter<PlayVoice>,
+    mut stop_voice: MessageWriter<StopVoice>,
 ) {
     for voice in voices.read() {
         match voice {
             DialogVoice::Play { asset_path } => {
-                play_sound.write(PlaySound {
+                play_voice.write(PlayVoice {
                     asset_path: asset_path.clone(),
-                    position: None,
                 });
             }
             DialogVoice::Stop => {
-                stop_sound.write(StopSound);
+                stop_voice.write(StopVoice);
             }
         }
     }
