@@ -293,6 +293,8 @@ pub struct ZenGinWorldData {
     pub change_level_triggers: Vec<ChangeLevelTrigger>,
     /// Pre-resolved spawn data of every spawnable vob, keyed by archive id.
     pub prototypes: BTreeMap<u32, VobPrototype>,
+    /// Lowercased vob name to archive id, for name-addressed spawns.
+    pub names: HashMap<String, u32>,
 }
 
 /// Area that loads another world when the player enters it

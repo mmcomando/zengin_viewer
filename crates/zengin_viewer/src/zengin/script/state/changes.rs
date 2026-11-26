@@ -186,7 +186,6 @@ pub struct ClearAiQueueChange {
 #[derive(Message, Debug, Clone)]
 pub struct SpawnItem {
     pub instance_id: InstanceId,
-    pub location_name: Option<StringId>, // Waypoint or spot name
     pub transform: Option<Transform>,
 }
 

@@ -36,6 +36,7 @@ pub fn load_zengin_world_data(
     world_path: &str,
     vm_state: &crate::zengin::script::state::LoadedState,
     spawns: &WorldSpawnMessages,
+    spawn_mesh: bool,
 ) -> ZenGinWorldData {
     if false {
         print_nodes(&vfs.get_root(), 0);
@@ -46,13 +47,14 @@ pub fn load_zengin_world_data(
     let world =
         zen_kit_rs::world::World::load_versioned(&world_read, GameVersion::GOTHIC2).unwrap();
 
-    let world_mesh = world.mesh();
-    let world_bevy_meshes = meshes_from_zengin_mesh(&world_mesh);
-
     let mut data = ZenGinWorldData::default();
-    spawns.world_mesh.send(SpawnWorldMesh {
-        model: world_bevy_meshes,
-    });
+    if spawn_mesh {
+        let world_mesh = world.mesh();
+        let world_bevy_meshes = meshes_from_zengin_mesh(&world_mesh);
+        spawns.world_mesh.send(SpawnWorldMesh {
+            model: world_bevy_meshes,
+        });
+    }
 
     // Item instance name -> instance id, resolves world vob and armor item names
     let item_ids: HashMap<String, InstanceId> = vm_state
@@ -98,6 +100,10 @@ fn load_objects(
     item_ids: &HashMap<String, InstanceId>,
     obj: &VirtualObject,
 ) {
+    let name = obj.name();
+    if !name.is_empty() {
+        data.names.entry(name.to_lowercase()).or_insert(obj.id());
+    }
     let visual = obj.visual();
     let has_visual = !visual.name().is_empty() && obj.show_visual();
 
@@ -415,7 +421,6 @@ fn handle_other_vob(
                 obj.id(),
                 VobPrototype::Item(SpawnItem {
                     instance_id,
-                    location_name: None,
                     transform: Some(tr),
                 }),
             );

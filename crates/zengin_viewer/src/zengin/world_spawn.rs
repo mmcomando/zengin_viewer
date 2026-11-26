@@ -1,10 +1,9 @@
 //! Spawn messages for the entities produced by the world Zen load: the world
 //! mesh, static vob models, mob vobs (interactive and containers) and movers.
 //! The loader resolves one [`VobPrototype`] per spawnable vob and keeps them in
-//! [`VobPrototypes`]; the systems here turn a prototype (dispatched directly at
-//! load or requested later by [`SpawnVob`]) into ECS entities.
+//! [`VobPrototypes`]; the systems here turn a prototype into ECS entities.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use avian3d::prelude::{Collider, CollisionLayers};
 use bevy::prelude::*;
@@ -16,9 +15,6 @@ use crate::gameplay::distance::ClassifyDistance;
 use crate::gui_debug::{StaticMesh, WorldMesh};
 use crate::perf_debug;
 use crate::save::format::SavedObject;
-use crate::zengin::common::{is_switch_mob_scheme, mob_scheme, mob_visual_stem};
-use crate::zengin::loaders::vdf_reader::ZenginVfs;
-use crate::zengin::loaders::vfs::find_mesh_path;
 use crate::zengin::mobs::{MobAnimation, MobHiddenModel, mob_state_animation};
 use crate::zengin::movers::GameMover;
 use crate::zengin::npc_routines::AnimationFiles;
@@ -46,12 +42,10 @@ impl Plugin for WorldSpawnPlugin {
         app.insert_resource(messages);
         app.init_resource::<SpawnPositionFilter>();
         app.init_resource::<VobPrototypes>();
-        app.add_message::<SpawnVob>();
         app.add_systems(
             Update,
             (
                 spawn_world_mesh,
-                spawn_vobs,
                 spawn_static_models,
                 spawn_mobs,
                 sync_script_containers,
@@ -185,16 +179,6 @@ impl WorldSpawnMessages {
         self.items.clear();
         self.objects.clear();
     }
-
-    /// Queues the typed spawn message a prototype describes.
-    pub(crate) fn send_prototype(&self, prototype: &VobPrototype) {
-        match prototype {
-            VobPrototype::Static(spawn) => self.static_models.send(spawn.clone()),
-            VobPrototype::Mob(spawn) => self.mobs.send(spawn.clone()),
-            VobPrototype::Mover(spawn) => self.movers.send(spawn.clone()),
-            VobPrototype::Item(spawn) => self.items.send(spawn.clone()),
-        }
-    }
 }
 
 /// Requests spawning the entities described by a [`SavedObject`]. World load,
@@ -217,150 +201,42 @@ pub(crate) enum VobPrototype {
 /// Spawn prototypes of the currently loaded world, keyed by the vob id in the
 /// ZEN archive.
 #[derive(Resource, Debug, Default)]
-pub(crate) struct VobPrototypes(BTreeMap<u32, VobPrototype>);
+pub(crate) struct VobPrototypes {
+    by_id: BTreeMap<u32, VobPrototype>,
+    names: HashMap<String, u32>,
+}
 
 impl VobPrototypes {
-    pub(crate) fn from_map(map: BTreeMap<u32, VobPrototype>) -> Self {
-        Self(map)
+    pub(crate) fn new(by_id: BTreeMap<u32, VobPrototype>, names: HashMap<String, u32>) -> Self {
+        Self { by_id, names }
     }
 
     pub(crate) fn get(&self, vob_id: u32) -> Option<&VobPrototype> {
-        self.0.get(&vob_id)
+        self.by_id.get(&vob_id)
+    }
+
+    pub(crate) fn id_by_name(&self, name: &str) -> Option<u32> {
+        self.names.get(&name.to_lowercase()).copied()
+    }
+
+    /// Archive id of the first prototype whose visual model (archetype file
+    /// stem) matches `visual`, for the unnamed world vobs.
+    pub(crate) fn id_by_visual(&self, visual: &str) -> Option<u32> {
+        self.by_id.iter().find_map(|(id, prototype)| {
+            let archetype = match prototype {
+                VobPrototype::Static(spawn) => &spawn.archetype,
+                VobPrototype::Mob(spawn) => &spawn.archetype,
+                VobPrototype::Mover(spawn) => &spawn.archetype,
+                VobPrototype::Item(_) => return None,
+            };
+            let stem = std::path::Path::new(archetype).file_stem()?.to_str()?;
+            stem.eq_ignore_ascii_case(visual).then_some(*id)
+        })
     }
 
     pub(crate) fn values(&self) -> impl Iterator<Item = &VobPrototype> {
-        self.0.values()
+        self.by_id.values()
     }
-}
-
-/// Requests spawning the vob prototype stored under `vob_id`.
-#[derive(Debug, Message)]
-pub(crate) struct SpawnVob {
-    pub(crate) vob_id: u32,
-}
-
-/// Spawns the requested vob prototypes. Used for respawns; the initial world
-/// spawn dispatches the prototypes directly so loading stays one pass.
-fn spawn_vobs(
-    mut requests: MessageReader<SpawnVob>,
-    prototypes: Res<VobPrototypes>,
-    spawns: Res<WorldSpawnMessages>,
-) {
-    let _perf = perf_debug!();
-    for request in requests.read() {
-        let Some(prototype) = prototypes.get(request.vob_id) else {
-            warn!("No vob prototype for vob({})", request.vob_id);
-            continue;
-        };
-        spawns.send_prototype(prototype);
-    }
-}
-
-/// Spawns an interactive mob from a visual mesh name resolved against the game
-/// archives, used by scenario replays to place mobs without a world load.
-/// `focus_name` is the in-game label, `state_num` the number of interaction
-/// states (a chair has one) and `on_state_func` the script hook the vob would
-/// carry on a real map.
-pub(crate) fn request_mob_spawn(
-    world: &mut World,
-    visual: &str,
-    focus_name: Option<&str>,
-    state_num: Option<i32>,
-    on_state_func: Option<&str>,
-    tr: Transform,
-) {
-    let Some(vfs) = world.get_resource::<ZenginVfs>() else {
-        warn!("Mob({visual}) spawn requested without the zengin vfs");
-        return;
-    };
-    let archetype = find_mesh_path(&vfs.0.lock().unwrap(), visual);
-    let Some(archetype) = archetype else {
-        warn!("Mob({visual}) spawn requested, no mesh found for the visual");
-        return;
-    };
-    let Some(mobs) = world
-        .get_resource::<WorldSpawnMessages>()
-        .map(|spawns| spawns.mobs.clone())
-    else {
-        warn!("Mob({visual}) spawn requested before the spawn messages are registered");
-        return;
-    };
-    let scheme = mob_scheme(visual);
-    // The debug spawn has no vob type; derive the switch/door behaviour from
-    // the scheme so a spawned lever/door matches the world objects.
-    let auto_end = is_switch_mob_scheme(&scheme);
-    let no_move = scheme.eq_ignore_ascii_case("DOOR");
-    mobs.send(SpawnMob {
-        base: MobBase {
-            vob_name: format!("TEST_MOB_{scheme}"),
-            focus_name: focus_name.unwrap_or(&scheme).to_string(),
-            ..default()
-        },
-        tr,
-        archetype,
-        visual_hidden: false,
-        collides: true,
-        scheme: scheme.clone(),
-        visual_stem: mob_visual_stem(visual),
-        state_num: state_num.unwrap_or(1),
-        kind: MobSpawnKind::Interactive(InteractiveSpawn {
-            on_state_func: on_state_func.unwrap_or_default().to_string(),
-            auto_end,
-            no_move,
-            ..default()
-        }),
-    });
-}
-
-/// Spawns an empty container vob from a visual mesh name resolved against the
-/// game archives, used by scenario replays to place chests without a world
-/// load.
-pub(crate) fn request_chest_spawn(
-    world: &mut World,
-    visual: &str,
-    locked: bool,
-    key: &str,
-    pick_string: &str,
-    tr: Transform,
-) {
-    let Some(vfs) = world.get_resource::<ZenginVfs>() else {
-        warn!("Chest({visual}) spawn requested without the zengin vfs");
-        return;
-    };
-    let archetype = find_mesh_path(&vfs.0.lock().unwrap(), visual);
-    let Some(archetype) = archetype else {
-        warn!("Chest({visual}) spawn requested, no mesh found for the visual");
-        return;
-    };
-    let Some(mobs) = world
-        .get_resource::<WorldSpawnMessages>()
-        .map(|spawns| spawns.mobs.clone())
-    else {
-        warn!("Chest({visual}) spawn requested before the spawn messages are registered");
-        return;
-    };
-    let scheme = mob_scheme(visual);
-    mobs.send(SpawnMob {
-        base: MobBase {
-            vob_name: format!("TEST_CHEST_{scheme}"),
-            focus_name: "MOBNAME_CHEST".to_string(),
-            ..default()
-        },
-        tr,
-        archetype,
-        visual_hidden: false,
-        collides: true,
-        scheme,
-        visual_stem: mob_visual_stem(visual),
-        state_num: 1,
-        kind: MobSpawnKind::Container(ContainerSpawn {
-            items: Vec::new(),
-            locked,
-            key: key.to_string(),
-            pick_string: pick_string.to_string(),
-            cracked: false,
-        }),
-    });
 }
 
 /// Circle in world space (meters) used by [`SpawnPositionFilter`].
@@ -653,17 +529,6 @@ mod tests {
         SpawnPoint { center, radius }
     }
 
-    fn empty_spawns() -> WorldSpawnMessages {
-        WorldSpawnMessages {
-            world_mesh: default(),
-            static_models: default(),
-            mobs: default(),
-            movers: default(),
-            items: default(),
-            objects: default(),
-        }
-    }
-
     fn static_model(archetype: &str) -> SpawnStaticModel {
         SpawnStaticModel {
             vob_id: 1,
@@ -675,33 +540,23 @@ mod tests {
 
     #[test]
     fn prototypes_are_keyed_by_vob_id() {
-        let prototypes = VobPrototypes::from_map(BTreeMap::from([
-            (7, VobPrototype::Static(static_model("a"))),
-            (
-                9,
-                VobPrototype::Item(SpawnItem {
-                    instance_id: InstanceId::new(1).expect("instance id"),
-                    location_name: None,
-                    transform: None,
-                }),
-            ),
-        ]));
+        let prototypes = VobPrototypes::new(
+            BTreeMap::from([
+                (7, VobPrototype::Static(static_model("a"))),
+                (
+                    9,
+                    VobPrototype::Item(SpawnItem {
+                        instance_id: InstanceId::new(1).expect("instance id"),
+                        transform: None,
+                    }),
+                ),
+            ]),
+            HashMap::new(),
+        );
 
         assert!(matches!(prototypes.get(7), Some(VobPrototype::Static(_))));
         assert!(matches!(prototypes.get(9), Some(VobPrototype::Item(_))));
         assert!(prototypes.get(8).is_none());
-    }
-
-    #[test]
-    fn send_prototype_queues_the_matching_typed_message() {
-        let spawns = empty_spawns();
-        spawns.send_prototype(&VobPrototype::Static(static_model("a")));
-
-        let static_models = spawns.static_models.take();
-        assert_eq!(static_models.len(), 1);
-        assert_eq!(static_models[0].vob_id, 1);
-        assert_eq!(static_models[0].archetype, "a");
-        assert!(spawns.mobs.take().is_empty());
     }
 
     #[test]

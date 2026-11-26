@@ -1,11 +1,10 @@
 [
     // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginLoadWorldPrototypes(world: "NEWWORLD/NEWWORLD"),
     ZenginSetDebugNpc(name: "hero"),
-    ZenginSpawnChest(
-        visual: "CHESTBIG_NW_NORMAL_LOCKED",
-        locked: true,
-        pick_string: "LR",
+    ZenginSpawnVob(
+        vob_id: 8877,
         translation: (0.0, 0.0, -2.0),
         rotation: (0.0, 0.0, 0.0),
     ),

@@ -1,6 +1,7 @@
 [
     // Setup
     IncludeScenario(path: "/common/test_room_free_camera"),
+    ZenginLoadWorldPrototypes(world: "NEWWORLD/NEWWORLD"),
     SetCameraLocation(
         translation: (25, 6, -0),
         rotation: (-10.0, 90.0, 0.0),
@@ -11,10 +12,8 @@
         translation: (0.0, 0.0, 8.5),
         connect_to: Some("nw_bigfarm_house_11"),
     ),
-    ZenginSpawnMob(
+    ZenginSpawnVob(
         visual: "BEDHIGH_NW_NORMAL_01",
-        focus_name: "BED",
-        on_state_func: "sleepabit",
         translation: (0.0, 0.0, 10.0),
         rotation: (0.0, 0.0, 0.0),
     ),
@@ -28,7 +27,7 @@
     Wait(frame_dt: 500),
 
     // Assert
-    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_BEDHIGH\\).*scheme\\(bedhigh\\).*state\\(1\\)"),
+    TestLogExists(regex: "uses mob\\(.*\\) .*scheme\\(bedhigh\\).*state\\(1\\)"),
 
     // Act
     TestClearLogBuffer,

@@ -209,64 +209,43 @@ fn place_cube_command_parses_and_schedules() {
 }
 
 #[test]
-fn spawn_mob_command_parses_and_schedules() {
-    let commands = parse(
-        "[ZenginSpawnMob(visual: \"CHAIR_NW_NORMAL_01\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",
-    );
+fn load_world_prototypes_command_parses() {
+    let commands = parse("[ZenginLoadWorldPrototypes(world: \"NEWWORLD/NEWWORLD\")]");
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
-        ReplayCommand::ZenginSpawnMob { visual, state_num: None, focus_name: None, translation, .. }
-            if visual == "CHAIR_NW_NORMAL_01"
-                && *translation == Vec3::new(0.0, 0.0, -2.0)
-    ));
-
-    let commands = parse(
-        "[ZenginSpawnMob(visual: \"chair\", focus_name: \"Chair\", state_num: 2, translation: (1.0, 2.0, 3.0), rotation: (0.0, 90.0, 0.0))]",
-    );
-    assert!(matches!(
-        &commands[0].command,
-        ReplayCommand::ZenginSpawnMob { focus_name: Some(name), state_num: Some(2), .. }
-            if name == "Chair"
-    ));
-
-    let commands = parse(
-        "[ZenginSpawnMob(visual: \"BEDHIGH_NW_NORMAL_01\", on_state_func: \"sleepabit\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",
-    );
-    assert!(matches!(
-        &commands[0].command,
-        ReplayCommand::ZenginSpawnMob { on_state_func: Some(name), .. } if name == "sleepabit"
+        ReplayCommand::ZenginLoadWorldPrototypes { world } if world == "NEWWORLD/NEWWORLD"
     ));
 }
 
 #[test]
-fn spawn_chest_command_parses_and_schedules() {
+fn spawn_vob_command_parses_by_visual_and_id() {
     let commands = parse(
-        "[ZenginSpawnChest(visual: \"CHESTBIG_NW_NORMAL_OPEN\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",
+        "[ZenginSpawnVob(visual: \"CHAIR_NW_NORMAL_01\", translation: (0.0, 0.0, -2.0), rotation: (0.0, 0.0, 0.0))]",
     );
     assert_eq!(frames(&commands), [5]);
     assert!(matches!(
         &commands[0].command,
-        ReplayCommand::ZenginSpawnChest { visual, locked: false, translation, .. }
-            if visual == "CHESTBIG_NW_NORMAL_OPEN"
-                && *translation == Vec3::new(0.0, 0.0, -2.0)
+        ReplayCommand::ZenginSpawnVob {
+            visual: Some(visual),
+            vob_id: None,
+            name: None,
+            translation,
+            ..
+        } if visual == "CHAIR_NW_NORMAL_01" && *translation == Vec3::new(0.0, 0.0, -2.0)
     ));
 
     let commands = parse(
-        "[ZenginSpawnChest(visual: \"CHESTSMALL_NW_POOR_LOCKED\", locked: true, translation: (1.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0))]",
+        "[ZenginSpawnVob(vob_id: 8877, translation: (1.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0))]",
     );
     assert!(matches!(
         &commands[0].command,
-        ReplayCommand::ZenginSpawnChest { locked: true, .. }
-    ));
-
-    let commands = parse(
-        "[ZenginSpawnChest(visual: \"CHESTSMALL_NW_POOR_LOCKED\", locked: true, key: \"ITKE_KEY_01\", pick_string: \"LR\", translation: (1.0, 0.0, 0.0), rotation: (0.0, 0.0, 0.0))]",
-    );
-    assert!(matches!(
-        &commands[0].command,
-        ReplayCommand::ZenginSpawnChest { key: Some(key), pick_string: Some(pick), .. }
-            if key == "ITKE_KEY_01" && pick == "LR"
+        ReplayCommand::ZenginSpawnVob {
+            vob_id: Some(8877),
+            name: None,
+            visual: None,
+            ..
+        }
     ));
 }
 

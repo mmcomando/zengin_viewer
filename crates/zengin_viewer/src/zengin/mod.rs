@@ -112,11 +112,11 @@ pub(crate) use crate::zengin::waypoint_graph::WaypointGraph;
 pub(crate) use crate::zengin::waypoint_graph::add_waypoint;
 pub(crate) use crate::zengin::world_plugin::{
     CurrentWorld, LoadingWorld, NewGame, NpcSpawnNameFilter, RestartWorld, START_WORLD,
-    begin_world_load, request_initial_world, request_player_spawn, request_world_spawn,
+    begin_world_load, load_world_prototypes, request_initial_world, request_player_spawn,
+    request_world_spawn,
 };
 pub(crate) use crate::zengin::world_spawn::{
-    SpawnFromSavedObject, SpawnPoint, SpawnPositionFilter, WorldSpawnMessages, request_chest_spawn,
-    request_mob_spawn,
+    SpawnFromSavedObject, SpawnPoint, SpawnPositionFilter, VobPrototypes, WorldSpawnMessages,
 };
 
 /// Plugin which provides Zengin related functionality

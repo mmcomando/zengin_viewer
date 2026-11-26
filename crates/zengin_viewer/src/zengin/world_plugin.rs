@@ -541,13 +541,16 @@ fn spawn_world_data(
     let world_path = format!("/_WORK/DATA/WORLDS/{world_name}.ZEN");
     let mut world_data = {
         let vfs = vfs.0.lock().unwrap();
-        load_zengin_world_data(&vfs, &world_path, loaded_state, spawns)
+        load_zengin_world_data(&vfs, &world_path, loaded_state, spawns, true)
     };
     // Every spawnable vob was resolved while the ZEN was parsed. Loaded state
     // replaces the world-definition data of the same vob, then the initial
     // world is spawned from the prototypes, which stay available for later
     // respawns.
-    let prototypes = VobPrototypes::from_map(std::mem::take(&mut world_data.prototypes));
+    let prototypes = VobPrototypes::new(
+        std::mem::take(&mut world_data.prototypes),
+        std::mem::take(&mut world_data.names),
+    );
     // `zCTriggerWorldStart` events are fired once the world is in game, after
     // the movers they address exist. A restored world only fires the triggers
     // that are not limited to the first start.
@@ -658,6 +661,27 @@ fn spawn_world_data(
     commands.insert_resource(prototypes);
 }
 
+/// Loads only the spawn prototypes of `world`, without spawning its entities or
+/// touching the scenario waypoints/spots.
+pub(crate) fn load_world_prototypes(world: &mut World, world_name: &str) {
+    let world_path = format!("/_WORK/DATA/WORLDS/{world_name}.ZEN");
+    let data = {
+        let (Some(vfs), Some(scripts), Some(spawns)) = (
+            world.get_resource::<ZenginVfs>(),
+            world.get_resource::<ScriptResource>(),
+            world.get_resource::<WorldSpawnMessages>(),
+        ) else {
+            warn!("World prototype load requested before the game script or vfs is ready");
+            return;
+        };
+        let mut scripts = scripts.lock();
+        let vfs = vfs.0.lock().unwrap();
+        load_zengin_world_data(&vfs, &world_path, scripts.loaded_state(), spawns, false)
+    };
+    world.insert_resource(VobPrototypes::new(data.prototypes, data.names));
+    info!("Loaded the world prototypes of {world_name}");
+}
+
 /// Turns a world prototype into the spawn descriptor a fresh world sends to
 /// [`spawn_from_saved_objects`].
 fn saved_object_from_prototype(prototype: &VobPrototype) -> Option<SavedObject> {
@@ -735,7 +759,6 @@ fn spawn_from_saved_objects(
         if let Some(item) = &object.item {
             spawns.items.send(SpawnItem {
                 instance_id: item.instance_id,
-                location_name: None,
                 transform: Some(transform),
             });
         }
@@ -746,7 +769,7 @@ fn spawn_from_saved_objects(
             warn!("No vob prototype for saved object vob({})", mob_base.vob_id);
             continue;
         };
-        send_saved_prototype(&spawns, prototype, object.chest.as_ref());
+        send_saved_prototype(&spawns, prototype, object.chest.as_ref(), transform);
     }
 }
 
@@ -791,24 +814,41 @@ fn saved_object_transform(
     Some(*transform)
 }
 
-/// Sends the prototype spawn message, applying saved container state to the
-/// mutable part of a container prototype.
+/// Sends the prototype spawn message at `transform`, applying saved container
+/// state to the mutable part of a container prototype.
 fn send_saved_prototype(
     spawns: &WorldSpawnMessages,
     prototype: &VobPrototype,
     chest: Option<&SavedChest>,
+    transform: Transform,
 ) {
-    let (VobPrototype::Mob(mob), Some(chest)) = (prototype, chest) else {
-        spawns.send_prototype(prototype);
-        return;
-    };
-    let mut mob = mob.clone();
-    if let MobSpawnKind::Container(container) = &mut mob.kind {
-        container.items.clone_from(&chest.items);
-        container.locked = chest.locked;
-        container.cracked = chest.cracked;
+    match prototype {
+        VobPrototype::Static(spawn) => {
+            let mut spawn = spawn.clone();
+            spawn.tr = transform;
+            spawns.static_models.send(spawn);
+        }
+        VobPrototype::Mover(spawn) => {
+            let mut spawn = spawn.clone();
+            spawn.tr = transform;
+            spawns.movers.send(spawn);
+        }
+        VobPrototype::Item(spawn) => {
+            let mut spawn = spawn.clone();
+            spawn.transform = Some(transform);
+            spawns.items.send(spawn);
+        }
+        VobPrototype::Mob(spawn) => {
+            let mut mob = spawn.clone();
+            mob.tr = transform;
+            if let (Some(chest), MobSpawnKind::Container(container)) = (chest, &mut mob.kind) {
+                container.items.clone_from(&chest.items);
+                container.locked = chest.locked;
+                container.cracked = chest.cracked;
+            }
+            spawns.mobs.send(mob);
+        }
     }
-    spawns.mobs.send(mob);
 }
 
 /// Resolves the handles of models referenced by name in code, called at world
@@ -1112,8 +1152,6 @@ fn spawn_item_entities(
     mut handles_map: ResMut<CachedAssetHandles>,
     asset_server: Res<AssetServer>,
     gothic_scripts: ResMut<ScriptResource>,
-    way_points: Res<WayPoints>,
-    spots: Res<Spots>,
     vfs: Res<ZenginVfs>,
     mut instance_index: ResMut<InstanceIndex>,
     position_filter: Res<SpawnPositionFilter>,
@@ -1141,35 +1179,7 @@ fn spawn_item_entities(
             crate::warn_once!("No mesh path for item({})", spawn.instance_id);
             continue;
         };
-        let waypoint_tr = if let Some(tr) = spawn.transform {
-            tr
-        } else if let Some(waypoint_id) = spawn.location_name {
-            let Some(location_name) = gothic_scripts.lock().get_canon_string(waypoint_id) else {
-                warn!("Empty location for item({})", spawn.instance_id);
-                continue;
-            };
-            let waypoint_tr =
-                if let Some(waypoint_tr) = way_points.points.get(location_name.as_str()) {
-                    *waypoint_tr
-                } else if let Some(waypoint_tr) = spots.0.get(location_name.as_str()) {
-                    *waypoint_tr
-                } else {
-                    warn!(
-                        "No location found for item({}) on({})",
-                        spawn.instance_id, location_name
-                    );
-                    continue;
-                };
-
-            // let Some(waypoint_tr) = way_points.points.get(&waypoint_name) else {
-            //     warn!(
-            //         "No location found for item({}) on({})",
-            //         spawn.instance_id, waypoint_name
-            //     );
-            //     continue;
-            // };
-            waypoint_tr
-        } else {
+        let Some(waypoint_tr) = spawn.transform else {
             continue;
         };
 
@@ -1346,7 +1356,6 @@ mod tests {
         let item = InstanceId::new(3).expect("item id");
         let prototype = VobPrototype::Item(SpawnItem {
             instance_id: item,
-            location_name: None,
             transform: None,
         });
         assert!(saved_object_from_prototype(&prototype).is_none());
@@ -1383,10 +1392,12 @@ mod tests {
             cracked: true,
         };
 
-        send_saved_prototype(&spawns, &prototype, Some(&chest));
+        let transform = Transform::from_xyz(1.0, 2.0, 3.0);
+        send_saved_prototype(&spawns, &prototype, Some(&chest), transform);
 
         let mobs = spawns.mobs.take();
         assert_eq!(mobs.len(), 1);
+        assert_eq!(mobs[0].tr, transform);
         let MobSpawnKind::Container(container) = &mobs[0].kind else {
             panic!("expected a container prototype");
         };

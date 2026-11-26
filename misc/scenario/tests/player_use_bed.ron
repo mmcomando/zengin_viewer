@@ -1,11 +1,9 @@
 [
     // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
-    ZenginSpawnMob(
+    ZenginLoadWorldPrototypes(world: "NEWWORLD/NEWWORLD"),
+    ZenginSpawnVob(
         visual: "BEDHIGH_NW_NORMAL_01",
-        focus_name: "BED",
-        // Beds need the sleepabit hook to open the sleep dialog.
-        on_state_func: "sleepabit",
         translation: (0.0, 0.0, -2.0),
         rotation: (0.0, 0.0, 0.0),
     ),
@@ -19,7 +17,7 @@
     Wait(frame_dt: 20),
 
     // Assert
-    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_BEDHIGH\\)"),
+    TestLogExists(regex: "uses mob\\(.*\\) .*scheme\\(bedhigh\\)"),
     TestLogExists(regex: "transition\\(Some\\(\"T_BEDHIGH_FRONT_S0_2_S1\"\\)\\)"),
     Wait(frame_dt: 130),
     TestLogExists(regex: "current=HUMANS-S_BEDHIGH_FRONT_S1"),

@@ -1,9 +1,10 @@
 [
     // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginLoadWorldPrototypes(world: "NEWWORLD/NEWWORLD"),
     ZenginSetDebugNpc(name: "hero"),
-    ZenginSpawnChest(
-        visual: "CHESTBIG_NW_NORMAL_OPEN",
+    ZenginSpawnVob(
+        name: "CHEST_RUKHAR",
         translation: (0.0, 0.0, -2.0),
         rotation: (0.0, 0.0, 0.0),
     ),
@@ -17,7 +18,7 @@
 
     // Assert
     TestLogExists(regex: "opened chest"),
-    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_CHEST_CHESTBIG\\).*state\\(1\\)"),
+    TestLogExists(regex: "uses mob\\(.*\\) vob\\(CHEST_RUKHAR\\).*state\\(1\\)"),
     TestScreenshot(path: "01_open.png"),
 
     // Act

@@ -9,8 +9,9 @@ use crate::input::record::ReplayCommand;
 use crate::save::format::SavedObjectBuilder;
 use crate::zengin::{
     DebugNpc, GameNpc, NpcSpawnNameFilter, ScriptMessages, ScriptResource, SetGameTime,
-    SpawnFromSavedObject, SpawnPositionFilter, StringCanon, UseMobChange, WorldSpawnMessages,
-    add_waypoint, enqueue_npc_goto, grant_test_items, seed_test_journal,
+    SpawnFromSavedObject, SpawnPositionFilter, StringCanon, UseMobChange, VobPrototypes,
+    WorldSpawnMessages, add_waypoint, enqueue_npc_goto, grant_test_items, load_world_prototypes,
+    seed_test_journal,
 };
 
 use daedalus_typed::{TALENT_1H, TALENT_2H};
@@ -233,6 +234,67 @@ pub(super) fn apply_replay_command(
                 crate::zengin::request_world_spawn(world, &world_name);
             });
         }
+        ReplayCommand::ZenginLoadWorldPrototypes { world } => {
+            info!("Replay requested the world prototypes of {world}");
+            let world_name = world.clone();
+            commands.queue(move |world: &mut World| {
+                load_world_prototypes(world, &world_name);
+            });
+        }
+        ReplayCommand::ZenginSpawnVob {
+            name,
+            vob_id,
+            visual,
+            translation,
+            rotation,
+        } => {
+            let transform = Transform::from_translation(*translation)
+                .with_rotation(rotation_from_degrees(*rotation));
+            let name = name.clone();
+            let visual = visual.clone();
+            let requested_id = *vob_id;
+            info!(
+                "Replay requested vob spawn {name:?}/{requested_id:?}/{visual:?} at {translation:?}"
+            );
+            commands.queue(move |world: &mut World| {
+                let Some(prototypes) = world.get_resource::<VobPrototypes>() else {
+                    warn!("ZenginSpawnVob: world prototypes are not registered");
+                    return;
+                };
+                let id = match (requested_id, name.as_deref(), visual.as_deref()) {
+                    (Some(id), _, _) => id,
+                    (None, Some(name), _) => {
+                        let Some(id) = prototypes.id_by_name(name) else {
+                            warn!("ZenginSpawnVob: no vob named {name:?}");
+                            return;
+                        };
+                        id
+                    }
+                    (None, None, Some(visual)) => {
+                        let Some(id) = prototypes.id_by_visual(visual) else {
+                            warn!("ZenginSpawnVob: no vob with visual {visual:?}");
+                            return;
+                        };
+                        id
+                    }
+                    (None, None, None) => {
+                        warn!("ZenginSpawnVob: name, vob_id or visual is required");
+                        return;
+                    }
+                };
+                if prototypes.get(id).is_none() {
+                    warn!("ZenginSpawnVob: no vob prototype with id {id}");
+                    return;
+                }
+                let Some(spawns) = world.get_resource::<WorldSpawnMessages>() else {
+                    warn!("ZenginSpawnVob: world spawn messages are not registered");
+                    return;
+                };
+                spawns.objects.send(SpawnFromSavedObject {
+                    object: SavedObjectBuilder::new(transform).mob_base(id).build(),
+                });
+            });
+        }
         ReplayCommand::ZenginScriptStartup { world, clean_world } => {
             let Some(gothic_script) = gothic_script else {
                 panic!("ZenginScriptStartup replay command: game script is not loaded");
@@ -379,64 +441,6 @@ pub(super) fn apply_replay_command(
                     mob_name: StringCanon::new(&scheme),
                     state: state_value,
                 });
-            });
-        }
-        ReplayCommand::ZenginSpawnMob {
-            visual,
-            focus_name,
-            state_num,
-            on_state_func,
-            translation,
-            rotation,
-        } => {
-            info!("Replay spawning mob {visual:?} at {translation:?}");
-            let visual = visual.clone();
-            let focus_name = focus_name.clone();
-            let state_num_value = *state_num;
-            let on_state_func = on_state_func.clone();
-            let transform = Transform {
-                translation: *translation,
-                rotation: rotation_from_degrees(*rotation),
-                scale: Vec3::ONE,
-            };
-            commands.queue(move |world: &mut World| {
-                crate::zengin::request_mob_spawn(
-                    world,
-                    &visual,
-                    focus_name.as_deref(),
-                    state_num_value,
-                    on_state_func.as_deref(),
-                    transform,
-                );
-            });
-        }
-        ReplayCommand::ZenginSpawnChest {
-            visual,
-            locked,
-            key,
-            pick_string,
-            translation,
-            rotation,
-        } => {
-            info!("Replay spawning chest {visual:?} at {translation:?}");
-            let visual = visual.clone();
-            let chest_locked = *locked;
-            let key = key.clone().unwrap_or_default();
-            let pick_string = pick_string.clone().unwrap_or_default();
-            let transform = Transform {
-                translation: *translation,
-                rotation: rotation_from_degrees(*rotation),
-                scale: Vec3::ONE,
-            };
-            commands.queue(move |world: &mut World| {
-                crate::zengin::request_chest_spawn(
-                    world,
-                    &visual,
-                    chest_locked,
-                    &key,
-                    &pick_string,
-                    transform,
-                );
             });
         }
         ReplayCommand::TestClearLogBuffer => {

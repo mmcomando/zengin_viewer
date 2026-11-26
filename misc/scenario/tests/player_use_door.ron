@@ -1,9 +1,9 @@
 [
     // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
-    ZenginSpawnMob(
+    ZenginLoadWorldPrototypes(world: "NEWWORLD/NEWWORLD"),
+    ZenginSpawnVob(
         visual: "DOOR_NW_NORMAL_01",
-        focus_name: "DOOR",
         translation: (0.0, 0.0, -4.0),
         rotation: (0.0, 180.0, 0.0),
     ),
@@ -17,7 +17,7 @@
     Wait(frame_dt: 120),
 
     // Assert
-    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_DOOR\\)"),
+    TestLogExists(regex: "uses mob\\(.*\\) .*scheme\\(door\\)"),
     TestLogExists(regex: "animation\\(S_DOOR_FRONT_S1\\)"),
     TestLogExists(regex: "state position=\\(0\\.00, -0\\.09, 0\\.00\\)"),
     TestLogNotExists(regex: "state position=\\(.*, .*, -[1-9]"),

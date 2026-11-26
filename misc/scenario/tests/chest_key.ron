@@ -1,11 +1,10 @@
 [
     // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
+    ZenginLoadWorldPrototypes(world: "NEWWORLD/NEWWORLD"),
     ZenginSetDebugNpc(name: "hero"),
-    ZenginSpawnChest(
-        visual: "CHESTBIG_NW_NORMAL_LOCKED",
-        locked: true,
-        key: "ITKE_KEY_01",
+    ZenginSpawnVob(
+        name: "CHEST_ANDRE_WAREHOUSE_PACKET",
         translation: (0.0, 0.0, -2.0),
         rotation: (0.0, 0.0, 0.0),
     ),
@@ -17,7 +16,9 @@
     Wait(frame_dt: 100),
 
     // Assert
-    TestLogExists(regex: "unlocked chest\\(.*\\) vob\\(TEST_CHEST_CHESTBIG\\) with key\\(ITKE_KEY_01\\)"),
+    TestLogExists(
+        regex: "unlocked chest\\(.*\\) vob\\(CHEST_ANDRE_WAREHOUSE_PACKET\\) with key\\(ItKe_Storage\\)",
+    ),
     TestLogExists(regex: "opened chest"),
     TestLogExists(regex: "Loot opened for chest"),
 

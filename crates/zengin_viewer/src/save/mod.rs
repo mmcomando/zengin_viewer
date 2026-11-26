@@ -1,5 +1,7 @@
 //! Quick save/load: on-disk format, file IO and the save/load systems.
 
+#![allow(clippy::multiple_inherent_impl)]
+
 mod file;
 pub(crate) mod format;
 mod object;

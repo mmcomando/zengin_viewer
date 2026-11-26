@@ -1,9 +1,9 @@
 [
     // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
-    ZenginSpawnMob(
+    ZenginLoadWorldPrototypes(world: "NEWWORLD/NEWWORLD"),
+    ZenginSpawnVob(
         visual: "CHAIR_NW_NORMAL_01",
-        focus_name: "CHAIR",
         translation: (0.0, 0.0, -2.0),
         rotation: (0.0, 0.0, 0.0),
     ),
@@ -17,7 +17,7 @@
     Wait(frame_dt: 100),
 
     // Assert
-    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\)"),
+    TestLogExists(regex: "uses mob\\(.*\\) .*scheme\\(chair\\)"),
     TestLogExists(regex: "-> state\\(1\\)"),
     TestScreenshot(path: "01_used.png"),
 

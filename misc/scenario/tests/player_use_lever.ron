@@ -1,9 +1,9 @@
 [
     // Setup
     IncludeScenario(path: "/common/test_room_player_pov"),
-    ZenginSpawnMob(
-        visual: "LEVER_1_OC",
-        focus_name: "LEVER",
+    ZenginLoadWorldPrototypes(world: "NEWWORLD/NEWWORLD"),
+    ZenginSpawnVob(
+        vob_id: 8581,
         translation: (0.0, 1.0, -2.0),
         rotation: (0.0, 180.0, 0.0),
     ),
@@ -17,7 +17,7 @@
     Wait(frame_dt: 120),
 
     // Assert
-    TestLogExists(regex: "uses mob\\(.*\\) vob\\(TEST_MOB_LEVER\\)"),
+    TestLogExists(regex: "uses mob\\(.*\\) .*scheme\\(lever\\)"),
     TestLogExists(regex: "animation\\(S_LEVER_S1\\)"),
     TestLogExists(regex: "current=HUMANS-T_LEVER_S1_2_STAND"),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
@@ -29,7 +29,7 @@
     Wait(frame_dt: 120),
 
     // Assert
-    TestLogExists(regex: "animation\\(S_LEVER_S0\\)"),
+    TestLogExists(regex: "animation\\(.*S_LEVER_S0\\)"),
     TestLogExists(regex: "-> state\\(0\\)"),
     TestLogExists(regex: "Player\\(.*\\) released mob\\(.*\\)"),
 

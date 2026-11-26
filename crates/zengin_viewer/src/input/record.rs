@@ -130,6 +130,24 @@ pub(crate) enum ReplayCommand {
     /// without the `.ZEN` extension). Replays load no world unless they
     /// request it with this command.
     ZenginSpawnWorld { world: String },
+    /// Loads the spawn prototypes of `world` without spawning its entities.
+    /// Scenarios then spawn its vobs by name, id or visual model with
+    /// [`Self::ZenginSpawnVob`]. Run after [`Self::ZenginScriptStartup`].
+    ZenginLoadWorldPrototypes { world: String },
+    /// Spawns the vob `name` (case-insensitive), `vob_id` or `visual` (model
+    /// name, for unnamed vobs) of the prototypes loaded by
+    /// [`Self::ZenginLoadWorldPrototypes`] at `translation` with `rotation` in
+    /// axis labeled degrees `(x = pitch, y = yaw, z = roll)`.
+    ZenginSpawnVob {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        vob_id: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        visual: Option<String>,
+        translation: Vec3,
+        rotation: Vec3,
+    },
     /// Runs the world script entry points of `world` without loading its
     /// zengin world. Replay runs skip the default world spawn, so a test world
     /// scenario needs this to get the game state a new game sets up (e.g. the
@@ -194,40 +212,6 @@ pub(crate) enum ReplayCommand {
         name: String,
         scheme: String,
         state: i32,
-    },
-    /// Spawns the interactive mob (oCMobInter) using the visual mesh `visual`
-    /// at `translation` with `rotation` in axis labeled degrees
-    /// `(x = pitch, y = yaw, z = roll)`. The visual is a mesh name like
-    /// `CHAIR_NW_NORMAL_01` resolved against the game archives, so no world
-    /// load is needed. `focus_name` defaults to the mob scheme, `state_num` to
-    /// one interaction state. `on_state_func` is the script hook the mob would
-    /// carry on a real map (`sleepabit` for beds); `<name>_S<state>` runs when
-    /// the player or an npc reaches the state.
-    ZenginSpawnMob {
-        visual: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        focus_name: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        state_num: Option<i32>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        on_state_func: Option<String>,
-        translation: Vec3,
-        rotation: Vec3,
-    },
-    /// Spawns an empty `oCMobContainer` using the visual mesh `visual` at
-    /// `translation` with `rotation` in axis labeled degrees. `key` and
-    /// `pick_string` set the lock requirements. Used by the chest animation
-    /// scenario.
-    ZenginSpawnChest {
-        visual: String,
-        #[serde(default)]
-        locked: bool,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        key: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pick_string: Option<String>,
-        translation: Vec3,
-        rotation: Vec3,
     },
     /// Spawns a static, colliding cube at `translation` with `size` in world
     /// units and `rotation` in axis labeled degrees. Adds geometry the test

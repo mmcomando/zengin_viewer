@@ -1,9 +1,9 @@
 [
     // Setup
     IncludeScenario(path: "/common/test_room_free_camera"),
-    ZenginSpawnMob(
+    ZenginLoadWorldPrototypes(world: "NEWWORLD/NEWWORLD"),
+    ZenginSpawnVob(
         visual: "BSANVIL_OC",
-        focus_name: "MOBNAME_ANVIL",
         translation: (0.0, 0.0, 0.0),
         rotation: (0.0, 0.0, 0.0),
     ),
@@ -12,9 +12,8 @@
         translation: (0.0, 0.0, 1.0),
         rotation: (0.0, 0.0, 0.0),
     ),
-    ZenginSpawnMob(
+    ZenginSpawnVob(
         visual: "BAUMSAEGE_1",
-        focus_name: "MOBNAME_SAW",
         translation: (0.0, 0.0, -10.0),
         rotation: (0.0, 0.0, 0.0),
     ),
@@ -23,9 +22,8 @@
         translation: (0.0, 0.0, -9.0),
         rotation: (0.0, 0.0, 0.0),
     ),
-    ZenginSpawnMob(
+    ZenginSpawnVob(
         visual: "CHAIR_NW_NORMAL_01",
-        focus_name: "CHAIR",
         translation: (0.0, 0.0, -20.0),
         rotation: (0.0, 0.0, 0.0),
     ),
@@ -52,21 +50,21 @@
     Wait(frame_dt: 50),
 
     // Assert
-    TestLogExists(regex: "npc\\(.*\\) uses mob\\(.*\\) vob\\(TEST_MOB_BSANVIL\\)"),
+    TestLogExists(regex: "npc\\(.*\\) uses mob\\(.*\\) .*scheme\\(bsanvil\\)"),
     TestScreenshot(path: "00_harad_anvil.png"),
     SetCameraLocation(
         translation: (8, 6, -10),
         rotation: (-30.0, 90.0, 0.0),
     ),
     Wait(frame_dt: 50),
-    TestLogExists(regex: "npc\\(.*\\) uses mob\\(.*\\) vob\\(TEST_MOB_BAUMSAEGE\\)"),
+    TestLogExists(regex: "npc\\(.*\\) uses mob\\(.*\\) .*scheme\\(baumsaege\\)"),
     TestScreenshot(path: "01_thorben_saw.png"),
     SetCameraLocation(
         translation: (8, 6, -20),
         rotation: (-30.0, 90.0, 0.0),
     ),
     Wait(frame_dt: 50),
-    TestLogExists(regex: "npc\\(.*\\) uses mob\\(.*\\) vob\\(TEST_MOB_CHAIR\\)"),
+    TestLogExists(regex: "npc\\(.*\\) uses mob\\(.*\\) .*scheme\\(chair\\)"),
     TestScreenshot(path: "02_lares_chair.png"),
 
     ExitGame,
