@@ -243,6 +243,7 @@ fn handle_mover(vfs: &Vfs, obj: &VirtualObject, has_visual: bool, data: &mut Zen
     data.prototypes.insert(
         obj.id(),
         VobPrototype::Mover(SpawnMover {
+            vob_id: obj.id(),
             tr: get_obj_tr(obj),
             archetype,
             collides: obj.cd_dynamic(),

@@ -527,8 +527,6 @@ fn spawn_world_data(
     player_spawn: &mut MessageWriter<SpawnPlayer>,
 ) {
     commands.insert_resource(CurrentWorld(world_name.to_string()));
-    // A test world cannot be part of a zengin world spawn, drop its geometry.
-    commands.queue(crate::test_world::clear_test_world);
     let _span = info_span!("spawn_world").entered();
     println!("\n-----SCRIPTS VM-----\n");
     let mut gothic_script = gothic_script.lock();
@@ -547,12 +545,17 @@ fn spawn_world_data(
     if let Some(save) = restore {
         apply_loaded_state(&mut prototypes, save);
     }
-    // A restored world spawns static vobs and world items from the save (they
-    // are SavedObjects), so only the world-definition-only kinds come straight
-    // from the prototypes here.
+    // A restored world spawns static vobs, movers and world items from the save
+    // (they are `SavedObject`s), so only the world-definition-only kinds come
+    // straight from the prototypes here.
     let restoring = restore.is_some();
     for prototype in prototypes.values() {
-        if restoring && matches!(prototype, VobPrototype::Static(_) | VobPrototype::Item(_)) {
+        if restoring
+            && matches!(
+                prototype,
+                VobPrototype::Static(_) | VobPrototype::Mover(_) | VobPrototype::Item(_)
+            )
+        {
             continue;
         }
         spawns.send_prototype(prototype);

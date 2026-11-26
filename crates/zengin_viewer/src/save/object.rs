@@ -8,7 +8,7 @@ use crate::save::format::{
     SavedChest, SavedItem, SavedMobBase, SavedNpc, SavedObject, SavedOverlay, SavedPlayer,
     SavedStatic,
 };
-use crate::zengin::{GameChest, GameItem, GameMover, GameNpc, MobBase, NpcOverlay};
+use crate::zengin::{GameChest, GameItem, GameNpc, MobBase, NpcOverlay};
 
 impl SavedObject {
     /// Collects the saveable components of one entity. Each component maps to
@@ -24,11 +24,7 @@ impl SavedObject {
         chest: Option<&GameChest>,
         base: Option<&MobBase>,
         static_mesh: Option<&StaticMesh>,
-        mover: Option<&GameMover>,
     ) -> Option<Self> {
-        // Movers carry `StaticMesh` too, but the world definition respawns them
-        // from their prototype; a `SavedStatic` would duplicate them on load.
-        let static_mesh = static_mesh.filter(|_| mover.is_none());
         let object = Self {
             transform: *transform,
             player: player.map(|_| SavedPlayer),
@@ -88,7 +84,6 @@ mod tests {
             Some(&chest),
             Some(&base),
             None,
-            None,
         )
         .expect("chest object");
 
@@ -109,7 +104,6 @@ mod tests {
             None,
             None,
             Some(&base),
-            None,
             None,
         )
         .expect("mob base object");
@@ -135,38 +129,11 @@ mod tests {
             None,
             Some(&base),
             Some(&static_mesh),
-            None,
         )
         .expect("static object");
 
         assert!(object.static_object.is_some());
         assert_eq!(object.mob_base.as_ref().map(|base| base.vob_id), Some(5));
-    }
-
-    #[test]
-    fn mover_static_mesh_is_not_saved() {
-        let static_mesh = StaticMesh;
-        let mover = GameMover::new(
-            "DOOR".to_string(),
-            Vec::new(),
-            Transform::IDENTITY,
-            1.0,
-            true,
-            zen_kit_rs::misc::MoverBehavior::TOGGLE,
-        );
-        let object = SavedObject::from_components(
-            &Transform::IDENTITY,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some(&static_mesh),
-            Some(&mover),
-        );
-
-        assert!(object.is_none());
     }
 
     #[test]
@@ -177,7 +144,6 @@ mod tests {
             None,
             None,
             Some(&overlay),
-            None,
             None,
             None,
             None,

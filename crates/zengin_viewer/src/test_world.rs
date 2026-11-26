@@ -66,17 +66,6 @@ pub(crate) fn request_test_cube_spawn(world: &mut World, cube: TestCubeSpawn) {
     spawns.write(cube);
 }
 
-/// Removes the test world geometry.
-pub(crate) fn clear_test_world(world: &mut World) {
-    let Some(entity) = world.resource_mut::<TestWorldRoot>().0.take() else {
-        return;
-    };
-    // Another teardown (a world restart) may have removed it already.
-    if let Err(error) = world.try_despawn(entity) {
-        debug!("Test world root was already despawned: {error:?}");
-    }
-}
-
 /// One cube of a test world, given by its center and full size in world units.
 struct TestCube {
     center: Vec3,

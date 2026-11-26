@@ -10,7 +10,7 @@ use crate::perf_debug;
 use crate::save::format::SavedObject;
 use crate::world_entity::WorldEntityMarker;
 use crate::zengin::{
-    GameChest, GameItem, GameMover, GameNpc, MobBase, NpcOverlay, spawn_saved_object_messages,
+    GameChest, GameItem, GameNpc, MobBase, NpcOverlay, spawn_saved_object_messages,
 };
 
 /// Frames the world stays empty before the serialized objects are restored.
@@ -125,12 +125,11 @@ fn collect_saved_objects(world: &mut World) -> Vec<SavedObject> {
         Option<&GameChest>,
         Option<&MobBase>,
         Option<&StaticMesh>,
-        Option<&GameMover>,
     )>();
     query
         .iter(world)
         .filter_map(
-            |(transform, player, npc, overlay, item, chest, base, static_mesh, mover)| {
+            |(transform, player, npc, overlay, item, chest, base, static_mesh)| {
                 SavedObject::from_components(
                     transform,
                     player,
@@ -140,7 +139,6 @@ fn collect_saved_objects(world: &mut World) -> Vec<SavedObject> {
                     chest,
                     base,
                     static_mesh,
-                    mover,
                 )
             },
         )

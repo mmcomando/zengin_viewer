@@ -22,8 +22,8 @@ use crate::save::format::{
 };
 use crate::save::{current_script_fingerprint, new_save_dir, newest_save, read_save, write_save};
 use crate::zengin::{
-    CurrentWorld, GameChest, GameItem, GameMover, GameNpc, LoadingWorld, MobBase, NpcOverlay,
-    ScriptResource, begin_world_load, request_initial_world,
+    CurrentWorld, GameChest, GameItem, GameNpc, LoadingWorld, MobBase, NpcOverlay, ScriptResource,
+    begin_world_load, request_initial_world,
 };
 
 /// Size of the saved thumbnail. The load screen slot is 4:3, so a full window
@@ -115,7 +115,6 @@ fn quick_save(
         Option<&GameChest>,
         Option<&MobBase>,
         Option<&StaticMesh>,
-        Option<&GameMover>,
     )>,
 ) {
     let _perf = perf_debug!();
@@ -133,7 +132,7 @@ fn quick_save(
     let objects: Vec<SavedObject> = entities
         .iter()
         .filter_map(
-            |(transform, player, npc, overlay, item, chest, base, static_mesh, mover)| {
+            |(transform, player, npc, overlay, item, chest, base, static_mesh)| {
                 SavedObject::from_components(
                     transform,
                     player,
@@ -143,7 +142,6 @@ fn quick_save(
                     chest,
                     base,
                     static_mesh,
-                    mover,
                 )
             },
         )
