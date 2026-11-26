@@ -4,8 +4,8 @@ use regex::Regex;
 use ron::Options as RonOptions;
 use ron::extensions::Extensions;
 
-use crate::input::actions::GameplayAction;
 use crate::input::record::{RecordedAction, ReplayCommand};
+use input_core::GameplayAction;
 
 use super::log_check::matching_log_line;
 use super::scenario::{

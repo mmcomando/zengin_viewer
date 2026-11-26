@@ -6,7 +6,6 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use super::selection::{Selection, SelectionKind};
-use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gui::GameLog;
 use crate::zengin::script::component::ScriptResource;
@@ -14,6 +13,7 @@ use crate::zengin::script::state::WeaponMode;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameItem, GameNpc};
 use dev_util::perf_debug;
+use input_core::{GameplayAction, GameplayInputMarker};
 
 /// Toggles the player's equipped weapons between sheathed and drawn on
 /// `EquipMelee`/`EquipRanged`, and toggles the last used weapon on

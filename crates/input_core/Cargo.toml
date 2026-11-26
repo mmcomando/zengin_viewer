@@ -1,0 +1,15 @@
+[package]
+name = "input_core"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Action definitions shared by the input layer and the game systems that read
+# them; no game-specific dependencies so it can sit below `zengin`.
+
+[dependencies]
+bevy = { workspace = true }
+leafwing-input-manager = { workspace = true }
+ron = { workspace = true }
+serde = { workspace = true }
+strum = { workspace = true, features = ["derive"] }

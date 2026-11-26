@@ -5,6 +5,7 @@ members = [
     "crates/zengin_viewer",
     "crates/dev_util",
     "crates/dev_tools",
+    "crates/input_core",
     "crates/daedalus_wasm",
     "crates/daedalus_typed",
     "crates/ZenKit-rs",

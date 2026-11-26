@@ -6,7 +6,6 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use super::selection::{Selection, SelectionKind};
-use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gui::{LootSource, OpenLockpick, OpenLoot};
 use crate::zengin::npc_actions::UseMobAction;
@@ -18,6 +17,7 @@ use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::{GameChest, GameNpc, InstanceId, MobBase, MobPose, NpcCorpseMarker};
 use dev_util::perf_debug;
 use dev_util::test_log;
+use input_core::{GameplayAction, GameplayInputMarker};
 
 /// What the player may do with a chest lock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

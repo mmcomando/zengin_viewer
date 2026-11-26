@@ -1,8 +1,8 @@
-use crate::input::{GuiAction, GuiInputMarker};
 use crate::zengin::gui::OpenTrade;
 use crate::zengin::script::symbol_id::{FunctionId, InstanceId, StringId};
 use bevy::prelude::*;
 use dev_util::perf_debug;
+use input_core::{GuiAction, GuiInputMarker};
 use leafwing_input_manager::prelude::ActionState;
 use std::collections::HashSet;
 use std::time::Duration;

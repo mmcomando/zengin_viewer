@@ -4559,6 +4559,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "input_core"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "leafwing-input-manager",
+ "ron",
+ "serde",
+ "strum",
+]
+
+[[package]]
 name = "integer-sqrt"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9405,6 +9416,7 @@ dependencies = [
  "dmusic-sys",
  "egui_dock",
  "image",
+ "input_core",
  "leafwing-input-manager",
  "openxr",
  "pathfinding",

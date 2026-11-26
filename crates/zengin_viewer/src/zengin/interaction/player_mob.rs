@@ -11,7 +11,6 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gameplay::objects::NpcModel;
 use crate::zengin::gui::{LootClosed, LootSource};
@@ -28,6 +27,7 @@ use crate::zengin::{
 };
 use crate::zengin::{GameMob, GameNpc, MobPose, NpcMobUse};
 use dev_util::perf_debug;
+use input_core::{GameplayAction, GameplayInputMarker};
 
 /// Player is playing the stand-up transition; the mob use is released when it
 /// ends.

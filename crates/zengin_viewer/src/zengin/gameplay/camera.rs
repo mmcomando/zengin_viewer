@@ -6,12 +6,12 @@ use bevy::{
     prelude::*,
 };
 
-use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::AppState;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::face_direction_quat;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use dev_util::perf_debug;
+use input_core::{GameplayAction, GameplayInputMarker};
 use leafwing_input_manager::prelude::ActionState;
 
 /// Camera controllers, third-person rotation, dialog shots and editor mode.

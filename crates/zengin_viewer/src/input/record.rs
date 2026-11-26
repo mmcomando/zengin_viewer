@@ -15,13 +15,13 @@ use ron::extensions::Extensions;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
-use crate::input::actions::{
-    EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker, GuiAction,
-    GuiInputMarker, SharedAction, SharedInputMarker,
-};
 use crate::input::options::Options;
 use crate::zengin::{START_WORLD, SpawnPoint};
 use dev_util::perf_debug;
+use input_core::{
+    EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker, GuiAction,
+    GuiInputMarker, SharedAction, SharedInputMarker,
+};
 
 /// Third person camera switch, carrying the free camera transform the player
 /// and camera are placed at. Recorded as `TeleportPlayer` and

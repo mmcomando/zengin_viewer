@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use super::AnimationGraph;
-use crate::input::{GameplayAction, GameplayInputMarker, WorldInputViews};
+use crate::input::WorldInputViews;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gameplay::objects::NpcModel;
 use crate::zengin::{
@@ -19,6 +19,7 @@ use crate::zengin::{
     WeaponClass, WeaponMode,
 };
 use dev_util::perf_debug;
+use input_core::{GameplayAction, GameplayInputMarker};
 
 use super::animation_triggers::{AnimationTriggers, AttackTimeline, animation_ident_from_path};
 use super::auto_anim_sequencer::{

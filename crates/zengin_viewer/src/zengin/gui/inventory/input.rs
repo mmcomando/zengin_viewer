@@ -2,7 +2,6 @@ use bevy::log::{info, warn};
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::DialogUiState;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gui::GameLog;
@@ -13,6 +12,7 @@ use crate::zengin::{
 };
 use dev_util::perf_debug;
 use dev_util::test_log;
+use input_core::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 
 use super::data::{
     chest_add_item, chest_inventory_window, chest_remove_item, clamp_selection,

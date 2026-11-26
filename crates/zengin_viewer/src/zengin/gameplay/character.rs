@@ -5,7 +5,7 @@ use avian3d::{math::*, prelude::*};
 use bevy::{ecs::query::Has, prelude::*};
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::input::{GameplayAction, GameplayInputMarker, world_input_enabled};
+use crate::input::world_input_enabled;
 use crate::zengin::AppState;
 use crate::zengin::gameplay::camera::CameraResource;
 use crate::zengin::gameplay::character_camera::{
@@ -13,6 +13,7 @@ use crate::zengin::gameplay::character_camera::{
 };
 use crate::zengin::{NPC_BODY, NpcMobUse, SELECTABLE};
 use dev_util::perf_debug;
+use input_core::{GameplayAction, GameplayInputMarker};
 
 /// A plugin that implements a basic platformer kinematic character controller using move-and-slide,
 /// with support for ground detection and configurable movement settings.

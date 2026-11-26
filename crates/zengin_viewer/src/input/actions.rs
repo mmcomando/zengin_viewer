@@ -1,9 +1,14 @@
+use std::path::Path;
+
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use leafwing_input_manager::plugin::InputManagerSystem;
 use leafwing_input_manager::prelude::*;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+
+use input_core::{
+    EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker, GuiAction,
+    GuiInputMarker, InputMode, SharedAction, SharedInputMarker, load_input_profile,
+};
 
 use crate::input::horizontal_axis::HorizontalAxis;
 use crate::input::record::ActionRecordingPlugin;
@@ -14,9 +19,9 @@ use crate::zengin::{DialogRequest, DialogUiState, DialogVoice};
 use dev_util::perf_debug;
 
 /// Adds [`leafwing_input_manager`] with one input map per action group and
-/// spawns the global input entities with the profiles loaded from the RON
-/// files in [`INPUT_PROFILE_DIR`], falling back to the built-in defaults when
-/// a file is missing or invalid.
+/// spawns the global input entities with the profiles loaded from the assets
+/// `input` directory, falling back to the built-in defaults when a file is
+/// missing or invalid.
 pub struct ActionsPlugin;
 
 impl Plugin for ActionsPlugin {
@@ -41,178 +46,6 @@ impl Plugin for ActionsPlugin {
         app.add_systems(Update, handle_back);
         app.add_plugins((ActionRecordingPlugin, ActionReplayPlugin));
     }
-}
-
-/// Which input map is currently active.
-///
-/// [`GameplayAction`] is enabled in [`InputMode::Gameplay`], [`GuiAction`] in
-/// [`InputMode::Gui`] and [`EditorAction`] in [`InputMode::Editor`]. Shared
-/// actions are enabled in gameplay and menu modes only.
-///
-/// [`EditorAction::ToggleEditorMode`] stays enabled in every mode so editor
-/// mode can always be toggled.
-#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InputMode {
-    #[default]
-    Gameplay,
-    Gui,
-    /// Debugging with the free camera: gameplay and UI input is disabled.
-    Editor,
-}
-
-/// Marker for the entity holding the gameplay [`InputMap`] (and its required
-/// [`ActionState`]).
-#[derive(Component)]
-pub struct GameplayInputMarker;
-
-/// Marker for the entity holding the GUI navigation [`InputMap`] (and its
-/// required [`ActionState`]).
-#[derive(Component)]
-pub struct GuiInputMarker;
-
-/// Marker for the entity holding the editor [`InputMap`] (and its required
-/// [`ActionState`]). Only [`EditorAction::ToggleEditorMode`] is enabled outside
-/// [`InputMode::Editor`].
-#[derive(Component)]
-pub struct EditorInputMarker;
-
-/// Actions controlling the character during gameplay.
-///
-/// Buttonlike is the default control kind; variants with a different kind are
-/// annotated with `#[actionlike(...)]`. `EnumIter` lets the recording iterate
-/// over all variants, so new actions are recorded/replayed automatically.
-#[derive(
-    Actionlike,
-    PartialEq,
-    Eq,
-    Clone,
-    Copy,
-    Hash,
-    Debug,
-    Reflect,
-    Serialize,
-    Deserialize,
-    strum::EnumIter,
-)]
-pub enum GameplayAction {
-    /// Movement direction: forward/backward and, without a forward component,
-    /// sideways without turning.
-    #[actionlike(DualAxis)]
-    Move,
-    /// Third person camera rotation from the arrow keys or the right gamepad
-    /// stick.
-    #[actionlike(DualAxis)]
-    RotateCamera,
-    Jump,
-    /// Talk to the selected npc or pick up the selected item.
-    Interact,
-    /// Deal damage with the drawn weapon to the selected npc.
-    DealDamage,
-    /// One-shot left melee swing, only with a melee weapon drawn.
-    AttackLeft,
-    /// One-shot right melee swing, only with a melee weapon drawn.
-    AttackRight,
-    /// Toggle the equipped melee weapon between sheathed and drawn.
-    EquipMelee,
-    /// Toggle the equipped ranged weapon between sheathed and drawn.
-    EquipRanged,
-    /// Toggle the last used weapon, falling back to the melee weapon or fists
-    /// when no weapon was drawn yet.
-    DrawWeapon,
-    /// Move faster while held.
-    Accelerate,
-}
-
-/// Actions used to navigate menus and other UI.
-#[derive(
-    Actionlike,
-    PartialEq,
-    Eq,
-    Clone,
-    Copy,
-    Hash,
-    Debug,
-    Reflect,
-    Serialize,
-    Deserialize,
-    strum::EnumIter,
-)]
-pub enum GuiAction {
-    /// Move the selection up.
-    Up,
-    /// Move the selection down.
-    Down,
-    /// Move the selection left.
-    Left,
-    /// Move the selection right.
-    Right,
-    /// Confirm the selected entry.
-    Confirm,
-    /// Close the current view or skip the currently played content.
-    CancelAction,
-}
-
-/// Actions available in both gameplay and menu modes, for things like the
-/// inventory toggle that must work while a GUI is open. Unlike
-/// [`EditorAction`] this set is a normal, mode-independent feature set.
-#[derive(
-    Actionlike,
-    PartialEq,
-    Eq,
-    Clone,
-    Copy,
-    Hash,
-    Debug,
-    Reflect,
-    Serialize,
-    Deserialize,
-    strum::EnumIter,
-)]
-pub enum SharedAction {
-    /// Toggle the player inventory UI, closes it when it is open.
-    Inventory,
-    /// Toggle the journal UI, closes it when it is open.
-    Journal,
-    /// Toggle the player stats (character sheet) UI, closes it when it is open.
-    Stats,
-    /// Write a new timestamped save.
-    QuickSave,
-    /// Load the newest save.
-    QuickLoad,
-    /// Closes the topmost open UI, otherwise exits the game.
-    Back,
-    /// Skips the dialog line currently played back. Does not close the dialog
-    /// while it waits for an option.
-    SkipDialog,
-}
-
-/// Marker for the entity holding the shared [`InputMap`] (and its required
-/// [`ActionState`]). Shared input is enabled in the gameplay and GUI modes, but
-/// not in [`InputMode::Editor`].
-#[derive(Component)]
-pub struct SharedInputMarker;
-
-/// Actions used while debugging with the free camera, enabled in
-/// [`InputMode::Editor`]. [`EditorAction::ToggleEditorMode`] is the exception:
-/// it is enabled in every mode so the editor can always be entered and left.
-#[derive(
-    Actionlike,
-    PartialEq,
-    Eq,
-    Clone,
-    Copy,
-    Hash,
-    Debug,
-    Reflect,
-    Serialize,
-    Deserialize,
-    strum::EnumIter,
-)]
-pub enum EditorAction {
-    TeleportOrigin,
-    TeleportAway,
-    /// Toggle editor mode, which uses the free camera.
-    ToggleEditorMode,
 }
 
 #[allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
@@ -292,22 +125,24 @@ fn skip_dialog_line(
 
 fn spawn_input_maps(mut commands: Commands) {
     let _perf = perf_debug!();
-    let gameplay_map = load_input_profile::<GameplayAction>("input_bindings_gameplay.ron")
+    let assets_dir = Path::new(crate::main_assets_dir());
+    let gameplay_map =
+        load_input_profile::<GameplayAction>(assets_dir, "input_bindings_gameplay.ron")
+            .unwrap_or_else(|error| {
+                warn!("Falling back to default gameplay input map: {error}");
+                InputMap::default()
+            });
+    let gui_map = load_input_profile::<GuiAction>(assets_dir, "input_bindings_gui.ron")
         .unwrap_or_else(|error| {
-            warn!("Falling back to default gameplay input map: {error}");
-            InputMap::default()
-        });
-    let gui_map =
-        load_input_profile::<GuiAction>("input_bindings_gui.ron").unwrap_or_else(|error| {
             warn!("Falling back to default GUI input map: {error}");
             InputMap::default()
         });
-    let shared_map = load_input_profile::<SharedAction>("input_bindings_shared.ron")
+    let shared_map = load_input_profile::<SharedAction>(assets_dir, "input_bindings_shared.ron")
         .unwrap_or_else(|error| {
             warn!("Falling back to default shared input map: {error}");
             InputMap::default()
         });
-    let editor_map = load_input_profile::<EditorAction>("input_bindings_editor.ron")
+    let editor_map = load_input_profile::<EditorAction>(assets_dir, "input_bindings_editor.ron")
         .unwrap_or_else(|error| {
             warn!("Falling back to default editor input map: {error}");
             InputMap::default()
@@ -390,18 +225,6 @@ fn enable_only_editor_toggle(editor: &mut ActionState<EditorAction>) {
     editor.enable_action(&EditorAction::ToggleEditorMode);
 }
 
-/// Loads an input profile from the `input` subdirectory of the main assets
-/// directory.
-fn load_input_profile<A>(file_name: &str) -> Result<InputMap<A>, String>
-where
-    A: Actionlike + Serialize + DeserializeOwned,
-{
-    let path = format!("{}/input/{file_name}", crate::main_assets_dir());
-    let contents = std::fs::read_to_string(&path)
-        .map_err(|error| format!("failed to read {path}: {error}"))?;
-    ron::de::from_str(&contents).map_err(|error| format!("failed to parse {path}: {error}"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -411,7 +234,10 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(ActionsPlugin);
 
-        if let Err(error) = load_input_profile::<GameplayAction>("input_bindings_gameplay.ron") {
+        if let Err(error) = load_input_profile::<GameplayAction>(
+            Path::new(crate::main_assets_dir()),
+            "input_bindings_gameplay.ron",
+        ) {
             panic!("{error}");
         }
     }

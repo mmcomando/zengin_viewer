@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::input::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 use crate::zengin::AppState;
 use crate::zengin::gameplay::game_time::PlayTime;
 use crate::zengin::save::{LoadSaveRequest, QuickSave};
@@ -9,6 +8,7 @@ use crate::zengin::{
     CurrentWorld, MenuDefinition, MenuItemDefinition, NewGame, SEL_ACTION_BACK, SEL_ACTION_CLOSE,
     SEL_ACTION_START_MENU,
 };
+use input_core::{GuiAction, GuiInputMarker, SharedAction, SharedInputMarker};
 
 use super::state::{
     LoadMenuData, MainMenuData, MainMenuScreen, MainMenuState, is_load_back, load_selectable_slots,

@@ -6,10 +6,11 @@
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::input::{GameplayAction, GameplayInputMarker, WorldInputViews};
+use crate::input::WorldInputViews;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gameplay::camera::{CameraResource, CurrentCamera};
 use crate::zengin::{NpcMobUse, NpcWeaponMode, Selection, WeaponMode};
+use input_core::{GameplayAction, GameplayInputMarker};
 
 use super::auto_anim_sequencer::{
     AutoAnimSequencer, DesiredAnimation, MeleeAttackKind, SetDesiredAnimation, TurnDirection,

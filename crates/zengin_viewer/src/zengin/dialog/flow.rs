@@ -4,7 +4,6 @@
 
 use super::sounds::SpeechSounds;
 use super::state::{DialogLineView, DialogOptionView, DialogRequest, DialogUiState, DialogVoice};
-use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::GameNpc;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::common::get_dialog_sound_path;
@@ -22,6 +21,7 @@ use crate::zengin::script::symbol_id::{FunctionId, InstanceId};
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 use dev_util::perf_debug;
+use input_core::{GameplayAction, GameplayInputMarker};
 use leafwing_input_manager::prelude::ActionState;
 use std::collections::HashSet;
 

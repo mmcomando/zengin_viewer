@@ -17,8 +17,8 @@ use bevy_xr_utils::transform_utils::{SnapToPosition, TransformUtilitiesPlugin};
 use leafwing_input_manager::prelude::ActionState;
 use std::sync::OnceLock;
 
-use crate::input::{EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker};
 use dev_util::perf_debug;
+use input_core::{EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker};
 
 /// Experiment with VR
 /// Worked with Pico 4 and `SteamVR` on Linux but very laggy (in the past I know it worked better)

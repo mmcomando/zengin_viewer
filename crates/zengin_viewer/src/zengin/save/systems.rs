@@ -10,7 +10,7 @@ use image::ImageFormat;
 use image::imageops::FilterType;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::input::{Options, SharedAction, SharedInputMarker};
+use crate::input::Options;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::StaticMesh;
 use crate::zengin::gameplay::game_time::{GameTime, PlayTime};
@@ -27,6 +27,7 @@ use crate::zengin::{
     begin_world_load,
 };
 use dev_util::perf_debug;
+use input_core::{SharedAction, SharedInputMarker};
 
 /// Size of the saved thumbnail. The load screen slot is 4:3, so a full window
 /// screenshot is stretched into this size.

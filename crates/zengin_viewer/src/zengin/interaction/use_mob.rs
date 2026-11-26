@@ -11,7 +11,6 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use super::selection::{Selection, SelectionKind};
-use crate::input::{GameplayAction, GameplayInputMarker};
 use crate::zengin::PlayerCharacter;
 use crate::zengin::gameplay::objects::NpcModel;
 use crate::zengin::npc_actions::{UseMobAction, mob_scheme_has_player_pose};
@@ -23,6 +22,7 @@ use crate::zengin::script::string_value::StringCanon;
 use crate::zengin::script::symbol_id::InstanceId;
 use crate::zengin::{GameMob, GameNpc, MobBase, MobPose, NpcMobUse, VobTrigger};
 use dev_util::perf_debug;
+use input_core::{GameplayAction, GameplayInputMarker};
 
 /// Runs the mob's script-side use conditions and logs the reason when the
 /// player is not allowed to interact.
