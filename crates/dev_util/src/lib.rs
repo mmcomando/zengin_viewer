@@ -7,13 +7,12 @@
 //!   time the call site runs.
 //! - [`amortized_executor`] runs a set of callbacks on a virtual clock under a
 //!   per-frame work budget.
+//! - [`external_messages`] bridges messages produced outside the ECS into the
+//!   regular Bevy message buffers.
+//! - [`ui_kit`] small Bevy UI pieces shared by the overlay screens.
 
 pub mod amortized_executor;
+pub mod external_messages;
 mod logging;
 pub mod perf_debug;
-
-// The logging macros expand in the caller's crate, so the compiler never sees a
-// direct use of `bevy` here without the `debug_perf` feature. Keep the
-// dependency referenced so Cargo's unused-dependency check stays quiet.
-#[allow(unused_imports)]
-use bevy as _;
+pub mod ui_kit;

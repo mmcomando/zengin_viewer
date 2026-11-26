@@ -102,7 +102,6 @@
 
 mod audio;
 mod debug;
-mod external_messages;
 mod game_state;
 mod gameplay;
 mod graphics;
@@ -111,16 +110,14 @@ mod gui_debug;
 mod input;
 mod save;
 mod test_world;
-mod ui_kit;
 mod updater;
 mod world_entity;
 mod xr;
 mod zengin;
 
-// Shared developer utilities live in the `dev_util` crate. Re-export them at the
-// crate root so the existing `crate::perf_debug`, `crate::test_log!`,
-// `crate::warn_once!` and `crate::warn_unimplemented!` paths keep working.
-pub(crate) use dev_util::{perf_debug, test_log, warn_once, warn_unimplemented};
+pub(crate) use dev_util::{
+    external_messages, perf_debug, test_log, ui_kit, warn_once, warn_unimplemented,
+};
 
 /// Directory of the main crate assets, the folder the
 /// [`bevy::asset::AssetServer`] reads from. Resolved against the crate

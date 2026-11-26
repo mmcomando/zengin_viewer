@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 /// Queue handle for a message produced outside the ECS. Clones share the queue.
-pub(crate) struct ExternalMessageSender<M: Message> {
+pub struct ExternalMessageSender<M: Message> {
     inbox: Arc<Mutex<Vec<M>>>,
 }
 
@@ -24,19 +24,19 @@ impl<M: Message> ExternalMessageSender<M> {
     /// Queues `message` for the next pump. Readers see it no earlier than the
     /// next `First` pass, so the delay depends on how long the caller holds the
     /// handle before the frame boundary.
-    pub(crate) fn send(&self, message: M) {
+    pub fn send(&self, message: M) {
         self.lock().push(message);
     }
 
     /// Drops every message the pump has not forwarded yet.
-    pub(crate) fn clear(&self) {
+    pub fn clear(&self) {
         self.lock().clear();
     }
 
     /// Removes and returns the messages queued so far, for tests that drive the
     /// producer without an app.
     #[cfg(test)]
-    pub(crate) fn take(&self) -> Vec<M> {
+    pub fn take(&self) -> Vec<M> {
         std::mem::take(&mut self.lock())
     }
 
@@ -58,10 +58,10 @@ impl<M: Message> Default for ExternalMessageSender<M> {
 
 /// Receiving half of an [`ExternalMessageSender`] queue.
 #[derive(Resource)]
-pub(crate) struct ExternalMessageInbox<M: Message>(Arc<Mutex<Vec<M>>>);
+pub struct ExternalMessageInbox<M: Message>(Arc<Mutex<Vec<M>>>);
 
 /// Registers message types that are pushed from outside the ECS.
-pub(crate) trait ExternalMessageAppExt {
+pub trait ExternalMessageAppExt {
     /// Same as [`App::add_message`], plus a handle used to queue the message
     /// from code that has no world access.
     fn add_external_message<M: Message>(&mut self) -> ExternalMessageSender<M>;
@@ -88,7 +88,7 @@ impl ExternalMessageAppExt for App {
 /// schedules this in `First`. Schedule it a second time, ordered between the
 /// producer and the consumer, when the consumer must see a message in the same
 /// frame it was produced (the dialog line playback is such a consumer).
-pub(crate) fn pump_external_messages<M: Message>(
+pub fn pump_external_messages<M: Message>(
     inbox: Res<ExternalMessageInbox<M>>,
     mut messages: MessageWriter<M>,
 ) {
