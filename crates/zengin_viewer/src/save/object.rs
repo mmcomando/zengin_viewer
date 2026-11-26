@@ -27,6 +27,7 @@ impl SavedObject {
     ) -> Option<Self> {
         let object = Self {
             transform: *transform,
+            spawn_at_place: None,
             player: player.map(|_| SavedPlayer),
             npc: npc.map(|npc| SavedNpc {
                 instance_id: npc.instance_id(),

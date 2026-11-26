@@ -15,7 +15,7 @@ use crate::zengin::JournalTopic;
 use crate::zengin::{ItemRuntime, MobRoutineEntry, NpcRuntime};
 
 /// Version of the on-disk save format. Increment on any incompatible change.
-pub(crate) const SAVE_FORMAT_VERSION: u32 = 7;
+pub(crate) const SAVE_FORMAT_VERSION: u32 = 8;
 
 /// Directory containing all saves, relative to the workspace root.
 const SAVE_DIR: &str = "../../misc/saves";
@@ -178,6 +178,8 @@ pub(crate) struct SavedGuildAttitude {
 pub(crate) struct SavedObject {
     pub(crate) transform: Transform,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) spawn_at_place: Option<SavedSpawnAtPlace>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) player: Option<SavedPlayer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) npc: Option<SavedNpc>,
@@ -205,6 +207,13 @@ impl SavedObject {
             && self.static_object.is_none()
             && self.chest.is_none()
     }
+}
+
+/// Serialized `SpawnAtPlace` component. When present the spawner places the
+/// entity at this named waypoint or spot instead of at [`SavedObject::transform`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct SavedSpawnAtPlace {
+    pub(crate) place: String,
 }
 
 /// Serialized `PlayerCharacter` component.
@@ -490,6 +499,7 @@ mod tests {
             objects: vec![
                 SavedObject {
                     transform: Transform::IDENTITY,
+                    spawn_at_place: None,
                     player: Some(SavedPlayer),
                     npc: Some(SavedNpc {
                         instance_id: npc_id,
@@ -502,6 +512,7 @@ mod tests {
                 },
                 SavedObject {
                     transform: Transform::from_xyz(1.0, 2.0, 3.0),
+                    spawn_at_place: None,
                     player: None,
                     npc: None,
                     overlay: None,
@@ -514,6 +525,7 @@ mod tests {
                 },
                 SavedObject {
                     transform: Transform::IDENTITY,
+                    spawn_at_place: None,
                     player: None,
                     npc: None,
                     overlay: None,
@@ -528,6 +540,7 @@ mod tests {
                 },
                 SavedObject {
                     transform: Transform::from_xyz(4.0, 5.0, 6.0),
+                    spawn_at_place: None,
                     player: None,
                     npc: None,
                     overlay: None,
@@ -583,9 +596,40 @@ mod tests {
     }
 
     #[test]
+    fn spawn_at_place_round_trips_and_is_optional() {
+        let object = SavedObject {
+            transform: Transform::IDENTITY,
+            spawn_at_place: Some(SavedSpawnAtPlace {
+                place: "OC_WP".to_string(),
+            }),
+            player: None,
+            npc: None,
+            overlay: None,
+            item: None,
+            mob_base: None,
+            static_object: None,
+            chest: None,
+        };
+        let text = ron::ser::to_string(&object).expect("serialize");
+        let restored: SavedObject = ron::from_str(&text).expect("deserialize");
+        assert_eq!(
+            restored.spawn_at_place.map(|place| place.place),
+            Some("OC_WP".to_string())
+        );
+
+        let without = SavedObject {
+            spawn_at_place: None,
+            ..object
+        };
+        let text = ron::ser::to_string(&without).expect("serialize");
+        assert!(!text.contains("spawn_at_place"));
+    }
+
+    #[test]
     fn transform_only_object_is_empty() {
         let object = SavedObject {
             transform: Transform::IDENTITY,
+            spawn_at_place: None,
             player: None,
             npc: None,
             overlay: None,
