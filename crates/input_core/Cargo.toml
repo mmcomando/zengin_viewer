@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 bevy = { workspace = true }
+clap = { version = "4", features = ["derive"] }
 leafwing-input-manager = { workspace = true }
 ron = { workspace = true }
 serde = { workspace = true }

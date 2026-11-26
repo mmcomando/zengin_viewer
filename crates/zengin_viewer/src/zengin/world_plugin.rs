@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 use std::f32::consts::PI;
 
-use crate::input::Options;
 use crate::zengin::AppState;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::WorldEntityMarker;
@@ -52,6 +51,7 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use dev_util::perf_debug;
 use dev_util::warn_once;
+use input_core::Options;
 
 /// Loads the zengin world data and spawns the world and player entities.
 pub struct ZenGinWorldPlugin;

@@ -7,8 +7,8 @@ use bevy::render::view::window::screenshot::Screenshot;
 use ron::Options as RonOptions;
 use ron::extensions::Extensions;
 
-use crate::input::options::Options;
 use crate::input::record::{DEFAULT_FRAME_DT, ReplayCommand};
+use input_core::Options;
 
 use super::failures::TestFailures;
 use super::state::ActionReplay;

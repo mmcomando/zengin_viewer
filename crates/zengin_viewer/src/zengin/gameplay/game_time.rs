@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::input::Options;
 use crate::zengin::AppState;
 use crate::zengin::SetGameTime;
 use dev_util::perf_debug;
+use input_core::Options;
 
 /// Advances the running game time every frame.
 pub struct GameTimePlugin;

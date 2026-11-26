@@ -15,28 +15,18 @@ use ron::extensions::Extensions;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
-use crate::input::options::Options;
 use crate::zengin::{START_WORLD, SpawnPoint};
 use dev_util::perf_debug;
 use input_core::{
-    EditorAction, EditorInputMarker, GameplayAction, GameplayInputMarker, GuiAction,
-    GuiInputMarker, SharedAction, SharedInputMarker,
+    CameraSwitchedToThirdPerson, EditorAction, EditorInputMarker, GameplayAction,
+    GameplayInputMarker, GuiAction, GuiInputMarker, Options, SharedAction, SharedInputMarker,
 };
-
-/// Third person camera switch, carrying the free camera transform the player
-/// and camera are placed at. Recorded as `TeleportPlayer` and
-/// `SetCameraLocation` synchronization commands and re-applied by the replay:
-/// the free camera state the placement is based on is not reproducible across
-/// runs.
-#[derive(Message)]
-pub(crate) struct CameraSwitchedToThirdPerson(pub GlobalTransform);
 
 /// Records every triggered action together with its frame number.
 pub struct ActionRecordingPlugin;
 
 impl Plugin for ActionRecordingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<CameraSwitchedToThirdPerson>();
         app.add_systems(Startup, open_recording_file);
         app.add_systems(Update, record_triggered_actions);
     }

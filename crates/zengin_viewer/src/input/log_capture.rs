@@ -10,7 +10,7 @@ use bevy::log::{
 };
 use bevy::prelude::*;
 
-use crate::input::options::Options;
+use input_core::Options;
 
 /// Log lines captured during the current scenario run, each formatted as
 /// `<LEVEL> <target>: <message> <extra fields>`.

@@ -11,7 +11,7 @@ use crate::zengin::PlayerCharacter;
 use crate::zengin::face_direction_quat;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use dev_util::perf_debug;
-use input_core::{GameplayAction, GameplayInputMarker};
+use input_core::{CameraSwitchedToThirdPerson, GameplayAction, GameplayInputMarker};
 use leafwing_input_manager::prelude::ActionState;
 
 /// Camera controllers, third-person rotation, dialog shots and editor mode.
@@ -24,6 +24,7 @@ pub struct CameraPlugin {
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FreeCameraPlugin);
+        app.add_message::<CameraSwitchedToThirdPerson>();
         app.insert_resource(CameraResource::default());
         app.init_resource::<EditorMode>();
         app.add_message::<TeleportToLocation>();

@@ -4563,6 +4563,7 @@ name = "input_core"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "clap",
  "leafwing-input-manager",
  "ron",
  "serde",

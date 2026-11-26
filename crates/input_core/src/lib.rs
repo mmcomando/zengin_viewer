@@ -1,11 +1,18 @@
 //! Input actions, their entity markers, the active input mode and the input
 //! profile loader.
 
+mod options;
 mod profile;
 
+pub use options::Options;
 pub use profile::load_input_profile;
 
 use bevy::prelude::*;
+
+/// Third person camera switch, carrying the free camera transform the player
+/// and camera are placed at.
+#[derive(Message)]
+pub struct CameraSwitchedToThirdPerson(pub GlobalTransform);
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
 
