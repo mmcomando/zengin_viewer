@@ -7,7 +7,6 @@ use bevy::{
 };
 
 use crate::input::{GameplayAction, GameplayInputMarker};
-use crate::xr::is_xr_enabled;
 use crate::zengin::AppState;
 use crate::zengin::PlayerCharacter;
 use crate::zengin::face_direction_quat;
@@ -15,7 +14,12 @@ use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use dev_util::perf_debug;
 use leafwing_input_manager::prelude::ActionState;
 
-pub struct CameraPlugin;
+/// Camera controllers, third-person rotation, dialog shots and editor mode.
+pub struct CameraPlugin {
+    /// Spawns the main 3D camera at startup. Off when another plugin provides
+    /// the camera, e.g. XR.
+    pub spawn_camera: bool,
+}
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
@@ -54,8 +58,7 @@ impl Plugin for CameraPlugin {
         );
         app.add_systems(Update, apply_teleport_requests);
 
-        if !is_xr_enabled() {
-            // Disable main camera for performance
+        if self.spawn_camera {
             app.add_systems(Startup, spawn_camera);
         }
     }

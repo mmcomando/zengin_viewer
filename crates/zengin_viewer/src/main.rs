@@ -189,7 +189,9 @@ fn main() {
         .add_plugins(LightingPlugin)
         // Gameplay
         .add_plugins(CharacterControllerPlugin)
-        .add_plugins(CameraPlugin)
+        .add_plugins(CameraPlugin {
+            spawn_camera: !is_xr_enabled(),
+        })
         .add_plugins(DistancePlugin)
         .add_plugins(GameTimePlugin)
         .add_plugins(SkeletalAnimations)
